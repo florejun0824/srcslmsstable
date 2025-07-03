@@ -1,0 +1,93 @@
+/* src/index.css */
+
+@import "react-datepicker/dist/react-datepicker.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes zoom-in-fade-out {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+/* Custom reusable button style */
+.btn-primary {
+  @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition;
+}
+
+.animate-zoom-out {
+  animation: zoom-in-fade-out 0.5s ease-in-out forwards;
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.5s ease-out forwards;
+}
+
+.tremor-dialog-panel .react-datepicker {
+ background-color: white !important;
+}
+
+.tremor-dialog-panel .react-datepicker__month-container {
+ background-color: white !important;
+}
+
+.tremor-dialog-panel .react-datepicker__day,
+.tremor-dialog-panel .react-datepicker__month-text,
+.tremor-dialog-panel .react-datepicker__quarter-text,
+.tremor-dialog-panel .react-datepicker__year-text {
+ color: black !important; /* Ensure text is readable */
+}
+
+.tremor-dialog-panel .react-datepicker__header {
+ background-color: #f0f0f0 !important; /* Light background for header */
+ border-bottom: 1px solid #ccc !important;
+}
+
+.tremor-dialog-panel .react-datepicker__current-month {
+ color: black !important;
+}
+
+.tremor-dialog-panel .react-datepicker__navigation {
+ background: none !important;
+ border: none !important;
+ color: black !important;
+}
+
+.tremor-dialog-panel .react-datepicker__navigation:hover {
+ background: #eee !important;
+}
+
+/*
+ * Tremor DatePicker Fix for Modals
+ * Add this to your main src/index.css file
+*/
+.tremor-custom-dialog .react-datepicker-popper {
+  z-index: 50 !important; /* Ensure calendar appears above the modal overlay */
+}
+
+.tremor-custom-dialog .react-datepicker {
+  background-color: white !important;
+  border: 1px solid #e5e7eb; /* Optional: adds a light border */
+}
+
+.tremor-custom-dialog .react-datepicker__header {
+  background-color: #f9fafb !important;
+}
