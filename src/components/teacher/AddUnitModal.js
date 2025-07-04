@@ -22,16 +22,14 @@ export default function AddUnitModal({ isOpen, onClose, subjectId }) {
     setError('');
 
     try {
+      // Corrected: The redundant 'lessons' and 'quizzes' arrays are removed.
       await addDoc(collection(db, 'units'), {
         title: unitTitle,
         subjectId: subjectId,
-        lessons: [],
-        quizzes: [],
         createdAt: serverTimestamp(),
       });
       
-      setUnitTitle('');
-      onClose();
+      handleClose();
 
     } catch (err) {
       console.error("Error adding unit: ", err);
@@ -41,7 +39,6 @@ export default function AddUnitModal({ isOpen, onClose, subjectId }) {
     }
   };
   
-  // Close handler to also clear state
   const handleClose = () => {
     setUnitTitle('');
     setError('');
@@ -50,7 +47,6 @@ export default function AddUnitModal({ isOpen, onClose, subjectId }) {
 
   return (
     <Dialog open={isOpen} onClose={handleClose} static={true}>
-      {/* --- FIXED: Added classes to ensure visibility on all screen sizes --- */}
       <DialogPanel className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
         <Title className="mb-4">Add New Unit</Title>
         <p className="mb-4 text-sm text-gray-600">Create a new unit to organize lessons and quizzes for this subject.</p>

@@ -10,43 +10,60 @@ import DeleteUnitModal from './DeleteUnitModal';
 import EditLessonModal from './EditLessonModal';
 import ViewLessonModal from './ViewLessonModal';
 import EditUnitModal from './EditUnitModal';
-import EditQuizModal from './EditQuizModal'; // Import the new modal for editing quizzes
+import EditQuizModal from './EditQuizModal';
+import ViewQuizModal from './ViewQuizModal'; // Import the quiz view modal
 
-const LessonItem = ({ lesson, onEdit, onView }) => (
-    <div className="p-2 border-b border-gray-200 flex justify-between items-center last:border-b-0">
+const LessonItem = ({ lesson, onEdit, onView, onDelete }) => (
+    <div className="p-2 border-b border-gray-200 flex justify-between items-center last:border-b-0 group">
         <button onClick={onView} className="text-sm text-gray-700 hover:text-blue-600 text-left">
             {lesson.title}
         </button>
-        <button onClick={onEdit} className="p-1 hover:bg-gray-200 rounded-full">
-            <PencilIcon className="h-4 w-4 text-gray-500" />
-        </button>
+        <div className="flex items-center">
+            <button onClick={onEdit} className="p-1 hover:bg-gray-200 rounded-full" title="Edit Lesson">
+                <PencilIcon className="h-4 w-4 text-gray-500" />
+            </button>
+            <button onClick={onDelete} className="p-1 text-gray-400 hover:text-red-600 rounded-full" title="Delete Lesson">
+                <TrashIcon className="w-4 h-4" />
+            </button>
+        </div>
     </div>
 );
 
-const QuizItem = ({ quiz, onEdit }) => (
-    <div className="p-2 border-b border-gray-200 flex justify-between items-center last:border-b-0">
-        <p className="text-sm text-gray-700">{quiz.title}</p>
-        <button onClick={() => onEdit(quiz)} className="p-1 hover:bg-gray-200 rounded-full">
-            <PencilIcon className="h-4 w-4 text-gray-500" />
+// --- MODIFIED: QuizItem is now clickable ---
+const QuizItem = ({ quiz, onEdit, onDelete, onView }) => (
+    <div className="p-2 border-b border-gray-200 flex justify-between items-center last:border-b-0 group">
+        <button onClick={onView} className="text-sm text-gray-700 hover:text-blue-600 text-left">
+            {quiz.title}
         </button>
+        <div className="flex items-center">
+            <button onClick={() => onEdit(quiz)} className="p-1 hover:bg-gray-200 rounded-full" title="Edit Quiz">
+                <PencilIcon className="h-4 w-4 text-gray-500" />
+            </button>
+             <button onClick={onDelete} className="p-1 text-gray-400 hover:text-red-600 rounded-full" title="Delete Quiz">
+                <TrashIcon className="w-4 h-4" />
+            </button>
+        </div>
     </div>
 );
 
-export default function UnitAccordion({ subject }) {
+export default function UnitAccordion({ subject, onInitiateDelete, userProfile }) {
     const [units, setUnits] = useState([]);
     const [lessons, setLessons] = useState({});
     const [quizzes, setQuizzes] = useState({});
-  
+    
     const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
     const [addQuizModalOpen, setAddQuizModalOpen] = useState(false);
     const [deleteUnitModalOpen, setDeleteUnitModalOpen] = useState(false);
     const [editLessonModalOpen, setEditLessonModalOpen] = useState(false);
     const [viewLessonModalOpen, setViewLessonModalOpen] = useState(false);
     const [editUnitModalOpen, setEditUnitModalOpen] = useState(false);
-    const [editQuizModalOpen, setEditQuizModalOpen] = useState(false); // State for the new modal
+    const [editQuizModalOpen, setEditQuizModalOpen] = useState(false);
     const [selectedUnit, setSelectedUnit] = useState(null);
     const [selectedLesson, setSelectedLesson] = useState(null);
-    const [selectedQuiz, setSelectedQuiz] = useState(null); // State to hold the quiz being edited
+    const [selectedQuiz, setSelectedQuiz] = useState(null);
+    
+    // --- NEW: State for viewing a quiz ---
+    const [viewQuizModalOpen, setViewQuizModalOpen] = useState(false);
 
     useEffect(() => {
         if (!subject?.id) {
@@ -69,7 +86,9 @@ export default function UnitAccordion({ subject }) {
             setQuizzes({});
             return;
         }
+    
         const unsubscribers = [];
+    
         units.forEach(unit => {
             const lessonQuery = query(collection(db, 'lessons'), where('unitId', '==', unit.id), orderBy('createdAt', 'asc'));
             const unsubLessons = onSnapshot(lessonQuery, snapshot => {
@@ -77,7 +96,7 @@ export default function UnitAccordion({ subject }) {
                 setLessons(prev => ({ ...prev, [unit.id]: fetchedLessons }));
             });
             unsubscribers.push(unsubLessons);
-
+    
             const quizQuery = query(collection(db, 'quizzes'), where('unitId', '==', unit.id), orderBy('createdAt', 'asc'));
             const unsubQuizzes = onSnapshot(quizQuery, snapshot => {
                 const fetchedQuizzes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -85,7 +104,7 @@ export default function UnitAccordion({ subject }) {
             });
             unsubscribers.push(unsubQuizzes);
         });
-
+    
         return () => unsubscribers.forEach(unsub => unsub());
     }, [units]);
 
@@ -135,6 +154,7 @@ export default function UnitAccordion({ subject }) {
                                                 lesson={lesson} 
                                                 onView={() => handleOpenLessonModal(setViewLessonModalOpen, lesson)}
                                                 onEdit={() => handleOpenLessonModal(setEditLessonModalOpen, lesson)}
+                                                onDelete={() => onInitiateDelete('lesson', lesson.id, unit.id, subject.id)}
                                             />
                                         )
                                     ) : <p className="text-sm text-gray-500 p-2">No lessons in this unit yet.</p>}
@@ -142,7 +162,14 @@ export default function UnitAccordion({ subject }) {
                                 <Card className="mt-4">
                                     <h3 className="font-semibold text-gray-700 mb-2">Quizzes</h3>
                                     {(quizzes[unit.id] || []).length > 0 ? (
-                                        (quizzes[unit.id] || []).map(quiz => <QuizItem key={quiz.id} quiz={quiz} onEdit={handleEditQuiz} />)
+                                        (quizzes[unit.id] || []).map(quiz => 
+                                            <QuizItem 
+                                                key={quiz.id} 
+                                                quiz={quiz} 
+                                                onEdit={handleEditQuiz} 
+                                                onDelete={() => onInitiateDelete('quiz', quiz.id, unit.id, subject.id)}
+                                                onView={() => handleOpenQuizModal(setViewQuizModalOpen, quiz)}
+                                            />)
                                     ) : <p className="text-sm text-gray-500 p-2">No quizzes in this unit yet.</p>}
                                 </Card>
                             </AccordionBody>
@@ -153,50 +180,23 @@ export default function UnitAccordion({ subject }) {
                 <p className="text-center text-gray-500 py-10">No units in this subject yet. Add one to get started!</p>
             )}
 
-            <EditUnitModal 
-                isOpen={editUnitModalOpen} 
-                onClose={() => setEditUnitModalOpen(false)} 
-                unit={selectedUnit} 
+            {/* --- All the existing modals --- */}
+            <EditUnitModal isOpen={editUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={selectedUnit} />
+            <AddLessonModal isOpen={addLessonModalOpen} onClose={() => setAddLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id} />
+            <AddQuizModal isOpen={addQuizModalOpen} onClose={() => setAddQuizModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id} />
+            <DeleteUnitModal isOpen={deleteUnitModalOpen} onClose={() => setDeleteUnitModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id}/>
+            <EditLessonModal isOpen={editLessonModalOpen} onClose={() => setEditLessonModalOpen(false)} lesson={selectedLesson}/>
+            <ViewLessonModal isOpen={viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={selectedLesson}/>
+            {selectedQuiz && (<EditQuizModal isOpen={editQuizModalOpen} onClose={() => setEditQuizModalOpen(false)} quiz={selectedQuiz} onEditQuiz={() => {setEditQuizModalOpen(false);}}/>)}
+
+            {/* --- NEW: Render the ViewQuizModal for previews --- */}
+            <ViewQuizModal
+                isOpen={viewQuizModalOpen}
+                onClose={() => setViewQuizModalOpen(false)}
+                quiz={selectedQuiz}
+                userProfile={userProfile}
+                // classId is intentionally omitted for teacher preview mode
             />
-            <AddLessonModal 
-                isOpen={addLessonModalOpen} 
-                onClose={() => setAddLessonModalOpen(false)} 
-                unitId={selectedUnit?.id} 
-                subjectId={subject.id} 
-            />
-            <AddQuizModal 
-                isOpen={addQuizModalOpen} 
-                onClose={() => setAddQuizModalOpen(false)} 
-                unitId={selectedUnit?.id} 
-                subjectId={subject.id} 
-            />
-            <DeleteUnitModal 
-                isOpen={deleteUnitModalOpen} 
-                onClose={() => setDeleteUnitModalOpen(false)} 
-                unitId={selectedUnit?.id} 
-                subjectId={subject.id}
-            />
-            <EditLessonModal
-                isOpen={editLessonModalOpen}
-                onClose={() => setEditLessonModalOpen(false)}
-                lesson={selectedLesson}
-            />
-            <ViewLessonModal
-                isOpen={viewLessonModalOpen}
-                onClose={() => setViewLessonModalOpen(false)}
-                lesson={selectedLesson}
-            />
-            {selectedQuiz && (
-                <EditQuizModal
-                    isOpen={editQuizModalOpen}
-                    onClose={() => setEditQuizModalOpen(false)}
-                    quiz={selectedQuiz}
-                    onEditQuiz={() => {
-                        // Your quiz update logic will go here
-                        setEditQuizModalOpen(false);
-                    }}
-                />
-            )}
         </div>
     );
 }

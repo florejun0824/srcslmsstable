@@ -13,7 +13,7 @@ import {
     deleteDoc
 } from 'firebase/firestore';
 import { Button } from '@tremor/react';
-import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PencilSquareIcon, TrashIcon, KeyIcon } from '@heroicons/react/24/outline';
 import CreateClassAnnouncementForm from './CreateClassAnnouncementForm';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -40,6 +40,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
     const [editContent, setEditContent] = useState('');
     const [postToEdit, setPostToEdit] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [quizLocks, setQuizLocks] = useState([]);
 
     const fetchClassAnnouncements = useCallback(async () => {
         if (!classData?.id) return;
@@ -73,7 +74,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
                 post.quizIds?.forEach(id => quizIds.add(id));
             });
 
-            if (lessonIds.size) {
+            if (lessonIds.size > 0) {
                 const q = query(collection(db, 'lessons'), where(documentId(), 'in', Array.from(lessonIds)));
                 const snap = await getDocs(q);
                 setLessons(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -81,7 +82,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
                 setLessons([]);
             }
 
-            if (quizIds.size) {
+            if (quizIds.size > 0) {
                 const q = query(collection(db, 'quizzes'), where(documentId(), 'in', Array.from(quizIds)));
                 const snap = await getDocs(q);
                 setQuizzes(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -93,9 +94,15 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
                 );
                 const scoreSnap = await getDocs(scoreQ);
                 setQuizScores(scoreSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                
+                const locksQ = query(collection(db, 'quizLocks'), where("classId", "==", classData.id), where("quizId", "in", Array.from(quizIds)));
+                const locksSnap = await getDocs(locksQ);
+                setQuizLocks(locksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
             } else {
                 setQuizzes([]);
                 setQuizScores([]);
+                setQuizLocks([]);
             }
         } catch (error) {
             console.error("Error fetching lessons/quizzes:", error);
@@ -116,6 +123,21 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
             setActiveTab('announcements');
         };
     }, [isOpen, classData, fetchClassAnnouncements, fetchLessonsAndQuizzes]);
+    
+    const handleUnlockQuiz = async (quizId, studentId) => {
+        if (!window.confirm("Are you sure you want to unlock this quiz? This will delete the student's lock and allow them to take the quiz again.")) {
+            return;
+        }
+        try {
+            const lockId = `${quizId}_${studentId}`;
+            await deleteDoc(doc(db, 'quizLocks', lockId));
+            showToast("Quiz unlocked for the student.", "success");
+            fetchLessonsAndQuizzes();
+        } catch (error) {
+            console.error("Error unlocking quiz:", error);
+            showToast("Failed to unlock quiz.", "error");
+        }
+    };
 
     const handleEditDatesClick = (post) => {
         setPostToEdit(post);
@@ -123,6 +145,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
     };
 
     const handleDelete = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this announcement?")) return;
         try {
             await deleteDoc(doc(db, 'classAnnouncements', id));
             showToast("Announcement deleted.", "success");
@@ -214,9 +237,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
                             Generate Report
                         </Button>
                     </div>
-                    {/* THIS IS THE FIX: A scrollable container for the scores list */}
                     <div className="space-y-8 max-h-[60vh] overflow-y-auto pr-2">
-                        {quizzes.length ? (
+                        {quizzes.length > 0 ? (
                             quizzes.map(quiz => {
                                 const scores = quizScores.filter(s => s.quizId === quiz.id);
                                 return (
@@ -230,21 +252,46 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
                                                         <th className="p-3 text-center text-sm font-semibold text-gray-600">Attempt 1</th>
                                                         <th className="p-3 text-center text-sm font-semibold text-gray-600">Attempt 2</th>
                                                         <th className="p-3 text-center text-sm font-semibold text-gray-600">Attempt 3</th>
+                                                        <th className="p-3 text-center text-sm font-semibold text-gray-600">Status</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {classData?.students?.map(student => {
-                                                        const attempts = [1, 2, 3].map(num =>
-                                                            scores.find(a => a.studentId === student.id && a.attemptNumber === num)
-                                                        );
+                                                        const studentAttempts = scores.filter(a => a.studentId === student.id);
+                                                        const isLocked = quizLocks.some(lock => lock.studentId === student.id && lock.quizId === quiz.id);
+                                                        
                                                         return (
                                                             <tr key={student.id} className="border-t hover:bg-gray-50">
                                                                 <td className="p-3">{student.firstName} {student.lastName}</td>
-                                                                {attempts.map((a, i) => (
-                                                                    <td key={i} className="p-3 text-center">
-                                                                        {a ? `${a.score}/${a.totalItems}` : '—'}
-                                                                    </td>
-                                                                ))}
+                                                                {[1, 2, 3].map(attemptNum => {
+                                                                    const attempt = studentAttempts.find(a => a.attemptNumber === attemptNum);
+                                                                    return (
+                                                                        <td key={attemptNum} className="p-3 text-center">
+                                                                            {attempt ? (
+                                                                                <div className="flex items-center justify-center gap-2">
+                                                                                    <span>{`${attempt.score}/${attempt.totalItems}`}</span>
+                                                                                    {attempt.isLate && (
+                                                                                        <span className="text-xs font-bold text-white bg-red-500 px-2 py-0.5 rounded-full">
+                                                                                            LATE
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            ) : '—'}
+                                                                        </td>
+                                                                    );
+                                                                })}
+                                                                <td className="p-3 text-center">
+                                                                    {isLocked && (
+                                                                         <div className="flex items-center justify-center gap-2">
+                                                                            <span className="text-xs font-bold text-white bg-gray-700 px-2 py-1 rounded-full">
+                                                                                LOCKED
+                                                                            </span>
+                                                                            <button onClick={() => handleUnlockQuiz(quiz.id, student.id)} className="p-1 text-gray-400 hover:text-blue-600" title="Unlock Quiz">
+                                                                                <KeyIcon className="w-4 h-4"/>
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
+                                                                </td>
                                                             </tr>
                                                         );
                                                     })}
@@ -336,7 +383,15 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
                 quizScores={quizScores}
             />
             <ViewLessonModal isOpen={!!viewLessonData} onClose={() => setViewLessonData(null)} lesson={viewLessonData} />
-            <ViewQuizModal isOpen={!!viewQuizData} onClose={() => setViewQuizData(null)} quiz={viewQuizData} userProfile={userProfile} />
+            
+            {/* --- THIS IS THE FIX --- */}
+            <ViewQuizModal 
+                isOpen={!!viewQuizData} 
+                onClose={() => setViewQuizData(null)} 
+                quiz={viewQuizData} 
+                userProfile={userProfile}
+                classId={classData?.id} 
+            />
             
             <EditAvailabilityModal
                 isOpen={isEditModalOpen}

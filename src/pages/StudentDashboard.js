@@ -2,9 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, getDocs, documentId } from 'firebase/firestore';
-// MODIFIED: Import Tremor components
-import { Card, Flex, Text, Button, Badge, Title } from '@tremor/react';
-// MODIFIED: Import both outline and solid icons for a better active state UI
+import { Card, Flex, Text, Button, Title } from '@tremor/react';
 import {
   BookOpenIcon,
   ChartBarIcon,
@@ -25,8 +23,6 @@ import {
     UserIcon as UserIconSolid,
     ClipboardDocumentListIcon as ClipboardDocumentListIconSolid,
 } from '@heroicons/react/24/solid';
-
-// All original component imports are preserved
 import ProfilePage from './ProfilePage';
 import StudentClassesTab from '../components/student/StudentClassesTab';
 import StudentPerformanceTab from '../components/student/StudentPerformanceTab';
@@ -38,20 +34,15 @@ import JoinClassModal from '../components/student/JoinClassModal';
 import ViewQuizModal from '../components/teacher/ViewQuizModal';
 import ViewLessonModal from '../components/student/ViewLessonModal';
 
-
-// --- NEW: A redesigned, visually appealing component for displaying a lesson ---
 const LessonCard = ({ lesson, onSelect }) => (
     <Card 
         onClick={() => onSelect(lesson)}
         className="group relative p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden"
     >
-        {/* Decorative Vector Shapes */}
         <div className="absolute -top-10 -right-10 w-28 h-28 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full opacity-10 group-hover:opacity-20 transition-all duration-300"></div>
         <div className="absolute bottom-0 left-0 w-32 h-2 bg-gradient-to-r from-sky-400 to-cyan-400 opacity-20 group-hover:opacity-40 rounded-full transition-all duration-300"></div>
-        
         <div className="relative z-10">
             <Flex>
-                {/* THIS IS THE FIX: This div groups the icon and text together on the left */}
                 <div className="flex items-start gap-4">
                     <div className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-3 rounded-xl shadow-md">
                         <BookOpenIcon className="w-7 h-7" />
@@ -67,14 +58,14 @@ const LessonCard = ({ lesson, onSelect }) => (
     </Card>
 );
 
-// This is the functional QuizCard component from the version you liked.
 const QuizCard = ({ quiz, onTakeQuiz, status }) => {
     const isCompleted = status === 'completed';
     let buttonText = `Take Quiz (${quiz.attemptsTaken}/3)`;
     if (status === 'completed') {
         buttonText = 'View Submissions';
     } else if (status === 'overdue') {
-        buttonText = 'Overdue';
+        // MODIFIED: Update button text for overdue quizzes
+        buttonText = 'Take Quiz (Late)';
     }
 
     const getIcon = () => {
@@ -87,7 +78,8 @@ const QuizCard = ({ quiz, onTakeQuiz, status }) => {
     const getButtonClass = () => {
         switch (status) {
             case 'completed': return 'btn-success';
-            case 'overdue': return 'btn-danger disabled:bg-red-400';
+            // MODIFIED: Make the overdue button a clickable red button
+            case 'overdue': return 'btn-danger';
             default: return 'btn-primary';
         }
     };
@@ -106,7 +98,7 @@ const QuizCard = ({ quiz, onTakeQuiz, status }) => {
             </div>
             <button
                 onClick={() => onTakeQuiz(quiz)}
-                disabled={status === 'overdue'}
+                // MODIFIED: The disabled property is removed to make the button clickable
                 className={`${getButtonClass()} flex items-center justify-center w-full sm:w-auto`}
             >
                 {getIcon()}
@@ -117,7 +109,6 @@ const QuizCard = ({ quiz, onTakeQuiz, status }) => {
 }
 
 const StudentDashboard = () => {
-    // All original state hooks are preserved
     const { userProfile, logout, loading } = useAuth();
     const [view, setView] = useState('lessons'); 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -132,7 +123,6 @@ const StudentDashboard = () => {
     const [quizToTake, setQuizToTake] = useState(null);
     const [lessonToView, setLessonToView] = useState(null);
 
-    // All original data fetching logic is preserved and correct
     useEffect(() => {
         if (!userProfile?.id) { setIsFetchingClasses(false); return; }
         setIsFetchingClasses(true);
@@ -195,17 +185,26 @@ const StudentDashboard = () => {
                 const quizzesDetails = new Map(quizzesSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() }]));
                 const now = new Date();
                 const categorizedQuizzes = { active: [], completed: [], overdue: [] };
+                
                 for (const [quizId, post] of latestPostByQuizId.entries()) {
                     const quizDetail = quizzesDetails.get(quizId);
                     if (!quizDetail) continue;
+
                     const submissions = submissionsByQuizId.get(quizId) || [];
+                    const deadline = post.availableUntil?.toDate();
+                    
                     const isCompleted = submissions.length >= 3;
-                    const deadline = post.quizDeadline?.toDate();
-                    const isOverdue = deadline ? now > deadline : false;
-                    const quizItem = { ...quizDetail, className: post.className, classId: post.classId, postId: post.id, deadline, attemptsTaken: submissions.length, };
-                    if (isCompleted) categorizedQuizzes.completed.push(quizItem);
-                    else if (isOverdue) categorizedQuizzes.overdue.push(quizItem);
-                    else categorizedQuizzes.active.push(quizItem);
+                    const isOverdue = deadline && now > deadline;
+
+                    const quizItem = { ...quizDetail, className: post.className, classId: post.classId, postId: post.id, deadline, attemptsTaken: submissions.length };
+
+                    if (isCompleted) {
+                        categorizedQuizzes.completed.push(quizItem);
+                    } else if (isOverdue) {
+                        categorizedQuizzes.overdue.push(quizItem);
+                    } else {
+                        categorizedQuizzes.active.push(quizItem);
+                    }
                 }
                 setQuizzes(categorizedQuizzes);
             } else { setQuizzes({ active: [], completed: [], overdue: [] }); }
@@ -234,6 +233,18 @@ const StudentDashboard = () => {
     useEffect(() => { if (view !== 'classes') { setSelectedClass(null); } }, [view]);
     
     const handleViewChange = (newView) => { setView(newView); setIsSidebarOpen(false); };
+
+    // MODIFIED: New handler to show a warning for overdue quizzes
+    const handleTakeQuizClick = (quiz) => {
+        if (activeQuizTab === 'overdue') {
+            const proceed = window.confirm("Late submission will be reflected on your teacher's end. Do you want to continue?");
+            if (proceed) {
+                setQuizToTake(quiz);
+            }
+        } else {
+            setQuizToTake(quiz);
+        }
+    };
 
     const renderView = () => {
         const contentWrapperClasses = "bg-white/60 backdrop-blur-xl border border-white/30 p-6 rounded-2xl shadow-lg";
@@ -279,7 +290,12 @@ const StudentDashboard = () => {
                         {isFetchingContent ? <Spinner /> : (
                             <div className="space-y-3">
                                 {quizzes[activeQuizTab].length > 0 ? quizzes[activeQuizTab].map(quiz => (
-                                    <QuizCard key={quiz.postId} quiz={quiz} onTakeQuiz={setQuizToTake} status={activeQuizTab} />
+                                    <QuizCard 
+                                        key={quiz.postId} 
+                                        quiz={quiz} 
+                                        onTakeQuiz={handleTakeQuizClick} // MODIFIED: Use the new handler
+                                        status={activeQuizTab} 
+                                    />
                                 )) : <p className="text-center py-8 text-gray-500">No quizzes in this category.</p>}
                             </div>
                         )}
@@ -321,7 +337,6 @@ const StudentDashboard = () => {
         }
     };
     
-    // The sidebar logic with solid icons for the active state is preserved
     const sidebarNavItems = [
         { view: 'lessons', text: 'Lessons', outlineIcon: BookOpenIcon, solidIcon: BookOpenIconSolid },
         { view: 'quizzes', text: 'Quizzes', outlineIcon: ClipboardDocumentListIcon, solidIcon: ClipboardDocumentListIconSolid },

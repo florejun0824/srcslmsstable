@@ -1,24 +1,26 @@
 // src/services/firestoreService.js
 
-import { 
+import {
     db // This is imported from your firebase.js file
-} from './firebase'; 
+} from './firebase';
 
-import { 
-    collection, 
-    getDocs, 
-    addDoc, 
-    deleteDoc, 
-    doc, 
+import {
+    collection,
+    getDocs,
+    addDoc,
+    deleteDoc,
+    doc,
     updateDoc,
-    writeBatch // Import writeBatch for the new function
+    writeBatch,
+    query, // <-- Make sure query is imported
+    where    // <-- Make sure where is imported
 } from 'firebase/firestore';
 
-// --- Placeholder for your existing functions ---
+// --- Your Existing Functions ---
 
 export const getAllUsers = async () => {
     const usersCollectionRef = collection(db, 'users');
-    const snapshot = await getDocs(usersCollection_ref);
+    const snapshot = await getDocs(usersCollectionRef);
     const users = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
     return users;
 };
@@ -38,27 +40,54 @@ export const updateUserPassword = async (userId, newPassword) => {
     await updateDoc(userDocRef, { password: newPassword });
 };
 
-// --- THIS IS THE NEW FUNCTION THAT FIXES THE ERROR ---
+// --- Function to update STUDENT data across all classes ---
+
+export const updateStudentDetailsInClasses = async (studentId, newData) => {
+  if (!studentId || !newData) {
+    throw new Error("Student ID and new data must be provided.");
+  }
+  const batch = writeBatch(db);
+  const classesSnapshot = await getDocs(collection(db, 'classes'));
+  classesSnapshot.forEach(docSnap => {
+    const classData = docSnap.data();
+    if (!classData.students || !Array.isArray(classData.students)) {
+      return;
+    }
+    let studentFound = false;
+    const updatedStudents = classData.students.map(student => {
+      if (student.id === studentId) {
+        studentFound = true;
+        return { ...student, ...newData };
+      }
+      return student;
+    });
+    if (studentFound) {
+      batch.update(docSnap.ref, { students: updatedStudents });
+    }
+  });
+  await batch.commit();
+};
+
+// --- THIS IS THE MISSING FUNCTION for updating TEACHER data ---
 
 /**
- * Adds multiple user documents to Firestore in a single batch operation.
- * @param {Array<Object>} users - An array of user objects to be created.
+ * Finds all documents related to a teacher and updates their denormalized name.
+ * @param {string} teacherId The ID of the teacher being updated.
+ * @param {object} newData The new data, e.g., { teacherName: 'Jane Doe' }.
  */
-export const addMultipleUsers = async (users) => {
-    // Get a new write batch
-    const batch = writeBatch(db);
-    
-    // Get a reference to the 'users' collection
-    const usersCollectionRef = collection(db, "users");
+export const updateTeacherDetailsInDocuments = async (teacherId, newData) => {
+  if (!teacherId || !newData) {
+    throw new Error("Teacher ID and new data must be provided.");
+  }
+  const batch = writeBatch(db);
+  const collectionsToUpdate = ['classes', 'courses', 'teacherAnnouncements'];
 
-    users.forEach((user) => {
-        // Create a reference for a new user document with a unique ID
-        const newUserRef = doc(usersCollectionRef); 
-        
-        // Add the set operation to the batch
-        batch.set(newUserRef, user);
+  for (const coll of collectionsToUpdate) {
+    const q = query(collection(db, coll), where("teacherId", "==", teacherId));
+    const snapshot = await getDocs(q);
+    snapshot.forEach(docSnap => {
+      batch.update(docSnap.ref, newData);
     });
-
-    // Commit the batch to the database
-    await batch.commit();
+  }
+  await batch.commit();
 };

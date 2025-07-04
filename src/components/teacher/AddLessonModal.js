@@ -8,12 +8,10 @@ import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
 export default function AddLessonModal({ isOpen, onClose, unitId, subjectId }) {
   const [lessonTitle, setLessonTitle] = useState('');
   const [studyGuideUrl, setStudyGuideUrl] = useState('');
-  // --- FIXED: Pages state is now an array of objects ---
   const [pages, setPages] = useState([{ title: '', content: '' }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // --- FIXED: New handler for page title changes ---
   const handlePageChange = (index, field, value) => {
     const newPages = [...pages];
     newPages[index][field] = value;
@@ -21,7 +19,6 @@ export default function AddLessonModal({ isOpen, onClose, unitId, subjectId }) {
   };
 
   const addPage = () => {
-    // Add a new page object
     setPages([...pages, { title: '', content: '' }]);
   };
 
@@ -49,7 +46,7 @@ export default function AddLessonModal({ isOpen, onClose, unitId, subjectId }) {
         unitId: unitId,
         subjectId: subjectId,
         studyGuideUrl: studyGuideUrl,
-        pages: pages, // The array of page objects is saved
+        pages: pages,
         createdAt: serverTimestamp(),
       });
       
@@ -66,7 +63,7 @@ export default function AddLessonModal({ isOpen, onClose, unitId, subjectId }) {
   const handleClose = () => {
     setLessonTitle('');
     setStudyGuideUrl('');
-    setPages([{ title: '', content: '' }]); // Reset to a single empty page object
+    setPages([{ title: '', content: '' }]);
     setError('');
     onClose();
   };
@@ -111,7 +108,6 @@ export default function AddLessonModal({ isOpen, onClose, unitId, subjectId }) {
                       </button>
                     )}
                 </div>
-                {/* --- FIXED: Added TextInput for Page Title --- */}
                 <TextInput
                     value={page.title}
                     onValueChange={(value) => handlePageChange(index, 'title', value)}

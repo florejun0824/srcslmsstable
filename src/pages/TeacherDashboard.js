@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { db } from '../services/firebase';
-// MODIFIED: Added getDocs, limit, and arrayUnion for the new import feature
+import { db, auth } from '../services/firebase';
 import {
   collection,
   query,
@@ -12,21 +11,19 @@ import {
   doc,
   updateDoc,
   deleteDoc,
-  getDocs,
-  limit,
-  arrayUnion
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
 import {
   HomeIcon, AcademicCapIcon, BookOpenIcon, UserIcon, ShieldCheckIcon, Bars3Icon,
-  XMarkIcon, ArrowLeftOnRectangleIcon, MagnifyingGlassIcon, PlusCircleIcon,
+  ArrowLeftOnRectangleIcon, MagnifyingGlassIcon, PlusCircleIcon,
   ExclamationTriangleIcon, UserGroupIcon, BeakerIcon, GlobeAltIcon, CalculatorIcon,
   PaintBrushIcon, ComputerDesktopIcon, CodeBracketIcon, MusicalNoteIcon,
   ClipboardDocumentListIcon, PencilSquareIcon, KeyIcon, EnvelopeIcon, IdentificationIcon,
   MegaphoneIcon, ArchiveBoxIcon, TrashIcon, ClipboardIcon,
-  UserPlusIcon // NEW: Icon for the import button
+  UserPlusIcon, ArrowUturnLeftIcon 
 } from '@heroicons/react/24/outline';
 
-// All your original component imports are preserved
 import Spinner from '../components/common/Spinner';
 import EditClassModal from '../components/common/EditClassModal';
 import UserInitialsAvatar from '../components/common/UserInitialsAvatar';
@@ -50,10 +47,10 @@ import AddLessonModal from '../components/teacher/AddLessonModal';
 import EditProfileModal from '../components/teacher/EditProfileModal';
 import ChangePasswordModal from '../components/teacher/ChangePasswordModal';
 import ArchivedClassesModal from '../components/teacher/ArchivedClassesModal';
+import DeleteConfirmationModal from '../components/teacher/DeleteConfirmationModal';
 
 
 const TeacherDashboard = () => {
-    // All your original state hooks are preserved
     const { user, userProfile, logout, firestoreService, refreshUserProfile } = useAuth();
     const { showToast } = useToast();
     const [classes, setClasses] = useState([]);
@@ -84,7 +81,6 @@ const TeacherDashboard = () => {
     const [editUnitModalOpen, setEditUnitModalOpen] = useState(false);
     const [selectedUnit, setSelectedUnit] = useState(null);
     const [selectedLesson, setSelectedLesson] = useState(null);
-    const [studentSearchTerm, setStudentSearchTerm] = useState('');
     const [isEditProfileModalOpen, setEditProfileModalOpen] = useState(false);
     const [isChangePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
     const [isArchivedModalOpen, setIsArchivedModalOpen] = useState(false);
@@ -92,15 +88,17 @@ const TeacherDashboard = () => {
     const [editingAnnId, setEditingAnnId] = useState(null);
     const [editingAnnText, setEditingAnnText] = useState('');
 
-    // --- NEW: State for the class-based student import feature ---
     const [importClassSearchTerm, setImportClassSearchTerm] = useState('');
-    const [searchedClassData, setSearchedClassData] = useState(null);
+    const [allLmsClasses, setAllLmsClasses] = useState([]);
+    const [selectedClassForImport, setSelectedClassForImport] = useState(null); 
     const [studentsToImport, setStudentsToImport] = useState(new Set());
     const [importTargetClassId, setImportTargetClassId] = useState('');
-    const [isSearching, setIsSearching] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
+    const [isImportViewLoading, setIsImportViewLoading] = useState(false);
 
-    // This original useEffect hook is unchanged
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
     useEffect(() => {
         if (!user) {
             setLoading(false);
@@ -138,44 +136,86 @@ const TeacherDashboard = () => {
             unsubLoader();
         };
     }, [user]);
+    
+    useEffect(() => {
+        if (activeView === 'studentManagement') {
+            setIsImportViewLoading(true);
+            const q = query(collection(db, "classes"), orderBy("name"));
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                const allClassesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setAllLmsClasses(allClassesData);
+                setIsImportViewLoading(false);
+            }, (err) => {
+                console.error("Error fetching all classes:", err);
+                showToast("Failed to load class list.", "error");
+                setIsImportViewLoading(false);
+            });
 
-    // This original useEffect hook is unchanged
+            return () => unsubscribe();
+        }
+    }, [activeView, showToast]);
+
     useEffect(() => {
         if (selectedCategory) {
-          const categoryCourses = courses.filter(c => c.category === selectedCategory);
-          setActiveSubject(categoryCourses.length > 0 ? categoryCourses[0] : null);
+        const categoryCourses = courses.filter(c => c.category === selectedCategory);
+        setActiveSubject(categoryCourses.length > 0 ? categoryCourses[0] : null);
         } else {
-          setActiveSubject(null);
+        setActiveSubject(null);
         }
     }, [selectedCategory, courses]);
     
-    const uniqueStudents = useMemo(() => {
-        const studentMap = new Map();
-        classes.forEach(c => {
-            if (c.students && Array.isArray(c.students)) {
-                c.students.forEach(student => {
-                    if (student && student.id && !studentMap.has(student.id)) {
-                        studentMap.set(student.id, student);
-                    }
-                });
-            }
-        });
-        return Array.from(studentMap.values()).sort((a,b) => (a.lastName || "").localeCompare(b.lastName || ""));
-    }, [classes]);
+    const handleInitiateDelete = (type, id, unitId, subjectId) => {
+        setDeleteTarget({ type, id, unitId, subjectId });
+        setIsDeleteModalOpen(true);
+    };
 
-    const filteredStudents = uniqueStudents.filter(student => 
-        `${student.firstName} ${student.lastName}`.toLowerCase().includes(studentSearchTerm.toLowerCase())
-    );
-    
+    const handleConfirmDelete = async (confirmationText) => {
+        if (confirmationText !== 'srcsadmin') {
+            showToast("Incorrect confirmation text entered.", "error");
+            return;
+        }
+
+        if (!deleteTarget) {
+            showToast("An error occurred. Please try again.", "error");
+            return;
+        }
+
+        try {
+            const { type, id } = deleteTarget;
+            const collectionName = type === 'lesson' ? 'lessons' : 'quizzes';
+            const itemRef = doc(db, collectionName, id);
+            
+            await deleteDoc(itemRef);
+
+            showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully.`, "success");
+
+        } catch (error) {
+            console.error("Error during deletion:", error);
+            showToast("An error occurred. Could not delete the item.", "error");
+        } finally {
+            setIsDeleteModalOpen(false);
+            setDeleteTarget(null);
+        }
+    };
+
+    const filteredLmsClasses = useMemo(() => {
+        if (!importClassSearchTerm) {
+            return allLmsClasses;
+        }
+        return allLmsClasses.filter(c =>
+            c.name.toLowerCase().includes(importClassSearchTerm.toLowerCase())
+        );
+    }, [allLmsClasses, importClassSearchTerm]);
+
     const activeClasses = classes.filter(c => !c.isArchived);
     const archivedClasses = classes.filter(c => c.isArchived);
 
-    // All original handler functions are preserved
     const handleViewChange = (view) => { setActiveView(view); setSelectedCategory(null); setIsSidebarOpen(false); };
     const handleCategoryClick = (categoryName) => { setSelectedCategory(categoryName); };
     const handleBackToCategoryList = () => { setSelectedCategory(null); };
     const handleOpenEditClassModal = (classData) => { setClassToEdit(classData); setEditClassModalOpen(true); };
     const handleEditCategory = (category) => { setCategoryToEdit(category); setEditCategoryModalOpen(true); };
+    
     const handleUpdateProfile = async (newData) => {
         try {
             const userId = user.uid || user.id;
@@ -253,36 +293,6 @@ const TeacherDashboard = () => {
         }
     };
     
-    // --- NEW: Handlers for the class-based student import feature ---
-    const handleSearchClass = async () => {
-        if (!importClassSearchTerm.trim()) {
-            return showToast("Please enter a class name to search.", "error");
-        }
-        setIsSearching(true);
-        setSearchedClassData(null);
-        setStudentsToImport(new Set());
-        try {
-            const q = query(
-                collection(db, "classes"),
-                where("name", "==", importClassSearchTerm.trim()),
-                limit(1)
-            );
-            const classSnapshot = await getDocs(q);
-            if (classSnapshot.empty) {
-                showToast("No class found with that exact name.", "warning");
-            } else {
-                const classDoc = classSnapshot.docs[0];
-                const foundClass = { id: classDoc.id, ...classDoc.data() };
-                setSearchedClassData(foundClass);
-            }
-        } catch (err) {
-            console.error("Error searching for class:", err);
-            showToast("An error occurred while searching.", "error");
-        } finally {
-            setIsSearching(false);
-        }
-    };
-    
     const handleToggleStudentForImport = (studentId) => {
         setStudentsToImport(prev => {
             const newSet = new Set(prev);
@@ -296,30 +306,34 @@ const TeacherDashboard = () => {
     };
     
     const handleSelectAllStudents = () => {
-        if (!searchedClassData?.students) return;
-        const studentIdsInSearchedClass = searchedClassData.students.map(s => s.id);
-        const allCurrentlySelected = studentIdsInSearchedClass.length > 0 && studentIdsInSearchedClass.every(id => studentsToImport.has(id));
+        if (!selectedClassForImport?.students) return;
+        const studentIdsInSelectedClass = selectedClassForImport.students.map(s => s.id);
+        const allCurrentlySelected = studentIdsInSelectedClass.length > 0 && studentIdsInSelectedClass.every(id => studentsToImport.has(id));
+        
         if (allCurrentlySelected) {
             setStudentsToImport(new Set());
         } else {
-            setStudentsToImport(new Set(studentIdsInSearchedClass));
+            setStudentsToImport(new Set(studentIdsInSelectedClass));
         }
     };
     
     const handleImportStudents = async () => {
-        if (!importTargetClassId) return showToast("Please select your class to import students into.", "error");
+        if (!importTargetClassId) return showToast("Please select a class to import students into.", "error");
         if (studentsToImport.size === 0) return showToast("Please select at least one student to import.", "error");
     
         setIsImporting(true);
         try {
-            const studentsToAdd = searchedClassData.students.filter(s => studentsToImport.has(s.id));
+            const studentsToAdd = selectedClassForImport.students.filter(s => studentsToImport.has(s.id));
             const targetClassRef = doc(db, "classes", importTargetClassId);
+            
             await updateDoc(targetClassRef, {
                 students: arrayUnion(...studentsToAdd)
             });
+            
             showToast(`${studentsToImport.size} student(s) imported successfully!`, 'success');
+            
             setStudentsToImport(new Set());
-            setSearchedClassData(null);
+            setSelectedClassForImport(null);
             setImportClassSearchTerm('');
             setImportTargetClassId('');
         } catch (err) {
@@ -328,6 +342,12 @@ const TeacherDashboard = () => {
         } finally {
             setIsImporting(false);
         }
+    };
+
+    const handleBackToClassSelection = () => {
+        setSelectedClassForImport(null);
+        setStudentsToImport(new Set());
+        setImportTargetClassId('');
     };
 
     const renderMainContent = () => {
@@ -347,40 +367,54 @@ const TeacherDashboard = () => {
         }
 
         const wrapper = "bg-white/70 backdrop-blur-md border border-white/30 p-4 sm:p-6 rounded-xl shadow";
-        
-        const subjectVisuals = [ { icon: BookOpenIcon, color: 'from-sky-500 to-indigo-500' }, { icon: CalculatorIcon, color: 'from-green-500 to-emerald-500' }, { icon: BeakerIcon, color: 'from-violet-500 to-purple-500' }, { icon: GlobeAltIcon, color: 'from-rose-500 to-pink-500' }, { icon: ComputerDesktopIcon, color: 'from-slate-600 to-slate-800' }, { icon: PaintBrushIcon, color: 'from-amber-500 to-orange-500' }, { icon: UserGroupIcon, color: 'from-teal-500 to-cyan-500' }, { icon: CodeBracketIcon, color: 'from-gray-700 to-gray-900' }, { icon: MusicalNoteIcon, color: 'from-fuchsia-500 to-purple-600' }, ];
         const classVisuals = [ { icon: AcademicCapIcon, color: 'from-orange-500 to-red-500' }, { icon: UserGroupIcon, color: 'from-blue-500 to-sky-500' }, { icon: ClipboardDocumentListIcon, color: 'from-yellow-500 to-amber-500' }, { icon: ShieldCheckIcon, color: 'from-green-500 to-lime-500' }, ];
+        const subjectVisuals = [ { icon: BookOpenIcon, color: 'from-sky-500 to-indigo-500' }, { icon: CalculatorIcon, color: 'from-green-500 to-emerald-500' }, { icon: BeakerIcon, color: 'from-violet-500 to-purple-500' }, { icon: GlobeAltIcon, color: 'from-rose-500 to-pink-500' }, { icon: ComputerDesktopIcon, color: 'from-slate-600 to-slate-800' }, { icon: PaintBrushIcon, color: 'from-amber-500 to-orange-500' }, { icon: UserGroupIcon, color: 'from-teal-500 to-cyan-500' }, { icon: CodeBracketIcon, color: 'from-gray-700 to-gray-900' }, { icon: MusicalNoteIcon, color: 'from-fuchsia-500 to-purple-600' }, ];
+        
+        const gradientButtonStyle = "flex items-center justify-center px-4 py-2 font-semibold text-white bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg shadow-md hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed";
 
         if (activeView === 'admin') return <div className={wrapper}><AdminDashboard /></div>;
         
         switch (activeView) {
-        // MODIFIED: This case is replaced with the import tool UI, leaving the original code for other tabs intact.
         case 'studentManagement': 
-            return (
-                <div>
-                    <div className="mb-6">
-                        <h1 className="text-3xl font-bold text-gray-800">Import Students</h1>
-                        <p className="text-gray-500 mt-1">Search for another class to import students from.</p>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-xl shadow-lg space-y-8">
-                        <div>
-                            <label htmlFor="class-search" className="block text-lg font-semibold text-gray-700 mb-2">1. Find Source Class</label>
-                            <div className="flex gap-2 max-w-md">
-                                <input id="class-search" type="text" placeholder="Enter exact class name..." value={importClassSearchTerm} onChange={e => setImportClassSearchTerm(e.target.value)} className="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
-                                <button onClick={handleSearchClass} className="btn-primary" disabled={isSearching}>{isSearching ? 'Searching...' : 'Search'}</button>
-                            </div>
+            if (selectedClassForImport) {
+                return (
+                    <div>
+                        <div className="mb-6">
+                            <button onClick={handleBackToClassSelection} className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4 font-semibold">
+                                <ArrowUturnLeftIcon className="w-4 h-4" />
+                                Back to Class Selection
+                            </button>
+                            <h1 className="text-3xl font-bold text-gray-800">Import Students</h1>
+                            <p className="text-gray-500 mt-1">Import students from <span className="font-semibold text-gray-700">"{selectedClassForImport.name}"</span> into your class.</p>
                         </div>
-
-                        {searchedClassData && (
+        
+                        <div className="bg-white p-6 rounded-xl shadow-lg space-y-8">
                             <div>
-                                <h2 className="text-lg font-semibold text-gray-700 mb-2">2. Select Students from "{searchedClassData.name}"</h2>
+                                <h2 className="text-lg font-semibold text-gray-700 mb-2">1. Import To Your Class</h2>
+                                <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                                        <select value={importTargetClassId} onChange={e => setImportTargetClassId(e.target.value)} className="w-full md:w-auto flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                            <option value="">-- Choose one of your classes --</option>
+                                            {activeClasses.map(c => (<option key={c.id} value={c.id}>{c.name} ({c.gradeLevel} - {c.section})</option>))}
+                                        </select>
+                                        <button 
+                                            onClick={handleImportStudents} 
+                                            disabled={!importTargetClassId || isImporting || studentsToImport.size === 0} 
+                                            className={`${gradientButtonStyle} w-full md:w-auto gap-2`}
+                                        >
+                                            <UserPlusIcon className="w-5 h-5" />
+                                            {isImporting ? 'Importing...' : `Import ${studentsToImport.size} Student(s)`}
+                                        </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h2 className="text-lg font-semibold text-gray-700 mb-2">2. Select Students</h2>
                                 <div className="border rounded-lg max-h-80 overflow-y-auto">
                                     <div className="flex items-center gap-4 p-3 border-b bg-gray-50 sticky top-0 z-10">
-                                        <input type="checkbox" onChange={handleSelectAllStudents} checked={searchedClassData.students?.length > 0 && studentsToImport.size === searchedClassData.students.length} id="select-all-students" className="h-5 w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500" />
-                                        <label htmlFor="select-all-students" className="font-semibold text-gray-800">Select All ({searchedClassData.students?.length || 0})</label>
+                                        <input type="checkbox" onChange={handleSelectAllStudents} checked={(selectedClassForImport.students?.length || 0) > 0 && studentsToImport.size === selectedClassForImport.students.length} id="select-all-students" className="h-5 w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500" />
+                                        <label htmlFor="select-all-students" className="font-semibold text-gray-800">Select All ({selectedClassForImport.students?.length || 0})</label>
                                     </div>
-                                    {searchedClassData.students.map(student => (
+                                    {(selectedClassForImport.students && selectedClassForImport.students.length > 0) ? selectedClassForImport.students.map(student => (
                                         <div key={student.id} onClick={() => handleToggleStudentForImport(student.id)} className={`flex items-center gap-4 p-3 border-b last:border-b-0 cursor-pointer transition-colors ${studentsToImport.has(student.id) ? 'bg-blue-100' : 'hover:bg-gray-50'}`}>
                                             <input type="checkbox" readOnly checked={studentsToImport.has(student.id)} className="h-5 w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500 pointer-events-none" />
                                             <UserInitialsAvatar firstName={student.firstName} lastName={student.lastName} />
@@ -389,30 +423,55 @@ const TeacherDashboard = () => {
                                                 <p className="text-sm text-gray-500">{student.gradeLevel || 'N/A'}</p>
                                             </div>
                                         </div>
-                                    ))}
+                                    )) : (
+                                        <p className="p-4 text-center text-gray-500">This class has no students.</p>
+                                    )}
                                 </div>
                             </div>
-                        )}
-
-                        {studentsToImport.size > 0 && (
-                             <div>
-                                <h2 className="text-lg font-semibold text-gray-700 mb-2">3. Import To Your Class</h2>
-                                <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-                                     <select value={importTargetClassId} onChange={e => setImportTargetClassId(e.target.value)} className="w-full md:w-auto flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                        <option value="">-- Choose one of your classes --</option>
-                                        {activeClasses.map(c => (<option key={c.id} value={c.id}>{c.name} ({c.gradeLevel} - {c.section})</option>))}
-                                    </select>
-                                    <button onClick={handleImportStudents} disabled={!importTargetClassId || isImporting} className="btn-success flex items-center gap-2 w-full md:w-auto justify-center disabled:bg-gray-400 disabled:cursor-not-allowed">
-                                        <UserPlusIcon className="w-5 h-5" />
-                                        {isImporting ? 'Importing...' : `Import ${studentsToImport.size} Student(s)`}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                        </div>
                     </div>
+                );
+            }
+
+            return (
+                <div>
+                    <div className="mb-6">
+                        <h1 className="text-3xl font-bold text-gray-800">Browse Classes</h1>
+                        <p className="text-gray-500 mt-1">Select a class below to import students from it.</p>
+                    </div>
+                    <div className="mb-6 sticky top-0 bg-slate-100 py-3 z-20">
+                         <div className="relative">
+                            <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"/>
+                            <input type="text" placeholder={`Filter from ${allLmsClasses.length} classes...`} value={importClassSearchTerm} onChange={e => setImportClassSearchTerm(e.target.value)} className="w-full max-w-md p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                         </div>
+                    </div>
+
+                    {isImportViewLoading ? <Spinner /> : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {filteredLmsClasses.length > 0 ? filteredLmsClasses.map((c, index) => {
+                                const { icon: Icon, color } = classVisuals[index % classVisuals.length];
+                                return (
+                                    <div key={c.id} onClick={() => setSelectedClassForImport(c)} className="group relative bg-white p-6 rounded-2xl shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer">
+                                        <div className={`absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br ${color} rounded-full opacity-10 group-hover:opacity-20 transition-all`}></div>
+                                        <div className="relative z-10 flex flex-col h-full">
+                                            <div className={`p-4 inline-block bg-gradient-to-br ${color} text-white rounded-xl mb-4 self-start`}>
+                                                <Icon className="w-8 h-8" />
+                                            </div>
+                                            <h2 className="text-xl font-bold text-gray-800 truncate mb-1">{c.name}</h2>
+                                            <p className="text-gray-500">{c.gradeLevel} - {c.section}</p>
+                                            <div className="mt-auto pt-4 border-t border-gray-100">
+                                                <p className="text-xs text-gray-500">{c.students?.length || 0} student(s)</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }) : (
+                                <p className="col-span-full text-center text-gray-500 py-10">No classes match your search.</p>
+                            )}
+                        </div>
+                    )}
                 </div>
             );
-        // ALL OTHER ORIGINAL CASES ARE PRESERVED
         case 'courses':
             if (selectedCategory) {
                 const categoryCourses = courses.filter(c => c.category === selectedCategory);
@@ -424,7 +483,7 @@ const TeacherDashboard = () => {
                   <div className="w-full">
                       <div className="flex items-center gap-2 mb-4">
                           <button onClick={handleBackToCategoryList} className="text-gray-700 p-2 rounded-full hover:bg-gray-200">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                              <ArrowUturnLeftIcon className="w-5 h-5" />
                           </button>
                           <select 
                               className="w-full p-3 border border-gray-300 rounded-lg bg-white text-base"
@@ -445,7 +504,11 @@ const TeacherDashboard = () => {
                                   </div>
                               </div>
                               <div>
-                                  <UnitAccordion subject={activeSubject} />
+                                  <UnitAccordion 
+                                    subject={activeSubject} 
+                                    onInitiateDelete={handleInitiateDelete}
+                                    userProfile={userProfile}
+                                  />
                               </div>
                           </div>
                       ) : (
@@ -467,8 +530,8 @@ const TeacherDashboard = () => {
                             <p className="text-gray-500 mt-1">Manage subject categories and create new subjects.</p>
                         </div>
                         <div className="flex flex-shrink-0 gap-2">
-                            <button onClick={() => setCreateCategoryModalOpen(true)} className="btn-success flex items-center">
-                                <PlusCircleIcon className="w-5 h-5 mr-2" />
+                            <button onClick={() => setCreateCategoryModalOpen(true)} className={`${gradientButtonStyle} gap-2`}>
+                                <PlusCircleIcon className="w-5 h-5" />
                                 New Category
                             </button>
                             <button onClick={() => setCreateCourseModalOpen(true)} className="btn-primary flex items-center">
@@ -714,6 +777,13 @@ const TeacherDashboard = () => {
             {selectedLesson && <EditLessonModal isOpen={editLessonModalOpen} onClose={() => setEditLessonModalOpen(false)} lesson={selectedLesson} />}
             {selectedLesson && <ViewLessonModal isOpen={viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={selectedLesson} />}
             {activeSubject && (<ShareMultipleLessonsModal isOpen={isShareContentModalOpen} onClose={() => setShareContentModalOpen(false)} subject={activeSubject} />)}
+        
+            <DeleteConfirmationModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                deletingItemType={deleteTarget?.type}
+            />
         </div>
     );
 };
