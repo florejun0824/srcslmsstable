@@ -4,6 +4,8 @@ import { db } from '../../services/firebase';
 import { collection, doc, getDocs, writeBatch, serverTimestamp, query, where, Timestamp } from 'firebase/firestore';
 import { Dialog, DialogPanel, Title, Button } from '@tremor/react';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 // Custom Multi-Select Dropdown Component
 const CustomMultiSelect = ({ title, options, selectedValues, onSelectionChange, disabled }) => {
@@ -33,8 +35,6 @@ const CustomMultiSelect = ({ title, options, selectedValues, onSelectionChange, 
             {isOpen && (
                 <div className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
                     {options.length > 0 ? options.map((option) => (
-                        // --- THIS IS THE FIX ---
-                        // The click handler is moved to the parent div and `e.preventDefault()` is added.
                         <div 
                             key={option.value} 
                             onClick={(e) => {
@@ -73,8 +73,10 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     const [allQuizzes, setAllQuizzes] = useState([]);
     const [selectedQuizzes, setSelectedQuizzes] = useState([]);
     
-    const [lessonDeadline, setLessonDeadline] = useState('');
-    const [quizDeadline, setQuizDeadline] = useState('');
+    // NEW: State for availability times
+    const [availableFrom, setAvailableFrom] = useState(new Date());
+    const [availableUntil, setAvailableUntil] = useState(new Date());
+
     const [contentLoading, setContentLoading] = useState(false);
 
     useEffect(() => {
@@ -144,21 +146,22 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 const postContent = `The following materials have been shared: ${contentParts.join(' and ')}. Please check your learning materials.`;
                 const newPostRef = doc(collection(db, `classes/${classId}/posts`));
                 
+                // MODIFIED: Include the new timestamps in the post data
                 let postData = {
                     title: postTitle,
                     content: postContent,
                     author: user.displayName || 'Teacher',
                     createdAt: serverTimestamp(),
                     subjectId: subject.id,
+                    availableFrom: Timestamp.fromDate(availableFrom),
+                    availableUntil: Timestamp.fromDate(availableUntil),
                 };
 
                 if (selectedLessons.length > 0) {
                     postData.lessonIds = selectedLessons;
-                    postData.lessonDeadline = Timestamp.fromDate(new Date(lessonDeadline || Date.now()));
                 }
                 if (selectedQuizzes.length > 0) {
                     postData.quizIds = selectedQuizzes;
-                    postData.quizDeadline = Timestamp.fromDate(new Date(quizDeadline || Date.now()));
                 }
                 batch.set(newPostRef, postData);
             }
@@ -177,8 +180,8 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
       setSelectedClasses([]);
       setSelectedLessons([]);
       setSelectedQuizzes([]);
-      setLessonDeadline('');
-      setQuizDeadline('');
+      setAvailableFrom(new Date());
+      setAvailableUntil(new Date());
       setError('');
       setSuccess('');
       setAllLessons([]);
@@ -208,15 +211,28 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                         <label className="block text-sm font-medium text-gray-700 mb-1">3. Choose Quizzes (Optional)</label>
                         <CustomMultiSelect title="Quizzes" options={allQuizzes} selectedValues={selectedQuizzes} onSelectionChange={(id) => handleSelection(id, 'quiz')} disabled={contentLoading} />
                     </div>
-
+                    
+                    {/* NEW: Date pickers for setting availability */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Lesson Deadline</label>
-                            <input type="date" value={lessonDeadline} onChange={(e) => setLessonDeadline(e.target.value)} className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 bg-white" />
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Available From</label>
+                            <DatePicker 
+                                selected={availableFrom}
+                                onChange={date => setAvailableFrom(date)}
+                                showTimeSelect
+                                dateFormat="Pp"
+                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 bg-white"
+                            />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Quiz Deadline</label>
-                            <input type="date" value={quizDeadline} onChange={(e) => setQuizDeadline(e.target.value)} className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 bg-white" />
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Available Until</label>
+                            <DatePicker 
+                                selected={availableUntil}
+                                onChange={date => setAvailableUntil(date)}
+                                showTimeSelect
+                                dateFormat="Pp"
+                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 bg-white"
+                            />
                         </div>
                     </div>
                 </div>

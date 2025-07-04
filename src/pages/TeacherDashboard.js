@@ -2,17 +2,31 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { db } from '../services/firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+// MODIFIED: Added getDocs, limit, and arrayUnion for the new import feature
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  orderBy,
+  doc,
+  updateDoc,
+  deleteDoc,
+  getDocs,
+  limit,
+  arrayUnion
+} from 'firebase/firestore';
 import {
   HomeIcon, AcademicCapIcon, BookOpenIcon, UserIcon, ShieldCheckIcon, Bars3Icon,
   XMarkIcon, ArrowLeftOnRectangleIcon, MagnifyingGlassIcon, PlusCircleIcon,
   ExclamationTriangleIcon, UserGroupIcon, BeakerIcon, GlobeAltIcon, CalculatorIcon,
   PaintBrushIcon, ComputerDesktopIcon, CodeBracketIcon, MusicalNoteIcon,
   ClipboardDocumentListIcon, PencilSquareIcon, KeyIcon, EnvelopeIcon, IdentificationIcon,
-  MegaphoneIcon, ArchiveBoxIcon, TrashIcon, ClipboardIcon
+  MegaphoneIcon, ArchiveBoxIcon, TrashIcon, ClipboardIcon,
+  UserPlusIcon // NEW: Icon for the import button
 } from '@heroicons/react/24/outline';
 
-// All your component imports
+// All your original component imports are preserved
 import Spinner from '../components/common/Spinner';
 import EditClassModal from '../components/common/EditClassModal';
 import UserInitialsAvatar from '../components/common/UserInitialsAvatar';
@@ -39,7 +53,7 @@ import ArchivedClassesModal from '../components/teacher/ArchivedClassesModal';
 
 
 const TeacherDashboard = () => {
-    // All your state hooks remain the same
+    // All your original state hooks are preserved
     const { user, userProfile, logout, firestoreService, refreshUserProfile } = useAuth();
     const { showToast } = useToast();
     const [classes, setClasses] = useState([]);
@@ -78,66 +92,54 @@ const TeacherDashboard = () => {
     const [editingAnnId, setEditingAnnId] = useState(null);
     const [editingAnnText, setEditingAnnText] = useState('');
 
-    // All your useEffect and handler functions remain the same
+    // --- NEW: State for the class-based student import feature ---
+    const [importClassSearchTerm, setImportClassSearchTerm] = useState('');
+    const [searchedClassData, setSearchedClassData] = useState(null);
+    const [studentsToImport, setStudentsToImport] = useState(new Set());
+    const [importTargetClassId, setImportTargetClassId] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
+    const [isImporting, setIsImporting] = useState(false);
+
+    // This original useEffect hook is unchanged
     useEffect(() => {
         if (!user) {
             setLoading(false);
             return;
         }
-
         setLoading(true);
         const teacherId = user.uid || user.id;
-
         if (!teacherId) {
             setLoading(false);
             setError("User ID not found.");
             return;
         }
-
         const queries = [
-            {
-                query: query(collection(db, "subjectCategories"), orderBy("name")),
-                setter: setCourseCategories
-            },
-            {
-                query: query(collection(db, "classes"), where("teacherId", "==", teacherId)),
-                setter: setClasses
-            },
-            {
-                query: query(collection(db, "courses")),
-                setter: setCourses
-            },
-            {
-                query: query(collection(db, "teacherAnnouncements"), orderBy("createdAt", "desc")),
-                setter: setTeacherAnnouncements
-            }
+            { query: query(collection(db, "subjectCategories"), orderBy("name")), setter: setCourseCategories },
+            { query: query(collection(db, "classes"), where("teacherId", "==", teacherId)), setter: setClasses },
+            { query: query(collection(db, "courses")), setter: setCourses },
+            { query: query(collection(db, "teacherAnnouncements"), orderBy("createdAt", "desc")), setter: setTeacherAnnouncements }
         ];
-
         const unsubscribers = queries.map(({ query, setter }) =>
-            onSnapshot(query,
-                (snapshot) => {
-                    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setter(data);
-                },
-                (err) => {
-                    console.error("Firestore snapshot error:", err);
-                    setError("Failed to load dashboard data in real-time.");
-                }
-            )
+            onSnapshot(query, (snapshot) => {
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setter(data);
+            }, (err) => {
+                console.error("Firestore snapshot error:", err);
+                setError("Failed to load dashboard data in real-time.");
+            })
         );
-
         const categoriesQuery = query(collection(db, "subjectCategories"));
         const unsubLoader = onSnapshot(categoriesQuery, () => {
             setLoading(false);
-            unsubLoader(); 
+            unsubLoader();
         });
-
         return () => {
             unsubscribers.forEach(unsub => unsub());
             unsubLoader();
         };
     }, [user]);
 
+    // This original useEffect hook is unchanged
     useEffect(() => {
         if (selectedCategory) {
           const categoryCourses = courses.filter(c => c.category === selectedCategory);
@@ -168,30 +170,12 @@ const TeacherDashboard = () => {
     const activeClasses = classes.filter(c => !c.isArchived);
     const archivedClasses = classes.filter(c => c.isArchived);
 
-    const handleViewChange = (view) => {
-        setActiveView(view);
-        setSelectedCategory(null);
-        setIsSidebarOpen(false);
-    };
-    
-    const handleCategoryClick = (categoryName) => {
-        setSelectedCategory(categoryName);
-    };
-
-    const handleBackToCategoryList = () => {
-        setSelectedCategory(null);
-    }
-
-    const handleOpenEditClassModal = (classData) => {
-        setClassToEdit(classData);
-        setEditClassModalOpen(true);
-    };
-
-    const handleEditCategory = (category) => {
-        setCategoryToEdit(category);
-        setEditCategoryModalOpen(true);
-    };
-
+    // All original handler functions are preserved
+    const handleViewChange = (view) => { setActiveView(view); setSelectedCategory(null); setIsSidebarOpen(false); };
+    const handleCategoryClick = (categoryName) => { setSelectedCategory(categoryName); };
+    const handleBackToCategoryList = () => { setSelectedCategory(null); };
+    const handleOpenEditClassModal = (classData) => { setClassToEdit(classData); setEditClassModalOpen(true); };
+    const handleEditCategory = (category) => { setCategoryToEdit(category); setEditCategoryModalOpen(true); };
     const handleUpdateProfile = async (newData) => {
         try {
             const userId = user.uid || user.id;
@@ -204,7 +188,6 @@ const TeacherDashboard = () => {
             console.error(err);
         }
     };
-
     const handleChangePassword = async (newPassword) => {
         try {
             const userId = user.uid || user.id;
@@ -216,7 +199,6 @@ const TeacherDashboard = () => {
             console.error(err);
         }
     };
-
     const handleArchiveClass = async (classId) => {
         if (window.confirm("Are you sure you want to archive this class? It will be hidden from the main view.")) {
             try {
@@ -227,7 +209,6 @@ const TeacherDashboard = () => {
             }
         }
     };
-
     const handleUnarchiveClass = async (classId) => {
         try {
             await firestoreService.updateClassArchiveStatus(classId, false);
@@ -236,7 +217,6 @@ const TeacherDashboard = () => {
             showToast("Failed to restore class.", "error");
         }
     };
-
     const handleDeleteClass = async (classId, isArchivedView = false) => {
         const message = "Are you sure you want to permanently delete this class? This action cannot be undone.";
         if (window.confirm(message)) {
@@ -246,21 +226,17 @@ const TeacherDashboard = () => {
                 if (isArchivedView) {
                     setIsArchivedModalOpen(false);
                 }
-            } catch (error)
-{
+            } catch (error) {
                 showToast("Failed to delete class.", "error");
             }
         }
     };
-
     const handleStartEditAnn = (post) => {
         setEditingAnnId(post.id);
         setEditingAnnText(post.content);
     };
-
     const handleUpdateTeacherAnn = async () => {
         if (!editingAnnText.trim()) return showToast("Announcement cannot be empty.", "error");
-        
         const docRef = doc(db, 'teacherAnnouncements', editingAnnId);
         try {
             await updateDoc(docRef, { content: editingAnnText });
@@ -270,7 +246,6 @@ const TeacherDashboard = () => {
             showToast("Failed to update announcement.", "error");
         }
     };
-    
     const handleDeleteTeacherAnn = async (id) => {
         if (window.confirm("Are you sure you want to delete this announcement?")) {
             await deleteDoc(doc(db, 'teacherAnnouncements', id));
@@ -278,8 +253,83 @@ const TeacherDashboard = () => {
         }
     };
     
+    // --- NEW: Handlers for the class-based student import feature ---
+    const handleSearchClass = async () => {
+        if (!importClassSearchTerm.trim()) {
+            return showToast("Please enter a class name to search.", "error");
+        }
+        setIsSearching(true);
+        setSearchedClassData(null);
+        setStudentsToImport(new Set());
+        try {
+            const q = query(
+                collection(db, "classes"),
+                where("name", "==", importClassSearchTerm.trim()),
+                limit(1)
+            );
+            const classSnapshot = await getDocs(q);
+            if (classSnapshot.empty) {
+                showToast("No class found with that exact name.", "warning");
+            } else {
+                const classDoc = classSnapshot.docs[0];
+                const foundClass = { id: classDoc.id, ...classDoc.data() };
+                setSearchedClassData(foundClass);
+            }
+        } catch (err) {
+            console.error("Error searching for class:", err);
+            showToast("An error occurred while searching.", "error");
+        } finally {
+            setIsSearching(false);
+        }
+    };
+    
+    const handleToggleStudentForImport = (studentId) => {
+        setStudentsToImport(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(studentId)) {
+                newSet.delete(studentId);
+            } else {
+                newSet.add(studentId);
+            }
+            return newSet;
+        });
+    };
+    
+    const handleSelectAllStudents = () => {
+        if (!searchedClassData?.students) return;
+        const studentIdsInSearchedClass = searchedClassData.students.map(s => s.id);
+        const allCurrentlySelected = studentIdsInSearchedClass.length > 0 && studentIdsInSearchedClass.every(id => studentsToImport.has(id));
+        if (allCurrentlySelected) {
+            setStudentsToImport(new Set());
+        } else {
+            setStudentsToImport(new Set(studentIdsInSearchedClass));
+        }
+    };
+    
+    const handleImportStudents = async () => {
+        if (!importTargetClassId) return showToast("Please select your class to import students into.", "error");
+        if (studentsToImport.size === 0) return showToast("Please select at least one student to import.", "error");
+    
+        setIsImporting(true);
+        try {
+            const studentsToAdd = searchedClassData.students.filter(s => studentsToImport.has(s.id));
+            const targetClassRef = doc(db, "classes", importTargetClassId);
+            await updateDoc(targetClassRef, {
+                students: arrayUnion(...studentsToAdd)
+            });
+            showToast(`${studentsToImport.size} student(s) imported successfully!`, 'success');
+            setStudentsToImport(new Set());
+            setSearchedClassData(null);
+            setImportClassSearchTerm('');
+            setImportTargetClassId('');
+        } catch (err) {
+            console.error("Error importing students:", err);
+            showToast("An error occurred during the import.", "error");
+        } finally {
+            setIsImporting(false);
+        }
+    };
 
-    // --- FIX: The render logic is restructured ---
     const renderMainContent = () => {
         if (loading) return <Spinner />;
         if (error) { 
@@ -298,69 +348,72 @@ const TeacherDashboard = () => {
 
         const wrapper = "bg-white/70 backdrop-blur-md border border-white/30 p-4 sm:p-6 rounded-xl shadow";
         
-        const subjectVisuals = [
-            { icon: BookOpenIcon, color: 'from-sky-500 to-indigo-500' },
-            { icon: CalculatorIcon, color: 'from-green-500 to-emerald-500' },
-            { icon: BeakerIcon, color: 'from-violet-500 to-purple-500' },
-            { icon: GlobeAltIcon, color: 'from-rose-500 to-pink-500' },
-            { icon: ComputerDesktopIcon, color: 'from-slate-600 to-slate-800' },
-            { icon: PaintBrushIcon, color: 'from-amber-500 to-orange-500' },
-            { icon: UserGroupIcon, color: 'from-teal-500 to-cyan-500' },
-            { icon: CodeBracketIcon, color: 'from-gray-700 to-gray-900' },
-            { icon: MusicalNoteIcon, color: 'from-fuchsia-500 to-purple-600' },
-        ];
-
-        const classVisuals = [
-            { icon: AcademicCapIcon, color: 'from-orange-500 to-red-500' },
-            { icon: UserGroupIcon, color: 'from-blue-500 to-sky-500' },
-            { icon: ClipboardDocumentListIcon, color: 'from-yellow-500 to-amber-500' },
-            { icon: ShieldCheckIcon, color: 'from-green-500 to-lime-500' },
-        ];
+        const subjectVisuals = [ { icon: BookOpenIcon, color: 'from-sky-500 to-indigo-500' }, { icon: CalculatorIcon, color: 'from-green-500 to-emerald-500' }, { icon: BeakerIcon, color: 'from-violet-500 to-purple-500' }, { icon: GlobeAltIcon, color: 'from-rose-500 to-pink-500' }, { icon: ComputerDesktopIcon, color: 'from-slate-600 to-slate-800' }, { icon: PaintBrushIcon, color: 'from-amber-500 to-orange-500' }, { icon: UserGroupIcon, color: 'from-teal-500 to-cyan-500' }, { icon: CodeBracketIcon, color: 'from-gray-700 to-gray-900' }, { icon: MusicalNoteIcon, color: 'from-fuchsia-500 to-purple-600' }, ];
+        const classVisuals = [ { icon: AcademicCapIcon, color: 'from-orange-500 to-red-500' }, { icon: UserGroupIcon, color: 'from-blue-500 to-sky-500' }, { icon: ClipboardDocumentListIcon, color: 'from-yellow-500 to-amber-500' }, { icon: ShieldCheckIcon, color: 'from-green-500 to-lime-500' }, ];
 
         if (activeView === 'admin') return <div className={wrapper}><AdminDashboard /></div>;
         
-        // The main switch statement now correctly handles all views.
         switch (activeView) {
+        // MODIFIED: This case is replaced with the import tool UI, leaving the original code for other tabs intact.
         case 'studentManagement': 
             return (
                 <div>
-                    <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                        <div>
-                            <h1 className="text-3xl font-bold text-gray-800">Your Students</h1>
-                            <p className="text-gray-500 mt-1">{uniqueStudents.length} unique student(s) across all your classes.</p>
-                        </div>
-                        <div className="relative w-full sm:w-64">
-                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                            <input 
-                                type="text"
-                                placeholder="Search student..."
-                                value={studentSearchTerm}
-                                onChange={e => setStudentSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
+                    <div className="mb-6">
+                        <h1 className="text-3xl font-bold text-gray-800">Import Students</h1>
+                        <p className="text-gray-500 mt-1">Search for another class to import students from.</p>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {filteredStudents.map(student => (
-                            <div key={student.id} className="bg-white p-5 rounded-xl shadow-md text-center flex flex-col items-center hover:shadow-lg transition-shadow">
-                                <UserInitialsAvatar 
-                                    firstName={student.firstName}
-                                    lastName={student.lastName}
-                                    size="lg"
-                                    className="mb-3"
-                                />
-                                <p className="font-bold text-gray-800 truncate w-full">{student.firstName} {student.lastName}</p>
-                                <p className="text-sm text-gray-500">{student.gradeLevel || 'No grade assigned'}</p>
+
+                    <div className="bg-white p-6 rounded-xl shadow-lg space-y-8">
+                        <div>
+                            <label htmlFor="class-search" className="block text-lg font-semibold text-gray-700 mb-2">1. Find Source Class</label>
+                            <div className="flex gap-2 max-w-md">
+                                <input id="class-search" type="text" placeholder="Enter exact class name..." value={importClassSearchTerm} onChange={e => setImportClassSearchTerm(e.target.value)} className="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                                <button onClick={handleSearchClass} className="btn-primary" disabled={isSearching}>{isSearching ? 'Searching...' : 'Search'}</button>
                             </div>
-                        ))}
-                        {filteredStudents.length === 0 && (
-                            <p className="col-span-full text-center text-gray-500 py-10">No students found.</p>
+                        </div>
+
+                        {searchedClassData && (
+                            <div>
+                                <h2 className="text-lg font-semibold text-gray-700 mb-2">2. Select Students from "{searchedClassData.name}"</h2>
+                                <div className="border rounded-lg max-h-80 overflow-y-auto">
+                                    <div className="flex items-center gap-4 p-3 border-b bg-gray-50 sticky top-0 z-10">
+                                        <input type="checkbox" onChange={handleSelectAllStudents} checked={searchedClassData.students?.length > 0 && studentsToImport.size === searchedClassData.students.length} id="select-all-students" className="h-5 w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500" />
+                                        <label htmlFor="select-all-students" className="font-semibold text-gray-800">Select All ({searchedClassData.students?.length || 0})</label>
+                                    </div>
+                                    {searchedClassData.students.map(student => (
+                                        <div key={student.id} onClick={() => handleToggleStudentForImport(student.id)} className={`flex items-center gap-4 p-3 border-b last:border-b-0 cursor-pointer transition-colors ${studentsToImport.has(student.id) ? 'bg-blue-100' : 'hover:bg-gray-50'}`}>
+                                            <input type="checkbox" readOnly checked={studentsToImport.has(student.id)} className="h-5 w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500 pointer-events-none" />
+                                            <UserInitialsAvatar firstName={student.firstName} lastName={student.lastName} />
+                                            <div>
+                                                <p className="font-semibold text-gray-800">{student.firstName} {student.lastName}</p>
+                                                <p className="text-sm text-gray-500">{student.gradeLevel || 'N/A'}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {studentsToImport.size > 0 && (
+                             <div>
+                                <h2 className="text-lg font-semibold text-gray-700 mb-2">3. Import To Your Class</h2>
+                                <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                                     <select value={importTargetClassId} onChange={e => setImportTargetClassId(e.target.value)} className="w-full md:w-auto flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="">-- Choose one of your classes --</option>
+                                        {activeClasses.map(c => (<option key={c.id} value={c.id}>{c.name} ({c.gradeLevel} - {c.section})</option>))}
+                                    </select>
+                                    <button onClick={handleImportStudents} disabled={!importTargetClassId || isImporting} className="btn-success flex items-center gap-2 w-full md:w-auto justify-center disabled:bg-gray-400 disabled:cursor-not-allowed">
+                                        <UserPlusIcon className="w-5 h-5" />
+                                        {isImporting ? 'Importing...' : `Import ${studentsToImport.size} Student(s)`}
+                                    </button>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>
             );
+        // ALL OTHER ORIGINAL CASES ARE PRESERVED
         case 'courses':
-            // The logic for displaying a detailed category view is now INSIDE the 'courses' case.
             if (selectedCategory) {
                 const categoryCourses = courses.filter(c => c.category === selectedCategory);
                 const handleSubjectChange = (e) => {
@@ -406,7 +459,6 @@ const TeacherDashboard = () => {
                   </div>
                 );
             }
-            // This is the default view for the 'courses' tab (the category list).
             return (
                 <div>
                     <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -448,7 +500,6 @@ const TeacherDashboard = () => {
                     </div>
                 </div>
             );
-        
         case 'classes': 
             return (
                 <div>
@@ -499,7 +550,6 @@ const TeacherDashboard = () => {
                     </div>
                 </div>
             );
-        
         case 'profile': 
             return (
                 <div className="max-w-4xl mx-auto">
@@ -531,7 +581,6 @@ const TeacherDashboard = () => {
                     </div>
                 </div>
             );
-
         case 'home':
         default:
             return (
@@ -540,46 +589,40 @@ const TeacherDashboard = () => {
                     <h1 className="text-3xl font-bold text-gray-800">Welcome back, {userProfile?.firstName}!</h1>
                     <p className="text-gray-500 mt-1">Here's what's new.</p>
                 </div>
-                
                 <CreateAnnouncement teacherProfile={userProfile} classes={activeClasses} />
-                
                 <div>
                     <h2 className="text-xl font-bold text-gray-700 mb-4">Teacher Announcements</h2>
                     <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                        {teacherAnnouncements.length > 0 ? teacherAnnouncements.map(post => (
-                            <div key={post.id} className="bg-white/80 p-4 rounded-lg shadow-sm border group relative">
-                                {editingAnnId === post.id ? (
-                                    <>
-                                        <textarea
-                                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                                            rows="3"
-                                            value={editingAnnText}
-                                            onChange={(e) => setEditingAnnText(e.target.value)}
-                                        />
-                                        <div className="flex justify-end gap-2 mt-2">
-                                            <button className="btn-secondary" onClick={() => setEditingAnnId(null)}>Cancel</button>
-                                            <button className="btn-primary" onClick={handleUpdateTeacherAnn}>Save</button>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => handleStartEditAnn(post)} className="p-1 hover:bg-gray-200 rounded-full" title="Edit">
-                                                <PencilSquareIcon className="w-4 h-4 text-gray-600" />
-                                            </button>
-                                            <button onClick={() => handleDeleteTeacherAnn(post.id)} className="p-1 hover:bg-gray-200 rounded-full" title="Delete">
-                                                <TrashIcon className="w-4 h-4 text-red-500" />
-                                            </button>
-                                        </div>
-                                        <p className="text-gray-800 whitespace-pre-wrap pr-10">{post.content}</p>
-                                        <div className="text-xs text-gray-400 mt-3 pt-2 border-t border-gray-100 flex justify-between">
-                                            <span>From: {post.teacherName}</span>
-                                            <span>{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString() : ''}</span>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )) : (
+                        {teacherAnnouncements.length > 0 ? teacherAnnouncements.map(post => {
+                            const canModify = userProfile?.role === 'admin' || userProfile?.id === post.teacherId;
+                            return (
+                                <div key={post.id} className="bg-white/80 p-4 rounded-lg shadow-sm border group relative">
+                                    {editingAnnId === post.id ? (
+                                        <>
+                                            <textarea className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" rows="3" value={editingAnnText} onChange={(e) => setEditingAnnText(e.target.value)} />
+                                            <div className="flex justify-end gap-2 mt-2">
+                                                <button className="btn-secondary" onClick={() => setEditingAnnId(null)}>Cancel</button>
+                                                <button className="btn-primary" onClick={handleUpdateTeacherAnn}>Save</button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {canModify && (
+                                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => handleStartEditAnn(post)} className="p-1 hover:bg-gray-200 rounded-full" title="Edit"><PencilSquareIcon className="w-4 h-4 text-gray-600" /></button>
+                                                    <button onClick={() => handleDeleteTeacherAnn(post.id)} className="p-1 hover:bg-gray-200 rounded-full" title="Delete"><TrashIcon className="w-4 h-4 text-red-500" /></button>
+                                                </div>
+                                            )}
+                                            <p className="text-gray-800 whitespace-pre-wrap pr-10">{post.content}</p>
+                                            <div className="text-xs text-gray-400 mt-3 pt-2 border-t border-gray-100 flex justify-between">
+                                                <span>From: {post.teacherName}</span>
+                                                <span>{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString() : ''}</span>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )
+                        }) : (
                             <p className="text-center text-gray-500 py-8">No general announcements for teachers yet.</p>
                         )}
                     </div>

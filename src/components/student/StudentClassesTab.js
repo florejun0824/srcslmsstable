@@ -1,42 +1,55 @@
 import React from 'react';
-import { AcademicCapIcon } from '@heroicons/react/24/outline';
+import { Card, Text } from '@tremor/react';
+import { AcademicCapIcon, UserGroupIcon, ClipboardDocumentListIcon, ShieldCheckIcon } from '@heroicons/react/24/solid';
+
+const classVisuals = [
+    { icon: AcademicCapIcon, color: 'from-orange-500 to-red-500' },
+    { icon: UserGroupIcon, color: 'from-blue-500 to-sky-500' },
+    { icon: ClipboardDocumentListIcon, color: 'from-yellow-500 to-amber-500' },
+    { icon: ShieldCheckIcon, color: 'from-green-500 to-lime-500' },
+];
+
+const StudentClassCard = ({ classData, onSelect, visual }) => {
+    const { icon: Icon, color } = visual;
+
+    return (
+        <Card 
+            onClick={() => onSelect(classData)}
+            className="group relative p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden"
+        >
+            <div className={`absolute -top-12 -right-12 w-32 h-32 bg-gradient-to-br ${color} rounded-full opacity-10 group-hover:opacity-20 transition-all duration-300`}></div>
+            <div className="relative z-10">
+                <div className={`p-4 inline-block bg-gradient-to-br ${color} text-white rounded-xl mb-4 shadow-md`}>
+                    <Icon className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-800 truncate mb-1">{classData.name}</h3>
+                <Text>{classData.gradeLevel} - {classData.section}</Text>
+                 <Text className="mt-4">Teacher: {classData.teacherName}</Text>
+            </div>
+        </Card>
+    );
+};
+
 
 const StudentClassesTab = ({ classes, onClassSelect }) => {
+    if (!classes || classes.length === 0) {
+        return (
+            <div className="text-center py-10">
+                <Text>You are not enrolled in any classes yet.</Text>
+            </div>
+        );
+    }
+    
     return (
-        <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">My Classes</h2>
-            {classes && classes.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {classes.map((classItem) => (
-                        <button
-                            key={classItem.id}
-                            onClick={() => onClassSelect(classItem)}
-                            className="bg-white/80 p-6 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-1 transition-all text-left"
-                        >
-                            <div className="flex items-center mb-3">
-                                <div className="p-3 bg-blue-100 text-blue-600 rounded-xl mr-4">
-                                    <AcademicCapIcon className="w-7 h-7" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-lg text-gray-900 truncate">{classItem.name}</h3>
-                                    <p className="text-sm text-gray-500">{classItem.gradeLevel} - {classItem.section}</p>
-                                </div>
-                            </div>
-                            {classItem.classCode && (
-                                <div className="mt-2 pt-2 border-t border-gray-100">
-                                    <span className="text-xs text-gray-400">Code: </span>
-                                    <span className="font-mono text-sm text-gray-600">{classItem.classCode}</span>
-                                </div>
-                            )}
-                        </button>
-                    ))}
-                </div>
-            ) : (
-                <div className="text-center py-12">
-                    <p className="text-gray-500">You haven't joined any classes yet.</p>
-                    <p className="text-sm text-gray-400 mt-2">Use the "Join a Class" button to get started.</p>
-                </div>
-            )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {classes.map((classData, index) => (
+                <StudentClassCard 
+                    key={classData.id}
+                    classData={classData}
+                    onSelect={onClassSelect}
+                    visual={classVisuals[index % classVisuals.length]}
+                />
+            ))}
         </div>
     );
 };

@@ -20,6 +20,7 @@ import { useToast } from '../../contexts/ToastContext';
 import ViewLessonModal from './ViewLessonModal';
 import ViewQuizModal from './ViewQuizModal';
 import GenerateReportModal from './GenerateReportModal';
+import EditAvailabilityModal from './EditAvailabilityModal';
 
 const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
     const { userProfile } = useAuth();
@@ -29,6 +30,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
     const [quizzes, setQuizzes] = useState([]);
     const [quizScores, setQuizScores] = useState([]);
     const [announcements, setAnnouncements] = useState([]);
+    const [sharedContentPosts, setSharedContentPosts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showAddForm, setShowAddForm] = useState(false);
     const [viewLessonData, setViewLessonData] = useState(null);
@@ -36,6 +38,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [editContent, setEditContent] = useState('');
+    const [postToEdit, setPostToEdit] = useState(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     const fetchClassAnnouncements = useCallback(async () => {
         if (!classData?.id) return;
@@ -58,13 +62,15 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
             const postsQuery = query(collection(db, `classes/${classData.id}/posts`), orderBy('createdAt', 'desc'));
             const postsSnapshot = await getDocs(postsQuery);
 
+            const allPosts = postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setSharedContentPosts(allPosts);
+
             const lessonIds = new Set();
             const quizIds = new Set();
 
-            postsSnapshot.docs.forEach(post => {
-                const data = post.data();
-                data.lessonIds?.forEach(id => lessonIds.add(id));
-                data.quizIds?.forEach(id => quizIds.add(id));
+            allPosts.forEach(post => {
+                post.lessonIds?.forEach(id => lessonIds.add(id));
+                post.quizIds?.forEach(id => quizIds.add(id));
             });
 
             if (lessonIds.size) {
@@ -111,6 +117,11 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
         };
     }, [isOpen, classData, fetchClassAnnouncements, fetchLessonsAndQuizzes]);
 
+    const handleEditDatesClick = (post) => {
+        setPostToEdit(post);
+        setIsEditModalOpen(true);
+    };
+
     const handleDelete = async (id) => {
         try {
             await deleteDoc(doc(db, 'classAnnouncements', id));
@@ -144,33 +155,53 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
         if (loading) return <div className="text-center py-8">Loading class content...</div>;
 
         if (activeTab === 'lessons') {
-            return lessons.length ? (
+            const lessonPosts = sharedContentPosts.filter(p => p.lessonIds?.length > 0);
+            return lessonPosts.length > 0 ? (
                 <ul className="space-y-3">
-                    {lessons.map(lesson => (
-                        <li
-                            key={lesson.id}
-                            onClick={() => setViewLessonData(lesson)}
-                            className="p-4 bg-gray-50 rounded-lg border hover:bg-blue-50 cursor-pointer transition"
-                        >
-                            {lesson.title}
-                        </li>
-                    ))}
+                    {lessonPosts.map(post => {
+                        const lessonDetails = lessons.find(l => post.lessonIds.includes(l.id));
+                        return (
+                            <li key={post.id} className="p-4 bg-gray-50 rounded-lg border flex justify-between items-center">
+                                <div>
+                                    <p className="font-semibold cursor-pointer hover:text-blue-600" onClick={() => setViewLessonData(lessonDetails)}>
+                                        {lessonDetails?.title || 'Loading lesson...'}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Available from {post.availableFrom?.toDate().toLocaleString()} to {post.availableUntil?.toDate().toLocaleString()}
+                                    </p>
+                                </div>
+                                <Button size="xs" icon={PencilSquareIcon} onClick={() => handleEditDatesClick(post)}>
+                                    Edit Dates
+                                </Button>
+                            </li>
+                        )
+                    })}
                 </ul>
             ) : <p className="text-center py-8 text-gray-500">No lessons have been shared with this class yet.</p>;
         }
 
         if (activeTab === 'quizzes') {
-            return quizzes.length ? (
+            const quizPosts = sharedContentPosts.filter(p => p.quizIds?.length > 0);
+            return quizPosts.length > 0 ? (
                 <ul className="space-y-3">
-                    {quizzes.map(quiz => (
-                        <li
-                            key={quiz.id}
-                            onClick={() => setViewQuizData(quiz)}
-                            className="p-4 bg-gray-50 rounded-lg border hover:bg-blue-50 cursor-pointer transition"
-                        >
-                            {quiz.title}
-                        </li>
-                    ))}
+                    {quizPosts.map(post => {
+                         const quizDetails = quizzes.find(q => post.quizIds.includes(q.id));
+                         return (
+                            <li key={post.id} className="p-4 bg-gray-50 rounded-lg border flex justify-between items-center">
+                                <div>
+                                    <p className="font-semibold cursor-pointer hover:text-blue-600" onClick={() => setViewQuizData(quizDetails)}>
+                                        {quizDetails?.title || 'Loading quiz...'}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Available from {post.availableFrom?.toDate().toLocaleString()} to {post.availableUntil?.toDate().toLocaleString()}
+                                    </p>
+                                </div>
+                                <Button size="xs" icon={PencilSquareIcon} onClick={() => handleEditDatesClick(post)}>
+                                    Edit Dates
+                                </Button>
+                            </li>
+                         )
+                    })}
                 </ul>
             ) : <p className="text-center py-8 text-gray-500">No quizzes have been shared with this class yet.</p>;
         }
@@ -183,16 +214,17 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
                             Generate Report
                         </Button>
                     </div>
-                    {quizzes.length ? (
-                        <div className="space-y-8">
-                            {quizzes.map(quiz => {
+                    {/* THIS IS THE FIX: A scrollable container for the scores list */}
+                    <div className="space-y-8 max-h-[60vh] overflow-y-auto pr-2">
+                        {quizzes.length ? (
+                            quizzes.map(quiz => {
                                 const scores = quizScores.filter(s => s.quizId === quiz.id);
                                 return (
-                                    <div key={quiz.id}>
-                                        <h3 className="font-bold text-lg mb-2">{quiz.title}</h3>
+                                    <div key={quiz.id} className="mb-8">
+                                        <h3 className="font-bold text-lg mb-2 sticky top-0 bg-white py-2">{quiz.title}</h3>
                                         <div className="overflow-x-auto">
                                             <table className="min-w-full bg-white border rounded-lg">
-                                                <thead className="bg-gray-50">
+                                                <thead className="bg-gray-50 sticky top-0">
                                                     <tr>
                                                         <th className="p-3 text-left text-sm font-semibold text-gray-600">Student Name</th>
                                                         <th className="p-3 text-center text-sm font-semibold text-gray-600">Attempt 1</th>
@@ -221,9 +253,9 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
                                         </div>
                                     </div>
                                 );
-                            })}
-                        </div>
-                    ) : <p className="text-center py-8 text-gray-500">No quiz scores available.</p>}
+                            })
+                        ) : <p className="text-center py-8 text-gray-500">No quiz scores available.</p>}
+                    </div>
                 </div>
             );
         }
@@ -282,13 +314,13 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
-                                className={`px-3 py-2 font-medium text-sm rounded-t-lg ${
+                                className={`px-3 py-2 font-medium text-sm rounded-t-lg capitalize ${
                                     activeTab === tab
                                         ? 'border-b-2 border-blue-500 text-blue-600'
                                         : 'text-gray-500 hover:text-gray-700'
                                 }`}
                             >
-                                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                {tab}
                             </button>
                         ))}
                     </nav>
@@ -305,6 +337,14 @@ const ClassOverviewModal = ({ isOpen, onClose, classData }) => {
             />
             <ViewLessonModal isOpen={!!viewLessonData} onClose={() => setViewLessonData(null)} lesson={viewLessonData} />
             <ViewQuizModal isOpen={!!viewQuizData} onClose={() => setViewQuizData(null)} quiz={viewQuizData} userProfile={userProfile} />
+            
+            <EditAvailabilityModal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                post={postToEdit}
+                classId={classData?.id}
+                onUpdate={fetchLessonsAndQuizzes}
+            />
         </>
     );
 };

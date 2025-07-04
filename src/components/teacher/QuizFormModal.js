@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
+// DatePicker is no longer needed here, so its imports are removed.
 
 const QuizFormModal = ({ isOpen, onClose, onSubmit, initialQuizData, title }) => {
     const [quizTitle, setQuizTitle] = useState('');
+    // The 'dueDate' state has been removed.
     const [questions, setQuestions] = useState([{ text: '', options: ['', '', '', ''], correctOption: 0, explanation: '' }]);
 
     useEffect(() => {
         if (initialQuizData) {
-            setQuizTitle(initialQuizData.title);
+            setQuizTitle(initialQuizData.title || '');
+            // The logic for setting 'dueDate' has been removed.
             setQuestions(initialQuizData.questions.map(q => ({...q, explanation: q.explanation || ''})));
         } else {
             setQuizTitle('');
+            // The logic for resetting 'dueDate' has been removed.
             setQuestions([{ text: '', options: ['', '', '', ''], correctOption: 0, explanation: '' }]);
         }
     }, [initialQuizData, isOpen]);
@@ -34,13 +38,20 @@ const QuizFormModal = ({ isOpen, onClose, onSubmit, initialQuizData, title }) =>
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSubmit({ title: quizTitle, questions });
+        // The 'dueDate' property has been removed from the submitted data.
+        onSubmit({ 
+            title: quizTitle,
+            questions,
+        });
     };
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={title} size="lg">
             <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto p-2">
                 <input type="text" value={quizTitle} onChange={(e) => setQuizTitle(e.target.value)} placeholder="Quiz Title" className="w-full p-3 border rounded-md" required />
+                
+                {/* The DatePicker component has been removed from the form. */}
+
                 {questions.map((q, qIndex) => (
                     <div key={qIndex} className="p-4 border rounded-lg bg-gray-50 relative">
                         <button type="button" onClick={() => removeQuestion(qIndex)} className="absolute top-2 right-2 text-red-500 font-bold text-lg">&times;</button>
@@ -56,6 +67,7 @@ const QuizFormModal = ({ isOpen, onClose, onSubmit, initialQuizData, title }) =>
                         <textarea value={q.explanation} onChange={(e) => handleQuestionChange(qIndex, 'explanation', e.target.value)} placeholder="Explanation for correct answer (optional)" className="w-full p-3 border rounded-md mt-3" rows="2" />
                     </div>
                 ))}
+                
                 <button type="button" onClick={addQuestion} className="w-full bg-gray-200 p-3 rounded-md hover:bg-gray-300">Add Question</button>
                 <button type="submit" className="w-full bg-yellow-500 text-white p-3 rounded-md hover:bg-yellow-600">
                     {initialQuizData ? 'Save Changes' : 'Add Quiz'}

@@ -12,56 +12,62 @@ const NewsFeedTab = () => {
     const [classes, setClasses] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchPosts = useCallback(() => {
+    const fetchPosts = useCallback(async () => {
         if (!user) return;
-
-        let postsQuery;
-
-        if (user.role === 'teacher') {
-            // Teacher sees all posts they've created
-            postsQuery = query(
-                collection(db, "announcements"),
-                where("teacherId", "==", user.id),
-                orderBy("createdAt", "desc")
-            );
-        } else { // Student
-            // Student sees posts from classes they are enrolled in
-            const classesQuery = query(collection(db, "classes"), where("students", "array-contains", user.id));
-            getDocs(classesQuery).then(classSnap => {
+    
+        setLoading(true);
+        let allPosts = [];
+    
+        try {
+            if (user.role === 'teacher' || user.role === 'admin') {
+                // Query 1: Announcements for teachers/admins
+                const teacherAnnouncementsQuery = query(
+                    collection(db, "teacherAnnouncements"),
+                    orderBy("createdAt", "desc")
+                );
+                const teacherAnnouncementsSnap = await getDocs(teacherAnnouncementsQuery);
+                const teacherPosts = teacherAnnouncementsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // Query 2: Announcements for classes taught by the user
+                const classAnnouncementsQuery = query(
+                    collection(db, "classAnnouncements"),
+                    orderBy("createdAt", "desc")
+                );
+                const classAnnouncementsSnap = await getDocs(classAnnouncementsQuery);
+                const classPosts = classAnnouncementsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+                allPosts = [...teacherPosts, ...classPosts];
+            } else { // For students
+                const classesQuery = query(collection(db, "classes"), where("studentIds", "array-contains", user.id));
+                const classSnap = await getDocs(classesQuery);
                 const classIds = classSnap.docs.map(d => d.id);
+                
                 if (classIds.length > 0) {
                     const studentPostsQuery = query(
-                        collection(db, "announcements"),
+                        collection(db, "classAnnouncements"),
                         where("classIds", "array-contains-any", classIds),
                         orderBy("createdAt", "desc")
                     );
-                    const unsubscribe = onSnapshot(studentPostsQuery, (querySnapshot) => {
-                        const fetchedPosts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        setPosts(fetchedPosts);
-                        setLoading(false);
-                    });
-                    return () => unsubscribe();
-                } else {
-                    setLoading(false);
+                    const studentPostsSnap = await getDocs(studentPostsQuery);
+                    allPosts = studentPostsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 }
-            });
-            return; // Exit early as getDocs is async
-        }
-        
-        const unsubscribe = onSnapshot(postsQuery, (querySnapshot) => {
-            const fetchedPosts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setPosts(fetchedPosts);
+            }
+    
+            // Sort all fetched posts by creation date
+            allPosts.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+            setPosts(allPosts);
+        } catch (error) {
+            console.error("Error fetching posts:", error);
+        } finally {
             setLoading(false);
-        });
-
-        return () => unsubscribe();
+        }
     }, [user]);
 
     useEffect(() => {
         fetchPosts();
-        
+
         // Fetch teacher's classes for the CreatePost component
-        if (user.role === 'teacher') {
+        if (user.role === 'teacher' || user.role === 'admin') {
             const teacherClassesQuery = query(collection(db, "classes"), where("teacherId", "==", user.id));
             const unsubscribe = onSnapshot(teacherClassesQuery, (snap) => {
                 setClasses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -76,7 +82,7 @@ const NewsFeedTab = () => {
 
     return (
         <div className="max-w-2xl mx-auto">
-            {user.role === 'teacher' && (
+            {(user.role === 'teacher' || user.role === 'admin') && (
                 <CreatePost userProfile={userProfile} classes={classes} onPostCreated={fetchPosts} />
             )}
             
