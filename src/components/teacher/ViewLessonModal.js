@@ -1,90 +1,99 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogPanel, Title, Button } from '@tremor/react';
+import { Dialog } from '@headlessui/react';
 import { ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/24/solid';
 
+// This is the same renderer from your CreateAiLessonModal to ensure consistent formatting.
+const MarkdownRenderer = ({ text = '' }) => {
+  // Split the text by the bold markdown pattern, keeping the delimiters
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+
+  return (
+    <p className="text-sm whitespace-pre-line text-gray-700">
+      {parts.map((part, index) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          // If the part is bold, render it inside a <strong> tag
+          return <strong key={index}>{part.slice(2, -2)}</strong>;
+        }
+        // Otherwise, render the text as is
+        return part;
+      })}
+    </p>
+  );
+};
+
 export default function ViewLessonModal({ isOpen, onClose, lesson }) {
+  // ✅ NEW: State to track the current page index
   const [currentPage, setCurrentPage] = useState(0);
 
+  // ✅ NEW: Reset to the first page whenever the modal is opened or the lesson changes.
   useEffect(() => {
-    setCurrentPage(0);
-  }, [lesson]);
+    if (isOpen) {
+      setCurrentPage(0);
+    }
+  }, [isOpen, lesson]);
 
-  if (!lesson) return null;
+  if (!isOpen || !lesson || !lesson.pages || lesson.pages.length === 0) {
+    return null;
+  }
 
-  const totalPages = lesson.pages?.length || 0;
-  const hasPages = totalPages > 0;
-  const currentPageData = hasPages ? lesson.pages[currentPage] : null;
+  const totalPages = lesson.pages.length;
+  const pageData = lesson.pages[currentPage];
 
   const goToNextPage = () => {
-    if (currentPage < totalPages - 1) {
-      setCurrentPage(currentPage + 1);
-    }
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages - 1));
   };
 
-  const goToPrevPage = () => {
-    if (currentPage > 0) {
-      setCurrentPage(currentPage - 1);
-    }
+  const goToPreviousPage = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 0));
   };
 
   return (
-    // --- FIX: Add a higher z-index to ensure it appears on top ---
-    <Dialog open={isOpen} onClose={onClose} static={true} className="z-[100]">
-      <DialogPanel className="w-full max-w-4xl rounded-lg bg-white p-6 shadow-xl flex flex-col" style={{ height: '90vh' }}>
-        <Title className="mb-2">{lesson.title}</Title>
-        {lesson.studyGuideUrl && (
-          <a 
-            href={lesson.studyGuideUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-sm text-blue-600 hover:underline mb-4 block"
-          >
-            View Study Guide
-          </a>
-        )}
-        
-        <div className="flex-grow overflow-y-auto pr-2">
-          {currentPageData ? (
-            <div className="prose prose-lg max-w-none">
-              {currentPageData.title && (
-                <h2 className="text-xl font-semibold mb-2">{currentPageData.title}</h2>
-              )}
-              <div dangerouslySetInnerHTML={{ __html: currentPageData.content }} />
+    <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black bg-opacity-30" />
+      <Dialog.Panel className="bg-white p-6 rounded-lg shadow-lg w-full max-w-4xl z-10 flex flex-col max-h-[90vh]">
+        <Dialog.Title className="text-xl font-bold mb-4 border-b pb-2 flex-shrink-0">{lesson.title}</Dialog.Title>
+
+        {/* ✅ CHANGED: This section now displays only one page at a time */}
+        <div className="space-y-6 overflow-y-auto flex-grow">
+          {pageData && (
+            <div className="border-l-4 border-blue-500 pl-4 py-2">
+              <h3 className="font-semibold text-lg text-gray-800 mb-2">{pageData.title}</h3>
+              <MarkdownRenderer text={pageData.content} />
             </div>
-          ) : (
-            <p className="text-gray-500">This lesson does not have any content yet.</p>
           )}
         </div>
 
-        <div className="flex-shrink-0 flex justify-between items-center pt-4 mt-4 border-t">
-          <Button 
-            icon={ArrowLeftIcon} 
-            onClick={goToPrevPage} 
+        {/* ✅ NEW: Navigation controls */}
+        <div className="mt-6 flex justify-between items-center pt-4 border-t flex-shrink-0">
+          <button 
+            onClick={goToPreviousPage} 
             disabled={currentPage === 0}
+            className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
+            <ArrowLeftIcon className="h-5 w-5" />
             Previous
-          </Button>
+          </button>
+          
+          <span className="text-sm font-medium text-gray-600">
+            Page {currentPage + 1} of {totalPages}
+          </span>
 
-          {hasPages && (
-            <span className="text-sm font-medium text-gray-600">
-              Page {currentPage + 1} of {totalPages}
-            </span>
+          {currentPage < totalPages - 1 ? (
+            <button 
+              onClick={goToNextPage} 
+              disabled={currentPage === totalPages - 1}
+              className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              Next
+              <ArrowRightIcon className="h-5 w-5" />
+            </button>
+          ) : (
+            <button onClick={onClose} className="btn-primary">
+              Finish
+            </button>
           )}
-
-          <Button 
-            icon={ArrowRightIcon} 
-            iconPosition="right"
-            onClick={goToNextPage} 
-            disabled={currentPage >= totalPages - 1}
-          >
-            Next
-          </Button>
         </div>
-
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="primary" onClick={onClose}>Close</Button>
-        </div>
-      </DialogPanel>
+      </Dialog.Panel>
     </Dialog>
   );
 }
