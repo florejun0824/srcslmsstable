@@ -42,7 +42,7 @@ export default function DeleteSubjectModal({ isOpen, onClose, subject }) {
       }
 
       // 2. Finally, delete the subject itself
-      const subjectRef = doc(db, 'subjects', subject.id);
+      const subjectRef = doc(db, 'courses', subject.id);
       batch.delete(subjectRef);
 
       // 3. Commit the batch operation
