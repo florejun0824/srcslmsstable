@@ -4,26 +4,26 @@ import { useToast } from '../contexts/ToastContext';
 import { addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from '../services/firebase';
 import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  orderBy,
-  doc,
-  updateDoc,
-  deleteDoc,
-  arrayUnion,
-  arrayRemove
+    collection,
+    query,
+    where,
+    onSnapshot,
+    orderBy,
+    doc,
+    updateDoc,
+    deleteDoc,
+    arrayUnion,
+    arrayRemove
 } from 'firebase/firestore';
-import { callGeminiWithLimitCheck } from '../services/aiService'; // Import the new AI service
+import { callGeminiWithLimitCheck } from '../services/aiService';
 import {
-  HomeIcon, AcademicCapIcon, BookOpenIcon, UserIcon, ShieldCheckIcon, Bars3Icon,
-  ArrowLeftOnRectangleIcon, MagnifyingGlassIcon, PlusCircleIcon,
-  ExclamationTriangleIcon, UserGroupIcon, BeakerIcon, GlobeAltIcon, CalculatorIcon,
-  PaintBrushIcon, ComputerDesktopIcon, CodeBracketIcon, MusicalNoteIcon,
-  ClipboardDocumentListIcon, PencilSquareIcon, KeyIcon, EnvelopeIcon, IdentificationIcon,
-  MegaphoneIcon, ArchiveBoxIcon, TrashIcon, ClipboardIcon,
-  UserPlusIcon, ArrowUturnLeftIcon 
+    HomeIcon, AcademicCapIcon, BookOpenIcon, UserIcon, ShieldCheckIcon, Bars3Icon,
+    ArrowLeftOnRectangleIcon, MagnifyingGlassIcon, PlusCircleIcon,
+    ExclamationTriangleIcon, UserGroupIcon, BeakerIcon, GlobeAltIcon, CalculatorIcon,
+    PaintBrushIcon, ComputerDesktopIcon, CodeBracketIcon, MusicalNoteIcon,
+    ClipboardDocumentListIcon, PencilSquareIcon, KeyIcon, EnvelopeIcon, IdentificationIcon,
+    MegaphoneIcon, ArchiveBoxIcon, TrashIcon, ClipboardIcon,
+    UserPlusIcon, ArrowUturnLeftIcon
 } from '@heroicons/react/24/outline';
 
 import Spinner from '../components/common/Spinner';
@@ -50,6 +50,11 @@ import EditProfileModal from '../components/teacher/EditProfileModal';
 import ChangePasswordModal from '../components/teacher/ChangePasswordModal';
 import ArchivedClassesModal from '../components/teacher/ArchivedClassesModal';
 import DeleteConfirmationModal from '../components/teacher/DeleteConfirmationModal';
+
+// --- NEW: Import the new modals for Edit and Delete Subject ---
+import EditSubjectModal from '../components/teacher/EditSubjectModal';
+import DeleteSubjectModal from '../components/teacher/DeleteSubjectModal';
+
 
 const TeacherDashboard = () => {
     const { user, userProfile, logout, firestoreService, refreshUserProfile } = useAuth();
@@ -90,7 +95,7 @@ const TeacherDashboard = () => {
     const [editingAnnText, setEditingAnnText] = useState('');
     const [importClassSearchTerm, setImportClassSearchTerm] = useState('');
     const [allLmsClasses, setAllLmsClasses] = useState([]);
-    const [selectedClassForImport, setSelectedClassForImport] = useState(null); 
+    const [selectedClassForImport, setSelectedClassForImport] = useState(null);
     const [studentsToImport, setStudentsToImport] = useState(new Set());
     const [importTargetClassId, setImportTargetClassId] = useState('');
     const [isImporting, setIsImporting] = useState(false);
@@ -98,6 +103,11 @@ const TeacherDashboard = () => {
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isAiGenerating, setIsAiGenerating] = useState(false);
+    
+    // --- NEW: State for the new modals ---
+    const [subjectToActOn, setSubjectToActOn] = useState(null);
+    const [isEditSubjectModalOpen, setEditSubjectModalOpen] = useState(false);
+    const [isDeleteSubjectModalOpen, setDeleteSubjectModalOpen] = useState(false);
 
     useEffect(() => {
         if (!user) { setLoading(false); return; }
@@ -307,6 +317,17 @@ const TeacherDashboard = () => {
     };
     const handleBackToClassSelection = () => { setSelectedClassForImport(null); setStudentsToImport(new Set()); setImportTargetClassId(''); };
 
+    // --- NEW: Handlers for opening the new subject modals ---
+    const handleOpenEditSubject = (subject) => {
+        setSubjectToActOn(subject);
+        setEditSubjectModalOpen(true);
+    };
+
+    const handleOpenDeleteSubject = (subject) => {
+        setSubjectToActOn(subject);
+        setDeleteSubjectModalOpen(true);
+    };
+
     const renderMainContent = () => {
         if (loading) return <Spinner />;
         if (error) { 
@@ -353,8 +374,39 @@ const TeacherDashboard = () => {
                 const handleSubjectChange = (e) => { const newActiveSubject = categoryCourses.find(c => c.id === e.target.value); setActiveSubject(newActiveSubject); };
                 return (
                   <div className="w-full">
-                      <div className="flex items-center gap-2 mb-4"><button onClick={handleBackToCategoryList} className="text-gray-700 p-2 rounded-full hover:bg-gray-200"><ArrowUturnLeftIcon className="w-5 h-5" /></button><select className="w-full p-3 border border-gray-300 rounded-lg bg-white text-base" value={activeSubject?.id || ''} onChange={handleSubjectChange} disabled={categoryCourses.length === 0}>{categoryCourses.map(course => ( <option key={course.id} value={course.id}>{course.title}</option> ))}</select></div>
-                      {activeSubject ? (<div className={wrapper}><div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4"><h1 className="text-2xl font-bold text-gray-800">{activeSubject.title}</h1><div className="flex gap-2"><button onClick={() => setShareContentModalOpen(true)} className="btn-primary">Share Content</button><button onClick={() => setAddUnitModalOpen(true)} className="btn-secondary">Add Unit</button></div></div><div><UnitAccordion subject={activeSubject} onInitiateDelete={handleInitiateDelete} userProfile={userProfile} onGenerateQuiz={handleGenerateQuizForLesson} isAiGenerating={isAiGenerating}/></div></div>) : (<div className={wrapper}><h1 className="text-2xl font-bold text-gray-800">{selectedCategory}</h1><div className="text-center py-10"><p className="text-gray-500">There are no subjects in this category yet.</p></div></div>)}
+                      <div className="flex items-center gap-2 mb-4">
+                          <button onClick={handleBackToCategoryList} className="text-gray-700 p-2 rounded-full hover:bg-gray-200"><ArrowUturnLeftIcon className="w-5 h-5" /></button>
+                          <select className="w-full p-3 border border-gray-300 rounded-lg bg-white text-base" value={activeSubject?.id || ''} onChange={handleSubjectChange} disabled={categoryCourses.length === 0}>
+                              {categoryCourses.map(course => ( <option key={course.id} value={course.id}>{course.title}</option> ))}
+                          </select>
+                      </div>
+                      {activeSubject ? (
+                          <div className={wrapper}>
+                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                                  <div className="flex items-center gap-3">
+                                      <h1 className="text-2xl font-bold text-gray-800">{activeSubject.title}</h1>
+                                      <button onClick={() => handleOpenEditSubject(activeSubject)} className="text-gray-400 hover:text-blue-600" title="Edit Subject Name">
+                                          <PencilSquareIcon className="w-5 h-5"/>
+                                      </button>
+                                      <button onClick={() => handleOpenDeleteSubject(activeSubject)} className="text-gray-400 hover:text-red-600" title="Delete Subject">
+                                          <TrashIcon className="w-5 h-5"/>
+                                      </button>
+                                  </div>
+                                  <div className="flex gap-2">
+                                      <button onClick={() => setShareContentModalOpen(true)} className="btn-primary">Share Content</button>
+                                      <button onClick={() => setAddUnitModalOpen(true)} className="btn-secondary">Add Unit</button>
+                                  </div>
+                              </div>
+                              <div>
+                                  <UnitAccordion subject={activeSubject} onInitiateDelete={handleInitiateDelete} userProfile={userProfile} onGenerateQuiz={handleGenerateQuizForLesson} isAiGenerating={isAiGenerating}/>
+                              </div>
+                          </div>
+                      ) : (
+                          <div className={wrapper}>
+                              <h1 className="text-2xl font-bold text-gray-800">{selectedCategory}</h1>
+                              <div className="text-center py-10"><p className="text-gray-500">There are no subjects in this category yet.</p></div>
+                          </div>
+                      )}
                   </div>
                 );
             }
@@ -420,7 +472,7 @@ const TeacherDashboard = () => {
                 </div>
             </div>
             <footer className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm flex justify-around md:hidden border-t border-gray-200/80 z-50">{bottomNavItems.map(item => { const isActive = activeView === item.view; return (<button key={item.view} onClick={() => handleViewChange(item.view)} className={`flex-1 flex flex-col items-center justify-center pt-2 pb-1 text-center transition-colors duration-200 ${isActive ? 'text-blue-600' : 'text-gray-500 hover:text-blue-500'}`}><item.icon className="h-5 w-5" /><span className="text-xs mt-1">{item.text}</span></button>)})}</footer>
-    
+        
             <ArchivedClassesModal isOpen={isArchivedModalOpen} onClose={() => setIsArchivedModalOpen(false)} archivedClasses={archivedClasses} onUnarchive={handleUnarchiveClass} onDelete={(classId) => handleDeleteClass(classId, true)}/>
             <EditProfileModal isOpen={isEditProfileModalOpen} onClose={() => setEditProfileModalOpen(false)} userProfile={userProfile} onUpdate={handleUpdateProfile}/>
             <ChangePasswordModal isOpen={isChangePasswordModalOpen} onClose={() => setChangePasswordModalOpen(false)} onSubmit={handleChangePassword}/>
@@ -444,6 +496,17 @@ const TeacherDashboard = () => {
                 onClose={() => setIsDeleteModalOpen(false)}
                 onConfirm={handleConfirmDelete}
                 deletingItemType={deleteTarget?.type}
+            />
+
+            <EditSubjectModal
+                isOpen={isEditSubjectModalOpen}
+                onClose={() => setEditSubjectModalOpen(false)}
+                subject={subjectToActOn}
+            />
+            <DeleteSubjectModal
+                isOpen={isDeleteSubjectModalOpen}
+                onClose={() => setDeleteSubjectModalOpen(false)}
+                subject={subjectToActOn}
             />
         </div>
     );

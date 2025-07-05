@@ -1,9 +1,8 @@
-// Updated UnitAccordion.js with PDF export functionality
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { db } from '../../services/firebase';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
-import { Accordion, AccordionBody, AccordionHeader, AccordionList, Button, Card } from '@tremor/react';
+import { Accordion, AccordionBody, AccordionHeader, AccordionList, Button } from '@tremor/react';
 import {
     PlusCircleIcon,
     TrashIcon,
@@ -12,7 +11,9 @@ import {
     DocumentTextIcon,
     EyeIcon
 } from '@heroicons/react/24/solid';
-// Note: PizZip and Docxtemplater are no longer needed for PDF export
+
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun } from 'docx';
+import { saveAs } from 'file-saver';
 
 import AddLessonModal from './AddLessonModal';
 import AddQuizModal from './AddQuizModal';
@@ -25,81 +26,62 @@ import ViewQuizModal from './ViewQuizModal';
 import CreateAiLessonModal from './CreateAiLessonModal';
 import AiQuizModal from './AiQuizModal';
 
-// ✅ NEW FUNCTION: This now generates a valid PDF file.
-const exportLessonToPdf = (lesson) => {
-    // Dynamically load the required libraries
-    const jspdfScript = document.createElement('script');
-    jspdfScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-    document.body.appendChild(jspdfScript);
+// In UnitAccordion.js
 
-    const html2canvasScript = document.createElement('script');
-    html2canvasScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-    document.body.appendChild(html2canvasScript);
+const exportLessonToDocx = async (lesson) => {
+  const docSections = [];
 
-    jspdfScript.onload = () => {
-        html2canvasScript.onload = () => {
-            const { jsPDF } = window.jspdf;
-            
-            // 1. Create a hidden element to render the lesson content for PDF generation.
-            const report = document.createElement('div');
-            report.style.width = '210mm'; // A4 width
-            report.style.padding = '20mm';
-            report.style.position = 'absolute';
-            report.style.left = '-9999px'; // Position off-screen
-            report.style.fontFamily = 'Arial, sans-serif';
-            
-            let html = `<h1 style="font-size: 24px; font-weight: bold; margin-bottom: 16px;">${lesson.title}</h1>`;
-            lesson.pages.forEach(page => {
-                html += `<h2 style="font-size: 18px; font-weight: bold; margin-top: 24px; margin-bottom: 12px; border-bottom: 1px solid #ccc; padding-bottom: 4px;">${page.title}</h2>`;
-                // Replace newlines with <br> tags for proper line breaks in HTML
-                const contentWithBreaks = page.content.replace(/\n/g, '<br>');
-                html += `<div style="font-size: 12px; line-height: 1.6;">${contentWithBreaks}</div>`;
-            });
-            report.innerHTML = html;
-            document.body.appendChild(report);
+  // Add Lesson Title
+  docSections.push(
+    new Paragraph({
+      children: [new TextRun({ text: lesson.title, bold: true, size: 48 })],
+      heading: HeadingLevel.HEADING_1,
+      spacing: { after: 200 },
+    })
+  );
+  
+  // Add each page's content
+  lesson.pages.forEach(page => {
+    docSections.push(
+      new Paragraph({
+        children: [new TextRun({ text: page.title, bold: true, size: 32 })],
+        heading: HeadingLevel.HEADING_2,
+        spacing: { before: 400, after: 200 },
+      })
+    );
 
-            // 2. Use html2canvas to capture the content as an image
-            window.html2canvas(report, { scale: 2 }).then(canvas => {
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = pdf.internal.pageSize.getHeight();
-                const canvasWidth = canvas.width;
-                const canvasHeight = canvas.height;
-                const ratio = canvasWidth / canvasHeight;
-                const imgWidth = pdfWidth - 40; // A4 width with margins
-                const imgHeight = imgWidth / ratio;
-                
-                let heightLeft = imgHeight;
-                let position = 20; // Top margin
+    // Image logic is removed
 
-                pdf.addImage(imgData, 'PNG', 20, position, imgWidth, imgHeight);
-                heightLeft -= (pdfHeight - 40);
+    if (page.content) {
+      const contentParagraphs = page.content.split('\\n').map(line => {
+        const cleanedLine = line
+          .replace(/\*\*(.*?)\*\*/g, '$1')
+          .replace(/\*(.*?)\*/g, '$1')
+          .replace(/\$\$([\s\S]*?)\$\$/g, '$1')
+          .replace(/\$([^\n$]*?)\$/g, '$1');
+        return new Paragraph({ 
+          children: [new TextRun({ text: cleanedLine, size: 24 })],
+          spacing: { after: 100 },
+        });
+      });
+      docSections.push(...contentParagraphs);
+    }
+  });
+  
+  const doc = new Document({
+    sections: [{
+      properties: {},
+      children: docSections,
+    }],
+  });
 
-                // Add new pages if content overflows
-                while (heightLeft > 0) {
-                    position = heightLeft - imgHeight;
-                    pdf.addPage();
-                    pdf.addImage(imgData, 'PNG', 20, position, imgWidth, imgHeight);
-                    heightLeft -= (pdfHeight - 40);
-                }
-
-                // 3. Save the PDF
-                pdf.save(`${lesson.title}.pdf`);
-                
-                // 4. Clean up the temporary elements
-                document.body.removeChild(report);
-                document.body.removeChild(jspdfScript);
-                document.body.removeChild(html2canvasScript);
-            });
-        };
-    };
+  Packer.toBlob(doc).then(blob => {
+    saveAs(blob, `${lesson.title}.docx`);
+  });
 };
-
 
 const MenuPortal = ({ children, menuStyle, onClose }) => {
     const menuRef = useRef(null);
-
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -109,13 +91,8 @@ const MenuPortal = ({ children, menuStyle, onClose }) => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [onClose]);
-
     return ReactDOM.createPortal(
-        <div
-            ref={menuRef}
-            style={menuStyle}
-            className="fixed bg-white rounded-md shadow-lg z-[5000] border"
-        >
+        <div ref={menuRef} style={menuStyle} className="fixed bg-white rounded-md shadow-lg z-[5000] border">
             <div className="py-1" onClick={onClose}>{children}</div>
         </div>,
         document.body
@@ -126,45 +103,35 @@ const ActionMenu = ({ children }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [menuStyle, setMenuStyle] = useState({});
     const iconRef = useRef(null);
-
     const handleToggle = () => {
         if (isOpen) {
             setIsOpen(false);
         } else {
             const iconRect = iconRef.current.getBoundingClientRect();
             const spaceBelow = window.innerHeight - iconRect.bottom;
-            const menuHeight = 120; 
-
+            const menuHeight = 120;
             const style = {
                 right: `${window.innerWidth - iconRect.right}px`,
                 width: '224px',
             };
-
-            if (spaceBelow < menuHeight) { 
+            if (spaceBelow < menuHeight) {
                 style.bottom = `${window.innerHeight - iconRect.top}px`;
-            } else { 
+            } else {
                 style.top = `${iconRect.bottom}px`;
             }
-
             setMenuStyle(style);
             setIsOpen(true);
         }
     };
-
     return (
         <>
             <div ref={iconRef} onClick={handleToggle} className="p-1.5 text-purple-500 hover:bg-purple-100 rounded-full cursor-pointer">
                 <SparklesIcon className="h-5 w-5" />
             </div>
-            {isOpen && (
-                <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>
-                    {children}
-                </MenuPortal>
-            )}
+            {isOpen && <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>{children}</MenuPortal>}
         </>
     );
 };
-
 
 const MenuItem = ({ icon: Icon, text, onClick, disabled = false }) => (
     <button onClick={onClick} disabled={disabled} className="flex items-center w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -173,7 +140,7 @@ const MenuItem = ({ icon: Icon, text, onClick, disabled = false }) => (
     </button>
 );
 
-const LessonItem = ({ lesson, onEdit, onView, onDelete, onGenerateQuiz, isAiGenerating }) => (
+const LessonItem = ({ lesson, onEdit, onView, onDelete, onGenerateQuiz, onExport, isAiGenerating }) => (
     <div className="p-2 border-b border-gray-200 flex justify-between items-center last:border-b-0 group">
         <p className="text-sm text-gray-700">{lesson.title}</p>
         <div className="flex items-center gap-1">
@@ -182,8 +149,7 @@ const LessonItem = ({ lesson, onEdit, onView, onDelete, onGenerateQuiz, isAiGene
             </button>
             <ActionMenu>
                 <MenuItem icon={PencilIcon} text="Edit Lesson" onClick={onEdit} />
-                {/* ✅ CORRECTION: Changed to call the PDF export function */}
-                <MenuItem icon={DocumentTextIcon} text="Export as .pdf" onClick={() => exportLessonToPdf(lesson)} />
+                <MenuItem icon={DocumentTextIcon} text="Export as .docx" onClick={onExport} />
                 <MenuItem icon={SparklesIcon} text="AI Generate Quiz" onClick={onGenerateQuiz} disabled={isAiGenerating} />
                 <MenuItem icon={TrashIcon} text="Delete Lesson" onClick={onDelete} />
             </ActionMenu>
@@ -300,6 +266,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                                     setSelectedLesson(lesson);
                                                     setAiQuizModalOpen(true);
                                                 }}
+                                                onExport={() => exportLessonToDocx(lesson)}
                                                 isAiGenerating={isAiGenerating}
                                             />
                                         )
@@ -324,6 +291,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                 </AccordionList>
             ) : <p className="text-center text-gray-500 py-10">No units in this subject yet. Add one to get started!</p>}
 
+            {/* All Modals */}
             <EditUnitModal isOpen={editUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={selectedUnit} />
             <AddLessonModal isOpen={addLessonModalOpen} onClose={() => setAddLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id} />
             <AddQuizModal isOpen={addQuizModalOpen} onClose={() => setAddQuizModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id} />

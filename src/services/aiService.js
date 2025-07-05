@@ -4,7 +4,7 @@ import { db } from './firebase';
 import { doc, getDoc, updateDoc, setDoc, increment } from 'firebase/firestore';
 
 const API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`;
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 
 // This is a high safety cap. The actual free limit is based on requests per minute/day.
 const FREE_API_CALL_LIMIT_PER_MONTH = 50000;

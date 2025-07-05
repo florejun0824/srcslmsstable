@@ -2,30 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
 import { ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/24/solid';
 
-// This is the same renderer from your CreateAiLessonModal to ensure consistent formatting.
-const MarkdownRenderer = ({ text = '' }) => {
-  // Split the text by the bold markdown pattern, keeping the delimiters
-  const parts = text.split(/(\*\*.*?\*\*)/g);
-
-  return (
-    <p className="text-sm whitespace-pre-line text-gray-700">
-      {parts.map((part, index) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-          // If the part is bold, render it inside a <strong> tag
-          return <strong key={index}>{part.slice(2, -2)}</strong>;
-        }
-        // Otherwise, render the text as is
-        return part;
-      })}
-    </p>
-  );
+// IMPORT: Import the advanced renderer we built earlier.
+// Adjust the path if your file structure is different.
+import ContentRenderer from './ContentRenderer';
+import sanitizeLessonText from './sanitizeLessonText';
+const AiLessonViewer = ({ rawText }) => {
+  const cleaned = sanitizeLessonText(rawText);
+  return <ContentRenderer text={cleaned} />;
 };
 
 export default function ViewLessonModal({ isOpen, onClose, lesson }) {
-  // ✅ NEW: State to track the current page index
   const [currentPage, setCurrentPage] = useState(0);
 
-  // ✅ NEW: Reset to the first page whenever the modal is opened or the lesson changes.
   useEffect(() => {
     if (isOpen) {
       setCurrentPage(0);
@@ -53,17 +41,28 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
       <Dialog.Panel className="bg-white p-6 rounded-lg shadow-lg w-full max-w-4xl z-10 flex flex-col max-h-[90vh]">
         <Dialog.Title className="text-xl font-bold mb-4 border-b pb-2 flex-shrink-0">{lesson.title}</Dialog.Title>
 
-        {/* ✅ CHANGED: This section now displays only one page at a time */}
-        <div className="space-y-6 overflow-y-auto flex-grow">
+        <div className="space-y-6 overflow-y-auto flex-grow pr-4 -mr-4"> {/* Added padding for scrollbar */}
           {pageData && (
-            <div className="border-l-4 border-blue-500 pl-4 py-2">
+            <div className="py-2">
               <h3 className="font-semibold text-lg text-gray-800 mb-2">{pageData.title}</h3>
-              <MarkdownRenderer text={pageData.content} />
+
+              {/* NEW: This checks for and displays the saved image URL */}
+              {pageData.imageUrl && (
+                <div className="my-4">
+                  <img 
+                    src={pageData.imageUrl} 
+                    alt={pageData.title} 
+                    className="w-full h-auto max-h-96 object-contain rounded-lg shadow-md mx-auto" 
+                  />
+                </div>
+              )}
+
+              {/* CHANGED: Use the advanced ContentRenderer for proper formatting */}
+              <ContentRenderer text={pageData.content} />
             </div>
           )}
         </div>
 
-        {/* ✅ NEW: Navigation controls */}
         <div className="mt-6 flex justify-between items-center pt-4 border-t flex-shrink-0">
           <button 
             onClick={goToPreviousPage} 

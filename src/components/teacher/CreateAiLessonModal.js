@@ -1,84 +1,51 @@
-// CreateAiLessonModal.js — AI Lesson Generator with multi-lesson scaffolding
 import React, { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
-import { addDoc, collection, serverTimestamp, query, where, onSnapshot, writeBatch, doc } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, query, onSnapshot, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 import { MagnifyingGlassIcon as SearchIcon, XCircleIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
+import LessonPage from './LessonPage'; // LessonPage will be simplified as well
+import ContentRenderer from './ContentRenderer';
 
-// A utility function to detect Filipino language based on common words.
 const isFilipino = (text = '') => {
-  // Regex to find common Filipino connector words. The \b ensures whole words are matched.
-  // Checks for words like 'ng', 'mga', 'sa', 'at', 'ay', 'para', 'ang'.
+  if (!text) return false;
   const filipinoRegex = /\b(ng|mga|sa|at|ay|para|ang|ito)\b/gi;
   const matches = text.match(filipinoRegex);
-  
-  // Considers it Filipino if it finds more than 5 common Filipino words.
-  // This threshold prevents false positives on English text with occasional "at" or "sa".
   return matches && matches.length > 5;
 };
 
-// A simple component to render basic markdown (bolding)
-const MarkdownRenderer = ({ text = '' }) => {
-  const parts = text.split(/(\*\*.*?\*\*)/g);
-  return (
-    <p className="text-sm whitespace-pre-line text-gray-700">
-      {parts.map((part, index) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return <strong key={index}>{part.slice(2, -2)}</strong>;
-        }
-        return part;
-      })}
-    </p>
-  );
-};
-
-export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId }) {
+export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId, subjectName }) {
   const { showToast } = useToast();
-
-  const [formData, setFormData] = useState({
-    format: '5Es',
-    generationTarget: 'studentLesson',
-    instructionalDelivery: 'Offline'
-  });
-
-  // State for the new multi-lesson workflow
+  const [formData, setFormData] = useState({ format: '5Es', generationTarget: 'studentLesson', instructionalDelivery: 'Offline' });
   const [content, setContent] = useState('');
   const [contentStandard, setContentStandard] = useState('');
   const [performanceStandard, setPerformanceStandard] = useState('');
   const [learningCompetencies, setLearningCompetencies] = useState('');
   const [lessonCount, setLessonCount] = useState(3);
   const [pagesPerLesson, setPagesPerLesson] = useState(3);
-
-  // State for the teacher guide workflow
+  const [gradeLevel, setGradeLevel] = useState('Grade 4');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [allSubjects, setAllSubjects] = useState([]);
   const [allLessons, setAllLessons] = useState([]);
   const [filteredLessons, setFilteredLessons] = useState([]);
   const [selectedStudentLesson, setSelectedStudentLesson] = useState(null);
-
+  const [teacherGuidePages, setTeacherGuidePages] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [previewData, setPreviewData] = useState(null);
   const [extraInstruction, setExtraInstruction] = useState('');
-  
   const [expandedLessonIndex, setExpandedLessonIndex] = useState(null);
 
-  // Fetch all subjects and lessons when the modal is set to generate a teacher guide
   useEffect(() => {
     if (isOpen && formData.generationTarget === 'teacherGuide') {
       const subjectsQuery = query(collection(db, 'subjects'));
       const unsubSubjects = onSnapshot(subjectsQuery, (snapshot) => {
-        const subjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setAllSubjects(subjects);
+        setAllSubjects(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
       });
-
       const lessonsQuery = query(collection(db, 'lessons'));
       const unsubLessons = onSnapshot(lessonsQuery, (snapshot) => {
-        const lessons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setAllLessons(lessons);
+        setAllLessons(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
       });
-
       return () => {
         unsubSubjects();
         unsubLessons();
@@ -86,28 +53,25 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
     }
   }, [isOpen, formData.generationTarget]);
 
-  // Filter lessons based on the searched subject name
   useEffect(() => {
     const subjectNameMap = allSubjects.reduce((map, subject) => {
-        map[subject.id] = subject.name;
-        return map;
+      map[subject.id] = subject.name;
+      return map;
     }, {});
-
     let lessonsToShow = [];
-
     if (searchKeyword.trim() === '') {
       lessonsToShow = allLessons.map(lesson => ({
-          ...lesson,
-          subjectName: subjectNameMap[lesson.subjectId] || 'Unknown Subject'
+        ...lesson,
+        subjectName: subjectNameMap[lesson.subjectId] || 'Unknown Subject'
       }));
     } else {
       lessonsToShow = allLessons
         .map(lesson => ({
-            ...lesson,
-            subjectName: subjectNameMap[lesson.subjectId] || ''
+          ...lesson,
+          subjectName: subjectNameMap[lesson.subjectId] || ''
         }))
-        .filter(lesson => 
-            lesson.subjectName.toLowerCase().includes(searchKeyword.toLowerCase())
+        .filter(lesson =>
+          lesson.subjectName && lesson.subjectName.toLowerCase().includes(searchKeyword.toLowerCase())
         );
     }
     setFilteredLessons(lessonsToShow);
@@ -117,123 +81,122 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const generatePrompt = (extra = '') => {
-    let baseInfo = '';
-    let studentLessonContent = '';
-    let teacherGuidePrompt = '';
-
-    if (formData.generationTarget === 'teacherGuide' && selectedStudentLesson) {
-        baseInfo = `\n**Lesson Title:**\n"${selectedStudentLesson.title}"\n`;
-        studentLessonContent = selectedStudentLesson.pages.map(p => `Page Title: ${p.title}\nContent:\n${p.content}`).join('\n\n---\n\n');
-
-        // 1. Detect the language of the source lesson content.
-        const lessonIsFilipino = isFilipino(studentLessonContent);
-
-        // 2. Prepare language-specific instructions for the AI.
-        const languageInstruction = lessonIsFilipino
-          ? `\n**Language for Generation:**\n"Filipino. The entire output, including all titles, headings, and content MUST be in Filipino."\n`
-          : '';
-
-        const phaseInstructions = lessonIsFilipino
-          ? `**Mga Gawain ng Guro (Teacher Actions)**, **Mga Aktibidad ng Mag-aaral (Student Activities)**, **Mga Pangunahing Tanong (Key Questions)**, and **Tinatayang Oras (Estimated Time)**`
-          : `**Teacher Actions**, **Student Activities**, **Key Questions**, and **Estimated Time**`;
-
-        const guideTitlePrefix = lessonIsFilipino ? "Gabay ng Guro para sa:" : "Teacher Guide for:";
-
-        // 3. Construct the final prompt using the dynamic, language-aware variables.
-        teacherGuidePrompt = `You are an expert instructional coach creating a detailed lesson plan (Teacher's Guide). Your task is to generate this guide based on the provided student lesson content and a specified instructional delivery mode.
-**Original Student Lesson Content:**
-${studentLessonContent}
-**Lesson Format to Follow for the Guide:**
-"Follow the ${formData.format} model."
-**Instructional Delivery Mode:**
-"${formData.instructionalDelivery}"${languageInstruction}${extra ? `**Additional Teacher Instruction:**\n${extra}` : ''}
-**Instructions for Teacher's Guide:**
-1. Create a step-by-step guide for the teacher that is **strictly tailored** to the specified "Instructional Delivery Mode".
-2. For each phase of the model, provide: ${phaseInstructions}. Use markdown for bolding.
-3. The final output must be a single, valid JSON object with this exact structure: { "generated_lessons": [{ "lessonTitle": "${guideTitlePrefix} ${selectedStudentLesson?.title}", "pages": [{ "title": "string", "content": "string" }] }] }. Do not include any text outside the JSON.`;
-
-    } else {
-        baseInfo = `
-**Main Content/Topic:**
-"${content}"
-
-**Content Standard:**
-"${contentStandard}"
-
-**Learning Competencies:**
-"${learningCompetencies}"
-
-**Performance Standard:**
-"${performanceStandard}"
-`;
+  const generatePrompt = (isRegeneration = false, regenerationNote = '', existingData = null, currentGradeLevel, currentSubjectName) => {
+    if (isRegeneration && existingData) {
+      const existingJsonString = JSON.stringify(existingData, null, 2);
+      return `You are a highly precise JSON editing bot. Your ONLY task is to modify the provided JSON data based on the user's instruction and return the complete, updated JSON.
+**CRITICAL RULES:**
+1. You MUST return the **entire, complete JSON object**.
+2. You MUST **preserve all existing data**. Do not delete fields like "content" or "title" unless specifically told to.
+3. You must not add any commentary outside the final JSON block.
+4. Ensure all backslashes are properly escaped.
+**EXISTING JSON DATA:** \`\`\`json\n${existingJsonString}\n\`\`\`
+**USER'S INSTRUCTION FOR REVISION:** "${regenerationNote}"`;
     }
 
-    const studentLessonPrompt = `You are an expert instructional designer and subject matter expert. Your task is to generate a series of scaffolded, student-facing lessons of exceptional quality.
+    const advancedInstructions = `\n**Mathematical and Scientific Notations:** ALL mathematical content MUST be enclosed in LaTeX delimiters ($...$ or $$...$$).\n**Use Standard Characters:** You MUST use standard keyboard characters for markdown.\n**CRITICAL JSON RULE:** You MUST ensure all backslashes (\\) in the JSON content are properly escaped (as \\\\).`;
+
+    if (formData.generationTarget === 'teacherGuide' && selectedStudentLesson) {
+      const studentLessonContent = selectedStudentLesson.pages.map(p => `Page Title: ${p.title}\nContent:\n${p.content}`).join('\n\n---\n\n');
+      const lessonIsFilipino = isFilipino(studentLessonContent);
+      const languageInstruction = lessonIsFilipino ? `\n**Language for Generation:**\n"Filipino."\n` : '';
+      const phaseInstructions = lessonIsFilipino ? `**Mga Gawain ng Guro**, etc.` : `**Teacher Actions**, etc.`;
+      const guideTitlePrefix = lessonIsFilipino ? "Gabay ng Guro para sa:" : "Teacher Guide for:";
+      return `You are an expert instructional coach creating a lesson plan for the subject: **${currentSubjectName}**.
+**Target Grade Level:** "${currentGradeLevel}".
+**Original Student Lesson Content:** ${studentLessonContent}
+**Lesson Format:** "${formData.format}"
+**Instructions:**
+1. The "content" field for each page is the most important part and must contain detailed, step-by-step text for the teacher.
+2. Every page object MUST have a descriptive "title".
+${advancedInstructions}
+3. **JSON Output:** Return a single, valid JSON object: { "generated_lessons": [{ "lessonTitle": "${guideTitlePrefix} ${selectedStudentLesson?.title}", "pages": [ ... ] }] }.`;
+    } else {
+      const baseInfo = `**Topic:** "${content}"\n**Content Standard:** "${contentStandard}"\n**Learning Competencies:** "${learningCompetencies}"\n**Performance Standard:** "${performanceStandard}"`;
+      return `You are an expert instructional designer creating a lesson for the subject: **${currentSubjectName}**.
+**Target Grade Level:** "${currentGradeLevel}".
 ${baseInfo}
-**Number of Lessons to Create:** ${lessonCount}
+**Number of Lessons:** ${lessonCount}
 **Pages Per Lesson:** ${pagesPerLesson}
-
-**Lesson Format to Follow for each lesson:**
-"Follow the ${formData.format} model."
-${extra ? `**Additional Teacher Instruction:**\n${extra}` : ''}
-**CRITICAL INSTRUCTIONS FOR GENERATING THE LESSON SERIES:**
-1.  **Language Detection and Application:** You MUST detect the primary language used in the provided "Main Content/Topic", "Content Standard", and "Performance Standard". The entire generated output, including all lesson titles, objectives, content, and activities, MUST be in that same detected language.
-2.  **Expert-Level Content Depth:** Act as a university-level subject matter expert. The content must be rich, detailed, comprehensive, and factually accurate. **Do not provide simple definitions.** Instead, provide in-depth discussions, full explanations of concepts, and use analogies, case studies, and real-world examples to ensure deep understanding. The information must be dense and valuable.
-3.  **Scaffolding and Cohesion:** Logically divide the main "Content" into ${lessonCount} distinct lessons. Each lesson must sequentially build upon the knowledge and skills of the previous one, creating a cohesive learning arc.
-4.  **Unique and Engaging Activities:** For each lesson, design unique, creative, and engaging activities. Do not use generic activities. Suggest specific, modern pedagogical techniques (e.g., "Think-Pair-Share," "Jigsaw," "Concept Mapping," "Gallery Walk"). All activities must directly prepare students to achieve the stated "Performance Standard".
-5.  **AI-Generated Objectives:** For each of the ${lessonCount} lessons, you must generate specific, measurable, and appropriate learning objectives that are directly aligned with the provided **Learning Competencies**.
-6.  **Valid Academic References:** The final page of **each generated lesson** must be titled "References" (or "Sanggunian" if in Filipino) and must list at least 3-5 **valid, real-world academic sources** used to create the content. These can be books (with authors and ISBNs if possible), academic journals, or highly reputable educational websites. Do not invent sources.
-7.  **Structure and Formatting:** Each lesson must be divided into exactly ${pagesPerLesson} pages. Use the special marker "[---PAGE_BREAK---]" to separate pages within a single lesson.
-8.  **Output:** The final output must be a single, valid JSON object. The root object should have one key: "generated_lessons", which is an array. Each element in the array is a complete lesson object.
-9.  **JSON Key for Objectives:** If the detected language is Filipino, use the key "learningLayunin" for the objectives array. Otherwise, use the key "learningObjectives". The structure must be: { "lessonTitle": "string", "learningLayunin" or "learningObjectives": ["string"], "pages": [{ "title": "string", "content": "string" }] }. Do not include any text outside the JSON.`;
-
-    return formData.generationTarget === 'studentLesson' ? studentLessonPrompt : teacherGuidePrompt;
+**Format:** "${formData.format}"
+**CRITICAL INSTRUCTIONS:**
+1. **Core Task:** For every single page, you MUST write detailed, substantive educational text in the "content" field. The "content" field must never be empty.
+2. **Language & Objectives:** Detect the language. For Filipino, use the "learningLayunin" key; for English, use "learningObjectives".
+3. **References:** The final page of EACH lesson must be "References" with 3-5 real sources.
+4. **Page Titles:** Every page object MUST have a relevant "title".
+${advancedInstructions}
+5. **JSON Output:** Return a single valid JSON object: { "generated_lessons": [{"lessonTitle": "...", "pages": [{"title": "...", "content": "..."}] }] }.`;
+    }
   };
 
   const handleGenerate = async (regenerationNote = '') => {
-    if (formData.generationTarget === 'studentLesson' && (!content || !contentStandard || !performanceStandard || !learningCompetencies)) {
+    const isRegeneration = !!regenerationNote && !!previewData;
+    if (!isRegeneration) {
+      if (formData.generationTarget === 'studentLesson' && (!content || !contentStandard || !performanceStandard || !learningCompetencies)) {
         return showToast("Please complete all required fields.", "error");
-    }
-    if (formData.generationTarget === 'teacherGuide' && !selectedStudentLesson) {
+      }
+      if (formData.generationTarget === 'teacherGuide' && !selectedStudentLesson) {
         return showToast("Please select a student lesson to generate a guide for.", "error");
+      }
     }
-
     setIsGenerating(true);
-    showToast("Generating content. This may take a moment...", "info");
+    if (!isRegeneration) setPreviewData(null);
+    showToast(isRegeneration ? "Regenerating content..." : "Generating content...", "info");
     try {
-      const prompt = generatePrompt(regenerationNote);
+      const prompt = generatePrompt(isRegeneration, regenerationNote, previewData, gradeLevel, subjectName);
       const aiText = await callGeminiWithLimitCheck(prompt);
-      const response = JSON.parse(aiText);
-      setPreviewData(response);
+      let parsedResponse;
+      try {
+        parsedResponse = JSON.parse(aiText);
+      } catch (jsonError) {
+        console.warn("Initial JSON parsing failed. Asking AI to fix its own response.", jsonError);
+        showToast("AI response was malformed, attempting to self-correct...", "info");
+        const fixJsonPrompt = `The following text is broken JSON. Fix syntax errors and return ONLY the corrected, valid JSON object.\n\nBROKEN JSON:\n\`\`\`\n${aiText}\n\`\`\``;
+        const fixedAiText = await callGeminiWithLimitCheck(fixJsonPrompt);
+        parsedResponse = JSON.parse(fixedAiText);
+      }
+      console.log("AI Response Received:", parsedResponse);
+      let finalData;
+      if (isRegeneration) {
+        finalData = parsedResponse;
+      } else {
+        if (parsedResponse.generated_lessons) {
+          finalData = parsedResponse;
+        } else if (parsedResponse.lessonTitle && parsedResponse.pages) {
+          finalData = { generated_lessons: [parsedResponse] };
+        } else {
+          throw new Error("Received an unknown JSON structure from the AI.");
+        }
+      }
+      setPreviewData(finalData);
     } catch (err) {
-      console.error(err);
-      showToast("AI generation failed. Check console for details.", "error");
+      console.error("JSON Parsing or AI Error:", err);
+      showToast("AI generation failed. The response may be invalid.", "error");
+      setPreviewData({ error: true, message: err.message });
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleSave = async () => {
-    if (!previewData || !previewData.generated_lessons) return;
-    
+    if (!previewData || !Array.isArray(previewData.generated_lessons)) {
+      showToast("Cannot save: Invalid lesson data.", "error");
+      return;
+    }
     const batch = writeBatch(db);
-    
     previewData.generated_lessons.forEach(lesson => {
-        const newLessonRef = doc(collection(db, 'lessons'));
-        batch.set(newLessonRef, {
-            title: lesson.lessonTitle,
-            pages: lesson.pages,
-            // Coalesce objectives from either key into a single database field.
-            objectives: lesson.learningObjectives || lesson.learningLayunin || [],
-            unitId,
-            subjectId,
-            contentType: formData.generationTarget,
-            basedOnLessonId: formData.generationTarget === 'teacherGuide' ? selectedStudentLesson.id : null,
-            createdAt: serverTimestamp()
-        });
+      const newLessonRef = doc(collection(db, 'lessons'));
+      batch.set(newLessonRef, {
+        title: lesson.lessonTitle,
+        pages: lesson.pages,
+        objectives: lesson.learningObjectives || lesson.learningLayunin || [],
+        unitId,
+        subjectId,
+        contentType: formData.generationTarget,
+        basedOnLessonId: formData.generationTarget === 'teacherGuide' ? selectedStudentLesson.id : null,
+        createdAt: serverTimestamp()
+      });
     });
-
     try {
       await batch.commit();
       showToast(`${previewData.generated_lessons.length} lessons saved successfully!`, "success");
@@ -258,6 +221,8 @@ ${extra ? `**Additional Teacher Instruction:**\n${extra}` : ''}
     setFilteredLessons([]);
     setSelectedStudentLesson(null);
     setExpandedLessonIndex(null);
+    setTeacherGuidePages(1);
+    setGradeLevel('Grade 4');
   };
 
   const handleSelectLesson = (lesson) => {
@@ -270,6 +235,8 @@ ${extra ? `**Additional Teacher Instruction:**\n${extra}` : ''}
     setExpandedLessonIndex(expandedLessonIndex === index ? null : index);
   };
 
+  const isValidPreview = previewData && Array.isArray(previewData.generated_lessons);
+
   return (
     <Dialog open={isOpen} onClose={() => { onClose(); resetState(); }} className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black bg-opacity-30" />
@@ -279,84 +246,104 @@ ${extra ? `**Additional Teacher Instruction:**\n${extra}` : ''}
         {!previewData ? (
           <div className="space-y-4">
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Generate For:</label>
-                <select name="generationTarget" value={formData.generationTarget} onChange={handleChange} className="w-full p-2 border rounded">
-                    <option value="studentLesson">Lesson for Students</option>
-                    <option value="teacherGuide">Lesson Plan for Teacher</option>
-                </select>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Generate For:</label>
+              <select name="generationTarget" value={formData.generationTarget} onChange={handleChange} className="w-full p-2 border rounded">
+                <option value="studentLesson">Lesson for Students</option>
+                <option value="teacherGuide">Lesson Plan for Teacher</option>
+              </select>
             </div>
-
-            {formData.generationTarget === 'studentLesson' ? (
-                <>
-                    <textarea placeholder="Main Content / Topic" value={content} onChange={(e) => setContent(e.target.value)} className="w-full p-2 border rounded" rows={4} />
-                    <textarea placeholder="Content Standard" value={contentStandard} onChange={(e) => setContentStandard(e.target.value)} className="w-full p-2 border rounded" rows={3} />
-                    <textarea placeholder="Learning Competencies" value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className="w-full p-2 border rounded" rows={3} />
-                    <textarea placeholder="Performance Standard" value={performanceStandard} onChange={(e) => setPerformanceStandard(e.target.value)} className="w-full p-2 border rounded" rows={3} />
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Number of Lessons:</label>
-                            <input type="number" min="1" max="10" value={lessonCount} onChange={(e) => setLessonCount(Number(e.target.value))} className="w-full p-2 border rounded" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Pages per Lesson:</label>
-                            <input type="number" min="1" max="20" value={pagesPerLesson} onChange={(e) => setPagesPerLesson(Number(e.target.value))} className="w-full p-2 border rounded" />
-                        </div>
-                    </div>
-                </>
-            ) : (
-                <div className="p-4 border rounded-lg bg-gray-50 space-y-3">
-                    <h3 className="font-semibold text-gray-800">Select a Lesson to Base Your Guide On</h3>
-                    {!selectedStudentLesson ? (
-                        <>
-                            <div className="relative">
-                                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                                <input type="text" placeholder="Search by subject name..." value={searchKeyword} onChange={(e) => setSearchKeyword(e.target.value)} className="w-full p-2 pl-10 border rounded" />
-                            </div>
-                            {filteredLessons.length > 0 ? (
-                                <ul className="border rounded max-h-40 overflow-y-auto">
-                                    {filteredLessons.map(lesson => (
-                                        <li key={lesson.id} onClick={() => handleSelectLesson(lesson)} className="p-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0">
-                                            <p className="font-medium">{lesson.title}</p>
-                                            <p className="text-xs text-gray-500">Subject: {lesson.subjectName}</p>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : (
-                                <p className="text-sm text-gray-500 text-center p-4">No lessons found.</p>
-                            )}
-                        </>
-                    ) : (
-                        <div className="flex items-center justify-between p-2 bg-blue-50 border border-blue-200 rounded-lg">
-                            <span className="font-medium text-blue-800">{selectedStudentLesson.title}</span>
-                            <button onClick={() => setSelectedStudentLesson(null)}><XCircleIcon className="h-5 w-5 text-blue-600 hover:text-blue-800"/></button>
-                        </div>
-                    )}
-                </div>
-            )}
-            
-            {formData.generationTarget === 'teacherGuide' && (
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Instructional Delivery:</label>
-                    <select name="instructionalDelivery" value={formData.instructionalDelivery} onChange={handleChange} className="w-full p-2 border rounded">
-                        <option value="Offline">Offline (Face-to-Face)</option>
-                        <option value="Online">Online</option>
-                        <option value="Blended">Blended</option>
-                    </select>
-                </div>
-            )}
-
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Lesson Format:</label>
-                <select name="format" value={formData.format} onChange={handleChange} className="w-full p-2 border rounded">
-                    <option value="5Es">5Es (Engage, Explore, Explain, Elaborate, Evaluate)</option>
-                    <option value="4As">4As (Activity, Analysis, Abstraction, Application)</option>
-                    <option value="3Is">3Is (Introduce, Interact, Integrate)</option>
-                    <option value="AMT Model">AMT (Acquisition, Meaning-making, Transfer)</option>
-                    <option value="Gradual Release">Gradual Release (I do, We do, You do)</option>
-                    <option value="Lecture">Standard Lecture</option>
-                </select>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Grade Level:</label>
+              <select name="gradeLevel" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} className="w-full p-2 border rounded">
+                <option>Kindergarten</option>
+                <option>Grade 1</option>
+                <option>Grade 2</option>
+                <option>Grade 3</option>
+                <option>Grade 4</option>
+                <option>Grade 5</option>
+                <option>Grade 6</option>
+                <option>Grade 7</option>
+                <option>Grade 8</option>
+                <option>Grade 9</option>
+                <option>Grade 10</option>
+                <option>Grade 11</option>
+                <option>Grade 12</option>
+              </select>
             </div>
-            
+            {formData.generationTarget === 'studentLesson' ? (
+              <>
+                <textarea placeholder="Main Content / Topic" value={content} onChange={(e) => setContent(e.target.value)} className="w-full p-2 border rounded" rows={4} />
+                <textarea placeholder="Content Standard" value={contentStandard} onChange={(e) => setContentStandard(e.target.value)} className="w-full p-2 border rounded" rows={3} />
+                <textarea placeholder="Learning Competencies" value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className="w-full p-2 border rounded" rows={3} />
+                <textarea placeholder="Performance Standard" value={performanceStandard} onChange={(e) => setPerformanceStandard(e.target.value)} className="w-full p-2 border rounded" rows={3} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Number of Lessons:</label>
+                    <input type="number" min="1" max="10" value={lessonCount} onChange={(e) => setLessonCount(Number(e.target.value))} className="w-full p-2 border rounded" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Pages per Lesson:</label>
+                    <input type="number" min="1" max="20" value={pagesPerLesson} onChange={(e) => setPagesPerLesson(Number(e.target.value))} className="w-full p-2 border rounded" />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="p-4 border rounded-lg bg-gray-50 space-y-3">
+                <h3 className="font-semibold text-gray-800">Select a Lesson to Base Your Guide On</h3>
+                {!selectedStudentLesson ? (
+                  <>
+                    <div className="relative">
+                      <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <input type="text" placeholder="Search by subject name..." value={searchKeyword} onChange={(e) => setSearchKeyword(e.target.value)} className="w-full p-2 pl-10 border rounded" />
+                    </div>
+                    {filteredLessons.length > 0 ? (
+                      <ul className="border rounded max-h-40 overflow-y-auto">
+                        {filteredLessons.map(lesson => (
+                          <li key={lesson.id} onClick={() => handleSelectLesson(lesson)} className="p-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0">
+                            <p className="font-medium">{lesson.title}</p>
+                            <p className="text-xs text-gray-500">Subject: {lesson.subjectName}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-gray-500 text-center p-4">No lessons found.</p>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                    <span className="font-medium text-blue-800">{selectedStudentLesson.title}</span>
+                    <button onClick={() => setSelectedStudentLesson(null)}><XCircleIcon className="h-5 w-5 text-blue-600 hover:text-blue-800"/></button>
+                  </div>
+                )}
+              </div>
+            )}
+            {formData.generationTarget === 'teacherGuide' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Instructional Delivery:</label>
+                  <select name="instructionalDelivery" value={formData.instructionalDelivery} onChange={handleChange} className="w-full p-2 border rounded">
+                    <option value="Offline">Offline (Face-to-Face)</option>
+                    <option value="Online">Online</option>
+                    <option value="Blended">Blended</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Pages for Guide:</label>
+                  <input type="number" min="1" max="10" value={teacherGuidePages} onChange={(e) => setTeacherGuidePages(Number(e.target.value))} className="w-full p-2 border rounded" />
+                </div>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Lesson Format:</label>
+              <select name="format" value={formData.format} onChange={handleChange} className="w-full p-2 border rounded">
+                <option value="5Es">5Es</option>
+                <option value="4As">4As</option>
+                <option value="3Is">3Is</option>
+                <option value="AMT Model">AMT</option>
+                <option value="Gradual Release">Gradual Release</option>
+                <option value="Lecture">Standard Lecture</option>
+              </select>
+            </div>
             <div className="flex justify-end">
               <button onClick={() => handleGenerate()} disabled={isGenerating} className="btn-primary">
                 {isGenerating ? 'Generating...' : 'Generate Content'}
@@ -365,46 +352,49 @@ ${extra ? `**Additional Teacher Instruction:**\n${extra}` : ''}
           </div>
         ) : (
           <div className="space-y-6">
-            <h2 className="text-lg font-semibold">Preview: {previewData.generated_lessons.length} Lessons Generated</h2>
-            <div className="space-y-2">
-                {previewData.generated_lessons.map((lesson, index) => (
-                    <div key={index} className="border rounded">
-                        <div
-                            className="flex justify-between items-center p-3 cursor-pointer hover:bg-gray-50"
-                            onClick={() => toggleLessonPreview(index)}
-                        >
-                            <h3 className="font-bold text-gray-800">{index + 1}. {lesson.lessonTitle}</h3>
-                            {expandedLessonIndex === index ? <ChevronUpIcon className="h-5 w-5 text-gray-500"/> : <ChevronDownIcon className="h-5 w-5 text-gray-500"/>}
-                        </div>
-                        {expandedLessonIndex === index && (
-                            <div className="p-4 border-t bg-white">
-                                <div className="mb-4">
-                                    {/* Conditionally render "Layunin" or "Objectives" */}
-                                    <h4 className="font-semibold text-sm">{lesson.learningLayunin ? 'Mga Layunin:' : 'Objectives:'}</h4>
-                                    <ul className="list-disc pl-5 text-sm text-gray-600">
-                                        {(lesson.learningObjectives || lesson.learningLayunin)?.map((obj, i) => <li key={i}>{obj}</li>)}
-                                    </ul>
-                                </div>
-                                {lesson.pages.map((page, pageIndex) => (
-                                    <div key={pageIndex} className="mb-4 last:mb-0">
-                                        <h4 className="font-semibold text-gray-700 mb-1">{page.title}</h4>
-                                        <MarkdownRenderer text={page.content} />
-                                    </div>
-                                ))}
+            {isValidPreview ? (
+              <>
+                <h2 className="text-lg font-semibold">Preview: {previewData.generated_lessons.length} Lessons Generated</h2>
+                <div className="space-y-2">
+                    {previewData.generated_lessons.map((lesson, index) => (
+                        <div key={index} className="border rounded">
+                            <div className="flex justify-between items-center p-3 cursor-pointer hover:bg-gray-50" onClick={() => toggleLessonPreview(index)}>
+                                <h3 className="font-bold text-gray-800">{index + 1}. {lesson.lessonTitle}</h3>
+                                {expandedLessonIndex === index ? <ChevronUpIcon className="h-5 w-5 text-gray-500"/> : <ChevronDownIcon className="h-5 w-5 text-gray-500"/>}
                             </div>
-                        )}
-                    </div>
-                ))}
-            </div>
-
+                            {expandedLessonIndex === index && (
+                                <div className="p-4 border-t bg-white">
+                                    <div className="mb-4">
+                                        <h4 className="font-semibold text-sm">{lesson.learningLayunin ? 'Mga Layunin:' : 'Objectives:'}</h4>
+                                        <ul className="list-disc pl-5 text-sm text-gray-600">
+                                            {Array.isArray(lesson.learningObjectives || lesson.learningLayunin) && (lesson.learningObjectives || lesson.learningLayunin).map((obj, i) => (
+                                                <li key={i}><ContentRenderer text={obj} /></li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                    {Array.isArray(lesson.pages) && lesson.pages.map((page, pageIndex) => <LessonPage key={pageIndex} page={page} />)}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+              </>
+            ) : (
+              <div className="p-4 text-center bg-red-50 text-red-700 border border-red-200 rounded-lg">
+                <h3 className="font-bold">Error Generating Content</h3>
+                <p className="text-sm">The AI response was not in the expected format. Please try adjusting your inputs or generating again.</p>
+                {previewData?.message && <p className="text-xs mt-2 italic">Details: {previewData.message}</p>}
+              </div>
+            )}
             <div className="mt-4">
               <label className="block text-sm font-medium mb-1">Optional: Add extra instruction to improve the content</label>
               <textarea value={extraInstruction} onChange={(e) => setExtraInstruction(e.target.value)} placeholder="e.g., Add more visual examples or questions" className="w-full border p-2 rounded" rows={2} />
             </div>
-
             <div className="flex justify-end gap-3">
-              <button onClick={() => handleGenerate(extraInstruction)} className="btn-secondary">Regenerate with Instruction</button>
-              <button onClick={handleSave} className="btn-primary">Accept & Save All Lessons</button>
+              <button onClick={() => handleGenerate(extraInstruction)} disabled={isGenerating} className="btn-secondary">
+                {isGenerating ? 'Regenerating...' : 'Regenerate with Instruction'}
+              </button>
+              {isValidPreview && <button onClick={handleSave} className="btn-primary">Accept & Save All Lessons</button>}
             </div>
           </div>
         )}
