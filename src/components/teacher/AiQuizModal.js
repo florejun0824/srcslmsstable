@@ -62,12 +62,13 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
             prompt += `\nPlease adjust the previous generation with the following instructions: "${additionalPrompt}".\n`;
         }
         
-        // ✅ CORRECTION: The instruction for the "explanation" is now more specific and restrictive.
+        // ✅ CORRECTION: Added language detection and stricter explanation rules.
         prompt += `\nReturn the response as a single, valid JSON object. The object must have a "title" (string) and a "questions" (array) property. Each object in the "questions" array must have:
+- **Language Detection:** You MUST detect the primary language of the provided "LESSON CONTENT". The entire generated quiz, including the title, questions, options, and explanations, MUST be in that same detected language.
 - A "text" property (string).
 - A "type" property ('multiple-choice', 'true-false', or 'identification').
 - A "difficulty" property ('easy' or 'comprehension').
-- An "explanation" property (string). This explanation must be a direct and concrete clarification of why the correct answer is correct. It should not reference the lesson text itself. For example, instead of saying "As stated in the lesson...", it should say "Photosynthesis is the process plants use because...". Avoid phrases like "The lesson defines", "This reflects the lesson", or any similar meta-commentary about the source material.
+- An "explanation" property (string). This explanation must be a direct and concrete clarification of why the correct answer is correct. It should not reference the lesson text itself. Avoid phrases like "The lesson defines" or any similar meta-commentary.
 - For 'multiple-choice', an "options" property (array of 4 strings) and a "correctAnswerIndex" property (number).
 - For 'true-false', a "correctAnswer" property (boolean).
 - For 'identification', a "correctAnswer" property (string).
@@ -183,11 +184,40 @@ Do not include any text or formatting outside of the JSON object.`;
                 return (
                     <div>
                         <Title>Step 3: Preview and Approve</Title>
-                        <div className="mt-4 p-4 border rounded-lg max-h-60 overflow-y-auto bg-gray-50">
+                        <div className="mt-4 p-4 border rounded-lg max-h-96 overflow-y-auto bg-gray-50">
                             <h3 className="font-bold text-lg mb-2">{generatedQuiz?.title}</h3>
                             {generatedQuiz?.questions.map((q, i) => (
-                                <div key={i} className="mb-3 text-sm">
-                                    <p><strong>{i + 1}. {q.text}</strong> ({q.type})</p>
+                                <div key={i} className="mb-4 text-sm p-3 bg-white rounded-md shadow-sm">
+                                    <p className="font-semibold text-gray-800">{i + 1}. {q.text}</p>
+                                    <span className="text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 ">{q.type}</span>
+                                    <span className="text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">{q.difficulty}</span>
+
+                                    <div className="mt-2 pl-4">
+                                        {q.type === 'multiple-choice' && q.options && (
+                                            <ul className="list-disc list-inside space-y-1 text-gray-700">
+                                                {q.options.map((option, index) => (
+                                                    <li key={index} className={index === q.correctAnswerIndex ? 'font-bold text-green-600' : ''}>
+                                                        {option}
+                                                        {index === q.correctAnswerIndex && <span className="text-green-600 ml-2">✓ Correct</span>}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                        {q.type === 'true-false' && (
+                                            <p className="text-gray-700">
+                                                Correct Answer: <span className="font-bold text-green-600">{String(q.correctAnswer)}</span>
+                                            </p>
+                                        )}
+                                        {q.type === 'identification' && (
+                                             <p className="text-gray-700">
+                                                Correct Answer: <span className="font-bold text-green-600">{q.correctAnswer}</span>
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="mt-2 p-2 bg-gray-100 rounded">
+                                        <p className="text-xs font-semibold text-gray-600">Explanation:</p>
+                                        <p className="text-xs text-gray-600">{q.explanation}</p>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -231,7 +261,7 @@ Do not include any text or formatting outside of the JSON object.`;
                 {step === 1 && quizType !== 'mixed' ? (
                     <Button icon={SparklesIcon} onClick={handleGenerate}>Generate Quiz</Button>
                 ) : step === 2 && quizType === 'mixed' ? (
-                     <Button icon={SparklesIcon} onClick={handleGenerate}>Generate Quiz</Button>
+                       <Button icon={SparklesIcon} onClick={handleGenerate}>Generate Quiz</Button>
                 ) : (
                     <Button onClick={() => setStep(step + 1)}>Next</Button>
                 )}
