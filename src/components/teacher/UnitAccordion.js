@@ -11,9 +11,9 @@ import {
     DocumentTextIcon,
     EyeIcon
 } from '@heroicons/react/24/solid';
-
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun } from 'docx';
 import { saveAs } from 'file-saver';
+import * as htmlToImage from 'html-to-image';
+import HTMLtoDOCX from 'html-to-docx';
 
 import AddLessonModal from './AddLessonModal';
 import AddQuizModal from './AddQuizModal';
@@ -25,61 +25,51 @@ import EditQuizModal from './EditQuizModal';
 import ViewQuizModal from './ViewQuizModal';
 import CreateAiLessonModal from './CreateAiLessonModal';
 import AiQuizModal from './AiQuizModal';
+import ContentRenderer from './ContentRenderer';
 
-// In UnitAccordion.js
-
+// --- Helper function for DOCX export ---
 const exportLessonToDocx = async (lesson) => {
-  const docSections = [];
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.width = '800px';
+    document.body.appendChild(container);
 
-  // Add Lesson Title
-  docSections.push(
-    new Paragraph({
-      children: [new TextRun({ text: lesson.title, bold: true, size: 48 })],
-      heading: HeadingLevel.HEADING_1,
-      spacing: { after: 200 },
-    })
-  );
-  
-  // Add each page's content
-  lesson.pages.forEach(page => {
-    docSections.push(
-      new Paragraph({
-        children: [new TextRun({ text: page.title, bold: true, size: 32 })],
-        heading: HeadingLevel.HEADING_2,
-        spacing: { before: 400, after: 200 },
-      })
-    );
-
-    // Image logic is removed
-
-    if (page.content) {
-      const contentParagraphs = page.content.split('\\n').map(line => {
-        const cleanedLine = line
-          .replace(/\*\*(.*?)\*\*/g, '$1')
-          .replace(/\*(.*?)\*/g, '$1')
-          .replace(/\$\$([\s\S]*?)\$\$/g, '$1')
-          .replace(/\$([^\n$]*?)\$/g, '$1');
-        return new Paragraph({ 
-          children: [new TextRun({ text: cleanedLine, size: 24 })],
-          spacing: { after: 100 },
-        });
-      });
-      docSections.push(...contentParagraphs);
+    let fullHtmlString = `<h1>${lesson.title}</h1>`;
+    for (const page of lesson.pages) {
+        fullHtmlString += `<h2>${page.title}</h2>`;
+        const pageElement = document.createElement('div');
+        ReactDOM.render(<ContentRenderer text={page.content} />, pageElement);
+        fullHtmlString += pageElement.innerHTML;
     }
-  });
-  
-  const doc = new Document({
-    sections: [{
-      properties: {},
-      children: docSections,
-    }],
-  });
+    container.innerHTML = fullHtmlString;
 
-  Packer.toBlob(doc).then(blob => {
-    saveAs(blob, `${lesson.title}.docx`);
-  });
+    const elementsToConvert = container.querySelectorAll('svg, table');
+    for (const element of elementsToConvert) {
+        try {
+            const dataUrl = await htmlToImage.toPng(element);
+            const img = document.createElement('img');
+            img.src = dataUrl;
+            element.parentNode.replaceChild(img, element);
+        } catch (error) {
+            console.error('Could not convert element to image', error);
+            element.innerHTML = "[Could not render figure]";
+        }
+    }
+
+    const finalHtml = container.innerHTML;
+
+    const fileBuffer = await HTMLtoDOCX(finalHtml, null, {
+        table: { row: { cantSplit: true } },
+        footer: true,
+        pageNumber: true,
+    });
+
+    saveAs(fileBuffer, `${lesson.title}.docx`);
+    document.body.removeChild(container);
 };
 
+// --- Helper Components ---
 const MenuPortal = ({ children, menuStyle, onClose }) => {
     const menuRef = useRef(null);
     useEffect(() => {
@@ -91,6 +81,7 @@ const MenuPortal = ({ children, menuStyle, onClose }) => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [onClose]);
+
     return ReactDOM.createPortal(
         <div ref={menuRef} style={menuStyle} className="fixed bg-white rounded-md shadow-lg z-[5000] border">
             <div className="py-1" onClick={onClose}>{children}</div>
@@ -109,7 +100,7 @@ const ActionMenu = ({ children }) => {
         } else {
             const iconRect = iconRef.current.getBoundingClientRect();
             const spaceBelow = window.innerHeight - iconRect.bottom;
-            const menuHeight = 120;
+            const menuHeight = 120; // Approximate height of the menu
             const style = {
                 right: `${window.innerWidth - iconRect.right}px`,
                 width: '224px',
@@ -172,6 +163,8 @@ const QuizItem = ({ quiz, onEdit, onDelete, onView }) => (
     </div>
 );
 
+
+// --- Main Component ---
 export default function UnitAccordion({ subject, onInitiateDelete, userProfile, onGenerateQuiz, isAiGenerating }) {
     const [units, setUnits] = useState([]);
     const [lessons, setLessons] = useState({});
@@ -208,6 +201,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                 setLessons(prev => ({ ...prev, [unit.id]: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) }));
             });
             unsubscribers.push(unsubLessons);
+            
             const quizQuery = query(collection(db, 'quizzes'), where('unitId', '==', unit.id), orderBy('createdAt', 'asc'));
             const unsubQuizzes = onSnapshot(quizQuery, snapshot => {
                 setQuizzes(prev => ({ ...prev, [unit.id]: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) }));
@@ -261,7 +255,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                                 lesson={lesson}
                                                 onView={() => handleOpenLessonModal(setViewLessonModalOpen, lesson)}
                                                 onEdit={() => handleOpenLessonModal(setEditLessonModalOpen, lesson)}
-                                                onDelete={() => onInitiateDelete('lesson', lesson.id, unit.id, subject.id)}
+                                                onDelete={() => onInitiateDelete('lesson', lesson.id)}
                                                 onGenerateQuiz={() => {
                                                     setSelectedLesson(lesson);
                                                     setAiQuizModalOpen(true);
@@ -280,7 +274,9 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                                 key={quiz.id}
                                                 quiz={quiz}
                                                 onEdit={handleEditQuiz}
-                                                onDelete={() => onInitiateDelete('quiz', quiz.id, unit.id, subject.id)}
+                                                // --- THIS IS THE MODIFIED LINE ---
+                                                // It now passes the lessonId from the quiz object, which is needed for the full deletion.
+                                                onDelete={() => onInitiateDelete('quiz', quiz.id, quiz.lessonId)}
                                                 onView={() => handleOpenQuizModal(setViewQuizModalOpen, quiz)}
                                             />)
                                     ) : <p className="text-sm text-gray-500 p-2">No quizzes in this unit yet.</p>}
@@ -295,18 +291,18 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             <EditUnitModal isOpen={editUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={selectedUnit} />
             <AddLessonModal isOpen={addLessonModalOpen} onClose={() => setAddLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id} />
             <AddQuizModal isOpen={addQuizModalOpen} onClose={() => setAddQuizModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id} />
-            <DeleteUnitModal isOpen={deleteUnitModalOpen} onClose={() => setDeleteUnitModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id}/>
-            <EditLessonModal isOpen={editLessonModalOpen} onClose={() => setEditLessonModalOpen(false)} lesson={selectedLesson}/>
-            <ViewLessonModal isOpen={viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={selectedLesson}/>
-            {selectedQuiz && (<EditQuizModal isOpen={editQuizModalOpen} onClose={() => setEditQuizModalOpen(false)} quiz={selectedQuiz} onEditQuiz={() => {setEditQuizModalOpen(false);}}/>) }
-            <ViewQuizModal isOpen={viewQuizModalOpen} onClose={() => setViewQuizModalOpen(false)} quiz={selectedQuiz} userProfile={userProfile}/>
+            <DeleteUnitModal isOpen={deleteUnitModalOpen} onClose={() => setDeleteUnitModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id} />
+            <EditLessonModal isOpen={editLessonModalOpen} onClose={() => setEditLessonModalOpen(false)} lesson={selectedLesson} />
+            <ViewLessonModal isOpen={viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={selectedLesson} />
+            {selectedQuiz && (<EditQuizModal isOpen={editQuizModalOpen} onClose={() => setEditQuizModalOpen(false)} quiz={selectedQuiz} onEditQuiz={() => { setEditQuizModalOpen(false); }} />)}
+            <ViewQuizModal isOpen={viewQuizModalOpen} onClose={() => setViewQuizModalOpen(false)} quiz={selectedQuiz} userProfile={userProfile} />
             <CreateAiLessonModal isOpen={createAiLessonModalOpen} onClose={() => setCreateAiLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id} />
-            <AiQuizModal 
-                isOpen={aiQuizModalOpen} 
-                onClose={() => setAiQuizModalOpen(false)} 
-                unitId={selectedLesson?.unitId} 
-                subjectId={subject.id} 
-                lesson={selectedLesson} 
+            <AiQuizModal
+                isOpen={aiQuizModalOpen}
+                onClose={() => setAiQuizModalOpen(false)}
+                unitId={selectedLesson?.unitId}
+                subjectId={subject.id}
+                lesson={selectedLesson}
             />
         </div>
     );

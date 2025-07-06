@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, Title, Button, Text } from '@tremor/react';
 import { ArrowLeftIcon, ArrowRightIcon, CloudArrowDownIcon } from '@heroicons/react/24/solid';
+import ContentRenderer from '../teacher/ContentRenderer'; // Adjust path if necessary
 
 export default function ViewLessonModal({ isOpen, onClose, lesson }) {
   const [currentPage, setCurrentPage] = useState(0);
@@ -72,7 +73,7 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
               {currentPageData.title && (
                 <h2 className="text-xl font-semibold mb-2">{currentPageData.title}</h2>
               )}
-              <div dangerouslySetInnerHTML={{ __html: currentPageData.content }} />
+              <ContentRenderer text={currentPageData.content} />
             </div>
           ) : (
             <p className="text-gray-500">This lesson does not have any content yet.</p>

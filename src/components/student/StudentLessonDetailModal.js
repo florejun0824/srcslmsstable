@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import ContentRenderer from '../teacher/ContentRenderer'; // Adjust path if necessary
 
 const StudentLessonDetailModal = ({ isOpen, onClose, lesson, onTakeQuiz, hasTakenQuiz, getAttemptsCount }) => {
     const [activeTab, setActiveTab] = useState('pages');
@@ -32,7 +33,8 @@ const StudentLessonDetailModal = ({ isOpen, onClose, lesson, onTakeQuiz, hasTake
                         <div>
                             <div className="p-4 border border-gray-200 rounded-lg shadow-sm bg-white min-h-[30vh]">
                                 <h4 className="font-bold text-xl text-gray-800 mb-2">{lesson.pages[activePage].title}</h4>
-                                <div className="mt-2 prose max-w-none" dangerouslySetInnerHTML={{ __html: lesson.pages[activePage].content }} />
+<div className="mt-2 prose max-w-none">
+    <ContentRenderer text={lesson.pages[activePage].content} />
                             </div>
                             <div className="flex justify-between items-center mt-4">
                                 <button onClick={() => setActivePage(p => p - 1)} disabled={activePage === 0} className="flex items-center bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed">

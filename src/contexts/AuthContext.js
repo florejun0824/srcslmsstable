@@ -1,6 +1,20 @@
 import React, { useState, useEffect, createContext, useContext, useMemo, useCallback } from 'react';
 import { db } from '../services/firebase';
-import { collection, query, where, getDocs, doc, getDoc, addDoc, deleteDoc, updateDoc, writeBatch, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import {
+    collection,
+    query,
+    where,
+    getDocs,
+    doc,
+    getDoc,
+    addDoc,
+    deleteDoc,
+    updateDoc,
+    writeBatch,
+    arrayUnion,
+    serverTimestamp
+} from 'firebase/firestore';
+// No Cloud Function imports are needed for this approach
 
 const AuthContext = createContext(null);
 
@@ -9,6 +23,7 @@ const MOCK_PASSWORD_CHECK = (submittedPassword, storedPassword) => {
 };
 
 const firestoreService = {
+    // ... (all your existing functions like getUserProfile, getAllUsers, etc. remain the same)
     getUserProfile: async (uid) => {
         const userDocRef = doc(db, "users", uid);
         const userDoc = await getDoc(userDocRef);
@@ -57,43 +72,31 @@ const firestoreService = {
         const classDocRef = doc(db, "classes", classId);
         return await deleteDoc(classDocRef);
     },
-
-    // --- ADDED: The missing function for joining a class ---
     joinClassWithCode: async (classCode, studentProfile) => {
         if (!classCode || !studentProfile) {
             throw new Error("Class code and student profile are required.");
         }
-        // Ensure class code is uppercase to match database
         const upperCaseClassCode = classCode.toUpperCase();
-        
         const classesRef = collection(db, "classes");
         const q = query(classesRef, where("classCode", "==", upperCaseClassCode));
-        
         const querySnapshot = await getDocs(q);
         if (querySnapshot.empty) {
             throw new Error("Invalid class code. Please check the code and try again.");
         }
-
         const classDoc = querySnapshot.docs[0];
         const classDocRef = doc(db, "classes", classDoc.id);
-
-        // Prepare the data to be added to the arrays
         const studentObject = { 
             id: studentProfile.id, 
             firstName: studentProfile.firstName, 
             lastName: studentProfile.lastName 
         };
         const studentId = studentProfile.id;
-
-        // Update both the students object array and the studentIds array
         await updateDoc(classDocRef, { 
             students: arrayUnion(studentObject),
             studentIds: arrayUnion(studentId)
         });
-
         return { success: true, className: classDoc.data().name };
     },
-
     updateAnnouncement: (classId, postId, newContent) => {
         const postRef = doc(db, `classes/${classId}/posts`, postId);
         return updateDoc(postRef, { content: newContent });
@@ -110,6 +113,26 @@ const firestoreService = {
             teacherName: `${teacherProfile.firstName} ${teacherProfile.lastName}`,
             createdAt: serverTimestamp(),
         });
+    },
+
+    // --- MODIFIED FUNCTIONS FOR ADMIN DASHBOARD ---
+
+    /**
+     * Updates the restriction flag directly in Firestore.
+     * NOTE: This does NOT disable the user's ability to log in. It only sets a flag.
+     */
+    setUserRestrictionStatus: async (userId, shouldRestrict) => {
+        const userDocRef = doc(db, 'users', userId);
+        return updateDoc(userDocRef, { isRestricted: shouldRestrict });
+    },
+
+    /**
+     * Updates the role directly in Firestore.
+     * NOTE: This does NOT change the user's actual security permissions.
+     */
+    updateUserRole: async (userId, newRole) => {
+        const userDocRef = doc(db, 'users', userId);
+        return updateDoc(userDocRef, { role: newRole });
     },
 };
 
@@ -143,6 +166,11 @@ export const AuthProvider = ({ children }) => {
         
         if (!MOCK_PASSWORD_CHECK(password, userData.password)) {
             throw new Error("Invalid username or password.");
+        }
+        
+        // NEW: Check if the account is restricted
+        if (userData.isRestricted) {
+            throw new Error("This account has been restricted. Please contact an administrator.");
         }
 
         const designatedRole = userData.role;

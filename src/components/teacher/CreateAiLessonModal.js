@@ -5,7 +5,7 @@ import { db } from '../../services/firebase';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 import { MagnifyingGlassIcon as SearchIcon, XCircleIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
-import LessonPage from './LessonPage'; // LessonPage will be simplified as well
+import LessonPage from './LessonPage';
 import ContentRenderer from './ContentRenderer';
 
 const isFilipino = (text = '') => {
@@ -94,7 +94,11 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
 **USER'S INSTRUCTION FOR REVISION:** "${regenerationNote}"`;
     }
 
-    const advancedInstructions = `\n**Mathematical and Scientific Notations:** ALL mathematical content MUST be enclosed in LaTeX delimiters ($...$ or $$...$$).\n**Use Standard Characters:** You MUST use standard keyboard characters for markdown.\n**CRITICAL JSON RULE:** You MUST ensure all backslashes (\\) in the JSON content are properly escaped (as \\\\).`;
+    const advancedInstructions = `\n**Mathematical and Scientific Notations:** ALL mathematical content MUST be enclosed in LaTeX delimiters ($...$ or $$...$$).
+**Geometrical Figures:** For any geometric shapes, diagrams, or figures, you MUST generate them using SVG (Scalable Vector Graphics) code.
+**Tables:** For any tabular data, you MUST generate it using standard HTML table tags (<table>, <thead>, <tbody>, <tr>, <th>, <td>).
+**Use Standard Characters:** You MUST use standard keyboard characters for markdown.
+**CRITICAL JSON RULE:** You MUST ensure all backslashes (\\) in the JSON content are properly escaped (as \\\\).`;
 
     if (formData.generationTarget === 'teacherGuide' && selectedStudentLesson) {
       const studentLessonContent = selectedStudentLesson.pages.map(p => `Page Title: ${p.title}\nContent:\n${p.content}`).join('\n\n---\n\n');
@@ -125,7 +129,8 @@ ${baseInfo}
 3. **References:** The final page of EACH lesson must be "References" with 3-5 real sources.
 4. **Page Titles:** Every page object MUST have a relevant "title".
 ${advancedInstructions}
-5. **JSON Output:** Return a single valid JSON object: { "generated_lessons": [{"lessonTitle": "...", "pages": [{"title": "...", "content": "..."}] }] }.`;
+5. **No Metadata in Content:** Do not write keys like "learningObjectives" or "learningLayunin" inside the 'content' field. These keys belong at the main lesson level only.
+6. **JSON Output:** Return a single valid JSON object: { "generated_lessons": [{"lessonTitle": "...", "pages": [{"title": "...", "content": "..."}] }] }.`;
     }
   };
 
@@ -272,7 +277,7 @@ ${advancedInstructions}
             </div>
             {formData.generationTarget === 'studentLesson' ? (
               <>
-                <textarea placeholder="Main Content / Topic" value={content} onChange={(e) => setContent(e.target.value)} className="w-full p-2 border rounded" rows={4} />
+                <textarea placeholder="Main Content / Topic (e.g., Explain the Pythagorean theorem with a diagram)" value={content} onChange={(e) => setContent(e.target.value)} className="w-full p-2 border rounded" rows={4} />
                 <textarea placeholder="Content Standard" value={contentStandard} onChange={(e) => setContentStandard(e.target.value)} className="w-full p-2 border rounded" rows={3} />
                 <textarea placeholder="Learning Competencies" value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className="w-full p-2 border rounded" rows={3} />
                 <textarea placeholder="Performance Standard" value={performanceStandard} onChange={(e) => setPerformanceStandard(e.target.value)} className="w-full p-2 border rounded" rows={3} />
@@ -365,11 +370,13 @@ ${advancedInstructions}
                             {expandedLessonIndex === index && (
                                 <div className="p-4 border-t bg-white">
                                     <div className="mb-4">
-                                        <h4 className="font-semibold text-sm">{lesson.learningLayunin ? 'Mga Layunin:' : 'Objectives:'}</h4>
+                                        <h4 className="font-semibold text-sm">{ (lesson.learningLayunin || lesson.objectives) ? 'Mga Layunin:' : 'Objectives:'}</h4>
                                         <ul className="list-disc pl-5 text-sm text-gray-600">
-                                            {Array.isArray(lesson.learningObjectives || lesson.learningLayunin) && (lesson.learningObjectives || lesson.learningLayunin).map((obj, i) => (
+                                            {/* --- START OF FIX --- */}
+                                            {Array.isArray(lesson.learningObjectives || lesson.learningLayunin || lesson.objectives) && (lesson.learningObjectives || lesson.learningLayunin || lesson.objectives).map((obj, i) => (
                                                 <li key={i}><ContentRenderer text={obj} /></li>
                                             ))}
+                                            {/* --- END OF FIX --- */}
                                         </ul>
                                     </div>
                                     {Array.isArray(lesson.pages) && lesson.pages.map((page, pageIndex) => <LessonPage key={pageIndex} page={page} />)}
@@ -388,7 +395,7 @@ ${advancedInstructions}
             )}
             <div className="mt-4">
               <label className="block text-sm font-medium mb-1">Optional: Add extra instruction to improve the content</label>
-              <textarea value={extraInstruction} onChange={(e) => setExtraInstruction(e.target.value)} placeholder="e.g., Add more visual examples or questions" className="w-full border p-2 rounded" rows={2} />
+              <textarea value={extraInstruction} onChange={(e) => setExtraInstruction(e.target.value)} placeholder="e.g., Make the triangle blue, or add labels for A, B, and C" className="w-full border p-2 rounded" rows={2} />
             </div>
             <div className="flex justify-end gap-3">
               <button onClick={() => handleGenerate(extraInstruction)} disabled={isGenerating} className="btn-secondary">
