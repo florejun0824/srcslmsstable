@@ -1,12 +1,15 @@
+// src/components/teacher/CreateClassAnnouncementForm.js
 import React, { useState } from 'react';
 import { db } from '../../services/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
+import { useAuth } from '../../contexts/AuthContext';
 
-const CreateClassAnnouncementForm = ({ classId, teacherName, onAnnouncementPosted }) => {
+const CreateClassAnnouncementForm = ({ classId, onAnnouncementPosted }) => {
     const [content, setContent] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { showToast } = useToast();
+    const { userProfile } = useAuth();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -14,17 +17,25 @@ const CreateClassAnnouncementForm = ({ classId, teacherName, onAnnouncementPoste
             showToast("Announcement cannot be empty.", "error");
             return;
         }
+        if (!userProfile?.id || !userProfile?.displayName) {
+            showToast("Teacher information missing. Cannot post announcement.", "error");
+            console.error("User profile incomplete:", userProfile);
+            return;
+        }
+
         setIsSubmitting(true);
         try {
-            await addDoc(collection(db, 'classAnnouncements'), {
-                classId,
-                teacherName,
+            // CRITICAL CHANGE: Saving 'classId' as a string directly, not an array
+            await addDoc(collection(db, 'studentAnnouncements'), {
+                classId: classId, // Store classId as a string field
+                teacherId: userProfile.id,
+                teacherName: userProfile.displayName,
                 content,
                 createdAt: serverTimestamp(),
             });
             showToast("Announcement posted successfully!", "success");
             setContent('');
-            onAnnouncementPosted(); // This function will refresh the list in the modal
+            onAnnouncementPosted();
         } catch (error) {
             showToast("Failed to post announcement.", "error");
             console.error("Error posting announcement:", error);
@@ -36,7 +47,7 @@ const CreateClassAnnouncementForm = ({ classId, teacherName, onAnnouncementPoste
     return (
         <form onSubmit={handleSubmit} className="p-4 border bg-gray-50 rounded-lg mt-4">
             <textarea
-                className="w-full p-2 border rounded-md"
+                className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                 rows="3"
                 placeholder="Write an announcement for this class..."
                 value={content}
@@ -44,8 +55,13 @@ const CreateClassAnnouncementForm = ({ classId, teacherName, onAnnouncementPoste
                 disabled={isSubmitting}
             />
             <div className="text-right mt-2">
-                <button type="submit" className="btn-primary" disabled={isSubmitting}>
-                    {isSubmitting ? 'Posting...' : 'Post'}
+                <button
+                    type="submit"
+                    className={`px-4 py-2 rounded-md font-semibold text-white transition duration-200
+                                ${isSubmitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? 'Posting...' : 'Post Announcement'}
                 </button>
             </div>
         </form>

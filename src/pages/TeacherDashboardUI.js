@@ -224,7 +224,7 @@ const TeacherDashboardUI = (props) => {
         editLessonModalOpen, setEditLessonModalOpen, selectedLesson, viewLessonModalOpen, setViewLessonModalOpen,
         isShareContentModalOpen, isDeleteModalOpen, setIsDeleteModalOpen, handleConfirmDelete, deleteTarget,
         isEditSubjectModalOpen, setEditSubjectModalOpen, subjectToActOn, isDeleteSubjectModalOpen, setDeleteSubjectModalOpen,
-        handleCreateAnnouncement, isChatOpen, setIsChatOpen, messages, isAiThinking, handleAskAi
+		handleCreateAnnouncement, isChatOpen, setIsChatOpen, messages, isAiThinking, handleAskAi, handleRemoveStudentFromClass
     } = props;
     
     const renderMainContent = () => {
@@ -305,10 +305,94 @@ const TeacherDashboardUI = (props) => {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{activeClasses.length > 0 ? activeClasses.map((c, index) => { const { icon: Icon, color } = classVisuals[index % classVisuals.length]; return (<div key={c.id} className="group relative bg-white p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300"><div onClick={() => { if (!isHoveringActions) setClassOverviewModal({ isOpen: true, data: c }); }} className="cursor-pointer flex-grow flex flex-col h-full"><div className={`absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br ${color} rounded-full opacity-10 group-hover:opacity-20 transition-all`}></div><div className="relative z-10"><div className={`p-4 inline-block bg-gradient-to-br ${color} text-white rounded-xl mb-4`}><Icon className="w-8 h-8" /></div><h2 className="text-xl font-bold text-gray-800 truncate mb-1">{c.name}</h2><p className="text-gray-500">{c.gradeLevel} - {c.section}</p></div>{c.classCode && (<div className="mt-auto pt-4 border-t border-gray-100"><p className="text-xs text-gray-500 mb-1">Class Code</p><div className="flex items-center gap-2"><p className="font-mono text-lg tracking-widest text-gray-700 bg-gray-100 px-2 py-1 rounded-md">{c.classCode}</p><button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(c.classCode); showToast("Class code copied!", "success"); }} className="p-1.5 rounded-md text-gray-400 hover:bg-gray-200 hover:text-gray-600" title="Copy code"><ClipboardIcon className="w-5 h-5" /></button></div></div>)}</div><div className="absolute top-0 right-0 p-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300" onMouseEnter={() => setIsHoveringActions(true)} onMouseLeave={() => setIsHoveringActions(false)}><button onClick={(e) => { e.stopPropagation(); handleOpenEditClassModal(c); }} className="p-2 rounded-full bg-white/60 backdrop-blur-sm hover:bg-white text-gray-700 shadow-md" title="Edit"><PencilSquareIcon className="w-5 h-5" /></button><button onClick={(e) => { e.stopPropagation(); handleArchiveClass(c.id); }} className="p-2 rounded-full bg-white/60 backdrop-blur-sm hover:bg-white text-gray-700 shadow-md" title="Archive"><ArchiveBoxIcon className="w-5 h-5" /></button><button onClick={(e) => { e.stopPropagation(); handleDeleteClass(c.id); }} className="p-2 rounded-full bg-white/60 backdrop-blur-sm hover:bg-white text-red-600 shadow-md" title="Delete"><TrashIcon className="w-5 h-5" /></button></div></div>); }) : <p className="col-span-full text-center text-gray-500 py-10">No active classes created yet.</p>}</div>
                     </div>
                 );
-            case 'profile':
-                return (
-                    <div className="max-w-4xl mx-auto"><div className="bg-white rounded-2xl shadow-lg overflow-hidden"><div className="h-32 bg-gradient-to-br from-blue-500 to-indigo-600 relative"><div className="absolute -bottom-16 left-1/2 -translate-x-1/2"><UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} className="w-32 h-32 border-4 border-white shadow-lg" /></div></div><div className="text-center pt-20 pb-8 px-6"><h1 className="text-3xl font-bold text-gray-800">{userProfile?.firstName} {userProfile?.lastName}</h1><p className="text-md text-gray-500 capitalize">{userProfile?.role}</p></div><div className="border-t border-gray-200 p-6 space-y-6"><h3 className="text-lg font-semibold text-gray-700">User Information</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="flex items-center gap-3"><EnvelopeIcon className="w-6 h-6 text-gray-400" /> <span className="text-gray-700">{userProfile?.email}</span></div><div className="flex items-center gap-3"><IdentificationIcon className="w-6 h-6 text-gray-400" /> <span className="text-gray-700 text-xs">ID: {user?.uid || user?.id}</span></div></div></div><div className="border-t border-gray-200 p-6"><h3 className="text-lg font-semibold text-gray-700 mb-4">Actions</h3><div className="flex flex-col sm:flex-row gap-3"><button onClick={() => setEditProfileModalOpen(true)} className="btn-secondary flex-1 flex justify-center items-center gap-2"><PencilSquareIcon className="w-5 h-5" /> Edit Profile</button><button onClick={() => setChangePasswordModalOpen(true)} className="btn-secondary flex-1 flex justify-center items-center gap-2"><KeyIcon className="w-5 h-5" /> Change Password</button><button onClick={logout} className="btn-danger flex-1 flex justify-center items-center gap-2"><ArrowLeftOnRectangleIcon className="w-5 h-5" /> Logout</button></div></div></div></div>
-                );
+			case 'profile':
+			    return (
+			        <div className="max-w-6xl mx-auto">
+			            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+			                {/* --- Left Column: User Info Card --- */}
+			                <div className="lg:col-span-1">
+			                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-8 text-center text-white h-full flex flex-col justify-between">
+			                        <div>
+						<div className="relative inline-block mb-4 w-40 h-40 rounded-full overflow-hidden">
+						  <UserInitialsAvatar
+						    firstName={userProfile?.firstName}
+						    lastName={userProfile?.lastName}
+						    size="full"
+						  />
+						</div>
+			                            <h1 className="text-3xl font-bold text-white">
+			                                {userProfile?.firstName} {userProfile?.lastName}
+			                            </h1>
+			                            <p className="text-md text-slate-400 capitalize">{userProfile?.role}</p>
+			                        </div>
+			                        <div className="space-y-4 mt-8 text-left">
+			                            <div className="flex items-center gap-4 p-3 bg-white/5 rounded-lg">
+			                                <EnvelopeIcon className="w-6 h-6 text-white/70" />
+			                                <div>
+			                                    <p className="text-sm text-white/60">Email</p>
+			                                    <p className="font-semibold text-white">{userProfile?.email}</p>
+			                                </div>
+			                            </div>
+			                            <div className="flex items-center gap-4 p-3 bg-white/5 rounded-lg">
+			                                <IdentificationIcon className="w-6 h-6 text-white/70" />
+			                                <div>
+			                                    <p className="text-sm text-white/60">User ID</p>
+			                                    <p className="font-mono text-xs text-white">{user?.uid || user?.id}</p>
+			                                </div>
+			                            </div>
+			                        </div>
+			                    </div>
+			                </div>
+
+			                {/* --- Right Column: Actions --- */}
+			                <div className="lg:col-span-2">
+			                    <div className="bg-white rounded-2xl shadow-xl p-8 h-full">
+			                        <h3 className="text-2xl font-bold text-slate-800 mb-6">Account Actions</h3>
+			                        <div className="space-y-4">
+			                            <button 
+			                                onClick={() => setEditProfileModalOpen(true)} 
+			                                className="w-full text-left flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-300 group"
+			                            >
+			                                <div className="p-3 bg-blue-100 rounded-lg">
+			                                    <PencilSquareIcon className="w-6 h-6 text-blue-600" />
+			                                </div>
+			                                <div>
+			                                    <p className="font-semibold text-slate-800">Edit Profile</p>
+			                                    <p className="text-sm text-slate-500">Update your first and last name.</p>
+			                                </div>
+			                                <span className="ml-auto text-slate-400 group-hover:text-blue-600 transition-colors">&rarr;</span>
+			                            </button>
+
+			                            <button 
+			                                onClick={() => setChangePasswordModalOpen(true)} 
+			                                className="w-full text-left flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-300 group"
+			                            >
+			                                <div className="p-3 bg-purple-100 rounded-lg">
+			                                    <KeyIcon className="w-6 h-6 text-purple-600" />
+			                                </div>
+			                                <div>
+			                                    <p className="font-semibold text-slate-800">Change Password</p>
+			                                    <p className="text-sm text-slate-500">Update your account security.</p>
+			                                </div>
+			                                <span className="ml-auto text-slate-400 group-hover:text-purple-600 transition-colors">&rarr;</span>
+			                            </button>
+                            
+			                            <div className="pt-8">
+			                                <button 
+			                                    onClick={logout} 
+			                                    className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-gradient-to-r from-red-500 to-orange-500 text-white font-bold rounded-lg hover:shadow-xl hover:scale-[1.02] transform transition-all duration-300 shadow-lg"
+			                                >
+			                                    <ArrowLeftOnRectangleIcon className="w-6 h-6" />
+			                                    Logout
+			                                </button>
+			                            </div>
+			                        </div>
+			                    </div>
+			                </div>
+			            </div>
+			        </div>
+			    );
             
             case 'home':
             default:
@@ -413,7 +497,7 @@ const TeacherDashboardUI = (props) => {
             {categoryToEdit && <EditCategoryModal isOpen={isEditCategoryModalOpen} onClose={() => setEditCategoryModalOpen(false)} category={categoryToEdit} onCategoryUpdated={() => { }} />}
             <CreateClassModal isOpen={isCreateClassModalOpen} onClose={() => setCreateClassModalOpen(false)} teacherId={user?.uid || user?.id} />
             <CreateCourseModal isOpen={isCreateCourseModalOpen} onClose={() => setCreateCourseModalOpen(false)} teacherId={user?.uid || user?.id} courseCategories={courseCategories} />
-            <ClassOverviewModal isOpen={classOverviewModal.isOpen} onClose={() => setClassOverviewModal({ isOpen: false, data: null })} classData={classOverviewModal.data} courses={courses} />
+            <ClassOverviewModal isOpen={classOverviewModal.isOpen} onClose={() => setClassOverviewModal({ isOpen: false, data: null })} classData={classOverviewModal.data} courses={courses} onRemoveStudent={handleRemoveStudentFromClass} />
             <EditClassModal isOpen={isEditClassModalOpen} onClose={() => setEditClassModalOpen(false)} classData={classToEdit} />
             <AddUnitModal isOpen={isAddUnitModalOpen} onClose={() => setAddUnitModalOpen(false)} subjectId={activeSubject?.id} />
             {selectedUnit && <EditUnitModal isOpen={editUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={selectedUnit} />}

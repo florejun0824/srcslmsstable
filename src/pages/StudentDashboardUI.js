@@ -1,128 +1,172 @@
-import React from 'react';
-import { Card, Text, Button, Title } from '@tremor/react';
-// --- Using a consistent, modern icon set from Lucide ---
+import React, { useState, useEffect } from 'react';
+import { Card, Text, Button, Title, Badge, List, ListItem } from '@tremor/react';
 import {
-    LogOut,
-    Menu,
-    PlusCircle,
-    Clock,
-    CheckCircle,
-    AlertTriangle,
-    BookCopy,
-    ClipboardCheck,
-    BarChart3,
-    Users,
-    User,
-} from 'lucide-react';
+    AcademicCapIcon,
+    ClipboardDocumentCheckIcon,
+    ChartBarIcon,
+    UserGroupIcon,
+    UserIcon,
+    ClockIcon,
+    CheckCircleIcon,
+    ExclamationTriangleIcon,
+    PlusCircleIcon,
+    Bars3Icon,
+    ArrowLeftOnRectangleIcon,
+    ChevronRightIcon,
+    ArrowLeftIcon,
+    CalculatorIcon,
+    BeakerIcon,
+    GlobeAltIcon,
+    LanguageIcon,
+    ComputerDesktopIcon,
+    SwatchIcon,
+} from '@heroicons/react/24/outline';
+
 import ProfilePage from './ProfilePage';
 import StudentClassesTab from '../components/student/StudentClassesTab';
 import StudentPerformanceTab from '../components/student/StudentPerformanceTab';
 import StudentClassDetailView from '../components/student/StudentClassDetailView';
+import StudentQuizzesTab from '../components/student/StudentQuizzesTab';
 import UserInitialsAvatar from '../components/common/UserInitialsAvatar';
 
-// --- UI Component: Loading Spinner (Light Theme) ---
+// --- UI Component: Loading Spinner ---
 const LoadingSpinner = () => (
-    <div className="flex justify-center items-center py-24">
-        <svg width="40" height="40" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="text-blue-600">
-            <path d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,19a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z" opacity=".25"/>
-            <path d="M10.72,19.9a8,8,0,0,1-6.5-9.79A7.77,7.77,0,0,1,10.4,4.16a8,8,0,0,1,9.49,6.52A1.54,1.54,0,0,0,21.38,12h.13a1.37,1.37,0,0,0,1.38-1.54,11,11,0,1,0-12.7,12.39A1.54,1.54,0,0,0,12,21.34h0A1.47,1.47,0,0,0,10.72,19.9Z">
-                <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
-            </path>
+    <div className="flex flex-col justify-center items-center py-24 text-blue-500 rounded-xl">
+        <svg className="animate-spin h-10 w-10 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
+        <Text className="text-lg font-medium text-gray-600">Loading content...</Text>
     </div>
 );
 
-// --- Color themes for Lesson Cards ---
-const cardThemes = [
-    { text: 'text-blue-600', bg: 'bg-blue-100', border: 'hover:border-blue-300' },
-    { text: 'text-green-600', bg: 'bg-green-100', border: 'hover:border-green-300' },
-    { text: 'text-purple-600', bg: 'bg-purple-100', border: 'hover:border-purple-300' },
-    { text: 'text-amber-600', bg: 'bg-amber-100', border: 'hover:border-amber-300' },
-];
+// --- Subject Category Definitions ---
+const defaultSubjectCategories = {
+    'Mathematics': { icon: CalculatorIcon, color: 'text-purple-600', bg: 'bg-purple-50', badgeBg: 'bg-purple-100', badgeText: 'text-purple-800', badgeBorder: 'border-purple-200' },
+    'Science': { icon: BeakerIcon, color: 'text-green-600', bg: 'bg-green-50', badgeBg: 'bg-green-100', badgeText: 'text-green-800', badgeBorder: 'border-green-200' },
+    'History': { icon: GlobeAltIcon, color: 'text-orange-600', bg: 'bg-orange-50', badgeBg: 'bg-orange-100', badgeText: 'text-orange-800', badgeBorder: 'border-orange-200' },
+    'English': { icon: LanguageIcon, color: 'text-red-600', bg: 'bg-red-50', badgeBg: 'bg-red-100', badgeText: 'text-red-800', badgeBorder: 'border-red-200' },
+    'Computer Science': { icon: ComputerDesktopIcon, color: 'text-blue-600', bg: 'bg-blue-50', badgeBg: 'bg-blue-100', badgeText: 'text-blue-800', badgeBorder: 'border-blue-200' },
+    'Arts': { icon: SwatchIcon, color: 'text-pink-600', bg: 'bg-pink-50', badgeBg: 'bg-pink-100', badgeText: 'text-pink-800', badgeBorder: 'border-pink-200' },
+    'Uncategorized': { icon: AcademicCapIcon, color: 'text-gray-600', bg: 'bg-gray-50', badgeBg: 'bg-gray-100', badgeText: 'text-gray-800', badgeBorder: 'border-gray-200' },
+};
 
-// --- UI Component: Lesson Card (Light Theme) ---
-export const LessonCard = ({ lesson, onSelect, index }) => {
-    const theme = cardThemes[index % cardThemes.length];
+// --- Helper: Get subject info based on course category ---
+const getSubjectInfo = (courseCategory) => {
+    return defaultSubjectCategories[courseCategory] || defaultSubjectCategories['Uncategorized'];
+};
+
+export const ClassLessonCard = ({ classData, onSelectClass }) => {
+    const { icon: CategoryIcon, color } = getSubjectInfo(classData.category);
 
     return (
-        <div
-            onClick={() => onSelect(lesson)}
-            className={`group relative p-5 rounded-xl bg-white border border-gray-200/80 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer ${theme.border}`}
+        <Card
+            onClick={() => onSelectClass(classData)}
+            className="flex flex-col items-center p-6 rounded-2xl shadow-md border border-gray-200 hover:shadow-lg hover:border-blue-300 transition-all duration-200 cursor-pointer text-center"
         >
-            <div className="flex justify-between items-start">
-                <div className="flex items-center gap-4">
-                    <div className={`${theme.bg} p-3 rounded-lg`}>
-                        <BookCopy size={24} className={theme.text} />
-                    </div>
-                    <div>
-                        <p className="font-semibold text-gray-800">{lesson.title}</p>
-                        <p className="text-sm text-gray-500">{lesson.className}</p>
-                    </div>
-                </div>
-                <Button onClick={(e) => { e.stopPropagation(); onSelect(lesson); }} variant="light" className="text-gray-600 hover:text-gray-900">View</Button>
-            </div>
-        </div>
+            <CategoryIcon className={`h-12 w-12 mb-4 ${color}`} />
+            <Text className="text-xl font-semibold text-gray-800">{classData.title}</Text>
+            <Text className="text-sm text-gray-500 mt-1">{classData.category}</Text>
+            {classData.description && (
+                <Text className="text-xs text-gray-400 mt-2 line-clamp-2">{classData.description}</Text>
+            )}
+        </Card>
     );
 };
 
-// --- UI Component: Quiz Card (Light Theme) ---
+export const LessonCard = ({ lesson, onSelect, coursesMap }) => {
+    const lessonCourse = coursesMap[lesson.courseId] || { title: 'Uncategorized Course', category: 'Uncategorized' };
+    const { icon: SubjectIcon, color, badgeBg, badgeText, badgeBorder } = getSubjectInfo(lessonCourse.category);
+
+    return (
+        <ListItem
+            onClick={() => onSelect(lesson)}
+            className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 bg-white rounded-xl shadow-sm border border-gray-200 hover:bg-blue-50 hover:border-blue-300 cursor-pointer transition-all duration-200 ease-in-out"
+        >
+            <div className="flex items-center gap-3 text-left mb-2 md:mb-0">
+                <SubjectIcon className={`h-6 w-6 ${color} flex-shrink-0`} />
+                <div>
+                    <Text className="text-lg font-semibold text-gray-800">{lesson.title}</Text>
+                    {lessonCourse.title && (
+                        <Badge className={`mt-1 mr-auto ${badgeBg} ${badgeText} ${badgeBorder} font-medium`} size="sm">
+                            {lessonCourse.title}
+                        </Badge>
+                    )}
+                </div>
+            </div>
+            <ChevronRightIcon className="h-6 w-6 text-gray-400 ml-auto md:ml-4 flex-shrink-0 group-hover:text-blue-500" />
+        </ListItem>
+    );
+};
+
 export const QuizCard = ({ quiz, onTakeQuiz, status }) => {
-    let buttonText = `Take Quiz (${quiz.attemptsTaken}/3)`;
+    let buttonText = `Take Quiz (${quiz.attemptsTaken || 0}/3)`;
     if (status === 'completed') buttonText = 'View Submissions';
     else if (status === 'overdue') buttonText = 'Take Quiz (Late)';
 
     const getStatusInfo = () => {
         switch (status) {
-            case 'completed': return { icon: <CheckCircle size={18} />, buttonClass: 'btn-success' };
-            case 'overdue': return { icon: <AlertTriangle size={18} />, buttonClass: 'btn-danger' };
-            default: return { icon: <ClipboardCheck size={18} />, buttonClass: 'btn-primary' };
+            case 'completed': return { icon: <CheckCircleIcon className="text-white h-5 w-5" />, buttonClass: 'bg-green-500 hover:bg-green-600', badgeColor: 'emerald' };
+            case 'overdue': return { icon: <ExclamationTriangleIcon className="text-white h-5 w-5" />, buttonClass: 'bg-red-500 hover:bg-red-600', badgeColor: 'rose' };
+            default: return { icon: <ClipboardDocumentCheckIcon className="text-white h-5 w-5" />, buttonClass: 'bg-blue-600 hover:bg-blue-700', badgeColor: 'blue' };
         }
     };
 
-    const { icon, buttonClass } = getStatusInfo();
-    
+    const { icon, buttonClass, badgeColor } = getStatusInfo();
+
     return (
-        <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex-grow">
-                <p className="font-semibold text-gray-800">{quiz.title}</p>
-                <p className="text-sm text-gray-500">{quiz.className}</p>
-                {quiz.deadline && (
-                    <p className={`text-xs mt-2 flex items-center ${status === 'overdue' && status !== 'completed' ? 'text-red-600' : 'text-gray-500'}`}>
-                        <Clock size={14} className="mr-1.5" />
-                        Due: {quiz.deadline.toLocaleString()}
-                    </p>
+                <div className="flex items-center gap-2 mb-1">
+                    <Text className="font-semibold text-gray-800 text-lg">{quiz.title}</Text>
+                    {quiz.availableUntil && (
+                        <Badge color={badgeColor} size="xs" className="font-medium">
+                            {status === 'completed' ? 'Completed' : status === 'overdue' ? 'Overdue' : 'Active'}
+                        </Badge>
+                    )}
+                </div>
+                <Text className="text-sm text-gray-500">{quiz.className || quiz.context?.replace('(for ', '').replace(')', '')}</Text>
+                {quiz.availableUntil && (
+                    <Text className={`text-xs mt-2 flex items-center ${status === 'overdue' ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
+                        <ClockIcon className="h-4 w-4 mr-1.5" />
+                        Due: {quiz.availableUntil.toDate().toLocaleString()}
+                    </Text>
                 )}
             </div>
-            <button
+            <Button
                 onClick={() => onTakeQuiz(quiz)}
-                className={`${buttonClass} flex items-center justify-center w-full sm:w-auto text-sm px-4 py-2 font-semibold`}
+                className={`${buttonClass} flex items-center justify-center w-full sm:w-auto text-sm px-5 py-2.5 font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-white`}
+                icon={icon}
             >
-                {icon}
-                <span className="ml-2">{buttonText}</span>
-            </button>
+                {buttonText}
+            </Button>
         </div>
     );
 }
 
-// --- UI Component: Sidebar (Light Theme) ---
-// It now receives sidebarNavItems as a prop
+// --- UI Component: Sidebar (Removed direct bg/rounded from this component's root div) ---
 const SidebarContent = ({ view, handleViewChange, sidebarNavItems }) => {
     return (
-        <div className="h-full flex flex-col p-3">
-            <div className="flex items-center gap-3 mb-8 px-2 pt-2">
-                <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="SRCS Logo" className="w-9 h-9" />
-                <span className="font-bold text-xl text-gray-800">SRCS Portal</span>
+        // This div is now just the content structure, its parent 'aside' handles the card styling
+        <div className="h-full flex flex-col">
+            <div className="flex items-center gap-3 mb-10 px-2 pt-2">
+                <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="SRCS Logo" className="w-10 h-10 rounded-full" />
+                <span className="font-extrabold text-xl text-gray-800">SRCS Portal</span>
             </div>
-            <nav className="flex flex-col gap-1">
+            <nav className="flex flex-col gap-2">
                 {sidebarNavItems.map(item => {
                     const isActive = view === item.view;
                     return (
-                        <button 
+                        <button
                             key={item.view}
-                            onClick={() => handleViewChange(item.view)} 
-                            className={`flex items-center gap-4 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive ? `${item.bg} ${item.color}` : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}`}
+                            onClick={() => handleViewChange(item.view)}
+                            className={`flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-250
+                                ${isActive
+                                    ? `bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg transform translate-x-1`
+                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                                }`}
                         >
-                            <item.icon size={20} className={isActive ? item.color : 'text-gray-400'} />
+                            <item.icon className={`h-5 w-5 ${isActive ? 'text-white' : item.color}`} />
                             <span>{item.text}</span>
                         </button>
                     )
@@ -132,142 +176,148 @@ const SidebarContent = ({ view, handleViewChange, sidebarNavItems }) => {
     );
 };
 
-// --- Main UI Component (Light Theme) ---
+// --- Main UI Component ---
 const StudentDashboardUI = ({
     userProfile, logout, view, isSidebarOpen, setIsSidebarOpen, handleViewChange,
     setJoinClassModalOpen, selectedClass, setSelectedClass, myClasses, isFetchingContent,
-    lessons, setLessonToView, quizzes, activeQuizTab, setActiveQuizTab, handleTakeQuizClick
+    lessons, setLessonToView, quizzes, handleTakeQuizClick, db
 }) => {
-    
-    // --- THIS IS THE FIX ---
-    // The navigation items are now defined in the parent component
+    const [selectedSubject, setSelectedSubject] = useState(null);
+
+    const coursesMap = myClasses.reduce((acc, enrolledClass) => {
+        acc[enrolledClass.id] = {
+            id: enrolledClass.id,
+            title: enrolledClass.title,
+            category: enrolledClass.category
+        };
+        return acc;
+    }, {});
+
+    const lessonsForSelectedSubject = selectedSubject
+        ? lessons.filter(lesson => lesson.courseId === selectedSubject.id)
+        : [];
+
     const sidebarNavItems = [
-        { view: 'lessons', text: 'Lessons', icon: BookCopy, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { view: 'quizzes', text: 'Quizzes', icon: ClipboardCheck, color: 'text-green-600', bg: 'bg-green-50' },
-        { view: 'performance', text: 'Performance', icon: BarChart3, color: 'text-purple-600', bg: 'bg-purple-50' },
-        { view: 'classes', text: 'My Classes', icon: Users, color: 'text-amber-600', bg: 'bg-amber-50' },
-        { view: 'profile', text: 'Profile', icon: User, color: 'text-gray-600', bg: 'bg-gray-100' },
+        { view: 'classes', text: 'My Classes', icon: UserGroupIcon, color: 'text-amber-500', bg: 'bg-amber-100' },
+        { view: 'quizzes', text: 'Quizzes', icon: ClipboardDocumentCheckIcon, color: 'text-green-500', bg: 'bg-green-100' },
+        { view: 'performance', text: 'Performance', icon: ChartBarIcon, color: 'text-purple-500', bg: 'bg-purple-100' },
+        { view: 'profile', text: 'Profile', icon: UserIcon, color: 'text-gray-500', bg: 'bg-gray-100' },
     ];
 
     const renderView = () => {
-        if (isFetchingContent && view !== 'profile' && !selectedClass) { return <LoadingSpinner />; }
+        if (isFetchingContent && !selectedClass && view !== 'profile') {
+            return <LoadingSpinner />;
+        }
         if (selectedClass) { return <StudentClassDetailView selectedClass={selectedClass} onBack={() => setSelectedClass(null)} />; }
-        
+
         switch (view) {
-            case 'lessons':
+            case 'classes':
                 return (
-                    <div>
-                        <Title className="text-3xl font-bold text-gray-800 mb-2">My Lessons</Title>
-                        <Text className="mb-8">Here are the study guides and materials assigned to you.</Text>
-                        <div className="space-y-4">
-                            {lessons.length > 0 ? lessons.map((lesson, index) => (
-                                <LessonCard key={lesson.postId} lesson={lesson} onSelect={setLessonToView} index={index} />
-                            )) : 
-                            <div className="text-center py-16 bg-gray-100 rounded-lg border border-dashed border-gray-300">
-                                <Text className="text-gray-500">No lessons have been assigned to you yet.</Text>
+                    <Card className="max-w-full mx-auto p-6 rounded-3xl shadow-xl border border-gray-100 bg-gradient-to-br from-white to-amber-50/50">
+                        <div className="flex justify-between items-center mb-6">
+                            <div className="flex items-center gap-4">
+                                <UserGroupIcon className="h-9 w-9 text-amber-600" />
+                                <Title className="text-3xl font-extrabold text-gray-800">My Classes</Title>
                             </div>
-                            }
+                            <Button
+                                onClick={() => setJoinClassModalOpen(true)}
+                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-md font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                                icon={PlusCircleIcon}
+                            >
+                                Join Class
+                            </Button>
                         </div>
-                    </div>
+                        <Text className="text-gray-600 mb-8 max-w-2xl">Manage your class enrollments and explore class-specific announcements, lessons, and assignments.</Text>
+                        <StudentClassesTab classes={myClasses} onClassSelect={setSelectedClass} />
+                    </Card>
                 );
             case 'quizzes':
-                return (
-                    <div>
-                        <Title className="text-3xl font-bold text-gray-800 mb-2">My Quizzes</Title>
-                        <Text className="mb-8">Complete your quizzes to test your knowledge.</Text>
-                        <div className="border-b border-gray-200 mb-6">
-                            <nav className="flex space-x-6 -mb-px">
-                                <button onClick={() => setActiveQuizTab('active')} className={`pb-3 font-medium text-sm transition-colors ${activeQuizTab === 'active' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Active</button>
-                                <button onClick={() => setActiveQuizTab('completed')} className={`pb-3 font-medium text-sm transition-colors ${activeQuizTab === 'completed' ? 'border-b-2 border-green-500 text-green-600' : 'text-gray-500 hover:text-gray-700'}`}>Completed</button>
-                                <button onClick={() => setActiveQuizTab('overdue')} className={`pb-3 font-medium text-sm transition-colors ${activeQuizTab === 'overdue' ? 'border-b-2 border-red-500 text-red-600' : 'text-gray-500 hover:text-gray-700'}`}>Overdue</button>
-                            </nav>
-                        </div>
-                        <div className="space-y-4">
-                            {quizzes[activeQuizTab].length > 0 ? quizzes[activeQuizTab].map(quiz => (
-                                <QuizCard 
-                                    key={quiz.postId} 
-                                    quiz={quiz} 
-                                    onTakeQuiz={handleTakeQuizClick}
-                                    status={activeQuizTab} 
-                                />
-                            )) : <div className="text-center py-16 bg-gray-100 rounded-lg border border-dashed border-gray-300"><Text className="text-gray-500">No quizzes in this category.</Text></div>}
-                        </div>
-                    </div>
-                );
-            case 'performance': 
+                return <StudentQuizzesTab classes={myClasses} userProfile={userProfile} />;
+            case 'performance':
                 return <StudentPerformanceTab userProfile={userProfile} classes={myClasses} />;
-            case 'classes': 
-                return (
-                    <div>
-                        <div className="flex justify-between items-center mb-6">
-                            <div>
-                                <Title className="text-3xl font-bold text-gray-800 mb-2">My Classes</Title>
-                                <Text>Manage your class enrollments.</Text>
-                            </div>
-                            <Button onClick={() => setJoinClassModalOpen(true)} icon={PlusCircle}>Join a Class</Button>
-                        </div>
-                        <StudentClassesTab classes={myClasses} onClassSelect={setSelectedClass} />
-                    </div>
-                );
-            case 'profile': 
+            case 'profile':
                 return <ProfilePage />;
             default:
-                return null;
+                return (
+                    <Card className="max-w-full mx-auto p-6 rounded-3xl shadow-xl border border-gray-100 bg-gradient-to-br from-white to-amber-50/50">
+                        <div className="flex justify-between items-center mb-6">
+                            <div className="flex items-center gap-4">
+                                <UserGroupIcon className="h-9 w-9 text-amber-600" />
+                                <Title className="text-3xl font-extrabold text-gray-800">My Classes</Title>
+                            </div>
+                            <Button
+                                onClick={() => setJoinClassModalOpen(true)}
+                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-md font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                                icon={PlusCircleIcon}
+                            >
+                                Join Class
+                            </Button>
+                        </div>
+                        <Text className="text-gray-600 mb-8 max-w-2xl">Manage your class enrollments and explore class-specific announcements, lessons, and assignments.</Text>
+                        <StudentClassesTab classes={myClasses} onClassSelect={setSelectedClass} />
+                    </Card>
+                );
         }
     };
 
     return (
-        <div className="min-h-screen font-sans bg-gray-100 text-gray-800">
-            <div className="md:flex h-screen">
+        <div className="min-h-screen font-sans bg-gray-50 text-gray-800 p-4"> {/* Outer padding and background */}
+            <div className="h-full overflow-hidden bg-white rounded-3xl shadow-lg md:flex md:gap-6"> {/* Changed md:gap-4 to md:gap-6 */}
+
                 {/* Desktop Sidebar */}
-                <aside className="w-64 flex-shrink-0 hidden md:block bg-white border-r border-gray-200">
+                <aside className="w-72 flex-shrink-0 hidden md:block bg-white rounded-2xl p-4"> {/* The aside itself now acts as the sidebar 'card' */}
                     <SidebarContent view={view} handleViewChange={handleViewChange} sidebarNavItems={sidebarNavItems} />
                 </aside>
+
                 {/* Mobile Sidebar */}
                 <div className={`fixed inset-0 z-50 md:hidden transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)}></div>
-                    <div className="relative w-64 h-full bg-white">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)}></div>
+                    <div className="relative w-64 h-full bg-white shadow-xl rounded-r-3xl">
                         <SidebarContent view={view} handleViewChange={handleViewChange} sidebarNavItems={sidebarNavItems} />
                     </div>
                 </div>
 
-                <div className="flex-1 flex flex-col">
-                    <header className="bg-white/80 backdrop-blur-lg p-4 flex items-center justify-between sticky top-0 z-40 border-b border-gray-200">
-                        <button className="md:hidden p-2 rounded-full text-gray-500 hover:bg-gray-100" onClick={() => setIsSidebarOpen(true)}><Menu size={20} /></button>
+                {/* Main Content Area (right panel) */}
+                <div className="flex-1 flex flex-col bg-gray-50 rounded-2xl overflow-hidden"> {/* This is the right panel, it gets its own background and rounding */}
+                    <header className="bg-white/90 backdrop-blur-xl p-4 flex items-center justify-between sticky top-0 z-40 border-b border-gray-100 shadow-sm rounded-t-2xl"> {/* Header inside right panel, now rounded-t-2xl */}
+                        <button className="md:hidden p-2 rounded-full text-gray-500 hover:bg-gray-100 transition-colors" onClick={() => setIsSidebarOpen(true)}>
+                            <Bars3Icon className="h-6 w-6" />
+                        </button>
                         <div className="flex-1 md:hidden"></div>
                         <div className="flex items-center gap-4">
                             <div className="flex items-center gap-3">
-                                <UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="sm" />
-                                <span className="text-gray-800 font-semibold hidden sm:inline">Welcome, {userProfile?.firstName || ''}</span>
+                                <UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="md" />
+                                <span className="text-gray-800 font-semibold hidden sm:inline">Hello, <span className="text-blue-600">{userProfile?.firstName || 'Student'}</span>!</span>
                             </div>
-                            <button onClick={logout} className="p-2 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors" title="Logout">
-                                <LogOut size={20} />
-                            </button>
+                            <Button onClick={logout} variant="light" className="p-2 rounded-xl text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors" title="Logout" icon={ArrowLeftOnRectangleIcon}>
+                                <span className="hidden sm:inline">Logout</span>
+                            </Button>
                         </div>
                     </header>
-                    
-                    <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+
+                    <main className="flex-1 overflow-y-auto p-6 lg:p-10 bg-gray-50 rounded-br-2xl">
                         {renderView()}
                     </main>
                 </div>
+
+                {/* Mobile Bottom Nav */}
+                <footer className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg flex justify-around md:hidden border-t border-gray-100 shadow-lg rounded-t-3xl">
+                    {sidebarNavItems.map(item => {
+                        const isActive = view === item.view;
+                        return (
+                            <button
+                                key={item.view}
+                                onClick={() => handleViewChange(item.view)}
+                                className={`flex-1 flex flex-col items-center justify-center py-2 text-center transition-colors duration-200 rounded-xl
+                                    ${isActive ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                <item.icon className={`h-6 w-6 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
+                                <span className="text-xs mt-1 font-medium">{item.text}</span>
+                            </button>
+                        )
+                    })}
+                </footer>
             </div>
-            
-            {/* Mobile Bottom Nav */}
-            <footer className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm flex justify-around md:hidden border-t border-gray-200 z-50">
-                {sidebarNavItems.map(item => {
-                    const isActive = view === item.view;
-                    return (
-                        <button 
-                            key={item.view} 
-                            onClick={() => handleViewChange(item.view)} 
-                            className={`flex-1 flex flex-col items-center justify-center pt-2 pb-1 text-center transition-colors duration-200 ${isActive ? item.color : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            <item.icon size={20} className={isActive ? item.color : 'text-gray-400'} />
-                            <span className="text-xs mt-1">{item.text}</span>
-                        </button>
-                    )
-                })}
-            </footer>
         </div>
     );
 };

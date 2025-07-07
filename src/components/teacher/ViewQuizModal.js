@@ -190,6 +190,44 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
     const renderQuestionResult = () => {
         const question = questions[currentQ];
         const isCorrect = questionResult === 'correct';
+        const userAnswerIndex = userAnswers[currentQ]; // Get the index of the user's chosen answer
+        
+        let explanationText = 'No explanation provided.'; // Default
+        
+        if (question.type === 'multiple-choice') {
+            // Get the explanation from the specific option the user chose
+            // Or, if incorrect, you might want to show the correct answer's explanation
+            // For simplicity, let's show the explanation of the option the user selected.
+            // If the user was incorrect, and that option has an explanation, show it.
+            // If it's correct, show that option's explanation.
+            const selectedOption = question.options?.[userAnswerIndex];
+            if (selectedOption && selectedOption.explanation) {
+                explanationText = selectedOption.explanation;
+            } else if (!isCorrect && question.correctAnswerIndex !== undefined) {
+                // If incorrect, and the selected option has no explanation,
+                // you might want to show the correct answer's explanation.
+                const correctOption = question.options?.[question.correctAnswerIndex];
+                if (correctOption && correctOption.explanation) {
+                    explanationText = `The correct answer was "${correctOption.text}". ${correctOption.explanation}`;
+                }
+            }
+
+        } else if (question.type === 'true-false') {
+            // True/False questions usually have a single explanation for the correct choice
+            if (question.explanation) { // Assuming true/false explanation is on the question object
+                 explanationText = question.explanation;
+            } else if (question.correctAnswer !== undefined) {
+                // If explanation is tied to the correct answer, you'd need logic here
+                // For simplicity, let's assume `question.explanation` handles it for true/false
+                explanationText = question.explanation || 'No explanation provided.';
+            }
+
+        } else if (question.type === 'identification') {
+            if (question.explanation) { // Assuming identification explanation is on the question object
+                explanationText = question.explanation;
+            }
+        }
+
 
         return (
             <div className={`p-4 rounded-lg ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border`}>
@@ -197,8 +235,15 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                     {isCorrect ? <CheckCircleIcon className="h-6 w-6 text-green-500" /> : <XCircleIcon className="h-6 w-6 text-red-500" />}
                     <Title className={isCorrect ? 'text-green-700' : 'text-red-700'}>{isCorrect ? "Correct!" : "Incorrect"}</Title>
                 </div>
-                {/* --- AND HERE --- */}
-                <div className="mt-2 text-gray-700 text-sm"><ContentRenderer text={question.explanation} /></div>
+                {/* Display the correct answer for identification questions when incorrect */}
+                {!isCorrect && question.type === 'identification' && (
+                    <p className="mt-2 text-red-700 text-sm">
+                        Correct Answer: <span className="font-semibold">{question.correctAnswer}</span>
+                    </p>
+                )}
+                <div className="mt-2 text-gray-700 text-sm">
+                    <strong>Explanation:</strong> <ContentRenderer text={explanationText} />
+                </div>
                 <Button onClick={handleNextQuestion} className="mt-4 w-full">
                     {currentQ < totalQuestions - 1 ? 'Next Question' : 'Finish Quiz'}
                 </Button>

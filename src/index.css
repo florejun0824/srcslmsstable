@@ -92,3 +92,108 @@
 .tremor-custom-dialog .react-datepicker__header {
  background-color: #f9fafb !important;
 }
+
+.custom-gradient-dropdown {
+  z-index: 9999 !important; /* Ensures it appears above everything */
+  color: #1e293b; /* slate-800 text color */
+  background-image: linear-gradient(to top, #eef2ff, #fbfaff); /* light indigo gradient */
+  border: 1px solid #c7d2fe; /* A soft indigo border */
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+.custom-gradient-dropdown-item:hover, 
+.custom-gradient-dropdown-item[aria-selected="true"] {
+    background-color: rgba(99, 102, 241, 0.15) !important; /* A slightly stronger indigo highlight */
+    color: #4338ca !important; /* A darker indigo text */
+}
+.react-datepicker-popper {
+z-index: 9999 !important; /* Ensure it's on top */
+}
+
+.react-datepicker {
+background: linear-gradient(135deg, #e0f2f7 0%, #bbdefb 100%) !important; /* Apply a light blue gradient /
+color: #333 !important; / Ensure text is readable */
+border: 1px solid #90caf9 !important;
+box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+.react-datepicker__header {
+background-color: #90caf9 !important; /* A slightly darker shade for the header */
+color: white !important;
+border-bottom: 1px solid #64b5f6 !important;
+}
+
+.react-datepicker__day-name,
+.react-datepicker__day {
+color: #333 !important;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--in-range,
+.react-datepicker__day--in-selecting-range {
+background-color: #1e88e5 !important; /* A more prominent selection color */
+color: white !important;
+}
+
+.react-datepicker__navigation {
+background: none !important;
+border: none !important;
+color: #1e88e5 !important;
+}
+
+.react-datepicker__navigation:hover {
+opacity: 0.8;
+}
+
+.react-datepicker__current-month {
+color: white !important;
+}
+
+.react-datepicker__close-icon::before,
+.react-datepicker__close-icon::after {
+background-color: #333 !important;
+}
+/* Add this to your main stylesheet (e.g., src/index.css) */
+
+.datepicker-portal {
+  position: absolute;
+  z-index: 9999 !important; /* Ensures it's on top of everything */
+  border-radius: 1rem;
+  border: 1px solid #c7d2fe;
+  background-image: linear-gradient(to top, #eef2ff, #ffffff);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  padding: 0.75rem;
+  font-family: sans-serif;
+}
+.datepicker-portal .rdp-caption_label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+.datepicker-portal .rdp-nav_button {
+  height: 1.75rem;
+  width: 1.75rem;
+  padding: 0.25rem;
+  border-radius: 0.375rem;
+}
+.datepicker-portal .rdp-nav_button:hover {
+  background-color: #e0e7ff;
+}
+.datepicker-portal .rdp-day {
+  height: 2.25rem;
+  width: 2.25rem;
+  font-size: 0.875rem;
+  color: #334155;
+  border-radius: 9999px;
+}
+.datepicker-portal .rdp-day:hover {
+  background-color: #e0e7ff;
+}
+.datepicker-portal .rdp-day_today {
+  font-weight: bold;
+  color: #4338ca;
+}
+.datepicker-portal .rdp-day_selected {
+  background-color: #4f46e5;
+  color: white;
+}

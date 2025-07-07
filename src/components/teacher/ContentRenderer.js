@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -7,32 +7,23 @@ import rehypeMermaid from 'rehype-mermaidjs';
 import remarkGfm from 'remark-gfm';
 import 'katex/dist/katex.min.css';
 
-const sanitizeText = (text = '') =>
-  text
-    .replace(/a =\s*\\?ext\{[_]*\}/g, 'a = ___________')
-    .replace(/\\?ext\{[_]*\}/g, '___________')
-    .replace(/\\t_+/g, '___________')
-    .replace(/\^\^?2/g, '²')
-    .replace(/\^\^?3/g, '³')
-    .replace(/\$(.*?)\\neq(.*?)\$/g, (_, a, b) => `$${a} \\ne ${b}$`)
-    .replace(/\$(.*?)\\pm(.*?)\$/g, (_, a, b) => `$${a} \\pm ${b}$`)
-    .replace(/\$(.*?)\\Delta(.*?)\$/g, (_, a, b) => `$${a} \\Delta ${b}$`)
-    // Extra cleanups:
-    .replace(/\$\\angle\s?([A-Z])\s*=\s*[_]+\$/g, '∠$1 = ___________')
-    .replace(/\$(\w+\s*=\s*[_]+)\$/g, '$1');
-
+// The sanitizeText function has been REMOVED.
 
 export default function ContentRenderer({ text = '' }) {
-  const containerRef = useRef();
-
   return (
-      <div ref={containerRef} className="content-renderer prose max-w-full">
-        <ReactMarkdown
-          children={sanitizeText(text)}
-          // 👇 2. ADD IT TO THE ARRAY
-          remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={[rehypeKatex, rehypeRaw, rehypeMermaid]}
+    <div className="content-renderer prose max-w-full">
+      <ReactMarkdown
+        children={text} // Pass the raw, unmodified text directly
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex, rehypeRaw, rehypeMermaid]}
         components={{
+          // Example: If you use bold for blanks, you can style it here
+          strong: ({ node, ...props }) => {
+            if (props.children.includes('___')) {
+              return <span className="font-normal tracking-widest text-blue-500">{props.children}</span>;
+            }
+            return <strong {...props} />;
+          },
           img: ({ node, ...props }) => <img {...props} alt="" className="max-w-full" />,
           svg: ({ node, ...props }) => <svg {...props} className="max-w-full" />,
         }}

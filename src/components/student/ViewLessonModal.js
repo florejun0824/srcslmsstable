@@ -1,117 +1,113 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogPanel, Title, Button, Text } from '@tremor/react';
-import { ArrowLeftIcon, ArrowRightIcon, CloudArrowDownIcon } from '@heroicons/react/24/solid';
-import ContentRenderer from '../teacher/ContentRenderer'; // Adjust path if necessary
+import { Dialog } from '@headlessui/react';
+import { XMarkIcon, ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/24/solid';
+import ContentRenderer from '../teacher/ContentRenderer'; // Ensure path is correct
 
 export default function ViewLessonModal({ isOpen, onClose, lesson }) {
   const [currentPage, setCurrentPage] = useState(0);
 
   useEffect(() => {
-    // Reset to the first page whenever a new lesson is opened
-    setCurrentPage(0);
-  }, [lesson]);
+    if (isOpen) {
+      setCurrentPage(0);
+    }
+  }, [isOpen, lesson]);
 
-  if (!lesson) return null;
+  if (!isOpen || !lesson || !lesson.pages || lesson.pages.length === 0) {
+    return null;
+  }
 
-  const totalPages = lesson.pages?.length || 0;
-  const hasPages = totalPages > 0;
-  const currentPageData = hasPages ? lesson.pages[currentPage] : null;
+  const totalPages = lesson.pages.length;
+  const pageData = lesson.pages[currentPage];
+
+  // --- NEW: Calculate progress for the visual progress bar ---
+  const progressPercentage = totalPages > 1 ? ((currentPage + 1) / totalPages) * 100 : 100;
 
   const goToNextPage = () => {
-    if (currentPage < totalPages - 1) {
-      setCurrentPage(currentPage + 1);
-    }
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages - 1));
   };
 
-  const goToPrevPage = () => {
-    if (currentPage > 0) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-
-  // This function opens the linked study guide in a new browser tab
-  const openStudyGuide = () => {
-    if (lesson.studyGuideUrl) {
-        window.open(lesson.studyGuideUrl, '_blank', 'noopener,noreferrer');
-    }
+  const goToPreviousPage = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 0));
   };
 
   return (
-    <Dialog open={isOpen} onClose={onClose} static={true} className="z-[100]">
-      <DialogPanel className="w-full max-w-4xl rounded-lg bg-white p-6 shadow-xl flex flex-col" style={{ height: '90vh' }}>
-        <Title className="mb-2">{lesson.title}</Title>
-
-        {/* --- THIS IS THE FIX --- */}
-        {/* The button is now green, smaller, and aligned to the right. */}
-        {lesson.studyGuideUrl && (
-            <div className="flex justify-end my-2">
-                <button 
-                    onClick={openStudyGuide}
-                    className="
-                        flex items-center justify-center gap-2 
-                        px-5 py-2.5
-                        font-semibold text-white 
-                        bg-gradient-to-r from-green-500 to-emerald-600 
-                        rounded-lg 
-                        shadow-md 
-                        hover:from-green-600 hover:to-emerald-700 
-                        focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500
-                        transition-all duration-300 transform hover:scale-105
-                    "
-                >
-                    <CloudArrowDownIcon className="w-5 h-5" />
-                    Study Guide
-                </button>
-            </div>
-        )}
+    <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* --- UPDATED: Softer backdrop with blur --- */}
+      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" aria-hidden="true" />
+      
+      {/* --- UPDATED: Main panel with new styling and transitions --- */}
+      <Dialog.Panel className="relative bg-slate-50 rounded-2xl shadow-2xl w-full max-w-4xl z-10 flex flex-col max-h-[95vh] overflow-hidden">
         
-        {/* The main content area with a smaller font size */}
-        <div className="flex-grow overflow-y-auto pr-2 border-t border-gray-200 pt-4">
-          {currentPageData ? (
-             // MODIFIED: Changed prose-lg to prose for a smaller font
-            <div className="prose max-w-none">
-              {currentPageData.title && (
-                <h2 className="text-xl font-semibold mb-2">{currentPageData.title}</h2>
+        {/* --- NEW: Visual Progress Bar --- */}
+        <div className="w-full bg-slate-200 h-1.5">
+          <div
+            className="bg-indigo-600 h-1.5 rounded-r-full transition-all duration-500 ease-out"
+            style={{ width: `${progressPercentage}%` }}
+          />
+        </div>
+
+        {/* --- UPDATED: Header with better spacing and a close button --- */}
+        <div className="flex justify-between items-center p-6 flex-shrink-0">
+          <Dialog.Title className="text-2xl font-bold text-slate-800">{lesson.title}</Dialog.Title>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors"
+          >
+            <XMarkIcon className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* --- UPDATED: Scrolling content area with better typography --- */}
+        <div className="overflow-y-auto flex-grow px-6 pb-6 modern-scrollbar">
+          {pageData && (
+            <div className="prose max-w-none prose-slate">
+              {pageData.imageUrl && (
+                <div className="my-5">
+                  <img
+                    src={pageData.imageUrl}
+                    alt={pageData.title}
+                    className="w-full h-auto object-contain rounded-xl shadow-lg"
+                  />
+                </div>
               )}
-              <ContentRenderer text={currentPageData.content} />
+              <ContentRenderer text={pageData.content} />
             </div>
-          ) : (
-            <p className="text-gray-500">This lesson does not have any content yet.</p>
           )}
         </div>
 
-        {/* The pagination controls remain the same */}
-        <div className="flex-shrink-0 flex justify-between items-center pt-4 mt-4 border-t">
-          <Button 
-            icon={ArrowLeftIcon} 
-            onClick={goToPrevPage} 
+        {/* --- UPDATED: Footer with redesigned buttons and no border --- */}
+        <div className="flex justify-between items-center p-5 bg-slate-50/80 backdrop-blur-sm border-t border-slate-200 flex-shrink-0">
+          <button
+            onClick={goToPreviousPage}
             disabled={currentPage === 0}
-            variant="secondary"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
+            <ArrowLeftIcon className="h-5 w-5" />
             Previous
-          </Button>
+          </button>
 
-          {hasPages && (
-            <span className="text-sm font-medium text-gray-600">
-              Page {currentPage + 1} of {totalPages}
-            </span>
+          <span className="text-sm font-medium text-slate-500">
+            Page {currentPage + 1} of {totalPages}
+          </span>
+          
+          {currentPage < totalPages - 1 ? (
+            <button
+              onClick={goToNextPage}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            >
+              Next
+              <ArrowRightIcon className="h-5 w-5" />
+            </button>
+          ) : (
+            <button 
+              onClick={onClose} 
+              className="inline-flex items-center px-5 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg shadow-sm hover:bg-green-700 transition-colors"
+            >
+              Finish
+            </button>
           )}
-
-          <Button 
-            icon={ArrowRightIcon} 
-            iconPosition="right"
-            onClick={goToNextPage} 
-            disabled={currentPage >= totalPages - 1}
-            variant="secondary"
-          >
-            Next
-          </Button>
         </div>
-
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="primary" onClick={onClose}>Close</Button>
-        </div>
-      </DialogPanel>
+      </Dialog.Panel>
     </Dialog>
   );
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { addDoc, serverTimestamp, collection, query, where, onSnapshot, orderBy, doc, updateDoc, deleteDoc, arrayUnion } from 'firebase/firestore';
+import { addDoc, serverTimestamp, collection, query, where, onSnapshot, orderBy, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { callGeminiWithLimitCheck } from '../services/aiService';
 import TeacherDashboardUI from './TeacherDashboardUI';
@@ -11,14 +11,11 @@ const LMS_KNOWLEDGE_BASE = `
   - Course & Subject Management: Teachers can create subject categories (e.g., "Math", "Science") and then create specific courses/subjects within those categories (e.g., "Algebra 1"). Courses are made up of units.
   - Unit & Lesson Management: Within each course, teachers can create units. Inside units, they can create multi-page lessons and quizzes.
   - AI-Powered Quiz Generation: Teachers can automatically generate a 10-question multiple-choice quiz from the content of any lesson by clicking a button. This uses an AI service.
-  - Class Management: Teachers can create classes, each with a unique class code for student enrollment. They can archive and delete classes.
+  - Class Management: Teachers can create classes, each with a unique class code for student enrollment. They can archive and delete classes. Students can be removed from a class roster via the Class Overview modal.
   - Student Management: Teachers can view a list of all classes in the LMS and import students from any class into one of their own classes.
   - Announcements: Teachers can post announcements for all other teachers, or create announcements for specific classes they teach.
   - Profile Management: Teachers can edit their profile information and change their password.
   - Admin Console: Users with the 'admin' role have access to a special Admin Console for system-wide management.
-  
-    LMS Name: SRCS Learning Portal
-    Developer's' Name: Florejun M. Flores
 `;
 
 const TeacherDashboard = () => {
@@ -74,9 +71,9 @@ const TeacherDashboard = () => {
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [messages, setMessages] = useState([]);
     const [isAiThinking, setIsAiThinking] = useState(false);
-    
+
     useEffect(() => {
-        if(userProfile && messages.length === 0) {
+        if (userProfile && messages.length === 0) {
             setMessages([
                 { sender: 'ai', text: `Hello, ${userProfile?.firstName}! I'm Lumina, your AI assistant. How can I help you navigate the SRCS LMS today?` }
             ]);
@@ -126,23 +123,17 @@ const TeacherDashboard = () => {
             setActiveSubject(null);
         }
     }, [selectedCategory, courses]);
-    
+
     const handleCreateAnnouncement = async ({ content, audience, classId, className }) => {
-        if (!content.trim()) {
-            showToast("Announcement content cannot be empty.", "error");
-            return;
-        }
+        if (!content.trim()) { showToast("Announcement content cannot be empty.", "error"); return; }
         const collectionName = audience === 'teachers' ? 'teacherAnnouncements' : 'studentAnnouncements';
-        const announcementData = { content, teacherId: userProfile?.id, teacherName: `${userProfile?.firstName} ${userProfile?.lastName}`, createdAt: serverTimestamp(), };
+        const announcementData = { content, teacherId: userProfile?.id, teacherName: `${userProfile?.firstName} ${userProfile?.lastName}`, createdAt: serverTimestamp() };
         if (audience === 'students') {
-            if (!classId) {
-                showToast("Please select a class for the student announcement.", "error");
-                return;
-            }
+            if (!classId) { showToast("Please select a class for the student announcement.", "error"); return; }
             announcementData.classId = classId;
             announcementData.className = className;
         }
-        try { await addDoc(collection(db, collectionName), announcementData); showToast("Announcement posted successfully!", "success"); } 
+        try { await addDoc(collection(db, collectionName), announcementData); showToast("Announcement posted successfully!", "success"); }
         catch (error) { console.error("Error posting announcement:", error); showToast("Failed to post announcement.", "error"); }
     };
 
@@ -160,11 +151,22 @@ const TeacherDashboard = () => {
         } catch (error) {
             const errorMessage = { sender: 'ai', text: "I seem to be having trouble connecting. My apologies. Please try again in a moment." };
             setMessages(prev => [...prev, errorMessage]);
-            if (error.message === 'LIMIT_REACHED') { showToast("The AI Assistant has reached its monthly usage limit.", "info"); } 
+            if (error.message === 'LIMIT_REACHED') { showToast("The AI Assistant has reached its monthly usage limit.", "info"); }
             else { showToast("The AI Assistant could not respond. Please try again.", "error"); console.error("AI Chat Error:", error); }
-        } finally {
-            setIsAiThinking(false);
-        }
+        } finally { setIsAiThinking(false); }
+    };
+    
+    const handleRemoveStudentFromClass = async (classId, studentId) => {
+        if (!window.confirm("Are you sure you want to remove this student from the class?")) { return; }
+        try {
+            const classRef = doc(db, "classes", classId);
+            const classDoc = classes.find(c => c.id === classId);
+            if (!classDoc || !classDoc.students) { throw new Error("Class or student list not found."); }
+            const studentToRemove = classDoc.students.find(s => s.id === studentId);
+            if (!studentToRemove) { throw new Error("Student not found in the class list."); }
+            await updateDoc(classRef, { students: arrayRemove(studentToRemove) });
+            showToast("Student removed successfully.", "success");
+        } catch (error) { console.error("Error removing student:", error); showToast("Failed to remove student. Please try again.", "error"); }
     };
 
     const handleGenerateQuizForLesson = async (lesson, unitId, subjectId) => {
@@ -180,11 +182,9 @@ const TeacherDashboard = () => {
             await addDoc(collection(db, 'quizzes'), { title: generatedQuiz.title, questions: generatedQuiz.questions, unitId: unitId, subjectId: subjectId, createdAt: serverTimestamp(), });
             showToast("AI has successfully generated and saved the new quiz!", "success");
         } catch (error) {
-            if (error.message === 'LIMIT_REACHED') { showToast("The AI Assistant has reached its monthly usage limit.", "info"); } 
+            if (error.message === 'LIMIT_REACHED') { showToast("The AI Assistant has reached its monthly usage limit.", "info"); }
             else { showToast("The AI Assistant could not generate a quiz. Please try again.", "error"); console.error("AI Generation Error:", error); }
-        } finally {
-            setIsAiGenerating(false);
-        }
+        } finally { setIsAiGenerating(false); }
     };
 
     const handleInitiateDelete = (type, id, unitId, subjectId) => { setDeleteTarget({ type, id, unitId, subjectId }); setIsDeleteModalOpen(true); };
@@ -197,7 +197,7 @@ const TeacherDashboard = () => {
             const itemRef = doc(db, collectionName, id);
             await deleteDoc(itemRef);
             showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully.`, "success");
-        } catch (error) { console.error("Error during deletion:", error); showToast("An error occurred. Could not delete the item.", "error"); } 
+        } catch (error) { console.error("Error during deletion:", error); showToast("An error occurred. Could not delete the item.", "error"); }
         finally { setIsDeleteModalOpen(false); setDeleteTarget(null); }
     };
     const filteredLmsClasses = useMemo(() => {
@@ -289,7 +289,7 @@ const TeacherDashboard = () => {
             setSelectedClassForImport(null);
             setImportClassSearchTerm('');
             setImportTargetClassId('');
-        } catch (err) { console.error("Error importing students:", err); showToast("An error occurred during the import.", "error"); } 
+        } catch (err) { console.error("Error importing students:", err); showToast("An error occurred during the import.", "error"); }
         finally { setIsImporting(false); }
     };
     const handleBackToClassSelection = () => { setSelectedClassForImport(null); setStudentsToImport(new Set()); setImportTargetClassId(''); };
@@ -323,6 +323,7 @@ const TeacherDashboard = () => {
             isEditSubjectModalOpen={isEditSubjectModalOpen} setEditSubjectModalOpen={setEditSubjectModalOpen} subjectToActOn={subjectToActOn} isDeleteSubjectModalOpen={isDeleteSubjectModalOpen} setDeleteSubjectModalOpen={setDeleteSubjectModalOpen}
             handleCreateAnnouncement={handleCreateAnnouncement}
             isChatOpen={isChatOpen} setIsChatOpen={setIsChatOpen} messages={messages} isAiThinking={isAiThinking} handleAskAi={handleAskAi}
+            handleRemoveStudentFromClass={handleRemoveStudentFromClass}
         />
     );
 };
