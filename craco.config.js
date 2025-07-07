@@ -1,9 +1,19 @@
 const webpack = require('webpack');
 
+console.log("✅ CRACO config file is being loaded!");
+
 module.exports = {
+  style: {
+    // Use the more explicit postcssOptions
+    postcssOptions: {
+      plugins: [
+        require('tailwindcss'),
+        require('autoprefixer'),
+      ],
+    },
+  },
   webpack: {
     configure: (webpackConfig) => {
-      // Add fallbacks for node modules
       webpackConfig.resolve.fallback = {
         ...webpackConfig.resolve.fallback,
         "crypto": require.resolve("crypto-browserify"),
@@ -16,9 +26,10 @@ module.exports = {
         "fs": false,
         "path": require.resolve("path-browserify"),
         "zlib": require.resolve("browserify-zlib"),
+        "vm": require.resolve("vm-browserify"),
+        "encoding": false,
       };
 
-      // Add rule for .mjs files
       webpackConfig.module.rules.push({
         test: /\.m?js/,
         resolve: {
@@ -26,13 +37,11 @@ module.exports = {
         },
       });
 
-      // Ignore source map warnings
       webpackConfig.ignoreWarnings = [/Failed to parse source map/];
 
       return webpackConfig;
     },
     plugins: {
-      // Add necessary plugins
       add: [
         new webpack.ProvidePlugin({
           process: 'process/browser',

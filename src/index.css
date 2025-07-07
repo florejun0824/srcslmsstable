@@ -1,10 +1,11 @@
 /* src/index.css */
 
-@import "react-datepicker/dist/react-datepicker.css";
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Imports and custom styles should come AFTER @tailwind directives */
+@import "react-datepicker/dist/react-datepicker.css";
 
 @keyframes zoom-in-fade-out {
   0% {
@@ -80,14 +81,14 @@
  * Add this to your main src/index.css file
 */
 .tremor-custom-dialog .react-datepicker-popper {
-  z-index: 50 !important; /* Ensure calendar appears above the modal overlay */
+ z-index: 50 !important; /* Ensure calendar appears above the modal overlay */
 }
 
 .tremor-custom-dialog .react-datepicker {
-  background-color: white !important;
-  border: 1px solid #e5e7eb; /* Optional: adds a light border */
+ background-color: white !important;
+ border: 1px solid #e5e7eb; /* Optional: adds a light border */
 }
 
 .tremor-custom-dialog .react-datepicker__header {
-  background-color: #f9fafb !important;
+ background-color: #f9fafb !important;
 }
