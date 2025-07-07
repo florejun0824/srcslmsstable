@@ -4,17 +4,17 @@ import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, getDocs, documentId } from 'firebase/firestore';
 import { Card, Flex, Text, Button, Title } from '@tremor/react';
 import {
-  BookOpenIcon,
-  ChartBarIcon,
-  AcademicCapIcon,
-  UserIcon,
-  ArrowLeftOnRectangleIcon,
-  Bars3Icon,
-  PlusCircleIcon,
-  ClipboardDocumentListIcon,
-  ClockIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
+    BookOpenIcon,
+    ChartBarIcon,
+    AcademicCapIcon,
+    UserIcon,
+    ArrowLeftOnRectangleIcon,
+    Bars3Icon,
+    PlusCircleIcon,
+    ClipboardDocumentListIcon,
+    ClockIcon,
+    CheckCircleIcon,
+    ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import {
     BookOpenIcon as BookOpenIconSolid,
@@ -35,7 +35,7 @@ import ViewQuizModal from '../components/teacher/ViewQuizModal';
 import ViewLessonModal from '../components/student/ViewLessonModal';
 
 const LessonCard = ({ lesson, onSelect }) => (
-    <Card 
+    <Card
         onClick={() => onSelect(lesson)}
         className="group relative p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden"
     >
@@ -64,7 +64,6 @@ const QuizCard = ({ quiz, onTakeQuiz, status }) => {
     if (status === 'completed') {
         buttonText = 'View Submissions';
     } else if (status === 'overdue') {
-        // MODIFIED: Update button text for overdue quizzes
         buttonText = 'Take Quiz (Late)';
     }
 
@@ -78,7 +77,6 @@ const QuizCard = ({ quiz, onTakeQuiz, status }) => {
     const getButtonClass = () => {
         switch (status) {
             case 'completed': return 'btn-success';
-            // MODIFIED: Make the overdue button a clickable red button
             case 'overdue': return 'btn-danger';
             default: return 'btn-primary';
         }
@@ -98,7 +96,6 @@ const QuizCard = ({ quiz, onTakeQuiz, status }) => {
             </div>
             <button
                 onClick={() => onTakeQuiz(quiz)}
-                // MODIFIED: The disabled property is removed to make the button clickable
                 className={`${getButtonClass()} flex items-center justify-center w-full sm:w-auto`}
             >
                 {getIcon()}
@@ -135,20 +132,19 @@ const StudentDashboard = () => {
         return () => unsubscribe();
     }, [userProfile]);
 
-    const fetchContent = useCallback(async () => {
-        if (!userProfile?.id || myClasses.length === 0) { setIsFetchingContent(false); return; }
+    // --- THIS IS THE CORRECTED FUNCTION ---
+    const fetchContent = useCallback(async (currentView) => {
+        if (!userProfile?.id || myClasses.length === 0) {
+            setIsFetchingContent(false);
+            return;
+        }
         setIsFetchingContent(true);
-        
-        try {
-            const submissionsQuery = query(collection(db, "quizSubmissions"), where("studentId", "==", userProfile.id));
-            const submissionsSnapshot = await getDocs(submissionsQuery);
-            const submissionsByQuizId = new Map();
-            submissionsSnapshot.forEach(doc => {
-                const sub = doc.data();
-                const attempts = submissionsByQuizId.get(sub.quizId) || [];
-                submissionsByQuizId.set(sub.quizId, [...attempts, sub]);
-            });
 
+        // Reset states to prevent old data from showing
+        setLessons([]);
+        setQuizzes({ active: [], completed: [], overdue: [] });
+
+        try {
             const allPostsPromises = myClasses.map(c => getDocs(query(collection(db, `classes/${c.id}/posts`))));
             const allPostsSnapshots = await Promise.all(allPostsPromises);
 
@@ -170,71 +166,91 @@ const StudentDashboard = () => {
                     if (post.lessonIds) {
                         post.lessonIds.forEach(lessonId => {
                             const existingPost = latestPostByLessonId.get(lessonId);
-                             if (!existingPost || post.createdAt.toMillis() > existingPost.createdAt.toMillis()) {
+                            if (!existingPost || post.createdAt.toMillis() > existingPost.createdAt.toMillis()) {
                                 latestPostByLessonId.set(lessonId, post);
                             }
                         });
                     }
                 });
             });
-            
-            const uniqueQuizIds = Array.from(latestPostByQuizId.keys());
-            if (uniqueQuizIds.length > 0) {
-                const quizzesQuery = query(collection(db, 'quizzes'), where(documentId(), 'in', uniqueQuizIds));
-                const quizzesSnapshot = await getDocs(quizzesQuery);
-                const quizzesDetails = new Map(quizzesSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() }]));
-                const now = new Date();
-                const categorizedQuizzes = { active: [], completed: [], overdue: [] };
-                
-                for (const [quizId, post] of latestPostByQuizId.entries()) {
-                    const quizDetail = quizzesDetails.get(quizId);
-                    if (!quizDetail) continue;
 
-                    const submissions = submissionsByQuizId.get(quizId) || [];
-                    const deadline = post.availableUntil?.toDate();
-                    
-                    const isCompleted = submissions.length >= 3;
-                    const isOverdue = deadline && now > deadline;
+            // Conditionally fetch quizzes only if on the quizzes tab
+            if (currentView === 'quizzes') {
+                const submissionsQuery = query(collection(db, "quizSubmissions"), where("studentId", "==", userProfile.id));
+                const submissionsSnapshot = await getDocs(submissionsQuery);
+                const submissionsByQuizId = new Map();
+                submissionsSnapshot.forEach(doc => {
+                    const sub = doc.data();
+                    const attempts = submissionsByQuizId.get(sub.quizId) || [];
+                    submissionsByQuizId.set(sub.quizId, [...attempts, sub]);
+                });
 
-                    const quizItem = { ...quizDetail, className: post.className, classId: post.classId, postId: post.id, deadline, attemptsTaken: submissions.length };
+                const uniqueQuizIds = Array.from(latestPostByQuizId.keys());
+                if (uniqueQuizIds.length > 0) {
+                    const quizzesQuery = query(collection(db, 'quizzes'), where(documentId(), 'in', uniqueQuizIds));
+                    const quizzesSnapshot = await getDocs(quizzesQuery);
+                    const quizzesDetails = new Map(quizzesSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() }]));
+                    const now = new Date();
+                    const categorizedQuizzes = { active: [], completed: [], overdue: [] };
 
-                    if (isCompleted) {
-                        categorizedQuizzes.completed.push(quizItem);
-                    } else if (isOverdue) {
-                        categorizedQuizzes.overdue.push(quizItem);
-                    } else {
-                        categorizedQuizzes.active.push(quizItem);
+                    for (const [quizId, post] of latestPostByQuizId.entries()) {
+                        const quizDetail = quizzesDetails.get(quizId);
+                        if (!quizDetail) continue;
+
+                        const submissions = submissionsByQuizId.get(quizId) || [];
+                        const deadline = post.availableUntil?.toDate();
+                        const isCompleted = submissions.length >= 3;
+                        const isOverdue = deadline && now > deadline;
+
+                        const quizItem = { ...quizDetail, className: post.className, classId: post.classId, postId: post.id, deadline, attemptsTaken: submissions.length };
+
+                        if (isCompleted) {
+                            categorizedQuizzes.completed.push(quizItem);
+                        } else if (isOverdue) {
+                            categorizedQuizzes.overdue.push(quizItem);
+                        } else {
+                            categorizedQuizzes.active.push(quizItem);
+                        }
                     }
+                    setQuizzes(categorizedQuizzes);
                 }
-                setQuizzes(categorizedQuizzes);
-            } else { setQuizzes({ active: [], completed: [], overdue: [] }); }
+            }
 
-            const uniqueLessonIds = Array.from(latestPostByLessonId.keys());
-            if (uniqueLessonIds.length > 0) {
-                 const lessonsQuery = query(collection(db, 'lessons'), where(documentId(), 'in', uniqueLessonIds));
-                 const lessonsSnapshot = await getDocs(lessonsQuery);
-                 const lessonsDetails = new Map(lessonsSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() }]));
-                 const categorizedLessons = [];
-                 for (const [lessonId, post] of latestPostByLessonId.entries()) {
-                    const lessonDetail = lessonsDetails.get(lessonId);
-                    if(!lessonDetail) continue;
-                    categorizedLessons.push({ ...lessonDetail, className: post.className, postId: post.id });
-                 }
-                 setLessons(categorizedLessons);
-            } else { setLessons([]); }
-        } catch (error) { console.error("Error fetching content:", error); } 
-        finally { setIsFetchingContent(false); }
+            // Conditionally fetch lessons only if on the lessons tab
+            if (currentView === 'lessons') {
+                const uniqueLessonIds = Array.from(latestPostByLessonId.keys());
+                if (uniqueLessonIds.length > 0) {
+                    const lessonsQuery = query(collection(db, 'lessons'), where(documentId(), 'in', uniqueLessonIds));
+                    const lessonsSnapshot = await getDocs(lessonsQuery);
+                    const lessonsDetails = new Map(lessonsSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() }]));
+                    const categorizedLessons = [];
+                    for (const [lessonId, post] of latestPostByLessonId.entries()) {
+                        const lessonDetail = lessonsDetails.get(lessonId);
+                        if (!lessonDetail) continue;
+                        categorizedLessons.push({ ...lessonDetail, className: post.className, postId: post.id });
+                    }
+                    setLessons(categorizedLessons);
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching content:", error);
+        } finally {
+            setIsFetchingContent(false);
+        }
     }, [userProfile, myClasses]);
     
+    // --- THIS IS THE MODIFIED HOOK ---
     useEffect(() => {
-        if (!isFetchingClasses && myClasses.length >= 0) { fetchContent(); }
-    }, [myClasses, isFetchingClasses, fetchContent]);
+        // It now re-runs whenever 'view' changes
+        if (!isFetchingClasses && myClasses.length >= 0) {
+            fetchContent(view); 
+        }
+    }, [myClasses, isFetchingClasses, fetchContent, view]);
 
     useEffect(() => { if (view !== 'classes') { setSelectedClass(null); } }, [view]);
     
     const handleViewChange = (newView) => { setView(newView); setIsSidebarOpen(false); };
 
-    // MODIFIED: New handler to show a warning for overdue quizzes
     const handleTakeQuizClick = (quiz) => {
         if (activeQuizTab === 'overdue') {
             const proceed = window.confirm("Late submission will be reflected on your teacher's end. Do you want to continue?");
@@ -270,7 +286,7 @@ const StudentDashboard = () => {
                          )}
                     </div>
                 );
-			case 'quizzes':
+            case 'quizzes':
                 return (
                     <div className={contentWrapperClasses}>
                         <h1 className="text-2xl font-bold text-gray-800 mb-4">My Quizzes</h1>
@@ -293,7 +309,7 @@ const StudentDashboard = () => {
                                     <QuizCard 
                                         key={quiz.postId} 
                                         quiz={quiz} 
-                                        onTakeQuiz={handleTakeQuizClick} // MODIFIED: Use the new handler
+                                        onTakeQuiz={handleTakeQuizClick}
                                         status={activeQuizTab} 
                                     />
                                 )) : <p className="text-center py-8 text-gray-500">No quizzes in this category.</p>}
@@ -301,8 +317,8 @@ const StudentDashboard = () => {
                         )}
                     </div>
                 );
-			case 'performance': 
-			    return <div className={contentWrapperClasses}><StudentPerformanceTab userProfile={userProfile} classes={myClasses} /></div>;
+            case 'performance': 
+                return <div className={contentWrapperClasses}><StudentPerformanceTab userProfile={userProfile} classes={myClasses} /></div>;
             case 'classes': 
                 return (
                     <div>
@@ -428,7 +444,7 @@ const StudentDashboard = () => {
                 isOpen={!!quizToTake}
                 onClose={() => {
                     setQuizToTake(null);
-                    fetchContent();
+                    fetchContent(view);
                 }}
                 quiz={quizToTake}
                 userProfile={userProfile}

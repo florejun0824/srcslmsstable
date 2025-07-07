@@ -13,6 +13,8 @@ import {
     getDoc
 } from 'firebase/firestore';
 import Spinner from '../common/Spinner';
+// --- 1. IMPORT THE CONTENT RENDERER ---
+import ContentRenderer from './ContentRenderer';
 
 export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, classId }) {
     const [currentQ, setCurrentQ] = useState(0);
@@ -156,13 +158,15 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
 
         return (
             <div>
-                <p className="font-medium mb-4">{question.text}</p>
+                {/* --- 2. USE CONTENT RENDERER HERE --- */}
+                <div className="font-medium mb-4"><ContentRenderer text={question.text} /></div>
                 
                 {question.type === 'multiple-choice' && (
                     <div className="space-y-3">
                         {question.options?.map((option, idx) => (
                             <div key={idx} onClick={() => handleAnswer(idx)} className="w-full p-4 rounded-lg border transition-all cursor-pointer hover:bg-gray-50">
-                                {option}
+                                {/* --- AND HERE --- */}
+                                <ContentRenderer text={option} />
                             </div>
                         ))}
                     </div>
@@ -193,7 +197,8 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                     {isCorrect ? <CheckCircleIcon className="h-6 w-6 text-green-500" /> : <XCircleIcon className="h-6 w-6 text-red-500" />}
                     <Title className={isCorrect ? 'text-green-700' : 'text-red-700'}>{isCorrect ? "Correct!" : "Incorrect"}</Title>
                 </div>
-                <p className="mt-2 text-gray-700 text-sm">{question.explanation}</p>
+                {/* --- AND HERE --- */}
+                <div className="mt-2 text-gray-700 text-sm"><ContentRenderer text={question.explanation} /></div>
                 <Button onClick={handleNextQuestion} className="mt-4 w-full">
                     {currentQ < totalQuestions - 1 ? 'Next Question' : 'Finish Quiz'}
                 </Button>
@@ -236,6 +241,7 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
         if (loading) return <Spinner />;
         if (isLocked) return renderSystemLockedView();
 
+        // This is the Teacher Preview mode
         if (!classId && !loading) {
             const currentQuestionData = questions[currentQ];
             return (
@@ -244,13 +250,18 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                         <p className="text-center text-sm text-blue-600 bg-blue-50 p-2 rounded-md mb-4">This is a teacher preview.</p>
                         {currentQuestionData ? (
                              <div className="mb-4 p-4 border rounded-lg">
-                                <p className="font-semibold">{currentQ + 1}. {currentQuestionData.text}</p>
+                                 {/* --- AND HERE --- */}
+                                <div className="font-semibold flex items-start">
+                                    <span>{currentQ + 1}.&nbsp;</span>
+                                    <ContentRenderer text={currentQuestionData.text} />
+                                </div>
                                 
                                 <div className="mt-4 space-y-2">
                                     {currentQuestionData.type === 'multiple-choice' && currentQuestionData.options?.map((option, idx) => (
                                         <div key={idx} className={`flex items-center p-2 rounded-md text-sm ${idx === currentQuestionData.correctAnswerIndex ? 'bg-green-100 text-green-800 font-semibold ring-1 ring-green-300' : 'bg-gray-100'}`}>
                                             {idx === currentQuestionData.correctAnswerIndex && <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />}
-                                            {option}
+                                            {/* --- AND HERE --- */}
+                                            <ContentRenderer text={option} />
                                         </div>
                                     ))}
                                     {currentQuestionData.type === 'true-false' && (
@@ -265,17 +276,19 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                                             </div>
                                         </>
                                     )}
-                                    {/* ✅ CORRECTION: Displays the correct answer for identification questions */}
                                     {currentQuestionData.type === 'identification' && (
                                         <div className="flex items-center p-2 rounded-md text-sm bg-green-100 text-green-800 font-semibold ring-1 ring-green-300">
                                             <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />
-                                            Correct Answer: {currentQuestionData.correctAnswer}
+                                            {/* --- AND HERE --- */}
+                                            Correct Answer: <ContentRenderer text={currentQuestionData.correctAnswer} />
                                         </div>
                                     )}
                                 </div>
                                 
                                 <div className="mt-4 pt-2 border-t text-sm text-gray-600">
-                                    <p><strong>Explanation:</strong> {currentQuestionData.explanation || 'No explanation provided.'}</p>
+                                    <p><strong>Explanation:</strong></p>
+                                    {/* --- AND HERE --- */}
+                                    <ContentRenderer text={currentQuestionData.explanation || 'No explanation provided.'} />
                                 </div>
                             </div>
                         ) : (

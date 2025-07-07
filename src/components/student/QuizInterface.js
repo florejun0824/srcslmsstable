@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../common/Modal';
 import { ChevronLeft } from 'lucide-react';
+// --- 1. IMPORT THE CONTENT RENDERER ---
+import ContentRenderer from '../common/ContentRenderer'; // Assuming path based on Modal import
 
 const QuizInterface = ({ quiz, onSubmit, onBack }) => {
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -58,12 +60,19 @@ const QuizInterface = ({ quiz, onSubmit, onBack }) => {
                 <p className="text-gray-600 mb-6 text-md md:text-lg">Question {currentQuestionIndex + 1} of {quiz.questions.length}</p>
 
                 <div className="p-4 md:p-5 border border-gray-200 rounded-lg bg-gray-50">
-                    <p className="font-semibold text-lg md:text-xl mb-4 text-gray-800">{currentQuestionIndex + 1}. {currentQuestion.text}</p>
+                    {/* --- 2. USE CONTENT RENDERER FOR THE QUESTION --- */}
+                    <div className="font-semibold text-lg md:text-xl mb-4 text-gray-800 flex items-start">
+                        <span className="mr-2">{currentQuestionIndex + 1}.</span>
+                        <ContentRenderer text={currentQuestion.text} />
+                    </div>
                     <div className="space-y-3">
                         {currentQuestion.options.map((opt, oIndex) => (
-                            <label key={oIndex} className={`flex items-center p-3 rounded-md cursor-pointer transition-colors ${selectedOption === oIndex ? 'bg-blue-100 ring-2 ring-blue-400' : 'hover:bg-gray-100'}`}>
-                                <input type="radio" name={`question-${currentQuestionIndex}`} checked={selectedOption === oIndex} onChange={() => setSelectedOption(oIndex)} className="mr-4 text-blue-600 focus:ring-blue-500 scale-125" />
-                                <span className="text-md md:text-lg text-gray-700">{opt}</span>
+                            <label key={oIndex} className={`flex items-start p-3 rounded-md cursor-pointer transition-colors ${selectedOption === oIndex ? 'bg-blue-100 ring-2 ring-blue-400' : 'hover:bg-gray-100'}`}>
+                                <input type="radio" name={`question-${currentQuestionIndex}`} checked={selectedOption === oIndex} onChange={() => setSelectedOption(oIndex)} className="mr-4 mt-1 text-blue-600 focus:ring-blue-500 scale-125" />
+                                {/* --- 3. AND FOR THE OPTIONS --- */}
+                                <span className="text-md md:text-lg text-gray-700">
+                                    <ContentRenderer text={opt} />
+                                </span>
                             </label>
                         ))}
                     </div>
@@ -76,9 +85,14 @@ const QuizInterface = ({ quiz, onSubmit, onBack }) => {
             <Modal isOpen={isFeedbackModalOpen} onClose={handleContinueFromFeedback} title="Incorrect Answer">
                 <div className="text-gray-800">
                     <p className="font-semibold text-red-600 text-lg mb-2">The correct answer was:</p>
-                    <p className="p-3 bg-green-100 text-green-800 rounded-md mb-4">{feedbackData.correctAnswer}</p>
+                    {/* --- 4. AND FOR THE FEEDBACK --- */}
+                    <div className="p-3 bg-green-100 text-green-800 rounded-md mb-4">
+                        <ContentRenderer text={feedbackData.correctAnswer} />
+                    </div>
                     <p className="font-semibold mt-4 text-lg mb-2">Explanation:</p>
-                    <p className="text-gray-700">{feedbackData.explanation}</p>
+                    <div className="text-gray-700">
+                        <ContentRenderer text={feedbackData.explanation} />
+                    </div>
                     <button onClick={handleContinueFromFeedback} className="w-full mt-6 bg-blue-500 text-white p-3 rounded-md text-lg hover:bg-blue-600 transition-colors">
                         Continue
                     </button>

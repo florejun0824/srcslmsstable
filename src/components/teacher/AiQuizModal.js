@@ -6,6 +6,8 @@ import { doc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 import Spinner from '../common/Spinner';
+// Make sure ContentRenderer is imported
+import ContentRenderer from './ContentRenderer'; 
 
 export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson }) {
     const { showToast } = useToast();
@@ -25,7 +27,7 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
             setStep(1);
             setItemCount(10);
             setQuizType('multiple-choice');
-            setDistribution({ 'multiple-choice': 0, 'true-false': 0, 'identification': 0 });
+            setDistribution({ 'multiple-choice': 10, 'true-false': 0, 'identification': 0 });
             setAdditionalPrompt('');
             setIsGenerating(false);
             setGeneratedQuiz(null);
@@ -62,13 +64,14 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
             prompt += `\nPlease adjust the previous generation with the following instructions: "${additionalPrompt}".\n`;
         }
         
-        // ✅ CORRECTION: Added language detection and stricter explanation rules.
+        // --- THIS IS THE FIX FOR THE AI ---
         prompt += `\nReturn the response as a single, valid JSON object. The object must have a "title" (string) and a "questions" (array) property. Each object in the "questions" array must have:
-- **Language Detection:** You MUST detect the primary language of the provided "LESSON CONTENT". The entire generated quiz, including the title, questions, options, and explanations, MUST be in that same detected language.
+- **CRITICAL FORMATTING RULE:** ALL mathematical content in ANY text field ("text", "options", "explanation", "correctAnswer") MUST be enclosed in LaTeX delimiters ($...$ for inline math, $$...$$ for block math). For example, write "Solve for $x$ in $x^2+5=10$" instead of "Solve for x in x²+5=10".
+- **Language Detection:** You MUST detect the primary language of the provided "LESSON CONTENT". The entire generated quiz MUST be in that same detected language.
 - A "text" property (string).
 - A "type" property ('multiple-choice', 'true-false', or 'identification').
 - A "difficulty" property ('easy' or 'comprehension').
-- An "explanation" property (string). This explanation must be a direct and concrete clarification of why the correct answer is correct. It should not reference the lesson text itself. Avoid phrases like "The lesson defines" or any similar meta-commentary.
+- An "explanation" property (string). This explanation must be a direct and concrete clarification of why the correct answer is correct.
 - For 'multiple-choice', an "options" property (array of 4 strings) and a "correctAnswerIndex" property (number).
 - For 'true-false', a "correctAnswer" property (boolean).
 - For 'identification', a "correctAnswer" property (string).
@@ -188,7 +191,11 @@ Do not include any text or formatting outside of the JSON object.`;
                             <h3 className="font-bold text-lg mb-2">{generatedQuiz?.title}</h3>
                             {generatedQuiz?.questions.map((q, i) => (
                                 <div key={i} className="mb-4 text-sm p-3 bg-white rounded-md shadow-sm">
-                                    <p className="font-semibold text-gray-800">{i + 1}. {q.text}</p>
+                                    {/* --- THIS IS THE FIX FOR THE UI --- */}
+                                    <div className="font-semibold text-gray-800 flex items-start">
+                                        <span>{i + 1}.&nbsp;</span>
+                                        <ContentRenderer text={q.text} />
+                                    </div>
                                     <span className="text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 ">{q.type}</span>
                                     <span className="text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">{q.difficulty}</span>
 
@@ -197,7 +204,7 @@ Do not include any text or formatting outside of the JSON object.`;
                                             <ul className="list-disc list-inside space-y-1 text-gray-700">
                                                 {q.options.map((option, index) => (
                                                     <li key={index} className={index === q.correctAnswerIndex ? 'font-bold text-green-600' : ''}>
-                                                        {option}
+                                                        <ContentRenderer text={option} />
                                                         {index === q.correctAnswerIndex && <span className="text-green-600 ml-2">✓ Correct</span>}
                                                     </li>
                                                 ))}
@@ -209,14 +216,14 @@ Do not include any text or formatting outside of the JSON object.`;
                                             </p>
                                         )}
                                         {q.type === 'identification' && (
-                                             <p className="text-gray-700">
-                                                Correct Answer: <span className="font-bold text-green-600">{q.correctAnswer}</span>
+                                            <p className="text-gray-700">
+                                                 Correct Answer: <span className="font-bold text-green-600"><ContentRenderer text={q.correctAnswer}/></span>
                                             </p>
                                         )}
                                     </div>
                                     <div className="mt-2 p-2 bg-gray-100 rounded">
                                         <p className="text-xs font-semibold text-gray-600">Explanation:</p>
-                                        <p className="text-xs text-gray-600">{q.explanation}</p>
+                                        <ContentRenderer text={q.explanation} />
                                     </div>
                                 </div>
                             ))}
@@ -261,7 +268,7 @@ Do not include any text or formatting outside of the JSON object.`;
                 {step === 1 && quizType !== 'mixed' ? (
                     <Button icon={SparklesIcon} onClick={handleGenerate}>Generate Quiz</Button>
                 ) : step === 2 && quizType === 'mixed' ? (
-                       <Button icon={SparklesIcon} onClick={handleGenerate}>Generate Quiz</Button>
+                        <Button icon={SparklesIcon} onClick={handleGenerate}>Generate Quiz</Button>
                 ) : (
                     <Button onClick={() => setStep(step + 1)}>Next</Button>
                 )}
