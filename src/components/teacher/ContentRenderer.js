@@ -4,6 +4,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import rehypeMermaid from 'rehype-mermaidjs';
+import remarkGfm from 'remark-gfm';
 import 'katex/dist/katex.min.css';
 
 const sanitizeText = (text = '') =>
@@ -25,11 +26,12 @@ export default function ContentRenderer({ text = '' }) {
   const containerRef = useRef();
 
   return (
-    <div ref={containerRef} className="content-renderer prose max-w-full">
-      <ReactMarkdown
-        children={sanitizeText(text)}
-        remarkPlugins={[remarkMath]}
-        rehypePlugins={[rehypeKatex, rehypeRaw, rehypeMermaid]}
+      <div ref={containerRef} className="content-renderer prose max-w-full">
+        <ReactMarkdown
+          children={sanitizeText(text)}
+          // 👇 2. ADD IT TO THE ARRAY
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[rehypeKatex, rehypeRaw, rehypeMermaid]}
         components={{
           img: ({ node, ...props }) => <img {...props} alt="" className="max-w-full" />,
           svg: ({ node, ...props }) => <svg {...props} className="max-w-full" />,

@@ -94,11 +94,10 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
 **USER'S INSTRUCTION FOR REVISION:** "${regenerationNote}"`;
     }
 
-    const advancedInstructions = `\n**Mathematical and Scientific Notations:** ALL mathematical content MUST be enclosed in LaTeX delimiters ($...$ or $$...$$).
-**Geometrical Figures:** For any geometric shapes, diagrams, or figures, you MUST generate them using SVG (Scalable Vector Graphics) code.
-**Tables:** For any tabular data, you MUST generate it using standard HTML table tags (<table>, <thead>, <tbody>, <tr>, <th>, <td>).
-**Use Standard Characters:** You MUST use standard keyboard characters for markdown.
-**CRITICAL JSON RULE:** You MUST ensure all backslashes (\\) in the JSON content are properly escaped (as \\\\).`;
+	const advancedInstructions = `\n**Mathematical and Scientific Notations:** ALL mathematical content MUST be enclosed in LaTeX delimiters ($...$ or $$...$$). For example, write "the area is $x^2$" instead of "the area is x²". Do NOT use unicode superscript characters in math.
+	**Geometrical Figures:** For any geometric shapes, you MUST generate them using SVG code. **CRITICAL SVG RULE:** Any text labels inside the SVG (e.g., for vertices, angles, or length) MUST be plain text. For example, use "<text>l</text>" NOT "<text>$l$</text>".
+	**Tables:** For any tabular data, you MUST generate it using **Markdown table syntax** (using '|' and '-'). The table MUST have a header row.
+	**CRITICAL JSON RULE:** You MUST ensure all backslashes (\\) in the JSON content are properly escaped (as \\\\).`;
 
     if (formData.generationTarget === 'teacherGuide' && selectedStudentLesson) {
       const studentLessonContent = selectedStudentLesson.pages.map(p => `Page Title: ${p.title}\nContent:\n${p.content}`).join('\n\n---\n\n');
