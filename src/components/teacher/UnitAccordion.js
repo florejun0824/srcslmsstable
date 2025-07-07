@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { db } from '../../services/firebase';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { Accordion, AccordionBody, AccordionHeader, AccordionList, Button } from '@tremor/react';
@@ -11,10 +12,12 @@ import {
     DocumentTextIcon,
     EyeIcon
 } from '@heroicons/react/24/solid';
-import { saveAs } from 'file-saver';
-import * as htmlToImage from 'html-to-image';
-import HTMLtoDOCX from 'html-to-docx';
 
+// --- NEW IMPORTS FOR PDF EXPORT ---
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
+// --- Other Component Imports ---
 import AddLessonModal from './AddLessonModal';
 import AddQuizModal from './AddQuizModal';
 import DeleteUnitModal from './DeleteUnitModal';
@@ -27,49 +30,71 @@ import CreateAiLessonModal from './CreateAiLessonModal';
 import AiQuizModal from './AiQuizModal';
 import ContentRenderer from './ContentRenderer';
 
-// --- Helper function for DOCX export ---
-const exportLessonToDocx = async (lesson) => {
-    const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.width = '800px';
-    document.body.appendChild(container);
+// --- (NEW) Helper function for PDF export ---
+// In UnitAccordion.js
 
-    let fullHtmlString = `<h1>${lesson.title}</h1>`;
+// --- (DEFINITIVE) Helper function with correct Header/Footer placement ---
+const exportLessonToPdf = async (lesson) => {
+    console.log('Preparing lesson for PDF export...');
+
+    // --- 1. Build the main lesson content ---
+    let lessonContentHtml = `<h1>${lesson.title}</h1>`;
     for (const page of lesson.pages) {
-        fullHtmlString += `<h2>${page.title}</h2>`;
-        const pageElement = document.createElement('div');
-        ReactDOM.render(<ContentRenderer text={page.content} />, pageElement);
-        fullHtmlString += pageElement.innerHTML;
-    }
-    container.innerHTML = fullHtmlString;
-
-    const elementsToConvert = container.querySelectorAll('svg, table');
-    for (const element of elementsToConvert) {
-        try {
-            const dataUrl = await htmlToImage.toPng(element);
-            const img = document.createElement('img');
-            img.src = dataUrl;
-            element.parentNode.replaceChild(img, element);
-        } catch (error) {
-            console.error('Could not convert element to image', error);
-            element.innerHTML = "[Could not render figure]";
-        }
+        const cleanTitle = page.title.replace(/^page\s*\d+\s*[:-]?\s*/i, '');
+        lessonContentHtml += `<h2>${cleanTitle}</h2>`;
+        lessonContentHtml += `<div class="prose max-w-full">${page.content}</div>`;
     }
 
-    const finalHtml = container.innerHTML;
+    // --- 2. Assemble the final print document ---
+    const printHtml = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>${lesson.title}</title>
+            <style>
+                /* Base styles for the document */
+                body {
+                    font-family: 'Times New Roman', Times, serif;
+                    font-size: 12pt;
+                }
+                .prose img { max-width: 100%; }
 
-    const fileBuffer = await HTMLtoDOCX(finalHtml, null, {
-        table: { row: { cantSplit: true } },
-        footer: true,
-        pageNumber: true,
-    });
+                /* This rule now controls all the margins */
+                @media print {
+                    @page {
+                        size: 8.5in 13in;
+                        margin: 1in;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+            <div id="render-container">${lessonContentHtml}</div>
+        </body>
+        </html>
+    `;
 
-    saveAs(fileBuffer, `${lesson.title}.docx`);
-    document.body.removeChild(container);
+    // --- 3. Use an iframe to trigger the print dialog ---
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    iframe.contentDocument.write(printHtml);
+    iframe.contentDocument.close();
+    
+    const renderContainer = iframe.contentDocument.getElementById('render-container');
+    const root = createRoot(renderContainer);
+    root.render(<React.StrictMode><ContentRenderer text={lessonContentHtml} /></React.StrictMode>);
+
+    setTimeout(() => {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        document.body.removeChild(iframe);
+    }, 1000);
 };
 
-// --- Helper Components ---
+// --- Helper Components (Unchanged) ---
 const MenuPortal = ({ children, menuStyle, onClose }) => {
     const menuRef = useRef(null);
     useEffect(() => {
@@ -82,7 +107,7 @@ const MenuPortal = ({ children, menuStyle, onClose }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [onClose]);
 
-    return ReactDOM.createPortal(
+    return createPortal(
         <div ref={menuRef} style={menuStyle} className="fixed bg-white rounded-md shadow-lg z-[5000] border">
             <div className="py-1" onClick={onClose}>{children}</div>
         </div>,
@@ -100,7 +125,7 @@ const ActionMenu = ({ children }) => {
         } else {
             const iconRect = iconRef.current.getBoundingClientRect();
             const spaceBelow = window.innerHeight - iconRect.bottom;
-            const menuHeight = 120; // Approximate height of the menu
+            const menuHeight = 150; // Adjusted height for more items
             const style = {
                 right: `${window.innerWidth - iconRect.right}px`,
                 width: '224px',
@@ -131,7 +156,8 @@ const MenuItem = ({ icon: Icon, text, onClick, disabled = false }) => (
     </button>
 );
 
-const LessonItem = ({ lesson, onEdit, onView, onDelete, onGenerateQuiz, onExport, isAiGenerating }) => (
+// --- MODIFIED LessonItem to include PDF export ---
+const LessonItem = ({ lesson, onEdit, onView, onDelete, onGenerateQuiz, isAiGenerating }) => (
     <div className="p-2 border-b border-gray-200 flex justify-between items-center last:border-b-0 group">
         <p className="text-sm text-gray-700">{lesson.title}</p>
         <div className="flex items-center gap-1">
@@ -140,13 +166,14 @@ const LessonItem = ({ lesson, onEdit, onView, onDelete, onGenerateQuiz, onExport
             </button>
             <ActionMenu>
                 <MenuItem icon={PencilIcon} text="Edit Lesson" onClick={onEdit} />
-                <MenuItem icon={DocumentTextIcon} text="Export as .docx" onClick={onExport} />
+                <MenuItem icon={DocumentTextIcon} text="Export as .pdf" onClick={() => exportLessonToPdf(lesson)} />
                 <MenuItem icon={SparklesIcon} text="AI Generate Quiz" onClick={onGenerateQuiz} disabled={isAiGenerating} />
                 <MenuItem icon={TrashIcon} text="Delete Lesson" onClick={onDelete} />
             </ActionMenu>
         </div>
     </div>
 );
+
 
 const QuizItem = ({ quiz, onEdit, onDelete, onView }) => (
     <div className="p-2 border-b border-gray-200 flex justify-between items-center last:border-b-0 group">
@@ -260,7 +287,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                                     setSelectedLesson(lesson);
                                                     setAiQuizModalOpen(true);
                                                 }}
-                                                onExport={() => exportLessonToDocx(lesson)}
                                                 isAiGenerating={isAiGenerating}
                                             />
                                         )
@@ -274,8 +300,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                                 key={quiz.id}
                                                 quiz={quiz}
                                                 onEdit={handleEditQuiz}
-                                                // --- THIS IS THE MODIFIED LINE ---
-                                                // It now passes the lessonId from the quiz object, which is needed for the full deletion.
                                                 onDelete={() => onInitiateDelete('quiz', quiz.id, quiz.lessonId)}
                                                 onView={() => handleOpenQuizModal(setViewQuizModalOpen, quiz)}
                                             />)
@@ -296,7 +320,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             <ViewLessonModal isOpen={viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={selectedLesson} />
             {selectedQuiz && (<EditQuizModal isOpen={editQuizModalOpen} onClose={() => setEditQuizModalOpen(false)} quiz={selectedQuiz} onEditQuiz={() => { setEditQuizModalOpen(false); }} />)}
             <ViewQuizModal isOpen={viewQuizModalOpen} onClose={() => setViewQuizModalOpen(false)} quiz={selectedQuiz} userProfile={userProfile} />
-            <CreateAiLessonModal isOpen={createAiLessonModalOpen} onClose={() => setCreateAiLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id} />
+            <CreateAiLessonModal isOpen={createAiLessonModalOpen} onClose={() => setCreateAiLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id} subjectName={subject?.name} />
             <AiQuizModal
                 isOpen={aiQuizModalOpen}
                 onClose={() => setAiQuizModalOpen(false)}
