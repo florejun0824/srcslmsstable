@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import {
     HomeIcon, AcademicCapIcon, BookOpenIcon, UserIcon, ShieldCheckIcon, Bars3Icon,
@@ -27,7 +27,7 @@ import CreateCourseModal from '../components/teacher/CreateCourseModal';
 import ClassOverviewModal from '../components/teacher/ClassOverviewModal';
 import EditClassModal from '../components/common/EditClassModal';
 import AddUnitModal from '../components/teacher/AddUnitModal';
-import EditUnitModal from '../components/teacher/EditUnitModal'; // Corrected path assuming it's in a subfolder
+import EditUnitModal from '../components/teacher/EditUnitModal';
 import AddLessonModal from '../components/teacher/AddLessonModal';
 import AddQuizModal from '../components/teacher/AddQuizModal';
 import DeleteUnitModal from '../components/teacher/DeleteUnitModal';
@@ -41,8 +41,15 @@ import DeleteSubjectModal from '../components/teacher/DeleteSubjectModal';
 
 // --- Reusable Components for the Home Tab ---
 
-const AnimatedRobot = ({ onClick }) => { // Added onClick prop
+const AnimatedRobot = ({ onClick }) => {
     const [animationState, setAnimationState] = useState('idle');
+    const robotRef = useRef(null);
+    const [isDragging, setIsDragging] = useState(false);
+    // Position now stores top/left instead of x/y for direct CSS application
+    const [position, setPosition] = useState({ top: 0, left: 0 });
+    const [offset, setOffset] = useState({ x: 0, y: 0 }); // Offset from mouse click to element top-left
+    const dragStartedAt = useRef({ x: 0, y: 0 }); // To differentiate click from drag
+
     useEffect(() => {
         let timeoutId;
         const scheduleNextAnimation = () => {
@@ -61,29 +68,185 @@ const AnimatedRobot = ({ onClick }) => { // Added onClick prop
         return () => clearTimeout(timeoutId);
     }, []);
 
+    // Adjust initial position dynamically based on screen size
+    useEffect(() => {
+        const handleResize = () => {
+            const currentRobotWidth = window.innerWidth < 768 ? 50 : 70;
+            const currentRobotHeight = window.innerWidth < 768 ? 65 : 90;
+            const mobileNavHeight = 60; // Approximate height of your bottom navigation
+
+            let initialLeft = window.innerWidth - currentRobotWidth - 20; // 20px right padding
+            let initialTop = window.innerHeight - currentRobotHeight - 20; // 20px bottom padding
+
+            if (window.innerWidth < 768) { // Mobile view, adjust for bottom nav
+                initialTop = window.innerHeight - currentRobotHeight - mobileNavHeight - 20; // 20px above nav
+            }
+            // Ensure robot stays within bounds on resize if it was dragged
+            initialLeft = Math.max(0, Math.min(initialLeft, window.innerWidth - currentRobotWidth));
+            initialTop = Math.max(0, Math.min(initialTop, window.innerHeight - currentRobotHeight - (window.innerWidth < 768 ? mobileNavHeight : 0)));
+
+            setPosition({ left: initialLeft, top: initialTop });
+        };
+
+        handleResize(); // Set initial position on mount
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+
+    const handleMouseDown = useCallback((e) => {
+        if (robotRef.current) {
+            setIsDragging(true);
+            dragStartedAt.current = { x: e.clientX, y: e.clientY }; // Record start position
+            const bbox = robotRef.current.getBoundingClientRect();
+            setOffset({
+                x: e.clientX - bbox.left,
+                y: e.clientY - bbox.top,
+            });
+            e.preventDefault(); // Prevent default browser drag behavior
+            e.stopPropagation(); // Stop event propagation to prevent text selection etc.
+        }
+    }, []);
+
+    const handleMouseMove = useCallback((e) => {
+        if (!isDragging) return;
+
+        const newLeft = e.clientX - offset.x;
+        const newTop = e.clientY - offset.y;
+
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        const robotWidth = robotRef.current ? robotRef.current.offsetWidth : (window.innerWidth < 768 ? 50 : 70);
+        const robotHeight = robotRef.current ? robotRef.current.offsetHeight : (window.innerWidth < 768 ? 65 : 90);
+
+        const minLeft = 0;
+        const minTop = 0;
+        const maxLeft = viewportWidth - robotWidth;
+        const mobileNavHeight = (viewportWidth < 768) ? 60 : 0; // Approx nav height on mobile
+        const maxTop = viewportHeight - robotHeight - mobileNavHeight;
+
+        const boundedLeft = Math.max(minLeft, Math.min(newLeft, maxLeft));
+        const boundedTop = Math.max(minTop, Math.min(newTop, maxTop));
+
+        setPosition({ left: boundedLeft, top: boundedTop });
+    }, [isDragging, offset]);
+
+    const handleMouseUp = useCallback((e) => {
+        setIsDragging(false);
+        // Check if the mouse moved significantly to distinguish drag from click
+        const movedX = Math.abs(e.clientX - dragStartedAt.current.x);
+        const movedY = Math.abs(e.clientY - dragStartedAt.current.y);
+
+        // If moved less than a small threshold (e.g., 5px), it's considered a click
+        if (movedX < 5 && movedY < 5) {
+            onClick();
+        }
+        e.stopPropagation(); // Prevent further propagation after drag/click action
+    }, [onClick]);
+
+    // Touch event handlers for mobile
+    const handleTouchStart = useCallback((e) => {
+        if (e.touches.length === 1 && robotRef.current) {
+            setIsDragging(true);
+            dragStartedAt.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; // Record start position
+            const touch = e.touches[0];
+            const bbox = robotRef.current.getBoundingClientRect();
+            setOffset({
+                x: touch.clientX - bbox.left,
+                y: touch.clientY - bbox.top,
+            });
+            e.preventDefault(); // Prevent scrolling while dragging
+            e.stopPropagation(); // Stop event propagation
+        }
+    }, []);
+
+    const handleTouchMove = useCallback((e) => {
+        if (!isDragging || e.touches.length !== 1) return;
+
+        const touch = e.touches[0];
+        const newLeft = touch.clientX - offset.x;
+        const newTop = touch.clientY - offset.y;
+
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        const robotWidth = robotRef.current ? robotRef.current.offsetWidth : 50; // Use mobile default
+        const robotHeight = robotRef.current ? robotRef.current.offsetHeight : 65; // Use mobile default
+
+        const minLeft = 0;
+        const minTop = 0;
+        const maxLeft = viewportWidth - robotWidth;
+        const mobileNavHeight = 60; // Approximate height of your bottom navigation
+        const maxTop = viewportHeight - robotHeight - mobileNavHeight;
+
+        const boundedLeft = Math.max(minLeft, Math.min(newLeft, maxLeft));
+        const boundedTop = Math.max(minTop, Math.min(newTop, maxTop));
+
+        setPosition({ left: boundedLeft, top: boundedTop });
+        e.preventDefault(); // Prevent scrolling while dragging
+    }, [isDragging, offset]);
+
+    const handleTouchEnd = useCallback((e) => {
+        setIsDragging(false);
+        // Check if the touch moved significantly to distinguish drag from tap
+        const movedX = Math.abs(e.changedTouches[0].clientX - dragStartedAt.current.x);
+        const movedY = Math.abs(e.changedTouches[0].clientY - dragStartedAt.current.y);
+
+        // If moved less than a small threshold (e.g., 5px), it's considered a click
+        if (movedX < 5 && movedY < 5) {
+            onClick();
+        }
+        e.stopPropagation(); // Prevent further propagation
+    }, [onClick]);
+
+
+    useEffect(() => {
+        if (isDragging) {
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+            window.addEventListener('touchmove', handleTouchMove, { passive: false });
+            window.addEventListener('touchend', handleTouchEnd);
+        } else {
+            // Ensure listeners are removed even if `isDragging` changes due to external factors
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('touchmove', handleTouchMove);
+            window.removeEventListener('touchend', handleTouchEnd);
+        }
+        // Cleanup function
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('touchmove', handleTouchMove);
+            window.removeEventListener('touchend', handleTouchEnd);
+        };
+    }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
+
+
     return (
         <>
             <style jsx>{`
                 .robot-container-fixed {
-                    position: fixed; /* Make it fixed */
-                    bottom: 20px;    /* Default for desktop */
-                    right: 20px;     /* Default for desktop */
-                    width: 70px;
-                    height: 90px;
+                    position: fixed;
+                    /* top and left set directly by JS in the style attribute */
+                    width: 70px; /* Desktop default */
+                    height: 90px; /* Desktop default */
                     animation: robot-float 5s ease-in-out infinite;
-                    z-index: 100; /* Ensure it stays on top */
-                    cursor: pointer; /* Indicate it's clickable */
-                    background-color: rgba(255, 255, 255, 0.7); /* Slightly transparent background */
-                    border-radius: 50%; /* Make it round */
+                    z-index: 1000; /* Higher z-index to ensure it's always on top */
+                    cursor: grab; /* Indicate it's draggable */
+                    background-color: rgba(255, 255, 255, 0.7);
+                    border-radius: 50%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                    transition: all 0.3s ease-in-out;
+                    transition: box-shadow 0.3s ease-in-out; /* Only smooth shadow transition */
+                    will-change: top, left; /* Hint to browser for performance on position changes */
                 }
-                .robot-container-fixed:hover {
-                    transform: scale(1.05);
-                    box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+                .robot-container-fixed.dragging {
+                    cursor: grabbing;
+                    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
                 }
                 .robot { position: relative; width: 100%; height: 100%; }
                 .head { width: 60px; height: 50px; background-image: linear-gradient(to bottom, #d1d5db, #9ca3af); border-radius: 50% 50% 10px 10px; position: absolute; left: 5px; top: 10px; border: 2px solid #6b7280; z-index: 10; transition: transform 0.4s ease-in-out; }
@@ -112,10 +275,8 @@ const AnimatedRobot = ({ onClick }) => { // Added onClick prop
                     .robot-container-fixed {
                         width: 50px; /* Smaller width for mobile */
                         height: 65px; /* Smaller height for mobile */
-                        bottom: 80px; /* Adjusted bottom to clear the bottom navigation */
-                        right: 15px; /* Adjust right as needed */
                     }
-                    /* Adjust internal robot parts for smaller size */
+                    /* Adjust internal robot parts for smaller size (relative to their new container size) */
                     .robot .head {
                         width: 40px;
                         height: 35px;
@@ -163,7 +324,14 @@ const AnimatedRobot = ({ onClick }) => { // Added onClick prop
                     }
                 }
             `}</style>
-            <div className="robot-container-fixed" onClick={onClick}> {/* Use new fixed container and pass onClick */}
+            <div
+                ref={robotRef}
+                className={`robot-container-fixed ${isDragging ? 'dragging' : ''}`}
+                style={{ top: `${position.top}px`, left: `${position.left}px` }} // Use top/left directly
+                onMouseDown={handleMouseDown}
+                onTouchStart={handleTouchStart}
+                // No onClick directly here; handled by mouseUp/touchEnd to differentiate from drag
+            >
                 <div className={`robot ${animationState}`}>
                     <div className="antenna"></div>
                     <div className="head">
@@ -339,13 +507,6 @@ const TeacherDashboardUI = (props) => {
 
     // Modified handleAskAi to conditionally add the user's name
     const handleAskAiWrapper = (message) => {
-        // If it's the first message from the user, and the conversation hasn't officially started,
-        // you might want to log this initial interaction to a backend or just set a flag.
-        // For this UI-only change, we'll just handle the greeting.
-
-        // This function will likely be passed the full message.
-        // The "smarter" logic (omitting name) will be applied within ChatDialog's rendering,
-        // and a more robust solution would involve the AI backend.
         handleAskAi(message);
         if (!aiConversationStarted) {
             setAiConversationStarted(true); // Mark conversation as started after the first user message
@@ -528,7 +689,7 @@ const TeacherDashboardUI = (props) => {
                                 <h1 className="text-3xl font-bold text-gray-800">Welcome back, {userProfile?.firstName}!</h1>
                                 <p className="text-gray-500 mt-1">Here is your dashboard overview.</p>
                             </div>
-                            {/* The AnimatedRobot is now fixed on screen, removed from here */}
+                            {/* The AnimatedRobot is now fixed on screen, rendered globally */}
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <GradientStatCard title="Active Classes" value={activeClasses.length} icon={<AcademicCapIcon />} gradient="from-blue-500 to-indigo-600" vectorIcon={<AcademicCapIcon />} />
@@ -586,7 +747,8 @@ const TeacherDashboardUI = (props) => {
     ];
 
     return (
-        <div className="min-h-screen bg-slate-100 flex flex-col"> {/* Added flex flex-col here */}
+        // Main container is now a flex column to properly position header, main, and footer
+        <div className="min-h-screen bg-slate-100 flex flex-col"> 
              <style jsx global>{`
                  .btn-primary {
                      display: inline-flex; align-items: center; gap: 0.5rem; justify-content: center;
@@ -601,21 +763,30 @@ const TeacherDashboardUI = (props) => {
                      filter: brightness(1.1);
                      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
                  }
+                 /* Global padding for mobile main content to prevent overlap with fixed footer */
+                 @media (max-width: 767px) {
+                    main {
+                        padding-bottom: 70px !important; /* Adjust as needed, based on your footer's exact height + desired spacing */
+                    }
+                 }
              `}</style>
-            <div className="md:flex flex-1"> {/* Changed h-screen to flex-1 */}
+            {/* This flex container now holds sidebar + main content */}
+            <div className="md:flex flex-1"> 
                 <aside className="w-64 flex-shrink-0 hidden md:block shadow-lg"><SidebarContent /></aside>
                 <div className={`fixed inset-0 z-50 md:hidden transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}><div className="absolute inset-0 bg-black/50" onClick={() => setIsSidebarOpen(false)}></div><div className="relative w-64 h-full"><SidebarContent /></div></div>
+                {/* This internal flex column ensures nav, main, and robot icon are properly stacked */}
                 <div className="flex-1 flex flex-col">
                     <nav className="bg-white/70 backdrop-blur-md p-3 flex justify-between items-center sticky top-0 z-40 border-b border-white/30"><button className="md:hidden p-2 rounded-full" onClick={() => setIsSidebarOpen(true)}><Bars3Icon className="h-6 w-6" /></button><div className="flex-1"></div><div className="flex items-center gap-4"><button className="p-2 rounded-full text-gray-600 hover:bg-gray-100" title="Search"><MagnifyingGlassIcon className="h-5 w-5" /></button><div className="flex items-center gap-2 border-l border-gray-200 pl-4"><div onClick={() => handleViewChange('profile')} className="flex items-center gap-2 cursor-pointer" title="View Profile"><UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="sm" /><span className="hidden sm:block font-medium text-gray-700 hover:text-blue-600">{userProfile?.firstName || 'Profile'}</span></div><button onClick={logout} className="flex items-center p-2 rounded-lg text-red-600 hover:bg-red-50" title="Logout"><ArrowLeftOnRectangleIcon className="h-5 w-5" /></button></div></div></nav>
-                    <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto pb-24 md:pb-4">
+                    <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto"> {/* Removed pb-24 here and added it globally via CSS */}
                         {renderMainContent()}
                     </main>
                 </div>
             </div>
             
-            {/* Robot Icon is now rendered independently and fixed */}
+            {/* Robot Icon is rendered globally as a fixed element, its position is managed by JS/CSS */}
             <AnimatedRobot onClick={() => setIsChatOpen(true)} />
 
+            {/* Chat Dialog and Modals are already fixed/absolute, so they should overlay correctly */}
             <ChatDialog 
                 isOpen={isChatOpen} 
                 onClose={() => {
@@ -623,9 +794,9 @@ const TeacherDashboardUI = (props) => {
                     setAiConversationStarted(false); // Reset conversation status when chat is closed
                 }} 
                 messages={messages} 
-                onSendMessage={handleAskAiWrapper} // Use the wrapper
+                onSendMessage={handleAskAiWrapper} 
                 isAiThinking={isAiThinking}
-                userFirstName={userProfile?.firstName} // Pass user's first name
+                userFirstName={userProfile?.firstName} 
             />
             <ArchivedClassesModal isOpen={isArchivedModalOpen} onClose={() => setIsArchivedModalOpen(false)} archivedClasses={archivedClasses} onUnarchive={handleUnarchiveClass} onDelete={(classId) => handleDeleteClass(classId, true)} />
             <EditProfileModal isOpen={isEditProfileModalOpen} onClose={() => setEditProfileModalOpen(false)} userProfile={userProfile} onUpdate={handleUpdateProfile} />
@@ -647,8 +818,8 @@ const TeacherDashboardUI = (props) => {
             <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleConfirmDelete} deletingItemType={deleteTarget?.type} />
             <EditSubjectModal isOpen={isEditSubjectModalOpen} onClose={() => setEditSubjectModalOpen(false)} subject={subjectToActOn} />
             <DeleteSubjectModal isOpen={isDeleteSubjectModalOpen} onClose={() => setDeleteSubjectModalOpen(false)} subject={subjectToActOn} />
-
-            {/* This footer now correctly sits at the bottom of the flex column on mobile */}
+            
+            {/* The mobile footer is kept fixed and should now be visible */}
             <footer className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm flex justify-around md:hidden border-t border-gray-200/80 z-50">
                 {bottomNavItems.map(item => {
                     const isActive = activeView === item.view;

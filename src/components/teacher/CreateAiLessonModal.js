@@ -5,6 +5,8 @@ import { db } from '../../services/firebase';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 import { MagnifyingGlassIcon as SearchIcon, XCircleIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
+import { XMarkIcon } from '@heroicons/react/24/outline'; // <-- Double-check this import!
+
 import LessonPage from './LessonPage';
 import ContentRenderer from './ContentRenderer';
 
@@ -94,10 +96,10 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
 **USER'S INSTRUCTION FOR REVISION:** "${regenerationNote}"`;
     }
 
-	const advancedInstructions = `\n**Mathematical and Scientific Notations:** ALL mathematical content MUST be enclosed in LaTeX delimiters ($...$ or $$...$$). For example, write "the area is $x^2$" instead of "the area is x²". Do NOT use unicode superscript characters in math.
-	**Geometrical Figures:** For any geometric shapes, you MUST generate them using SVG code. **CRITICAL SVG RULE:** Any text labels inside the SVG (e.g., for vertices, angles, or length) MUST be plain text. For example, use "<text>l</text>" NOT "<text>$l$</text>".
-	**Tables:** For any tabular data, you MUST generate it using **Markdown table syntax** (using '|' and '-'). The table MUST have a header row.
-	**CRITICAL JSON RULE:** You MUST ensure all backslashes (\\) in the JSON content are properly escaped (as \\\\).`;
+    const advancedInstructions = `\n**Mathematical and Scientific Notations:** ALL mathematical content MUST be enclosed in LaTeX delimiters ($...$ or $$...$$). For example, write "the area is $x^2$" instead of "the area is x²". Do NOT use unicode superscript characters in math.
+    **Geometrical Figures:** For any geometric shapes, you MUST generate them using SVG code. **CRITICAL SVG RULE:** Any text labels inside the SVG (e.g., for vertices, angles, or length) MUST be plain text. For example, use "<text>l</text>" NOT "<text>$l$</text>".
+    **Tables:** For any tabular data, you MUST generate it using **Markdown table syntax** (using '|' and '-'). The table MUST have a header row.
+    **CRITICAL JSON RULE:** You MUST ensure all backslashes (\\) in the JSON content are properly escaped (as \\\\).`;
 
     if (formData.generationTarget === 'teacherGuide' && selectedStudentLesson) {
       const studentLessonContent = selectedStudentLesson.pages.map(p => `Page Title: ${p.title}\nContent:\n${p.content}`).join('\n\n---\n\n');
@@ -242,13 +244,40 @@ ${advancedInstructions}
   const isValidPreview = previewData && Array.isArray(previewData.generated_lessons);
 
   return (
-    <Dialog open={isOpen} onClose={() => { onClose(); resetState(); }} className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black bg-opacity-30" />
-      <Dialog.Panel className="bg-white p-6 rounded-lg shadow-lg w-full max-w-3xl z-10 max-h-[90vh] overflow-y-auto">
-        <Dialog.Title className="text-xl font-bold mb-4">AI Lesson Planner</Dialog.Title>
+    <Dialog open={isOpen} onClose={() => { onClose(); resetState(); }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-0">
+      <div className="fixed inset-0 bg-black bg-opacity-30 z-[99]" />
+
+      <Dialog.Panel className="absolute inset-4 sm:inset-auto bg-white p-6 rounded-lg shadow-lg z-[101] overflow-y-auto sm:max-w-3xl sm:mx-auto sm:max-h-[90vh] w-full h-full sm:w-auto sm:h-auto">
+
+        {/* MODIFIED Close Button with direct, high-priority CSS */}
+        <button
+          id="close-ai-lesson-modal" // Added an ID for direct CSS targeting
+          type="button"
+          style={{
+            position: 'absolute',
+            top: '8px',   // Directly set top
+            right: '8px',  // Directly set right
+            zIndex: '9999', // Extremely high z-index
+            backgroundColor: 'transparent', // Ensure no background from other styles
+            border: 'none', // Ensure no border
+            padding: '8px', // Good clickable area
+            cursor: 'pointer',
+            color: '#9ca3af', // Gray-400 equivalent
+            transition: 'color 0.15s ease-in-out', // Smooth hover
+            display: 'block' // Ensure it's not display: none
+          }}
+          className="rounded-full hover:text-gray-500" // Keep rounded-full and hover for visual
+          onClick={() => { onClose(); resetState(); }}
+        >
+          <XMarkIcon className="h-7 w-7" aria-hidden="true" />
+          <span className="sr-only">Close</span>
+        </button>
+
+        <Dialog.Title className="text-xl font-bold mb-4 pr-12">AI Lesson Planner</Dialog.Title>
 
         {!previewData ? (
           <div className="space-y-4">
+            {/* ... (rest of your form fields) */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Generate For:</label>
               <select name="generationTarget" value={formData.generationTarget} onChange={handleChange} className="w-full p-2 border rounded">
@@ -371,11 +400,9 @@ ${advancedInstructions}
                                     <div className="mb-4">
                                         <h4 className="font-semibold text-sm">{ (lesson.learningLayunin || lesson.objectives) ? 'Mga Layunin:' : 'Objectives:'}</h4>
                                         <ul className="list-disc pl-5 text-sm text-gray-600">
-                                            {/* --- START OF FIX --- */}
                                             {Array.isArray(lesson.learningObjectives || lesson.learningLayunin || lesson.objectives) && (lesson.learningObjectives || lesson.learningLayunin || lesson.objectives).map((obj, i) => (
                                                 <li key={i}><ContentRenderer text={obj} /></li>
                                             ))}
-                                            {/* --- END OF FIX --- */}
                                         </ul>
                                     </div>
                                     {Array.isArray(lesson.pages) && lesson.pages.map((page, pageIndex) => <LessonPage key={pageIndex} page={page} />)}
