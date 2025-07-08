@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import ReactMarkdown from 'react-markdown'; // <-- 1. Import the new library
+import ReactMarkdown from 'react-markdown';
 import {
     HomeIcon, AcademicCapIcon, BookOpenIcon, UserIcon, ShieldCheckIcon, Bars3Icon,
     ArrowLeftOnRectangleIcon, MagnifyingGlassIcon, PlusCircleIcon,
@@ -41,7 +41,7 @@ import DeleteSubjectModal from '../components/teacher/DeleteSubjectModal';
 
 // --- Reusable Components for the Home Tab ---
 
-const AnimatedRobot = () => {
+const AnimatedRobot = ({ onClick }) => { // Added onClick prop
     const [animationState, setAnimationState] = useState('idle');
     useEffect(() => {
         let timeoutId;
@@ -64,7 +64,27 @@ const AnimatedRobot = () => {
     return (
         <>
             <style jsx>{`
-                .robot-container { width: 70px; height: 90px; animation: robot-float 5s ease-in-out infinite; }
+                .robot-container-fixed { 
+                    position: fixed; /* Make it fixed */
+                    bottom: 20px;    /* Adjust as needed for mobile */
+                    right: 20px;     /* Adjust as needed for mobile */
+                    width: 70px; 
+                    height: 90px; 
+                    animation: robot-float 5s ease-in-out infinite; 
+                    z-index: 100; /* Ensure it stays on top */
+                    cursor: pointer; /* Indicate it's clickable */
+                    background-color: rgba(255, 255, 255, 0.7); /* Slightly transparent background */
+                    border-radius: 50%; /* Make it round */
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    transition: all 0.3s ease-in-out;
+                }
+                .robot-container-fixed:hover {
+                    transform: scale(1.05);
+                    box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+                }
                 .robot { position: relative; width: 100%; height: 100%; }
                 .head { width: 60px; height: 50px; background-image: linear-gradient(to bottom, #d1d5db, #9ca3af); border-radius: 50% 50% 10px 10px; position: absolute; left: 5px; top: 10px; border: 2px solid #6b7280; z-index: 10; transition: transform 0.4s ease-in-out; }
                 .body { width: 70px; height: 55px; background-image: linear-gradient(to bottom, #e5e7eb, #b3b9c4); position: absolute; bottom: 10px; border-radius: 10px 10px 50% 50%; border: 2px solid #9ca3af; }
@@ -87,7 +107,17 @@ const AnimatedRobot = () => {
                 @keyframes panel-pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
                 @keyframes blink-animation { 0% { transform: scaleY(1); } 5% { transform: scaleY(0.1); } 10% { transform: scaleY(1); } 100% { transform: scaleY(1); } }
             `}</style>
-            <div className="robot-container"><div className={`robot ${animationState}`}><div className="antenna"></div><div className="head"><div className="eye-socket left"><div className="pupil"><div className="pupil-glint"></div></div></div><div className="eye-socket right"><div className="pupil"><div className="pupil-glint"></div></div></div></div><div className="neck"></div><div className="body"><div className="panel"></div></div></div></div>
+            <div className="robot-container-fixed" onClick={onClick}> {/* Use new fixed container and pass onClick */}
+                <div className={`robot ${animationState}`}>
+                    <div className="antenna"></div>
+                    <div className="head">
+                        <div className="eye-socket left"><div className="pupil"><div className="pupil-glint"></div></div></div>
+                        <div className="eye-socket right"><div className="pupil"><div className="pupil-glint"></div></div></div>
+                    </div>
+                    <div className="neck"></div>
+                    <div className="body"><div className="panel"></div></div>
+                </div>
+            </div>
         </>
     )
 };
@@ -144,7 +174,7 @@ const InspirationCard = () => {
     }, []);
     const colorStyles = { blue: { border: 'border-blue-500', text: 'text-blue-500', bg: 'bg-blue-100' }, green: { border: 'border-green-500', text: 'text-green-500', bg: 'bg-green-100' }, purple: { border: 'border-purple-500', text: 'text-purple-500', bg: 'bg-purple-100' }, red: { border: 'border-red-500', text: 'text-red-500', bg: 'bg-red-100' }, indigo: { border: 'border-indigo-500', text: 'text-indigo-500', bg: 'bg-indigo-100' }, pink: { border: 'border-pink-500', text: 'text-pink-500', bg: 'bg-pink-100' }, yellow: { border: 'border-yellow-500', text: 'text-yellow-500', bg: 'bg-yellow-100' }, teal: { border: 'border-teal-500', text: 'text-teal-500', bg: 'bg-teal-100' }, orange: { border: 'border-orange-500', text: 'text-orange-500', bg: 'bg-orange-100' }, sky: { border: 'border-sky-500', text: 'text-sky-500', bg: 'bg-sky-100' }, lime: { border: 'border-lime-500', text: 'text-lime-500', bg: 'bg-lime-100' }, cyan: { border: 'border-cyan-500', text: 'text-cyan-500', bg: 'bg-cyan-100' }, fuchsia: { border: 'border-fuchsia-500', text: 'text-fuchsia-500', bg: 'bg-fuchsia-100' }, rose: { border: 'border-rose-500', text: 'text-rose-500', bg: 'bg-rose-100' }, gray: { border: 'border-gray-500', text: 'text-gray-500', bg: 'bg-gray-100' },};
     const currentColors = colorStyles[quote.color] || colorStyles.gray;
-    return (<div className={`bg-white p-6 rounded-xl shadow-lg h-full flex flex-col justify-center border-l-4 ${currentColors.border}`}><div className="flex items-start gap-4"><div className={`p-3 rounded-full ${currentColors.bg}`}><LightBulbIcon className={`w-7 h-7 ${currentColors.text}`} /></div><div><p className="font-bold text-gray-800">Inspiration for the Day</p><blockquote className="mt-1"><p className="text-gray-600 text-sm">"{quote.text}"</p><cite className="block text-right not-italic text-xs text-gray-500 mt-2">- {quote.author}</cite></blockquote></div></div></div>)
+    return (<div className={`bg-white p-6 rounded-xl shadow-lg h-full flex flex-col justify-center border-l-4 ${currentColors.border}`}><div className="flex items-start gap-4"><div className={`p-3 rounded-full ${currentColors.bg}`}><LightBulbIcon className="w-7 h-7" /></div><div><p className="font-bold text-gray-800">Inspiration for the Day</p><blockquote className="mt-1"><p className="text-gray-600 text-sm">"{quote.text}"</p><cite className="block text-right not-italic text-xs text-gray-500 mt-2">- {quote.author}</cite></blockquote></div></div></div>)
 }
 
 const ClockWidget = () => {
@@ -153,14 +183,33 @@ const ClockWidget = () => {
     return (<div className="bg-gradient-to-br from-gray-800 to-gray-900 text-white p-6 rounded-xl shadow-lg flex flex-col justify-center items-center text-center h-full"><div className="flex items-center gap-2 text-lg text-gray-300"><CalendarDaysIcon className="w-5 h-5" /><span>{time.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</span></div><div className="text-5xl lg:text-6xl font-bold my-2 tracking-wider">{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div></div>)
 };
 
-const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking }) => {
+const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking, userFirstName }) => { // Added userFirstName prop
     const [input, setInput] = useState('');
     const messagesEndRef = useRef(null);
     const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
     useEffect(scrollToBottom, [messages]);
-    const handleSend = () => { if (input.trim()) { onSendMessage(input); setInput(''); } };
+
+    // Track if conversation has started beyond the initial greeting
+    const [conversationStarted, setConversationStarted] = useState(false);
+
+    const handleSend = () => {
+        if (input.trim()) {
+            onSendMessage(input);
+            setInput('');
+            setConversationStarted(true); // Once user sends a message, conversation has started
+        }
+    };
     const handleKeyPress = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } };
     if (!isOpen) return null;
+
+    // Initial AI greeting message
+    const initialGreeting = messages.length === 0 ? [{
+        sender: 'ai',
+        text: `Hello${userFirstName ? ` ${userFirstName}` : ''}! How can I assist you today?`
+    }] : [];
+
+    // Combine initial greeting with actual messages, but only if it's the very first interaction
+    const displayMessages = initialGreeting.concat(messages);
 
     return (
         <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center p-4">
@@ -170,12 +219,11 @@ const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking }) 
                     <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200"><XMarkIcon className="w-6 h-6 text-gray-600" /></button>
                 </div>
                 <div className="flex-1 p-4 overflow-y-auto space-y-4">
-                    {messages.map((msg, index) => (
+                    {displayMessages.map((msg, index) => (
                         <div key={index} className={`flex items-end gap-2 ${msg.sender === 'user' ? 'justify-end' : ''}`}>
                             {msg.sender === 'ai' && <div className="w-8 h-8 rounded-full bg-slate-700 flex-shrink-0 self-start"></div>}
                             <div className={`max-w-xl p-3 rounded-2xl ${msg.sender === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
                                 {msg.sender === 'ai' ? (
-                                    // --- 2. Use ReactMarkdown for AI messages ---
                                     <ReactMarkdown className="prose prose-sm prose-p:my-0 prose-ul:my-0 prose-li:my-0">
                                         {msg.text}
                                     </ReactMarkdown>
@@ -224,9 +272,31 @@ const TeacherDashboardUI = (props) => {
         editLessonModalOpen, setEditLessonModalOpen, selectedLesson, viewLessonModalOpen, setViewLessonModalOpen,
         isShareContentModalOpen, isDeleteModalOpen, setIsDeleteModalOpen, handleConfirmDelete, deleteTarget,
         isEditSubjectModalOpen, setEditSubjectModalOpen, subjectToActOn, isDeleteSubjectModalOpen, setDeleteSubjectModalOpen,
-		handleCreateAnnouncement, isChatOpen, setIsChatOpen, messages, isAiThinking, handleAskAi, handleRemoveStudentFromClass
+        handleCreateAnnouncement, isChatOpen, setIsChatOpen, messages, isAiThinking, handleAskAi, handleRemoveStudentFromClass
     } = props;
     
+    // State to track if the AI conversation has moved beyond the initial greeting
+    const [aiConversationStarted, setAiConversationStarted] = useState(false);
+
+    // Modified handleAskAi to conditionally add the user's name
+    const handleAskAiWrapper = (message) => {
+        // If it's the first message from the user, and the conversation hasn't officially started,
+        // you might want to log this initial interaction to a backend or just set a flag.
+        // For this UI-only change, we'll just handle the greeting.
+        
+        // This function will likely be passed the full message.
+        // The actual AI response logic (in the parent component) would decide whether to
+        // include the name based on the `aiConversationStarted` flag.
+
+        // For now, we'll pass the raw message to the actual handleAskAi.
+        // The "smarter" logic (omitting name) will be applied within ChatDialog's rendering,
+        // and a more robust solution would involve the AI backend.
+        handleAskAi(message);
+        if (!aiConversationStarted) {
+            setAiConversationStarted(true); // Mark conversation as started after the first user message
+        }
+    };
+
     const renderMainContent = () => {
         if (loading) return <Spinner />;
         if (error) { return <div className="bg-red-100 border border-red-300 text-red-800 p-4 rounded-md shadow-md"><div className="flex items-start gap-3"><ExclamationTriangleIcon className="w-5 h-5 mt-1" /><div><strong className="block">An error occurred</strong><span>{error}</span></div></div></div>; }
@@ -305,107 +375,105 @@ const TeacherDashboardUI = (props) => {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{activeClasses.length > 0 ? activeClasses.map((c, index) => { const { icon: Icon, color } = classVisuals[index % classVisuals.length]; return (<div key={c.id} className="group relative bg-white p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300"><div onClick={() => { if (!isHoveringActions) setClassOverviewModal({ isOpen: true, data: c }); }} className="cursor-pointer flex-grow flex flex-col h-full"><div className={`absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br ${color} rounded-full opacity-10 group-hover:opacity-20 transition-all`}></div><div className="relative z-10"><div className={`p-4 inline-block bg-gradient-to-br ${color} text-white rounded-xl mb-4`}><Icon className="w-8 h-8" /></div><h2 className="text-xl font-bold text-gray-800 truncate mb-1">{c.name}</h2><p className="text-gray-500">{c.gradeLevel} - {c.section}</p></div>{c.classCode && (<div className="mt-auto pt-4 border-t border-gray-100"><p className="text-xs text-gray-500 mb-1">Class Code</p><div className="flex items-center gap-2"><p className="font-mono text-lg tracking-widest text-gray-700 bg-gray-100 px-2 py-1 rounded-md">{c.classCode}</p><button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(c.classCode); showToast("Class code copied!", "success"); }} className="p-1.5 rounded-md text-gray-400 hover:bg-gray-200 hover:text-gray-600" title="Copy code"><ClipboardIcon className="w-5 h-5" /></button></div></div>)}</div><div className="absolute top-0 right-0 p-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300" onMouseEnter={() => setIsHoveringActions(true)} onMouseLeave={() => setIsHoveringActions(false)}><button onClick={(e) => { e.stopPropagation(); handleOpenEditClassModal(c); }} className="p-2 rounded-full bg-white/60 backdrop-blur-sm hover:bg-white text-gray-700 shadow-md" title="Edit"><PencilSquareIcon className="w-5 h-5" /></button><button onClick={(e) => { e.stopPropagation(); handleArchiveClass(c.id); }} className="p-2 rounded-full bg-white/60 backdrop-blur-sm hover:bg-white text-gray-700 shadow-md" title="Archive"><ArchiveBoxIcon className="w-5 h-5" /></button><button onClick={(e) => { e.stopPropagation(); handleDeleteClass(c.id); }} className="p-2 rounded-full bg-white/60 backdrop-blur-sm hover:bg-white text-red-600 shadow-md" title="Delete"><TrashIcon className="w-5 h-5" /></button></div></div>); }) : <p className="col-span-full text-center text-gray-500 py-10">No active classes created yet.</p>}</div>
                     </div>
                 );
-			case 'profile':
-			    return (
-			        <div className="max-w-6xl mx-auto">
-			            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            case 'profile':
+                return (
+                    <div className="max-w-6xl mx-auto">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
-			                {/* --- Left Column: User Info Card --- */}
-			                <div className="lg:col-span-1">
-			                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-8 text-center text-white h-full flex flex-col justify-between">
-			                        <div>
-						<div className="relative inline-block mb-4 w-40 h-40 rounded-full overflow-hidden">
-						  <UserInitialsAvatar
-						    firstName={userProfile?.firstName}
-						    lastName={userProfile?.lastName}
-						    size="full"
-						  />
-						</div>
-			                            <h1 className="text-3xl font-bold text-white">
-			                                {userProfile?.firstName} {userProfile?.lastName}
-			                            </h1>
-			                            <p className="text-md text-slate-400 capitalize">{userProfile?.role}</p>
-			                        </div>
-			                        <div className="space-y-4 mt-8 text-left">
-			                            <div className="flex items-center gap-4 p-3 bg-white/5 rounded-lg">
-			                                <EnvelopeIcon className="w-6 h-6 text-white/70" />
-			                                <div>
-			                                    <p className="text-sm text-white/60">Email</p>
-			                                    <p className="font-semibold text-white">{userProfile?.email}</p>
-			                                </div>
-			                            </div>
-			                            <div className="flex items-center gap-4 p-3 bg-white/5 rounded-lg">
-			                                <IdentificationIcon className="w-6 h-6 text-white/70" />
-			                                <div>
-			                                    <p className="text-sm text-white/60">User ID</p>
-			                                    <p className="font-mono text-xs text-white">{user?.uid || user?.id}</p>
-			                                </div>
-			                            </div>
-			                        </div>
-			                    </div>
-			                </div>
+                            {/* --- Left Column: User Info Card --- */}
+                            <div className="lg:col-span-1">
+                                <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-8 text-center text-white h-full flex flex-col justify-between">
+                                    <div>
+                                        <div className="relative inline-block mb-4 w-40 h-40 rounded-full overflow-hidden">
+                                            <UserInitialsAvatar
+                                                firstName={userProfile?.firstName}
+                                                lastName={userProfile?.lastName}
+                                                size="full"
+                                            />
+                                        </div>
+                                        <h1 className="text-3xl font-bold text-white">
+                                            {userProfile?.firstName} {userProfile?.lastName}
+                                        </h1>
+                                        <p className="text-md text-slate-400 capitalize">{userProfile?.role}</p>
+                                    </div>
+                                    <div className="space-y-4 mt-8 text-left">
+                                        <div className="flex items-center gap-4 p-3 bg-white/5 rounded-lg">
+                                            <EnvelopeIcon className="w-6 h-6 text-white/70" />
+                                            <div>
+                                                <p className="text-sm text-white/60">Email</p>
+                                                <p className="font-semibold text-white">{userProfile?.email}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4 p-3 bg-white/5 rounded-lg">
+                                            <IdentificationIcon className="w-6 h-6 text-white/70" />
+                                            <div>
+                                                <p className="text-sm text-white/60">User ID</p>
+                                                <p className="font-mono text-xs text-white">{user?.uid || user?.id}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-			                {/* --- Right Column: Actions --- */}
-			                <div className="lg:col-span-2">
-			                    <div className="bg-white rounded-2xl shadow-xl p-8 h-full">
-			                        <h3 className="text-2xl font-bold text-slate-800 mb-6">Account Actions</h3>
-			                        <div className="space-y-4">
-			                            <button 
-			                                onClick={() => setEditProfileModalOpen(true)} 
-			                                className="w-full text-left flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-300 group"
-			                            >
-			                                <div className="p-3 bg-blue-100 rounded-lg">
-			                                    <PencilSquareIcon className="w-6 h-6 text-blue-600" />
-			                                </div>
-			                                <div>
-			                                    <p className="font-semibold text-slate-800">Edit Profile</p>
-			                                    <p className="text-sm text-slate-500">Update your first and last name.</p>
-			                                </div>
-			                                <span className="ml-auto text-slate-400 group-hover:text-blue-600 transition-colors">&rarr;</span>
-			                            </button>
+                            {/* --- Right Column: Actions --- */}
+                            <div className="lg:col-span-2">
+                                <div className="bg-white rounded-2xl shadow-xl p-8 h-full">
+                                    <h3 className="text-2xl font-bold text-slate-800 mb-6">Account Actions</h3>
+                                    <div className="space-y-4">
+                                        <button 
+                                            onClick={() => setEditProfileModalOpen(true)} 
+                                            className="w-full text-left flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-300 group"
+                                        >
+                                            <div className="p-3 bg-blue-100 rounded-lg">
+                                                <PencilSquareIcon className="w-6 h-6 text-blue-600" />
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-slate-800">Edit Profile</p>
+                                                <p className="text-sm text-slate-500">Update your first and last name.</p>
+                                            </div>
+                                            <span className="ml-auto text-slate-400 group-hover:text-blue-600 transition-colors">&rarr;</span>
+                                        </button>
 
-			                            <button 
-			                                onClick={() => setChangePasswordModalOpen(true)} 
-			                                className="w-full text-left flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-300 group"
-			                            >
-			                                <div className="p-3 bg-purple-100 rounded-lg">
-			                                    <KeyIcon className="w-6 h-6 text-purple-600" />
-			                                </div>
-			                                <div>
-			                                    <p className="font-semibold text-slate-800">Change Password</p>
-			                                    <p className="text-sm text-slate-500">Update your account security.</p>
-			                                </div>
-			                                <span className="ml-auto text-slate-400 group-hover:text-purple-600 transition-colors">&rarr;</span>
-			                            </button>
-                            
-			                            <div className="pt-8">
-			                                <button 
-			                                    onClick={logout} 
-			                                    className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-gradient-to-r from-red-500 to-orange-500 text-white font-bold rounded-lg hover:shadow-xl hover:scale-[1.02] transform transition-all duration-300 shadow-lg"
-			                                >
-			                                    <ArrowLeftOnRectangleIcon className="w-6 h-6" />
-			                                    Logout
-			                                </button>
-			                            </div>
-			                        </div>
-			                    </div>
-			                </div>
-			            </div>
-			        </div>
-			    );
+                                        <button 
+                                            onClick={() => setChangePasswordModalOpen(true)} 
+                                            className="w-full text-left flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-300 group"
+                                        >
+                                            <div className="p-3 bg-purple-100 rounded-lg">
+                                                <KeyIcon className="w-6 h-6 text-purple-600" />
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-slate-800">Change Password</p>
+                                                <p className="text-sm text-slate-500">Update your account security.</p>
+                                            </div>
+                                            <span className="ml-auto text-slate-400 group-hover:text-purple-600 transition-colors">&rarr;</span>
+                                        </button>
+                
+                                        <div className="pt-8">
+                                            <button 
+                                                onClick={logout} 
+                                                className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-gradient-to-r from-red-500 to-orange-500 text-white font-bold rounded-lg hover:shadow-xl hover:scale-[1.02] transform transition-all duration-300 shadow-lg"
+                                            >
+                                                <ArrowLeftOnRectangleIcon className="w-6 h-6" />
+                                                Logout
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
             
             case 'home':
             default:
                 return (
                     <div className="space-y-8">
                         <div className="relative flex justify-between items-start pt-4">
-                           <div>
+                            <div>
                                 <h1 className="text-3xl font-bold text-gray-800">Welcome back, {userProfile?.firstName}!</h1>
                                 <p className="text-gray-500 mt-1">Here is your dashboard overview.</p>
                             </div>
-                            <button onClick={() => setIsChatOpen(true)} className="absolute top-0 right-0 p-2 rounded-full hover:bg-slate-200/50 transition-colors" title="Chat with AI Assistant">
-                               <AnimatedRobot/>
-                            </button>
+                            {/* The AnimatedRobot is now fixed on screen, removed from here */}
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <GradientStatCard title="Active Classes" value={activeClasses.length} icon={<AcademicCapIcon />} gradient="from-blue-500 to-indigo-600" vectorIcon={<AcademicCapIcon />} />
@@ -425,7 +493,7 @@ const TeacherDashboardUI = (props) => {
                                         return (
                                             <div key={post.id} className="bg-slate-50 p-4 rounded-lg border group relative">
                                                 {editingAnnId === post.id ? (
-                                                     <><textarea className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" rows="3" value={editingAnnText} onChange={(e) => setEditingAnnText(e.target.value)} /><div className="flex justify-end gap-2 mt-2"><button className="btn-secondary" onClick={() => setEditingAnnId(null)}>Cancel</button><button className="btn-primary" onClick={handleUpdateTeacherAnn}>Save</button></div></>
+                                                    <><textarea className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" rows="3" value={editingAnnText} onChange={(e) => setEditingAnnText(e.target.value)} /><div className="flex justify-end gap-2 mt-2"><button className="btn-secondary" onClick={() => setEditingAnnId(null)}>Cancel</button><button className="btn-primary" onClick={handleUpdateTeacherAnn}>Save</button></div></>
                                                 ) : (
                                                     <>{canModify && (<div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => handleStartEditAnn(post)} className="p-1 hover:bg-gray-200 rounded-full" title="Edit"><PencilSquareIcon className="w-4 h-4 text-gray-600" /></button><button onClick={() => handleDeleteTeacherAnn(post.id)} className="p-1 hover:bg-gray-200 rounded-full" title="Delete"><TrashIcon className="w-4 h-4 text-red-500" /></button></div>)}<p className="text-gray-800 whitespace-pre-wrap pr-10">{post.content}</p><div className="text-xs text-gray-400 mt-3 pt-2 border-t border-gray-100 flex justify-between"><span>From: {post.teacherName}</span><span>{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString() : ''}</span></div></>
                                                 )}
@@ -465,19 +533,19 @@ const TeacherDashboardUI = (props) => {
     return (
         <div className="min-h-screen bg-slate-100">
              <style jsx global>{`
-                .btn-primary {
-                    display: inline-flex; align-items: center; gap: 0.5rem; justify-content: center;
-                    background-image: linear-gradient(to right, #3b82f6, #8b5cf6);
-                    color: white; font-weight: 600;
-                    padding: 0.5rem 1rem; border-radius: 0.5rem;
-                    border: none;
-                    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-                    transition: all 0.2s ease-in-out;
-                }
-                .btn-primary:hover {
-                    filter: brightness(1.1);
-                    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-                }
+                 .btn-primary {
+                     display: inline-flex; align-items: center; gap: 0.5rem; justify-content: center;
+                     background-image: linear-gradient(to right, #3b82f6, #8b5cf6);
+                     color: white; font-weight: 600;
+                     padding: 0.5rem 1rem; border-radius: 0.5rem;
+                     border: none;
+                     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+                     transition: all 0.2s ease-in-out;
+                 }
+                 .btn-primary:hover {
+                     filter: brightness(1.1);
+                     box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+                 }
              `}</style>
             <div className="md:flex h-screen">
                 <aside className="w-64 flex-shrink-0 hidden md:block shadow-lg"><SidebarContent /></aside>
@@ -487,9 +555,21 @@ const TeacherDashboardUI = (props) => {
                     <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto pb-24 md:pb-4">{renderMainContent()}</main>
                 </div>
             </div>
-            <footer className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm flex justify-around md:hidden border-t border-gray-200/80 z-50">{bottomNavItems.map(item => { const isActive = activeView === item.view; return (<button key={item.view} onClick={() => handleViewChange(item.view)} className={`flex-1 flex flex-col items-center justify-center pt-2 pb-1 text-center transition-colors duration-200 ${isActive ? 'text-blue-600' : 'text-gray-500 hover:text-blue-500'}`}><item.icon className="h-5 w-5" /><span className="text-xs mt-1">{item.text}</span></button>) })}</footer>
             
-            <ChatDialog isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} messages={messages} onSendMessage={handleAskAi} isAiThinking={isAiThinking} />
+            {/* Robot Icon is now rendered independently and fixed */}
+            <AnimatedRobot onClick={() => setIsChatOpen(true)} />
+
+<ChatDialog
+                isOpen={isChatOpen}
+                onClose={() => {
+                    setIsChatOpen(false);
+                    setAiConversationStarted(false); // Reset conversation status when chat is closed
+                }}
+                messages={messages}
+                onSendMessage={handleAskAiWrapper} // Use the wrapper
+                isAiThinking={isAiThinking}
+                userFirstName={userProfile?.firstName} // Pass user's first name
+            />
             <ArchivedClassesModal isOpen={isArchivedModalOpen} onClose={() => setIsArchivedModalOpen(false)} archivedClasses={archivedClasses} onUnarchive={handleUnarchiveClass} onDelete={(classId) => handleDeleteClass(classId, true)} />
             <EditProfileModal isOpen={isEditProfileModalOpen} onClose={() => setEditProfileModalOpen(false)} userProfile={userProfile} onUpdate={handleUpdateProfile} />
             <ChangePasswordModal isOpen={isChangePasswordModalOpen} onClose={() => setChangePasswordModalOpen(false)} onSubmit={handleChangePassword} />
@@ -510,6 +590,8 @@ const TeacherDashboardUI = (props) => {
             <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleConfirmDelete} deletingItemType={deleteTarget?.type} />
             <EditSubjectModal isOpen={isEditSubjectModalOpen} onClose={() => setEditSubjectModalOpen(false)} subject={subjectToActOn} />
             <DeleteSubjectModal isOpen={isDeleteSubjectModalOpen} onClose={() => setDeleteSubjectModalOpen(false)} subject={subjectToActOn} />
+
+            <footer className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm flex justify-around md:hidden border-t border-gray-200/80 z-50">{bottomNavItems.map(item => { const isActive = activeView === item.view; return (<button key={item.view} onClick={() => handleViewChange(item.view)} className={`flex-1 flex flex-col items-center justify-center pt-2 pb-1 text-center transition-colors duration-200 ${isActive ? 'text-blue-600' : 'text-gray-500 hover:text-blue-500'}`}><item.icon className="h-5 w-5" /><span className="text-xs mt-1">{item.text}</span></button>) })}</footer>
         </div>
     );
 };
