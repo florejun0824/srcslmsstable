@@ -27,7 +27,7 @@ import CreateCourseModal from '../components/teacher/CreateCourseModal';
 import ClassOverviewModal from '../components/teacher/ClassOverviewModal';
 import EditClassModal from '../components/common/EditClassModal';
 import AddUnitModal from '../components/teacher/AddUnitModal';
-import EditUnitModal from '../components/teacher/EditUnitModal';
+import EditUnitModal from '../components/teacher/EditUnitModal'; // Corrected path assuming it's in a subfolder
 import AddLessonModal from '../components/teacher/AddLessonModal';
 import AddQuizModal from '../components/teacher/AddQuizModal';
 import DeleteUnitModal from '../components/teacher/DeleteUnitModal';
@@ -64,13 +64,13 @@ const AnimatedRobot = ({ onClick }) => { // Added onClick prop
     return (
         <>
             <style jsx>{`
-                .robot-container-fixed { 
+                .robot-container-fixed {
                     position: fixed; /* Make it fixed */
-                    bottom: 20px;    /* Adjust as needed for mobile */
-                    right: 20px;     /* Adjust as needed for mobile */
-                    width: 70px; 
-                    height: 90px; 
-                    animation: robot-float 5s ease-in-out infinite; 
+                    bottom: 20px;    /* Default for desktop */
+                    right: 20px;     /* Default for desktop */
+                    width: 70px;
+                    height: 90px;
+                    animation: robot-float 5s ease-in-out infinite;
                     z-index: 100; /* Ensure it stays on top */
                     cursor: pointer; /* Indicate it's clickable */
                     background-color: rgba(255, 255, 255, 0.7); /* Slightly transparent background */
@@ -106,6 +106,62 @@ const AnimatedRobot = ({ onClick }) => { // Added onClick prop
                 @keyframes antenna-glow { 0% { box-shadow: 0 0 8px #67e8f9; } 50% { box-shadow: 0 0 18px #a5f3fd, 0 0 8px #67e8f9; } 100% { box-shadow: 0 0 8px #67e8f9; } }
                 @keyframes panel-pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
                 @keyframes blink-animation { 0% { transform: scaleY(1); } 5% { transform: scaleY(0.1); } 10% { transform: scaleY(1); } 100% { transform: scaleY(1); } }
+
+                /* Mobile-specific styles for the robot icon */
+                @media (max-width: 767px) { /* Tailwind's 'md' breakpoint is 768px, so max-width 767px targets mobile */
+                    .robot-container-fixed {
+                        width: 50px; /* Smaller width for mobile */
+                        height: 65px; /* Smaller height for mobile */
+                        bottom: 80px; /* Adjusted bottom to clear the bottom navigation */
+                        right: 15px; /* Adjust right as needed */
+                    }
+                    /* Adjust internal robot parts for smaller size */
+                    .robot .head {
+                        width: 40px;
+                        height: 35px;
+                        left: 5px;
+                        top: 8px;
+                    }
+                    .robot .body {
+                        width: 50px;
+                        height: 40px;
+                        bottom: 8px;
+                    }
+                    .robot .neck {
+                        width: 15px;
+                        height: 6px;
+                        top: 42px;
+                        left: 17.5px;
+                    }
+                    .robot .eye-socket {
+                        width: 10px;
+                        height: 10px;
+                        top: 15px;
+                    }
+                    .robot .eye-socket.left { left: 8px; }
+                    .robot .eye-socket.right { right: 8px; }
+                    .robot .pupil {
+                        width: 4px;
+                        height: 4px;
+                    }
+                    .robot .pupil-glint {
+                        width: 1px;
+                        height: 1px;
+                    }
+                    .robot .panel {
+                        width: 10px;
+                        height: 4px;
+                    }
+                    .robot .antenna {
+                        height: 15px;
+                    }
+                    .robot .antenna::after {
+                        width: 8px;
+                        height: 8px;
+                        top: -4px;
+                        left: -2.5px;
+                    }
+                }
             `}</style>
             <div className="robot-container-fixed" onClick={onClick}> {/* Use new fixed container and pass onClick */}
                 <div className={`robot ${animationState}`}>
@@ -183,7 +239,7 @@ const ClockWidget = () => {
     return (<div className="bg-gradient-to-br from-gray-800 to-gray-900 text-white p-6 rounded-xl shadow-lg flex flex-col justify-center items-center text-center h-full"><div className="flex items-center gap-2 text-lg text-gray-300"><CalendarDaysIcon className="w-5 h-5" /><span>{time.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</span></div><div className="text-5xl lg:text-6xl font-bold my-2 tracking-wider">{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div></div>)
 };
 
-const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking, userFirstName }) => { // Added userFirstName prop
+const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking, userFirstName }) => {
     const [input, setInput] = useState('');
     const messagesEndRef = useRef(null);
     const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
@@ -203,10 +259,13 @@ const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking, us
     if (!isOpen) return null;
 
     // Initial AI greeting message
-    const initialGreeting = messages.length === 0 ? [{
+    // Only show the full greeting (with name) if it's the very first message in the session.
+    // If messages already exist, it means the conversation has started, so no specific greeting is added here.
+    const initialGreeting = messages.length === 0 && !conversationStarted ? [{
         sender: 'ai',
         text: `Hello${userFirstName ? ` ${userFirstName}` : ''}! How can I assist you today?`
     }] : [];
+
 
     // Combine initial greeting with actual messages, but only if it's the very first interaction
     const displayMessages = initialGreeting.concat(messages);
@@ -283,12 +342,8 @@ const TeacherDashboardUI = (props) => {
         // If it's the first message from the user, and the conversation hasn't officially started,
         // you might want to log this initial interaction to a backend or just set a flag.
         // For this UI-only change, we'll just handle the greeting.
-        
-        // This function will likely be passed the full message.
-        // The actual AI response logic (in the parent component) would decide whether to
-        // include the name based on the `aiConversationStarted` flag.
 
-        // For now, we'll pass the raw message to the actual handleAskAi.
+        // This function will likely be passed the full message.
         // The "smarter" logic (omitting name) will be applied within ChatDialog's rendering,
         // and a more robust solution would involve the AI backend.
         handleAskAi(message);
@@ -531,7 +586,7 @@ const TeacherDashboardUI = (props) => {
     ];
 
     return (
-        <div className="min-h-screen bg-slate-100">
+        <div className="min-h-screen bg-slate-100 flex flex-col"> {/* Added flex flex-col here */}
              <style jsx global>{`
                  .btn-primary {
                      display: inline-flex; align-items: center; gap: 0.5rem; justify-content: center;
@@ -547,25 +602,27 @@ const TeacherDashboardUI = (props) => {
                      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
                  }
              `}</style>
-            <div className="md:flex h-screen">
+            <div className="md:flex flex-1"> {/* Changed h-screen to flex-1 */}
                 <aside className="w-64 flex-shrink-0 hidden md:block shadow-lg"><SidebarContent /></aside>
                 <div className={`fixed inset-0 z-50 md:hidden transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}><div className="absolute inset-0 bg-black/50" onClick={() => setIsSidebarOpen(false)}></div><div className="relative w-64 h-full"><SidebarContent /></div></div>
                 <div className="flex-1 flex flex-col">
                     <nav className="bg-white/70 backdrop-blur-md p-3 flex justify-between items-center sticky top-0 z-40 border-b border-white/30"><button className="md:hidden p-2 rounded-full" onClick={() => setIsSidebarOpen(true)}><Bars3Icon className="h-6 w-6" /></button><div className="flex-1"></div><div className="flex items-center gap-4"><button className="p-2 rounded-full text-gray-600 hover:bg-gray-100" title="Search"><MagnifyingGlassIcon className="h-5 w-5" /></button><div className="flex items-center gap-2 border-l border-gray-200 pl-4"><div onClick={() => handleViewChange('profile')} className="flex items-center gap-2 cursor-pointer" title="View Profile"><UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="sm" /><span className="hidden sm:block font-medium text-gray-700 hover:text-blue-600">{userProfile?.firstName || 'Profile'}</span></div><button onClick={logout} className="flex items-center p-2 rounded-lg text-red-600 hover:bg-red-50" title="Logout"><ArrowLeftOnRectangleIcon className="h-5 w-5" /></button></div></div></nav>
-                    <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto pb-24 md:pb-4">{renderMainContent()}</main>
+                    <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto pb-24 md:pb-4">
+                        {renderMainContent()}
+                    </main>
                 </div>
             </div>
             
             {/* Robot Icon is now rendered independently and fixed */}
             <AnimatedRobot onClick={() => setIsChatOpen(true)} />
 
-<ChatDialog
-                isOpen={isChatOpen}
+            <ChatDialog 
+                isOpen={isChatOpen} 
                 onClose={() => {
                     setIsChatOpen(false);
                     setAiConversationStarted(false); // Reset conversation status when chat is closed
-                }}
-                messages={messages}
+                }} 
+                messages={messages} 
                 onSendMessage={handleAskAiWrapper} // Use the wrapper
                 isAiThinking={isAiThinking}
                 userFirstName={userProfile?.firstName} // Pass user's first name
@@ -591,7 +648,18 @@ const TeacherDashboardUI = (props) => {
             <EditSubjectModal isOpen={isEditSubjectModalOpen} onClose={() => setEditSubjectModalOpen(false)} subject={subjectToActOn} />
             <DeleteSubjectModal isOpen={isDeleteSubjectModalOpen} onClose={() => setDeleteSubjectModalOpen(false)} subject={subjectToActOn} />
 
-            <footer className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm flex justify-around md:hidden border-t border-gray-200/80 z-50">{bottomNavItems.map(item => { const isActive = activeView === item.view; return (<button key={item.view} onClick={() => handleViewChange(item.view)} className={`flex-1 flex flex-col items-center justify-center pt-2 pb-1 text-center transition-colors duration-200 ${isActive ? 'text-blue-600' : 'text-gray-500 hover:text-blue-500'}`}><item.icon className="h-5 w-5" /><span className="text-xs mt-1">{item.text}</span></button>) })}</footer>
+            {/* This footer now correctly sits at the bottom of the flex column on mobile */}
+            <footer className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm flex justify-around md:hidden border-t border-gray-200/80 z-50">
+                {bottomNavItems.map(item => {
+                    const isActive = activeView === item.view;
+                    return (
+                        <button key={item.view} onClick={() => handleViewChange(item.view)} className={`flex-1 flex flex-col items-center justify-center pt-2 pb-1 text-center transition-colors duration-200 ${isActive ? 'text-blue-600' : 'text-gray-500 hover:text-blue-500'}`}>
+                            <item.icon className="h-5 w-5" />
+                            <span className="text-xs mt-1">{item.text}</span>
+                        </button>
+                    );
+                })}
+            </footer>
         </div>
     );
 };
