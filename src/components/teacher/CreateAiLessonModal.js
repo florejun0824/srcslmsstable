@@ -5,7 +5,7 @@ import { db } from '../../services/firebase';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 import { MagnifyingGlassIcon as SearchIcon, XCircleIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
-import { XMarkIcon } from '@heroicons/react/24/outline'; // <-- Double-check this import!
+import { XMarkIcon } from '@heroicons/react/24/outline';
 
 import LessonPage from './LessonPage';
 import ContentRenderer from './ContentRenderer';
@@ -190,7 +190,7 @@ ${advancedInstructions}
       return;
     }
     const batch = writeBatch(db);
-    previewData.generated_lessons.forEach(lesson => {
+    previewData.generated_lessons.forEach((lesson, index) => {
       const newLessonRef = doc(collection(db, 'lessons'));
       batch.set(newLessonRef, {
         title: lesson.lessonTitle,
@@ -200,7 +200,8 @@ ${advancedInstructions}
         subjectId,
         contentType: formData.generationTarget,
         basedOnLessonId: formData.generationTarget === 'teacherGuide' ? selectedStudentLesson.id : null,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        order: index, 
       });
     });
     try {
@@ -249,24 +250,23 @@ ${advancedInstructions}
 
       <Dialog.Panel className="absolute inset-4 sm:inset-auto bg-white p-6 rounded-lg shadow-lg z-[101] overflow-y-auto sm:max-w-3xl sm:mx-auto sm:max-h-[90vh] w-full h-full sm:w-auto sm:h-auto">
 
-        {/* MODIFIED Close Button with direct, high-priority CSS */}
         <button
-          id="close-ai-lesson-modal" // Added an ID for direct CSS targeting
+          id="close-ai-lesson-modal"
           type="button"
           style={{
             position: 'absolute',
-            top: '8px',   // Directly set top
-            right: '8px',  // Directly set right
-            zIndex: '9999', // Extremely high z-index
-            backgroundColor: 'transparent', // Ensure no background from other styles
-            border: 'none', // Ensure no border
-            padding: '8px', // Good clickable area
+            top: '8px',
+            right: '8px',
+            zIndex: '9999',
+            backgroundColor: 'transparent',
+            border: 'none',
+            padding: '8px',
             cursor: 'pointer',
-            color: '#9ca3af', // Gray-400 equivalent
-            transition: 'color 0.15s ease-in-out', // Smooth hover
-            display: 'block' // Ensure it's not display: none
+            color: '#9ca3af',
+            transition: 'color 0.15s ease-in-out',
+            display: 'block'
           }}
-          className="rounded-full hover:text-gray-500" // Keep rounded-full and hover for visual
+          className="rounded-full hover:text-gray-500"
           onClick={() => { onClose(); resetState(); }}
         >
           <XMarkIcon className="h-7 w-7" aria-hidden="true" />
@@ -277,7 +277,6 @@ ${advancedInstructions}
 
         {!previewData ? (
           <div className="space-y-4">
-            {/* ... (rest of your form fields) */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Generate For:</label>
               <select name="generationTarget" value={formData.generationTarget} onChange={handleChange} className="w-full p-2 border rounded">
@@ -400,6 +399,7 @@ ${advancedInstructions}
                                     <div className="mb-4">
                                         <h4 className="font-semibold text-sm">{ (lesson.learningLayunin || lesson.objectives) ? 'Mga Layunin:' : 'Objectives:'}</h4>
                                         <ul className="list-disc pl-5 text-sm text-gray-600">
+                                            {/* --- THIS IS THE CORRECTED LINE --- */}
                                             {Array.isArray(lesson.learningObjectives || lesson.learningLayunin || lesson.objectives) && (lesson.learningObjectives || lesson.learningLayunin || lesson.objectives).map((obj, i) => (
                                                 <li key={i}><ContentRenderer text={obj} /></li>
                                             ))}

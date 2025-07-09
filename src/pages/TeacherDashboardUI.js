@@ -6,10 +6,11 @@ import {
     ExclamationTriangleIcon, UserGroupIcon, BeakerIcon, GlobeAltIcon, CalculatorIcon,
     PaintBrushIcon, ComputerDesktopIcon, CodeBracketIcon, MusicalNoteIcon,
     ClipboardDocumentListIcon, PencilSquareIcon, KeyIcon, EnvelopeIcon, IdentificationIcon,
-    ArchiveBoxIcon, TrashIcon, ClipboardIcon,
+    ArchiveBoxIcon, TrashIcon, ClipboardIcon, SparklesIcon, DocumentTextIcon,
     UserPlusIcon, ArrowUturnLeftIcon, MegaphoneIcon, UsersIcon, CalendarDaysIcon,
-    LightBulbIcon, XMarkIcon, PaperAirplaneIcon
+    LightBulbIcon, XMarkIcon, PaperAirplaneIcon, ArrowRightIcon, ArrowLeftIcon, ArrowPathIcon
 } from '@heroicons/react/24/outline';
+
 
 // --- Component Imports ---
 import Spinner from '../components/common/Spinner';
@@ -37,6 +38,17 @@ import ShareMultipleLessonsModal from '../components/teacher/ShareMultipleLesson
 import DeleteConfirmationModal from '../components/teacher/DeleteConfirmationModal';
 import EditSubjectModal from '../components/teacher/EditSubjectModal';
 import DeleteSubjectModal from '../components/teacher/DeleteSubjectModal';
+
+// --- NEW: Global Spinner for AI tasks ---
+const GlobalAiSpinner = ({ isGenerating, text }) => {
+    if (!isGenerating) return null;
+    return (
+        <div className="fixed inset-0 bg-black/50 z-[9999] flex flex-col justify-center items-center">
+            <Spinner />
+            <p className="text-white text-lg mt-4">{text || "AI is working its magic..."}</p>
+        </div>
+    );
+};
 
 
 // --- Reusable Components for the Home Tab ---
@@ -483,7 +495,7 @@ const TeacherDashboardUI = (props) => {
         handleOpenEditClassModal, handleArchiveClass, handleDeleteClass, isHoveringActions, setIsHoveringActions,
         setClassOverviewModal, setIsArchivedModalOpen, setCreateClassModalOpen,
         setCreateCategoryModalOpen, setCreateCourseModalOpen, handleEditCategory,
-        handleOpenEditSubject, handleOpenDeleteSubject, setShareContentModalOpen, setAddUnitModalOpen,
+        handleOpenEditSubject, handleOpenDeleteSubject, setShareContentModalOpen,
         handleInitiateDelete, handleGenerateQuizForLesson, isAiGenerating,
         setEditProfileModalOpen, setChangePasswordModalOpen, editingAnnId, editingAnnText,
         setEditingAnnText, handleStartEditAnn, handleUpdateTeacherAnn, setEditingAnnId, handleDeleteTeacherAnn,
@@ -494,12 +506,16 @@ const TeacherDashboardUI = (props) => {
         isEditProfileModalOpen, handleUpdateProfile, isChangePasswordModalOpen, handleChangePassword,
         isCreateCategoryModalOpen, isEditCategoryModalOpen, setEditCategoryModalOpen, categoryToEdit,
         isCreateClassModalOpen, isCreateCourseModalOpen, classOverviewModal, isEditClassModalOpen, setEditClassModalOpen, classToEdit,
-        isAddUnitModalOpen, editUnitModalOpen, setEditUnitModalOpen, selectedUnit, addLessonModalOpen,
+        isAddUnitModalOpen, setAddUnitModalOpen, editUnitModalOpen, setEditUnitModalOpen, selectedUnit, addLessonModalOpen,
         setAddLessonModalOpen, addQuizModalOpen, setAddQuizModalOpen, deleteUnitModalOpen, setDeleteUnitModalOpen,
         editLessonModalOpen, setEditLessonModalOpen, selectedLesson, viewLessonModalOpen, setViewLessonModalOpen,
         isShareContentModalOpen, isDeleteModalOpen, setIsDeleteModalOpen, handleConfirmDelete, deleteTarget,
         isEditSubjectModalOpen, setEditSubjectModalOpen, subjectToActOn, isDeleteSubjectModalOpen, setDeleteSubjectModalOpen,
-        handleCreateAnnouncement, isChatOpen, setIsChatOpen, messages, isAiThinking, handleAskAi, handleRemoveStudentFromClass
+        handleCreateAnnouncement, isChatOpen, setIsChatOpen, messages, isAiThinking, handleAskAi, handleRemoveStudentFromClass,
+        setIsAiGenerating,
+        // --- AI EXAM GENERATOR PROPS ---
+        isAiExamGeneratorModalOpen, setAiExamGeneratorModalOpen, isExamPreviewModalOpen, setExamPreviewModalOpen,
+        generatedExamData, isGeneratingExam, onGenerateExam, onSaveExam, onRegenerate, examConfig, onOpenExamGenerator
     } = props;
     
     // State to track if the AI conversation has moved beyond the initial greeting
@@ -566,12 +582,22 @@ const TeacherDashboardUI = (props) => {
                                             <button onClick={() => handleOpenEditSubject(activeSubject)} className="text-gray-400 hover:text-blue-600" title="Edit Subject Name"><PencilSquareIcon className="w-5 h-5" /></button>
                                             <button onClick={() => handleOpenDeleteSubject(activeSubject)} className="text-gray-400 hover:text-red-600" title="Delete Subject"><TrashIcon className="w-5 h-5" /></button>
                                         </div>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => setShareContentModalOpen(true)} className="btn-primary">Share Content</button>
+                                        <div className="flex gap-2 flex-wrap">
+                                            <button onClick={() => setShareContentModalOpen(true)} className="btn-secondary">Share Content</button>
                                             <button onClick={() => setAddUnitModalOpen(true)} className="btn-secondary">Add Unit</button>
                                         </div>
                                     </div>
-                                    <div><UnitAccordion subject={activeSubject} onInitiateDelete={handleInitiateDelete} userProfile={userProfile} onGenerateQuiz={handleGenerateQuizForLesson} isAiGenerating={isAiGenerating} /></div>
+                                    <div>
+                                        <UnitAccordion 
+                                            subject={activeSubject} 
+                                            onInitiateDelete={handleInitiateDelete} 
+                                            userProfile={userProfile} 
+                                            onGenerateQuiz={handleGenerateQuizForLesson} 
+                                            isAiGenerating={isAiGenerating}
+                                            setIsAiGenerating={setIsAiGenerating}
+                                            // onOpenExamGenerator={onOpenExamGenerator} // Temporarily removed
+                                        />
+                                    </div>
                                 </div>
                             ) : ( <div className={wrapper}><h1 className="text-2xl font-bold text-gray-800">{selectedCategory}</h1><div className="text-center py-10"><p className="text-gray-500">There are no subjects in this category yet.</p></div></div> )}
                         </div>
@@ -763,6 +789,21 @@ const TeacherDashboardUI = (props) => {
                      filter: brightness(1.1);
                      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
                  }
+                 .btn-secondary {
+                    display: inline-flex; align-items: center; justify-content: center;
+                    background-color: #f1f5f9; /* slate-100 */
+                    color: #475569; /* slate-600 */
+                    font-weight: 600;
+                    padding: 0.5rem 1rem;
+                    border-radius: 0.5rem;
+                    border: 1px solid #e2e8f0; /* slate-200 */
+                    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+                    transition: all 0.2s ease-in-out;
+                 }
+                 .btn-secondary:hover {
+                    background-color: #e2e8f0; /* slate-200 */
+                    border-color: #cbd5e1; /* slate-300 */
+                 }
                  /* Global padding for mobile main content to prevent overlap with fixed footer */
                  @media (max-width: 767px) {
                     main {
@@ -785,6 +826,7 @@ const TeacherDashboardUI = (props) => {
             
             {/* Robot Icon is rendered globally as a fixed element, its position is managed by JS/CSS */}
             <AnimatedRobot onClick={() => setIsChatOpen(true)} />
+             <GlobalAiSpinner isGenerating={isAiGenerating} text="Crafting content..." />
 
             {/* Chat Dialog and Modals are already fixed/absolute, so they should overlay correctly */}
             <ChatDialog 
@@ -809,7 +851,7 @@ const TeacherDashboardUI = (props) => {
             <EditClassModal isOpen={isEditClassModalOpen} onClose={() => setEditClassModalOpen(false)} classData={classToEdit} />
             <AddUnitModal isOpen={isAddUnitModalOpen} onClose={() => setAddUnitModalOpen(false)} subjectId={activeSubject?.id} />
             {selectedUnit && <EditUnitModal isOpen={editUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={selectedUnit} />}
-            {selectedUnit && <AddLessonModal isOpen={addLessonModalOpen} onClose={() => setAddLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={activeSubject?.id} />}
+            {selectedUnit && <AddLessonModal isOpen={addLessonModalOpen} onClose={() => setAddLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={activeSubject?.id} setIsAiGenerating={setIsAiGenerating} />}
             {selectedUnit && <AddQuizModal isOpen={addQuizModalOpen} onClose={() => setAddQuizModalOpen(false)} unitId={selectedUnit?.id} subjectId={activeSubject?.id} />}
             {selectedUnit && <DeleteUnitModal isOpen={deleteUnitModalOpen} onClose={() => setDeleteUnitModalOpen(false)} unitId={selectedUnit?.id} subjectId={activeSubject?.id} />}
             {selectedLesson && <EditLessonModal isOpen={editLessonModalOpen} onClose={() => setEditLessonModalOpen(false)} lesson={selectedLesson} />}
@@ -819,6 +861,23 @@ const TeacherDashboardUI = (props) => {
             <EditSubjectModal isOpen={isEditSubjectModalOpen} onClose={() => setEditSubjectModalOpen(false)} subject={subjectToActOn} />
             <DeleteSubjectModal isOpen={isDeleteSubjectModalOpen} onClose={() => setDeleteSubjectModalOpen(false)} subject={subjectToActOn} />
             
+            {/* --- Temporarily Removed AI Exam Generator Modals --- */}
+            {/* <AiExamGeneratorModal 
+                isOpen={isAiExamGeneratorModalOpen}
+                onClose={() => setAiExamGeneratorModalOpen(false)}
+                onGenerate={onGenerateExam}
+                isGenerating={isGeneratingExam}
+                initialConfig={examConfig}
+            />
+            <ExamPreviewModal
+                isOpen={isExamPreviewModalOpen}
+                onClose={() => setExamPreviewModalOpen(false)}
+                examData={generatedExamData}
+                onSave={onSaveExam}
+                onRegenerate={onRegenerate}
+            /> */}
+
+
             {/* The mobile footer is kept fixed and should now be visible */}
             <footer className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm flex justify-around md:hidden border-t border-gray-200/80 z-50">
                 {bottomNavItems.map(item => {

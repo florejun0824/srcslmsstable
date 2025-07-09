@@ -10,7 +10,9 @@ const LMS_KNOWLEDGE_BASE = `
   System Features Overview:
   - Course & Subject Management: Teachers can create subject categories (e.g., "Math", "Science") and then create specific courses/subjects within those categories (e.g., "Algebra 1"). Courses are made up of units.
   - Unit & Lesson Management: Within each course, teachers can create units. Inside units, they can create multi-page lessons and quizzes.
-  - AI-Powered Quiz Generation: Teachers can automatically generate a 10-question multiple-choice quiz from the content of any lesson by clicking a button. This uses an AI service.
+  - AI-Powered Content Generation: Teachers can use AI to generate lessons and quizzes.
+    - AI Lesson Generator: Creates a lesson plan based on a topic.
+    - AI Quiz Generator: Creates a 10-question multiple-choice quiz from a lesson's content.
   - Class Management: Teachers can create classes, each with a unique class code for student enrollment. They can archive and delete classes. Students can be removed from a class roster via the Class Overview modal.
   - Student Management: Teachers can view a list of all classes in the LMS and import students from any class into one of their own classes.
   - Announcements: Teachers can post announcements for all other teachers, or create announcements for specific classes they teach.
@@ -71,6 +73,14 @@ const TeacherDashboard = () => {
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [messages, setMessages] = useState([]);
     const [isAiThinking, setIsAiThinking] = useState(false);
+
+    // --- Temporarily Removed AI Exam Generator State ---
+    // const [isAiExamGeneratorModalOpen, setAiExamGeneratorModalOpen] = useState(false);
+    // const [isExamPreviewModalOpen, setExamPreviewModalOpen] = useState(false);
+    // const [generatedExamData, setGeneratedExamData] = useState(null);
+    // const [isGeneratingExam, setIsGeneratingExam] = useState(false);
+    // const [examConfig, setExamConfig] = useState(null);
+
 
     useEffect(() => {
         if (userProfile && messages.length === 0) {
@@ -171,8 +181,7 @@ const TeacherDashboard = () => {
 
     const handleGenerateQuizForLesson = async (lesson, unitId, subjectId) => {
         if (isAiGenerating) return;
-        if (!window.confirm(`This will use the AI to generate a new quiz based on the lesson "${lesson.title}". Continue?`)) { return; }
-        setIsAiGenerating(true);
+        setIsAiGenerating(true); // Moved to the top to show spinner immediately
         showToast("AI is generating your quiz... This may take a moment.", "info");
         const lessonContent = lesson.pages.map(page => `Page Title: ${page.title}\n\n${page.content}`).join('\n\n---\n\n');
         const prompt = `Based on the following lesson content, generate a 10-question multiple-choice quiz. The quiz title should be: "Quiz for: ${lesson.title}". The output must be a single, valid JSON object. The JSON object must have two keys: "title" (a string) and "questions" (an array of objects). Each object in the "questions" array must have these exact keys: "text", "options" (an array of 4 strings), and "correctAnswerIndex" (a number from 0 to 3). LESSON CONTENT:\n---\n${lessonContent}`;
@@ -186,6 +195,13 @@ const TeacherDashboard = () => {
             else { showToast("The AI Assistant could not generate a quiz. Please try again.", "error"); console.error("AI Generation Error:", error); }
         } finally { setIsAiGenerating(false); }
     };
+
+    // --- Temporarily Removed AI Exam Generator Handlers ---
+    // const handleGenerateExam = async (currentConfig) => { ... };
+    // const handleRegenerateExam = () => { ... };
+    // const handleSaveExam = async () => { ... };
+    // const handleOpenExamGenerator = () => { ... };
+
 
     const handleInitiateDelete = (type, id, unitId, subjectId) => { setDeleteTarget({ type, id, unitId, subjectId }); setIsDeleteModalOpen(true); };
     const handleConfirmDelete = async (confirmationText) => {
@@ -305,7 +321,7 @@ const TeacherDashboard = () => {
             handleOpenEditClassModal={handleOpenEditClassModal} handleArchiveClass={handleArchiveClass} handleDeleteClass={handleDeleteClass} isHoveringActions={isHoveringActions} setIsHoveringActions={setIsHoveringActions}
             setClassOverviewModal={setClassOverviewModal} setIsArchivedModalOpen={setIsArchivedModalOpen} setCreateClassModalOpen={setCreateClassModalOpen}
             setCreateCategoryModalOpen={setCreateCategoryModalOpen} setCreateCourseModalOpen={setCreateCourseModalOpen} handleEditCategory={handleEditCategory}
-            handleOpenEditSubject={handleOpenEditSubject} handleOpenDeleteSubject={handleOpenDeleteSubject} setShareContentModalOpen={setShareContentModalOpen} setAddUnitModalOpen={setAddUnitModalOpen}
+            handleOpenEditSubject={handleOpenEditSubject} handleOpenDeleteSubject={handleOpenDeleteSubject} setShareContentModalOpen={setShareContentModalOpen}
             handleInitiateDelete={handleInitiateDelete} handleGenerateQuizForLesson={handleGenerateQuizForLesson} isAiGenerating={isAiGenerating}
             setEditProfileModalOpen={setEditProfileModalOpen} setChangePasswordModalOpen={setChangePasswordModalOpen} editingAnnId={editingAnnId} editingAnnText={editingAnnText}
             setEditingAnnText={setEditingAnnText} handleStartEditAnn={handleStartEditAnn} handleUpdateTeacherAnn={handleUpdateTeacherAnn} setEditingAnnId={setEditingAnnId} handleDeleteTeacherAnn={handleDeleteTeacherAnn}
@@ -316,7 +332,7 @@ const TeacherDashboard = () => {
             isEditProfileModalOpen={isEditProfileModalOpen} handleUpdateProfile={handleUpdateProfile} isChangePasswordModalOpen={isChangePasswordModalOpen} handleChangePassword={handleChangePassword}
             isCreateCategoryModalOpen={isCreateCategoryModalOpen} isEditCategoryModalOpen={isEditCategoryModalOpen} setEditCategoryModalOpen={setEditCategoryModalOpen} categoryToEdit={categoryToEdit}
             isCreateClassModalOpen={isCreateClassModalOpen} isCreateCourseModalOpen={isCreateCourseModalOpen} classOverviewModal={classOverviewModal} isEditClassModalOpen={isEditClassModalOpen} setEditClassModalOpen={setEditClassModalOpen} classToEdit={classToEdit}
-            isAddUnitModalOpen={isAddUnitModalOpen} editUnitModalOpen={editUnitModalOpen} setEditUnitModalOpen={setEditUnitModalOpen} selectedUnit={selectedUnit} addLessonModalOpen={addLessonModalOpen}
+            isAddUnitModalOpen={isAddUnitModalOpen} setAddUnitModalOpen={setAddUnitModalOpen} editUnitModalOpen={editUnitModalOpen} setEditUnitModalOpen={setEditUnitModalOpen} selectedUnit={selectedUnit} addLessonModalOpen={addLessonModalOpen}
             setAddLessonModalOpen={setAddLessonModalOpen} addQuizModalOpen={addQuizModalOpen} setAddQuizModalOpen={setAddQuizModalOpen} deleteUnitModalOpen={deleteUnitModalOpen} setDeleteUnitModalOpen={setDeleteUnitModalOpen}
             editLessonModalOpen={editLessonModalOpen} setEditLessonModalOpen={setEditLessonModalOpen} selectedLesson={selectedLesson} viewLessonModalOpen={viewLessonModalOpen} setViewLessonModalOpen={setViewLessonModalOpen}
             isShareContentModalOpen={isShareContentModalOpen} isDeleteModalOpen={isDeleteModalOpen} setIsDeleteModalOpen={setIsDeleteModalOpen} handleConfirmDelete={handleConfirmDelete} deleteTarget={deleteTarget}
@@ -324,6 +340,7 @@ const TeacherDashboard = () => {
             handleCreateAnnouncement={handleCreateAnnouncement}
             isChatOpen={isChatOpen} setIsChatOpen={setIsChatOpen} messages={messages} isAiThinking={isAiThinking} handleAskAi={handleAskAi}
             handleRemoveStudentFromClass={handleRemoveStudentFromClass}
+            setIsAiGenerating={setIsAiGenerating} // Pass setter for lesson generation
         />
     );
 };

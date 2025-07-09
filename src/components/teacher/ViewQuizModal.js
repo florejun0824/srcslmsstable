@@ -13,7 +13,6 @@ import {
     getDoc
 } from 'firebase/firestore';
 import Spinner from '../common/Spinner';
-// --- 1. IMPORT THE CONTENT RENDERER ---
 import ContentRenderer from './ContentRenderer';
 
 export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, classId }) {
@@ -158,15 +157,14 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
 
         return (
             <div>
-                {/* --- 2. USE CONTENT RENDERER HERE --- */}
                 <div className="font-medium mb-4"><ContentRenderer text={question.text} /></div>
                 
                 {question.type === 'multiple-choice' && (
                     <div className="space-y-3">
                         {question.options?.map((option, idx) => (
                             <div key={idx} onClick={() => handleAnswer(idx)} className="w-full p-4 rounded-lg border transition-all cursor-pointer hover:bg-gray-50">
-                                {/* --- AND HERE --- */}
-                                <ContentRenderer text={option} />
+                                {/* --- FIX #1: Pass option.text, not the whole option object --- */}
+                                <ContentRenderer text={option.text} />
                             </div>
                         ))}
                     </div>
@@ -190,44 +188,25 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
     const renderQuestionResult = () => {
         const question = questions[currentQ];
         const isCorrect = questionResult === 'correct';
-        const userAnswerIndex = userAnswers[currentQ]; // Get the index of the user's chosen answer
+        const userAnswerIndex = userAnswers[currentQ]; 
         
-        let explanationText = 'No explanation provided.'; // Default
+        let explanationText = 'No explanation provided.'; 
         
         if (question.type === 'multiple-choice') {
-            // Get the explanation from the specific option the user chose
-            // Or, if incorrect, you might want to show the correct answer's explanation
-            // For simplicity, let's show the explanation of the option the user selected.
-            // If the user was incorrect, and that option has an explanation, show it.
-            // If it's correct, show that option's explanation.
             const selectedOption = question.options?.[userAnswerIndex];
             if (selectedOption && selectedOption.explanation) {
                 explanationText = selectedOption.explanation;
             } else if (!isCorrect && question.correctAnswerIndex !== undefined) {
-                // If incorrect, and the selected option has no explanation,
-                // you might want to show the correct answer's explanation.
                 const correctOption = question.options?.[question.correctAnswerIndex];
                 if (correctOption && correctOption.explanation) {
                     explanationText = `The correct answer was "${correctOption.text}". ${correctOption.explanation}`;
                 }
             }
-
-        } else if (question.type === 'true-false') {
-            // True/False questions usually have a single explanation for the correct choice
-            if (question.explanation) { // Assuming true/false explanation is on the question object
+        } else if (question.type === 'true-false' || question.type === 'identification') {
+            if (question.explanation) {
                  explanationText = question.explanation;
-            } else if (question.correctAnswer !== undefined) {
-                // If explanation is tied to the correct answer, you'd need logic here
-                // For simplicity, let's assume `question.explanation` handles it for true/false
-                explanationText = question.explanation || 'No explanation provided.';
-            }
-
-        } else if (question.type === 'identification') {
-            if (question.explanation) { // Assuming identification explanation is on the question object
-                explanationText = question.explanation;
             }
         }
-
 
         return (
             <div className={`p-4 rounded-lg ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border`}>
@@ -235,7 +214,6 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                     {isCorrect ? <CheckCircleIcon className="h-6 w-6 text-green-500" /> : <XCircleIcon className="h-6 w-6 text-red-500" />}
                     <Title className={isCorrect ? 'text-green-700' : 'text-red-700'}>{isCorrect ? "Correct!" : "Incorrect"}</Title>
                 </div>
-                {/* Display the correct answer for identification questions when incorrect */}
                 {!isCorrect && question.type === 'identification' && (
                     <p className="mt-2 text-red-700 text-sm">
                         Correct Answer: <span className="font-semibold">{question.correctAnswer}</span>
@@ -294,48 +272,45 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                     <div className="flex-grow overflow-y-auto">
                         <p className="text-center text-sm text-blue-600 bg-blue-50 p-2 rounded-md mb-4">This is a teacher preview.</p>
                         {currentQuestionData ? (
-                             <div className="mb-4 p-4 border rounded-lg">
-                                 {/* --- AND HERE --- */}
-                                <div className="font-semibold flex items-start">
-                                    <span>{currentQ + 1}.&nbsp;</span>
-                                    <ContentRenderer text={currentQuestionData.text} />
-                                </div>
-                                
-                                <div className="mt-4 space-y-2">
-                                    {currentQuestionData.type === 'multiple-choice' && currentQuestionData.options?.map((option, idx) => (
-                                        <div key={idx} className={`flex items-center p-2 rounded-md text-sm ${idx === currentQuestionData.correctAnswerIndex ? 'bg-green-100 text-green-800 font-semibold ring-1 ring-green-300' : 'bg-gray-100'}`}>
-                                            {idx === currentQuestionData.correctAnswerIndex && <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />}
-                                            {/* --- AND HERE --- */}
-                                            <ContentRenderer text={option} />
-                                        </div>
-                                    ))}
-                                    {currentQuestionData.type === 'true-false' && (
-                                        <>
-                                            <div className={`flex items-center p-2 rounded-md text-sm ${currentQuestionData.correctAnswer === true ? 'bg-green-100 text-green-800 font-semibold ring-1 ring-green-300' : 'bg-gray-100'}`}>
-                                                {currentQuestionData.correctAnswer === true && <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />}
-                                                True
+                                <div className="mb-4 p-4 border rounded-lg">
+                                    <div className="font-semibold flex items-start">
+                                        <span>{currentQ + 1}.&nbsp;</span>
+                                        <ContentRenderer text={currentQuestionData.text} />
+                                    </div>
+                                    
+                                    <div className="mt-4 space-y-2">
+                                        {currentQuestionData.type === 'multiple-choice' && currentQuestionData.options?.map((option, idx) => (
+                                            <div key={idx} className={`flex items-center p-2 rounded-md text-sm ${option.isCorrect ? 'bg-green-100 text-green-800 font-semibold ring-1 ring-green-300' : 'bg-gray-100'}`}>
+                                                {option.isCorrect && <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />}
+                                                {/* --- FIX #2: Pass option.text, not the whole option object --- */}
+                                                <ContentRenderer text={option.text} />
                                             </div>
-                                            <div className={`flex items-center p-2 rounded-md text-sm ${currentQuestionData.correctAnswer === false ? 'bg-green-100 text-green-800 font-semibold ring-1 ring-green-300' : 'bg-gray-100'}`}>
-                                                {currentQuestionData.correctAnswer === false && <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />}
-                                                False
+                                        ))}
+                                        {currentQuestionData.type === 'true-false' && (
+                                            <>
+                                                <div className={`flex items-center p-2 rounded-md text-sm ${currentQuestionData.correctAnswer === true ? 'bg-green-100 text-green-800 font-semibold ring-1 ring-green-300' : 'bg-gray-100'}`}>
+                                                    {currentQuestionData.correctAnswer === true && <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />}
+                                                    True
+                                                </div>
+                                                <div className={`flex items-center p-2 rounded-md text-sm ${currentQuestionData.correctAnswer === false ? 'bg-green-100 text-green-800 font-semibold ring-1 ring-green-300' : 'bg-gray-100'}`}>
+                                                    {currentQuestionData.correctAnswer === false && <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />}
+                                                    False
+                                                </div>
+                                            </>
+                                        )}
+                                        {currentQuestionData.type === 'identification' && (
+                                            <div className="flex items-center p-2 rounded-md text-sm bg-green-100 text-green-800 font-semibold ring-1 ring-green-300">
+                                                <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />
+                                                Correct Answer: <ContentRenderer text={currentQuestionData.correctAnswer} />
                                             </div>
-                                        </>
-                                    )}
-                                    {currentQuestionData.type === 'identification' && (
-                                        <div className="flex items-center p-2 rounded-md text-sm bg-green-100 text-green-800 font-semibold ring-1 ring-green-300">
-                                            <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />
-                                            {/* --- AND HERE --- */}
-                                            Correct Answer: <ContentRenderer text={currentQuestionData.correctAnswer} />
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
+                                    
+                                    <div className="mt-4 pt-2 border-t text-sm text-gray-600">
+                                        <p><strong>Explanation:</strong></p>
+                                        <ContentRenderer text={currentQuestionData.explanation || 'No explanation provided.'} />
+                                    </div>
                                 </div>
-                                
-                                <div className="mt-4 pt-2 border-t text-sm text-gray-600">
-                                    <p><strong>Explanation:</strong></p>
-                                    {/* --- AND HERE --- */}
-                                    <ContentRenderer text={currentQuestionData.explanation || 'No explanation provided.'} />
-                                </div>
-                            </div>
                         ) : (
                             <p>This quiz has no questions.</p>
                         )}

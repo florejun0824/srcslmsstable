@@ -9,11 +9,20 @@ import 'katex/dist/katex.min.css';
 
 // The sanitizeText function has been REMOVED.
 
-export default function ContentRenderer({ text = '' }) {
+export default function ContentRenderer({ text }) { // Default value removed to handle explicitly
+  
+  // --- FIX: Ensure the input is always a string before processing ---
+  // This handles cases where 'text' might be null, undefined, a boolean, or a number.
+  const stringifiedText = String(text ?? '');
+
+  // Process the guaranteed string
+  const normalizedText = stringifiedText.replace(/\\n/g, '\n');
+  const processedText = normalizedText.replace(/\n/g, '  \n');
+
   return (
     <div className="content-renderer prose max-w-full">
       <ReactMarkdown
-        children={text} // Pass the raw, unmodified text directly
+        children={processedText} // Pass the processed, safe text
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex, rehypeRaw, rehypeMermaid]}
         components={{

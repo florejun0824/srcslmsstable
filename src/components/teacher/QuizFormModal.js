@@ -41,68 +41,131 @@ export default function QuizFormModal({ isOpen, onClose, onSubmit, initialQuizDa
         if (isOpen) {
             if (initialQuizData) {
                 setTitle(initialQuizData.title || '');
-                setQuestions(initialQuizData.questions || [{ type: 'multiple-choice', text: '', options: ['', ''], correctAnswerIndex: 0, explanation: '' }]);
+                const normalizedQuestions = (initialQuizData.questions || []).map((q, qIndex) => {
+                    if (q.type === 'multiple-choice' && q.options) {
+                        const correctIdx = q.correctAnswerIndex ?? 0;
+                        const normalizedOptions = q.options.map((opt, oIndex) => {
+                            if (typeof opt === 'string') {
+                                return { text: opt, isCorrect: oIndex === correctIdx };
+                            }
+                            // Ensure every option has a text property, default to empty string if missing
+                            return { text: opt.text || '', isCorrect: opt.isCorrect || false };
+                        });
+                        // Ensure all options have the isCorrect flag set properly based on correctAnswerIndex
+                        const finalOptions = normalizedOptions.map((opt, oIndex) => ({
+                            ...opt,
+                            isCorrect: oIndex === correctIdx
+                        }));
+
+                        return { ...q, options: finalOptions, correctAnswerIndex: correctIdx };
+                    }
+                    return q;
+                });
+                setQuestions(normalizedQuestions.length > 0 ? normalizedQuestions : [{ type: 'multiple-choice', text: '', options: [{text: '', isCorrect: true}, {text: '', isCorrect: false}], correctAnswerIndex: 0, explanation: '' }]);
             } else {
                 setTitle('');
-                setQuestions([{ type: 'multiple-choice', text: '', options: ['', ''], correctAnswerIndex: 0, explanation: '' }]);
+                setQuestions([{ type: 'multiple-choice', text: '', options: [{text: '', isCorrect: true}, {text: '', isCorrect: false}], correctAnswerIndex: 0, explanation: '' }]);
             }
             setActiveTab('edit');
         }
     }, [initialQuizData, isOpen]);
      const handleQuestionChange = (index, field, value) => {
-        const updatedQuestions = [...questions];
-        const currentQuestion = { ...updatedQuestions[index] };
-        currentQuestion[field] = value;
-        if (field === 'type') {
-            delete currentQuestion.options;
-            delete currentQuestion.correctAnswerIndex;
-            delete currentQuestion.correctAnswer;
-            if (value === 'multiple-choice') {
-                currentQuestion.options = ['', ''];
-                currentQuestion.correctAnswerIndex = 0;
-            } else if (value === 'true-false') {
-                currentQuestion.correctAnswer = true;
-            } else if (value === 'identification') {
-                currentQuestion.correctAnswer = '';
+        const updatedQuestions = questions.map((q, i) => {
+            if (i !== index) return q;
+
+            const newQuestion = { ...q, [field]: value };
+            if (field === 'type') {
+                delete newQuestion.options;
+                delete newQuestion.correctAnswerIndex;
+                delete newQuestion.correctAnswer;
+                if (value === 'multiple-choice') {
+                    newQuestion.options = [{text: '', isCorrect: true}, {text: '', isCorrect: false}];
+                    newQuestion.correctAnswerIndex = 0;
+                } else if (value === 'true-false') {
+                    newQuestion.correctAnswer = true;
+                } else if (value === 'identification') {
+                    newQuestion.correctAnswer = '';
+                }
             }
-        }
-        updatedQuestions[index] = currentQuestion;
+            return newQuestion;
+        });
         setQuestions(updatedQuestions);
     };
-    const handleOptionChange = (qIndex, oIndex, value) => {
-        const updatedQuestions = [...questions];
-        updatedQuestions[qIndex].options[oIndex] = value;
+    const handleOptionChange = (qIndex, oIndex, newText) => {
+        const updatedQuestions = questions.map((q, i) => {
+            if (i !== qIndex) return q;
+            const updatedOptions = q.options.map((opt, j) => {
+                if (j !== oIndex) return opt;
+                return { ...opt, text: newText };
+            });
+            return { ...q, options: updatedOptions };
+        });
         setQuestions(updatedQuestions);
     };
+
+    const handleCorrectAnswerChange = (qIndex, newCorrectIndex) => {
+        const updatedQuestions = questions.map((q, i) => {
+            if (i !== qIndex) return q;
+            const updatedOptions = q.options.map((opt, j) => ({
+                ...opt,
+                isCorrect: j === newCorrectIndex
+            }));
+            return { ...q, options: updatedOptions, correctAnswerIndex: newCorrectIndex };
+        });
+        setQuestions(updatedQuestions);
+    };
+
     const addQuestion = () => {
-        setQuestions([...questions, { type: 'multiple-choice', text: '', options: ['', ''], correctAnswerIndex: 0, explanation: '' }]);
+        setQuestions([...questions, { type: 'multiple-choice', text: '', options: [{text: '', isCorrect: true}, {text: '', isCorrect: false}], correctAnswerIndex: 0, explanation: '' }]);
     };
     const removeQuestion = (index) => {
         setQuestions(questions.filter((_, i) => i !== index));
     };
     const addOption = (qIndex) => {
         const updatedQuestions = [...questions];
-        updatedQuestions[qIndex].options.push('');
+        updatedQuestions[qIndex].options.push({text: '', isCorrect: false});
         setQuestions(updatedQuestions);
     };
     const removeOption = (qIndex, oIndex) => {
         const updatedQuestions = [...questions];
-        updatedQuestions[qIndex].options = updatedQuestions[qIndex].options.filter((_, i) => i !== oIndex);
+        const questionToUpdate = updatedQuestions[qIndex];
+        questionToUpdate.options = questionToUpdate.options.filter((_, i) => i !== oIndex);
+        
+        if (questionToUpdate.correctAnswerIndex === oIndex) {
+            questionToUpdate.correctAnswerIndex = 0;
+        } else if (questionToUpdate.correctAnswerIndex > oIndex) {
+            questionToUpdate.correctAnswerIndex -= 1;
+        }
+
+        questionToUpdate.options = questionToUpdate.options.map((opt, i) => ({
+            ...opt,
+            isCorrect: i === questionToUpdate.correctAnswerIndex
+        }));
+
         setQuestions(updatedQuestions);
     };
     const handleSave = async () => {
         setIsSaving(true);
-        await onSubmit({ title, questions });
+        const finalQuestions = questions.map(q => {
+            if (q.type === 'multiple-choice') {
+                const updatedOptions = q.options.map((opt, index) => ({
+                    ...opt,
+                    isCorrect: index === q.correctAnswerIndex
+                }));
+                return { ...q, options: updatedOptions };
+            }
+            return q;
+        });
+        await onSubmit({ title, questions: finalQuestions });
         setIsSaving(false);
     };
 
     const renderEditPane = (question, index) => (
       <div className="space-y-4 bg-white p-4 rounded-b-lg border-x border-b">
             <div>
-                <label className="text-xs font-semibold text-gray-500">QUESTION SOURCE</label>
-                <Textarea placeholder="Enter question text..." value={question.text || ''} onChange={(e) => handleQuestionChange(index, 'text', e.target.value)} rows={6} className="font-mono text-sm"/>
+                <label className="text-xs font-semibold text-gray-500">QUESTION</label>
+                <Textarea placeholder="Enter question text..." value={question.text || ''} onChange={(e) => handleQuestionChange(index, 'text', e.target.value)} rows={3}/>
             </div>
-            {/* --- UPDATED: Replaced Tremor Select with Headless UI Menu --- */}
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Question Type</label>
                 <Menu as="div" className="relative inline-block text-left w-full">
@@ -112,17 +175,11 @@ export default function QuizFormModal({ isOpen, onClose, onSubmit, initialQuizDa
                             <ChevronDownIcon className="-mr-1 ml-2 h-5 w-5" aria-hidden="true" />
                         </Menu.Button>
                     </div>
-                    <Menu.Items className="absolute right-0 mt-2 w-full origin-top-right rounded-md bg-gradient-to-br from-blue-50 to-indigo-100 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                    <Menu.Items className="absolute right-0 mt-2 w-full origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
                         <div className="py-1">
-                            <Menu.Item>
-                                {({ active }) => ( <a href="#" onClick={() => handleQuestionChange(index, 'type', 'multiple-choice')} className={`${ active ? 'bg-indigo-200 text-indigo-900' : 'text-gray-700'} block px-4 py-2 text-sm`}> Multiple Choice </a> )}
-                            </Menu.Item>
-                            <Menu.Item>
-                                {({ active }) => ( <a href="#" onClick={() => handleQuestionChange(index, 'type', 'true-false')} className={`${ active ? 'bg-indigo-200 text-indigo-900' : 'text-gray-700'} block px-4 py-2 text-sm`}> True/False </a> )}
-                            </Menu.Item>
-                             <Menu.Item>
-                                {({ active }) => ( <a href="#" onClick={() => handleQuestionChange(index, 'type', 'identification')} className={`${ active ? 'bg-indigo-200 text-indigo-900' : 'text-gray-700'} block px-4 py-2 text-sm`}> Identification </a> )}
-                            </Menu.Item>
+                            <Menu.Item>{({ active }) => ( <a href="#" onClick={() => handleQuestionChange(index, 'type', 'multiple-choice')} className={`${ active ? 'bg-gray-100' : ''} block px-4 py-2 text-sm text-gray-700`}> Multiple Choice </a> )}</Menu.Item>
+                            <Menu.Item>{({ active }) => ( <a href="#" onClick={() => handleQuestionChange(index, 'type', 'true-false')} className={`${ active ? 'bg-gray-100' : ''} block px-4 py-2 text-sm text-gray-700`}> True/False </a> )}</Menu.Item>
+                            <Menu.Item>{({ active }) => ( <a href="#" onClick={() => handleQuestionChange(index, 'type', 'identification')} className={`${ active ? 'bg-gray-100' : ''} block px-4 py-2 text-sm text-gray-700`}> Identification </a> )}</Menu.Item>
                         </div>
                     </Menu.Items>
                 </Menu>
@@ -140,21 +197,22 @@ export default function QuizFormModal({ isOpen, onClose, onSubmit, initialQuizDa
       <div className="prose max-w-none prose-sm bg-white p-4 rounded-b-lg border-x border-b">
             <ContentRenderer text={question.text} />
              {question.type === 'multiple-choice' && (
-                <ul className="list-none pl-0 mt-4 space-y-2">
-                    {question.options.map((option, oIndex) => (
-                        <li key={oIndex} className={`flex items-start gap-3 p-2 rounded-md ${question.correctAnswerIndex === oIndex ? 'bg-green-50 border border-green-200' : ''}`}>
-                            <input type="radio" checked={question.correctAnswerIndex === oIndex} readOnly className="mt-1"/>
-                            <ContentRenderer text={option} />
-                        </li>
-                    ))}
-                </ul>
-            )}
-             {question.type === 'true-false' && (
-                <p>Correct Answer: <strong>{String(question.correctAnswer)}</strong></p>
-            )}
-             {question.type === 'identification' && (
-                <p>Correct Answer: <strong>{question.correctAnswer}</strong></p>
-            )}
+                 <ul className="list-none pl-0 mt-4 space-y-2">
+                     {question.options.map((option, oIndex) => (
+                         <li key={oIndex} className={`flex items-start gap-3 p-2 rounded-md ${option.isCorrect ? 'bg-green-50 border border-green-200' : ''}`}>
+                             <input type="radio" checked={option.isCorrect} readOnly className="mt-1"/>
+                             {/* --- THIS IS THE CORRECTED LINE --- */}
+                             <ContentRenderer text={option.text} />
+                         </li>
+                     ))}
+                 </ul>
+             )}
+              {question.type === 'true-false' && (
+                  <p>Correct Answer: <strong>{String(question.correctAnswer)}</strong></p>
+             )}
+              {question.type === 'identification' && (
+                  <p>Correct Answer: <strong>{question.correctAnswer}</strong></p>
+             )}
             <div className="mt-4 p-2 bg-slate-100 rounded">
                 <h4 className="text-xs font-bold">Explanation</h4>
                 <ContentRenderer text={question.explanation}/>
@@ -162,20 +220,41 @@ export default function QuizFormModal({ isOpen, onClose, onSubmit, initialQuizDa
         </div>
     );
     const renderAnswerFields = (question, qIndex) => {
-        if (question.type !== 'multiple-choice') return null;
-        return (
-             <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Options</label>
-                {question.options?.map((option, oIndex) => (
-                    <div key={oIndex} className="flex items-center gap-2">
-                        <input type="radio" name={`correctAnswer-${qIndex}`} checked={question.correctAnswerIndex === oIndex} onChange={() => handleQuestionChange(qIndex, 'correctAnswerIndex', oIndex)} />
-                        <TextInput placeholder={`Option ${oIndex + 1}`} value={option} onChange={(e) => handleOptionChange(qIndex, oIndex, e.target.value)} className="font-mono text-xs" />
-                        <Button size="xs" variant="light" icon={TrashIcon} color="red" onClick={() => removeOption(qIndex, oIndex)} disabled={question.options.length <= 2} />
-                    </div>
-                ))}
-                <Button size="xs" variant="light" icon={PlusIcon} onClick={() => addOption(qIndex)}>Add Option</Button>
-            </div>
-        );
+        if (question.type === 'true-false') {
+            return (
+                <div className="space-y-2">
+                     <label className="block text-sm font-medium text-gray-700">Correct Answer</label>
+                     <div className="flex gap-4">
+                        <label className="flex items-center"><input type="radio" name={`correctAnswer-${qIndex}`} checked={question.correctAnswer === true} onChange={() => handleQuestionChange(qIndex, 'correctAnswer', true)} className="mr-2"/> True</label>
+                        <label className="flex items-center"><input type="radio" name={`correctAnswer-${qIndex}`} checked={question.correctAnswer === false} onChange={() => handleQuestionChange(qIndex, 'correctAnswer', false)} className="mr-2"/> False</label>
+                     </div>
+                </div>
+            );
+        }
+        if (question.type === 'identification') {
+             return (
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Correct Answer</label>
+                    <TextInput value={question.correctAnswer || ''} onChange={(e) => handleQuestionChange(qIndex, 'correctAnswer', e.target.value)} />
+                </div>
+             );
+        }
+        if (question.type === 'multiple-choice') {
+            return (
+                <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">Options</label>
+                    {question.options?.map((option, oIndex) => (
+                        <div key={oIndex} className="flex items-center gap-2">
+                            <input type="radio" name={`correctAnswer-${qIndex}`} checked={option.isCorrect} onChange={() => handleCorrectAnswerChange(qIndex, oIndex)} />
+                            <TextInput placeholder={`Option ${oIndex + 1}`} value={option.text || ''} onChange={(e) => handleOptionChange(qIndex, oIndex, e.target.value)} />
+                            <Button size="xs" variant="light" icon={TrashIcon} color="red" onClick={() => removeOption(qIndex, oIndex)} disabled={question.options.length <= 2} />
+                        </div>
+                    ))}
+                    <Button size="xs" variant="light" icon={PlusIcon} onClick={() => addOption(qIndex)}>Add Option</Button>
+                </div>
+            );
+        }
+        return null;
     }
     
     return (
@@ -188,11 +267,11 @@ export default function QuizFormModal({ isOpen, onClose, onSubmit, initialQuizDa
                         <TextInput id="quizTitle" placeholder="Enter quiz title" value={title} onChange={(e) => setTitle(e.target.value)} />
                     </div>
                     <div className="sticky top-0 bg-slate-50 py-2 z-20 flex justify-center gap-2 border-b">
-                         <TabButton label="Edit All" icon={PencilIcon} isActive={activeTab === 'edit'} onClick={() => setActiveTab('edit')} />
-                         <TabButton label="Preview All" icon={EyeIcon} isActive={activeTab === 'preview'} onClick={() => setActiveTab('preview')} />
+                         <TabButton label="Edit" icon={PencilIcon} isActive={activeTab === 'edit'} onClick={() => setActiveTab('edit')} />
+                         <TabButton label="Preview" icon={EyeIcon} isActive={activeTab === 'preview'} onClick={() => setActiveTab('preview')} />
                     </div>
                     {questions.map((question, index) => (
-                        <div key={index} className="bg-slate-50 rounded-lg">
+                        <div key={index} className="bg-slate-100 rounded-lg shadow-sm">
                            <div className="flex justify-between items-center p-2 bg-slate-200 rounded-t-lg border">
                                 <p className="font-semibold text-gray-800">Question {index + 1}</p>
                                 <Button size="xs" variant="light" icon={TrashIcon} color="red" onClick={() => removeQuestion(index)} />
