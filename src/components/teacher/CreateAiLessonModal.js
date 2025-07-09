@@ -91,7 +91,7 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
 1. You MUST return the **entire, complete JSON object**.
 2. You MUST **preserve all existing data**. Do not delete fields like "content" or "title" unless specifically told to.
 3. You must not add any commentary outside the final JSON block.
-4. Ensure all backslashes are properly escaped.
+4. Ensure all backslashes are properly escaped as double backslashes (e.g., \\\\frac).
 **EXISTING JSON DATA:** \`\`\`json\n${existingJsonString}\n\`\`\`
 **USER'S INSTRUCTION FOR REVISION:** "${regenerationNote}"`;
     }
@@ -99,13 +99,11 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
     const advancedInstructions = `\n**Mathematical and Scientific Notations:** ALL mathematical content MUST be enclosed in LaTeX delimiters ($...$ or $$...$$). For example, write "the area is $x^2$" instead of "the area is x²". Do NOT use unicode superscript characters in math.
     **Geometrical Figures:** For any geometric shapes, you MUST generate them using SVG code. **CRITICAL SVG RULE:** Any text labels inside the SVG (e.g., for vertices, angles, or length) MUST be plain text. For example, use "<text>l</text>" NOT "<text>$l$</text>".
     **Tables:** For any tabular data, you MUST generate it using **Markdown table syntax** (using '|' and '-'). The table MUST have a header row.
-    **CRITICAL JSON RULE:** You MUST ensure all backslashes (\\) in the JSON content are properly escaped (as \\\\).`;
+    **CRITICAL JSON RULE:** You MUST ensure all backslashes (\\) in the JSON content are properly escaped (as \\\\). For example, a LaTeX fraction should be written as "\\\\frac{1}{2}" in the JSON string.`;
 
     if (formData.generationTarget === 'teacherGuide' && selectedStudentLesson) {
       const studentLessonContent = selectedStudentLesson.pages.map(p => `Page Title: ${p.title}\nContent:\n${p.content}`).join('\n\n---\n\n');
       const lessonIsFilipino = isFilipino(studentLessonContent);
-      const languageInstruction = lessonIsFilipino ? `\n**Language for Generation:**\n"Filipino."\n` : '';
-      const phaseInstructions = lessonIsFilipino ? `**Mga Gawain ng Guro**, etc.` : `**Teacher Actions**, etc.`;
       const guideTitlePrefix = lessonIsFilipino ? "Gabay ng Guro para sa:" : "Teacher Guide for:";
       return `You are an expert instructional coach creating a lesson plan for the subject: **${currentSubjectName}**.
 **Target Grade Level:** "${currentGradeLevel}".
@@ -129,9 +127,10 @@ ${baseInfo}
 2. **Language & Objectives:** Detect the language. For Filipino, use the "learningLayunin" key; for English, use "learningObjectives".
 3. **References:** The final page of EACH lesson must be "References" with 3-5 real sources.
 4. **Page Titles:** Every page object MUST have a relevant "title".
+5. **Lesson Titles:** You MUST generate a unique and catchy title for each lesson. Each "lessonTitle" MUST start with the format "Lesson #:" (e.g., "Lesson 1: The Power of Photosynthesis").
 ${advancedInstructions}
-5. **No Metadata in Content:** Do not write keys like "learningObjectives" or "learningLayunin" inside the 'content' field. These keys belong at the main lesson level only.
-6. **JSON Output:** Return a single valid JSON object: { "generated_lessons": [{"lessonTitle": "...", "pages": [{"title": "...", "content": "..."}] }] }.`;
+6. **No Metadata in Content:** Do not write keys like "learningObjectives" or "learningLayunin" inside the 'content' field. These keys belong at the main lesson level only.
+7. **JSON Output:** Return a single valid JSON object: { "generated_lessons": [{"lessonTitle": "...", "pages": [{"title": "...", "content": "..."}] }] }.`;
     }
   };
 
@@ -148,19 +147,33 @@ ${advancedInstructions}
     setIsGenerating(true);
     if (!isRegeneration) setPreviewData(null);
     showToast(isRegeneration ? "Regenerating content..." : "Generating content...", "info");
+
     try {
       const prompt = generatePrompt(isRegeneration, regenerationNote, previewData, gradeLevel, subjectName);
       const aiText = await callGeminiWithLimitCheck(prompt);
       let parsedResponse;
+
       try {
-        parsedResponse = JSON.parse(aiText);
-      } catch (jsonError) {
-        console.warn("Initial JSON parsing failed. Asking AI to fix its own response.", jsonError);
-        showToast("AI response was malformed, attempting to self-correct...", "info");
-        const fixJsonPrompt = `The following text is broken JSON. Fix syntax errors and return ONLY the corrected, valid JSON object.\n\nBROKEN JSON:\n\`\`\`\n${aiText}\n\`\`\``;
-        const fixedAiText = await callGeminiWithLimitCheck(fixJsonPrompt);
-        parsedResponse = JSON.parse(fixedAiText);
+        const sanitizedText = aiText.replace(/[\u0000-\u0008\u000B\u000E-\u001F]/g, '');
+        const fixedBackslashes = sanitizedText.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
+        parsedResponse = JSON.parse(fixedBackslashes);
+      } catch (initialError) {
+        console.warn("Programmatic JSON fix failed. Falling back to AI self-correction.", initialError);
+        showToast("AI response was complex, attempting advanced self-correction...", "info");
+
+        const fixJsonPrompt = `The following text is invalid JSON. The parser returned this error: "${initialError.message}".
+        
+This is often caused by unescaped backslashes or illegal control characters in the "content" fields. Please meticulously review the text, correct the syntax, and return ONLY the complete, valid JSON object. For example, a LaTeX command like "\\frac" must be written as "\\\\frac".
+
+BROKEN JSON:
+\`\`\`
+${aiText}
+\`\`\`
+`;
+        const fixedAiTextByAi = await callGeminiWithLimitCheck(fixJsonPrompt);
+        parsedResponse = JSON.parse(fixedAiTextByAi);
       }
+      
       console.log("AI Response Received:", parsedResponse);
       let finalData;
       if (isRegeneration) {
@@ -175,14 +188,15 @@ ${advancedInstructions}
         }
       }
       setPreviewData(finalData);
-    } catch (err) {
-      console.error("JSON Parsing or AI Error:", err);
+    } catch (finalError) {
+      console.error("JSON Parsing or AI Error after all attempts:", finalError);
       showToast("AI generation failed. The response may be invalid.", "error");
-      setPreviewData({ error: true, message: err.message });
+      setPreviewData({ error: true, message: finalError.message });
     } finally {
       setIsGenerating(false);
     }
   };
+
 
   const handleSave = async () => {
     if (!previewData || !Array.isArray(previewData.generated_lessons)) {
@@ -201,7 +215,7 @@ ${advancedInstructions}
         contentType: formData.generationTarget,
         basedOnLessonId: formData.generationTarget === 'teacherGuide' ? selectedStudentLesson.id : null,
         createdAt: serverTimestamp(),
-        order: index, 
+        order: index,
       });
     });
     try {
@@ -399,7 +413,6 @@ ${advancedInstructions}
                                     <div className="mb-4">
                                         <h4 className="font-semibold text-sm">{ (lesson.learningLayunin || lesson.objectives) ? 'Mga Layunin:' : 'Objectives:'}</h4>
                                         <ul className="list-disc pl-5 text-sm text-gray-600">
-                                            {/* --- THIS IS THE CORRECTED LINE --- */}
                                             {Array.isArray(lesson.learningObjectives || lesson.learningLayunin || lesson.objectives) && (lesson.learningObjectives || lesson.learningLayunin || lesson.objectives).map((obj, i) => (
                                                 <li key={i}><ContentRenderer text={obj} /></li>
                                             ))}

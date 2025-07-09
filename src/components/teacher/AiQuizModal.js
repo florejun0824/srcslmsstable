@@ -20,7 +20,7 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedQuiz, setGeneratedQuiz] = useState(null);
     const [error, setError] = useState('');
-    const [keyPoints, setKeyPoints] = useState(''); // State to hold extracted key points
+    const [keyPoints, setKeyPoints] = useState(''); 
 
     useEffect(() => {
         if (isOpen) {
@@ -47,8 +47,7 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
         setDistribution(newDistribution);
     };
 
-    // This prompt now ONLY generates the quiz from pre-extracted key points
-    const constructQuizPrompt = (extractedKeyPoints, isRevision = false) => {
+    const constructPrompt = (isRevision = false) => {
         if (isRevision && generatedQuiz) {
             const quizJson = JSON.stringify(generatedQuiz, null, 2);
             return `You are a quiz editor. The user has provided a quiz in JSON format and an instruction for revision. Your task is to apply the revision and return the **complete, updated, and valid JSON object** of the quiz. Do not add any commentary outside the JSON block.
@@ -61,18 +60,24 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
             **User's Instruction for Revision:** "${revisionPrompt}"`;
         }
         
-        let prompt = `You are a subject matter expert and quiz creator. Your task is to create a quiz about the topic of "${lesson?.title}". Use the following "KEY POINTS" as your knowledge base.
-
-**CRITICAL RULE:** All questions must test the user's general knowledge of the topic based on the key points. Do NOT mention the source text or that these are key points.
+        const lessonContentForPrompt = lesson?.pages?.map(page => `Page Title: ${page.title}\nPage Content: ${page.content}`).join('\n\n') || '';
         
-**KEY POINTS:**
+        let prompt = `You are an expert instructional designer and quiz creator specializing in Bloom's Taxonomy. Your task is to create a quiz about the topic of "${lesson?.title}".
+
+**PRIMARY DIRECTIVE:** Use the provided "KNOWLEDGE SOURCE TEXT" below only to understand the key concepts of the topic.
+        
+**ABSOLUTE RULE:** You MUST NOT create questions that refer to the provided text itself (e.g., "According to the lesson..."). The quiz must be a standalone assessment of the topic.
+
+**KNOWLEDGE SOURCE TEXT:**
 ---
-${extractedKeyPoints}
+${lessonContentForPrompt}
 ---
 
 **QUIZ REQUIREMENTS:**
 1.  **Total Items:** The quiz must have exactly ${itemCount} items.
-2.  **Difficulty:** 50% easy, 50% comprehension.
+2.  **Difficulty Levels (Bloom's Taxonomy):** You must generate questions based on these two difficulty levels, with a 50/50 split between them:
+    - **easy:** Corresponds to the 'Remembering' and 'Understanding' levels. These questions test for recall of facts and basic concepts.
+    - **comprehension:** Corresponds to the 'Applying' and 'Analyzing' levels. These questions require using information in new situations or drawing connections among ideas.
 3.  **Question Types:**`;
 
         if (quizType === 'mixed') {
@@ -83,15 +88,27 @@ ${extractedKeyPoints}
         
         prompt += `
 **JSON OUTPUT FORMAT:**
-Return the response as a single, valid JSON object with a "title" and a "questions" array.
+Return the response as a single, valid JSON object. The object must have a "title" and a "questions" array.
 
+**For 'multiple-choice' questions, follow this CRITICAL OPTION ORDERING RULE:**
+You MUST order the choices in the "options" array according to the following logic:
+1.  **Alphabetical:** If the choices are single words (e.g., ["Apple", "Banana", "Cherry", "Date"]).
+2.  **Pyramid Style (Shortest to Longest):** If the choices are sentences or long phrases.
+3.  **Numerical Sequence:** If the choices are numbers (e.g., [10, 25, 50, 100]).
+4.  **Chronological Order:** If the choices are dates (e.g., ["1990", "2001", "2015", "2023"]).
+
+**FINAL VALIDATION STEP:** Before creating the final JSON, review every question. If a question violates the **ABSOLUTE RULE**, you MUST rewrite it.
+
+---
 **JSON Schema:**
 - **root**: { "title": string, "questions": array }
-- **question object**: { "text": string, "type": string, "difficulty": string, "explanation": string, ...other properties based on type }
+- **question object**: { "text": string, "type": string, "difficulty": string ('easy' or 'comprehension'), "explanation": string, ...other properties based on type }
 - For **multiple-choice**: "options": array of { "text": string, "isCorrect": boolean }, and "correctAnswerIndex": number
 - For **true-false**: "correctAnswer": boolean
 - For **identification**: "correctAnswer": string
+---
 `;
+
         return prompt;
     };
 
@@ -114,7 +131,6 @@ Return the response as a single, valid JSON object with a "title" and a "questio
 
         try {
             let currentKeyPoints = keyPoints;
-            // --- STEP 1: Extract Key Points (only if not already done) ---
             if (!currentKeyPoints && !isRevision) {
                 const lessonContentForPrompt = lesson.pages.map(page => `Page Title: ${page.title}\nPage Content: ${page.content}`).join('\n\n');
                 const summarizationPrompt = `Read the following text and extract all key facts, definitions, concepts, and important information. Output this information as a neutral, structured list or summary of key points. Do not add any conversational text or mention the source.
@@ -126,13 +142,12 @@ Return the response as a single, valid JSON object with a "title" and a "questio
                 KEY POINTS:`;
                 
                 currentKeyPoints = await callGeminiWithLimitCheck(summarizationPrompt);
-                setKeyPoints(currentKeyPoints); // Save for potential future use in this session
+                setKeyPoints(currentKeyPoints); 
             }
 
-            // --- STEP 2: Generate the quiz using ONLY the key points ---
             showToast(isRevision ? "Regenerating quiz..." : "Key points extracted. Generating quiz...", "info");
             
-            const quizGenerationPrompt = constructQuizPrompt(currentKeyPoints, isRevision);
+            const quizGenerationPrompt = constructPrompt(isRevision);
             const aiText = await callGeminiWithLimitCheck(quizGenerationPrompt);
             const response = JSON.parse(aiText);
 
