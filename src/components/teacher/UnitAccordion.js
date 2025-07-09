@@ -179,7 +179,8 @@ const QuizItem = ({ quiz, onEdit, onDelete, onView }) => (
     </div>
 );
 
-// Draggable Lesson Item Component
+
+// --- Draggable Lesson Item Component ---
 function SortableLessonItem({ lesson, unitId, ...props }) {
     const {
         attributes,
@@ -189,7 +190,9 @@ function SortableLessonItem({ lesson, unitId, ...props }) {
         transition,
     } = useSortable({
         id: lesson.id,
+        // --- MODIFICATION: Added type and unitId to the data object ---
         data: {
+            type: 'lesson',
             unitId: unitId,
         }
     });
@@ -215,7 +218,6 @@ function SortableLessonItem({ lesson, unitId, ...props }) {
                     <ActionMenu>
                         <MenuItem icon={PencilIcon} text="Edit Lesson" onClick={props.onEdit} />
                         <MenuItem icon={DocumentTextIcon} text="Export as .pdf" onClick={() => exportLessonToPdf(lesson)} />
-                        {/* THIS IS THE BUTTON TO FIX */}
                         <MenuItem icon={SparklesIcon} text="AI Generate Quiz" onClick={props.onGenerateQuiz} disabled={props.isAiGenerating} />
                         <MenuItem icon={TrashIcon} text="Delete Lesson" onClick={props.onDelete} />
                     </ActionMenu>
@@ -225,7 +227,7 @@ function SortableLessonItem({ lesson, unitId, ...props }) {
     );
 }
 
-// Draggable Unit Item Component
+// --- Draggable Unit Item Component ---
 function SortableUnitItem(props) {
     const {
         unit,
@@ -243,7 +245,13 @@ function SortableUnitItem(props) {
         setNodeRef,
         transform,
         transition,
-    } = useSortable({ id: unit.id });
+    } = useSortable({ 
+        id: unit.id,
+        // --- MODIFICATION: Added type to the data object ---
+        data: {
+            type: 'unit'
+        }
+    });
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -288,7 +296,6 @@ function SortableUnitItem(props) {
                                         onView={() => otherProps.handleOpenLessonModal(otherProps.setViewLessonModalOpen, lesson)}
                                         onEdit={() => otherProps.handleOpenLessonModal(otherProps.setEditLessonModalOpen, lesson)}
                                         onDelete={() => otherProps.onInitiateDelete('lesson', lesson.id)}
-                                        // MODIFIED: This now opens the advanced modal
                                         onGenerateQuiz={() => otherProps.onOpenAiQuizModal(lesson)}
                                         isAiGenerating={otherProps.isAiGenerating}
                                     />
@@ -347,7 +354,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     const [selectedUnit, setSelectedUnit] = useState(null);
     const [selectedLesson, setSelectedLesson] = useState(null);
     const [selectedQuiz, setSelectedQuiz] = useState(null);
-    // --- NEW: State to hold the specific lesson for the AI Quiz Modal ---
     const [lessonForAiQuiz, setLessonForAiQuiz] = useState(null);
 
     const sensors = useSensors(
@@ -361,8 +367,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         if (!subject?.id) { setUnits([]); return; }
         const q = query(
             collection(db, 'units'), 
-            where('subjectId', '==', subject.id), 
-            orderBy('createdAt', 'asc')
+            where('subjectId', '==', subject.id)
         );
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedUnits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -378,8 +383,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         units.forEach(unit => {
             const lessonQuery = query(
                 collection(db, 'lessons'), 
-                where('unitId', '==', unit.id), 
-                orderBy('createdAt', 'asc')
+                where('unitId', '==', unit.id)
             );
             const unsubLessons = onSnapshot(lessonQuery, snapshot => {
                 const fetchedLessons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -388,7 +392,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             });
             unsubscribers.push(unsubLessons);
             
-            const quizQuery = query(collection(db, 'quizzes'), where('unitId', '==', unit.id), orderBy('createdAt', 'asc'));
+            const quizQuery = query(collection(db, 'quizzes'), where('unitId', '==', unit.id));
             const unsubQuizzes = onSnapshot(quizQuery, snapshot => {
                 setQuizzes(prev => ({ ...prev, [unit.id]: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) }));
             });
@@ -397,36 +401,54 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         return () => unsubscribers.forEach(unsub => unsub());
     }, [units]);
 
+    // --- NEW: Replaced handleDragEnd with a more advanced version ---
     async function handleDragEnd(event) {
         const { active, over } = event;
 
-        if (over && active.id !== over.id) {
-            const isUnit = active.data.current?.unitId === undefined;
-            if (isUnit) {
-                const oldIndex = units.findIndex(u => u.id === active.id);
-                const newIndex = units.findIndex(u => u.id === over.id);
-                if (oldIndex !== -1 && newIndex !== -1) {
-                    const reorderedUnits = arrayMove(units, oldIndex, newIndex);
-                    setUnits(reorderedUnits);
-                    const batch = writeBatch(db);
-                    reorderedUnits.forEach((unit, index) => {
-                        const unitRef = doc(db, 'units', unit.id);
-                        batch.update(unitRef, { order: index });
-                    });
-                    await batch.commit();
-                }
-                return;
+        if (!over) return;
+
+        const activeType = active.data.current?.type;
+        const overType = over.data.current?.type;
+        
+        // Scenario 1: Reordering Units
+        if (activeType === 'unit' && overType === 'unit' && active.id !== over.id) {
+            const oldIndex = units.findIndex(u => u.id === active.id);
+            const newIndex = units.findIndex(u => u.id === over.id);
+
+            if (oldIndex !== -1 && newIndex !== -1) {
+                const reorderedUnits = arrayMove(units, oldIndex, newIndex);
+                setUnits(reorderedUnits); 
+                const batch = writeBatch(db);
+                reorderedUnits.forEach((unit, index) => {
+                    const unitRef = doc(db, 'units', unit.id);
+                    batch.update(unitRef, { order: index });
+                });
+                await batch.commit();
+            }
+            return;
+        }
+
+        // Scenario 2: Dragging a Lesson
+        if (activeType === 'lesson') {
+            const sourceUnitId = active.data.current.unitId;
+            let destinationUnitId = over.data.current?.unitId;
+
+            // If dropping on a unit header, over.id is the unit id
+            if(overType === 'unit') {
+                destinationUnitId = over.id;
             }
 
-            const unitId = active.data.current?.unitId;
-            if (unitId) {
-                const currentLessons = lessons[unitId];
+            if (!destinationUnitId) return;
+            
+            // Sub-Scenario 2a: Reordering within the SAME unit
+            if (sourceUnitId === destinationUnitId) {
+                const currentLessons = lessons[sourceUnitId];
                 const oldIndex = currentLessons.findIndex(l => l.id === active.id);
                 const newIndex = currentLessons.findIndex(l => l.id === over.id);
 
-                if (oldIndex !== -1 && newIndex !== -1) {
+                if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
                     const reorderedLessons = arrayMove(currentLessons, oldIndex, newIndex);
-                    setLessons(prev => ({ ...prev, [unitId]: reorderedLessons }));
+                    setLessons(prev => ({ ...prev, [sourceUnitId]: reorderedLessons }));
 
                     const batch = writeBatch(db);
                     reorderedLessons.forEach((lesson, index) => {
@@ -435,6 +457,53 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                     });
                     await batch.commit();
                 }
+            } 
+            // Sub-Scenario 2b: MOVING lesson to a DIFFERENT unit
+            else {
+                const sourceLessons = [...lessons[sourceUnitId]];
+                const destinationLessons = lessons[destinationUnitId] ? [...lessons[destinationUnitId]] : [];
+                
+                const activeIndex = sourceLessons.findIndex(l => l.id === active.id);
+                const [movedLesson] = sourceLessons.splice(activeIndex, 1);
+                
+                const overIndex = destinationLessons.findIndex(l => l.id === over.id);
+                const newIndexInDest = overIndex >= 0 ? overIndex : destinationLessons.length;
+                destinationLessons.splice(newIndexInDest, 0, movedLesson);
+
+                // Optimistically update the UI
+                setLessons(prev => ({
+                    ...prev,
+                    [sourceUnitId]: sourceLessons,
+                    [destinationUnitId]: destinationLessons,
+                }));
+
+                // Update Firestore
+                const batch = writeBatch(db);
+
+                // 1. Update the moved lesson's unitId and order
+                const movedLessonRef = doc(db, 'lessons', active.id);
+                batch.update(movedLessonRef, {
+                    unitId: destinationUnitId,
+                    order: newIndexInDest
+                });
+                
+                // 2. Update order for all lessons in the destination unit
+                destinationLessons.forEach((lesson, index) => {
+                    if(lesson.order !== index) {
+                        const lessonRef = doc(db, "lessons", lesson.id);
+                        batch.update(lessonRef, { order: index });
+                    }
+                });
+
+                // 3. Update order for all lessons in the source unit
+                sourceLessons.forEach((lesson, index) => {
+                    if(lesson.order !== index) {
+                        const lessonRef = doc(db, "lessons", lesson.id);
+                        batch.update(lessonRef, { order: index });
+                    }
+                });
+                
+                await batch.commit();
             }
         }
     }
@@ -443,8 +512,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     const handleOpenLessonModal = (modalSetter, lesson) => { setSelectedLesson(lesson); modalSetter(true); };
     const handleOpenQuizModal = (modalSetter, quiz) => { setSelectedQuiz(quiz); modalSetter(true); };
     const handleEditQuiz = (quizToEdit) => { handleOpenQuizModal(setEditQuizModalOpen, quizToEdit); };
-
-    // --- NEW: Handler to open the advanced AI Quiz Modal ---
     const handleOpenAiQuizModal = (lesson) => {
         setLessonForAiQuiz(lesson);
         setAiQuizModalOpen(true);
@@ -475,7 +542,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                 setEditLessonModalOpen={setEditLessonModalOpen}
                                 setViewQuizModalOpen={setViewQuizModalOpen}
                                 onInitiateDelete={onInitiateDelete}
-                                onOpenAiQuizModal={handleOpenAiQuizModal} // Pass the new handler down
+                                onOpenAiQuizModal={handleOpenAiQuizModal}
                                 isAiGenerating={isAiGenerating}
                                 subject={subject}
                             />
@@ -484,7 +551,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                 </SortableContext>
             ) : <p className="text-center text-gray-500 py-10">No units in this subject yet. Add one to get started!</p>}
 
-            {/* All Modals */}
             <EditUnitModal isOpen={editUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={selectedUnit} />
             <AddLessonModal isOpen={addLessonModalOpen} onClose={() => setAddLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id} setIsAiGenerating={setIsAiGenerating} />
             <AddQuizModal isOpen={addQuizModalOpen} onClose={() => setAddQuizModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id} />
@@ -494,8 +560,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             {selectedQuiz && (<EditQuizModal isOpen={editQuizModalOpen} onClose={() => setEditQuizModalOpen(false)} quiz={selectedQuiz} onEditQuiz={() => { setEditQuizModalOpen(false); }} />)}
             <ViewQuizModal isOpen={viewQuizModalOpen} onClose={() => setViewQuizModalOpen(false)} quiz={selectedQuiz} userProfile={userProfile} />
             <CreateAiLessonModal isOpen={createAiLessonModalOpen} onClose={() => setCreateAiLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id} subjectName={subject?.name} setIsAiGenerating={setIsAiGenerating} />
-            
-            {/* MODIFIED: The AiQuizModal now gets its lesson from the new state variable */}
             <AiQuizModal
                 isOpen={aiQuizModalOpen}
                 onClose={() => setAiQuizModalOpen(false)}
