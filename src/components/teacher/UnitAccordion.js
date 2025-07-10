@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { db } from '../../services/firebase';
-import { collection, query, where, onSnapshot, orderBy, writeBatch, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, writeBatch, doc } from 'firebase/firestore';
 import { Accordion, AccordionBody, AccordionHeader, AccordionList, Button } from '@tremor/react';
 import {
     PlusCircleIcon,
@@ -34,8 +34,6 @@ import { CSS } from '@dnd-kit/utilities';
 
 
 // --- Other Component Imports ---
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import AddLessonModal from './AddLessonModal';
 import AddQuizModal from './AddQuizModal';
 import DeleteUnitModal from './DeleteUnitModal';
@@ -48,15 +46,20 @@ import CreateAiLessonModal from './CreateAiLessonModal';
 import AiQuizModal from './AiQuizModal';
 import ContentRenderer from './ContentRenderer';
 
-// (Helper functions like exportLessonToPdf, MenuPortal, ActionMenu, MenuItem, QuizItem remain the same)
+// --- MODIFIED: The PDF export function now includes specific styles for tables ---
 const exportLessonToPdf = async (lesson) => {
     console.log('Preparing lesson for PDF export...');
 
     let lessonContentHtml = `<h1>${lesson.title}</h1>`;
-    for (const page of lesson.pages) {
-        const cleanTitle = page.title.replace(/^page\s*\d+\s*[:-]?\s*/i, '');
-        lessonContentHtml += `<h2>${cleanTitle}</h2>`;
-        lessonContentHtml += `<div class="prose max-w-full">${page.content}</div>`;
+    // We only need to check the first page's title for the special format
+    if (lesson.pages.length > 0 && lesson.pages[0].title === 'PEAC Unit Learning Plan') {
+        lessonContentHtml += lesson.pages[0].content; // Use the raw markdown table
+    } else {
+        for (const page of lesson.pages) {
+            const cleanTitle = page.title.replace(/^page\s*\d+\s*[:-]?\s*/i, '');
+            lessonContentHtml += `<h2>${cleanTitle}</h2>`;
+            lessonContentHtml += `<div class="prose max-w-full">${page.content}</div>`;
+        }
     }
 
     const printHtml = `
@@ -71,6 +74,28 @@ const exportLessonToPdf = async (lesson) => {
                     font-size: 12pt;
                 }
                 .prose img { max-width: 100%; }
+
+                /* --- NEW: Styles to make Markdown tables render correctly in PDF --- */
+                .prose table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 1em;
+                    margin-bottom: 1em;
+                }
+                .prose th, .prose td {
+                    border: 1px solid #ddd;
+                    padding: 8px;
+                    text-align: left;
+                }
+                .prose th {
+                    background-color: #f2f2f2;
+                    font-weight: bold;
+                }
+                .prose tr:nth-child(even) {
+                    background-color: #f9f9f9;
+                }
+                /* End of new table styles */
+
                 @media print {
                     @page {
                         size: 8.5in 13in;
@@ -80,7 +105,7 @@ const exportLessonToPdf = async (lesson) => {
             </style>
         </head>
         <body>
-            <div id="render-container">${lessonContentHtml}</div>
+            <div id="render-container"></div>
         </body>
         </html>
     `;
@@ -94,6 +119,7 @@ const exportLessonToPdf = async (lesson) => {
     
     const renderContainer = iframe.contentDocument.getElementById('render-container');
     const root = createRoot(renderContainer);
+    // Use ContentRenderer to process Markdown to HTML
     root.render(<React.StrictMode><ContentRenderer text={lessonContentHtml} /></React.StrictMode>);
 
     setTimeout(() => {
@@ -179,8 +205,6 @@ const QuizItem = ({ quiz, onEdit, onDelete, onView }) => (
     </div>
 );
 
-
-// --- Draggable Lesson Item Component ---
 function SortableLessonItem({ lesson, unitId, ...props }) {
     const {
         attributes,
@@ -190,7 +214,6 @@ function SortableLessonItem({ lesson, unitId, ...props }) {
         transition,
     } = useSortable({
         id: lesson.id,
-        // --- MODIFICATION: Added type and unitId to the data object ---
         data: {
             type: 'lesson',
             unitId: unitId,
@@ -227,7 +250,6 @@ function SortableLessonItem({ lesson, unitId, ...props }) {
     );
 }
 
-// --- Draggable Unit Item Component ---
 function SortableUnitItem(props) {
     const {
         unit,
@@ -247,7 +269,6 @@ function SortableUnitItem(props) {
         transition,
     } = useSortable({ 
         id: unit.id,
-        // --- MODIFICATION: Added type to the data object ---
         data: {
             type: 'unit'
         }
@@ -401,7 +422,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         return () => unsubscribers.forEach(unsub => unsub());
     }, [units]);
 
-    // --- NEW: Replaced handleDragEnd with a more advanced version ---
     async function handleDragEnd(event) {
         const { active, over } = event;
 
@@ -410,7 +430,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         const activeType = active.data.current?.type;
         const overType = over.data.current?.type;
         
-        // Scenario 1: Reordering Units
         if (activeType === 'unit' && overType === 'unit' && active.id !== over.id) {
             const oldIndex = units.findIndex(u => u.id === active.id);
             const newIndex = units.findIndex(u => u.id === over.id);
@@ -428,19 +447,16 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             return;
         }
 
-        // Scenario 2: Dragging a Lesson
         if (activeType === 'lesson') {
             const sourceUnitId = active.data.current.unitId;
             let destinationUnitId = over.data.current?.unitId;
 
-            // If dropping on a unit header, over.id is the unit id
             if(overType === 'unit') {
                 destinationUnitId = over.id;
             }
 
             if (!destinationUnitId) return;
             
-            // Sub-Scenario 2a: Reordering within the SAME unit
             if (sourceUnitId === destinationUnitId) {
                 const currentLessons = lessons[sourceUnitId];
                 const oldIndex = currentLessons.findIndex(l => l.id === active.id);
@@ -458,7 +474,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                     await batch.commit();
                 }
             } 
-            // Sub-Scenario 2b: MOVING lesson to a DIFFERENT unit
             else {
                 const sourceLessons = [...lessons[sourceUnitId]];
                 const destinationLessons = lessons[destinationUnitId] ? [...lessons[destinationUnitId]] : [];
@@ -470,24 +485,20 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                 const newIndexInDest = overIndex >= 0 ? overIndex : destinationLessons.length;
                 destinationLessons.splice(newIndexInDest, 0, movedLesson);
 
-                // Optimistically update the UI
                 setLessons(prev => ({
                     ...prev,
                     [sourceUnitId]: sourceLessons,
                     [destinationUnitId]: destinationLessons,
                 }));
 
-                // Update Firestore
                 const batch = writeBatch(db);
 
-                // 1. Update the moved lesson's unitId and order
                 const movedLessonRef = doc(db, 'lessons', active.id);
                 batch.update(movedLessonRef, {
                     unitId: destinationUnitId,
                     order: newIndexInDest
                 });
                 
-                // 2. Update order for all lessons in the destination unit
                 destinationLessons.forEach((lesson, index) => {
                     if(lesson.order !== index) {
                         const lessonRef = doc(db, "lessons", lesson.id);
@@ -495,7 +506,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                     }
                 });
 
-                // 3. Update order for all lessons in the source unit
                 sourceLessons.forEach((lesson, index) => {
                     if(lesson.order !== index) {
                         const lessonRef = doc(db, "lessons", lesson.id);

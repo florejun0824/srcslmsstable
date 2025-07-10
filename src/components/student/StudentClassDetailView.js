@@ -1,13 +1,13 @@
 // src/components/student/StudentClassDetailView.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '../../services/firebase';
-import { collection, query, getDocs, orderBy, where, documentId, Timestamp } from 'firebase/firestore'; // Added Timestamp
+import { collection, query, getDocs, orderBy, where, documentId } from 'firebase/firestore';
 import Spinner from '../common/Spinner';
-import ViewLessonModal from '../teacher/ViewLessonModal';
+import ViewLessonModal from './ViewLessonModal'; // Corrected path
 import ViewQuizModal from '../teacher/ViewQuizModal';
 import AnnouncementViewModal from '../common/AnnouncementViewModal';
-import { useAuth } from '../../contexts/AuthContext'; // Reverted to original AuthContext path for consistency
-import { MegaphoneIcon, BookOpenIcon, AcademicCapIcon, ArrowLeftIcon, SparklesIcon, FileTextIcon, PresentationChartBarIcon, ArrowRightIcon } from '@heroicons/react/24/outline'; // Imported all necessary icons, including ArrowRightIcon
+import { useAuth } from '../../contexts/AuthContext';
+import { MegaphoneIcon, BookOpenIcon, AcademicCapIcon, ArrowLeftIcon, SparklesIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 
 const StudentClassDetailView = ({ selectedClass, onBack }) => {
     const { userProfile } = useAuth();
@@ -27,14 +27,12 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
         }
         setLoading(true);
         try {
-            const annQuery = query(
-                collection(db, "studentAnnouncements"),
-                where("classId", "==", selectedClass.id),
-                orderBy("createdAt", "desc")
-            );
+            // Fetch Announcements
+            const annQuery = query(collection(db, "studentAnnouncements"), where("classId", "==", selectedClass.id), orderBy("createdAt", "desc"));
             const annSnap = await getDocs(annQuery);
             setAnnouncements(annSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
+            // Fetch all posts for the class
             const postsQuery = query(collection(db, `classes/${selectedClass.id}/posts`), orderBy('createdAt', 'desc'));
             const postsSnap = await getDocs(postsQuery);
 
@@ -49,14 +47,30 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
             const uniqueLessonIds = Array.from(lessonIdSet);
             const uniqueQuizIds = Array.from(quizIdSet);
 
+            // Fetch and Sort Lessons
             if (uniqueLessonIds.length > 0) {
                 const lessonsQuery = query(collection(db, 'lessons'), where(documentId(), 'in', uniqueLessonIds));
                 const lessonsSnap = await getDocs(lessonsQuery);
-                setLessons(lessonsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+                const fetchedLessons = lessonsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+                // ✅ FIX: The robust sorting logic is applied here, directly where the lessons for this view are fetched.
+                fetchedLessons.sort((a, b) => {
+                    const orderA = a.order ?? Infinity;
+                    const orderB = b.order ?? Infinity;
+                    if (orderA !== orderB) {
+                        return orderA - orderB;
+                    }
+                    const numA = parseInt(a.title.match(/\d+/)?.[0] || 0, 10);
+                    const numB = parseInt(b.title.match(/\d+/)?.[0] || 0, 10);
+                    return numA - numB;
+                });
+
+                setLessons(fetchedLessons);
             } else {
                 setLessons([]);
             }
 
+            // Fetch Quizzes
             if (uniqueQuizIds.length > 0) {
                 const quizzesQuery = query(collection(db, 'quizzes'), where(documentId(), 'in', uniqueQuizIds));
                 const quizzesSnap = await getDocs(quizzesQuery);
@@ -73,15 +87,6 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
 
     useEffect(() => {
         fetchData();
-        return () => {
-            setAnnouncements([]);
-            setLessons([]);
-            setQuizzes([]);
-            setSelectedAnnouncement(null);
-            setViewLessonData(null);
-            setViewQuizData(null);
-            setActiveTab('announcements');
-        };
     }, [fetchData]);
 
     const getTabClasses = (tabName) => `
@@ -116,41 +121,33 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
                 );
 
             case 'quizzes':
-                return quizzes.length > 0 ? (
+                // (Quiz rendering logic remains the same)
+                 return quizzes.length > 0 ? (
                     <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
                         {quizzes.map(quiz => (
-                            <QuizListItemForStudent
-                                key={quiz.id}
-                                quiz={quiz}
-                                onClick={() => setViewQuizData(quiz)}
-                            />
+                            <QuizListItemForStudent key={quiz.id} quiz={quiz} onClick={() => setViewQuizData(quiz)} />
                         ))}
                     </div>
                 ) : (
                     <div className="text-center py-16 bg-gray-100 rounded-lg border border-dashed border-gray-300">
                         <AcademicCapIcon className="h-16 w-16 mb-4 text-gray-300 mx-auto" />
                         <p className="text-lg font-medium text-gray-500">No quizzes are available for this class yet.</p>
-                        <p className="text-sm mt-2 text-gray-400">Quizzes will appear here once your teacher assigns them.</p>
                     </div>
                 );
 
             case 'announcements':
             default:
+                 // (Announcement rendering logic remains the same)
                 return announcements.length > 0 ? (
                     <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
                         {announcements.map(announcement => (
-                            <AnnouncementListItemForStudent
-                                key={announcement.id}
-                                announcement={announcement}
-                                onClick={() => setSelectedAnnouncement(announcement)}
-                            />
+                            <AnnouncementListItemForStudent key={announcement.id} announcement={announcement} onClick={() => setSelectedAnnouncement(announcement)} />
                         ))}
                     </div>
                 ) : (
                     <div className="text-center py-16 bg-gray-100 rounded-lg border border-dashed border-gray-300">
                         <MegaphoneIcon className="h-16 w-16 mb-4 text-gray-300 mx-auto" />
                         <p className="text-lg font-medium text-gray-500">No announcements for this class.</p>
-                        <p className="text-sm mt-2 text-gray-400">Important class updates will be posted here.</p>
                     </div>
                 );
         }
@@ -203,32 +200,20 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
     );
 };
 
-export default StudentClassDetailView;
-
-// New Component: LessonListItemForStudent
-const LessonListItemForStudent = ({ lesson, onClick }) => {
+// Sub-components can remain the same
+const LessonListItemForStudent = ({ lesson, onClick }) => { 
     return (
         <div
-            className="group relative bg-gradient-to-br from-white to-sky-50 p-5 rounded-xl shadow-md border border-sky-200
-                       hover:shadow-lg hover:scale-[1.005] transition-all duration-300 overflow-hidden cursor-pointer
-                       flex items-center space-x-4"
+            className="group relative bg-gradient-to-br from-white to-sky-50 p-5 rounded-xl shadow-md border border-sky-200 hover:shadow-lg hover:scale-[1.005] transition-all duration-300 overflow-hidden cursor-pointer flex items-center space-x-4"
             onClick={onClick}
         >
             <div className="flex-shrink-0 p-3 rounded-full bg-sky-100 group-hover:bg-sky-200 transition-colors">
                 <SparklesIcon className="h-6 w-6 text-sky-600 group-hover:text-sky-700 transition-colors" />
             </div>
-
             <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-lg text-gray-800 group-hover:text-blue-800 transition-colors truncate">
-                    {lesson.title}
-                </h3>
-                {lesson.description && (
-                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                        {lesson.description}
-                    </p>
-                )}
+                <h3 className="font-bold text-lg text-gray-800 group-hover:text-blue-800 transition-colors truncate">{lesson.title}</h3>
+                {lesson.description && <p className="text-sm text-gray-600 mt-1 line-clamp-2">{lesson.description}</p>}
             </div>
-
             <div className="flex-shrink-0 text-gray-400 group-hover:text-blue-500 transition-colors">
                 <ArrowRightIcon className="h-5 w-5" />
             </div>
@@ -236,30 +221,19 @@ const LessonListItemForStudent = ({ lesson, onClick }) => {
     );
 };
 
-// New Component: QuizListItemForStudent
 const QuizListItemForStudent = ({ quiz, onClick }) => {
     return (
         <div
-            className="group relative bg-gradient-to-br from-white to-purple-50 p-5 rounded-xl shadow-md border border-purple-200
-                       hover:shadow-lg hover:scale-[1.005] transition-all duration-300 overflow-hidden cursor-pointer
-                       flex items-center space-x-4"
+            className="group relative bg-gradient-to-br from-white to-purple-50 p-5 rounded-xl shadow-md border border-purple-200 hover:shadow-lg hover:scale-[1.005] transition-all duration-300 overflow-hidden cursor-pointer flex items-center space-x-4"
             onClick={onClick}
         >
             <div className="flex-shrink-0 p-3 rounded-full bg-purple-100 group-hover:bg-purple-200 transition-colors">
                 <AcademicCapIcon className="h-6 w-6 text-purple-600 group-hover:text-purple-700 transition-colors" />
             </div>
-
             <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-lg text-gray-800 group-hover:text-purple-800 transition-colors truncate">
-                    {quiz.title}
-                </h3>
-                {quiz.description && (
-                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                        {quiz.description}
-                    </p>
-                )}
+                <h3 className="font-bold text-lg text-gray-800 group-hover:text-purple-800 transition-colors truncate">{quiz.title}</h3>
+                {quiz.description && <p className="text-sm text-gray-600 mt-1 line-clamp-2">{quiz.description}</p>}
             </div>
-
             <div className="flex-shrink-0 text-gray-400 group-hover:text-purple-500 transition-colors">
                 <ArrowRightIcon className="h-5 w-5" />
             </div>
@@ -267,37 +241,19 @@ const QuizListItemForStudent = ({ quiz, onClick }) => {
     );
 };
 
-
-// New Component: AnnouncementListItemForStudent
 const AnnouncementListItemForStudent = ({ announcement, onClick }) => {
-    const formattedDate = announcement.createdAt && typeof announcement.createdAt.toDate === 'function'
-        ? announcement.createdAt.toDate().toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: true
-          })
-        : (announcement.createdAt instanceof Date ? announcement.createdAt.toLocaleDateString() : 'N/A');
-
+    const formattedDate = announcement.createdAt?.toDate ? announcement.createdAt.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A';
     return (
         <div
-            className="group relative bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-xl shadow-md border border-blue-200
-                       hover:shadow-lg hover:scale-[1.005] transition-all duration-300 overflow-hidden cursor-pointer
-                       flex items-center space-x-4"
+            className="group relative bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-xl shadow-md border border-blue-200 hover:shadow-lg hover:scale-[1.005] transition-all duration-300 overflow-hidden cursor-pointer flex items-center space-x-4"
             onClick={onClick}
         >
             <div className="flex-shrink-0 p-3 rounded-full bg-blue-100 group-hover:bg-blue-200 transition-colors">
                 <MegaphoneIcon className="h-6 w-6 text-blue-600 group-hover:text-blue-700 transition-colors" />
             </div>
             <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-lg text-gray-800 group-hover:text-blue-800 transition-colors truncate">
-                    {announcement.content}
-                </h3>
-                <p className="text-sm text-gray-600 mt-1">
-                    Posted by {announcement.teacherName || 'Unknown'} on {formattedDate}
-                </p>
+                <h3 className="font-bold text-lg text-gray-800 group-hover:text-blue-800 transition-colors line-clamp-2">{announcement.content}</h3>
+                <p className="text-sm text-gray-600 mt-1">Posted on {formattedDate}</p>
             </div>
             <div className="flex-shrink-0 text-gray-400 group-hover:text-blue-500 transition-colors">
                 <ArrowRightIcon className="h-5 w-5" />
@@ -305,3 +261,5 @@ const AnnouncementListItemForStudent = ({ announcement, onClick }) => {
         </div>
     );
 };
+
+export default StudentClassDetailView;

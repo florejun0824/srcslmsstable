@@ -1,42 +1,54 @@
+// src/components/teacher/ContentRenderer.js
+
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
-import rehypeMermaid from 'rehype-mermaidjs';
 import remarkGfm from 'remark-gfm';
 import 'katex/dist/katex.min.css';
+// Note: rehype-mermaidjs is removed as it can be complex to set up. Add it back if you use mermaid diagrams.
 
-// The sanitizeText function has been REMOVED.
-
-export default function ContentRenderer({ text }) { // Default value removed to handle explicitly
+// This new version can handle raw HTML or Markdown text.
+export default function ContentRenderer({ htmlContent, text }) {
   
-  // --- FIX: Ensure the input is always a string before processing ---
-  // This handles cases where 'text' might be null, undefined, a boolean, or a number.
-  const stringifiedText = String(text ?? '');
-
-  // Process the guaranteed string
-  const normalizedText = stringifiedText.replace(/\\n/g, '\n');
-  const processedText = normalizedText.replace(/\n/g, '  \n');
-
-  return (
-    <div className="content-renderer prose max-w-full">
-      <ReactMarkdown
-        children={processedText} // Pass the processed, safe text
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex, rehypeRaw, rehypeMermaid]}
-        components={{
-          // Example: If you use bold for blanks, you can style it here
-          strong: ({ node, ...props }) => {
-            if (props.children.includes('___')) {
-              return <span className="font-normal tracking-widest text-blue-500">{props.children}</span>;
-            }
-            return <strong {...props} />;
-          },
-          img: ({ node, ...props }) => <img {...props} alt="" className="max-w-full" />,
-          svg: ({ node, ...props }) => <svg {...props} className="max-w-full" />,
-        }}
+  // --- Priority 1: If raw HTML content is provided, render it directly ---
+  if (htmlContent && typeof htmlContent === 'string') {
+    return (
+      <div
+        className="prose max-w-none"
+        dangerouslySetInnerHTML={{ __html: htmlContent }}
       />
-    </div>
-  );
+    );
+  }
+
+  // --- Priority 2: If Markdown text is provided, process and render it ---
+  if (text && typeof text === 'string') {
+    // These steps are for formatting Markdown correctly.
+    const normalizedText = text.replace(/\\n/g, '\n');
+    const processedText = normalizedText.replace(/\n/g, '  \n');
+
+    return (
+      <div className="content-renderer prose max-w-full">
+        <ReactMarkdown
+          children={processedText}
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[rehypeKatex, rehypeRaw]} // Removed mermaid for simplicity
+          components={{
+            strong: ({ node, ...props }) => {
+              if (props.children && typeof props.children[0] === 'string' && props.children[0].includes('___')) {
+                return <span className="font-normal tracking-widest text-blue-500">{props.children}</span>;
+              }
+              return <strong {...props} />;
+            },
+            img: ({ node, ...props }) => <img {...props} alt="" className="max-w-full" />,
+            svg: ({ node, ...props }) => <svg {...props} className="max-w-full" />,
+          }}
+        />
+      </div>
+    );
+  }
+
+  // --- Fallback: If no valid content is provided, render nothing ---
+  return null;
 }

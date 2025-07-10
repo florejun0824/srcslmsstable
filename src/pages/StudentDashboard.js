@@ -126,21 +126,38 @@ const StudentDashboard = () => {
                 }
             }
 
-            if (currentView === 'lessons') {
-                const uniqueLessonIds = Array.from(latestPostByLessonId.keys());
-                if (uniqueLessonIds.length > 0) {
-                    const lessonsQuery = query(collection(db, 'lessons'), where(documentId(), 'in', uniqueLessonIds));
-                    const lessonsSnapshot = await getDocs(lessonsQuery);
-                    const lessonsDetails = new Map(lessonsSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() }]));
-                    const categorizedLessons = [];
-                    for (const [lessonId, post] of latestPostByLessonId.entries()) {
-                        const lessonDetail = lessonsDetails.get(lessonId);
-                        if (!lessonDetail) continue;
-                        categorizedLessons.push({ ...lessonDetail, className: post.className, postId: post.id });
-                    }
-                    setLessons(categorizedLessons);
-                }
-            }
+			if (currentView === 'lessons') {
+			                const uniqueLessonIds = Array.from(latestPostByLessonId.keys());
+			                if (uniqueLessonIds.length > 0) {
+			                    const lessonsQuery = query(collection(db, 'lessons'), where(documentId(), 'in', uniqueLessonIds));
+			                    const lessonsSnapshot = await getDocs(lessonsQuery);
+			                    const lessonsDetails = new Map(lessonsSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() }]));
+			                    const categorizedLessons = [];
+			                    for (const [lessonId, post] of latestPostByLessonId.entries()) {
+			                        const lessonDetail = lessonsDetails.get(lessonId);
+			                        if (lessonDetail) {
+			                            categorizedLessons.push({ ...lessonDetail, className: post.className, postId: post.id });
+			                        }
+			                    }
+                    
+			                    // ✅ FIX: A more robust sorting function that sorts by 'order' first, then by title as a fallback.
+			                    categorizedLessons.sort((a, b) => {
+			                        // Prioritize the 'order' field if it exists and is valid
+			                        const orderA = a.order ?? Infinity;
+			                        const orderB = b.order ?? Infinity;
+			                        if (orderA !== orderB) {
+			                            return orderA - orderB;
+			                        }
+
+			                        // Fallback: If 'order' is the same or missing, parse numbers from the title
+			                        const numA = parseInt(a.title.match(/\d+/)?.[0] || 0, 10);
+			                        const numB = parseInt(b.title.match(/\d+/)?.[0] || 0, 10);
+			                        return numA - numB;
+			                    });
+
+			                    setLessons(categorizedLessons);
+			                }
+			            }
         } catch (error) {
             console.error("Error fetching content:", error);
         } finally {
