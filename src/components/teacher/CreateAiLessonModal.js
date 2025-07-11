@@ -65,7 +65,7 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
     const [extraInstruction, setExtraInstruction] = useState('');
     const debounceTimerRef = useRef(null);
 
-    // --- Data Fetching Hooks (No changes) ---
+    // --- Data Fetching Hooks ---
     useEffect(() => {
         if (isOpen) {
             const subjectsQuery = query(collection(db, 'courses'), orderBy('title'));
@@ -77,51 +77,44 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
     }, [isOpen]);
 
 	useEffect(() => {
-	    // Return early if no subject is selected
 	    if (!selectedSubjectId) {
 	        setUnitsForSubject([]);
 	        return;
 	    }
-
-	    // This query fetches all units for the selected subject and orders them by the 'order' field
 	    const unitsQuery = query(
 	        collection(db, 'units'), 
 	        where('subjectId', '==', selectedSubjectId),
-	        orderBy('order') // Sorts the units numerically at the database level
+	        orderBy('order')
 	    );
-
-	    // Set up the real-time listener
 	    const unsubscribe = onSnapshot(unitsQuery, (snapshot) => {
-	        // Map the raw documents to a more usable array of objects
-	        const fetchedUnits = snapshot.docs.map(doc => ({
-	            id: doc.id,
-	            ...doc.data()
-	        }));
-
-	        // While Firestore now handles sorting, this client-side sort is a good fallback
+	        const fetchedUnits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 	        const sortedUnits = fetchedUnits.sort((a, b) => (a.order || 0) - (b.order || 0));
-
-	        // Update the component's state with the correctly sorted units
 	        setUnitsForSubject(sortedUnits);
-
 	    }, (error) => {
-	        // Log any errors from Firestore
 	        console.error("Firestore query failed: ", error);
-	        setUnitsForSubject([]); // Clear units on error
+	        setUnitsForSubject([]);
 	    });
-
-	    // Clean up the listener when the component unmounts
 	    return () => unsubscribe();
+	}, [selectedSubjectId]);
 
-	}, [selectedSubjectId]); // This effect runs whenever selectedSubjectId changes
+    useEffect(() => {
+        if (isOpen && subjectId) {
+            const lessonsQuery = query(collection(db, 'lessons'), where('subjectId', '==', subjectId));
+            const unsubscribe = onSnapshot(lessonsQuery, (snapshot) => {
+                const lessons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setLessonsForUnit(lessons);
+            });
+            return () => unsubscribe();
+        }
+    }, [isOpen, subjectId]);
 
     useEffect(() => {
         if (isOpen && unitId) {
-            const lessonsQuery = query(collection(db, 'lessons'), where('unitId', '==', unitId));
-            const unsubscribe = onSnapshot(lessonsQuery, (snapshot) => {
+             const q = query(collection(db, 'lessons'), where('unitId', '==', unitId));
+             const unsubscribe = onSnapshot(q, (snapshot) => {
                 setExistingLessonCount(snapshot.size);
-            });
-            return () => unsubscribe();
+             });
+             return () => unsubscribe();
         }
     }, [isOpen, unitId]);
     
@@ -129,7 +122,7 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
         return () => clearTimeout(debounceTimerRef.current);
     }, []);
 
-    // --- UI Handlers (No changes) ---
+    // --- UI Handlers ---
     const handleUnitSelectionChange = (unitId) => {
         setSelectedUnitIds(prevSet => {
             const newSet = new Set(prevSet);
@@ -148,11 +141,8 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
         }
     };
 
-    // --- AI Prompt Generation (Fully Patched and Unabridged) ---
-	// REPLACE your existing generateFinalPrompt function with this one.
-	// --- AI Prompt Generation (Corrected) ---
-	const generateFinalPrompt = (generationTarget, sourceTitle, structuredContent, format) => {
-		// These rules are common and can be defined once.
+    // --- AI Prompt Generation (for ULP/ATG HTML Formatting) ---
+	const generateFinalPrompt = (generationTarget, sourceTitle, structuredContent) => {
 		const strictJsonRules = `
 		**CRITICAL JSON FORMATTING RULES:**
 		1. Your entire response MUST be a single, valid JSON object.
@@ -179,6 +169,10 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
 				6.  **Firm-Up & Deepen Rows:** For EACH Firm-Up (A) and Deepen (M) competency code in the analysis, generate one complete table row. The first column contains the Learning Focus (Competency, Target, Indicators). The second column contains the Learning Process (Activities, Discussion, Assessment).
 				7.  **HTML Rules:** All tag attributes MUST use single quotes (e.g., \`style='...'\`).
 				8.  **Styling:** Add \`style='page-break-inside: avoid;'\` to every content \`<tr>\`. Add \`style='width: 100%; border-collapse: collapse;'\` to the main \`<table>\` tag.
+                9.  **Content Formatting (Crucial):** When placing the analysis content into a \`<td>\` cell, you MUST convert basic Markdown into clean HTML. Specifically:
+                    - Convert any text surrounded by \`**...**\` into text surrounded by \`<b>...</b>\` tags.
+                    - Convert any bullet points (lines starting with \`*\` or \`-\`) into a proper \`<ul>\` with \`<li>\` tags for each item.
+                    - Convert newline characters within a paragraph into \`<br>\` tags to preserve line breaks.
 				**FINAL JSON OUTPUT STRUCTURE:**
 				{"generated_lessons": [{"lessonTitle": "Unit Learning Plan: ${sourceTitle}", "pages": [{"title": "PEAC Unit Learning Plan", "content": "<table...>...</table>"}]}]}`;
 
@@ -199,16 +193,13 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
 				**FINAL JSON OUTPUT STRUCTURE:**
 				{"generated_lessons": [{"lessonTitle": "Adaptive Teaching Guide: ${sourceTitle}", "pages": [{"title": "PEAC Adaptive Teaching Guide", "content": "<table...>...</table>"}]}]}`;
 		
-			// The 'studentLesson' case has been removed because this logic is correctly handled
-			// in the 'handleGenerate' function, which is where 'subjectName' is defined.
-
 			default:
 				console.error(`Unknown generationTarget: ${generationTarget}`);
-				return ''; // Return an empty string to prevent an error
+				return '';
 		}
 	};
 
-    // --- Main Generation Logic (Fully Patched and Unabridged) ---
+    // --- Main Generation Logic ---
 	const handleGenerate = (regenerationNote = '') => {
 		clearTimeout(debounceTimerRef.current);
 		setIsGenerating(true);
@@ -277,56 +268,51 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
 							break;
 					}
 
-					// --- UPDATED PROMPT WITH NEW RULES ---
 					finalPrompt = `You are an expert instructional designer creating a student-friendly lesson for the subject: **${subjectName}**.
-	${baseInfo}
-	**Number of Lessons:** ${lessonCount}
-	**Pages Per Lesson:** ${pagesPerLesson}
-	**Format:** "${formData.format}"
-	---
-	### **CRITICAL INSTRUCTIONS**
-	---
+	
+                    **Core Content Information:**
+                    ---
+                    ${baseInfo}
+                    ---
+                    **Lesson Details:**
+                    - **Number of Lessons:** ${lessonCount}
+                    - **Pages Per Lesson:** ${pagesPerLesson}
+                    - **Format:** "${formData.format}"
+                    ---
+                    ### **CRITICAL INSTRUCTIONS**
+                    ---
+                
+                    1.  **JSON Format (Non-negotiable):** Your entire response MUST be a single, valid JSON object.
+                        - **CRITICAL:** All double quotes (") inside any JSON string value (like in "content" or "title") **MUST be escaped with a backslash (\\")**. This is the most common source of errors. For example: \`{"title": "He said, \\"Hello!\\""}\`.
+                        - All property keys MUST be enclosed in double quotes.
 
-	1.  **Language Purity (!!!):** All generated content, including page titles and body text, MUST be in **pure Filipino**. Do not mix English words or phrases into the content, unless it is a proper noun or technical term that has no direct translation.
+                    2.  **Primary Directive: Language Detection:** Automatically detect the primary language from the "Core Content Information" and generate the entire lesson in that SAME language.
+                
+                    3.  **SVG Diagram Generation (STEM Focus):** For complex topics, you MUST generate diagrams.
+                        - Set the page **"type"** to **"diagram"**.
+                        - The **"content"** for that page MUST be a valid, self-contained **SVG string**.
+                        - Under **NO circumstances** should you use \`<img>\` tags. You must draw the diagram using SVG vector elements like \`<path>\`, \`<polygon>\`, \`<circle>\`, and \`<text>\`.
+                        - **Crucial Text Wrapping:** To handle long labels, you **MUST** use multiple \`<tspan>\` elements within a single \`<text>\` tag. Position the first \`<tspan>\` with \`x\` and \`y\` attributes. For subsequent lines, use the same \`x\` attribute and a \`dy="1.2em"\` attribute to create a new line.
+                
+                    4.  **Instructional Model Integrity:** Follow the conceptual flow of the **${formData.format}** structure, but **DO NOT** write framework terms (e.g., "Engage," "Explore") in the student-facing content.
+                
+                    5.  **Format-Specific Structure:**
+                        ${formatSpecificInstructions}
+                
+                    6.  **Lesson Flow & Required Pages:** Structure the pages in this exact sequence:
+                        a.  FIRST page: "Objectives" (or translation), **type: "text"**.
+                        b.  Main content pages, including diagrams.
+                        c.  Second to last page: "Values Integration" (or translation), **type: "text"**.
+                        d.  FINAL page: "References" (or translation), **type: "text"**.
+                
+                    7.  **Tone & Content Quality:** Write in a simple, engaging manner. Content must be substantive.
+                    
+                    8.  **Titles:** Lesson titles should start with "Lesson #:" (or translation), numbered from ${existingLessonCount + 1}. Page titles must be engaging.
+                
+                    9.  **Final JSON Structure Example:**
+                        {"generated_lessons": [{"lessonTitle": "...", "pages": [{"title": "Text with a \\"quote\\"", "type": "text", "content": "<p>Some text.</p>"}, {"title": "Polygon Diagram", "type": "diagram", "content": "<svg ...><text x='10' y='20'><tspan>Line 1</tspan><tspan x='10' dy='1.2em'>Line 2</tspan></text></svg>"}] }] }`;
 
-	2.  **Do Not Expose The Framework (!!!):** The terms for the instructional model (like "Acquisition", "Meaning-making", "Engage", "Explore", "Activity", "Analysis", etc.) are for YOUR guidance only. **DO NOT** write these words in the student-facing content. Do not use headings like "Scenario 1" or "Part 1". The lesson flow should feel natural, not like a technical checklist.
-
-	3.  **Main Goal:** Your primary task is to generate a lesson that strictly follows the **conceptual flow** of the **${formData.format}** structure.
-
-	4.  **Format-Specific Structure:**
-		${formatSpecificInstructions}
-
-	5.  **Lesson Flow & Required Pages:** You must structure the lesson's pages in this exact sequence:
-		a.  The VERY FIRST page MUST have the title "Mga Layunin" and contain 3-5 clear, measurable goals in Filipino.
-		b.  Next are the main content pages, following the chosen format's structure.
-		c.  The second to last page MUST have the exact title "Values Integration".
-		d.  The FINAL page MUST have the exact title "References". References should be valid and actual.
-
-	6.  **Tone & Content Quality:**
-		-   **Tone:** Write in a simple, engaging, conversational, and student-friendly manner, using Filipino.
-		-   **Content:** Every page's "content" field MUST be detailed and substantive.
-
-	7.  **Titles:**
-		-   **Lesson Titles:** Each "lessonTitle" must be catchy and start with "Aralin #:", numbering from ${existingLessonCount + 1}.
-		-   **Page Titles:** Apart from the required pages, page titles should be engaging and describe the topic of that page in Filipino (e.g., "Ang Siklo ng Tubig"), not generic labels.
-
-	8.  **JSON Output:** Your entire response MUST be a single valid JSON object. The "generated_lessons" array should contain exactly **${lessonCount}** lesson objects.
-
-    **EXAMPLE JSON STRUCTURE:**
-    {
-      "generated_lessons": [
-        {
-          "lessonTitle": "Aralin 1: ...",
-          "pages": [{"title": "Mga Layunin", "content": "..."}, {"title": "Page 2", "content": "..."}]
-        },
-        {
-          "lessonTitle": "Aralin 2: ...",
-          "pages": [{"title": "Mga Layunin", "content": "..."}, {"title": "Page 2", "content": "..."}]
-        }
-      ]
-    }`;
-
-				} else {
+				} else { 
 					let sourceContent = '';
 					let sourceTitle = '';
 				
@@ -342,7 +328,15 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
 							lessonsInUnit.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 							lessonsInUnit.forEach(l => {
 								allLessonTitles.push(l.title);
-								allLessonContents.push(l.pages.map(p => p.content).join('\n'));
+								l.pages.forEach(p => {
+                                    if (p.type === 'diagram') {
+                                        allLessonContents.push(`[DIAGRAM: ${p.title}]`);
+                                    } else {
+                                        const tempDiv = document.createElement('div');
+                                        tempDiv.innerHTML = p.content;
+                                        allLessonContents.push(tempDiv.textContent || tempDiv.innerText || '');
+                                    }
+                                });
 							});
 						}
 						const lessonList = allLessonTitles.map(title => `- ${title}`).join('\n');
@@ -352,13 +346,27 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
 						const lesson = lessonsForUnit.find(l => l.id === selectedLessonId);
 						if (!lesson) throw new Error("Selected lesson could not be found.");
 						sourceTitle = lesson.title;
-						sourceContent = `Lessons included in this unit:\n- ${lesson.title}\n\n---\n\n${lesson.pages.map(p => p.content).join('\n\n')}`;
+                        const lessonContents = lesson.pages.map(p => {
+                            if (p.type === 'diagram') {
+                                return `[DIAGRAM: ${p.title}]`;
+                            }
+                             const tempDiv = document.createElement('div');
+                             tempDiv.innerHTML = p.content;
+                             return tempDiv.textContent || tempDiv.innerText || '';
+                        }).join('\n\n');
+						sourceContent = `Lessons included in this unit:\n- ${lesson.title}\n\n---\n\n${lessonContents}`;
 					}
+
+                    const languageInstruction = `**Primary Language Directive:** Your most important task is to automatically detect the primary language from the provided 'Authoritative Inputs' and 'Source Content'. You MUST generate the entire response (all headings, content, and analysis) in that SAME language. Be consistent and do not mix languages.`;
 
 					let analysisText = '';
 					if (generationTarget === 'teacherGuide') {
 						showToast("Step 1/2: Analyzing for ULP...", "info");
-						const ulpAnalysisPrompt = `You are a curriculum designer. Your **non-negotiable task** is to create a detailed analysis for a Unit Learning Plan. You **MUST** build the entire plan using the **exact** Content Standard, Performance Standard, and Learning Competencies provided below. They are the absolute source of truth.
+						const ulpAnalysisPrompt = `You are a curriculum designer.
+                        
+                        ${languageInstruction}
+
+                        Your **non-negotiable task** is to create a detailed analysis for a Unit Learning Plan. You **MUST** build the entire plan using the **exact** Content Standard, Performance Standard, and Learning Competencies provided below. They are the absolute source of truth.
 
 						**CRITICAL RULE OF PRIMACY:** The 'Content Standard', 'Performance Standard', and 'Learning Competencies' provided in the 'Authoritative Inputs' section below are **non-negotiable**. If the 'Source Content' contains different or conflicting information, you **MUST IGNORE IT** and adhere **strictly** to the provided standards and competencies. Do not invent your own.
 
@@ -389,8 +397,11 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
 
 					} else if (generationTarget === 'peacAtg') {
 						showToast("Step 1/2: Generating authentic PEAC ATG content...", "info");
-						const atgAnalysisPrompt = `
-					You are an expert Instructional Designer specializing in the Philippines' Private Education Assistance Committee (PEAC) Adaptive Teaching Guide (ATG) framework. Your task is to generate a complete and detailed ATG based on the provided source lesson or topic. The ATG must be student-centered, assessment-driven, and adaptable for different learning modalities (in-person, online, and hybrid). Adhere strictly to the 10-section structure and detailed instructions below, using precise PEAC terminology. Your output MUST be plain text, structured with clear headings for each of the 10 sections.
+						const atgAnalysisPrompt = `You are an expert Instructional Designer specializing in the Philippines' Private Education Assistance Committee (PEAC) Adaptive Teaching Guide (ATG) framework.
+                        
+                        ${languageInstruction}
+                        
+                        Your task is to generate a complete and detailed ATG based on the provided source lesson or topic. The ATG must be student-centered, assessment-driven, and adaptable for different learning modalities (in-person, online, and hybrid). Adhere strictly to the 10-section structure and detailed instructions below.
 
 					**Source Lesson Content:**
 					---
@@ -469,7 +480,7 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
 						showToast("Step 2/2: Formatting ATG...", "info");
 					}
 
-					finalPrompt = generateFinalPrompt(generationTarget, sourceTitle, analysisText, format);
+					finalPrompt = generateFinalPrompt(generationTarget, sourceTitle, analysisText);
 				}
 
 				if (!finalPrompt) {
@@ -478,12 +489,6 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
 			
 				const aiText = await callGeminiWithLimitCheck(finalPrompt);
 				const jsonText = extractJson(aiText);
-			// ✅ --- START: ADD THIS FIX --- ✅
-			    // This regex removes illegal control characters (like unescaped newlines/tabs) from the raw string.
-			    const sanitizedJsonText = jsonText.replace(/[\x00-\x1F\x7F-\x9F]/g, "");
-			    // ✅ ---- END: ADD THIS FIX ---- ✅
-
-			    // Now, parse the CLEANED string instead of the original one.
 				const parsedResponse = tryParseJson(jsonText);
 
 				let finalData;
@@ -495,11 +500,28 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
 					throw new Error("Received an unknown JSON structure from the AI.");
 				}
 
+                finalData.generated_lessons.forEach(lesson => {
+                    if (lesson.pages && Array.isArray(lesson.pages)) {
+                        lesson.pages.forEach(page => {
+                            if (!page.type) {
+                                page.type = 'text'; 
+                            }
+                        });
+                    }
+                });
+
 				setPreviewData(finalData);
 
 			} catch (err) {
 				console.error("Error during generation:", err);
-				const errorMessage = err.message;
+                let errorMessage = "An unknown error occurred.";
+                if (err instanceof Error) {
+                    errorMessage = err.message;
+                } else if (err && typeof err.message === 'string') {
+                    errorMessage = err.message;
+                } else if (typeof err === 'string') {
+                    errorMessage = err;
+                }
 				showToast(errorMessage, "error");
 				setPreviewData({ error: true, message: errorMessage });
 			} finally {
@@ -508,7 +530,7 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
 		}, 500);
 	};
 
-    // --- Save Handler (Patched) ---
+    // --- Save Handler ---
     const handleSave = async () => {
         if (!previewData || !Array.isArray(previewData.generated_lessons)) {
             showToast("Cannot save: Invalid lesson data.", "error");
@@ -563,30 +585,8 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
         </div>
     );
 
-	const isValidPreview = previewData && !previewData.error && Array.isArray(previewData.generated_lessons);
+    const isValidPreview = previewData && !previewData.error && Array.isArray(previewData.generated_lessons);
 
-	    // =================================================================
-	    // PASTE THE NEW LOGIC HERE, right before the final return statement.
-	    // =================================================================
-	    let isGenerateDisabled = isGenerating;
-
-	    if (!previewData && !isGenerating) {
-	        const { generationTarget, scope } = formData;
-        
-	        if (generationTarget === 'studentLesson') {
-	            if (!content || !learningCompetencies || allSubjects.length === 0) {
-	            isGenerateDisabled = true;
-	            }
-	        } else { // For teacherGuide or peacAtg
-	            if (!selectedSubjectId) {
-	            isGenerateDisabled = true; 
-	            } else if (scope === 'byUnit' && (unitsForSubject.length === 0 || selectedUnitIds.size === 0)) {
-	            isGenerateDisabled = true;
-	            } else if (scope === 'byLesson' && (lessonsForUnit.length === 0 || !selectedLessonId)) {
-	            isGenerateDisabled = true;
-	            }
-	        }
-	    }
     return (
         <Dialog open={isOpen} onClose={() => { onClose(); resetState(); }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-0">
             <div className="fixed inset-0 bg-black bg-opacity-30 z-[99]" />
@@ -602,7 +602,7 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Document to Generate:</label>
                             <select name="generationTarget" value={formData.generationTarget} onChange={handleChange} className="w-full p-2 border rounded-md">
-                                <option value="studentLesson">Lesson for Students</option>
+                                <option value="studentLesson">Learning Guide for Students</option>
                                 <option value="teacherGuide">PEAC Unit Learning Plan (ULP)</option>
                                 <option value="peacAtg">Adaptive Teaching Guide (ATG)</option>
                             </select>
@@ -675,16 +675,11 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
                             </>
                         )}
 
-
-				  <div className="flex justify-end pt-4">
-				      <button 
-				        onClick={() => handleGenerate()} 
-				        disabled={isGenerateDisabled} // <-- UPDATE THIS LINE
-				        className="btn-primary"
-				      >
-				          {isGenerating ? 'Generating...' : 'Generate Document'}
-				      </button>
-				  </div>
+                        <div className="flex justify-end pt-4">
+                            <button onClick={() => handleGenerate()} disabled={isGenerating} className="btn-primary">
+                                {isGenerating ? 'Generating...' : 'Generate Document'}
+                            </button>
+                        </div>
                     </div>
                 ) : (
                    <div className="space-y-6">
@@ -695,7 +690,7 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
                                     {previewData.generated_lessons.map((lesson, index) => (
                                         <div key={index}>
                                             <h3 className="font-bold text-lg sticky top-0 bg-white py-2">{lesson.lessonTitle}</h3>
-                                            {Array.isArray(lesson.pages) && lesson.pages.map((page, pageIndex) => <LessonPage key={pageIndex} page={page} />)}
+                                            {Array.isArray(lesson.pages) && lesson.pages.map((page, pageIndex) => <LessonPage key={`${index}-${pageIndex}`} page={page} />)}
                                         </div>
                                     ))}
                                 </div>
