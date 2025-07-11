@@ -310,8 +310,21 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
 		-   **Lesson Titles:** Each "lessonTitle" must be catchy and start with "Aralin #:", numbering from ${existingLessonCount + 1}.
 		-   **Page Titles:** Apart from the required pages, page titles should be engaging and describe the topic of that page in Filipino (e.g., "Ang Siklo ng Tubig"), not generic labels.
 
-	8.  **JSON Output:** Your entire response MUST be a single valid JSON object.
-		{"generated_lessons": [{"lessonTitle": "...", "pages": [{"title": "...", "content": "..."}] }] }`;
+	8.  **JSON Output:** Your entire response MUST be a single valid JSON object. The "generated_lessons" array should contain exactly **${lessonCount}** lesson objects.
+
+    **EXAMPLE JSON STRUCTURE:**
+    {
+      "generated_lessons": [
+        {
+          "lessonTitle": "Aralin 1: ...",
+          "pages": [{"title": "Mga Layunin", "content": "..."}, {"title": "Page 2", "content": "..."}]
+        },
+        {
+          "lessonTitle": "Aralin 2: ...",
+          "pages": [{"title": "Mga Layunin", "content": "..."}, {"title": "Page 2", "content": "..."}]
+        }
+      ]
+    }`;
 
 				} else {
 					let sourceContent = '';
@@ -465,6 +478,12 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
 			
 				const aiText = await callGeminiWithLimitCheck(finalPrompt);
 				const jsonText = extractJson(aiText);
+			// ✅ --- START: ADD THIS FIX --- ✅
+			    // This regex removes illegal control characters (like unescaped newlines/tabs) from the raw string.
+			    const sanitizedJsonText = jsonText.replace(/[\x00-\x1F\x7F-\x9F]/g, "");
+			    // ✅ ---- END: ADD THIS FIX ---- ✅
+
+			    // Now, parse the CLEANED string instead of the original one.
 				const parsedResponse = tryParseJson(jsonText);
 
 				let finalData;
@@ -544,8 +563,30 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
         </div>
     );
 
-    const isValidPreview = previewData && !previewData.error && Array.isArray(previewData.generated_lessons);
+	const isValidPreview = previewData && !previewData.error && Array.isArray(previewData.generated_lessons);
 
+	    // =================================================================
+	    // PASTE THE NEW LOGIC HERE, right before the final return statement.
+	    // =================================================================
+	    let isGenerateDisabled = isGenerating;
+
+	    if (!previewData && !isGenerating) {
+	        const { generationTarget, scope } = formData;
+        
+	        if (generationTarget === 'studentLesson') {
+	            if (!content || !learningCompetencies || allSubjects.length === 0) {
+	            isGenerateDisabled = true;
+	            }
+	        } else { // For teacherGuide or peacAtg
+	            if (!selectedSubjectId) {
+	            isGenerateDisabled = true; 
+	            } else if (scope === 'byUnit' && (unitsForSubject.length === 0 || selectedUnitIds.size === 0)) {
+	            isGenerateDisabled = true;
+	            } else if (scope === 'byLesson' && (lessonsForUnit.length === 0 || !selectedLessonId)) {
+	            isGenerateDisabled = true;
+	            }
+	        }
+	    }
     return (
         <Dialog open={isOpen} onClose={() => { onClose(); resetState(); }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-0">
             <div className="fixed inset-0 bg-black bg-opacity-30 z-[99]" />
@@ -634,11 +675,16 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
                             </>
                         )}
 
-                        <div className="flex justify-end pt-4">
-                            <button onClick={() => handleGenerate()} disabled={isGenerating} className="btn-primary">
-                                {isGenerating ? 'Generating...' : 'Generate Document'}
-                            </button>
-                        </div>
+
+				  <div className="flex justify-end pt-4">
+				      <button 
+				        onClick={() => handleGenerate()} 
+				        disabled={isGenerateDisabled} // <-- UPDATE THIS LINE
+				        className="btn-primary"
+				      >
+				          {isGenerating ? 'Generating...' : 'Generate Document'}
+				      </button>
+				  </div>
                     </div>
                 ) : (
                    <div className="space-y-6">
