@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { db } from '../../services/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { Dialog, DialogPanel, Title, Button, TextInput } from '@tremor/react';
 
 export default function AddUnitModal({ isOpen, onClose, subjectId }) {
@@ -22,11 +22,20 @@ export default function AddUnitModal({ isOpen, onClose, subjectId }) {
     setError('');
 
     try {
-      // Corrected: The redundant 'lessons' and 'quizzes' arrays are removed.
+      // 1. Create a query to find existing units for this subject
+      const unitsRef = collection(db, 'units');
+      const q = query(unitsRef, where('subjectId', '==', subjectId));
+      
+      // 2. Execute the query and get the count
+      const querySnapshot = await getDocs(q);
+      const newOrderValue = querySnapshot.size; // If 5 units exist (0-4), new one is 5
+
+      // 3. Add the new unit with the calculated 'order' field
       await addDoc(collection(db, 'units'), {
         title: unitTitle,
         subjectId: subjectId,
         createdAt: serverTimestamp(),
+        order: newOrderValue, // <-- The new order field is added here
       });
       
       handleClose();

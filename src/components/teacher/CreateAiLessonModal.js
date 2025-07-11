@@ -76,33 +76,44 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
         }
     }, [isOpen]);
 
-    useEffect(() => {
-        if (selectedSubjectId) {
-            const unitsQuery = query(collection(db, 'units'), where('subjectId', '==', selectedSubjectId));
-            const unsub = onSnapshot(unitsQuery, (snapshot) => {
-                const fetchedUnits = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                fetchedUnits.sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
-                setUnitsForSubject(fetchedUnits);
-            });
-            return () => unsub();
-        } else {
-            setUnitsForSubject([]);
-        }
-    }, [selectedSubjectId]);
-    
-    useEffect(() => {
-        if (selectedSubjectId) {
-            const lessonsQuery = query(collection(db, 'lessons'), where('subjectId', '==', selectedSubjectId));
-            const unsub = onSnapshot(lessonsQuery, (snapshot) => {
-                const fetchedLessons = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                fetchedLessons.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-                setLessonsForUnit(fetchedLessons);
-            });
-            return () => unsub();
-        } else {
-            setLessonsForUnit([]);
-        }
-    }, [selectedSubjectId]);
+	useEffect(() => {
+	    // Return early if no subject is selected
+	    if (!selectedSubjectId) {
+	        setUnitsForSubject([]);
+	        return;
+	    }
+
+	    // This query fetches all units for the selected subject and orders them by the 'order' field
+	    const unitsQuery = query(
+	        collection(db, 'units'), 
+	        where('subjectId', '==', selectedSubjectId),
+	        orderBy('order') // Sorts the units numerically at the database level
+	    );
+
+	    // Set up the real-time listener
+	    const unsubscribe = onSnapshot(unitsQuery, (snapshot) => {
+	        // Map the raw documents to a more usable array of objects
+	        const fetchedUnits = snapshot.docs.map(doc => ({
+	            id: doc.id,
+	            ...doc.data()
+	        }));
+
+	        // While Firestore now handles sorting, this client-side sort is a good fallback
+	        const sortedUnits = fetchedUnits.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+	        // Update the component's state with the correctly sorted units
+	        setUnitsForSubject(sortedUnits);
+
+	    }, (error) => {
+	        // Log any errors from Firestore
+	        console.error("Firestore query failed: ", error);
+	        setUnitsForSubject([]); // Clear units on error
+	    });
+
+	    // Clean up the listener when the component unmounts
+	    return () => unsubscribe();
+
+	}, [selectedSubjectId]); // This effect runs whenever selectedSubjectId changes
 
     useEffect(() => {
         if (isOpen && unitId) {
