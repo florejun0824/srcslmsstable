@@ -8,7 +8,7 @@ import Spinner from '../common/Spinner';
 import { XMarkIcon, AcademicCapIcon } from '@heroicons/react/24/outline';
 import LessonPage from './LessonPage';
 
-// Helper functions (extractJson, tryParseJson) are preserved...
+// Helper functions (extractJson, tryParseJson)
 const extractJson = (text) => {
     let match = text.match(/```json\s*([\s\S]*?)\s*```/);
     if (!match) match = text.match(/```([\s\S]*?)```/);
@@ -18,6 +18,7 @@ const extractJson = (text) => {
     if (firstBrace > -1 && lastBrace > firstBrace) return text.substring(firstBrace, lastBrace + 1);
     throw new Error("AI response did not contain a valid JSON object.");
 };
+
 const tryParseJson = (jsonString) => {
     try {
         return JSON.parse(jsonString);
@@ -75,59 +76,72 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 throw new Error("Please provide the Main Content/Topic and Learning Competencies.");
             }
 
-            // ✅ MODIFIED: Enhanced instructions for a complete textbook experience.
-		const formatSpecificInstructions = `
-		    **Persona and Tone:** Adopt the persona of an enthusiastic and knowledgeable teacher who makes learning fun. The language MUST be student-friendly, avoiding overly academic or dry phrasing. Use analogies and real-world connections to make concepts relatable.
+            // Define translated terms based on current language selection for prompt injection
+            const objectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
+            const letsGetStartedLabel = formData.language === 'Filipino' ? 'Simulan Natin!' : "Let's Get Started!";
+            const checkUnderstandingLabel = formData.language === 'Filipino' ? 'Suriin ang Pag-unawa' : "Check for Understanding";
+            const lessonSummaryLabel = formData.language === 'Filipino' ? 'Buod ng Aralin' : "Lesson Summary";
+            const wrapUpLabel = formData.language === 'Filipino' ? 'Pagbubuod' : "Wrap-Up";
+            const endOfLessonAssessmentLabel = formData.language === 'Filipino' ? 'Pagtatasa sa Katapusan ng Aralin' : "End-of-Lesson Assessment";
+            const referencesLabel = formData.language === 'Filipino' ? 'Mga Sanggunian' : "References";
+            const answerKeyLabel = formData.language === 'Filipino' ? 'Susi sa Pagwawasto' : 'Answer Key';
 
-		    **CRITICAL INSTRUCTION FOR CORE CONTENT:**
-		    The "Core Content Sections" MUST be detailed and information-rich, covering the topic comprehensively. However, the explanation should remain student-friendly, easy to understand, and engaging. Break down complex ideas into simpler parts, provide concrete examples, and ensure a logical flow of information that builds understanding step-by-step. Aim for depth without sacrificing clarity or readability for the target student audience.
 
-		    **CRITICAL HEADING RULE:**
-		    Use clear, concise, and non-redundant headings and subheadings throughout the lesson. Each heading MUST represent a distinct main idea or sub-topic. Avoid repeating phrases or rephrasing the lesson title or main topic in subheadings. For example, if the lesson is "The Water Cycle," do not have subheadings like "Introduction to Water Cycle" or "Water Cycle Processes." Instead, use "Introduction" or "Key Processes." Ensure there is only ONE main heading per distinct section.
+            const formatSpecificInstructions = `
+                **Persona and Tone:** Adopt the persona of an enthusiastic and knowledgeable teacher who makes learning fun. The language MUST be student-friendly, avoiding overly academic or dry phrasing. Use analogies and real-world connections to make concepts relatable.
 
-		    **Textbook Chapter Structure:** You MUST organize the lesson content in the following sequence:
-		    1.  **Learning Objectives Section:** At the very beginning of EACH lesson, start with a single, clear heading for "Learning Objectives" if in English, "Mga Layunin" if in Filipino . Immediately following this heading, present a concise list of the specific learning objectives. Do NOT repeat the "Learning Objectives" heading within this section.
-		    2.  **Engaging Introduction:** Start with a compelling introduction that hooks the reader.
-		    3.  **Introductory Activity:** Immediately after the introduction, include a short, interactive warm-up activity labeled "Let's Get Started!" (or its translation). This could be a simple poll, a "What do you already know?" prompt, or a scenario-based question to activate prior knowledge.
-		    4.  **Core Content Sections:** Present the main content, broken down with clear headings.
-		    5.  **Embedded Activities:** After explaining a major concept, include a short "Check for Understanding" activity (e.g., 1-2 quick questions, a think-pair-share prompt).
-		    6.  **Lesson Summary:** A concise summary of the key takeaways.
-		    7.  **Wrap-Up/Conclusion:** Provide a clear "Wrap-Up" or "Konklusyon" section that summarizes the main points learned and perhaps offers a concluding thought or next steps.
-		    8.  **End-of-Lesson Assessment:** Conclude with a dedicated "End-of-Lesson Assessment" section containing 5-10 questions. You MUST provide a labeled "Answer Key".
-		    9.  **References/Sanggunian:** Include a "References" or "Sanggunian" section at the very end.
-		        **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide *only* real, verifiable academic or reputable web sources if you are confident they exist within your training data knowledge base for the specific facts mentioned. Prioritize foundational texts or widely accepted information. If you cannot confidently provide a real, specific reference for a point, then either:
-		        a. Provide the specific reference and avoid providing general, foundational texts for the overall topic.
-		        Under NO circumstances should you invent illusory authors, titles, journals, or URLs. Hallucinated references are unacceptable.
-		`;
-			const languageInstruction = `
-			    **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.
-			    This includes all content, headings, subheadings, activity titles, and assessment sections.
-			    For example, if the language is Filipino, "Learning Objectives" should be translated to "Mga Layunin sa Pagkatuto",
-			    "Let's Get Started!" to "Simulan Natin!", "Check for Understanding" to "Suriin ang Pag-unawa",
-			    "Lesson Summary" to "Buod ng Aralin", and "End-of-Lesson Assessment" to "Pagtatasa sa Katapusan ng Aralin".
-			    You MUST use the translated terms for these sections.
-			`;
+                **CRITICAL INSTRUCTION FOR CORE CONTENT:**
+                The "Core Content Sections" MUST be detailed and information-rich, covering the topic comprehensively. However, the explanation should remain student-friendly, easy to understand, and engaging. Break down complex ideas into simpler parts, provide concrete examples, and ensure a logical flow of information that builds understanding step-by-step. Aim for depth without sacrificing clarity or readability for the target student audience.
 
-		const studentLessonInstructions = `
-		    **CRITICAL JSON FORMATTING RULES (NON-NEGOTIABLE):**
-		    1.  **Entire response MUST be a single JSON object.**
-		    2.  **No Trailing Commas.**
+                **CRITICAL HEADING RULE:**
+                Use clear, concise, and non-redundant headings and subheadings throughout the lesson. Each heading MUST represent a distinct main idea or sub-topic. Avoid repeating phrases or rephrasing the lesson title or main topic in subheadings. For example, if the lesson is "The Water Cycle," do not have subheadings like "Introduction to Water Cycle" or "Water Cycle Processes." Instead, use "Introduction" or "Key Processes." Ensure there is only ONE main heading per distinct section.
 
-		    **OTHER CRITICAL INSTRUCTIONS:**
-		    3.  **Intelligent SVG Diagram Generation:** If the topic requires a diagram, you MUST generate one. Set the page "type" to "diagram-data" and the "content" MUST be a string of valid, complete SVG code. The SVG must be responsive and have legible, non-overlapping text. Do NOT use <img> tags.
-        
-		        **CRITICAL SVG VISUAL GUIDELINES:**
-		        - **Label Placement & Readability:** All text labels and annotations within the SVG MUST be clearly legible, adequately spaced, and positioned so they do NOT overlap with other elements (lines, shapes, or other text). Ensure labels are directly associated with the element they describe.
-		        - **No Overflow:** Text and shapes MUST stay within the bounds of the SVG viewport. Do not let elements overflow.
-		        - **Visual Clarity & Simplicity:** Design the diagram to be clean, simple, and easy to understand. Use clear lines, distinct shapes, and a consistent color palette (grayscale or minimal color is fine if appropriate). Avoid unnecessary complexity or clutter.
-		        - **Responsiveness:** Use relative units (e.g., percentages, \`em\`, \`ex\` if possible) or a \`viewBox\` attribute to ensure the SVG scales well.
-		        - **Font Size:** Use a reasonable font size that is easy to read. Avoid excessively small text.
-		        - **Logical Layout:** Arrange elements in a logical and intuitive manner, reflecting the process or relationship being illustrated.
+                **Textbook Chapter Structure:** You MUST organize the lesson content in the following sequence:
+                1.  **${objectivesLabel} Section:** At the very beginning of EACH lesson, start with a single, clear heading for "${objectivesLabel}". Immediately following this heading, present a concise list of the specific learning objectives. Do NOT repeat the "${objectivesLabel}" heading within this section.
+                2.  **Engaging Introduction:** Start with a compelling introduction that hooks the reader.
+                3.  **Introductory Activity:** Immediately after the introduction, include a short, interactive warm-up activity labeled "${letsGetStartedLabel}". This could be a simple poll, a "What do you already know?" prompt, or a scenario-based question to activate prior knowledge.
+                4.  **Core Content Sections:** Present the main content, broken down with clear headings.
+                5.  **Embedded Activities:** After explaining a major concept, include a short "${checkUnderstandingLabel}" activity (e.g., 1-2 quick questions, a think-pair-share prompt).
+                6.  **${lessonSummaryLabel}:** A concise summary of the key takeaways.
+                7.  **${wrapUpLabel}/Conclusion:** Provide a clear "${wrapUpLabel}" or "Konklusyon" section that summarizes the main points learned and perhaps offers a concluding thought or next steps.
+                8.  **${endOfLessonAssessmentLabel}:** Conclude with a dedicated "${endOfLessonAssessmentLabel}" section containing 5-10 questions. You MUST provide a labeled "${answerKeyLabel}".
+                9.  **${referencesLabel}:** Include a "${referencesLabel}" section at the very end.
+                    **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide *only* real, verifiable academic or reputable web sources if you are confident they exist within your training data knowledge base for the specific facts mentioned. Prioritize foundational texts or widely accepted information. If you cannot confidently provide a real, specific reference for a point, then either:
+                    a. Omit the general reference and just provide specific, foundational texts for the overall topic..
+                    Under NO circumstances should you invent illusory authors, titles, journals, or URLs. Hallucinated references are unacceptable.
+            `;
 
-		        If no diagram is needed, set the page "type" to "text".
-		    4.  ${languageInstruction}
-		    5.  ${formatSpecificInstructions}
-		`;
+            const languageInstruction = `
+                **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.
+                This includes all content, headings, subheadings, activity titles, and assessment sections.
+                For example, if the language is Filipino, "Learning Objectives" should be translated to "Mga Layunin sa Pagkatuto",
+                "Let's Get Started!" to "Simulan Natin!", "Check for Understanding" to "Suriin ang Pag-unawa",
+                "Lesson Summary" to "Buod ng Aralin", "End-of-Lesson Assessment" to "Pagtatasa sa Katapusan ng Aralin",
+                "Wrap-Up" to "Pagbubuod", and "References" to "Mga Sanggunian".
+                You MUST use the translated terms for these sections.
+            `;
+
+            const studentLessonInstructions = `
+                **CRITICAL JSON FORMATTING RULES (NON-NEGOTIABLE):**
+                1.  **Entire response MUST be a single JSON object.**
+                2.  **No Trailing Commas.**
+
+                **OTHER CRITICAL INSTRUCTIONS:**
+                3.  **Intelligent SVG Diagram Generation:** If the topic requires a diagram, you MUST generate one. Set the page "type" to "diagram-data" and the "content" MUST be a string of valid, complete SVG code. The SVG must be responsive and have legible, non-overlapping text. Do NOT use <img> tags.
+                    
+                    **CRITICAL SVG VISUAL GUIDELINES:**
+                    - **Label Placement & Readability:** All text labels and annotations within the SVG MUST be clearly legible, adequately spaced, and positioned so they do NOT overlap with other elements (lines, shapes, or other text). Ensure labels are directly associated with the element they describe.
+                    - **No Overflow:** Text and shapes MUST stay within the bounds of the SVG viewport. Do not let elements overflow.
+                    - **Visual Clarity & Simplicity:** Design the diagram to be clean, simple, and easy to understand. Use clear lines, distinct shapes, and a consistent color palette (grayscale or minimal color is fine if appropriate). Avoid unnecessary complexity or clutter.
+                    - **Responsiveness:** Use relative units (e.g., percentages, \`em\`, \`ex\` if possible) or a \`viewBox\` attribute to ensure the SVG scales well.
+                    - **Font Size:** Use a reasonable font size that is easy to read. Avoid excessively small text.
+                    - **Logical Layout:** Arrange elements in a logical and intuitive manner, reflecting the process or relationship being illustrated.
+
+                    If no diagram is needed, set the page "type" to "text".
+                4.  ${languageInstruction}
+                5.  ${formatSpecificInstructions}
+            `;
+
             let finalPrompt;
             const isRegeneration = !!regenerationNote && !!previewData;
 
@@ -147,20 +161,26 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 ---
                 **Topic:** "${formData.content}"
                 **Content Standard:** "${formData.contentStandard}"
-                **Learning Competencies:** "${formData.learningCompetencies}"
                 **Performance Standard:** "${formData.performanceStandard}"
                 ---
+                **Desired Learning Competencies for this topic (incorporate these into the Learning Objectives Section):**
+                "${formData.learningCompetencies}"
+
                 **Lesson Details:**
                 - **Number of Lessons to Generate:** ${formData.lessonCount}
                 - **Pages Per Lesson:** ${formData.pagesPerLesson}
+                
+                **CRITICAL LESSON TITLE RULE:**
+                Each "lessonTitle" within the "generated_lessons" array MUST be unique, engaging, and catchy.
+                The title MUST start with a specific prefix and include the lesson number.
+                - If the language is Filipino, the title MUST start with "Aralin #[Lesson Number]: ".
+                - If the language is English, the title MUST start with "Lesson #[Lesson Number]: ".
+                For example, "Aralin 1: Ang Kahalagahan ng Tubig" or "Lesson 2: The Importance of Water".
+                Avoid generic or overly descriptive titles. Aim for titles that pique student interest and clearly indicate the lesson's main focus.
 				
-    **CRITICAL LESSON TITLE RULE:**
-    Each "lessonTitle" within the "generated_lessons" array MUST be unique, engaging, and catchy.
-    The title MUST start with a specific prefix and include the lesson number.
-    - If the language is Filipino, the title MUST start with "Aralin #[Lesson Number]: ".
-    - If the language is English, the title MUST start with "Lesson #[Lesson Number]: ".
-    For example, "Aralin 1: Ang Kahalagahan ng Tubig" or "Lesson 2: The Importance of Water".
-    Avoid generic or overly descriptive titles. Aim for titles that pique student interest and clearly indicate the lesson's main focus.
+				**CRITICAL PAGE COUNT INSTRUCTION:**
+                Each lesson's content (all 'pages' combined) MUST approximate the 'Target Pages Per Lesson' requested. Consider a "page" as a conceptual unit that contains roughly 150-250 words of prose, or equivalent content like a small activity or diagram. Adjust the depth and breadth of the content across the pages within a lesson to meet this target. If a topic is very simple, you might combine some structural elements onto fewer pages. If it's complex, elaborate more to fill the pages. The final number of 'pages' for each lesson should be as close as possible to the 'Target Pages Per Lesson'.
+				
                 
                 ${studentLessonInstructions}
 
@@ -228,6 +248,9 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
     };
 
     const isValidPreview = previewData && !previewData.error && Array.isArray(previewData.generated_lessons);
+
+    // Determine the label for Learning Objectives based on selected language for UI display
+    const currentObjectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
 
     return (
         <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[110] flex items-center justify-center p-4">
@@ -302,7 +325,8 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                                         {/* Display Learning Objectives here */}
                                         {lesson.learningObjectives && lesson.learningObjectives.length > 0 && (
                                             <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-200 text-blue-800">
-                                                <p className="font-semibold mb-1">Learning Objectives:</p>
+                                                {/* Use the dynamically translated label here */}
+                                                <p className="font-semibold mb-1">{currentObjectivesLabel}:</p> 
                                                 <ul className="list-disc list-inside">
                                                     {lesson.learningObjectives.map((objective, objIndex) => (
                                                         <li key={objIndex}>{objective}</li>

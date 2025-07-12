@@ -1,14 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog } from '@headlessui/react';
 import { useToast } from '../../contexts/ToastContext';
 import { useCourseData } from '../../hooks/useCourseData';
 import SourceContentSelector from '../../hooks/SourceContentSelector';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
-import { languageInstruction } from '../../constants/aiPrompts';
 import Spinner from '../common/Spinner';
 import { XMarkIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import LessonPage from './LessonPage';
 
+// Import Firebase Firestore functions for saving
+import { writeBatch, doc, collection, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../services/firebase'; // Ensure your firebase.js exports `db`
+
+
+// Helper functions (extractJson, tryParseJson)
 const extractJson = (text) => {
     let match = text.match(/```json\s*([\s\S]*?)\s*```/);
     if (!match) match = text.match(/```([\s\S]*?)```/);
@@ -19,9 +24,23 @@ const extractJson = (text) => {
     throw new Error("AI response did not contain a valid JSON object.");
 };
 
+const tryParseJson = (jsonString) => {
+    try {
+        return JSON.parse(jsonString);
+    } catch (error) {
+        let sanitizedString = jsonString.replace(/,\s*([}\]])/g, '$1');
+        try {
+            return JSON.parse(sanitizedString);
+        } catch (finalError) {
+            throw finalError; // Re-throw the final error if sanitization also fails
+        }
+    }
+};
+
 export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
     const { showToast } = useToast();
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [previewData, setPreviewData] = useState(null);
 
     const [contentStandard, setContentStandard] = useState('');
@@ -29,11 +48,12 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
     const [learningCompetencies, setLearningCompetencies] = useState('');
 
     const [scope, setScope] = useState('byUnit');
-    const [selectedSubjectId, setSelectedSubjectId] = useState(subjectId || '');
-    const [selectedUnitIds, setSelectedUnitIds] = useState(new Set(unitId ? [unitId] : []));
-    const [selectedLessonId, setSelectedLessonId] = useState('');
+    // Initialize selectedSubjectId with the prop subjectId, and selectedUnitIds with prop unitId
+    const [currentSelectedSubjectId, setCurrentSelectedSubjectId] = useState(subjectId || '');
+    const [currentSelectedUnitIds, setCurrentSelectedUnitIds] = useState(new Set(unitId ? [unitId] : []));
+    const [currentSelectedLessonId, setCurrentSelectedLessonId] = useState('');
 
-    const { allSubjects, unitsForSubject, lessonsForUnit, loading } = useCourseData(selectedSubjectId);
+    const { allSubjects, unitsForSubject, lessonsForUnit, loading } = useCourseData(currentSelectedSubjectId);
     
     const handleGenerate = async () => {
         setIsGenerating(true);
@@ -45,22 +65,32 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
 
             let sourceContent = '';
             let sourceTitle = '';
+            // These variables will correctly capture the IDs of the *source content* used for ATG generation
+            let generatedFromUnitId = null; 
+            let generatedFromSubjectId = null;
+
             if (scope === 'byUnit') {
-                if (selectedUnitIds.size === 0) throw new Error("Please select at least one unit.");
-                const unitDetails = Array.from(selectedUnitIds).map(id => unitsForSubject.find(u => u.id === id)).filter(Boolean);
+                if (currentSelectedUnitIds.size === 0) throw new Error("Please select at least one unit.");
+                const unitDetails = Array.from(currentSelectedUnitIds).map(id => unitsForSubject.find(u => u.id === id)).filter(Boolean);
+                
                 sourceTitle = unitDetails.map(u => u.title).join(' & ');
+                generatedFromUnitId = unitDetails[0]?.id || null; // Take the ID of the first selected unit as the source unit
+                generatedFromSubjectId = currentSelectedSubjectId; // Use the currently selected subject for units
+                
                 const allLessonContents = [];
                 for (const unit of unitDetails) {
                     const lessonsInUnit = lessonsForUnit.filter(l => l.unitId === unit.id);
                     lessonsInUnit.forEach(l => { allLessonContents.push(l.pages.map(p => p.content).join('\n')); });
                 }
                 sourceContent = allLessonContents.join('\n\n---\n\n');
-            } else {
-                if (!selectedLessonId) throw new Error("Please select a lesson.");
-                const lesson = lessonsForUnit.find(l => l.id === selectedLessonId);
+            } else { // scope === 'byLesson'
+                if (!currentSelectedLessonId) throw new Error("Please select a lesson.");
+                const lesson = lessonsForUnit.find(l => l.id === currentSelectedLessonId);
                 if (!lesson) throw new Error("Selected lesson could not be found.");
                 sourceTitle = lesson.title;
                 sourceContent = lesson.pages.map(p => p.content).join('\n\n');
+                generatedFromUnitId = lesson.unitId; // Get unitId from the selected lesson
+                generatedFromSubjectId = lesson.subjectId; // Get subjectId from the selected lesson
             }
             if (!sourceContent) {
                 throw new Error("No source content found for the selected scope. Please ensure the selected units/lessons have content.");
@@ -68,7 +98,6 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
 
             showToast("Step 1/2: Generating PEAC ATG content...", "info");
 
-            // ✅ YOUR NEW, DETAILED ATG INSTRUCTIONS ARE PLACED HERE
             const atgAnalysisPrompt = `Your task is to generate a complete and detailed ATG based on the provided source lesson or topic. The ATG must be student-centered, assessment-driven, and adaptable for different learning modalities (in-person, online, and hybrid). Adhere strictly to the 10-section structure and detailed instructions below.
 
                 **Source Lesson Content:**
@@ -165,7 +194,18 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
             const aiText = await callGeminiWithLimitCheck(finalPrompt);
             const jsonText = extractJson(aiText);
             const parsedResponse = JSON.parse(jsonText);
-            setPreviewData(parsedResponse);
+            
+            // Store additional data needed for saving the ATG
+            setPreviewData({
+                ...parsedResponse, // Contains generated_lessons
+                // Capture the IDs of the *source content* that the ATG was generated from
+                sourceSubjectId: generatedFromSubjectId, 
+                sourceUnitId: generatedFromUnitId, 
+                contentStandard: contentStandard, // Include other form data as needed
+                performanceStandard: performanceStandard,
+                learningCompetencies: learningCompetencies,
+                sourceTitle: sourceTitle, // Store the title for context
+            });
 
         } catch (err) {
             console.error("Error generating ATG:", err);
@@ -175,13 +215,79 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
         }
     };
     
-    const handleSave = async () => { /* ... Your save logic ... */ };
+    // The handleSave function is updated based on your request
+    const handleSave = async () => {
+        if (!previewData || !Array.isArray(previewData.generated_lessons) || previewData.generated_lessons.length === 0) {
+            showToast("Cannot save: No ATG content to save.", "error");
+            return;
+        }
+
+        // Use the subjectId and unitId passed as props to the modal as the saving destination
+        // These are the initial IDs where the ATG should be stored in the database.
+        if (!subjectId || !unitId) { 
+            showToast("Could not save: Destination unit or subject is missing from modal props.", "error");
+            return;
+        }
+        
+        setIsSaving(true);
+        showToast("Saving Adaptive Teaching Guide...", "info");
+
+        try {
+            const batch = writeBatch(db);
+            
+            // Assuming there's only one "lesson" (the ATG) in generated_lessons for ATG content
+            const atgLesson = previewData.generated_lessons[0]; 
+
+            const newAtgRef = doc(collection(db, 'lessons')); // Store ATGs in the 'lessons' collection (or 'atgs' if you prefer a separate collection)
+            
+            batch.set(newAtgRef, {
+                title: atgLesson.lessonTitle, // e.g., "Adaptive Teaching Guide: [Unit Title]"
+                pages: atgLesson.pages || [], // Should contain the single page with HTML table
+                
+                // Use the unitId and subjectId passed as props to the modal as the saving destination
+                unitId: unitId, // from props
+                subjectId: subjectId, // from props
+                
+                contentType: "teacherAtg", // Crucial: Differentiate from student lessons. This is a custom type for ATGs.
+                
+                // Include other relevant data from the form inputs and source (stored in previewData)
+                contentStandard: previewData.contentStandard || '',
+                performanceStandard: previewData.performanceStandard || '',
+                learningCompetencies: previewData.learningCompetencies || '',
+                
+                // Store the IDs and title of the content that this ATG was generated FROM
+                sourceSubjectId: previewData.sourceSubjectId || '',
+                sourceUnitId: previewData.sourceUnitId || '',
+                sourceOfAtgTitle: previewData.sourceTitle || '', // Renamed for clarity on what it represents
+
+                createdAt: serverTimestamp(),
+                // If ATGs need an 'order' field similar to lessons, you'd add it here.
+                // For simplicity, it's omitted as specific ordering for ATGs isn't usually a primary requirement.
+            });
+            
+            await batch.commit();
+            showToast("Adaptive Teaching Guide saved successfully!", "success");
+            onClose(); // Close the modal after successful save
+
+        } catch (err) {
+            console.error("Error saving ATG:", err);
+            showToast("Failed to save Adaptive Teaching Guide.", "error");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
 
     return (
         <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[110] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
             <Dialog.Panel className="relative bg-slate-50 p-8 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
-                {isGenerating && <div className="absolute inset-0 bg-white/80 flex flex-col justify-center items-center z-50 rounded-2xl"><Spinner /><p className="mt-2 text-slate-600">AI is generating ATG...</p></div>}
+                {(isGenerating || isSaving) && (
+                    <div className="absolute inset-0 bg-white/80 flex flex-col justify-center items-center z-50 rounded-2xl">
+                        <Spinner />
+                        <p className="mt-2 text-slate-600">{isGenerating ? 'AI is generating ATG...' : 'Saving ATG...'}</p>
+                    </div>
+                )}
                 
                 <div className="flex justify-between items-start mb-6">
                     <div className="flex items-center gap-4">
@@ -218,15 +324,15 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
                                 <h3 className="font-bold text-lg text-slate-700 border-b pb-2 mb-4">Source Content</h3>
                                 <SourceContentSelector
                                     scope={scope} handleScopeChange={(e) => setScope(e.target.value)}
-                                    selectedSubjectId={selectedSubjectId} handleSubjectChange={(e) => { setSelectedSubjectId(e.target.value); setSelectedUnitIds(new Set()); setSelectedLessonId(''); }}
-                                    allSubjects={allSubjects} selectedUnitIds={selectedUnitIds}
+                                    selectedSubjectId={currentSelectedSubjectId} handleSubjectChange={(e) => { setCurrentSelectedSubjectId(e.target.value); setCurrentSelectedUnitIds(new Set()); setCurrentSelectedLessonId(''); }}
+                                    allSubjects={allSubjects} selectedUnitIds={currentSelectedUnitIds}
                                     handleUnitSelectionChange={(id) => {
-                                        const newSet = new Set(selectedUnitIds);
+                                        const newSet = new Set(currentSelectedUnitIds);
                                         if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
-                                        setSelectedUnitIds(newSet);
+                                        setCurrentSelectedUnitIds(newSet);
                                     }}
-                                    unitsForSubject={unitsForSubject} selectedLessonId={selectedLessonId}
-                                    handleLessonChange={(e) => setSelectedLessonId(e.target.value)}
+                                    unitsForSubject={unitsForSubject} selectedLessonId={currentSelectedLessonId}
+                                    handleLessonChange={(e) => setCurrentSelectedLessonId(e.target.value)}
                                     lessonsForUnit={lessonsForUnit} loading={loading}
                                 />
                             </div>
@@ -244,8 +350,10 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
                 <div className="pt-6 flex justify-between items-center border-t border-slate-200 mt-6">
                     {previewData ? (
                         <>
-                            <button onClick={() => setPreviewData(null)} className="btn-secondary">Back to Edit</button>
-                            <button onClick={handleSave} className="btn-primary">Accept & Save</button>
+                            <button onClick={() => setPreviewData(null)} disabled={isSaving || isGenerating} className="btn-secondary">Back to Edit</button>
+                            <button onClick={handleSave} className="btn-primary" disabled={isSaving}>
+                                {isSaving ? 'Saving...' : 'Accept & Save'}
+                            </button>
                         </>
                     ) : (
                         <button onClick={handleGenerate} disabled={isGenerating || loading} className="btn-primary ml-auto">
