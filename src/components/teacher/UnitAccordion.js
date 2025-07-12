@@ -42,11 +42,13 @@ import ViewLessonModal from './ViewLessonModal';
 import EditUnitModal from './EditUnitModal';
 import EditQuizModal from './EditQuizModal';
 import ViewQuizModal from './ViewQuizModal';
-import CreateAiLessonModal from './CreateAiLessonModal';
 import AiQuizModal from './AiQuizModal';
 import ContentRenderer from './ContentRenderer';
+// ✅ 1. Import the new AiGenerationHub
+import AiGenerationHub from './AiGenerationHub';
 
-// --- MODIFIED: The PDF export function now includes specific styles for tables ---
+
+// --- PDF export function ---
 const exportLessonToPdf = async (lesson) => {
     console.log('Preparing lesson for PDF export...');
 
@@ -129,6 +131,7 @@ const exportLessonToPdf = async (lesson) => {
     }, 1000);
 };
 
+// --- Menu Components ---
 const MenuPortal = ({ children, menuStyle, onClose }) => {
     const menuRef = useRef(null);
     useEffect(() => {
@@ -190,6 +193,7 @@ const MenuItem = ({ icon: Icon, text, onClick, disabled = false }) => (
     </button>
 );
 
+// --- Content Item Components ---
 const QuizItem = ({ quiz, onEdit, onDelete, onView }) => (
     <div className="p-2 border-b border-gray-200 flex justify-between items-center last:border-b-0 group">
         <p className="text-sm text-gray-700">{quiz.title}</p>
@@ -255,9 +259,6 @@ function SortableUnitItem(props) {
         unit,
         lessonsForUnit,
         quizzesForUnit,
-        handleOpenUnitModal,
-        setCreateAiLessonModalOpen,
-        setSelectedUnit,
         ...otherProps
     } = props;
     
@@ -291,19 +292,24 @@ function SortableUnitItem(props) {
                             <span className="font-semibold">{unit.title}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <div role="button" onClick={(e) => { e.stopPropagation(); setSelectedUnit(unit); setCreateAiLessonModalOpen(true); }} className="flex items-center px-2 py-1 rounded-md text-sm text-purple-600 hover:bg-purple-100 cursor-pointer">
+                            {/* ✅ 2. The onClick handler now opens the AI Hub for this specific unit */}
+                            <div
+                                role="button"
+                                onClick={(e) => { e.stopPropagation(); otherProps.onOpenAiHub(unit); }}
+                                className="flex items-center px-2 py-1 rounded-md text-sm text-purple-600 hover:bg-purple-100 cursor-pointer"
+                            >
                                 <SparklesIcon className="h-4 w-4 mr-1" />
-                                AI Lesson Planner
+                                AI Tools
                             </div>
                         </div>
                     </div>
                 </AccordionHeader>
                 <AccordionBody>
                     <div className="flex items-center gap-2 mb-4 p-2 border-b">
-                        <Button size="xs" icon={PlusCircleIcon} onClick={() => handleOpenUnitModal(otherProps.setAddLessonModalOpen, unit)}>Add Lesson</Button>
-                        <Button size="xs" icon={PlusCircleIcon} onClick={() => handleOpenUnitModal(otherProps.setAddQuizModalOpen, unit)}>Add Quiz</Button>
-                        <Button size="xs" icon={PencilIcon} variant="secondary" onClick={() => handleOpenUnitModal(otherProps.setEditUnitModalOpen, unit)}>Edit Unit</Button>
-                        <Button size="xs" icon={TrashIcon} color="red" onClick={() => handleOpenUnitModal(otherProps.setDeleteUnitModalOpen, unit)}>Delete Unit</Button>
+                        <Button size="xs" icon={PlusCircleIcon} onClick={() => otherProps.handleOpenUnitModal(otherProps.setAddLessonModalOpen, unit)}>Add Lesson</Button>
+                        <Button size="xs" icon={PlusCircleIcon} onClick={() => otherProps.handleOpenUnitModal(otherProps.setAddQuizModalOpen, unit)}>Add Quiz</Button>
+                        <Button size="xs" icon={PencilIcon} variant="secondary" onClick={() => otherProps.handleOpenUnitModal(otherProps.setEditUnitModalOpen, unit)}>Edit Unit</Button>
+                        <Button size="xs" icon={TrashIcon} color="red" onClick={() => otherProps.handleOpenUnitModal(otherProps.setDeleteUnitModalOpen, unit)}>Delete Unit</Button>
                     </div>
                     <div className="border rounded-lg p-4 bg-white shadow-sm">
                         <h3 className="font-semibold text-gray-700 mb-2">Lessons</h3>
@@ -343,6 +349,7 @@ function SortableUnitItem(props) {
     );
 }
 
+// --- Main Accordion Component ---
 const customSort = (a, b) => {
     const orderA = a.order;
     const orderB = b.order;
@@ -362,6 +369,8 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     const [units, setUnits] = useState([]);
     const [lessons, setLessons] = useState({});
     const [quizzes, setQuizzes] = useState({});
+    
+    // State for all modals
     const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
     const [addQuizModalOpen, setAddQuizModalOpen] = useState(false);
     const [deleteUnitModalOpen, setDeleteUnitModalOpen] = useState(false);
@@ -370,8 +379,13 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     const [editUnitModalOpen, setEditUnitModalOpen] = useState(false);
     const [editQuizModalOpen, setEditQuizModalOpen] = useState(false);
     const [viewQuizModalOpen, setViewQuizModalOpen] = useState(false);
-    const [createAiLessonModalOpen, setCreateAiLessonModalOpen] = useState(false);
     const [aiQuizModalOpen, setAiQuizModalOpen] = useState(false);
+    
+    // ✅ 3. Rename state to be generic for the AI Hub and add state for the selected unit
+    const [isAiHubOpen, setIsAiHubOpen] = useState(false);
+    const [unitForAi, setUnitForAi] = useState(null);
+
+    // State for selected items
     const [selectedUnit, setSelectedUnit] = useState(null);
     const [selectedLesson, setSelectedLesson] = useState(null);
     const [selectedQuiz, setSelectedQuiz] = useState(null);
@@ -518,6 +532,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         }
     }
 
+    // --- Modal Handlers ---
     const handleOpenUnitModal = (modalSetter, unit) => { setSelectedUnit(unit); modalSetter(true); };
     const handleOpenLessonModal = (modalSetter, lesson) => { setSelectedLesson(lesson); modalSetter(true); };
     const handleOpenQuizModal = (modalSetter, quiz) => { setSelectedQuiz(quiz); modalSetter(true); };
@@ -526,41 +541,59 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         setLessonForAiQuiz(lesson);
         setAiQuizModalOpen(true);
     };
+    
+    // ✅ 4. Add handler to open the AI Hub and set the selected unit
+    const handleOpenAiHub = (unit) => {
+        setUnitForAi(unit);
+        setIsAiHubOpen(true);
+    };
 
     return (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            {units.length > 0 ? (
-                <SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}>
-                    <AccordionList>
-                        {units.map((unit) => (
-                            <SortableUnitItem
-                                key={unit.id}
-                                unit={unit}
-                                lessonsForUnit={lessons[unit.id] || []}
-                                quizzesForUnit={quizzes[unit.id] || []}
-                                handleOpenUnitModal={handleOpenUnitModal}
-                                handleOpenLessonModal={handleOpenLessonModal}
-                                handleOpenQuizModal={handleOpenQuizModal}
-                                handleEditQuiz={handleEditQuiz}
-                                setSelectedUnit={setSelectedUnit}
-                                setCreateAiLessonModalOpen={setCreateAiLessonModalOpen}
-                                setAddLessonModalOpen={setAddLessonModalOpen}
-                                setAddQuizModalOpen={setAddQuizModalOpen}
-                                setEditUnitModalOpen={setEditUnitModalOpen}
-                                setDeleteUnitModalOpen={setDeleteUnitModalOpen}
-                                setViewLessonModalOpen={setViewLessonModalOpen}
-                                setEditLessonModalOpen={setEditLessonModalOpen}
-                                setViewQuizModalOpen={setViewQuizModalOpen}
-                                onInitiateDelete={onInitiateDelete}
-                                onOpenAiQuizModal={handleOpenAiQuizModal}
-                                isAiGenerating={isAiGenerating}
-                                subject={subject}
-                            />
-                        ))}
-                    </AccordionList>
-                </SortableContext>
-            ) : <p className="text-center text-gray-500 py-10">No units in this subject yet. Add one to get started!</p>}
+        <>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                {units.length > 0 ? (
+                    <SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}>
+                        <AccordionList>
+                            {units.map((unit) => (
+                                <SortableUnitItem
+                                    key={unit.id}
+                                    unit={unit}
+                                    lessonsForUnit={lessons[unit.id] || []}
+                                    quizzesForUnit={quizzes[unit.id] || []}
+                                    onOpenAiHub={handleOpenAiHub} // Pass the new handler
+                                    handleOpenUnitModal={handleOpenUnitModal}
+                                    handleOpenLessonModal={handleOpenLessonModal}
+                                    handleOpenQuizModal={handleOpenQuizModal}
+                                    handleEditQuiz={handleEditQuiz}
+                                    setAddLessonModalOpen={setAddLessonModalOpen}
+                                    setAddQuizModalOpen={setAddQuizModalOpen}
+                                    setEditUnitModalOpen={setEditUnitModalOpen}
+                                    setDeleteUnitModalOpen={setDeleteUnitModalOpen}
+                                    setViewLessonModalOpen={setViewLessonModalOpen}
+                                    setEditLessonModalOpen={setEditLessonModalOpen}
+                                    setViewQuizModalOpen={setViewQuizModalOpen}
+                                    onInitiateDelete={onInitiateDelete}
+                                    onOpenAiQuizModal={handleOpenAiQuizModal}
+                                    isAiGenerating={isAiGenerating}
+                                    subject={subject}
+                                />
+                            ))}
+                        </AccordionList>
+                    </SortableContext>
+                ) : <p className="text-center text-gray-500 py-10">No units in this subject yet. Add one to get started!</p>}
+            </DndContext>
 
+            {/* ✅ 5. Render the AiGenerationHub, passing the correct unitId */}
+            {isAiHubOpen && (
+                <AiGenerationHub
+                    isOpen={isAiHubOpen}
+                    onClose={() => setIsAiHubOpen(false)}
+                    unitId={unitForAi?.id}
+                    subjectId={subject?.id}
+                />
+            )}
+            
+            {/* All other modals remain unchanged */}
             <EditUnitModal isOpen={editUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={selectedUnit} />
             <AddLessonModal isOpen={addLessonModalOpen} onClose={() => setAddLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id} setIsAiGenerating={setIsAiGenerating} />
             <AddQuizModal isOpen={addQuizModalOpen} onClose={() => setAddQuizModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id} />
@@ -569,14 +602,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             <ViewLessonModal isOpen={viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={selectedLesson} />
             {selectedQuiz && (<EditQuizModal isOpen={editQuizModalOpen} onClose={() => setEditQuizModalOpen(false)} quiz={selectedQuiz} onEditQuiz={() => { setEditQuizModalOpen(false); }} />)}
             <ViewQuizModal isOpen={viewQuizModalOpen} onClose={() => setViewQuizModalOpen(false)} quiz={selectedQuiz} userProfile={userProfile} />
-            <CreateAiLessonModal isOpen={createAiLessonModalOpen} onClose={() => setCreateAiLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject.id} subjectName={subject?.name} setIsAiGenerating={setIsAiGenerating} />
-            <AiQuizModal
-                isOpen={aiQuizModalOpen}
-                onClose={() => setAiQuizModalOpen(false)}
-                unitId={lessonForAiQuiz?.unitId}
-                subjectId={subject.id}
-                lesson={lessonForAiQuiz}
-            />
-        </DndContext>
+            <AiQuizModal isOpen={aiQuizModalOpen} onClose={() => setAiQuizModalOpen(false)} unitId={lessonForAiQuiz?.unitId} subjectId={subject.id} lesson={lessonForAiQuiz} />
+        </>
     );
 }

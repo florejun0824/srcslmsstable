@@ -73,6 +73,9 @@ const TeacherDashboard = () => {
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [messages, setMessages] = useState([]);
     const [isAiThinking, setIsAiThinking] = useState(false);
+    
+    // ✅ 1. ADD STATE FOR THE AI HUB HERE
+    const [isAiHubOpen, setIsAiHubOpen] = useState(false);
 
     // --- Temporarily Removed AI Exam Generator State ---
     // const [isAiExamGeneratorModalOpen, setAiExamGeneratorModalOpen] = useState(false);
@@ -340,7 +343,10 @@ const TeacherDashboard = () => {
             handleCreateAnnouncement={handleCreateAnnouncement}
             isChatOpen={isChatOpen} setIsChatOpen={setIsChatOpen} messages={messages} isAiThinking={isAiThinking} handleAskAi={handleAskAi}
             handleRemoveStudentFromClass={handleRemoveStudentFromClass}
-            setIsAiGenerating={setIsAiGenerating} // Pass setter for lesson generation
+            setIsAiGenerating={setIsAiGenerating}
+            // ✅ 2. PASS THE NEW STATE AND SETTER DOWN AS PROPS
+            isAiHubOpen={isAiHubOpen}
+            setIsAiHubOpen={setIsAiHubOpen}
         />
     );
 };

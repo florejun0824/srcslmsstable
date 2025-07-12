@@ -38,6 +38,8 @@ import ShareMultipleLessonsModal from '../components/teacher/ShareMultipleLesson
 import DeleteConfirmationModal from '../components/teacher/DeleteConfirmationModal';
 import EditSubjectModal from '../components/teacher/EditSubjectModal';
 import DeleteSubjectModal from '../components/teacher/DeleteSubjectModal';
+// ✅ 3. IMPORT THE AI HUB COMPONENT
+import AiGenerationHub from '../components/teacher/AiGenerationHub';
 
 // --- NEW: Global Spinner for AI tasks ---
 const GlobalAiSpinner = ({ isGenerating, text }) => {
@@ -513,6 +515,8 @@ const TeacherDashboardUI = (props) => {
         isEditSubjectModalOpen, setEditSubjectModalOpen, subjectToActOn, isDeleteSubjectModalOpen, setDeleteSubjectModalOpen,
         handleCreateAnnouncement, isChatOpen, setIsChatOpen, messages, isAiThinking, handleAskAi, handleRemoveStudentFromClass,
         setIsAiGenerating,
+        // ✅ 4. ACCEPT THE NEW PROPS
+        isAiHubOpen, setIsAiHubOpen,
         // --- AI EXAM GENERATOR PROPS ---
         isAiExamGeneratorModalOpen, setAiExamGeneratorModalOpen, isExamPreviewModalOpen, setExamPreviewModalOpen,
         generatedExamData, isGeneratingExam, onGenerateExam, onSaveExam, onRegenerate, examConfig, onOpenExamGenerator
@@ -585,6 +589,14 @@ const TeacherDashboardUI = (props) => {
                                         <div className="flex gap-2 flex-wrap">
                                             <button onClick={() => setShareContentModalOpen(true)} className="btn-secondary">Share Content</button>
                                             <button onClick={() => setAddUnitModalOpen(true)} className="btn-secondary">Add Unit</button>
+                                            {/* ✅ 5. ADD THE AI TOOLS BUTTON HERE */}
+                                            <button 
+                                                onClick={() => setIsAiHubOpen(true)} 
+                                                className="btn-primary gap-2"
+                                            >
+                                                <SparklesIcon className="w-5 h-5" />
+                                                AI Tools
+                                            </button>
                                         </div>
                                     </div>
                                     <div>
@@ -595,7 +607,7 @@ const TeacherDashboardUI = (props) => {
                                             onGenerateQuiz={handleGenerateQuizForLesson} 
                                             isAiGenerating={isAiGenerating}
                                             setIsAiGenerating={setIsAiGenerating}
-                                            // onOpenExamGenerator={onOpenExamGenerator} // Temporarily removed
+                                            // NOTE: The AI button logic is now removed from the accordion itself
                                         />
                                     </div>
                                 </div>
@@ -824,6 +836,14 @@ const TeacherDashboardUI = (props) => {
                 </div>
             </div>
             
+            {/* ✅ 6. RENDER THE AI HUB HERE */}
+            <AiGenerationHub
+                isOpen={isAiHubOpen}
+                onClose={() => setIsAiHubOpen(false)}
+                subjectId={activeSubject?.id}
+                unitId={null} // Pass null, as the button is at the subject level
+            />
+
             {/* Robot Icon is rendered globally as a fixed element, its position is managed by JS/CSS */}
             <AnimatedRobot onClick={() => setIsChatOpen(true)} />
              <GlobalAiSpinner isGenerating={isAiGenerating} text="Crafting content..." />

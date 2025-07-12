@@ -24,7 +24,9 @@ const tryParseJson = (jsonString) => {
         return JSON.parse(jsonString);
     } catch (error) {
         console.warn("Standard JSON.parse failed. Attempting to fix and re-parse.", error);
-        const sanitizedString = jsonString.replace(/,\s*([}\]])/g, '$1');
+        // Attempt to fix trailing commas
+        let sanitizedString = jsonString.replace(/,\s*([}\]])/g, '$1');
+         sanitizedString = sanitizedString.replace(/,\s*}(?=\s*$)/, '}');
         try {
             return JSON.parse(sanitizedString);
         } catch (finalError) {
@@ -34,6 +36,7 @@ const tryParseJson = (jsonString) => {
     }
 };
 
+
 export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId }) {
     const { showToast } = useToast();
 
@@ -42,11 +45,11 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
         format: '5Es',
         scope: 'byUnit',
     });
-
+    
     const [content, setContent] = useState('');
     const [lessonCount, setLessonCount] = useState(1);
     const [pagesPerLesson, setPagesPerLesson] = useState(5);
-
+    
     const [contentStandard, setContentStandard] = useState('');
     const [performanceStandard, setPerformanceStandard] = useState('');
     const [learningCompetencies, setLearningCompetencies] = useState('');
@@ -55,17 +58,17 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
     const [selectedSubjectId, setSelectedSubjectId] = useState('');
     const [unitsForSubject, setUnitsForSubject] = useState([]);
     const [selectedUnitIds, setSelectedUnitIds] = useState(new Set());
-
+    
     const [lessonsForUnit, setLessonsForUnit] = useState([]);
     const [selectedLessonId, setSelectedLessonId] = useState('');
-
+    
     const [isGenerating, setIsGenerating] = useState(false);
     const [previewData, setPreviewData] = useState(null);
     const [existingLessonCount, setExistingLessonCount] = useState(0);
     const [extraInstruction, setExtraInstruction] = useState('');
     const debounceTimerRef = useRef(null);
 
-    // --- Data Fetching Hooks ---
+    // --- Data Fetching Hooks (No changes) ---
     useEffect(() => {
         if (isOpen) {
             const subjectsQuery = query(collection(db, 'courses'), orderBy('title'));
@@ -77,55 +80,46 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
     }, [isOpen]);
 
     useEffect(() => {
-        if (!selectedSubjectId) {
+        if (selectedSubjectId) {
+            const unitsQuery = query(collection(db, 'units'), where('subjectId', '==', selectedSubjectId), orderBy('order'));
+            const unsub = onSnapshot(unitsQuery, (snapshot) => {
+                const fetchedUnits = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                setUnitsForSubject(fetchedUnits);
+            });
+            return () => unsub();
+        } else {
             setUnitsForSubject([]);
-            setLessonsForUnit([]);
-            return;
         }
-
-        const unitsQuery = query(
-            collection(db, 'units'),
-            where('subjectId', '==', selectedSubjectId),
-            orderBy('order')
-        );
-        const unitsUnsub = onSnapshot(unitsQuery, (snapshot) => {
-            const fetchedUnits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setUnitsForSubject(fetchedUnits);
-        }, (error) => {
-            console.error("Firestore (Units) query failed: ", error);
-            setUnitsForSubject([]);
-        });
-
-        const lessonsQuery = query(collection(db, 'lessons'), where('subjectId', '==', selectedSubjectId));
-        const lessonsUnsub = onSnapshot(lessonsQuery, (snapshot) => {
-            const fetchedLessons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setLessonsForUnit(fetchedLessons);
-        }, (error) => {
-            console.error("Firestore (Lessons) query failed: ", error);
+    }, [selectedSubjectId]);
+    
+    useEffect(() => {
+        if (selectedSubjectId) {
+            const lessonsQuery = query(collection(db, 'lessons'), where('subjectId', '==', selectedSubjectId), orderBy('order'));
+            const unsub = onSnapshot(lessonsQuery, (snapshot) => {
+                const fetchedLessons = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                setLessonsForUnit(fetchedLessons);
+            });
+            return () => unsub();
+        } else {
             setLessonsForUnit([]);
-        });
-
-        return () => {
-            unitsUnsub();
-            lessonsUnsub();
-        };
+        }
     }, [selectedSubjectId]);
 
     useEffect(() => {
         if (isOpen && unitId) {
-            const q = query(collection(db, 'lessons'), where('unitId', '==', unitId));
-            const unsubscribe = onSnapshot(q, (snapshot) => {
+            const lessonsQuery = query(collection(db, 'lessons'), where('unitId', '==', unitId));
+            const unsubscribe = onSnapshot(lessonsQuery, (snapshot) => {
                 setExistingLessonCount(snapshot.size);
             });
             return () => unsubscribe();
         }
     }, [isOpen, unitId]);
-
+    
     useEffect(() => {
         return () => clearTimeout(debounceTimerRef.current);
     }, []);
 
-    // --- UI Handlers ---
+    // --- UI Handlers (No changes) ---
     const handleUnitSelectionChange = (unitId) => {
         setSelectedUnitIds(prevSet => {
             const newSet = new Set(prevSet);
@@ -134,73 +128,13 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
             return newSet;
         });
     };
-
+    
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
         if (name === 'scope') {
             setSelectedUnitIds(new Set());
             setSelectedLessonId('');
-        }
-    };
-
-    // --- AI Prompt Generation (for ULP/ATG HTML Formatting) ---
-    const generateFinalPrompt = (generationTarget, sourceTitle, structuredContent, lessonTitles = []) => {
-        const strictJsonRules = `
-		**CRITICAL JSON FORMATTING RULES:**
-		1. Your entire response MUST be a single, valid JSON object.
-		2. All property keys (e.g., "generated_lessons") MUST be in double quotes.
-		3. All double quotes (") inside JSON string values MUST be escaped with a backslash (\\").
-		4. Every object in a JSON array must be followed by a comma, except for the very last one.`;
-
-        switch (generationTarget) {
-            case 'teacherGuide':
-                const lessonListHtml = lessonTitles.length > 0
-                    ? `<ul>${lessonTitles.map(title => `<li>${title}</li>`).join('')}</ul>`
-                    : '';
-
-                return `Your primary task is to return a single, valid JSON object. You will take the provided ULP analysis and format it into a single, comprehensive HTML table.
-				${strictJsonRules}
-				**Source ULP Analysis:**
-				---
-				${structuredContent}
-				---
-				**CRITICAL HTML TABLE INSTRUCTIONS:**
-                1.  **Parse the Analysis:** The source analysis is structured with clear headings like "COMPETENCY_CODE", "LEARNING_COMPETENCY", "LEARNING_TARGETS", etc. You must parse this structure to build the table.
-				2.  **Generate a Complete HTML Table:** The "content" value must be a single string containing a complete and valid HTML table, starting with \`<table ...>\` and ending with \`</table>\`.
-				3.  **Explore Section:** Create separate rows (\`<tr>\`) for each part of the Explore stage (Hook Activity, Map of Conceptual Change, Unit Overview, etc.). Each row's content must span both columns (\`<td colspan='2'>...\</td>\`).
-                    - For the Topic/Unit Overview, the content MUST begin with the following HTML list of lesson titles: ${lessonListHtml}, followed by the overview from the analysis.
-				4.  **Firm-Up (A), Deepen (M), and Transfer (T) Rows:**
-                    - For EACH competency in the analysis, create ONE table row (\`<tr>\`).
-                    - **First Column (Learning Focus):** This \`<td>\` MUST contain the COMPETENCY_CODE (e.g., A1, M1, T1), the full LEARNING_COMPETENCY, the LEARNING_TARGETS, and the SUCCESS_INDICATORS.
-                    - **Second Column (Learning Process):** This \`<td>\` MUST contain the ACTIVITIES, SUPPORT_DISCUSSION, and FORMATIVE_ASSESSMENT for that competency. For Transfer (T) tasks, this column contains the detailed GRASPS task and its rubric.
-				5.  **Final Synthesis Row:** After the last competency row, insert the 'Final Synthesis' content, spanning both columns.
-				6.  **HTML Rules:** All tag attributes MUST use single quotes (e.g., \`style='...'\`).
-				7.  **Styling:** Add \`style='page-break-inside: avoid;'\` to every content \`<tr>\`. Add \`style='width: 100%; border-collapse: collapse;'\` to the main \`<table>\` tag.
-                8.  **Content Formatting (Crucial):** When placing the analysis content into a \`<td>\` cell, you MUST convert basic Markdown into clean HTML (e.g., \`**bold**\` to \`<b>bold</b>\`, bullet points to \`<ul><li>...\</li></ul>\`, newlines to \`<br>\`).
-				**FINAL JSON OUTPUT STRUCTURE:**
-				{"generated_lessons": [{"lessonTitle": "Unit Learning Plan: ${sourceTitle}", "pages": [{"title": "PEAC Unit Learning Plan", "content": "<table...>...</table>"}]}]}`;
-
-            case 'peacAtg':
-                return `Your primary task is to return a single, valid JSON object. You will take the provided ATG content and format it into a single, comprehensive HTML table.
-				${strictJsonRules}
-				**Pre-Generated ATG Content:**
-				---
-				${structuredContent}
-				---
-				**CRITICAL HTML TABLE INSTRUCTIONS:**
-				1.  **JSON Structure:** Your response MUST be a single JSON object. The "content" key must contain a single string with the complete HTML table.
-				2.  **Table Headers:** Start the table with a \`<thead>\` and a styled \`<tr>\` for the headers: "ATG Component" and "Details".
-				3.  **Row Generation:** Create a table row (\`<tr>\`) for each of the 10 ATG sections found in the provided content.
-				4.  **Two-Column Layout:** The first column contains the bolded section title (e.g., \`<b>1. Prerequisite...</b>\`). The second column contains that section's content.
-				5.  **Content Formatting:** Use HTML unordered lists (\`<ul>\`) for any bullet points in the source text.
-				6.  **HTML Rules & Styling:** Use single quotes for attributes. Add \`style='page-break-inside: avoid;'\` to every content \`<tr>\`.
-				**FINAL JSON OUTPUT STRUCTURE:**
-				{"generated_lessons": [{"lessonTitle": "Adaptive Teaching Guide: ${sourceTitle}", "pages": [{"title": "PEAC Adaptive Teaching Guide", "content": "<table...>...</table>"}]}]}`;
-
-            default:
-                console.error(`Unknown generationTarget: ${generationTarget}`);
-                return '';
         }
     };
 
@@ -218,67 +152,77 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
                 let finalPrompt;
                 const { generationTarget, format, scope } = formData;
 
+                const languageInstruction = `
+                **Primary Language Directive (Zero-Tolerance Policy):**
+                1.  Your most important task is to **automatically detect the primary language** from the provided 'Authoritative Inputs' and 'Source Content'.
+                2.  You **MUST** generate the **entire response** (all headings, content, analysis, and instructional terms) in that **SAME language**. Do not mix languages. This is a non-negotiable, critical instruction.
+                3.  **Filipino Translation Dictionary:** If the detected language is Filipino, you **MUST** use the following translations for all common instructional terms. Do not use the English term.
+                    - "I can..." -> "Kaya kong..."
+                    - "Activity" -> "Gawain"
+                    - "Assessment" -> "Pagtataya"
+                    - "Materials" -> "Mga Kagamitan"
+                    - "Discussion" -> "Talakayan"
+                    - "Goal" -> "Layunin"
+                    - "Role" -> "Gampanin"
+                    - "Audience" -> "Manonood"
+                    - "Situation" -> "Sitwasyon"
+                    - "Product" -> "Produkto" or "Awtput"
+                    - "Standards" -> "Pamantayan"
+                    - "Explore" -> "Tuklasin"
+                    - "Firm-Up" -> "Linangin"
+                    - "Deepen" -> "Palalimin"
+                    - "Transfer" -> "Ilipat"`;
+
+		const studentLessonInstructions = `
+		    **CRITICAL JSON FORMATTING RULES (NON-NEGOTIABLE):**
+		    1.  **Entire response MUST be a single JSON object.**
+		    2.  **Escape all double quotes (") and backslashes (\\) inside string values.**
+		    3.  **No Trailing Commas.**
+
+		    **OTHER CRITICAL INSTRUCTIONS:**
+		    4.  **Intelligent Diagram Generation (Data, Not SVG):** Your primary task is to analyze the lesson's content. If the topic involves a process, cycle, or hierarchy that needs a visual aid, you MUST provide the data for a diagram.
+		        * **Page Type:** Set the page "type" to **"diagram-data"**.
+		        * **Diagram Format:** The "content" for this page MUST be a string containing valid **Mermaid.js syntax**. Do NOT generate SVG code.
+		        * **Example Mermaid Syntax for a Flowchart:**
+		            "graph TD;
+		                A[Start] --> B{Is it complex?};
+		                B -->|Yes| C[Use Mermaid.js];
+		                B -->|No| D[Simple Text];
+		                C --> E[End];
+		                D --> E[End];"
+		        * **If no diagram is needed, the page "type" should be "text".**
+
+		    ${languageInstruction}
+		    6.  **Instructional Model Integrity:** Follow the conceptual flow of the **${format}** structure, but DO NOT write framework terms in the student-facing content.
+		    7.  **Lesson Flow:** Structure the pages as: Objectives, Main Content (including diagram data if needed), Values Integration, and References.`;
+
+
                 if (isRegeneration) {
                     const existingJsonString = JSON.stringify(previewData, null, 2);
-                    finalPrompt = `You are a highly precise JSON editing bot. Your task is to modify the provided JSON data based on this instruction: "${regenerationNote}". Return ONLY the complete, updated JSON object.`;
+                    finalPrompt = `You are a JSON editing expert. Your task is to modify the following JSON data based on this user instruction: "${regenerationNote}".
+                    **EXISTING JSON TO MODIFY:**
+                    ---
+                    ${existingJsonString}
+                    ---
+                    When you provide the updated JSON, you MUST adhere to all of the following original rules that were used to create it.
+                    ${studentLessonInstructions}
+                    Return ONLY the complete, updated, and valid JSON object.`;
 
                 } else if (generationTarget === 'studentLesson') {
                     if (!content || !learningCompetencies) {
                         throw new Error("Please complete all required fields for a student lesson.");
                     }
+                    const currentSubject = allSubjects.find(s => s.id === subjectId);
+                    const subjectName = currentSubject ? currentSubject.title : 'General Studies';
 
-                    const currentSubject = allSubjects.find(subject => subject.id === subjectId);
-                    if (!currentSubject) {
-                        throw new Error("Subject data is still loading. Please wait a moment and try again.");
-                    }
-                    const subjectName = currentSubject.title;
+                    const escapedContent = content.replace(/"/g, '\\"');
+                    const escapedContentStandard = contentStandard.replace(/"/g, '\\"');
+                    const escapedLearningCompetencies = learningCompetencies.replace(/"/g, '\\"');
+                    const escapedPerformanceStandard = performanceStandard.replace(/"/g, '\\"');
+                    
+                    const baseInfo = `**Topic:** "${escapedContent}"\n**Content Standard:** "${escapedContentStandard}"\n**Learning Competencies:** "${escapedLearningCompetencies}"\n**Performance Standard:** "${escapedPerformanceStandard}"`;
 
-                    const baseInfo = `**Topic:** "${content}"\n**Content Standard:** "${contentStandard}"\n**Learning Competencies:** "${learningCompetencies}"\n**Performance Standard:** "${performanceStandard}"`;
-
-                    let formatSpecificInstructions = '';
-                    switch (formData.format) {
-						case 'AMT Model':
-							formatSpecificInstructions = `
-							**Lesson Structure (AMT Model):** You MUST structure the lesson pages in this order:
-							1.  **Acquisition Pages:** Deliver the core knowledge, facts, and concepts clearly. Use simple language and examples.
-							2.  **Meaning-making Pages:** Create interactive activities. Ask critical thinking questions, provide a case study for analysis, or create a compare/contrast task.
-							3.  **Transfer Page:** Design one final, practical task where the student must apply their knowledge to a new, real-world scenario.`;
-							break;
-						case '5E Model':
-							formatSpecificInstructions = `
-							**Lesson Structure (5E Model):** You MUST structure the lesson pages to follow the 5Es:
-							1.  **Engage:** Start with a hook—a fascinating question, a surprising fact, or a short story to capture interest.
-							2.  **Explore:** Design an activity for students to investigate the topic themselves.
-							3.  **Explain:** Clearly present the main concepts, definitions, and explanations.
-							4.  **Elaborate:** Create a task that lets students apply their learning to a new situation.
-							5.  **Evaluate:** Conclude with a quiz or performance task to assess learning.`;
-							break;
-						case '4As Model':
-							formatSpecificInstructions = `
-							**Lesson Structure (4As Model):** You MUST structure the lesson pages to follow the 4As:
-							1.  **Activity:** Begin with a concrete, hands-on activity.
-							2.  **Analysis:** Guide the student with questions about the activity they just completed.
-							3.  **Abstraction:** Formally present the core concepts, connecting them to the activity.
-							4.  **Application:** Provide a final task where the student uses their new knowledge to solve a problem.`;
-							break;
-						case 'Gradual Release':
-							formatSpecificInstructions = `
-							**Lesson Structure (Gradual Release):** You MUST structure the lesson to show a shift in responsibility:
-							1.  **I Do (Focused Instruction):** Begin by demonstrating and explaining the skill or concept clearly.
-							2.  **We Do (Guided Practice):** Create an activity where students practice with significant support and scaffolding.
-							3.  **You Do (Independent Practice):** Conclude with a task that students must complete on their own.`;
-							break;
-						default: // Standard Lecture
-							formatSpecificInstructions = `
-							**Lesson Structure (Standard Format):**
-							1.  **Introduction:** Briefly introduce the topic and its importance.
-							2.  **Content Presentation:** Break the main topic into smaller, logical sub-topics.
-							3.  **Summary:** Conclude by summarizing the key takeaways of the lesson.`;
-							break;
-					}
-
-                    finalPrompt = `You are an expert instructional designer creating a student-friendly lesson for the subject: **${subjectName}**.
-	
+                    finalPrompt = `You are an expert instructional designer and vector artist creating student-friendly lessons for the subject: **${subjectName}**.
                     **Core Content Information:**
                     ---
                     ${baseInfo}
@@ -286,210 +230,198 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
                     **Lesson Details:**
                     - **Number of Lessons:** ${lessonCount}
                     - **Pages Per Lesson:** ${pagesPerLesson}
-                    - **Format:** "${formData.format}"
-                    ---
-                    ### **CRITICAL INSTRUCTIONS**
-                    ---
-                
-                    1.  **JSON Format (Non-negotiable):** Your entire response MUST be a single, valid JSON object. All double quotes (") inside any JSON string value MUST be escaped (\\").
+                    - **Format:** "${format}"
                     
-                    2.  **SVG Diagram Generation (Non-negotiable):** To illustrate complex topics, you MUST generate diagrams.
-                        - Set the page **"type"** to **"diagram"**.
-                        - The **"content"** MUST be a valid, self-contained **SVG string**. Every SVG MUST have a \`viewBox\` attribute to ensure it scales correctly (e.g., \`<svg viewBox="0 0 200 150">\`).
-                        - Under **NO circumstances** are you to use \`<img>\` tags, \`background-image\`, or any external resources. You must **draw** everything using SVG vector elements like \`<path>\`, \`<polygon>\`, \`<circle>\`, and \`<text>\`.
-                        - **Font and Labels:** Do NOT use bold fonts. Use the default font weight. All text labels must be clearly legible and positioned carefully to avoid overlapping with other elements.
-                        - **Intelligent Text Placement:** Use the \`text-anchor\` property to align text properly. For a label to the RIGHT of an object, set its coordinates to the left of the text and use \`text-anchor="start"\`. For a label to the LEFT of an object, set its coordinates to the right of the text and use \`text-anchor="end"\`. For a label centered inside or above a shape, use \`text-anchor="middle"\`.
-                        - **CRUCIAL Text Wrapping:** SVG \`<text>\` elements do not wrap automatically. To prevent labels from overflowing, you **MUST** break long labels into multiple lines using \`<tspan>\` elements.
-                            - Position the parent \`<text>\` element where you want the text block to start.
-                            - Place the first line of text in a \`<tspan>\`.
-                            - For each subsequent line, create a new \`<tspan>\` with an \`x\` attribute matching the parent's \`x\` position, and a \`dy="1.2em"\` attribute to move it down to the next line.
+                    ${studentLessonInstructions}
 
-                    3.  **Language Detection:** Automatically detect the primary language from the "Core Content Information" and generate all text content in that SAME language.
-                
-                    4.  **Instructional Model Integrity:** Follow the conceptual flow of the **${formData.format}** structure, but DO NOT write framework terms in the student-facing content.
-                
-                    5.  **Lesson Flow:** Structure the pages as: Objectives, Main Content (including diagrams), Values Integration, and References.
-                                    
-                    6.  **Example JSON with SVG Text Wrapping:**
-                        {"generated_lessons": [{"lessonTitle": "...", "pages": [
-                            {"title": "Photosynthesis Diagram", "type": "diagram", "content": "<svg viewBox='0 0 300 200'><text x='150' y='20' text-anchor='middle'>Photosynthesis Cycle</text><text x='50' y='50' font-size='12'><tspan>Carbon Dioxide (CO2)</tspan><tspan x='50' dy='1.2em'>is absorbed from the air.</tspan></text></svg>"}
-                        ] }] }`;
+                    **Final Output Structure:**
+                    {"generated_lessons": [{"lessonTitle": "Lesson Title", "learningObjectives": ["Objective 1", "Objective 2"], "pages": [{"title": "Page Title", "content": "Page content...", "type": "text|diagram"}, ... ]}, ... ]}`;
 
-                } else {
+                } else { 
                     let sourceContent = '';
                     let sourceTitle = '';
                     let allLessonTitles = [];
-
+                    
                     if (scope === 'byUnit') {
                         if (selectedUnitIds.size === 0) throw new Error("Please select at least one unit.");
                         const unitDetails = Array.from(selectedUnitIds).map(id => unitsForSubject.find(u => u.id === id)).filter(Boolean);
-                        unitDetails.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
                         sourceTitle = unitDetails.map(u => u.title).join(' & ');
                         const allLessonContents = [];
                         for (const unit of unitDetails) {
                             const lessonsInUnit = lessonsForUnit.filter(l => l.unitId === unit.id);
-                            lessonsInUnit.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
                             lessonsInUnit.forEach(l => {
                                 allLessonTitles.push(l.title);
-                                l.pages.forEach(p => {
-                                    if (p.type === 'diagram') {
-                                        allLessonContents.push(`[DIAGRAM: ${p.title}]`);
-                                    } else {
-                                        const tempDiv = document.createElement('div');
-                                        tempDiv.innerHTML = p.content;
-                                        allLessonContents.push(tempDiv.textContent || tempDiv.innerText || '');
-                                    }
-                                });
+                                allLessonContents.push(l.pages.map(p => p.content).join('\n'));
                             });
                         }
-                        const lessonList = allLessonTitles.map(title => `- ${title}`).join('\n');
-                        sourceContent = `Lessons included in this unit:\n${lessonList}\n\n---\n\n${allLessonContents.join('\n\n---\n\n')}`;
-                    } else {
+                        sourceContent = allLessonContents.join('\n\n---\n\n');
+                    } else { // byLesson
                         if (!selectedLessonId) throw new Error("Please select a lesson.");
                         const lesson = lessonsForUnit.find(l => l.id === selectedLessonId);
                         if (!lesson) throw new Error("Selected lesson could not be found.");
                         sourceTitle = lesson.title;
                         allLessonTitles.push(lesson.title);
-                        const lessonContents = lesson.pages.map(p => {
-                            if (p.type === 'diagram') {
-                                return `[DIAGRAM: ${p.title}]`;
-                            }
-                            const tempDiv = document.createElement('div');
-                            tempDiv.innerHTML = p.content;
-                            return tempDiv.textContent || tempDiv.innerText || '';
-                        }).join('\n\n');
-                        sourceContent = `Lessons included in this unit:\n- ${lesson.title}\n\n---\n\n${lessonContents}`;
+                        sourceContent = lesson.pages.map(p => p.content).join('\n\n');
                     }
-
-                    const languageInstruction = `**Primary Language Directive:** Your most important task is to automatically detect the primary language from the provided 'Authoritative Inputs' and 'Source Content'. You MUST generate the entire response (all headings, content, and analysis) in that SAME language.
-                    - **Specific Translation Rule:** If the detected language is Filipino, all 'I can...' learning targets MUST be translated to begin with 'Kaya kong...'.`;
-
+                    
                     let analysisText = '';
                     if (generationTarget === 'teacherGuide') {
                         showToast("Step 1/2: Analyzing for ULP...", "info");
-                        const ulpAnalysisPrompt = `**Persona:** You are a data processor. Your task is to generate ONLY the structured analysis content based on the instructions below. Do not include any conversational intros, preambles, summaries, or concluding remarks. Your response must begin directly with the first required heading of the analysis.
-
+                        const ulpAnalysisPrompt = `**Persona:** You are a data processor and curriculum designer.
                         ${languageInstruction}
-
-                        Your **non-negotiable task** is to create a detailed analysis for a Unit Learning Plan. You **MUST** build the entire plan using the **exact** Content Standard, Performance Standard, and Learning Competencies provided below.
-
+                        Your **non-negotiable task** is to create a detailed analysis for a Unit Learning Plan using the **exact** standards and competencies provided.
 						**Authoritative Inputs (Non-Negotiable):**
 						- Content Standard: ${contentStandard}
 						- Performance Standard: ${performanceStandard}
 						- Learning Competencies: ${learningCompetencies}
-						- Source Content (For context and lesson ideas only): ${sourceContent}
-
-						**CRITICAL ANALYSIS & FORMATTING INSTRUCTIONS:**
-						1.  **Explore Stage Content:**
-                            - **Hook Activity:** Design a brief, engaging activity to capture student interest.
-                            - **Map of Conceptual Change:** Design an activity for students to map their prior knowledge (e.g., K-W-L chart) and revisit it later.
-                            - **Unit Overview:** Provide a brief overview of the unit's purpose.
-                            - **Essential Questions:** Formulate 2-5 thought-provoking Essential Questions.
-						2.  **Learning Plan Breakdown:** For EACH learning competency provided, you MUST:
-                            a. Classify it as Acquisition, Meaning-Making, or Transfer and assign a unique, sequential code (A1, A2, M1, T1, etc.).
-                            b. Generate the corresponding Learning Targets, Success Indicators, Activities, etc.
-                            c. **Crucially, format the output for EACH competency using these exact headings followed by a colon:**
-                                - \`COMPETENCY_CODE:\`
-                                - \`LEARNING_COMPETENCY:\`
-                                - \`LEARNING_TARGETS:\`
-                                - \`SUCCESS_INDICATORS:\`
-                                - \`ACTIVITIES:\`
-                                - \`SUPPORT_DISCUSSION:\` (For Meaning-Making (M) competencies, this MUST be a thorough and detailed discussion that elaborates on concepts, asks probing questions, and clarifies potential misconceptions to strengthen student learning.)
-                                - \`FORMATIVE_ASSESSMENT:\`
-						3.  **Final Synthesis:** A summary that connects all key points.
-						4.  **Performance Task (GRASPS):** For the final Transfer competency, design a detailed GRASPS Performance Task.`;
+						- Source Content (This is provided ONLY for your background understanding of the lesson's themes): ${sourceContent}
+						**CRITICAL ANALYSIS INSTRUCTIONS:**
+						1.  **Essential Questions:** Formulate 2-5 thought-provoking Essential Questions that align directly with the provided Content and Performance Standards.
+						2.	**Hooked Activities:** Design a brief, engaging activity to capture student interest.
+						3.	**Map of Conceptual Change:** Design an activity for students to map their prior knowledge (e.g., K-W-L chart, etc.) and revisit it later.
+                   	 	2.  **Learning Plan Breakdown:** Using ONLY the competencies listed in the 'Learning Competencies' input above, classify each one based on the following definitions and assign a unique code (A1, M1, T1, etc.).
+                        * **Acquisition (Code A#):** Foundational knowledge (facts, concepts, skills). e.g., "Describe...", "Identify...".
+                        * **Meaning-Making (Code M#):** Understanding the 'why' and 'how'. Students analyze, compare, justify. e.g., "Compare...", "Analyze...".
+                        * **Transfer (Code T#):** Applying knowledge to a new, real-world situation. e.g., "Design a solution...".
+                        For each competency, you MUST provide:
+                        * **Learning Target:** At least two "I can..." statements.
+                        * **Success Indicators:** 2-3 specific, observable indicators.
+                        * **In-Person & Online Activities:** Design a scaffolded activity and its online alternative. Provide detailed, step-by-step instructions and a list of materials in bullet form.
+                        * **C-E-R Requirement:** At least one "Deepen (M)" activity MUST be a C-E-R (Claim-Evidence-Reasoning) task.
+                        * **Support Discussion:** For Firm-Up (A), questions to check understanding. For Meaning-Making (M) competencies, this MUST be a thorough and detailed discussion that elaborates on concepts, asks probing questions, and clarifies potential misconceptions to strengthen student learning.
+                        * **Formative Assessment:** A specific assessment strategy.
+                  	  	3.  **Final Synthesis:** A summary that connects all key points and prepares students for the Transfer task.
+                  	  	4.  **Performance Task (T1):** For the final Transfer competency, design a detailed GRASPS Performance Task that directly assesses the provided Performance Standard.`;
+                        
                         analysisText = await callGeminiWithLimitCheck(ulpAnalysisPrompt);
                         if (analysisText.toLowerCase().includes("i cannot")) throw new Error("AI failed during ULP analysis.");
+                        
                         showToast("Step 2/2: Formatting ULP...", "info");
 
-                    } else if (generationTarget === 'peacAtg') {
-                        showToast("Step 1/2: Generating authentic PEAC ATG content...", "info");
-                        const atgAnalysisPrompt = `**Persona:** You are a data processor. Your task is to generate ONLY the structured analysis content for the 10 ATG sections based on the instructions below. Do not include any conversational intros, preambles, summaries, or concluding remarks. Your response must begin directly with the first required heading.
+                        const lessonListHtml = allLessonTitles.length > 0
+                            ? `<ul>${allLessonTitles.map(title => `<li>${title}</li>`).join('')}</ul>`
+                            : '';
                         
-                        ${languageInstruction}
-                        
-                        Your task is to generate a complete and detailed ATG based on the provided source lesson or topic. The ATG must be student-centered, assessment-driven, and adaptable for different learning modalities (in-person, online, and hybrid). Adhere strictly to the 10-section structure and detailed instructions below.
+                        // *** FIX: Added highly specific instructions for column content in the ULP table ***
+                        finalPrompt = `Your primary task is to return a single, valid JSON object by formatting the provided ULP analysis into a comprehensive HTML table.
+                        **CRITICAL JSON FORMATTING RULES:** Your entire response MUST be a single, valid JSON object. Escape all quotes inside string values.
+                        **Source ULP Analysis:**
+                        ---
+                        ${analysisText}
+                        ---
+                        **CRITICAL HTML TABLE INSTRUCTIONS:**
+                        1.  The "content" value must be a single string containing a complete \`<table>...</table>\`.
+                        2.  **Explore Section:** After the 'EXPLORE' sub-header, create a row for the Unit Overview. Its content MUST begin with the following HTML list of lesson titles: ${lessonListHtml}, followed by the engaging overview of the unit. After the Lessons and Unit Overview should be the Essential Questions, followed by Hooked Activities, and lastly is the Map of Conceptual Change Activity for Students’ Prior/New  Knowledge.
+                        3.  **Content Conversion:** Convert Markdown from the analysis (like **bold**) into clean HTML (<b>bold</b>, <ul>, etc.).
+                        4.  **Row Generation for Competencies (NON-NEGOTIABLE):** For each competency (A1, M1, T1, etc.) found in the analysis, you MUST generate one complete table row (\`<tr>\`). This row will contain two cells (\`<td>\`):
+                            * **First \`<td>\` (Learning Focus):** This cell **MUST** contain the following items, in this order:
+                                * The competency code (e.g., A1) and the full Learning Competency text.
+                                * The "Learning Target(s)" section.
+                                * The "Success Indicator(s)" section.
+                            * **Second \`<td>\` (Learning Process):** This cell **MUST** contain all the remaining parts for that competency:
+                                * The "In-Person & Online Activities" section.
+                                * The "Support Discussion" section.
+                                * The "Formative Assessment" section.
+                                * If it is a Transfer (T) competency, this cell also contains the full GRASPS task and its rubric.
+                        **FINAL JSON OUTPUT STRUCTURE:**
+                        {"generated_lessons": [{"lessonTitle": "Unit Learning Plan: ${sourceTitle}", "pages": [{"title": "PEAC Unit Learning Plan", "content": "<table...>...</table>"}]}]}`;
 
+                    } else if (generationTarget === 'peacAtg') {
+                        showToast("Step 1/2: Generating PEAC ATG content...", "info");
+                        const atgAnalysisPrompt = `**Persona:** You are an expert Instructional Designer specializing in the Philippines' PEAC Adaptive Teaching Guide (ATG) framework.
+                        ${languageInstruction}
+                        Your task is to generate a complete and detailed ATG based on the provided source lesson. Adhere strictly to the 10-section structure below.
 					    **Source Lesson Content:**
 					    ---
 					    ${sourceContent}
 					    ---
+						**GUIDE SECTIONS (Generate detailed and specific content for each of the following 10 sections):**
 
-					    **GUIDE SECTIONS (Generate detailed and specific content for each of the following 10 sections):**
+						**Part 1: PLANNING**
+
+						**1. Prerequisite Content-Knowledge and Skills:**
+						Based on the source lesson, identify the essential concepts, vocabulary, and skills students MUST have mastered in previous grade levels or lessons to access this new material.
+						- Present this as a bulleted list.
+						- For each item, provide a brief (1-sentence) justification explaining *why* it is a prerequisite for the current lesson.
+
+						**2. Prerequisite Assessment:**
+						Design a short, practical diagnostic tool to verify student mastery of the prerequisites listed in Section 1.
+						- Create 5-10 targeted questions. You can use a mix of formats (e.g., Multiple Choice, Identification, a simple task).
+						- If using Multiple Choice, provide four distinct options (A, B, C, D) for each item.
+						- Provide a clear **Answer Key**, and for each question, include a brief explanation of what a correct answer demonstrates.
+
+						**3. Pre-lesson Remediation Activities:**
+						Create a targeted remediation plan for students who do not pass the Prerequisite Assessment. This plan must directly address the gaps identified in Section 2.
+						- **For Online/Asynchronous Modality:** Provide a specific, high-quality online resource (e.g., a link to a specific Khan Academy video, a PhET simulation, or a practice quiz) that targets a key prerequisite skill. Describe the resource and what students should do with it.
+						- **For In-person/Synchronous Modality:** Describe a concise, teacher-facilitated activity (e.g., a 10-minute mini-lesson using a whiteboard, a quick think-pair-share activity with guided questions, or a focused worksheet).
+
+						**Part 2: INSTRUCTION AND ASSESSMENT**
+
+						**4. Introduction:**
+						Craft a compelling introduction to motivate students and set clear expectations.
+						- **Hook (Mental Primer):** Start with an engaging hook: a provocative question, a surprising statistic, a short, relevant anecdote, or a brief, interesting video clip.
+						- **Connecting to the Performance Task:** Briefly state how the upcoming lesson will equip students with the skills needed for the final performance task (mentioned in Section 10).
+						- **Learning Targets:** Clearly articulate the lesson's goals as specific, student-centered "I can..." statements. These should be unpacked from the curriculum standards. (e.g., "I can identify the three main causes of the water cycle.").
+
+						**5. Student's Experiential Learning (The Lesson Proper):**
+						This is the core of the lesson. Based on the source content, break down the lesson into **2-3 logical "Content Chunks."** For **EACH CHUNK**, you must provide the following structured sequence:
+						- **A. Teacher Input / Student Activity:** Detail the learning experience. What will the teacher present, or what will the students *do*? (e.g., "Students will watch a 3-minute video on...", "Teacher will conduct a brief demonstration of..."). Specify materials needed.
+						- **B. Formative Question(s):** Immediately following the activity, pose 1-2 specific questions to check for understanding of **that specific chunk**.
+						- **C. Expected Student Response:** Provide and include the ideal answer(s) to the formative questions. This helps the teacher know what to listen for.
+						- **D. Discussion:** Provide in-depth elaboration and explanation of the key concepts of the lessons or topics to strengthen student experiential learning.
+
+						**6. Synthesis:**
+						Design a powerful concluding activity that requires students to consolidate the learning from all the "chunks" in Section 5.
+						- **Synthesis Question/Prompt:** Write a single, higher-order thinking question that forces students to connect the concepts from all chunks.
+						- **Reinforcement Activity:** Design a tangible activity where students answer the synthesis question. Examples: creating a concept map, completing a graphic organizer, or writing an "exit ticket" summary. Describe the activity and the expected output.
+
+						**7. Assessment of Student's Learning (Post-Lesson Assessment):**
+						Create a formative assessment to measure how well students met the Learning Targets from Section 4.
+						- Design a 5-10 item quiz that is directly aligned with the learning targets and the content chunks.
+						- Use a variety of question types (e.g., multiple choice, short answer, problem-solving).
+						- Provide a detailed **Answer Key with explanations** for each item. Format this in a clear table.
+
+						**8. Post-Lesson Remediation Activity:**
+						Design a specific plan for students who scored poorly on the assessment in Section 7.
+						- This activity must be targeted, addressing the most common errors or misconceptions revealed by the assessment data.
+						- Describe a specific, focused activity (e.g., a targeted worksheet, re-watching a specific part of a video, a one-on-one conference) that directly reinforces the weak areas. Provide both an online and an in-person option.
+
+						**9. Post-Lesson Enrichment Activity:**
+						For students who have mastered the content, design a challenging and engaging activity that extends their learning. This should not be "more of the same work."
+						- The activity must encourage higher-level thinking (e.g., application, analysis, evaluation, creation).
+						- **Examples:** Propose a solution to a more complex problem, research a related topic of interest, or design a creative project.
+
+						**Part 3: SUMMATIVE ASSESSMENT**
+
+						**10. Final Unit Performance Task (GRASPS Format):**
+						Design a meaningful, authentic summative performance task using the GRASPS model. This task should allow students to apply the knowledge and skills from this lesson in a real-world context.
+						- **Goal:** What is the main objective of the task?
+						- **Role:** What role does the student assume?
+						- **Audience:** Who is the target audience for their work?
+						- **Situation:** What is the real-world context or scenario?
+						- **Product:** What will the student create?
+						- **Standards:** How will the product be judged?
+						- **Scoring Rubric:** Following the GRASPS, create a detailed scoring rubric for the performance task. The rubric must have at least **three criteria** for success and at least **three proficiency levels** (e.g., Beginning, Developing, Accomplished) with clear descriptors for each level.`;
                         
-                        **Part 1: PLANNING**
-
-                        **1. Prerequisite Content-Knowledge and Skills:**
-                        Based on the source lesson, identify the essential concepts, vocabulary, and skills students MUST have mastered in previous grade levels or lessons to access this new material.
-                        - Present this as a bulleted list.
-                        - For each item, provide a brief (1-sentence) justification explaining *why* it is a prerequisite for the current lesson.
-
-                        **2. Prerequisite Assessment:**
-                        Design a short, practical diagnostic tool to verify student mastery of the prerequisites listed in Section 1.
-                        - Create 5-10 targeted questions. You can use a mix of formats (e.g., Multiple Choice, Identification, a simple task).
-                        - If using Multiple Choice, provide four distinct options (A, B, C, D) for each item.
-                        - Provide a clear **Answer Key**, and for each question, include a brief explanation of what a correct answer demonstrates.
-
-                        **3. Pre-lesson Remediation Activities:**
-                        Create a targeted remediation plan for students who do not pass the Prerequisite Assessment. This plan must directly address the gaps identified in Section 2.
-                        - **For Online/Asynchronous Modality:** Provide a specific, high-quality online resource (e.g., a link to a specific Khan Academy video, a PhET simulation, or a practice quiz) that targets a key prerequisite skill. Describe the resource and what students should do with it.
-                        - **For In-person/Synchronous Modality:** Describe a concise, teacher-facilitated activity (e.g., a 10-minute mini-lesson using a whiteboard, a quick think-pair-share activity with guided questions, or a focused worksheet).
-
-                        **Part 2: INSTRUCTION AND ASSESSMENT**
-
-                        **4. Introduction:**
-                        Craft a compelling introduction to motivate students and set clear expectations.
-                        - **Hook (Mental Primer):** Start with an engaging hook: a provocative question, a surprising statistic, a short, relevant anecdote, or a brief, interesting video clip.
-                        - **Connecting to the Performance Task:** Briefly state how the upcoming lesson will equip students with the skills needed for the final performance task (mentioned in Section 10).
-                        - **Learning Targets:** Clearly articulate the lesson's goals as specific, student-centered "I can..." statements. These should be unpacked from the curriculum standards. (e.g., "I can identify the three main causes of the water cycle.").
-
-                        **5. Student's Experiential Learning (The Lesson Proper):**
-                        This is the core of the lesson. Based on the source content, break down the lesson into **2-3 logical "Content Chunks."** For **EACH CHUNK**, you must provide the following structured sequence:
-                        - **A. Teacher Input / Student Activity:** Detail the learning experience. What will the teacher present, or what will the students *do*? (e.g., "Students will watch a 3-minute video on...", "Teacher will conduct a brief demonstration of..."). Specify materials needed.
-                        - **B. Formative Question(s):** Immediately following the activity, pose 1-2 specific questions to check for understanding of **that specific chunk**.
-                        - **C. Expected Student Response:** Provide and include the ideal answer(s) to the formative questions. This helps the teacher know what to listen for.
-                        - **D. Discussion:** Provide in-depth elaboration and explanation of the key concepts of the lessons or topics to strengthen student experiential learning.
-
-                        **6. Synthesis:**
-                        Design a powerful concluding activity that requires students to consolidate the learning from all the "chunks" in Section 5.
-                        - **Synthesis Question/Prompt:** Write a single, higher-order thinking question that forces students to connect the concepts from all chunks.
-                        - **Reinforcement Activity:** Design a tangible activity where students answer the synthesis question. Examples: creating a concept map, completing a graphic organizer, or writing an "exit ticket" summary. Describe the activity and the expected output.
-
-                        **7. Assessment of Student's Learning (Post-Lesson Assessment):**
-                        Create a formative assessment to measure how well students met the Learning Targets from Section 4.
-                        - Design a 5-10 item quiz that is directly aligned with the learning targets and the content chunks.
-                        - Use a variety of question types (e.g., multiple choice, short answer, problem-solving).
-                        - Provide a detailed **Answer Key with explanations** for each item. Format this in a clear table.
-
-                        **8. Post-Lesson Remediation Activity:**
-                        Design a specific plan for students who scored poorly on the assessment in Section 7.
-                        - This activity must be targeted, addressing the most common errors or misconceptions revealed by the assessment data.
-                        - Describe a specific, focused activity (e.g., a targeted worksheet, re-watching a specific part of a video, a one-on-one conference) that directly reinforces the weak areas. Provide both an online and an in-person option.
-
-                        **9. Post-Lesson Enrichment Activity:**
-                        For students who have mastered the content, design a challenging and engaging activity that extends their learning. This should not be "more of the same work."
-                        - The activity must encourage higher-level thinking (e.g., application, analysis, evaluation, creation).
-                        - **Examples:** Propose a solution to a more complex problem, research a related topic of interest, or design a creative project.
-
-                        **Part 3: SUMMATIVE ASSESSMENT**
-
-                        **10. Final Unit Performance Task (GRASPS Format):**
-                        Design a meaningful, authentic summative performance task using the GRASPS model. This task should allow students to apply the knowledge and skills from this lesson in a real-world context.
-                        - **Goal:** What is the main objective of the task?
-                        - **Role:** What role does the student assume?
-                        - **Audience:** Who is the target audience for their work?
-                        - **Situation:** What is the real-world context or scenario?
-                        - **Product:** What will the student create?
-                        - **Standards:** How will the product be judged?
-                        - **Scoring Rubric:** Following the GRASPS, create a detailed scoring rubric for the performance task. The rubric must have at least **three criteria** for success and at least **three proficiency levels** (e.g., Beginning, Developing, Accomplished) with clear descriptors for each level.`;
                         analysisText = await callGeminiWithLimitCheck(atgAnalysisPrompt);
                         if (analysisText.toLowerCase().includes("i cannot")) throw new Error("AI failed during ATG content generation.");
+                        
                         showToast("Step 2/2: Formatting ATG...", "info");
+                        finalPrompt = `Your primary task is to return a single, valid JSON object by formatting the provided ATG content into a comprehensive HTML table.
+                        **CRITICAL JSON FORMATTING RULES:** Your entire response MUST be a single, valid JSON object. Escape all quotes inside string values.
+                        **Pre-Generated ATG Content:**
+                        ---
+                        ${analysisText}
+                        ---
+                        **CRITICAL HTML TABLE INSTRUCTIONS:**
+                        1.  Create a two-column HTML table ("ATG Component", "Details").
+                        2.  Create one row (\`<tr>\`) for each of the 10 ATG sections.
+                        3.  Convert bullet points to HTML lists (\`<ul>\`).
+                        **FINAL JSON OUTPUT STRUCTURE:**
+                        {"generated_lessons": [{"lessonTitle": "Adaptive Teaching Guide: ${sourceTitle}", "pages": [{"title": "PEAC Adaptive Teaching Guide", "content": "<table...>...</table>"}]}]}`;
                     }
-
-                    finalPrompt = generateFinalPrompt(generationTarget, sourceTitle, analysisText, allLessonTitles);
                 }
-
+                
                 if (!finalPrompt) {
                     throw new Error("Could not generate a valid prompt. Please check your inputs.");
                 }
@@ -516,6 +448,7 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
                         });
                     }
                 });
+
 
                 setPreviewData(finalData);
 
@@ -614,7 +547,7 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
                                 <option value="peacAtg">Adaptive Teaching Guide (ATG)</option>
                             </select>
                         </div>
-
+                        
                         {formData.generationTarget === 'studentLesson' && (
                             <>
                                 <div>
@@ -650,7 +583,7 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
                                 <textarea placeholder="Content Standard" value={contentStandard} onChange={(e) => setContentStandard(e.target.value)} className="w-full p-2 border rounded" rows={3} />
                                 <textarea placeholder="Performance Standard" value={performanceStandard} onChange={(e) => setPerformanceStandard(e.target.value)} className="w-full p-2 border rounded" rows={3} />
                                 <textarea placeholder="Learning Competencies" value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className="w-full p-2 border rounded" rows={3} />
-
+                                
                                 <div className="p-4 border-l-4 border-indigo-500 bg-indigo-50 rounded-r-lg space-y-4">
                                     <p className="text-sm font-semibold">Select Source Content</p>
                                     <div>
@@ -660,9 +593,9 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId, subjectId
                                             <label className="flex items-center gap-2"><input type="radio" name="scope" value="byUnit" checked={formData.scope === 'byUnit'} onChange={handleChange} /> One or More Units</label>
                                         </div>
                                     </div>
-
+                                    
                                     <SelectorGroup title="Source Subject" value={selectedSubjectId} onChange={(e) => { setSelectedSubjectId(e.target.value); setSelectedLessonId(''); setSelectedUnitIds(new Set()); }} options={allSubjects} placeholder="Select a Source Subject" />
-
+                                    
                                     {formData.scope === 'byUnit' ? (
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">Select Units:</label>
