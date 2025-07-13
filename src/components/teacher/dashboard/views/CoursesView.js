@@ -9,7 +9,6 @@ import {
     AcademicCapIcon as TeacherIcon
 } from '@heroicons/react/24/outline';
 
-// MODIFIED: Accept activeUnit and onSetActiveUnit as props
 const CoursesView = (props) => {
     const {
         selectedCategory, courses, activeSubject, setActiveSubject, handleBackToCategoryList,
@@ -18,8 +17,8 @@ const CoursesView = (props) => {
         handleGenerateQuizForLesson, isAiGenerating, setIsAiGenerating, courseCategories,
         handleCategoryClick, handleEditCategory, setCreateCategoryModalOpen, setCreateCourseModalOpen,
         activeView,
-        activeUnit,      // <-- NEW: Receive activeUnit state
-        onSetActiveUnit  // <-- NEW: Receive the function to set the unit
+        activeUnit,
+        onSetActiveUnit
     } = props;
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -29,7 +28,6 @@ const CoursesView = (props) => {
         setActiveContentGroup(null);
         handleBackToCategoryList();
         setActiveSubject(null);
-        // MODIFIED: Ensure the active unit is also cleared
         if (onSetActiveUnit) {
             onSetActiveUnit(null);
         }
@@ -47,15 +45,15 @@ const CoursesView = (props) => {
     if (activeSubject) {
         return (
             <div className="w-full">
+                {/* MODIFIED: Updated the button style */}
                 <button onClick={() => {
                     setActiveSubject(null);
-                    // MODIFIED: Also clear the active unit when going back to subjects
                     if (onSetActiveUnit) {
                        onSetActiveUnit(null);
                     }
-                }} className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4 font-semibold">
+                }} className="btn-secondary mb-4 gap-2">
                     <ArrowUturnLeftIcon className="w-4 h-4" />
-                    Back to Subjects in {selectedCategory}
+                    Back to Subjects
                 </button>
                  <div className={wrapper}>
                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
@@ -74,7 +72,6 @@ const CoursesView = (props) => {
                           </div>
                      </div>
                      <div>
-                        {/* MODIFIED: Pass the new props down to UnitAccordion */}
                          <UnitAccordion
                              subject={activeSubject}
                              onInitiateDelete={handleInitiateDelete}

@@ -51,14 +51,14 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         performanceStandard: '',
         language: 'English',
     });
-    
+
     useEffect(() => {
         if (unitId) {
             setSelectedUnitId(unitId);
-            setAvailableUnits([]); 
+            setAvailableUnits([]);
             return;
         }
-        
+
         if (isOpen && !unitId && subjectId) {
             const unitsQuery = query(collection(db, 'units'), where('subjectId', '==', subjectId));
             const unsubscribe = onSnapshot(unitsQuery, (snapshot) => {
@@ -67,7 +67,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 if (unitsData.length > 0) {
                     setSelectedUnitId(unitsData[0].id);
                 } else {
-                    setSelectedUnitId(''); 
+                    setSelectedUnitId('');
                 }
             });
             return () => unsubscribe();
@@ -84,7 +84,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             return () => unsubscribe();
         }
     }, [isOpen, unitId, selectedUnitId]);
-    
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         const finalValue = name === 'lessonCount' ? Number(value) : value;
@@ -110,47 +110,34 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             const answerKeyLabel = formData.language === 'Filipino' ? 'Susi sa Pagwawasto' : 'Answer Key';
 
             const formatSpecificInstructions = `
-                **Persona and Tone:** Adopt the persona of an enthusiastic and knowledgeable teacher who makes learning fun and like a grand adventure. The language MUST be student-friendly, avoiding overly academic or dry phrasing. Use analogies and real-world connections to make concepts relatable.
-                **CRITICAL INSTRUCTION FOR CORE CONTENT:**
-                The "Core Content Sections" MUST be detailed and information-rich, covering the topic comprehensively. However, the explanation should remain student-friendly, easy to understand, and engaging. Break down complex ideas into simpler parts, provide concrete examples, and ensure a logical flow of information that builds understanding step-by-step. Aim for depth without sacrificing clarity or readability for the target student audience.
-                **CRITICAL HEADING RULE:**
-                Use clear, concise, and non-redundant headings and subheadings throughout the lesson. Each heading MUST represent a distinct main idea or sub-topic. Avoid repeating phrases or rephrasing the lesson title or main topic in subheadings. For example, if the lesson is "The Water Cycle," do not have subheadings like "Introduction to Water Cycle" or "Water Cycle Processes." Instead, use "Introduction" or "Key Processes." Ensure there is only ONE main heading per distinct section.
-                **CRITICAL HEADING CONTINUITY RULE:**
-                When a single discussion (e.g., explaining 'Evaporation') is too long for one page and must continue on the next, its heading ('title' in the JSON) MUST only appear on the first page where it begins. Subsequent pages that continue the same discussion MUST have an empty string ("") for their 'title'. Do NOT create titles like "Evaporation (Continuation)". The content should flow seamlessly.
-                **Textbook Chapter Structure:** You MUST organize the lesson content in the following sequence, ensuring no section's content bleeds into another:
-                1.  **Standalone ${objectivesLabel} Section:** The lesson's JSON output MUST include a "learningObjectives" array containing a list of objectives.
-                2.  **Engaging Introduction:** At the start of every lesson, write a compelling introduction that hooks the reader. **ABSOLUTE RULE: The introduction MUST NOT contain any list of objectives, goals, or learning outcomes, not even a rephrased version.** The introduction's purpose is to be a narrative hook. The objectives are handled *exclusively* by the "learningObjectives" array in the JSON and are displayed separately. Do not generate text like "In this lesson, you will learn to..." or "Our goals are..." or "Sa araling ito, inaasahang matututo ka ng sumusunod:" within the introduction page content.
-                3.  **Introductory Activity:** Immediately after the introduction, include a short, interactive warm-up activity labeled "${letsGetStartedLabel}".
-                4.  **Core Content Sections:** Present the main content, broken down with clear headings.
-                5.  **Embedded Activities:** After explaining a major concept, include a short "${checkUnderstandingLabel}" activity.
-                6.  **${lessonSummaryLabel}:** A concise summary of the key takeaways.
-                7.  **${wrapUpLabel}/Conclusion:** Provide a clear conclusion that summarizes the main points.
-                8.  **${endOfLessonAssessmentLabel}:** Conclude with a dedicated assessment section containing 5-10 questions and a labeled "${answerKeyLabel}".
-                9.  **Final Page - ${referencesLabel}:** The VERY LAST page in the "pages" array for EACH lesson MUST be dedicated *exclusively* to references. This page object MUST have its "title" set to "${referencesLabel}" and its "content" must only list the references. Do not mix references with any other content on this final page.
-                **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide *only* real, verifiable academic or reputable web sources if you are confident they exist within your training data knowledge base. Under NO circumstances should you invent illusory authors, titles, journals, or URLs.
+                **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular science author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter.
+
+                **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade 7 to Grade 12**. Your writing must be clear and accessible enough for a 7th grader to understand the core concepts, but also contain enough depth, sophisticated vocabulary (which you should define elegantly in context), and intellectual richness to keep a 12th grader engaged and challenged.
+
+                **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the science or the concept. Introduce key figures, explore historical context, and delve into fascinating real-world applications. Use vivid analogies and metaphors to illuminate complex ideas. The content should flow logically and build on itself, like a well-structured story.
+
+                **Textbook Chapter Structure:** You MUST organize the lesson content in the following sequence:
+                1.  **Standalone ${objectivesLabel} Section:** A "learningObjectives" array.
+                2.  **Engaging Introduction:** A captivating opening that poses a fascinating question or tells a surprising anecdote related to the topic.
+                3.  **Introductory Activity:** A single, thought-provoking warm-up activity labeled "${letsGetStartedLabel}".
+                4.  **Core Content Sections:** The main, narrative-driven content.
+                5.  **Check for Understanding:** After a major, substantial section of content (not frequently), you may include a single, thoughtful activity or a few critical thinking questions labeled "${checkUnderstandingLabel}". Avoid littering the text with constant, small activities.
+                6.  **${lessonSummaryLabel}:** A concise summary of the key ideas.
+                7.  **${wrapUpLabel}/Conclusion:** A powerful concluding statement that reinforces the topic's importance.
+                8.  **${endOfLessonAssessmentLabel}:** A dedicated assessment with **8-10 questions** and a labeled "${answerKeyLabel}".
+                9.  **Final Page - ${referencesLabel}:** The last page MUST be for references only.
+
+                **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide real, verifiable academic or reputable web sources. Do NOT invent sources.
             `;
             const languageInstruction = `
-                **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.
-                This includes all content, headings, subheadings, activity titles, and assessment sections.
-                For example, if the language is Filipino, "Learning Objectives" should be translated to "Mga Layunin sa Pagkatuto",
-                "Let's Get Started!" to "Simulan Natin!", "Check for Understanding" to "Suriin ang Pag-unawa",
-                "Lesson Summary" to "Buod ng Aralin", "End-of-Lesson Assessment" to "Pagtatasa sa Katapusan ng Aralin",
-                "Wrap-Up" to "Pagbubuod", and "References" to "Mga Sanggunian".
-                You MUST use the translated terms for these sections.
+                **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
             `;
             const studentLessonInstructions = `
                 **CRITICAL JSON FORMATTING RULES (NON-NEGOTIABLE):**
                 1.  **Entire response MUST be a single JSON object.**
                 2.  **No Trailing Commas.**
                 **OTHER CRITICAL INSTRUCTIONS:**
-                3.  **Intelligent SVG Diagram Generation:** If the topic requires a diagram, you MUST generate one. Set the page "type" to "diagram-data" and the "content" MUST be a string of valid, complete SVG code. The SVG must be responsive and have legible, non-overlapping text. Do NOT use <img> tags.
-                    **CRITICAL SVG VISUAL GUIDELINES:**
-                    - **Label Placement & Readability:** All text labels and annotations within the SVG MUST be clearly legible, adequately spaced, and positioned so they do NOT overlap with other elements.
-                    - **No Overflow:** Text and shapes MUST stay within the bounds of the SVG viewport.
-                    - **Visual Clarity & Simplicity:** Design the diagram to be clean, simple, and easy to understand.
-                    - **Responsiveness:** Use a \`viewBox\` attribute to ensure the SVG scales well.
-                    - **Font Size:** Use a reasonable font size that is easy to read.
-                    If no diagram is needed, set the page "type" to "text".
+                3.  **Intelligent SVG Diagram Generation:** If a diagram is needed, it should be clean, informative, and well-designed.
                 4.  ${languageInstruction}
                 5.  ${formatSpecificInstructions}
             `;
@@ -163,11 +150,11 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 ---
                 ${existingJsonString}
                 ---
-                You MUST adhere to all of the following original rules that were used to create it.
+                You MUST adhere to all of the original rules that were used to create it, especially the 'Professor/Author' persona and the Grade 7-12 audience focus.
                 ${studentLessonInstructions}
                 Return ONLY the complete, updated, and valid JSON object.`;
             } else {
-                finalPrompt = `You are an expert instructional designer creating a student-friendly textbook chapter.
+                finalPrompt = `You are an expert instructional designer and author, creating a deeply engaging, narrative-driven textbook chapter for a wide high school audience.
                 **Core Content Information:**
                 ---
                 **Topic:** "${formData.content}"
@@ -178,18 +165,25 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 "${formData.learningCompetencies}"
                 **Lesson Details:**
                 - **Number of Lessons to Generate:** ${formData.lessonCount}
+                
                 **CRITICAL LESSON TITLE RULE:**
-              A each "lessonTitle" within the "generated_lessons" array MUST be unique, engaging, and catchy.
-                The title MUST start with a specific prefix and include the lesson number.
-                - If the language is Filipino, the title MUST start with "Aralin #[Lesson Number]: ".
-                - If the language is English, the title MUST start with "Lesson #[Lesson Number]: ".
-                **CRITICAL PAGE COUNT INSTRUCTION:**
-                Your primary goal is to generate substantial and highly detailed content. The total number of pages across all generated lessons MUST be a minimum of 20. A "page" is a conceptual unit of approximately 200-300 words, or a detailed activity, or a complex SVG diagram. Distribute this content thoughtfully across the ${formData.lessonCount} lesson(s) you generate. Do not create short, superficial pages; instead, focus on depth, providing thorough explanations, rich examples, and engaging activities to ensure the final output is comprehensive and meets the 20-page minimum.
+                Each "lessonTitle" MUST be unique and intriguing, starting with "Lesson #[Lesson Number]: " (or "Aralin #[Lesson Number]: " for Filipino).
+
+                **CRITICAL PAGE COUNT AND NARRATIVE DEPTH INSTRUCTION:**
+                This is the most important instruction. You MUST generate a very substantial and comprehensive lesson with a minimum of **30 pages for EACH lesson**.
+                You will achieve this length by providing **immense depth and narrative richness**. Do not just state facts; tell the story behind them. To fill the pages, you MUST:
+                1.  **Explore Historical Context:** Discuss the origins of the ideas and the key people involved.
+                2.  **Delve into Real-World Applications:** Provide detailed examples of how this topic matters in technology, nature, or society.
+                3.  **Use Rich Analogies:** Use vivid, well-explained analogies and metaphors to make complex ideas intuitive.
+                4.  **Build a Narrative:** Structure the content like a story, with a clear beginning, a building of ideas, and a satisfying conclusion.
+                A "page" is a conceptual unit of about **200-300 words** of engaging, narrative-driven text, or a single complex diagram with a detailed explanation.
+
                 ${studentLessonInstructions}
+
                 **Final Output Structure:**
                 {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": ["Objective 1...", "Objective 2..."], "pages": [{"title": "...", "content": "...", "type": "text|diagram-data"}, ... ]}, ... ]}`;
             }
-            
+
             const aiText = await callGeminiWithLimitCheck(finalPrompt);
             const jsonText = extractJson(aiText);
             const parsedResponse = tryParseJson(jsonText);
@@ -204,7 +198,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             setIsGenerating(false);
         }
     };
-    
+
     const handleSave = async () => {
         const finalUnitId = unitId || selectedUnitId;
 
@@ -222,13 +216,13 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 
         try {
             const batch = writeBatch(db);
-            
+
             previewData.generated_lessons.forEach((lesson, index) => {
                 const newLessonRef = doc(collection(db, 'lessons'));
                 batch.set(newLessonRef, {
                     title: lesson.lessonTitle,
                     pages: lesson.pages || [],
-                    objectives: lesson.learningObjectives || [], 
+                    objectives: lesson.learningObjectives || [],
                     unitId: finalUnitId,
                     subjectId: subjectId,
                     contentType: "studentLesson",
@@ -238,7 +232,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             });
 
             await batch.commit();
-            
+
             showToast(`${previewData.generated_lessons.length} lesson(s) saved successfully!`, "success");
             onClose();
 
@@ -277,7 +271,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <div className="bg-white p-6 rounded-xl shadow-md space-y-4">
                                 <h3 className="font-bold text-lg text-slate-700 border-b pb-2">Core Content</h3>
-                                
+
                                 {availableUnits.length > 0 && !unitId && (
                                     <div>
                                         <label className="block text-sm font-medium text-slate-600 mb-1">Destination Unit</label>
@@ -294,7 +288,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                                         </select>
                                     </div>
                                 )}
-                                
+
                                 <div>
                                     <label className="block text-sm font-medium text-slate-600 mb-1">Main Content / Topic</label>
                                     <textarea placeholder="e.g., The Photosynthesis Process" name="content" value={formData.content} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" rows={3} />
@@ -321,7 +315,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                                         <option value="Filipino">Filipino</option>
                                     </select>
                                 </div>
-                                
+
                                 <div className="grid grid-cols-1 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-slate-600 mb-1">Number of Lessons</label>
@@ -340,7 +334,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                                         <h3 className="font-bold text-xl sticky top-0 bg-slate-100 py-2 z-10">{lesson.lessonTitle}</h3>
                                         {lesson.learningObjectives && lesson.learningObjectives.length > 0 && (
                                             <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-200 text-blue-800">
-                                                <p className="font-semibold mb-1">{currentObjectivesLabel}:</p> 
+                                                <p className="font-semibold mb-1">{currentObjectivesLabel}:</p>
                                                 <ul className="list-disc list-inside">
                                                     {lesson.learningObjectives.map((objective, objIndex) => (
                                                         <li key={objIndex}>{objective}</li>
@@ -356,7 +350,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                         </div>
                     )}
                 </div>
-                
+
                 <div className="pt-6 flex justify-between items-center border-t border-slate-200 mt-6">
                     {previewData ? (
                         <>
