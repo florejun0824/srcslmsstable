@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
 import { collection, query, where, onSnapshot, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
-import Spinner from '../common/Spinner';
+import InteractiveLoadingScreen from '../common/InteractiveLoadingScreen'; // Assuming this component exists from previous request
 import { XMarkIcon, AcademicCapIcon } from '@heroicons/react/24/outline';
 import LessonPage from './LessonPage';
 
@@ -86,7 +86,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             const referencesLabel = formData.language === 'Filipino' ? 'Mga Sanggunian' : "References";
             const answerKeyLabel = formData.language === 'Filipino' ? 'Susi sa Pagwawasto' : 'Answer Key';
 
-
+            // ✨ MODIFIED SECTION: Made instructions for objectives and introduction much stricter.
             const formatSpecificInstructions = `
                 **Persona and Tone:** Adopt the persona of an enthusiastic and knowledgeable teacher who makes learning fun. The language MUST be student-friendly, avoiding overly academic or dry phrasing. Use analogies and real-world connections to make concepts relatable.
 
@@ -96,19 +96,18 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 **CRITICAL HEADING RULE:**
                 Use clear, concise, and non-redundant headings and subheadings throughout the lesson. Each heading MUST represent a distinct main idea or sub-topic. Avoid repeating phrases or rephrasing the lesson title or main topic in subheadings. For example, if the lesson is "The Water Cycle," do not have subheadings like "Introduction to Water Cycle" or "Water Cycle Processes." Instead, use "Introduction" or "Key Processes." Ensure there is only ONE main heading per distinct section.
 
-                **Textbook Chapter Structure:** You MUST organize the lesson content in the following sequence:
-                1.  **${objectivesLabel} Section:** At the very beginning of EACH lesson, start with a single, clear heading for "${objectivesLabel}". Immediately following this heading, present a concise list of the specific learning objectives. Do NOT repeat the "${objectivesLabel}" heading within this section.
-                2.  **Engaging Introduction:** Start with a compelling introduction that hooks the reader.
-                3.  **Introductory Activity:** Immediately after the introduction, include a short, interactive warm-up activity labeled "${letsGetStartedLabel}". This could be a simple poll, a "What do you already know?" prompt, or a scenario-based question to activate prior knowledge.
+                **Textbook Chapter Structure:** You MUST organize the lesson content in the following sequence, ensuring no section's content bleeds into another:
+                1.  **Standalone ${objectivesLabel} Section:** The lesson's JSON output MUST include a "learningObjectives" array containing a list of objectives. This list should be displayed at the very beginning of the lesson content, before the introduction.
+                2.  **Engaging Introduction:** After the objectives, write a compelling introduction that hooks the reader. **CRITICAL: Do NOT repeat, rephrase, or include any learning objectives within the introduction or any other section.** The objectives belong ONLY in the dedicated "learningObjectives" array in the JSON.
+                3.  **Introductory Activity:** Immediately after the introduction, include a short, interactive warm-up activity labeled "${letsGetStartedLabel}".
                 4.  **Core Content Sections:** Present the main content, broken down with clear headings.
-                5.  **Embedded Activities:** After explaining a major concept, include a short "${checkUnderstandingLabel}" activity (e.g., 1-2 quick questions, a think-pair-share prompt).
+                5.  **Embedded Activities:** After explaining a major concept, include a short "${checkUnderstandingLabel}" activity.
                 6.  **${lessonSummaryLabel}:** A concise summary of the key takeaways.
-                7.  **${wrapUpLabel}/Conclusion:** Provide a clear "${wrapUpLabel}" or "Konklusyon" section that summarizes the main points learned and perhaps offers a concluding thought or next steps.
-                8.  **${endOfLessonAssessmentLabel}:** Conclude with a dedicated "${endOfLessonAssessmentLabel}" section containing 5-10 questions. You MUST provide a labeled "${answerKeyLabel}".
-                9.  **${referencesLabel}:** Include a "${referencesLabel}" section at the very end.
-                    **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide *only* real, verifiable academic or reputable web sources if you are confident they exist within your training data knowledge base for the specific facts mentioned. Prioritize foundational texts or widely accepted information. If you cannot confidently provide a real, specific reference for a point, then either:
-                    a. Omit the general reference and just provide specific, foundational texts for the overall topic..
-                    Under NO circumstances should you invent illusory authors, titles, journals, or URLs. Hallucinated references are unacceptable.
+                7.  **${wrapUpLabel}/Conclusion:** Provide a clear conclusion that summarizes the main points.
+                8.  **${endOfLessonAssessmentLabel}:** Conclude with a dedicated assessment section containing 5-10 questions and a labeled "${answerKeyLabel}".
+                9.  **Final Page - ${referencesLabel}:** The VERY LAST page in the "pages" array for EACH lesson MUST be dedicated *exclusively* to references. This page object MUST have its "title" set to "${referencesLabel}" and its "content" must only list the references. Do not mix references with any other content on this final page.
+                
+                **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide *only* real, verifiable academic or reputable web sources if you are confident they exist within your training data knowledge base. Under NO circumstances should you invent illusory authors, titles, journals, or URLs.
             `;
 
             const languageInstruction = `
@@ -130,12 +129,11 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 3.  **Intelligent SVG Diagram Generation:** If the topic requires a diagram, you MUST generate one. Set the page "type" to "diagram-data" and the "content" MUST be a string of valid, complete SVG code. The SVG must be responsive and have legible, non-overlapping text. Do NOT use <img> tags.
                     
                     **CRITICAL SVG VISUAL GUIDELINES:**
-                    - **Label Placement & Readability:** All text labels and annotations within the SVG MUST be clearly legible, adequately spaced, and positioned so they do NOT overlap with other elements (lines, shapes, or other text). Ensure labels are directly associated with the element they describe.
-                    - **No Overflow:** Text and shapes MUST stay within the bounds of the SVG viewport. Do not let elements overflow.
-                    - **Visual Clarity & Simplicity:** Design the diagram to be clean, simple, and easy to understand. Use clear lines, distinct shapes, and a consistent color palette (grayscale or minimal color is fine if appropriate). Avoid unnecessary complexity or clutter.
-                    - **Responsiveness:** Use relative units (e.g., percentages, \`em\`, \`ex\` if possible) or a \`viewBox\` attribute to ensure the SVG scales well.
-                    - **Font Size:** Use a reasonable font size that is easy to read. Avoid excessively small text.
-                    - **Logical Layout:** Arrange elements in a logical and intuitive manner, reflecting the process or relationship being illustrated.
+                    - **Label Placement & Readability:** All text labels and annotations within the SVG MUST be clearly legible, adequately spaced, and positioned so they do NOT overlap with other elements.
+                    - **No Overflow:** Text and shapes MUST stay within the bounds of the SVG viewport.
+                    - **Visual Clarity & Simplicity:** Design the diagram to be clean, simple, and easy to understand.
+                    - **Responsiveness:** Use a \`viewBox\` attribute to ensure the SVG scales well.
+                    - **Font Size:** Use a reasonable font size that is easy to read.
 
                     If no diagram is needed, set the page "type" to "text".
                 4.  ${languageInstruction}
@@ -163,7 +161,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 **Content Standard:** "${formData.contentStandard}"
                 **Performance Standard:** "${formData.performanceStandard}"
                 ---
-                **Desired Learning Competencies for this topic (incorporate these into the Learning Objectives Section):**
+                **Desired Learning Competencies for this topic (these will form the 'learningObjectives' array):**
                 "${formData.learningCompetencies}"
 
                 **Lesson Details:**
@@ -175,17 +173,15 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 The title MUST start with a specific prefix and include the lesson number.
                 - If the language is Filipino, the title MUST start with "Aralin #[Lesson Number]: ".
                 - If the language is English, the title MUST start with "Lesson #[Lesson Number]: ".
-                For example, "Aralin 1: Ang Kahalagahan ng Tubig" or "Lesson 2: The Importance of Water".
-                Avoid generic or overly descriptive titles. Aim for titles that pique student interest and clearly indicate the lesson's main focus.
-				
+                
 				**CRITICAL PAGE COUNT INSTRUCTION:**
-                Each lesson's content (all 'pages' combined) MUST approximate the 'Target Pages Per Lesson' requested. Consider a "page" as a conceptual unit that contains roughly 150-250 words of prose, or equivalent content like a small activity or diagram. Adjust the depth and breadth of the content across the pages within a lesson to meet this target. If a topic is very simple, you might combine some structural elements onto fewer pages. If it's complex, elaborate more to fill the pages. The final number of 'pages' for each lesson should be as close as possible to the 'Target Pages Per Lesson'.
+                Each lesson's content (all 'pages' combined) MUST approximate the 'Target Pages Per Lesson' requested. Consider a "page" as a conceptual unit that contains roughly 150-250 words of prose, or equivalent content like a small activity or diagram. Adjust the depth and breadth of the content across the pages within a lesson to meet this target. The final number of 'pages' for each lesson should be as close as possible to the 'Target Pages Per Lesson'.
 				
                 
                 ${studentLessonInstructions}
 
                 **Final Output Structure:**
-                {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": ["..."], "pages": [{"title": "...", "content": "...", "type": "text|diagram-data"}, ... ]}, ... ]}`;
+                {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": ["Objective 1...", "Objective 2..."], "pages": [{"title": "...", "content": "...", "type": "text|diagram-data"}, ... ]}, ... ]}`;
             }
             
             const aiText = await callGeminiWithLimitCheck(finalPrompt);
@@ -224,7 +220,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 batch.set(newLessonRef, {
                     title: lesson.lessonTitle,
                     pages: lesson.pages || [],
-                    // Ensure learningObjectives are saved
+                    // This correctly saves the 'learningObjectives' array from the JSON into the 'objectives' field in Firestore.
                     objectives: lesson.learningObjectives || [], 
                     unitId: unitId,
                     subjectId: subjectId,
@@ -249,7 +245,6 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 
     const isValidPreview = previewData && !previewData.error && Array.isArray(previewData.generated_lessons);
 
-    // Determine the label for Learning Objectives based on selected language for UI display
     const currentObjectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
 
     return (
@@ -257,9 +252,8 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
             <Dialog.Panel className="relative bg-slate-50 p-8 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
                 {(isGenerating || isSaving) && (
-                    <div className="absolute inset-0 bg-white/80 flex flex-col justify-center items-center z-50 rounded-2xl">
-                        <Spinner />
-                        <p className="mt-2 text-slate-600">{isGenerating ? 'AI is generating content...' : 'Saving...'}</p>
+                     <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl">
+                        <InteractiveLoadingScreen topic={formData.content || "new ideas"} isSaving={isSaving} />
                     </div>
                 )}
                 <div className="flex justify-between items-start mb-6">
@@ -322,10 +316,9 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                                 {isValidPreview ? previewData.generated_lessons.map((lesson, index) => (
                                     <div key={index}>
                                         <h3 className="font-bold text-xl sticky top-0 bg-slate-100 py-2 z-10">{lesson.lessonTitle}</h3>
-                                        {/* Display Learning Objectives here */}
+                                        {/* This block correctly displays the single 'learningObjectives' array at the top of the preview. */}
                                         {lesson.learningObjectives && lesson.learningObjectives.length > 0 && (
                                             <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-200 text-blue-800">
-                                                {/* Use the dynamically translated label here */}
                                                 <p className="font-semibold mb-1">{currentObjectivesLabel}:</p> 
                                                 <ul className="list-disc list-inside">
                                                     {lesson.learningObjectives.map((objective, objIndex) => (
