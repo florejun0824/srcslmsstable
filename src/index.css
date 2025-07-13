@@ -214,3 +214,6 @@ background-color: #333 !important;
 .animate-fade-in {
   animation: fade-in 3s ease-in-out;
 }
+.tremor-dropdown-menu {
+  z-index: 9999 !important;
+}

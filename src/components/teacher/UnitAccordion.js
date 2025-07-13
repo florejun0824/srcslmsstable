@@ -51,17 +51,14 @@ import AiGenerationHub from './AiGenerationHub';
 import Spinner from '../common/Spinner';
 
 // --- Helper Functions & Sub-components ---
-// MODIFIED: This function now uses a more robust conversion method for complex SVGs.
 const convertSvgStringToPngDataUrl = (svgString) => {
     return new Promise((resolve, reject) => {
         let correctedSvgString = svgString;
 
-        // 1. Ensure the SVG has the required xmlns attribute.
         if (!correctedSvgString.includes('xmlns=')) {
             correctedSvgString = correctedSvgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
         }
 
-        // 2. Inject default styles to handle diagrams that use CSS classes.
         const defaultStyles = `
             <style>
                 .center-node { fill: #cce5ff; stroke: #007bff; stroke-width: 2; }
@@ -70,7 +67,6 @@ const convertSvgStringToPngDataUrl = (svgString) => {
                 .arrow { stroke: #555; stroke-width: 2px; marker-end: url(#arrowhead); }
             </style>
         `;
-        // Ensure style is injected after the potential <defs> tag
         if (correctedSvgString.includes('</defs>')) {
              correctedSvgString = correctedSvgString.replace('</defs>', `</defs>${defaultStyles}`);
         } else {
@@ -78,8 +74,6 @@ const convertSvgStringToPngDataUrl = (svgString) => {
         }
         
         const img = new Image();
-
-        // 3. Use a URL-encoded data URI, which is more robust than a Blob for complex SVGs.
         const dataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(correctedSvgString)}`;
 
         img.onload = () => {
@@ -165,7 +159,46 @@ const ActionMenu = ({ children }) => {
 
 const MenuItem = ({ icon: Icon, text, onClick, disabled = false }) => ( <button onClick={onClick} disabled={disabled} className="flex items-center w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"> <Icon className={`h-5 w-5 mr-3 ${disabled ? 'text-gray-400 animate-spin' : ''}`} /> <span>{text}</span> </button> );
 const ColumnHeader = ({ title, icon: Icon, onAdd }) => ( <div className="flex justify-between items-center mb-4"> <div className="flex items-center gap-2"> <Icon className="w-5 h-5 text-gray-500" /> <h3 className="font-semibold text-gray-800">{title}</h3> </div> <button onClick={onAdd} className="flex items-center justify-center w-7 h-7 bg-gray-200 text-gray-600 rounded-full hover:bg-blue-500 hover:text-white transition-all" title={`Add New ${title.slice(0, -1)}`}> <PlusIcon className="w-4 h-4" /> </button> </div> );
-const QuizItem = ({ quiz, onEdit, onDelete, onView }) => ( <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center group mb-2"> <div className="flex items-center gap-3"> <ClipboardDocumentListIcon className="w-5 h-5 text-purple-500 flex-shrink-0" /> <p className="text-sm text-gray-800 font-medium">{quiz.title}</p> </div> <div className="flex items-center gap-1"> <button onClick={onView} className="p-1.5 text-gray-500 hover:text-blue-600 rounded-full" title="View Quiz"><EyeIcon className="h-5 w-5" /></button> <ActionMenu> <MenuItem icon={PencilIcon} text="Edit Quiz" onClick={() => onEdit(quiz)} /> <MenuItem icon={TrashIcon} text="Delete Quiz" onClick={onDelete} /> </ActionMenu> </div> </div> );
+
+function SortableQuizItem({ quiz, unitId, onEdit, onDelete, onView }) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({
+        id: quiz.id,
+        data: { type: 'quiz', unitId: unitId }
+    });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} {...attributes} className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center group mb-2 touch-none">
+            <div className="flex items-center gap-3">
+                <button {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600">
+                    <Bars3Icon className="h-5 w-5" />
+                </button>
+                <ClipboardDocumentListIcon className="w-5 h-5 text-purple-500 flex-shrink-0" />
+                <p className="text-sm text-gray-800 font-medium">{quiz.title}</p>
+            </div>
+            <div className="flex items-center gap-1">
+                <button onClick={onView} className="p-1.5 text-gray-500 hover:text-blue-600 rounded-full" title="View Quiz">
+                    <EyeIcon className="h-5 w-5" />
+                </button>
+                <ActionMenu>
+                    <MenuItem icon={PencilIcon} text="Edit Quiz" onClick={() => onEdit(quiz)} />
+                    <MenuItem icon={TrashIcon} text="Delete Quiz" onClick={onDelete} />
+                </ActionMenu>
+            </div>
+        </div>
+    );
+}
+
 function SortableLessonItem({ lesson, unitId, exportingLessonId, onExport, onExportUlpPdf, onExportAtgPdf, ...props }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: lesson.id, data: { type: 'lesson', unitId: unitId } });
     const style = { transform: CSS.Transform.toString(transform), transition };
@@ -267,9 +300,12 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                 setLessons(prev => ({ ...prev, [unit.id]: fetchedLessons }));
             });
             unsubscribers.push(unsubLessons);
+            
             const quizQuery = query(collection(db, 'quizzes'), where('unitId', '==', unit.id));
             const unsubQuizzes = onSnapshot(quizQuery, snapshot => {
-                setQuizzes(prev => ({ ...prev, [unit.id]: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) }));
+                const fetchedQuizzes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                fetchedQuizzes.sort(customSort);
+                setQuizzes(prev => ({ ...prev, [unit.id]: fetchedQuizzes }));
             });
             unsubscribers.push(unsubQuizzes);
         });
@@ -282,6 +318,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     const handleEditQuiz = (quizToEdit) => { handleOpenQuizModal(setEditQuizModalOpen, quizToEdit); };
     const handleOpenAiQuizModal = (lesson) => { setLessonForAiQuiz(lesson); setAiQuizModalOpen(true); };
     const handleOpenAiHub = (unit) => { setUnitForAi(unit); setIsAiHubOpen(true); };
+
 	async function handleDragEnd(event) {
 	    const { active, over } = event;
 	    if (!over) return;
@@ -346,7 +383,28 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	            await batch.commit();
 	        }
 	    }
+        
+        if (activeType === 'quiz') {
+            const sourceUnitId = active.data.current.unitId;
+            const destinationUnitId = over.data.current?.unitId;
+            if (sourceUnitId === destinationUnitId) {
+                const currentQuizzes = quizzes[sourceUnitId];
+                const oldIndex = currentQuizzes.findIndex(q => q.id === active.id);
+                const newIndex = currentQuizzes.findIndex(q => q.id === over.id);
+                if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+                    const reorderedQuizzes = arrayMove(currentQuizzes, oldIndex, newIndex);
+                    setQuizzes(prev => ({ ...prev, [sourceUnitId]: reorderedQuizzes }));
+                    const batch = writeBatch(db);
+                    reorderedQuizzes.forEach((quiz, index) => {
+                        const quizRef = doc(db, 'quizzes', quiz.id);
+                        batch.update(quizRef, { order: index });
+                    });
+                    await batch.commit();
+                }
+            }
+        }
 	}
+
 	const handleExportDocx = async (lesson) => {
 	    if (isExportingRef.current) return;
 	    isExportingRef.current = true;
@@ -399,6 +457,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        setExportingLessonId(null);
 	    }
 	};
+    
 	const handleExportUlpAsPdf = (lesson) => {
 	    if (exportingLessonId) return;
 	    setExportingLessonId(lesson.id);
@@ -414,6 +473,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	    printWindow.document.close();
 	    setTimeout(() => { printWindow.focus(); printWindow.print(); setExportingLessonId(null); }, 500);
 	};
+    
 	const handleExportAtgPdf = (lesson) => {
 	    if (exportingLessonId) return;
 	    setExportingLessonId(lesson.id);
@@ -447,13 +507,84 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                         if (!lessonsForActiveUnit || !quizzesForActiveUnit) {
                             return <div className="w-full flex justify-center items-center p-20"><Spinner /></div>;
                         }
-                        return (<div><button onClick={() => onSetActiveUnit(null)} className="flex items-center gap-2 mb-4 font-semibold text-gray-600 hover:text-gray-900"><ArrowUturnLeftIcon className="w-4 h-4" />Back to All Units</button><div className="bg-slate-50 p-4 md:p-6 rounded-xl border"><div className="grid md:grid-cols-2 gap-6"><div className="bg-white p-4 rounded-xl border shadow-sm"><ColumnHeader title="Lessons" icon={DocumentTextIcon} onAdd={() => handleOpenUnitModal(setAddLessonModalOpen, activeUnit)} /><SortableContext items={lessonsForActiveUnit.map(l => l.id)} strategy={verticalListSortingStrategy}>{lessonsForActiveUnit.length > 0 ? (lessonsForActiveUnit.map(lesson => <SortableLessonItem key={lesson.id} lesson={lesson} unitId={activeUnit.id} onView={() => handleOpenLessonModal(setViewLessonModalOpen, lesson)} onEdit={() => handleOpenLessonModal(setEditLessonModalOpen, lesson)} onDelete={() => onInitiateDelete('lesson', lesson.id)} onGenerateQuiz={() => handleOpenAiQuizModal(lesson)} isAiGenerating={isAiGenerating} onExport={handleExportDocx} onExportUlpPdf={handleExportUlpAsPdf} onExportAtgPdf={handleExportAtgPdf} exportingLessonId={exportingLessonId} />)) : <p className="text-sm text-center text-gray-500 p-4">No lessons yet.</p>}</SortableContext></div><div className="bg-white p-4 rounded-xl border shadow-sm"><ColumnHeader title="Quizzes" icon={ClipboardDocumentListIcon} onAdd={() => handleOpenUnitModal(setAddQuizModalOpen, activeUnit)} /><div className="space-y-2">{quizzesForActiveUnit.length > 0 ? (quizzesForActiveUnit.map(quiz => <QuizItem key={quiz.id} quiz={quiz} onEdit={() => handleEditQuiz(quiz)} onDelete={() => onInitiateDelete('quiz', quiz.id, quiz.lessonId)} onView={() => handleOpenQuizModal(setViewQuizModalOpen, quiz)} />)) : <p className="text-sm text-center text-gray-500 p-4">No quizzes yet.</p>}</div></div></div></div></div>);
+                        return (
+                            <div>
+                                <button onClick={() => onSetActiveUnit(null)} className="flex items-center gap-2 mb-4 font-semibold text-gray-600 hover:text-gray-900">
+                                    <ArrowUturnLeftIcon className="w-4 h-4" />Back to All Units
+                                </button>
+                                <div className="bg-slate-50 p-4 md:p-6 rounded-xl border">
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        <div className="bg-white p-4 rounded-xl border shadow-sm">
+                                            <ColumnHeader title="Lessons" icon={DocumentTextIcon} onAdd={() => handleOpenUnitModal(setAddLessonModalOpen, activeUnit)} />
+                                            <SortableContext items={lessonsForActiveUnit.map(l => l.id)} strategy={verticalListSortingStrategy}>
+                                                {lessonsForActiveUnit.length > 0 ? (
+                                                    lessonsForActiveUnit.map(lesson => 
+                                                        <SortableLessonItem 
+                                                            key={lesson.id} 
+                                                            lesson={lesson} 
+                                                            unitId={activeUnit.id} 
+                                                            onView={() => handleOpenLessonModal(setViewLessonModalOpen, lesson)} 
+                                                            onEdit={() => handleOpenLessonModal(setEditLessonModalOpen, lesson)} 
+                                                            onDelete={() => onInitiateDelete('lesson', lesson.id)} 
+                                                            onGenerateQuiz={() => handleOpenAiQuizModal(lesson)} 
+                                                            isAiGenerating={isAiGenerating} 
+                                                            onExport={handleExportDocx} 
+                                                            onExportUlpPdf={handleExportUlpAsPdf} 
+                                                            onExportAtgPdf={handleExportAtgPdf} 
+                                                            exportingLessonId={exportingLessonId} 
+                                                        />
+                                                    )
+                                                ) : (
+                                                    <p className="text-sm text-center text-gray-500 p-4">No lessons yet.</p>
+                                                )}
+                                            </SortableContext>
+                                        </div>
+                                        <div className="bg-white p-4 rounded-xl border shadow-sm">
+                                            <ColumnHeader title="Quizzes" icon={ClipboardDocumentListIcon} onAdd={() => handleOpenUnitModal(setAddQuizModalOpen, activeUnit)} />
+                                            <SortableContext items={quizzesForActiveUnit.map(q => q.id)} strategy={verticalListSortingStrategy}>
+                                                <div className="space-y-2">
+                                                    {quizzesForActiveUnit.length > 0 ? (
+                                                        quizzesForActiveUnit.map(quiz => 
+                                                            <SortableQuizItem
+                                                                key={quiz.id}
+                                                                quiz={quiz}
+                                                                unitId={activeUnit.id}
+                                                                onEdit={() => handleEditQuiz(quiz)}
+                                                                onDelete={() => onInitiateDelete('quiz', quiz.id, quiz.lessonId)}
+                                                                onView={() => handleOpenQuizModal(setViewQuizModalOpen, quiz)}
+                                                            />
+                                                        )
+                                                    ) : (
+                                                        <p className="text-sm text-center text-gray-500 p-4">No quizzes yet.</p>
+                                                    )}
+                                                </div>
+                                            </SortableContext>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
                     })()
                 ) : (
-                    units.length > 0 ? (<SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{units.map((unit, index) => (
-                        <SortableUnitCard key={unit.id} unit={unit} onSelect={onSetActiveUnit} onEdit={(unitToEdit) => handleOpenUnitModal(setEditUnitModalOpen, unitToEdit)} onDelete={(unitToDelete) => handleOpenUnitModal(setDeleteUnitModalOpen, unitToDelete)} onOpenAiHub={handleOpenAiHub} visuals={unitVisuals[index % unitVisuals.length]} />
-                        ))}</div></SortableContext>
-                    ) : (<p className="text-center text-gray-500 py-10">No units in this subject yet. Add one to get started!</p>)
+                    units.length > 0 ? (
+                        <SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {units.map((unit, index) => (
+                                    <SortableUnitCard 
+                                        key={unit.id} 
+                                        unit={unit} 
+                                        onSelect={onSetActiveUnit} 
+                                        onEdit={(unitToEdit) => handleOpenUnitModal(setEditUnitModalOpen, unitToEdit)} 
+                                        onDelete={(unitToDelete) => handleOpenUnitModal(setDeleteUnitModalOpen, unitToDelete)} 
+                                        onOpenAiHub={handleOpenAiHub} 
+                                        visuals={unitVisuals[index % unitVisuals.length]} 
+                                    />
+                                ))}
+                            </div>
+                        </SortableContext>
+                    ) : (
+                        <p className="text-center text-gray-500 py-10">No units in this subject yet. Add one to get started!</p>
+                    )
                 )}
             </DndContext>
 

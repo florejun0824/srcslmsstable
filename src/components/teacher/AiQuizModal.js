@@ -1,22 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogPanel, Title, Button, TextInput, Select, SelectItem, NumberInput, Textarea } from '@tremor/react';
-import { SparklesIcon, ArrowUturnLeftIcon, CheckCircleIcon } from '@heroicons/react/24/solid';
+import { Dialog, DialogPanel, Title, Button, NumberInput, Textarea, Subtitle } from '@tremor/react';
+import { SparklesIcon, ArrowUturnLeftIcon, CheckCircleIcon, LanguageIcon, ListBulletIcon, HashtagIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/solid';
 import { db } from '../../services/firebase';
 import { doc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
-import Spinner from '../common/Spinner';
+import QuizLoadingScreen from './QuizLoadingScreen';
 import ContentRenderer from './ContentRenderer';
+
+// Helper for dynamic button classes
+const getButtonClasses = (isActive) => {
+  const baseClasses = "flex-1 rounded-md p-2 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500";
+  if (isActive) {
+    return `${baseClasses} bg-indigo-600 text-white shadow-sm hover:bg-indigo-700`;
+  }
+  return `${baseClasses} bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50`;
+};
 
 export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson }) {
     const { showToast } = useToast();
-
     const [step, setStep] = useState(1);
     const [itemCount, setItemCount] = useState(10);
     const [quizType, setQuizType] = useState('multiple-choice');
+    const [language, setLanguage] = useState('English');
     const [distribution, setDistribution] = useState({ 'multiple-choice': 10, 'true-false': 0, 'identification': 0 });
     const [revisionPrompt, setRevisionPrompt] = useState('');
-
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedQuiz, setGeneratedQuiz] = useState(null);
     const [error, setError] = useState('');
@@ -27,6 +35,7 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
             setStep(1);
             setItemCount(10);
             setQuizType('multiple-choice');
+            setLanguage('English');
             setDistribution({ 'multiple-choice': 10, 'true-false': 0, 'identification': 0 });
             setRevisionPrompt('');
             setIsGenerating(false);
@@ -36,11 +45,22 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
         }
     }, [isOpen]);
 
+    useEffect(() => {
+        if (quizType !== 'mixed') {
+            const newDistribution = { 'multiple-choice': 0, 'true-false': 0, 'identification': 0 };
+            newDistribution[quizType] = itemCount;
+            setDistribution(newDistribution);
+        } else {
+            setDistribution({ 'multiple-choice': itemCount, 'true-false': 0, 'identification': 0 });
+        }
+    }, [itemCount, quizType]);
+
+
     const handleDistributionChange = (type, value) => {
         const newDistribution = { ...distribution, [type]: value };
         const total = Object.values(newDistribution).reduce((sum, val) => sum + val, 0);
         if (total > itemCount) {
-            setError(`The total number of items cannot exceed ${itemCount}.`);
+            setError(`The total number of items (${total}) cannot exceed ${itemCount}.`);
         } else {
             setError('');
         }
@@ -50,7 +70,11 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
     const constructPrompt = (isRevision = false) => {
         if (isRevision && generatedQuiz) {
             const quizJson = JSON.stringify(generatedQuiz, null, 2);
-            return `You are a quiz editor. The user has provided a quiz in JSON format and an instruction for revision. Your task is to apply the revision and return the **complete, updated, and valid JSON object** of the quiz. Do not add any commentary outside the JSON block.
+            return `You are a quiz editor. The user has provided a quiz in JSON format and an instruction for revision. Your task is to apply the revision and return the **complete, updated, and valid JSON object** of the quiz. 
+            
+            **CRITICAL LANGUAGE RULE:** The entire revised quiz (questions, options, explanations) MUST be in **${language}**.
+            
+            Do not add any commentary outside the JSON block.
             
             **Original Quiz JSON:**
             \`\`\`json
@@ -74,11 +98,12 @@ ${lessonContentForPrompt}
 ---
 
 **QUIZ REQUIREMENTS:**
-1.  **Total Items:** The quiz must have exactly ${itemCount} items.
-2.  **Difficulty Levels (Bloom's Taxonomy):** You must generate questions based on these two difficulty levels, with a 50/50 split between them:
+1.  **CRITICAL LANGUAGE RULE:** You MUST generate the entire quiz, including all questions, choices, and explanations, exclusively in the following language: **${language}**. Do not mix languages under any circumstances.
+2.  **Total Items:** The quiz must have exactly ${itemCount} items.
+3.  **Difficulty Levels (Bloom's Taxonomy):** You must generate questions based on these two difficulty levels, with a 50/50 split between them:
     - **easy:** Corresponds to the 'Remembering' and 'Understanding' levels. These questions test for recall of facts and basic concepts.
     - **comprehension:** Corresponds to the 'Applying' and 'Analyzing' levels. These questions require using information in new situations or drawing connections among ideas.
-3.  **Question Types:**`;
+4.  **Question Types:**`;
 
         if (quizType === 'mixed') {
             prompt += ` The quiz should be a mix of types with the following distribution: ${distribution['multiple-choice']} multiple-choice, ${distribution['true-false']} true/false, and ${distribution['identification']} identification items.\n`;
@@ -92,12 +117,12 @@ Return the response as a single, valid JSON object. The object must have a "titl
 
 **For 'multiple-choice' questions, follow this CRITICAL OPTION ORDERING RULE:**
 You MUST order the choices in the "options" array according to the following logic:
-1.  **Alphabetical:** If the choices are single words (e.g., ["Apple", "Banana", "Cherry", "Date"]).
+1.  **Alphabetical:** If the choices are single words.
 2.  **Pyramid Style (Shortest to Longest):** If the choices are sentences or long phrases.
-3.  **Numerical Sequence:** If the choices are numbers (e.g., [10, 25, 50, 100]).
-4.  **Chronological Order:** If the choices are dates (e.g., ["1990", "2001", "2015", "2023"]).
+3.  **Numerical Sequence:** If the choices are numbers.
+4.  **Chronological Order:** If the choices are dates.
 
-**FINAL VALIDATION STEP:** Before creating the final JSON, review every question. If a question violates the **ABSOLUTE RULE**, you MUST rewrite it.
+**FINAL VALIDATION STEP:** Before creating the final JSON, review every question. If a question violates the **ABSOLUTE RULE** or the **CRITICAL LANGUAGE RULE**, you MUST rewrite it.
 
 ---
 **JSON Schema:**
@@ -121,31 +146,19 @@ You MUST order the choices in the "options" array according to the following log
         if (quizType === 'mixed' && !isRevision) {
             const totalDistributed = Object.values(distribution).reduce((sum, val) => sum + val, 0);
             if (totalDistributed !== itemCount) {
-                setError(`The distribution total (${totalDistributed}) must match the total item count (${itemCount}).`);
+                setError(`The distribution total (${totalDistributed}) must match the total item count (${itemCount}). Please adjust the numbers.`);
                 return;
             }
         }
         setError('');
         setIsGenerating(true);
-        showToast("AI is processing the lesson...", "info");
 
         try {
-            let currentKeyPoints = keyPoints;
-            if (!currentKeyPoints && !isRevision) {
-                const lessonContentForPrompt = lesson.pages.map(page => `Page Title: ${page.title}\nPage Content: ${page.content}`).join('\n\n');
-                const summarizationPrompt = `Read the following text and extract all key facts, definitions, concepts, and important information. Output this information as a neutral, structured list or summary of key points. Do not add any conversational text or mention the source.
-
-                SOURCE TEXT:
-                ---
-                ${lessonContentForPrompt}
-                ---
-                KEY POINTS:`;
-
-                currentKeyPoints = await callGeminiWithLimitCheck(summarizationPrompt);
-                setKeyPoints(currentKeyPoints);
+            if (!isRevision) {
+              const lessonContentForPrompt = lesson.pages.map(page => `Page Title: ${page.title}\nPage Content: ${page.content}`).join('\n\n');
+              const summarizationPrompt = `Read the following text and extract all key facts, definitions, concepts, and important information. Output this information as a neutral, structured list of key points, written exclusively in **${language}**. Do not add any conversational text or mention the source.\n\nSOURCE TEXT:\n---\n${lessonContentForPrompt}\n---\nKEY POINTS:`;
+              setKeyPoints(await callGeminiWithLimitCheck(summarizationPrompt));
             }
-
-            showToast(isRevision ? "Regenerating quiz..." : "Key points extracted. Generating quiz...", "info");
 
             const quizGenerationPrompt = constructPrompt(isRevision);
             const aiText = await callGeminiWithLimitCheck(quizGenerationPrompt);
@@ -166,110 +179,152 @@ You MUST order the choices in the "options" array according to the following log
         }
     };
 
-    const handleSaveQuiz = async () => {
-        if (!generatedQuiz || !lesson) return;
-        setIsGenerating(true);
-        try {
-            // ✅ MODIFIED: Logic to create the new title
-            const cleanedLessonTitle = lesson.title.replace(/Lesson\s*\d+:\s*/i, '').trim();
-            const newQuizTitle = `Quiz: ${cleanedLessonTitle}`;
 
-            const quizRef = doc(collection(db, 'quizzes'));
-            
-            // ✅ MODIFIED: Save the new title instead of the one from the AI
-            await setDoc(quizRef, {
-                ...generatedQuiz,
-                title: newQuizTitle,
-                unitId,
-                subjectId,
-                lessonId: lesson.id,
-                createdAt: serverTimestamp(),
-                createdBy: 'AI'
-            });
+	const handleSaveQuiz = async () => {
+	    if (!generatedQuiz || !lesson) return;
+	    setIsGenerating(true);
+	    try {
+	        const cleanedLessonTitle = lesson.title.replace(/Lesson\s*\d+:\s*/i, '').trim();
+	        const newQuizTitle = `Quiz: ${cleanedLessonTitle}`;
 
-            setStep(4);
-            showToast("Quiz saved successfully!", "success");
-        } catch (err) {
-            console.error("Error saving quiz:", err);
-            showToast("Failed to save the quiz to the database.", "error");
-        } finally {
-            setIsGenerating(false);
-        }
-    };
+	        const quizRef = doc(collection(db, 'quizzes'));
+        
+	        await setDoc(quizRef, {
+	            ...generatedQuiz,
+	            title: newQuizTitle,
+	            language: language,
+	            // ✨ FIX: Prioritize the unitId from the lesson object for reliability.
+	            unitId: lesson.unitId || unitId, 
+	            subjectId,
+	            lessonId: lesson.id,
+	            createdAt: serverTimestamp(),
+	            createdBy: 'AI'
+	        });
 
+	        setStep(4);
+	        showToast("Quiz saved successfully!", "success");
+	    } catch (err) {
+	        console.error("Error saving quiz:", err);
+	        showToast("Failed to save the quiz to the database.", "error");
+	    } finally {
+	        setIsGenerating(false);
+	    }
+	};
     const renderStepContent = () => {
+        const questionTypes = [
+            { id: 'multiple-choice', name: 'Multiple Choice' },
+            { id: 'true-false', name: 'True/False' },
+            { id: 'identification', name: 'Identification' },
+            { id: 'mixed', name: 'Mixed Types' },
+        ];
+
         switch (step) {
             case 1:
+                const totalDistributed = Object.values(distribution).reduce((sum, val) => sum + val, 0);
                 return (
-                    <div className="space-y-4">
-                        <Title>Step 1: Configure Quiz</Title>
-                        <p className="text-sm text-gray-600">Generating quiz for lesson: <span className="font-semibold">{lesson?.title}</span></p>
-                        <div>
-                            <label className="text-sm font-medium text-gray-700">Number of Items</label>
-                            <NumberInput value={itemCount} onValueChange={setItemCount} min={1} max={50} />
+                    <div className="space-y-6">
+                        <div className="text-center">
+                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
+                               <ClipboardDocumentListIcon className="h-7 w-7 text-indigo-600" aria-hidden="true" />
+                            </div>
+                            <Title className="mt-4">AI Quiz Generator</Title>
+                            <Subtitle>Customize the quiz for: <span className="font-semibold text-gray-700">{lesson?.title}</span></Subtitle>
                         </div>
-                        <div>
-                            <label className="text-sm font-medium text-gray-700">Question Type</label>
-                            <Select value={quizType} onValueChange={setQuizType}>
-                                <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
-                                <SelectItem value="true-false">True/False</SelectItem>
-                                <SelectItem value="identification">Identification</SelectItem>
-                                <SelectItem value="mixed">Mixed</SelectItem>
-                            </Select>
+                        <div className="space-y-5 rounded-lg bg-slate-50 p-4 border">
+                            <div>
+                                <label className="text-sm font-semibold text-gray-900 flex items-center mb-2">
+                                    <LanguageIcon className="h-5 w-5 mr-2 text-indigo-600" /> Language
+                                </label>
+                                <div className="flex space-x-2">
+                                    <button type="button" onClick={() => setLanguage('English')} className={getButtonClasses(language === 'English')}>English</button>
+                                    <button type="button" onClick={() => setLanguage('Filipino')} className={getButtonClasses(language === 'Filipino')}>Filipino</button>
+                                </div>
+                            </div>
+                             <div>
+                                <label htmlFor="item-count" className="text-sm font-semibold text-gray-900 flex items-center mb-2">
+                                    <HashtagIcon className="h-5 w-5 mr-2 text-indigo-600" /> Number of Items
+                                </label>
+                                <NumberInput id="item-count" value={itemCount} onValueChange={setItemCount} min={1} max={50} />
+                            </div>
+                             <div>
+                                <label className="text-sm font-semibold text-gray-900 flex items-center mb-2">
+                                    <ListBulletIcon className="h-5 w-5 mr-2 text-indigo-600" /> Question Type
+                                </label>
+                                 <div className="grid grid-cols-2 gap-2">
+                                    {questionTypes.map((type) => (
+                                         <button key={type.id} type="button" onClick={() => setQuizType(type.id)} className={getButtonClasses(quizType === type.id)}>
+                                            {type.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
+                        {quizType === 'mixed' && (
+                             <div className="space-y-4 pt-5 border-t border-dashed">
+                                <h3 className="text-base font-semibold text-gray-800">Item Distribution</h3>
+                                 <p className="text-sm text-gray-600">Assign the number of items for each type. The total must be {itemCount}.</p>
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="text-sm font-medium text-gray-700">Multiple Choice</label>
+                                        <NumberInput value={distribution['multiple-choice']} onValueChange={v => handleDistributionChange('multiple-choice', v)} min={0} />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-gray-700">True/False</label>
+                                        <NumberInput value={distribution['true-false']} onValueChange={v => handleDistributionChange('true-false', v)} min={0} />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-gray-700">Identification</label>
+                                        <NumberInput value={distribution['identification']} onValueChange={v => handleDistributionChange('identification', v)} min={0} />
+                                    </div>
+                                </div>
+                                 {(totalDistributed !== itemCount) && (
+                                     <p className="text-sm font-medium text-center text-amber-700 bg-amber-100 p-2 rounded-md">Current total: {totalDistributed} of {itemCount}</p>
+                                 )}
+                            </div>
+                        )}
                     </div>
                 );
-            case 2:
-                return (
-                    <div className="space-y-4">
-                        <Title>Step 2: Distribute Items</Title>
-                        <p className="text-sm text-gray-600">Assign the number of items for each type. The total must be {itemCount}.</p>
-                        <div className="grid grid-cols-3 gap-4">
-                            <div>
-                                <label className="text-sm font-medium text-gray-700">Multiple Choice</label>
-                                <NumberInput value={distribution['multiple-choice']} onValueChange={v => handleDistributionChange('multiple-choice', v)} min={0} />
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-gray-700">True/False</label>
-                                <NumberInput value={distribution['true-false']} onValueChange={v => handleDistributionChange('true-false', v)} min={0} />
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-gray-700">Identification</label>
-                                <NumberInput value={distribution['identification']} onValueChange={v => handleDistributionChange('identification', v)} min={0} />
-                            </div>
-                        </div>
-                    </div>
-                );
+            
+            // ✨ --- START: FULLY RESTORED PREVIEW AND SUCCESS UI --- ✨
             case 3:
                 return (
                     <div>
                         <Title>Step 3: Preview & Revise</Title>
-                        <div className="mt-4 p-4 border rounded-lg max-h-80 overflow-y-auto bg-gray-50">
-                            <h3 className="font-bold text-lg mb-2">{generatedQuiz?.title}</h3>
+                        <Subtitle>Review the generated quiz and request changes if needed.</Subtitle>
+                        <div className="mt-4 p-4 border rounded-lg max-h-[50vh] overflow-y-auto bg-gray-50">
+                            <h3 className="font-bold text-lg mb-2 text-gray-800">{generatedQuiz?.title}</h3>
                             {generatedQuiz?.questions.map((q, i) => (
                                 <div key={i} className="mb-4 text-sm p-3 bg-white rounded-md shadow-sm">
                                     <div className="font-semibold text-gray-800 flex items-start">
-                                        <span>{i + 1}.&nbsp;</span>
+                                        <span className="mr-2">{i + 1}.</span>
                                         <ContentRenderer text={q.text} />
                                     </div>
-                                    <span className="text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 ">{q.type}</span>
-                                    <span className="text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">{q.difficulty}</span>
-
-                                    <div className="mt-2 pl-4">
+                                    <div className="mt-2">
+                                        <span className="text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">{q.type}</span>
+                                        <span className="text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">{q.difficulty}</span>
+                                    </div>
+                                    
+                                    <div className="mt-3 pl-4">
                                         {q.type === 'multiple-choice' && q.options && (
                                             <ul className="list-disc list-inside space-y-1 text-gray-700">
                                                 {q.options.map((option, index) => (
                                                     <li key={index} className={option.isCorrect ? 'font-bold text-green-600' : ''}>
                                                         <ContentRenderer text={option.text} />
-                                                        {option.isCorrect && <span className="text-green-600 ml-2">✓ Correct</span>}
+                                                        {option.isCorrect && <span className="text-green-500 ml-2">✓</span>}
                                                     </li>
                                                 ))}
                                             </ul>
                                         )}
                                         {(q.type === 'true-false' || q.type === 'identification') && (
-                                            <p className="text-gray-700">
+                                            <p className="text-gray-700 mt-2">
                                                 Correct Answer: <span className="font-bold text-green-600"><ContentRenderer text={String(q.correctAnswer)}/></span>
                                             </p>
+                                        )}
+                                        {q.explanation && (
+                                            <div className="mt-3 p-2 bg-sky-50 border-l-4 border-sky-200 text-sky-900">
+                                                <p className="font-bold text-xs">EXPLANATION</p>
+                                                <p className="text-sm italic"><ContentRenderer text={q.explanation} /></p>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -288,12 +343,13 @@ You MUST order the choices in the "options" array according to the following log
                 );
             case 4:
                 return (
-                    <div className="text-center p-4">
-                        <CheckCircleIcon className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                        <Title>Quiz Generated!</Title>
-                        <p className="text-gray-600">The AI-generated quiz has been successfully saved.</p>
+                    <div className="text-center p-8">
+                        <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                        <Title className="text-xl">Quiz Saved!</Title>
+                        <p className="text-gray-600 mt-2">The AI-generated quiz has been successfully saved to your library.</p>
                     </div>
-                )
+                );
+            // ✨ --- END: FULLY RESTORED PREVIEW AND SUCCESS UI --- ✨
             default:
                 return null;
         }
@@ -301,43 +357,52 @@ You MUST order the choices in the "options" array according to the following log
 
     const renderButtons = () => {
         if (step === 4) {
-            return <Button onClick={onClose} className="w-full">Close</Button>;
-        }
-        if (isGenerating) {
-            return <Button loading={true} disabled={true} className="w-full justify-center">Generating...</Button>
+            return <Button onClick={onClose} className="w-full bg-slate-600 hover:bg-slate-700 border-none">Close</Button>;
         }
         if (step === 3) {
             return (
                 <div className="flex justify-between items-center">
                     <Button variant="light" onClick={() => setStep(1)}>Back to Config</Button>
-                    <Button icon={CheckCircleIcon} onClick={handleSaveQuiz}>Looks Good, Save Quiz</Button>
+                    <Button icon={CheckCircleIcon} onClick={handleSaveQuiz} disabled={isGenerating}>Looks Good, Save Quiz</Button>
                 </div>
-            )
+            );
         }
-        return (
-            <div className="flex justify-between">
-                <Button variant="light" onClick={() => setStep(step - 1)} disabled={step === 1}>Back</Button>
-                {step === 1 && quizType !== 'mixed' ? (
-                    <Button icon={SparklesIcon} onClick={() => handleGenerate(false)}>Generate Quiz</Button>
-                ) : step === 2 && quizType === 'mixed' ? (
-                    <Button icon={SparklesIcon} onClick={() => handleGenerate(false)}>Generate Quiz</Button>
-                ) : (
-                    <Button onClick={() => setStep(step + 1)}>Next</Button>
-                )}
-            </div>
-        )
+        if (step === 1) {
+            return (
+                 <Button 
+                    icon={SparklesIcon} 
+                    onClick={() => handleGenerate(false)} 
+                    loading={isGenerating}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 border-none text-white focus:ring-indigo-500"
+                >
+                    Generate Quiz
+                </Button>
+            );
+        }
+        return null;
     };
 
+    if (!isOpen) return null;
+
     return (
-        <Dialog open={isOpen} onClose={onClose} static={true}>
-            <DialogPanel className="max-w-2xl bg-white p-6 rounded-lg shadow-xl">
-                {isGenerating && step < 3 && <Spinner />}
-                {!isGenerating || step >= 3 ? renderStepContent() : null}
-                {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
-                <div className="mt-6">
-                    {renderButtons()}
+        <>
+            <style>
+                {`.tremor-dropdown-menu { z-index: 9999 !important; }`}
+            </style>
+            <Dialog open={isOpen} onClose={onClose} className="relative z-50">
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" />
+                <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
+                    <DialogPanel className="max-w-md w-full bg-white p-6 rounded-2xl shadow-xl transition-all">
+                        {isGenerating ? <QuizLoadingScreen /> : renderStepContent()}
+                        {error && !isGenerating && <p className="text-sm text-red-500 mt-4 text-center">{error}</p>}
+                        {!isGenerating && (
+                            <div className="mt-8 pt-6 border-t">
+                                {renderButtons()}
+                            </div>
+                        )}
+                    </DialogPanel>
                 </div>
-            </DialogPanel>
-        </Dialog>
+            </Dialog>
+        </>
     );
 }

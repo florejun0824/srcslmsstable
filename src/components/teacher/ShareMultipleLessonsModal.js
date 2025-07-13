@@ -47,7 +47,7 @@ function CustomMultiSelect({
             ));
         }
 
-        // Renders grouped options with "Select All" functionality (for 'Lessons')
+        // Renders grouped options with "Select All" functionality (for 'Lessons' and 'Quizzes')
         return Object.entries(options).map(([groupName, groupOptions]) => {
             const groupIds = groupOptions.map(opt => opt.value);
             const selectedInGroup = groupIds.filter(id => selectedValues.includes(id));
@@ -72,7 +72,7 @@ function CustomMultiSelect({
                          </div>
                     )}
                    
-                    {/* Individual lesson items */}
+                    {/* Individual items */}
                     {groupOptions.map(({ value, label }) => (
                         <li key={value} onClick={() => onSelectionChange(value)} className="flex items-center justify-between p-2 pl-8 hover:bg-slate-100 cursor-pointer rounded-md">
                             <span className="text-slate-700">{label}</span>
@@ -163,7 +163,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     const [success, setSuccess] = useState('');
     const [allLessons, setAllLessons] = useState({});
     const [selectedLessons, setSelectedLessons] = useState([]);
-    const [allQuizzes, setAllQuizzes] = useState([]);
+    const [allQuizzes, setAllQuizzes] = useState({});
     const [selectedQuizzes, setSelectedQuizzes] = useState([]);
     const [availableFrom, setAvailableFrom] = useState(new Date());
     const [availableUntil, setAvailableUntil] = useState(null);
@@ -192,6 +192,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     
             setContentLoading(true);
             try {
+                // Fetch and sort units (this logic is reused for both lessons and quizzes)
                 const unitsQuery = query(collection(db, 'units'), where('subjectId', '==', subject.id));
                 const unitsSnapshot = await getDocs(unitsQuery);
                 const sortedUnits = unitsSnapshot.docs
@@ -204,6 +205,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                         return extractNumber(a.title) - extractNumber(b.title);
                     });
     
+                // --- Group Lessons (Existing Logic) ---
                 const lessonsQuery = query(collection(db, 'lessons'), where('subjectId', '==', subject.id));
                 const lessonsSnapshot = await getDocs(lessonsQuery);
                 const allFetchedLessons = lessonsSnapshot.docs.map(doc => ({
@@ -212,29 +214,48 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     
                 const groupedLessons = {};
                 sortedUnits.forEach(unit => {
-                    const lessonsForThisUnit = allFetchedLessons.filter(lesson => lesson.unitId === unit.id);
-                    lessonsForThisUnit.sort((a, b) => {
-                        const extractNumber = (label) => {
-                            const match = label.match(/\d+/);
-                            return match ? parseInt(match[0], 10) : Infinity;
-                        };
-                        return extractNumber(a.label) - extractNumber(b.label);
-                    });
+                    const lessonsForThisUnit = allFetchedLessons.filter(lesson => lesson.unitId === unit.id).sort((a, b) => a.order - b.order);
                     if (lessonsForThisUnit.length > 0) {
                         groupedLessons[unit.title] = lessonsForThisUnit;
                     }
                 });
-                
                 const uncategorizedLessons = allFetchedLessons.filter(lesson => !lesson.unitId || !sortedUnits.some(u => u.id === lesson.unitId));
                 if(uncategorizedLessons.length > 0) {
                     groupedLessons['Uncategorized'] = uncategorizedLessons;
                 }
-    
                 setAllLessons(groupedLessons);
                 
+                // --- Logic to Group Quizzes ---
                 const quizzesQuery = query(collection(db, 'quizzes'), where('subjectId', '==', subject.id));
                 const quizzesSnapshot = await getDocs(quizzesQuery);
-                setAllQuizzes(quizzesSnapshot.docs.map(doc => ({ value: doc.id, label: doc.data().title })));
+                const allFetchedQuizzes = quizzesSnapshot.docs.map(doc => ({
+                    id: doc.id, ...doc.data(), value: doc.id, label: doc.data().title
+                }));
+
+                const groupedQuizzes = {};
+                sortedUnits.forEach(unit => {
+                    // Find quizzes linked to lessons within this unit
+                    const lessonIdsInUnit = allFetchedLessons
+                        .filter(lesson => lesson.unitId === unit.id)
+                        .map(lesson => lesson.id);
+                    
+                    const quizzesForThisUnit = allFetchedQuizzes.filter(quiz => 
+                        (quiz.unitId === unit.id) || (quiz.lessonId && lessonIdsInUnit.includes(quiz.lessonId))
+                    );
+
+                    if (quizzesForThisUnit.length > 0) {
+                        groupedQuizzes[unit.title] = quizzesForThisUnit;
+                    }
+                });
+
+                const categorizedQuizIds = Object.values(groupedQuizzes).flat().map(q => q.id);
+                const uncategorizedQuizzes = allFetchedQuizzes.filter(quiz => !categorizedQuizIds.includes(quiz.id));
+
+                if(uncategorizedQuizzes.length > 0) {
+                    groupedQuizzes['Uncategorized'] = uncategorizedQuizzes;
+                }
+                
+                setAllQuizzes(groupedQuizzes);
     
             } catch (e) {
                 console.error("Error fetching content for sharing:", e);
@@ -264,8 +285,24 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
             if (allSelected) {
                 lessonIdsInUnit.forEach(id => selectedSet.delete(id));
             } else {
-                // ✅ This is the corrected line
                 lessonIdsInUnit.forEach(id => selectedSet.add(id));
+            }
+            return Array.from(selectedSet);
+        });
+    };
+    
+    const handleSelectUnitForQuizzes = (unitName) => {
+        const quizIdsInUnit = allQuizzes[unitName]?.map(quiz => quiz.value) || [];
+        if (quizIdsInUnit.length === 0) return;
+
+        const allSelected = quizIdsInUnit.every(id => selectedQuizzes.includes(id));
+        
+        setSelectedQuizzes(currentSelected => {
+            const selectedSet = new Set(currentSelected);
+            if (allSelected) {
+                quizIdsInUnit.forEach(id => selectedSet.delete(id));
+            } else {
+                quizIdsInUnit.forEach(id => selectedSet.add(id));
             }
             return Array.from(selectedSet);
         });
@@ -310,7 +347,9 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         setSelectedClasses([]); setSelectedLessons([]); setSelectedQuizzes([]);
         setAvailableFrom(new Date());
         setAvailableUntil(null);
-        setError(''); setSuccess(''); setAllLessons({}); setAllQuizzes([]);
+        setError(''); setSuccess(''); 
+        setAllLessons({}); 
+        setAllQuizzes({});
         setActiveDropdown(null);
         onClose();
     };
@@ -383,7 +422,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                 options={allLessons}
                                 selectedValues={selectedLessons}
                                 onSelectionChange={(id) => handleSelection(id, 'lesson')}
-                                onSelectGroup={handleSelectUnit} // Pass the group selection handler
+                                onSelectGroup={handleSelectUnit}
                                 disabled={contentLoading}
                                 isOpen={activeDropdown === 'lessons'}
                                 onToggle={() => handleToggleDropdown('lessons')}
@@ -393,6 +432,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                 options={allQuizzes}
                                 selectedValues={selectedQuizzes}
                                 onSelectionChange={(id) => handleSelection(id, 'quiz')}
+                                onSelectGroup={handleSelectUnitForQuizzes} 
                                 disabled={contentLoading}
                                 isOpen={activeDropdown === 'quizzes'}
                                 onToggle={() => handleToggleDropdown('quizzes')}

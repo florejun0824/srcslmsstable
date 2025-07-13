@@ -115,6 +115,16 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade 7 to Grade 12**. Your writing must be clear and accessible enough for a 7th grader to understand the core concepts, but also contain enough depth, sophisticated vocabulary (which you should define elegantly in context), and intellectual richness to keep a 12th grader engaged and challenged.
 
                 **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the science or the concept. Introduce key figures, explore historical context, and delve into fascinating real-world applications. Use vivid analogies and metaphors to illuminate complex ideas. The content should flow logically and build on itself, like a well-structured story.
+                
+                **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section (e.g., explaining the "Legislative Branch") is too long for one page and its discussion must continue onto the next page (or multiple subsequent pages), the heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page where the topic is introduced.
+                **ALL** subsequent pages that are continuations of that same topic **MUST** have an empty string for their title: \`"title": ""\`.
+                **UNDER NO CIRCUMSTANCES** should you ever create headings like:
+                - "Topic Title (Continuation)"
+                - "Topic Title (Part 2)"
+                - "Topic Title (Ikalawang Bahagi)"
+                - "Continuation of Topic Title"
+                - Any rephrasing or repetition of the original title.
+                The content should flow seamlessly from one page to the next as if the page break doesn't exist. This is a strict formatting requirement.
 
                 **Textbook Chapter Structure:** You MUST organize the lesson content in the following sequence:
                 1.  **Standalone ${objectivesLabel} Section:** A "learningObjectives" array.
@@ -150,7 +160,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 ---
                 ${existingJsonString}
                 ---
-                You MUST adhere to all of the original rules that were used to create it, especially the 'Professor/Author' persona and the Grade 7-12 audience focus.
+                You MUST adhere to all of the original rules that were used to create it, especially the 'Professor/Author' persona and the absolute rule for content continuation.
                 ${studentLessonInstructions}
                 Return ONLY the complete, updated, and valid JSON object.`;
             } else {
