@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
-import { collection, query, where, onSnapshot, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, writeBatch, doc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
@@ -42,6 +42,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 
     const [availableUnits, setAvailableUnits] = useState([]);
     const [selectedUnitId, setSelectedUnitId] = useState('');
+    const [subjectName, setSubjectName] = useState('');
 
     const [formData, setFormData] = useState({
         content: '',
@@ -50,7 +51,25 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         contentStandard: '',
         performanceStandard: '',
         language: 'English',
+        gradeLevel: '7', // Default grade level
     });
+
+    // Fetch subject name when subjectId changes
+    useEffect(() => {
+        if (subjectId) {
+            const fetchSubjectName = async () => {
+                const subjectRef = doc(db, 'subjects', subjectId);
+                const subjectSnap = await getDoc(subjectRef);
+                if (subjectSnap.exists()) {
+                    setSubjectName(subjectSnap.data().title);
+                } else {
+                    setSubjectName('');
+                }
+            };
+            fetchSubjectName();
+        }
+    }, [subjectId]);
+
 
     useEffect(() => {
         if (unitId) {
@@ -108,11 +127,21 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             const endOfLessonAssessmentLabel = formData.language === 'Filipino' ? 'Pagtatasa sa Katapusan ng Aralin' : "End-of-Lesson Assessment";
             const referencesLabel = formData.language === 'Filipino' ? 'Mga Sanggunian' : "References";
             const answerKeyLabel = formData.language === 'Filipino' ? 'Susi sa Pagwawasto' : 'Answer Key';
+            
+            const catholicSubjects = ["Christian Social Living 7-10", "Religious Education 11-12"];
+            let perspectiveInstruction = '';
+            if (catholicSubjects.includes(subjectName)) {
+                perspectiveInstruction = `
+                    **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. This is non-negotiable. All explanations, examples, and interpretations must align with Catholic teachings, doctrines, and values. You must integrate principles from the Catechism of the Catholic Church, relevant encyclicals, and Sacred Scripture where appropriate.
+                `;
+            }
 
             const formatSpecificInstructions = `
-                **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular science author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter.
+                **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter.
 
-                **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade 7 to Grade 12**. Your writing must be clear and accessible enough for a 7th grader to understand the core concepts, but also contain enough depth, sophisticated vocabulary (which you should define elegantly in context), and intellectual richness to keep a 12th grader engaged and challenged.
+                **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${formData.gradeLevel}**. Your writing must be clear, accessible, and tailored to the cognitive and developmental level of this grade. The complexity of vocabulary, sentence structure, and conceptual depth should be appropriate for a ${formData.gradeLevel}th grader.
+                
+                ${perspectiveInstruction}
 
                 **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the science or the concept. Introduce key figures, explore historical context, and delve into fascinating real-world applications. Use vivid analogies and metaphors to illuminate complex ideas. The content should flow logically and build on itself, like a well-structured story.
                 
@@ -160,19 +189,28 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 ---
                 ${existingJsonString}
                 ---
-                You MUST adhere to all of the original rules that were used to create it, especially the 'Professor/Author' persona and the absolute rule for content continuation.
+                You MUST adhere to all of the original rules that were used to create it, especially the 'Professor/Author' persona, the grade level targeting, the Catholic perspective (if applicable), the intelligent creation of learning objectives, and the absolute rule for content continuation.
                 ${studentLessonInstructions}
                 Return ONLY the complete, updated, and valid JSON object.`;
             } else {
-                finalPrompt = `You are an expert instructional designer and author, creating a deeply engaging, narrative-driven textbook chapter for a wide high school audience.
+                finalPrompt = `You are an expert instructional designer and author, creating a deeply engaging, narrative-driven textbook chapter for a specific high school grade level.
                 **Core Content Information:**
                 ---
+                **Subject:** "${subjectName}"
+                **Grade Level:** ${formData.gradeLevel}
                 **Topic:** "${formData.content}"
                 **Content Standard:** "${formData.contentStandard}"
                 **Performance Standard:** "${formData.performanceStandard}"
                 ---
-                **Desired Learning Competencies for this topic (these will form the 'learningObjectives' array):**
+                **Learning Competencies to Address (Use these as a guide):**
                 "${formData.learningCompetencies}"
+                
+                **CRITICAL INSTRUCTION FOR LEARNING OBJECTIVES (NON-NEGOTIABLE):**
+                Based on the topic and the learning competencies provided above, you MUST generate a new, distinct set of 3-5 SMART (Specific, Measurable, Achievable, Relevant, Time-bound) learning objectives for this specific lesson. 
+                - **DO NOT** simply copy the learning competencies.
+                - **DO** create actionable statements describing what a student will be able to *do* after completing the lesson. (e.g., "Explain the three stages of the water cycle," "Solve quadratic equations using the formula," "Analyze the main character's motivations in the story.").
+                - These generated objectives will form the 'learningObjectives' array in the JSON output.
+
                 **Lesson Details:**
                 - **Number of Lessons to Generate:** ${formData.lessonCount}
                 
@@ -318,21 +356,32 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                             </div>
                             <div className="bg-white p-6 rounded-xl shadow-md space-y-4">
                                <h3 className="font-bold text-lg text-slate-700 border-b pb-2">Settings</h3>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-600 mb-1">Language of Instruction</label>
-                                    <select name="language" value={formData.language} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                                        <option value="English">English</option>
-                                        <option value="Filipino">Filipino</option>
-                                    </select>
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-4">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-600 mb-1">Number of Lessons</label>
-                                        <input type="number" name="lessonCount" min="1" max="10" value={formData.lessonCount} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" />
+                                        <label className="block text-sm font-medium text-slate-600 mb-1">Language</label>
+                                        <select name="language" value={formData.language} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                            <option value="English">English</option>
+                                            <option value="Filipino">Filipino</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-600 mb-1">Grade Level</label>
+                                        <select name="gradeLevel" value={formData.gradeLevel} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                            <option value="7">Grade 7</option>
+                                            <option value="8">Grade 8</option>
+                                            <option value="9">Grade 9</option>
+                                            <option value="10">Grade 10</option>
+                                            <option value="11">Grade 11</option>
+                                            <option value="12">Grade 12</option>
+                                        </select>
                                     </div>
                                 </div>
 
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-600 mb-1">Number of Lessons</label>
+                                    <input type="number" name="lessonCount" min="1" max="10" value={formData.lessonCount} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" />
+                                </div>
+                                
                             </div>
                         </div>
                     ) : (
