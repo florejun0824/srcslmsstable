@@ -4,7 +4,6 @@ import {
     ArrowLeftOnRectangleIcon, MagnifyingGlassIcon, ExclamationTriangleIcon, UserGroupIcon
 } from '@heroicons/react/24/outline';
 
-// Import Common & Global Components
 import Spinner from '../common/Spinner';
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
 import SidebarButton from '../common/SidebarButton';
@@ -13,15 +12,12 @@ import AiGenerationHub from './AiGenerationHub';
 import ChatDialog from './ChatDialog';
 import AnimatedRobot from './dashboard/widgets/AnimatedRobot';
 
-
-// Import All Views
 import HomeView from './dashboard/views/HomeView';
 import ClassesView from './dashboard/views/ClassesView';
 import CoursesView from './dashboard/views/CoursesView';
 import StudentManagementView from './dashboard/views/StudentManagementView';
 import ProfileView from './dashboard/views/ProfileView';
 
-// Import All Modals
 import ArchivedClassesModal from './ArchivedClassesModal';
 import EditProfileModal from './EditProfileModal';
 import ChangePasswordModal from './ChangePasswordModal';
@@ -60,7 +56,9 @@ const TeacherDashboardLayout = (props) => {
         user, userProfile, loading, error, activeView, handleViewChange, isSidebarOpen, setIsSidebarOpen, logout,
         isAiGenerating, isChatOpen, setIsChatOpen, messages, isAiThinking, handleAskAi, userFirstName,
         aiConversationStarted, handleAskAiWrapper, isAiHubOpen, setIsAiHubOpen, activeSubject,
-        // Destructure all other props to pass down to views/modals
+        activeUnit,
+        onSetActiveUnit,
+        setViewLessonModalOpen, // <-- MODIFIED: Receive the setter function as a prop
         ...rest
     } = props;
 
@@ -83,7 +81,15 @@ const TeacherDashboardLayout = (props) => {
             case 'classes':
                 return <ClassesView {...rest} />;
             case 'courses':
-                return <CoursesView userProfile={userProfile} activeSubject={activeSubject} isAiGenerating={isAiGenerating} setIsAiHubOpen={setIsAiHubOpen} {...rest} />;
+                return <CoursesView 
+                            userProfile={userProfile} 
+                            activeSubject={activeSubject} 
+                            isAiGenerating={isAiGenerating} 
+                            setIsAiHubOpen={setIsAiHubOpen} 
+                            activeUnit={activeUnit} 
+                            onSetActiveUnit={onSetActiveUnit} 
+                            {...rest} 
+                        />;
             case 'studentManagement':
                 return <StudentManagementView {...rest} />;
             case 'profile':
@@ -172,10 +178,9 @@ const TeacherDashboardLayout = (props) => {
 		       filter: brightness(1.1);
 		       box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 		    }
-		    /* Global padding for mobile main content to prevent overlap with fixed footer */
 		    @media (max-width: 767px) {
 		       main {
-		           padding-bottom: 70px !important; /* Adjust as needed */
+		           padding-bottom: 70px !important;
 		       }
 		    }
 		`}</style>
@@ -210,7 +215,7 @@ const TeacherDashboardLayout = (props) => {
                 </div>
             </div>
             
-            <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} subjectId={activeSubject?.id} unitId={null} />
+            <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} subjectId={activeSubject?.id} unitId={activeUnit?.id} />
             <AnimatedRobot onClick={() => setIsChatOpen(true)} />
             <GlobalAiSpinner isGenerating={isAiGenerating} text="Crafting content..." />
             
@@ -242,7 +247,8 @@ const TeacherDashboardLayout = (props) => {
             {rest.selectedUnit && <AddQuizModal isOpen={rest.addQuizModalOpen} onClose={() => rest.setAddQuizModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} />}
             {rest.selectedUnit && <DeleteUnitModal isOpen={rest.deleteUnitModalOpen} onClose={() => rest.setDeleteUnitModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} />}
             {rest.selectedLesson && <EditLessonModal isOpen={rest.editLessonModalOpen} onClose={() => rest.setEditLessonModalOpen(false)} lesson={rest.selectedLesson} />}
-            {rest.selectedLesson && <ViewLessonModal isOpen={rest.viewLessonModalOpen} onClose={() => rest.setViewLessonModalOpen(false)} lesson={rest.selectedLesson} />}
+            {/* MODIFIED: The onClose handler now uses the prop which is guaranteed to be defined */}
+            {rest.selectedLesson && <ViewLessonModal isOpen={rest.viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={rest.selectedLesson} />}
             {activeSubject && (<ShareMultipleLessonsModal isOpen={rest.isShareContentModalOpen} onClose={() => rest.setShareContentModalOpen(false)} subject={activeSubject} />)}
             <DeleteConfirmationModal isOpen={rest.isDeleteModalOpen} onClose={() => rest.setIsDeleteModalOpen(false)} onConfirm={rest.handleConfirmDelete} deletingItemType={rest.deleteTarget?.type} />
             <EditSubjectModal isOpen={rest.isEditSubjectModalOpen} onClose={() => rest.setEditSubjectModalOpen(false)} subject={rest.subjectToActOn} />

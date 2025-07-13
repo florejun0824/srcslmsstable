@@ -51,18 +51,44 @@ import AiGenerationHub from './AiGenerationHub';
 import Spinner from '../common/Spinner';
 
 // --- Helper Functions & Sub-components ---
+// MODIFIED: This function now uses a more robust conversion method for complex SVGs.
 const convertSvgStringToPngDataUrl = (svgString) => {
     return new Promise((resolve, reject) => {
+        let correctedSvgString = svgString;
+
+        // 1. Ensure the SVG has the required xmlns attribute.
+        if (!correctedSvgString.includes('xmlns=')) {
+            correctedSvgString = correctedSvgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+        }
+
+        // 2. Inject default styles to handle diagrams that use CSS classes.
+        const defaultStyles = `
+            <style>
+                .center-node { fill: #cce5ff; stroke: #007bff; stroke-width: 2; }
+                .node { fill: #e7f5ff; stroke: #007bff; stroke-width: 1.5; }
+                text, .label, .center-node text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; font-size: 14px; text-anchor: middle; fill: #333; }
+                .arrow { stroke: #555; stroke-width: 2px; marker-end: url(#arrowhead); }
+            </style>
+        `;
+        // Ensure style is injected after the potential <defs> tag
+        if (correctedSvgString.includes('</defs>')) {
+             correctedSvgString = correctedSvgString.replace('</defs>', `</defs>${defaultStyles}`);
+        } else {
+             correctedSvgString = correctedSvgString.replace('>', `>${defaultStyles}`);
+        }
+        
         const img = new Image();
-        const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
-        const url = URL.createObjectURL(svgBlob);
+
+        // 3. Use a URL-encoded data URI, which is more robust than a Blob for complex SVGs.
+        const dataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(correctedSvgString)}`;
+
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const fallbackWidth = 550;
-            let width = img.width;
-            let height = img.height;
+            const fallbackWidth = 600; 
+            let { width, height } = img;
+
             if (!width || !height) {
-                const viewBoxMatch = svgString.match(/viewBox="([0-9\s.,-]+)"/);
+                const viewBoxMatch = correctedSvgString.match(/viewBox="([0-9\s.,-]+)"/);
                 if (viewBoxMatch && viewBoxMatch[1]) {
                     const viewBox = viewBoxMatch[1].split(/[,\s]+/);
                     const viewBoxWidth = parseFloat(viewBox[2]);
@@ -75,25 +101,27 @@ const convertSvgStringToPngDataUrl = (svgString) => {
             }
             if (!width || !height) {
                 width = fallbackWidth;
-                height = 400;
+                height = 450;
             }
+
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
             const dataUrl = canvas.toDataURL('image/png');
-            URL.revokeObjectURL(url);
+            
             if (dataUrl === 'data:,') {
-                 reject(new Error("Canvas generated empty data URL."));
+                 reject(new Error("Canvas generated an empty data URL, the SVG might be invalid."));
             } else {
                 resolve({ dataUrl, width, height });
             }
         };
-        img.onerror = (err) => {
-            URL.revokeObjectURL(url);
-            reject(new Error("Failed to load SVG string into an image."));
+
+        img.onerror = () => {
+            reject(new Error("Failed to load the SVG string into an image. It might be malformed."));
         };
-        img.src = url;
+        
+        img.src = dataUri;
     });
 };
 
@@ -109,7 +137,6 @@ const MenuPortal = ({ children, menuStyle, onClose }) => {
     return createPortal(<div ref={menuRef} style={menuStyle} className="fixed bg-white rounded-md shadow-lg z-[5000] border"><div className="py-1" onClick={onClose}>{children}</div></div>, document.body);
 };
 
-// MODIFIED ActionMenu with the onPointerDown fix to guarantee it works with dnd-kit
 const ActionMenu = ({ children }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [menuStyle, setMenuStyle] = useState({});
@@ -148,7 +175,6 @@ function SortableLessonItem({ lesson, unitId, exportingLessonId, onExport, onExp
     return ( <div ref={setNodeRef} style={style} {...attributes} className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center group mb-2 touch-none"> <div className="flex items-center gap-3"> <button {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600"><Bars3Icon className="h-5 w-5" /></button> <DocumentTextIcon className="w-5 h-5 text-blue-500 flex-shrink-0" /> <p className="text-sm text-gray-800 font-medium">{lesson.title}</p> </div> <div className="flex items-center gap-1"> <button onClick={props.onView} className="p-1.5 text-gray-500 hover:text-blue-600 rounded-full" title="View Lesson"><EyeIcon className="h-5 w-5" /></button> <ActionMenu> <MenuItem icon={PencilIcon} text="Edit Lesson" onClick={props.onEdit} /> {isUlp ? ( <MenuItem icon={isExporting ? ArrowPathIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => onExportUlpPdf(lesson)} disabled={isExporting} /> ) : isAtg ? ( <MenuItem icon={isExporting ? ArrowPathIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => onExportAtgPdf(lesson)} disabled={isExporting} /> ) : ( <MenuItem icon={isExporting ? ArrowPathIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as .docx"} onClick={() => onExport(lesson)} disabled={isExporting} /> )} <MenuItem icon={SparklesIcon} text="AI Generate Quiz" onClick={props.onGenerateQuiz} disabled={props.isAiGenerating} /> <MenuItem icon={TrashIcon} text="Delete Lesson" onClick={props.onDelete} /> </ActionMenu> </div> </div> );
 }
 
-// --- NEW: A component for the clickable, sortable Unit Card ---
 function SortableUnitCard(props) {
     const { unit, onSelect, onEdit, onDelete, onOpenAiHub, visuals } = props;
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
@@ -189,13 +215,10 @@ const customSort = (a, b) => {
     return timeA - timeB;
 };
 
-
-// --- Main Component ---
-export default function UnitAccordion({ subject, onInitiateDelete, userProfile, isAiGenerating, setIsAiGenerating }) {
+export default function UnitAccordion({ subject, onInitiateDelete, userProfile, isAiGenerating, setIsAiGenerating, activeUnit, onSetActiveUnit }) {
     const [units, setUnits] = useState([]);
     const [lessons, setLessons] = useState({});
     const [quizzes, setQuizzes] = useState({});
-    const [activeUnit, setActiveUnit] = useState(null);
     const [exportingLessonId, setExportingLessonId] = useState(null);
     const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
     const [addQuizModalOpen, setAddQuizModalOpen] = useState(false);
@@ -216,10 +239,14 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates, }));
     const isExportingRef = useRef(false);
 
-    // Using your working data fetching logic
     useEffect(() => {
-        if (!subject?.id) { setUnits([]); return; }
-        setActiveUnit(null);
+        if (!subject?.id) { 
+            setUnits([]); 
+            return; 
+        }
+        if (onSetActiveUnit) {
+            onSetActiveUnit(null);
+        }
         const q = query(collection(db, 'units'), where('subjectId', '==', subject.id));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedUnits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -249,7 +276,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         return () => unsubscribers.forEach(unsub => unsub());
     }, [units]);
 
-    // All handlers from your working code
     const handleOpenUnitModal = (modalSetter, unit) => { setSelectedUnit(unit); modalSetter(true); };
     const handleOpenLessonModal = (modalSetter, lesson) => { setSelectedLesson(lesson); modalSetter(true); };
     const handleOpenQuizModal = (modalSetter, quiz) => { setSelectedQuiz(quiz); modalSetter(true); };
@@ -258,21 +284,16 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     const handleOpenAiHub = (unit) => { setUnitForAi(unit); setIsAiHubOpen(true); };
 	async function handleDragEnd(event) {
 	    const { active, over } = event;
-
 	    if (!over) return;
-
 	    const activeType = active.data.current?.type;
 	    const overType = over.data.current?.type;
 
-	    // Handle Unit Reordering
 	    if (activeType === 'unit' && overType === 'unit' && active.id !== over.id) {
 	        const oldIndex = units.findIndex(u => u.id === active.id);
 	        const newIndex = units.findIndex(u => u.id === over.id);
-
 	        if (oldIndex !== -1 && newIndex !== -1) {
 	            const reorderedUnits = arrayMove(units, oldIndex, newIndex);
-	            setUnits(reorderedUnits); // Update state immediately for smooth UI
-
+	            setUnits(reorderedUnits);
 	            const batch = writeBatch(db);
 	            reorderedUnits.forEach((unit, index) => {
 	                const unitRef = doc(db, 'units', unit.id);
@@ -283,28 +304,20 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        return;
 	    }
 
-	    // Handle Lesson Reordering (including moving between units)
 	    if (activeType === 'lesson') {
 	        const sourceUnitId = active.data.current.unitId;
 	        let destinationUnitId = over.data.current?.unitId;
-        
-	        // Check if dropping onto a unit card directly
 	        if(overType === 'unit') {
 	            destinationUnitId = over.id;
 	        }
-
 	        if (!destinationUnitId) return;
-
-	        // Case 1: Reordering within the same unit
 	        if (sourceUnitId === destinationUnitId) {
 	            const currentLessons = lessons[sourceUnitId];
 	            const oldIndex = currentLessons.findIndex(l => l.id === active.id);
 	            const newIndex = currentLessons.findIndex(l => l.id === over.id);
-
 	            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
 	                const reorderedLessons = arrayMove(currentLessons, oldIndex, newIndex);
 	                setLessons(prev => ({ ...prev, [sourceUnitId]: reorderedLessons }));
-
 	                const batch = writeBatch(db);
 	                reorderedLessons.forEach((lesson, index) => {
 	                    const lessonRef = doc(db, 'lessons', lesson.id);
@@ -312,56 +325,33 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	                });
 	                await batch.commit();
 	            }
-	        // Case 2: Moving a lesson to a different unit
 	        } else {
 	            const sourceLessons = [...lessons[sourceUnitId]];
 	            const destinationLessons = lessons[destinationUnitId] ? [...lessons[destinationUnitId]] : [];
-            
 	            const activeIndex = sourceLessons.findIndex(l => l.id === active.id);
 	            const [movedLesson] = sourceLessons.splice(activeIndex, 1);
-            
 	            const overIndex = destinationLessons.findIndex(l => l.id === over.id);
 	            const newIndexInDest = overIndex >= 0 ? overIndex : destinationLessons.length;
-            
 	            destinationLessons.splice(newIndexInDest, 0, movedLesson);
-
-	            // Update state for immediate UI feedback
-	            setLessons(prev => ({
-	                ...prev,
-	                [sourceUnitId]: sourceLessons,
-	                [destinationUnitId]: destinationLessons,
-	            }));
-
-	            // Update Firestore
+	            setLessons(prev => ({ ...prev, [sourceUnitId]: sourceLessons, [destinationUnitId]: destinationLessons }));
 	            const batch = writeBatch(db);
 	            const movedLessonRef = doc(db, 'lessons', active.id);
 	            batch.update(movedLessonRef, { unitId: destinationUnitId, order: newIndexInDest });
-
-	            // Re-order source and destination lists
 	            destinationLessons.forEach((lesson, index) => {
-	                if (lesson.order !== index) {
-	                    const lessonRef = doc(db, "lessons", lesson.id);
-	                    batch.update(lessonRef, { order: index });
-	                }
+	                if (lesson.order !== index) { const lessonRef = doc(db, "lessons", lesson.id); batch.update(lessonRef, { order: index }); }
 	            });
 	            sourceLessons.forEach((lesson, index) => {
-	                if (lesson.order !== index) {
-	                    const lessonRef = doc(db, "lessons", lesson.id);
-	                    batch.update(lessonRef, { order: index });
-	                }
+	                if (lesson.order !== index) { const lessonRef = doc(db, "lessons", lesson.id); batch.update(lessonRef, { order: index }); }
 	            });
 	            await batch.commit();
 	        }
 	    }
 	}
-	// Find and replace these three functions inside your UnitAccordion component
-
 	const handleExportDocx = async (lesson) => {
 	    if (isExportingRef.current) return;
 	    isExportingRef.current = true;
 	    setExportingLessonId(lesson.id);
 	    showToast("Generating .docx file...", "info");
-
 	    try {
 	        let finalHtml = `<h1>${lesson.title}</h1>`;
 	        for (const page of lesson.pages) {
@@ -369,10 +359,8 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	            const rawHtml = marked.parse(page.content || '');
 	            finalHtml += `<h2>${cleanTitle}</h2>` + rawHtml;
 	        }
-
 	        const tempDiv = document.createElement('div');
 	        tempDiv.innerHTML = finalHtml;
-
 	        const svgElements = tempDiv.querySelectorAll('svg');
 	        const conversionPromises = Array.from(svgElements).map(async (svg) => {
 	            try {
@@ -394,13 +382,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	            }
 	        });
 	        await Promise.all(conversionPromises);
-
-	        const fileBlob = await htmlToDocx(tempDiv.innerHTML, null, {
-	            table: { row: { cantSplit: true } },
-	            footer: true,
-	            pageNumber: true,
-	        });
-
+	        const fileBlob = await htmlToDocx(tempDiv.innerHTML, null, { table: { row: { cantSplit: true } }, footer: true, pageNumber: true });
 	        const blobUrl = URL.createObjectURL(fileBlob);
 	        const link = document.createElement('a');
 	        link.href = blobUrl;
@@ -409,7 +391,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        link.click();
 	        document.body.removeChild(link);
 	        URL.revokeObjectURL(blobUrl);
-
 	    } catch (error) {
 	        console.error("Failed to export DOCX:", error);
 	        showToast("An error occurred while creating the Word document.", "error");
@@ -418,63 +399,36 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        setExportingLessonId(null);
 	    }
 	};
-
 	const handleExportUlpAsPdf = (lesson) => {
 	    if (exportingLessonId) return;
 	    setExportingLessonId(lesson.id);
 	    showToast("Preparing PDF for printing...", "info");
-
 	    let htmlContent = lesson.pages[0]?.content || '<h1>No Content</h1>';
 	    htmlContent = htmlContent.replace(/<thead[\s\S]*?<\/thead>/i, '');
 	    const tableFooter = "<tfoot><tr><td colspan='2' style='border-top: 1px solid #ccc; padding: 0 !important; height: 1px !important; line-height: 0 !important;'>&nbsp;</td></tr></tfoot>";
 	    htmlContent = htmlContent.replace('</table>', tableFooter + '</table>');
-    
 	    const title = lesson.title;
 	    const printWindow = window.open('', '_blank');
-
-	    if (!printWindow) {
-	        showToast("Could not open a new window. Please disable your pop-up blocker.", "error");
-	        setExportingLessonId(null);
-	        return;
-	    }
-
+	    if (!printWindow) { showToast("Could not open a new window. Please disable your pop-up blocker.", "error"); setExportingLessonId(null); return; }
 	    printWindow.document.write(`<html><head><title>${title}</title><style>@media print{@page{size: 8.5in 13in;margin: 1in;}body{margin:0;font-family:sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}table{width:100%;border-collapse:collapse;font-size:9pt;}td,th{border:1px solid #ccc;padding:6px;text-align:left;}tfoot{display:table-footer-group;}}</style></head><body>${htmlContent}</body></html>`);
 	    printWindow.document.close();
-    
-	    setTimeout(() => {
-	        printWindow.focus();
-	        printWindow.print();
-	        setExportingLessonId(null);
-	    }, 500);
+	    setTimeout(() => { printWindow.focus(); printWindow.print(); setExportingLessonId(null); }, 500);
 	};
-
 	const handleExportAtgPdf = (lesson) => {
 	    if (exportingLessonId) return;
 	    setExportingLessonId(lesson.id);
 	    showToast("Preparing PDF for printing...", "info");
-
 	    let finalHtml = `<h1>${lesson.title}</h1>`;
 	    for (const page of lesson.pages) {
 	        const cleanTitle = page.title.replace(/^page\s*\d+\s*[:-]?\s*/i, '');
 	        const rawHtml = marked.parse(page.content || '');
 	        finalHtml += `<h2>${cleanTitle}</h2>` + rawHtml;
 	    }
-
 	    const printWindow = window.open('', '_blank');
-	    if (!printWindow) {
-	        showToast("Could not open a new window. Please disable your pop-up blocker.", "error");
-	        setExportingLessonId(null);
-	        return;
-	    }
-
+	    if (!printWindow) { showToast("Could not open a new window. Please disable your pop-up blocker.", "error"); setExportingLessonId(null); return; }
 	    printWindow.document.write(`<html><head><title>${lesson.title}</title><style>@media print{@page{size: 8.5in 13in;margin: 1in;}body{margin:0;font-family:sans-serif;}h1,h2,h3{page-break-after:avoid;}ul,p{page-break-inside:avoid;}}</style></head><body>${finalHtml}</body></html>`);
 	    printWindow.document.close();
-    
-	    setTimeout(() => {
-	        printWindow.focus();
-	        printWindow.print();
-	        setExportingLessonId(null);
-	    }, 500);
+	    setTimeout(() => { printWindow.focus(); printWindow.print(); setExportingLessonId(null); }, 500);
 	};
 
     const unitVisuals = [
@@ -493,15 +447,16 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                         if (!lessonsForActiveUnit || !quizzesForActiveUnit) {
                             return <div className="w-full flex justify-center items-center p-20"><Spinner /></div>;
                         }
-                        return (<div><button onClick={() => setActiveUnit(null)} className="flex items-center gap-2 mb-4 font-semibold text-gray-600 hover:text-gray-900"><ArrowUturnLeftIcon className="w-4 h-4" />Back to All Units</button><div className="bg-slate-50 p-4 md:p-6 rounded-xl border"><div className="grid md:grid-cols-2 gap-6"><div className="bg-white p-4 rounded-xl border shadow-sm"><ColumnHeader title="Lessons" icon={DocumentTextIcon} onAdd={() => handleOpenUnitModal(setAddLessonModalOpen, activeUnit)} /><SortableContext items={lessonsForActiveUnit.map(l => l.id)} strategy={verticalListSortingStrategy}>{lessonsForActiveUnit.length > 0 ? (lessonsForActiveUnit.map(lesson => <SortableLessonItem key={lesson.id} lesson={lesson} unitId={activeUnit.id} onView={() => handleOpenLessonModal(setViewLessonModalOpen, lesson)} onEdit={() => handleOpenLessonModal(setEditLessonModalOpen, lesson)} onDelete={() => onInitiateDelete('lesson', lesson.id)} onGenerateQuiz={() => handleOpenAiQuizModal(lesson)} isAiGenerating={isAiGenerating} onExport={handleExportDocx} onExportUlpPdf={handleExportUlpAsPdf} onExportAtgPdf={handleExportAtgPdf} exportingLessonId={exportingLessonId} />)) : <p className="text-sm text-center text-gray-500 p-4">No lessons yet.</p>}</SortableContext></div><div className="bg-white p-4 rounded-xl border shadow-sm"><ColumnHeader title="Quizzes" icon={ClipboardDocumentListIcon} onAdd={() => handleOpenUnitModal(setAddQuizModalOpen, activeUnit)} /><div className="space-y-2">{quizzesForActiveUnit.length > 0 ? (quizzesForActiveUnit.map(quiz => <QuizItem key={quiz.id} quiz={quiz} onEdit={() => handleEditQuiz(quiz)} onDelete={() => onInitiateDelete('quiz', quiz.id, quiz.lessonId)} onView={() => handleOpenQuizModal(setViewQuizModalOpen, quiz)} />)) : <p className="text-sm text-center text-gray-500 p-4">No quizzes yet.</p>}</div></div></div></div></div>);
+                        return (<div><button onClick={() => onSetActiveUnit(null)} className="flex items-center gap-2 mb-4 font-semibold text-gray-600 hover:text-gray-900"><ArrowUturnLeftIcon className="w-4 h-4" />Back to All Units</button><div className="bg-slate-50 p-4 md:p-6 rounded-xl border"><div className="grid md:grid-cols-2 gap-6"><div className="bg-white p-4 rounded-xl border shadow-sm"><ColumnHeader title="Lessons" icon={DocumentTextIcon} onAdd={() => handleOpenUnitModal(setAddLessonModalOpen, activeUnit)} /><SortableContext items={lessonsForActiveUnit.map(l => l.id)} strategy={verticalListSortingStrategy}>{lessonsForActiveUnit.length > 0 ? (lessonsForActiveUnit.map(lesson => <SortableLessonItem key={lesson.id} lesson={lesson} unitId={activeUnit.id} onView={() => handleOpenLessonModal(setViewLessonModalOpen, lesson)} onEdit={() => handleOpenLessonModal(setEditLessonModalOpen, lesson)} onDelete={() => onInitiateDelete('lesson', lesson.id)} onGenerateQuiz={() => handleOpenAiQuizModal(lesson)} isAiGenerating={isAiGenerating} onExport={handleExportDocx} onExportUlpPdf={handleExportUlpAsPdf} onExportAtgPdf={handleExportAtgPdf} exportingLessonId={exportingLessonId} />)) : <p className="text-sm text-center text-gray-500 p-4">No lessons yet.</p>}</SortableContext></div><div className="bg-white p-4 rounded-xl border shadow-sm"><ColumnHeader title="Quizzes" icon={ClipboardDocumentListIcon} onAdd={() => handleOpenUnitModal(setAddQuizModalOpen, activeUnit)} /><div className="space-y-2">{quizzesForActiveUnit.length > 0 ? (quizzesForActiveUnit.map(quiz => <QuizItem key={quiz.id} quiz={quiz} onEdit={() => handleEditQuiz(quiz)} onDelete={() => onInitiateDelete('quiz', quiz.id, quiz.lessonId)} onView={() => handleOpenQuizModal(setViewQuizModalOpen, quiz)} />)) : <p className="text-sm text-center text-gray-500 p-4">No quizzes yet.</p>}</div></div></div></div></div>);
                     })()
                 ) : (
-                    units.length > 0 ? (<SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{units.map((unit, index) => (<SortableUnitCard key={unit.id} unit={unit} onSelect={setActiveUnit} onEdit={(unitToEdit) => handleOpenUnitModal(setEditUnitModalOpen, unitToEdit)} onDelete={(unitToDelete) => handleOpenUnitModal(setDeleteUnitModalOpen, unitToDelete)} onOpenAiHub={handleOpenAiHub} visuals={unitVisuals[index % unitVisuals.length]} />))}</div></SortableContext>
+                    units.length > 0 ? (<SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{units.map((unit, index) => (
+                        <SortableUnitCard key={unit.id} unit={unit} onSelect={onSetActiveUnit} onEdit={(unitToEdit) => handleOpenUnitModal(setEditUnitModalOpen, unitToEdit)} onDelete={(unitToDelete) => handleOpenUnitModal(setDeleteUnitModalOpen, unitToDelete)} onOpenAiHub={handleOpenAiHub} visuals={unitVisuals[index % unitVisuals.length]} />
+                        ))}</div></SortableContext>
                     ) : (<p className="text-center text-gray-500 py-10">No units in this subject yet. Add one to get started!</p>)
                 )}
             </DndContext>
 
-            {/* --- All Modals --- */}
             <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} unitId={unitForAi?.id} subjectId={subject?.id} />
             <EditUnitModal isOpen={editUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={selectedUnit} />
             <AddLessonModal isOpen={addLessonModalOpen} onClose={() => setAddLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject?.id} setIsAiGenerating={setIsAiGenerating} />
@@ -511,7 +466,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             <ViewLessonModal isOpen={viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={selectedLesson} />
             {selectedQuiz && (<EditQuizModal isOpen={editQuizModalOpen} onClose={() => setEditQuizModalOpen(false)} quiz={selectedQuiz} onEditQuiz={() => { setEditQuizModalOpen(false); }} />)}
             <ViewQuizModal isOpen={viewQuizModalOpen} onClose={() => setViewQuizModalOpen(false)} quiz={selectedQuiz} userProfile={userProfile} />
-            <AiQuizModal isOpen={aiQuizModalOpen} onClose={() => setAiQuizModalOpen(false)} unitId={lessonForAiQuiz?.id} subjectId={subject.id} lesson={lessonForAiQuiz} />
+            <AiQuizModal isOpen={aiQuizModalOpen} onClose={() => setAiQuizModalOpen(false)} unitId={lessonForAiQuiz?.unitId} subjectId={lessonForAiQuiz?.subjectId} lesson={lessonForAiQuiz} />
         </>
     );
 }

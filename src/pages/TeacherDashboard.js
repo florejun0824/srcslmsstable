@@ -32,6 +32,10 @@ const TeacherDashboard = () => {
     const [activeView, setActiveView] = useState('home');
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [activeSubject, setActiveSubject] = useState(null);
+    
+    // MODIFIED: Add activeUnit state here
+    const [activeUnit, setActiveUnit] = useState(null);
+
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [categoryToEdit, setCategoryToEdit] = useState(null);
     const [classToEdit, setClassToEdit] = useState(null);
@@ -118,8 +122,6 @@ const TeacherDashboard = () => {
             return () => unsubscribe();
         }
     }, [activeView, showToast]);
-
-
 
     const handleCreateAnnouncement = async ({ content, audience, classId, className }) => {
         if (!content.trim()) { showToast("Announcement content cannot be empty.", "error"); return; }
@@ -333,6 +335,9 @@ const TeacherDashboard = () => {
             handleBackToCategoryList={handleBackToCategoryList}
             activeSubject={activeSubject}
             setActiveSubject={setActiveSubject}
+            // MODIFIED: Pass the new state and function down to the layout
+            activeUnit={activeUnit}
+            onSetActiveUnit={setActiveUnit}
             handleOpenEditClassModal={handleOpenEditClassModal}
             handleArchiveClass={handleArchiveClass}
             handleDeleteClass={handleDeleteClass}
