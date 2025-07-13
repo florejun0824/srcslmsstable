@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Dialog } from '@headlessui/react';
 import { collection, query, where, onSnapshot, writeBatch, doc, orderBy, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+// ✅ MODIFIED: Import the correct function
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 import Spinner from '../common/Spinner';
@@ -43,7 +44,6 @@ const tryParseJson = (jsonString) => {
 export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUnitId, subjectId }) {
     const { showToast } = useToast();
 
-    // ✅ 1. FIX: Restored the consolidated 'inputs' state object.
     const [inputs, setInputs] = useState({
         contentStandard: '',
         performanceStandard: '',
@@ -109,7 +109,6 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
         }
     }, [isOpen, initialUnitId]);
 
-    // ✅ 2. FIX: Restored the handleInputChange function definition.
     const handleInputChange = useCallback((e) => {
         const { name, value } = e.target;
         setInputs(prev => ({ ...prev, [name]: value }));
@@ -135,7 +134,6 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
     }, [selectedUnitIds, unitsForSubject, lessonsForUnit, generationTarget]);
 
     const handleGenerate = async () => {
-        // ✅ 3. FIX: Prompt now correctly references the 'inputs' state object.
         if (generationTarget === 'teacherGuide') {
             if (!inputs.contentStandard || !inputs.performanceStandard || !inputs.learningCompetencies) {
                 showToast("Please fill in all standard and competency fields.", "error");
@@ -197,8 +195,9 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
                 4.  **Final Synthesis:** A summary and wrap up that connects key points across lessons that would prepare students for the Performance Task.
                 5.  **Unit Performance Task (Transfer):** As a separate, final item, design a detailed GRASPS Performance Task based on the overall unit **Performance Standard**. Include a comprehensive scoring rubric in a tabular format.
             `;
-
-            const analysisText = await callGeminiWithLimitCheck(ulpAnalysisPrompt, sourceInfo.content);
+            
+            // ✅ MODIFIED: Using the new generic generator with a custom config for a large response.
+            const analysisText = await callGeminiWithLimitCheck(ulpAnalysisPrompt, { maxOutputTokens: 8192 });
             if (!analysisText || analysisText.toLowerCase().includes("i cannot")) {
                 throw new Error("AI failed to generate ULP analysis.");
             }
@@ -206,7 +205,7 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
             setProgress(50);
             setProgressLabel('Formatting content...');
 
-const finalPrompt = `
+            const finalPrompt = `
                 Your sole task is to convert the provided ULP analysis into a single, valid JSON object.
                 **Source ULP Analysis:**
                 ---
@@ -242,8 +241,9 @@ const finalPrompt = `
                 **Final JSON Output Structure:**
                 {"generated_lessons": [{"lessonTitle": "Unit Learning Plan: ${sourceInfo.title}", "learningObjectives": [], "pages": [{"title": "PEAC Unit Learning Plan", "content": "..."}]}]}
             `;
-
-            const aiText = await callGeminiWithLimitCheck(finalPrompt);
+            
+            // ✅ MODIFIED: Using the new generic generator with a custom config for a large response.
+            const aiText = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 8192 });
             setProgress(90);
             setProgressLabel('Finalizing...');
 
@@ -351,7 +351,6 @@ const finalPrompt = `
                                     </div>
                                 </div>
                                 <h3 className="font-bold text-lg text-slate-700 border-b pt-2 pb-2">Authoritative Inputs</h3>
-                                {/* ✅ 4. FIX: The 'value' and 'onChange' props now correctly reference the 'inputs' state and 'handleInputChange' handler. */}
                                 <div>
                                     <label htmlFor="contentStandard" className="block text-sm font-medium text-slate-600 mb-1">Content Standard</label>
                                     <textarea id="contentStandard" name="contentStandard" value={inputs.contentStandard} onChange={handleInputChange} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500" rows={3} />

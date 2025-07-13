@@ -3,6 +3,7 @@ import { Dialog } from '@headlessui/react';
 import { useToast } from '../../contexts/ToastContext';
 import { useCourseData } from '../../hooks/useCourseData';
 import SourceContentSelector from '../../hooks/SourceContentSelector';
+// ✅ MODIFIED: Import the correct function
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import Spinner from '../common/Spinner';
 import { XMarkIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
@@ -173,7 +174,8 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
                 - **Standards:** How will the product be judged?
                 - **Scoring Rubric:** Following the GRASPS, create a detailed scoring rubric for the performance task. The rubric must have at least **three criteria** for success and at least **three proficiency levels** (e.g., Beginning, Developing, Accomplished) with clear descriptors for each level.`;
 
-            const analysisText = await callGeminiWithLimitCheck(atgAnalysisPrompt);
+            // ✅ MODIFIED: Using the new generic generator with a custom config for a large response.
+            const analysisText = await callGeminiWithLimitCheck(atgAnalysisPrompt, { maxOutputTokens: 8192 });
             if (analysisText.toLowerCase().includes("i cannot")) throw new Error("AI failed during ATG content generation.");
             
             showToast("Step 2/2: Formatting ATG...", "info");
@@ -191,7 +193,8 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
                 **FINAL JSON OUTPUT STRUCTURE:**
                 {"generated_lessons": [{"lessonTitle": "Adaptive Teaching Guide: ${sourceTitle}", "pages": [{"title": "PEAC Adaptive Teaching Guide", "content": "<table...>...</table>"}]}]}`;
 
-            const aiText = await callGeminiWithLimitCheck(finalPrompt);
+            // ✅ MODIFIED: Using the new generic generator with a custom config for a large response.
+            const aiText = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 8192 });
             const jsonText = extractJson(aiText);
             const parsedResponse = JSON.parse(jsonText);
             

@@ -10,244 +10,246 @@ import LessonPage from './LessonPage';
 
 // Helper functions (extractJson, tryParseJson)
 const extractJson = (text) => {
-    let match = text.match(/```json\s*([\s\S]*?)\s*```/);
-    if (!match) match = text.match(/```([\s\S]*?)```/);
-    if (match && match[1]) return match[1].trim();
-    const firstBrace = text.indexOf('{');
-    const lastBrace = text.lastIndexOf('}');
-    if (firstBrace > -1 && lastBrace > firstBrace) return text.substring(firstBrace, lastBrace + 1);
-    throw new Error("AI response did not contain a valid JSON object.");
+    let match = text.match(/```json\s*([\s\S]*?)\s*```/);
+    if (!match) match = text.match(/```([\s\S]*?)```/);
+    if (match && match[1]) return match[1].trim();
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    if (firstBrace > -1 && lastBrace > firstBrace) return text.substring(firstBrace, lastBrace + 1);
+    throw new Error("AI response did not contain a valid JSON object.");
 };
 
 const tryParseJson = (jsonString) => {
-    try {
-        return JSON.parse(jsonString);
-    } catch (error) {
-        let sanitizedString = jsonString.replace(/,\s*([}\]])/g, '$1');
-        try {
-            return JSON.parse(sanitizedString);
-        } catch (finalError) {
-            throw error;
-        }
-    }
+    try {
+        return JSON.parse(jsonString);
+    } catch (error) {
+        let sanitizedString = jsonString.replace(/,\s*([}\]])/g, '$1');
+        try {
+            return JSON.parse(sanitizedString);
+        } catch (finalError) {
+            throw error;
+        }
+    }
 };
 
 export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subjectId }) {
-    const { showToast } = useToast();
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-    const [previewData, setPreviewData] = useState(null);
-    const [extraInstruction, setExtraInstruction] = useState('');
-    const [existingLessonCount, setExistingLessonCount] = useState(0);
+    const { showToast } = useToast();
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [previewData, setPreviewData] = useState(null);
+    const [extraInstruction, setExtraInstruction] = useState('');
+    const [existingLessonCount, setExistingLessonCount] = useState(0);
 
-    const [formData, setFormData] = useState({
-        content: '',
-        lessonCount: 1,
-        pagesPerLesson: 10,
-        learningCompetencies: '',
-        contentStandard: '',
-        performanceStandard: '',
-        language: 'English',
-    });
-    
-    // Fetch existing lesson count for proper ordering
-    useEffect(() => {
-        if (isOpen && unitId) {
-            const lessonsQuery = query(collection(db, 'lessons'), where('unitId', '==', unitId));
-            const unsubscribe = onSnapshot(lessonsQuery, (snapshot) => {
-                setExistingLessonCount(snapshot.size);
-            });
-            return () => unsubscribe();
-        }
-    }, [isOpen, unitId]);
-    
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        const finalValue = (name === 'lessonCount' || name === 'pagesPerLesson') ? Number(value) : value;
-        setFormData(prev => ({ ...prev, [name]: finalValue }));
-    };
+    const [formData, setFormData] = useState({
+        content: '',
+        lessonCount: 1,
+        pagesPerLesson: 10,
+        learningCompetencies: '',
+        contentStandard: '',
+        performanceStandard: '',
+        language: 'English',
+    });
+    
+    // Fetch existing lesson count for proper ordering
+    useEffect(() => {
+        if (isOpen && unitId) {
+            const lessonsQuery = query(collection(db, 'lessons'), where('unitId', '==', unitId));
+            const unsubscribe = onSnapshot(lessonsQuery, (snapshot) => {
+                setExistingLessonCount(snapshot.size);
+            });
+            return () => unsubscribe();
+        }
+    }, [isOpen, unitId]);
+    
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        const finalValue = (name === 'lessonCount' || name === 'pagesPerLesson') ? Number(value) : value;
+        setFormData(prev => ({ ...prev, [name]: finalValue }));
+    };
 
-    const handleGenerate = async (regenerationNote = '') => {
-        setIsGenerating(true);
-        if (!regenerationNote) setPreviewData(null);
+    const handleGenerate = async (regenerationNote = '') => {
+        setIsGenerating(true);
+        if (!regenerationNote) setPreviewData(null);
 
-        try {
-            if (!formData.content || !formData.learningCompetencies) {
-                throw new Error("Please provide the Main Content/Topic and Learning Competencies.");
-            }
+        try {
+            if (!formData.content || !formData.learningCompetencies) {
+                throw new Error("Please provide the Main Content/Topic and Learning Competencies.");
+            }
 
-            // Define translated terms based on current language selection for prompt injection
-            const objectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
-            const letsGetStartedLabel = formData.language === 'Filipino' ? 'Simulan Natin!' : "Let's Get Started!";
-            const checkUnderstandingLabel = formData.language === 'Filipino' ? 'Suriin ang Pag-unawa' : "Check for Understanding";
-            const lessonSummaryLabel = formData.language === 'Filipino' ? 'Buod ng Aralin' : "Lesson Summary";
-            const wrapUpLabel = formData.language === 'Filipino' ? 'Pagbubuod' : "Wrap-Up";
-            const endOfLessonAssessmentLabel = formData.language === 'Filipino' ? 'Pagtatasa sa Katapusan ng Aralin' : "End-of-Lesson Assessment";
-            const referencesLabel = formData.language === 'Filipino' ? 'Mga Sanggunian' : "References";
-            const answerKeyLabel = formData.language === 'Filipino' ? 'Susi sa Pagwawasto' : 'Answer Key';
+            // Define translated terms based on current language selection for prompt injection
+            const objectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
+            const letsGetStartedLabel = formData.language === 'Filipino' ? 'Simulan Natin!' : "Let's Get Started!";
+            const checkUnderstandingLabel = formData.language === 'Filipino' ? 'Suriin ang Pag-unawa' : "Check for Understanding";
+            const lessonSummaryLabel = formData.language === 'Filipino' ? 'Buod ng Aralin' : "Lesson Summary";
+            const wrapUpLabel = formData.language === 'Filipino' ? 'Pagbubuod' : "Wrap-Up";
+            const endOfLessonAssessmentLabel = formData.language === 'Filipino' ? 'Pagtatasa sa Katapusan ng Aralin' : "End-of-Lesson Assessment";
+            const referencesLabel = formData.language === 'Filipino' ? 'Mga Sanggunian' : "References";
+            const answerKeyLabel = formData.language === 'Filipino' ? 'Susi sa Pagwawasto' : 'Answer Key';
 
-            // ✨ MODIFIED SECTION: Made instructions for objectives and introduction much stricter.
-            const formatSpecificInstructions = `
-                **Persona and Tone:** Adopt the persona of an enthusiastic and knowledgeable teacher who makes learning fun. The language MUST be student-friendly, avoiding overly academic or dry phrasing. Use analogies and real-world connections to make concepts relatable.
+            const formatSpecificInstructions = `
+                **Persona and Tone:** Adopt the persona of an enthusiastic and knowledgeable teacher who makes learning fun and like a grand adventure. The language MUST be student-friendly, avoiding overly academic or dry phrasing. Use analogies and real-world connections to make concepts relatable.
 
-                **CRITICAL INSTRUCTION FOR CORE CONTENT:**
-                The "Core Content Sections" MUST be detailed and information-rich, covering the topic comprehensively. However, the explanation should remain student-friendly, easy to understand, and engaging. Break down complex ideas into simpler parts, provide concrete examples, and ensure a logical flow of information that builds understanding step-by-step. Aim for depth without sacrificing clarity or readability for the target student audience.
+                **CRITICAL INSTRUCTION FOR CORE CONTENT:**
+                The "Core Content Sections" MUST be detailed and information-rich, covering the topic comprehensively. However, the explanation should remain student-friendly, easy to understand, and engaging. Break down complex ideas into simpler parts, provide concrete examples, and ensure a logical flow of information that builds understanding step-by-step. Aim for depth without sacrificing clarity or readability for the target student audience.
 
-                **CRITICAL HEADING RULE:**
-                Use clear, concise, and non-redundant headings and subheadings throughout the lesson. Each heading MUST represent a distinct main idea or sub-topic. Avoid repeating phrases or rephrasing the lesson title or main topic in subheadings. For example, if the lesson is "The Water Cycle," do not have subheadings like "Introduction to Water Cycle" or "Water Cycle Processes." Instead, use "Introduction" or "Key Processes." Ensure there is only ONE main heading per distinct section.
+                **CRITICAL HEADING RULE:**
+                Use clear, concise, and non-redundant headings and subheadings throughout the lesson. Each heading MUST represent a distinct main idea or sub-topic. Avoid repeating phrases or rephrasing the lesson title or main topic in subheadings. For example, if the lesson is "The Water Cycle," do not have subheadings like "Introduction to Water Cycle" or "Water Cycle Processes." Instead, use "Introduction" or "Key Processes." Ensure there is only ONE main heading per distinct section.
+                
+                **CRITICAL HEADING CONTINUITY RULE:**
+                When a single discussion (e.g., explaining 'Evaporation') is too long for one page and must continue on the next, its heading ('title' in the JSON) MUST only appear on the first page where it begins. Subsequent pages that continue the same discussion MUST have an empty string ("") for their 'title'. Do NOT create titles like "Evaporation (Continuation)". The content should flow seamlessly.
 
-                **Textbook Chapter Structure:** You MUST organize the lesson content in the following sequence, ensuring no section's content bleeds into another:
-                1.  **Standalone ${objectivesLabel} Section:** The lesson's JSON output MUST include a "learningObjectives" array containing a list of objectives. This list should be displayed at the very beginning of the lesson content, before the introduction.
-                2.  **Engaging Introduction:** After the objectives, write a compelling introduction that hooks the reader. **CRITICAL: Do NOT repeat, rephrase, or include any learning objectives within the introduction or any other section.** The objectives belong ONLY in the dedicated "learningObjectives" array in the JSON.
-                3.  **Introductory Activity:** Immediately after the introduction, include a short, interactive warm-up activity labeled "${letsGetStartedLabel}".
-                4.  **Core Content Sections:** Present the main content, broken down with clear headings.
-                5.  **Embedded Activities:** After explaining a major concept, include a short "${checkUnderstandingLabel}" activity.
-                6.  **${lessonSummaryLabel}:** A concise summary of the key takeaways.
-                7.  **${wrapUpLabel}/Conclusion:** Provide a clear conclusion that summarizes the main points.
-                8.  **${endOfLessonAssessmentLabel}:** Conclude with a dedicated assessment section containing 5-10 questions and a labeled "${answerKeyLabel}".
-                9.  **Final Page - ${referencesLabel}:** The VERY LAST page in the "pages" array for EACH lesson MUST be dedicated *exclusively* to references. This page object MUST have its "title" set to "${referencesLabel}" and its "content" must only list the references. Do not mix references with any other content on this final page.
-                
-                **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide *only* real, verifiable academic or reputable web sources if you are confident they exist within your training data knowledge base. Under NO circumstances should you invent illusory authors, titles, journals, or URLs.
-            `;
+                **Textbook Chapter Structure:** You MUST organize the lesson content in the following sequence, ensuring no section's content bleeds into another:
+                1.  **Standalone ${objectivesLabel} Section:** The lesson's JSON output MUST include a "learningObjectives" array containing a list of objectives.
+                2.  **Engaging Introduction:** At the start of every lesson, write a compelling introduction that hooks the reader. **ABSOLUTE RULE: The introduction MUST NOT contain any list of objectives, goals, or learning outcomes, not even a rephrased version.** The introduction's purpose is to be a narrative hook. The objectives are handled *exclusively* by the "learningObjectives" array in the JSON and are displayed separately. Do not generate text like "In this lesson, you will learn to..." or "Our goals are..." or "Sa araling ito, inaasahang matututo ka ng sumusunod:" within the introduction page content.
+                3.  **Introductory Activity:** Immediately after the introduction, include a short, interactive warm-up activity labeled "${letsGetStartedLabel}".
+                4.  **Core Content Sections:** Present the main content, broken down with clear headings.
+                5.  **Embedded Activities:** After explaining a major concept, include a short "${checkUnderstandingLabel}" activity.
+                6.  **${lessonSummaryLabel}:** A concise summary of the key takeaways.
+                7.  **${wrapUpLabel}/Conclusion:** Provide a clear conclusion that summarizes the main points.
+                8.  **${endOfLessonAssessmentLabel}:** Conclude with a dedicated assessment section containing 5-10 questions and a labeled "${answerKeyLabel}".
+                9.  **Final Page - ${referencesLabel}:** The VERY LAST page in the "pages" array for EACH lesson MUST be dedicated *exclusively* to references. This page object MUST have its "title" set to "${referencesLabel}" and its "content" must only list the references. Do not mix references with any other content on this final page.
+                
+                **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide *only* real, verifiable academic or reputable web sources if you are confident they exist within your training data knowledge base. Under NO circumstances should you invent illusory authors, titles, journals, or URLs.
+            `;
 
-            const languageInstruction = `
-                **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.
-                This includes all content, headings, subheadings, activity titles, and assessment sections.
-                For example, if the language is Filipino, "Learning Objectives" should be translated to "Mga Layunin sa Pagkatuto",
-                "Let's Get Started!" to "Simulan Natin!", "Check for Understanding" to "Suriin ang Pag-unawa",
-                "Lesson Summary" to "Buod ng Aralin", "End-of-Lesson Assessment" to "Pagtatasa sa Katapusan ng Aralin",
-                "Wrap-Up" to "Pagbubuod", and "References" to "Mga Sanggunian".
-                You MUST use the translated terms for these sections.
-            `;
+            const languageInstruction = `
+                **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.
+                This includes all content, headings, subheadings, activity titles, and assessment sections.
+                For example, if the language is Filipino, "Learning Objectives" should be translated to "Mga Layunin sa Pagkatuto",
+                "Let's Get Started!" to "Simulan Natin!", "Check for Understanding" to "Suriin ang Pag-unawa",
+                "Lesson Summary" to "Buod ng Aralin", "End-of-Lesson Assessment" to "Pagtatasa sa Katapusan ng Aralin",
+                "Wrap-Up" to "Pagbubuod", and "References" to "Mga Sanggunian".
+                You MUST use the translated terms for these sections.
+            `;
 
-            const studentLessonInstructions = `
-                **CRITICAL JSON FORMATTING RULES (NON-NEGOTIABLE):**
-                1.  **Entire response MUST be a single JSON object.**
-                2.  **No Trailing Commas.**
+            const studentLessonInstructions = `
+                **CRITICAL JSON FORMATTING RULES (NON-NEGOTIABLE):**
+                1.  **Entire response MUST be a single JSON object.**
+                2.  **No Trailing Commas.**
 
-                **OTHER CRITICAL INSTRUCTIONS:**
-                3.  **Intelligent SVG Diagram Generation:** If the topic requires a diagram, you MUST generate one. Set the page "type" to "diagram-data" and the "content" MUST be a string of valid, complete SVG code. The SVG must be responsive and have legible, non-overlapping text. Do NOT use <img> tags.
-                    
-                    **CRITICAL SVG VISUAL GUIDELINES:**
-                    - **Label Placement & Readability:** All text labels and annotations within the SVG MUST be clearly legible, adequately spaced, and positioned so they do NOT overlap with other elements.
-                    - **No Overflow:** Text and shapes MUST stay within the bounds of the SVG viewport.
-                    - **Visual Clarity & Simplicity:** Design the diagram to be clean, simple, and easy to understand.
-                    - **Responsiveness:** Use a \`viewBox\` attribute to ensure the SVG scales well.
-                    - **Font Size:** Use a reasonable font size that is easy to read.
+                **OTHER CRITICAL INSTRUCTIONS:**
+                3.  **Intelligent SVG Diagram Generation:** If the topic requires a diagram, you MUST generate one. Set the page "type" to "diagram-data" and the "content" MUST be a string of valid, complete SVG code. The SVG must be responsive and have legible, non-overlapping text. Do NOT use <img> tags.
+                    
+                    **CRITICAL SVG VISUAL GUIDELINES:**
+                    - **Label Placement & Readability:** All text labels and annotations within the SVG MUST be clearly legible, adequately spaced, and positioned so they do NOT overlap with other elements.
+                    - **No Overflow:** Text and shapes MUST stay within the bounds of the SVG viewport.
+                    - **Visual Clarity & Simplicity:** Design the diagram to be clean, simple, and easy to understand.
+                    - **Responsiveness:** Use a \`viewBox\` attribute to ensure the SVG scales well.
+                    - **Font Size:** Use a reasonable font size that is easy to read.
 
-                    If no diagram is needed, set the page "type" to "text".
-                4.  ${languageInstruction}
-                5.  ${formatSpecificInstructions}
-            `;
+                    If no diagram is needed, set the page "type" to "text".
+                4.  ${languageInstruction}
+                5.  ${formatSpecificInstructions}
+            `;
 
-            let finalPrompt;
-            const isRegeneration = !!regenerationNote && !!previewData;
+            let finalPrompt;
+            const isRegeneration = !!regenerationNote && !!previewData;
 
-            if (isRegeneration) {
-                const existingJsonString = JSON.stringify(previewData, null, 2);
-                finalPrompt = `You are a JSON editing expert. Modify the following JSON data based on this user instruction: "${regenerationNote}".
-                **EXISTING JSON TO MODIFY:**
-                ---
-                ${existingJsonString}
-                ---
-                You MUST adhere to all of the following original rules that were used to create it.
-                ${studentLessonInstructions}
-                Return ONLY the complete, updated, and valid JSON object.`;
-            } else {
-                finalPrompt = `You are an expert instructional designer creating a student-friendly textbook chapter.
-                **Core Content Information:**
-                ---
-                **Topic:** "${formData.content}"
-                **Content Standard:** "${formData.contentStandard}"
-                **Performance Standard:** "${formData.performanceStandard}"
-                ---
-                **Desired Learning Competencies for this topic (these will form the 'learningObjectives' array):**
-                "${formData.learningCompetencies}"
+            if (isRegeneration) {
+                const existingJsonString = JSON.stringify(previewData, null, 2);
+                finalPrompt = `You are a JSON editing expert. Modify the following JSON data based on this user instruction: "${regenerationNote}".
+                **EXISTING JSON TO MODIFY:**
+                ---
+                ${existingJsonString}
+                ---
+                You MUST adhere to all of the following original rules that were used to create it.
+                ${studentLessonInstructions}
+                Return ONLY the complete, updated, and valid JSON object.`;
+            } else {
+                finalPrompt = `You are an expert instructional designer creating a student-friendly textbook chapter.
+                **Core Content Information:**
+                ---
+                **Topic:** "${formData.content}"
+                **Content Standard:** "${formData.contentStandard}"
+                **Performance Standard:** "${formData.performanceStandard}"
+                ---
+                **Desired Learning Competencies for this topic (these will form the 'learningObjectives' array):**
+                "${formData.learningCompetencies}"
 
-                **Lesson Details:**
-                - **Number of Lessons to Generate:** ${formData.lessonCount}
-                - **Pages Per Lesson:** ${formData.pagesPerLesson}
-                
-                **CRITICAL LESSON TITLE RULE:**
-                Each "lessonTitle" within the "generated_lessons" array MUST be unique, engaging, and catchy.
-                The title MUST start with a specific prefix and include the lesson number.
-                - If the language is Filipino, the title MUST start with "Aralin #[Lesson Number]: ".
-                - If the language is English, the title MUST start with "Lesson #[Lesson Number]: ".
-                
+                **Lesson Details:**
+                - **Number of Lessons to Generate:** ${formData.lessonCount}
+                - **Pages Per Lesson:** ${formData.pagesPerLesson}
+                
+                **CRITICAL LESSON TITLE RULE:**
+                Each "lessonTitle" within the "generated_lessons" array MUST be unique, engaging, and catchy.
+                The title MUST start with a specific prefix and include the lesson number.
+                - If the language is Filipino, the title MUST start with "Aralin #[Lesson Number]: ".
+                - If the language is English, the title MUST start with "Lesson #[Lesson Number]: ".
+                
 				**CRITICAL PAGE COUNT INSTRUCTION:**
-                Each lesson's content (all 'pages' combined) MUST approximate the 'Target Pages Per Lesson' requested. Consider a "page" as a conceptual unit that contains roughly 150-250 words of prose, or equivalent content like a small activity or diagram. Adjust the depth and breadth of the content across the pages within a lesson to meet this target. The final number of 'pages' for each lesson should be as close as possible to the 'Target Pages Per Lesson'.
+                Each lesson's content (all 'pages' combined) MUST approximate the 'Target Pages Per Lesson' requested. Consider a "page" as a conceptual unit that contains roughly 150-250 words of prose, or equivalent content like a small activity or diagram. Adjust the depth and breadth of the content across the pages within a lesson to meet this target. The final number of 'pages' for each lesson should be as close as possible to the 'Target Pages Per Lesson'.
 				
-                
-                ${studentLessonInstructions}
+                
+                ${studentLessonInstructions}
 
-                **Final Output Structure:**
-                {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": ["Objective 1...", "Objective 2..."], "pages": [{"title": "...", "content": "...", "type": "text|diagram-data"}, ... ]}, ... ]}`;
-            }
-            
-            const aiText = await callGeminiWithLimitCheck(finalPrompt);
-            const jsonText = extractJson(aiText);
-            const parsedResponse = tryParseJson(jsonText);
+                **Final Output Structure:**
+                {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": ["Objective 1...", "Objective 2..."], "pages": [{"title": "...", "content": "...", "type": "text|diagram-data"}, ... ]}, ... ]}`;
+            }
+            
+            const aiText = await callGeminiWithLimitCheck(finalPrompt);
+            const jsonText = extractJson(aiText);
+            const parsedResponse = tryParseJson(jsonText);
 
-            setPreviewData(parsedResponse);
-            showToast("Content generated successfully!", "success");
+            setPreviewData(parsedResponse);
+            showToast("Content generated successfully!", "success");
 
-        } catch (err) {
-            console.error("Error during generation:", err);
-            showToast(err.message, "error");
-        } finally {
-            setIsGenerating(false);
-        }
-    };
-    
-    const handleSave = async () => {
-        if (!previewData || !Array.isArray(previewData.generated_lessons) || previewData.generated_lessons.length === 0) {
-            showToast("Cannot save: Invalid or empty lesson data.", "error");
-            return;
-        }
-        if (!unitId || !subjectId) {
-            showToast("Could not save: Destination unit or subject is missing.", "error");
-            return;
-        }
+        } catch (err) {
+            console.error("Error during generation:", err);
+            showToast(err.message, "error");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+    
+    const handleSave = async () => {
+        if (!previewData || !Array.isArray(previewData.generated_lessons) || previewData.generated_lessons.length === 0) {
+            showToast("Cannot save: Invalid or empty lesson data.", "error");
+            return;
+        }
+        if (!unitId || !subjectId) {
+            showToast("Could not save: Destination unit or subject is missing.", "error");
+            return;
+        }
 
-        setIsSaving(true);
-        showToast(`Saving ${previewData.generated_lessons.length} lesson(s)...`, "info");
+        setIsSaving(true);
+        showToast(`Saving ${previewData.generated_lessons.length} lesson(s)...`, "info");
 
-        try {
-            const batch = writeBatch(db);
-            
-            previewData.generated_lessons.forEach((lesson, index) => {
-                const newLessonRef = doc(collection(db, 'lessons'));
-                batch.set(newLessonRef, {
-                    title: lesson.lessonTitle,
-                    pages: lesson.pages || [],
-                    // This correctly saves the 'learningObjectives' array from the JSON into the 'objectives' field in Firestore.
-                    objectives: lesson.learningObjectives || [], 
-                    unitId: unitId,
-                    subjectId: subjectId,
-                    contentType: "studentLesson",
-                    createdAt: serverTimestamp(),
-                    order: existingLessonCount + index,
-                });
-            });
+        try {
+            const batch = writeBatch(db);
+            
+            previewData.generated_lessons.forEach((lesson, index) => {
+                const newLessonRef = doc(collection(db, 'lessons'));
+                batch.set(newLessonRef, {
+                    title: lesson.lessonTitle,
+                    pages: lesson.pages || [],
+                    // This correctly saves the 'learningObjectives' array from the JSON into the 'objectives' field in Firestore.
+                    objectives: lesson.learningObjectives || [], 
+                    unitId: unitId,
+                    subjectId: subjectId,
+                    contentType: "studentLesson",
+                    createdAt: serverTimestamp(),
+                    order: existingLessonCount + index,
+                });
+            });
 
-            await batch.commit();
-            
-            showToast(`${previewData.generated_lessons.length} lesson(s) saved successfully!`, "success");
-            onClose();
+            await batch.commit();
+            
+            showToast(`${previewData.generated_lessons.length} lesson(s) saved successfully!`, "success");
+            onClose();
 
-        } catch (err) {
-            console.error("Save error:", err);
-            showToast("Failed to save lessons.", "error");
-        } finally {
-            setIsSaving(false);
-        }
-    };
+        } catch (err) {
+            console.error("Save error:", err);
+            showToast("Failed to save lessons.", "error");
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
-    const isValidPreview = previewData && !previewData.error && Array.isArray(previewData.generated_lessons);
+    const isValidPreview = previewData && !previewData.error && Array.isArray(previewData.generated_lessons);
 
-    const currentObjectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
+    const currentObjectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
 
-    return (
+    return (
         <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[110] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
             <Dialog.Panel className="relative bg-slate-50 p-8 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">

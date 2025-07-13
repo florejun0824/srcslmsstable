@@ -14,7 +14,6 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
   const [pages, setPages] = useState([{ title: '', content: '' }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  // No need for activeGlobalEditorTab if only one editor type
 
   useEffect(() => {
     if (lesson) {
@@ -34,8 +33,6 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
     newPages[index][field] = value;
     setPages(newPages);
   };
-
-  // No need for handleGlobalTabChange or TabButton component
 
   const addPage = () => {
     setPages([...pages, { title: '', content: '' }]);
@@ -89,24 +86,19 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
               <TextInput value={title} onValueChange={setTitle} />
             </div>
 
-            {/* Removed Global Editor Tabs */}
             <h3 className="text-lg font-medium text-gray-800 border-t pt-4">Lesson Pages</h3>
-            {/* Removed the div containing TabButtons */}
           </div>
         </div>
 
         {/* Scrollable Content Section for Pages */}
         <div className="flex-grow overflow-y-auto pr-2 -mr-2">
           <div className="space-y-4">
-            {/* Moved Study Guide URL here, now it scrolls */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Study Guide URL (Optional)</label>
               <TextInput value={studyGuideUrl} onValueChange={setStudyGuideUrl} />
             </div>
-            {/* End of moved Study Guide URL */}
 
             {pages.map((page, index) => {
-              // No activeTab logic needed here
               return (
                 <div key={index} className="p-4 border rounded-md relative space-y-3">
                   <div className="flex justify-between items-center mb-3">
@@ -129,7 +121,7 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      {/* Only render the textarea for Markdown */}
+                      {/* This is the standard textarea for Markdown editing */}
                       <textarea
                         value={page.content}
                         onChange={(e) => handlePageChange(index, 'content', e.target.value)}
@@ -141,7 +133,7 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                     <div>
                       <label className="text-xs font-semibold text-gray-500">LIVE PREVIEW</label>
                       <div className="h-full border rounded-md p-4 prose max-w-none prose-slate overflow-y-auto">
-                        {/* ContentRenderer always expects Markdown now */}
+                        {/* The renderer displays the live preview of the Markdown */}
                         <ContentRenderer text={page.content} />
                       </div>
                     </div>
@@ -169,17 +161,3 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
     </Dialog>
   );
 }
-
-// Remove TabButton component as it's no longer needed
-// const TabButton = ({ label, isActive, onClick }) => (
-//   <button
-//     onClick={onClick}
-//     className={`px-4 py-2 text-sm font-medium transition-colors ${
-//       isActive
-//         ? 'border-b-2 border-indigo-500 text-indigo-600'
-//         : 'text-gray-500 hover:text-gray-700'
-//     }`}
-//   >
-//     {label}
-//   </button>
-// );

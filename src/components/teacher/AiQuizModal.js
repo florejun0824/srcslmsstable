@@ -20,7 +20,7 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedQuiz, setGeneratedQuiz] = useState(null);
     const [error, setError] = useState('');
-    const [keyPoints, setKeyPoints] = useState(''); 
+    const [keyPoints, setKeyPoints] = useState('');
 
     useEffect(() => {
         if (isOpen) {
@@ -59,9 +59,9 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
 
             **User's Instruction for Revision:** "${revisionPrompt}"`;
         }
-        
+
         const lessonContentForPrompt = lesson?.pages?.map(page => `Page Title: ${page.title}\nPage Content: ${page.content}`).join('\n\n') || '';
-        
+
         let prompt = `You are an expert instructional designer and quiz creator specializing in Bloom's Taxonomy. Your task is to create a quiz about the topic of "${lesson?.title}".
 
 **PRIMARY DIRECTIVE:** Use the provided "KNOWLEDGE SOURCE TEXT" below only to understand the key concepts of the topic.
@@ -85,7 +85,7 @@ ${lessonContentForPrompt}
         } else {
             prompt += ` All questions should be of the type: ${quizType}.\n`;
         }
-        
+
         prompt += `
 **JSON OUTPUT FORMAT:**
 Return the response as a single, valid JSON object. The object must have a "title" and a "questions" array.
@@ -140,13 +140,13 @@ You MUST order the choices in the "options" array according to the following log
                 ${lessonContentForPrompt}
                 ---
                 KEY POINTS:`;
-                
+
                 currentKeyPoints = await callGeminiWithLimitCheck(summarizationPrompt);
-                setKeyPoints(currentKeyPoints); 
+                setKeyPoints(currentKeyPoints);
             }
 
             showToast(isRevision ? "Regenerating quiz..." : "Key points extracted. Generating quiz...", "info");
-            
+
             const quizGenerationPrompt = constructPrompt(isRevision);
             const aiText = await callGeminiWithLimitCheck(quizGenerationPrompt);
             const response = JSON.parse(aiText);
@@ -167,18 +167,26 @@ You MUST order the choices in the "options" array according to the following log
     };
 
     const handleSaveQuiz = async () => {
-        if (!generatedQuiz) return;
+        if (!generatedQuiz || !lesson) return;
         setIsGenerating(true);
         try {
+            // ✅ MODIFIED: Logic to create the new title
+            const cleanedLessonTitle = lesson.title.replace(/Lesson\s*\d+:\s*/i, '').trim();
+            const newQuizTitle = `Quiz: ${cleanedLessonTitle}`;
+
             const quizRef = doc(collection(db, 'quizzes'));
+            
+            // ✅ MODIFIED: Save the new title instead of the one from the AI
             await setDoc(quizRef, {
                 ...generatedQuiz,
+                title: newQuizTitle,
                 unitId,
                 subjectId,
                 lessonId: lesson.id,
                 createdAt: serverTimestamp(),
                 createdBy: 'AI'
             });
+
             setStep(4);
             showToast("Quiz saved successfully!", "success");
         } catch (err) {

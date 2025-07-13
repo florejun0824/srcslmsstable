@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
-import { XMarkIcon, ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/24/solid';
-import LessonPage from './LessonPage'; // 👈 1. Import the corrected LessonPage component
+import { XMarkIcon, ArrowLeftIcon, ArrowRightIcon, ListBulletIcon } from '@heroicons/react/24/solid';
+import LessonPage from './LessonPage';
 
 export default function ViewLessonModal({ isOpen, onClose, lesson }) {
     const [currentPage, setCurrentPage] = useState(0);
@@ -12,12 +12,14 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
         }
     }, [isOpen, lesson]);
 
-    if (!isOpen || !lesson || !lesson.pages || lesson.pages.length === 0) {
+    if (!isOpen || !lesson) {
         return null;
     }
 
-    const totalPages = lesson.pages.length;
-    const pageData = lesson.pages[currentPage];
+    const pages = lesson.pages || [];
+    const objectives = lesson.objectives || [];
+    const totalPages = pages.length;
+    const pageData = pages[currentPage];
 
     const progressPercentage = totalPages > 1 ? ((currentPage + 1) / totalPages) * 100 : 100;
 
@@ -28,6 +30,13 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
     const goToPreviousPage = () => {
         setCurrentPage((prev) => Math.max(prev - 1, 0));
     };
+
+    // ✅ **MODIFIED LOGIC**
+    // Determine the label. Prioritize the 'language' field.
+    // Fall back to checking the title for the word "Aralin" for older lessons.
+    const objectivesLabel = (lesson.language === 'Filipino' || (lesson.title && lesson.title.includes("Aralin"))) 
+        ? "Mga Layunin" 
+        : "Objectives";
 
     return (
         <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -52,13 +61,27 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
                     </button>
                 </div>
 
-                {/* --- 👇 2. Replace the old rendering logic with our component --- */}
                 <div className="overflow-y-auto flex-grow px-6 pb-6 modern-scrollbar">
-                    {pageData && (
+                    {currentPage === 0 && objectives.length > 0 && (
+                        <div className="mb-6 p-4 bg-indigo-50 border-l-4 border-indigo-300 rounded-r-lg">
+                            <h3 className="flex items-center gap-2 text-lg font-bold text-indigo-800 mb-2">
+                                <ListBulletIcon className="h-6 w-6" />
+                                {objectivesLabel} {/* ✅ Use the dynamic label here */}
+                            </h3>
+                            <ul className="list-disc list-inside space-y-1 text-indigo-700">
+                                {objectives.map((objective, index) => (
+                                    <li key={index}>{objective}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    {pageData ? (
                         <LessonPage page={pageData} />
+                    ) : (
+                        currentPage === 0 && objectives.length > 0 ? null : <p className="text-slate-500">This lesson has no content pages.</p>
                     )}
                 </div>
-                {/* --- End of changed block --- */}
 
                 <div className="flex justify-between items-center p-5 bg-slate-50/80 backdrop-blur-sm border-t border-slate-200 flex-shrink-0">
                     <button
@@ -71,7 +94,7 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
                     </button>
 
                     <span className="text-sm font-medium text-slate-500">
-                        Page {currentPage + 1} of {totalPages}
+                        {totalPages > 0 ? `Page ${currentPage + 1} of ${totalPages}`: 'Page 0 of 0'}
                     </span>
                     
                     {currentPage < totalPages - 1 ? (
