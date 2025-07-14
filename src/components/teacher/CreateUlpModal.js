@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Dialog } from '@headlessui/react';
 import { collection, query, where, onSnapshot, writeBatch, doc, orderBy, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-// ✅ MODIFIED: Import the correct function
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 import Spinner from '../common/Spinner';
@@ -63,17 +62,46 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
     const [existingLessonCount, setExistingLessonCount] = useState(0);
     const [progress, setProgress] = useState(0);
     const [progressLabel, setProgressLabel] = useState('');
+    const [isLoadingSubjects, setIsLoadingSubjects] = useState(true);
 
     // --- Data Fetching Hooks ---
+    // ✅ MODIFIED: This logic now works without a separate 'courseCategories' collection.
     useEffect(() => {
-        if (isOpen) {
-            const subjectsQuery = query(collection(db, 'courses'), orderBy('title'));
-            const unsub = onSnapshot(subjectsQuery, (snapshot) => {
-                setAllSubjects(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-            });
-            return () => unsub();
-        }
+        if (!isOpen) return;
+
+        setIsLoadingSubjects(true);
+
+        // 1. Fetch ALL subjects from the 'courses' collection, as categories are embedded.
+        const subjectsQuery = query(collection(db, 'courses'), orderBy('title'));
+        
+        const unsubscribe = onSnapshot(subjectsQuery, (snapshot) => {
+            const allFetchedSubjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // 2. Extract all unique, non-empty category names directly from the subjects.
+            const uniqueCategories = [...new Set(allFetchedSubjects.map(subject => subject.category).filter(Boolean))];
+
+            // 3. From that unique list, determine which categories are for "Learners".
+            const learnerCategoryNames = uniqueCategories.filter(name => !name.toLowerCase().includes("teach"));
+
+            // 4. Filter the original list of subjects to include only those that belong to a learner category.
+            const learnerSubjects = allFetchedSubjects.filter(subject => 
+                subject.category && learnerCategoryNames.includes(subject.category)
+            );
+
+            // 5. Set the state with the final, filtered list for the dropdown.
+            setAllSubjects(learnerSubjects);
+            setIsLoadingSubjects(false);
+
+        }, (error) => {
+            console.error("Error fetching subjects:", error);
+            showToast("Error fetching subjects.", "error");
+            setIsLoadingSubjects(false);
+        });
+
+        // Cleanup the listener when the component unmounts or modal closes.
+        return () => unsubscribe();
     }, [isOpen]);
+
 
     useEffect(() => {
         if (selectedSubjectId) {
@@ -196,7 +224,6 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
                 5.  **Unit Performance Task (Transfer):** As a separate, final item, design a detailed GRASPS Performance Task based on the overall unit **Performance Standard**. Include a comprehensive scoring rubric in a tabular format.
             `;
             
-            // ✅ MODIFIED: Using the new generic generator with a custom config for a large response.
             const analysisText = await callGeminiWithLimitCheck(ulpAnalysisPrompt, { maxOutputTokens: 8192 });
             if (!analysisText || analysisText.toLowerCase().includes("i cannot")) {
                 throw new Error("AI failed to generate ULP analysis.");
@@ -242,7 +269,6 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
                 {"generated_lessons": [{"lessonTitle": "Unit Learning Plan: ${sourceInfo.title}", "learningObjectives": [], "pages": [{"title": "PEAC Unit Learning Plan", "content": "..."}]}]}
             `;
             
-            // ✅ MODIFIED: Using the new generic generator with a custom config for a large response.
             const aiText = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 8192 });
             setProgress(90);
             setProgressLabel('Finalizing...');
@@ -378,7 +404,7 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
                                         setSelectedUnitIds(newSet);
                                     }}
                                     unitsForSubject={unitsForSubject}
-                                    loading={!allSubjects.length}
+                                    loading={isLoadingSubjects}
                                 />
                             </div>
                         </div>

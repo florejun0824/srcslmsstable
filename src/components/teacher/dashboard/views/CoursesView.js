@@ -97,14 +97,26 @@ const CoursesView = (props) => {
 
         return (
             <div className="w-full">
-                <div className="flex items-center gap-4 mb-4">
-                    <button onClick={handleBackToCategoryList} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-200 transition-colors">
-                        <ArrowUturnLeftIcon className="w-5 h-5 text-gray-700" />
+                {/* MODIFIED: Added a flex container to hold the back button, title, and the new "Add Subject" button */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                    <div className="flex items-center gap-4">
+                        <button onClick={handleBackToCategoryList} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-200 transition-colors">
+                            <ArrowUturnLeftIcon className="w-5 h-5 text-gray-700" />
+                        </button>
+                        <h1 className="text-3xl font-bold text-gray-800 truncate">{selectedCategory}</h1>
+                    </div>
+                    {/* ADDED: "Add Subject" button that triggers the modal for creating a new course */}
+                    <button onClick={() => setCreateCourseModalOpen(true)} className="btn-primary gap-2">
+                        <PlusCircleIcon className="w-5 h-5" />
+                        Add Subject
                     </button>
-                    <h1 className="text-3xl font-bold text-gray-800 truncate">{selectedCategory}</h1>
                 </div>
+
                 <div className="mb-6 sticky top-0 bg-slate-100 py-3 z-20">
-                    <div className="relative"><MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" /><input type="text" placeholder={`Search in ${selectedCategory}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full max-w-md p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                    <div className="relative">
+                        <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input type="text" placeholder={`Search in ${selectedCategory}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full max-w-md p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredCourses.length > 0 ? (

@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     HomeIcon, AcademicCapIcon, BookOpenIcon, UserIcon, ShieldCheckIcon, Bars3Icon,
     ArrowLeftOnRectangleIcon, MagnifyingGlassIcon, ExclamationTriangleIcon, UserGroupIcon
 } from '@heroicons/react/24/outline';
+import { collection, query, where, getDocs, writeBatch, doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../../services/firebase';
+import { useToast } from '../../contexts/ToastContext';
 
 import Spinner from '../common/Spinner';
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
@@ -56,11 +59,63 @@ const TeacherDashboardLayout = (props) => {
         user, userProfile, loading, error, activeView, handleViewChange, isSidebarOpen, setIsSidebarOpen, logout,
         isAiGenerating, isChatOpen, setIsChatOpen, messages, isAiThinking, handleAskAi, userFirstName,
         aiConversationStarted, handleAskAiWrapper, isAiHubOpen, setIsAiHubOpen, activeSubject,
-        activeUnit,
-        onSetActiveUnit,
-        setViewLessonModalOpen, // <-- MODIFIED: Receive the setter function as a prop
+        activeUnit, onSetActiveUnit, setViewLessonModalOpen,
         ...rest
     } = props;
+
+    const [courses, setCourses] = useState(rest.courses || []);
+    const [categoryToEdit, setCategoryToEdit] = useState(null);
+    const [isEditCategoryModalOpen, setIsEditCategoryModalOpen] = useState(false);
+    const { showToast } = useToast();
+
+    useEffect(() => {
+        const q = query(collection(db, 'courses'));
+        
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const coursesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setCourses(coursesData);
+            console.log("Course data updated in real-time.");
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+
+    const handleRenameCategory = async (newName) => {
+        const oldName = categoryToEdit?.name;
+
+        if (!oldName || !newName || oldName === newName) {
+            setIsEditCategoryModalOpen(false);
+            return;
+        }
+
+        const subjectsQuery = query(collection(db, 'courses'), where('category', '==', oldName));
+        
+        try {
+            const querySnapshot = await getDocs(subjectsQuery);
+            const batch = writeBatch(db);
+            querySnapshot.forEach((document) => {
+                const subjectRef = doc(db, 'courses', document.id);
+                batch.update(subjectRef, { category: newName });
+            });
+            await batch.commit();
+            showToast("Category renamed successfully!", "success");
+        } catch (error) {
+            console.error("Error renaming category:", error);
+            showToast("Failed to rename category.", "error");
+        } finally {
+            setIsEditCategoryModalOpen(false);
+        }
+    };
+
+    const handleEditCategory = (category) => {
+        setCategoryToEdit(category);
+        setIsEditCategoryModalOpen(true);
+    };
+
+    const courseCategories = [...new Set(courses.map(c => c.category).filter(Boolean))]
+        .map((name, index) => ({ id: `cat-${index}`, name }));
+
 
     const renderMainContent = () => {
         if (loading) return <Spinner />;
@@ -82,13 +137,16 @@ const TeacherDashboardLayout = (props) => {
                 return <ClassesView {...rest} />;
             case 'courses':
                 return <CoursesView 
+                            {...rest}
                             userProfile={userProfile} 
                             activeSubject={activeSubject} 
                             isAiGenerating={isAiGenerating} 
                             setIsAiHubOpen={setIsAiHubOpen} 
                             activeUnit={activeUnit} 
-                            onSetActiveUnit={onSetActiveUnit} 
-                            {...rest} 
+                            onSetActiveUnit={onSetActiveUnit}
+                            courses={courses}
+                            courseCategories={courseCategories}
+                            handleEditCategory={handleEditCategory}
                         />;
             case 'studentManagement':
                 return <StudentManagementView {...rest} />;
@@ -236,7 +294,16 @@ const TeacherDashboardLayout = (props) => {
             <EditProfileModal isOpen={rest.isEditProfileModalOpen} onClose={() => rest.setEditProfileModalOpen(false)} userProfile={userProfile} onUpdate={rest.handleUpdateProfile} />
             <ChangePasswordModal isOpen={rest.isChangePasswordModalOpen} onClose={() => rest.setChangePasswordModalOpen(false)} onSubmit={rest.handleChangePassword} />
             <CreateCategoryModal isOpen={rest.isCreateCategoryModalOpen} onClose={() => rest.setCreateCategoryModalOpen(false)} onCategoryCreated={() => { }} />
-            {rest.categoryToEdit && <EditCategoryModal isOpen={rest.isEditCategoryModalOpen} onClose={() => rest.setEditCategoryModalOpen(false)} category={rest.categoryToEdit} onCategoryUpdated={() => { }} />}
+            
+            {categoryToEdit && (
+                <EditCategoryModal 
+                    isOpen={isEditCategoryModalOpen} 
+                    onClose={() => setIsEditCategoryModalOpen(false)} 
+                    categoryName={categoryToEdit.name} 
+                    onSave={handleRenameCategory} 
+                />
+            )}
+
             <CreateClassModal isOpen={rest.isCreateClassModalOpen} onClose={() => rest.setCreateClassModalOpen(false)} teacherId={user?.uid || user?.id} />
             <CreateCourseModal isOpen={rest.isCreateCourseModalOpen} onClose={() => rest.setCreateCourseModalOpen(false)} teacherId={user?.uid || user?.id} courseCategories={rest.courseCategories} />
             <ClassOverviewModal isOpen={rest.classOverviewModal.isOpen} onClose={() => rest.setClassOverviewModal({ isOpen: false, data: null })} classData={rest.classOverviewModal.data} courses={rest.courses} onRemoveStudent={rest.handleRemoveStudentFromClass} />
@@ -247,7 +314,6 @@ const TeacherDashboardLayout = (props) => {
             {rest.selectedUnit && <AddQuizModal isOpen={rest.addQuizModalOpen} onClose={() => rest.setAddQuizModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} />}
             {rest.selectedUnit && <DeleteUnitModal isOpen={rest.deleteUnitModalOpen} onClose={() => rest.setDeleteUnitModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} />}
             {rest.selectedLesson && <EditLessonModal isOpen={rest.editLessonModalOpen} onClose={() => rest.setEditLessonModalOpen(false)} lesson={rest.selectedLesson} />}
-            {/* MODIFIED: The onClose handler now uses the prop which is guaranteed to be defined */}
             {rest.selectedLesson && <ViewLessonModal isOpen={rest.viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={rest.selectedLesson} />}
             {activeSubject && (<ShareMultipleLessonsModal isOpen={rest.isShareContentModalOpen} onClose={() => rest.setShareContentModalOpen(false)} subject={activeSubject} />)}
             <DeleteConfirmationModal isOpen={rest.isDeleteModalOpen} onClose={() => rest.setIsDeleteModalOpen(false)} onConfirm={rest.handleConfirmDelete} deletingItemType={rest.deleteTarget?.type} />

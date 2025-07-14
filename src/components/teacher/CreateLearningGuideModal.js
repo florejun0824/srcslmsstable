@@ -166,7 +166,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 8.  **${endOfLessonAssessmentLabel}:** A dedicated assessment with **8-10 questions** and a labeled "${answerKeyLabel}".
                 9.  **Final Page - ${referencesLabel}:** The last page MUST be for references only.
 
-                **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide real, verifiable academic or reputable web sources. Do NOT invent sources.
+                **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide real, verifiable academic or reputable web sources. Do NOT invent sources. Every last page of the lesson should have references on it.
             `;
             const languageInstruction = `
                 **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
@@ -206,10 +206,10 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 "${formData.learningCompetencies}"
                 
                 **CRITICAL INSTRUCTION FOR LEARNING OBJECTIVES (NON-NEGOTIABLE):**
-                Based on the topic and the learning competencies provided above, you MUST generate a new, distinct set of 3-5 SMART (Specific, Measurable, Achievable, Relevant, Time-bound) learning objectives for this specific lesson. 
-                - **DO NOT** simply copy the learning competencies.
-                - **DO** create actionable statements describing what a student will be able to *do* after completing the lesson. (e.g., "Explain the three stages of the water cycle," "Solve quadratic equations using the formula," "Analyze the main character's motivations in the story.").
-                - These generated objectives will form the 'learningObjectives' array in the JSON output.
+                Based on the topic and competencies, generate a 'learningObjectives' array with 3-5 distinct objectives.
+                - **FORMATTING RULE:** Each objective MUST be a concise, action-oriented phrase starting with a verb (e.g., "Differentiate between talents and skills," "Analyze the author's use of foreshadowing," "Solve linear equations with two variables.").
+                - **ABSOLUTE RESTRICTION:** **DO NOT** include introductory phrases like "Students will be able to" or "By the end of this lesson" within each objective string. Only the action phrase is allowed.
+                - **DO NOT** simply copy the learning competencies. Create new, more specific objectives.
 
                 **Lesson Details:**
                 - **Number of Lessons to Generate:** ${formData.lessonCount}
@@ -229,7 +229,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 ${studentLessonInstructions}
 
                 **Final Output Structure:**
-                {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": ["Objective 1...", "Objective 2..."], "pages": [{"title": "...", "content": "...", "type": "text|diagram-data"}, ... ]}, ... ]}`;
+                {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": ["Differentiate between...", "Analyze the use of..."], "pages": [{"title": "...", "content": "...", "type": "text|diagram-data"}, ... ]}, ... ]}`;
             }
 
             const aiText = await callGeminiWithLimitCheck(finalPrompt);
@@ -294,6 +294,9 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 
     const isValidPreview = previewData && !previewData.error && Array.isArray(previewData.generated_lessons);
     const currentObjectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
+    const objectivesIntro = formData.language === 'Filipino' 
+        ? 'Sa pagtatapos ng araling ito, magagawa ng mga mag-aaral na:' 
+        : 'By the end of this lesson, students will be able to:';
 
     return (
         <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[110] flex items-center justify-center p-4">
@@ -392,11 +395,12 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                                     <div key={index}>
                                         <h3 className="font-bold text-xl sticky top-0 bg-slate-100 py-2 z-10">{lesson.lessonTitle}</h3>
                                         {lesson.learningObjectives && lesson.learningObjectives.length > 0 && (
-                                            <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-200 text-blue-800">
-                                                <p className="font-semibold mb-1">{currentObjectivesLabel}:</p>
-                                                <ul className="list-disc list-inside">
+                                            <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-200 text-blue-800 rounded-r-lg">
+                                                <p className="font-semibold mb-2">{currentObjectivesLabel}</p>
+                                                <p className="mb-2">{objectivesIntro}</p>
+                                                <ul className="list-disc list-inside pl-4">
                                                     {lesson.learningObjectives.map((objective, objIndex) => (
-                                                        <li key={objIndex}>{objective}</li>
+                                                        <li key={objIndex} className="mb-1">{objective}</li>
                                                     ))}
                                                 </ul>
                                             </div>

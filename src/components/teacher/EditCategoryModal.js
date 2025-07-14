@@ -1,40 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
-import { useToast } from '../../contexts/ToastContext'; // Corrected import path
-import { db } from '../../services/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { useToast } from '../../contexts/ToastContext';
 
-const EditCategoryModal = ({ isOpen, onClose, category, onCategoryUpdated }) => {
+const EditCategoryModal = ({ isOpen, onClose, categoryName: initialName, onSave }) => {
     const [categoryName, setCategoryName] = useState('');
     const { showToast } = useToast();
 
     useEffect(() => {
-        if (category) {
-            setCategoryName(category.name);
+        if (initialName) {
+            setCategoryName(initialName);
         }
-    }, [category]);
+    }, [initialName]);
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
         if (!categoryName.trim()) {
             showToast("Category name cannot be empty.", "error");
             return;
         }
-        if (!category || !category.id) {
-            showToast("Cannot edit a category without an ID.", "error");
-            return;
-        }
-
-        try {
-            const categoryRef = doc(db, "subjectCategories", category.id);
-            await updateDoc(categoryRef, { name: categoryName.trim() });
-            showToast("Category updated successfully!", "success");
-            if (onCategoryUpdated) onCategoryUpdated();
-            onClose();
-        } catch (error) {
-            showToast("Failed to update category.", "error");
-            console.error("Error updating category:", error);
-        }
+        // The onSave function is passed from the parent component (TeacherDashboardLayout).
+        // It contains the real database update logic.
+        onSave(categoryName.trim());
     };
 
     return (
@@ -46,11 +32,17 @@ const EditCategoryModal = ({ isOpen, onClose, category, onCategoryUpdated }) => 
                     value={categoryName}
                     onChange={(e) => setCategoryName(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-md mb-4"
+                    placeholder="Enter new category name"
                     required
                 />
-                <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-md hover:bg-blue-700">
-                    Save Changes
-                </button>
+                <div className='flex justify-end gap-2'>
+                    <button type="button" onClick={onClose} className="btn-secondary">
+                        Cancel
+                    </button>
+                    <button type="submit" className="btn-primary">
+                        Save Changes
+                    </button>
+                </div>
             </form>
         </Modal>
     );
