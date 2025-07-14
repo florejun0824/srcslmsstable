@@ -1,40 +1,41 @@
-// src/components/common/MermaidDiagram.js
 import React, { useEffect, useRef } from 'react';
 import mermaid from 'mermaid';
-import { v4 as uuidv4 } from 'uuid'; // npm install uuid
 
+// Basic configuration for the Mermaid library
 mermaid.initialize({
   startOnLoad: false,
-  theme: 'base',
-  themeVariables: {
-    primaryColor: '#f4f4f4',
-    primaryTextColor: '#333',
-    lineColor: '#555',
-  }
+  theme: 'neutral', // You can choose themes like 'default', 'forest', 'dark'
+  securityLevel: 'loose', // Allows the diagrams to be rendered
+  fontFamily: '"-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"',
 });
 
-const MermaidDiagram = ({ chart }) => {
+const MermaidDiagram = ({ chartDefinition }) => {
   const containerRef = useRef(null);
-  const chartId = `mermaid-chart-${uuidv4()}`;
 
   useEffect(() => {
-    if (chart && containerRef.current) {
-      mermaid.render(chartId, chart)
-        .then(({ svg }) => {
+    if (chartDefinition && containerRef.current) {
+      try {
+        // Generate a unique ID for each diagram to prevent conflicts
+        const id = `mermaid-svg-${Math.random().toString(36).substring(2, 11)}`;
+        
+        // Render the diagram code into SVG
+        mermaid.render(id, chartDefinition, (svgCode) => {
           if (containerRef.current) {
-            containerRef.current.innerHTML = svg;
-          }
-        })
-        .catch(err => {
-          console.error("Error rendering Mermaid chart:", err);
-          if (containerRef.current) {
-            containerRef.current.innerHTML = "Error rendering diagram.";
+            containerRef.current.innerHTML = svgCode;
           }
         });
+      } catch (error) {
+        console.error("Error rendering Mermaid diagram:", error);
+        if (containerRef.current) {
+          containerRef.current.innerHTML = "Error rendering diagram.";
+        }
+      }
     }
-  }, [chart, chartId]);
+  }, [chartDefinition]); // Re-render whenever the diagram code changes
 
-  return <div ref={containerRef} className="mermaid-diagram-container w-full flex justify-center p-4" />;
+  // Using the diagram code as a key forces React to re-mount the component
+  // when the code changes, which helps avoid some rendering glitches.
+  return <div key={chartDefinition} ref={containerRef} />;
 };
 
 export default MermaidDiagram;

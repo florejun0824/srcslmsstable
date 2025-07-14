@@ -47,6 +47,7 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
         contentStandard: '',
         performanceStandard: '',
         learningCompetencies: '',
+        // ✅ REMOVED: No longer need manual values input
     });
 
     const [generationTarget, setGenerationTarget] = useState('teacherGuide');
@@ -65,30 +66,20 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
     const [isLoadingSubjects, setIsLoadingSubjects] = useState(true);
 
     // --- Data Fetching Hooks ---
-    // ✅ MODIFIED: This logic now works without a separate 'courseCategories' collection.
     useEffect(() => {
         if (!isOpen) return;
 
         setIsLoadingSubjects(true);
-
-        // 1. Fetch ALL subjects from the 'courses' collection, as categories are embedded.
         const subjectsQuery = query(collection(db, 'courses'), orderBy('title'));
         
         const unsubscribe = onSnapshot(subjectsQuery, (snapshot) => {
             const allFetchedSubjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-            // 2. Extract all unique, non-empty category names directly from the subjects.
             const uniqueCategories = [...new Set(allFetchedSubjects.map(subject => subject.category).filter(Boolean))];
-
-            // 3. From that unique list, determine which categories are for "Learners".
             const learnerCategoryNames = uniqueCategories.filter(name => !name.toLowerCase().includes("teach"));
-
-            // 4. Filter the original list of subjects to include only those that belong to a learner category.
             const learnerSubjects = allFetchedSubjects.filter(subject => 
                 subject.category && learnerCategoryNames.includes(subject.category)
             );
 
-            // 5. Set the state with the final, filtered list for the dropdown.
             setAllSubjects(learnerSubjects);
             setIsLoadingSubjects(false);
 
@@ -98,10 +89,8 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
             setIsLoadingSubjects(false);
         });
 
-        // Cleanup the listener when the component unmounts or modal closes.
         return () => unsubscribe();
     }, [isOpen]);
-
 
     useEffect(() => {
         if (selectedSubjectId) {
@@ -185,6 +174,7 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
             setProgress(10);
             setProgressLabel('Analyzing requirements...');
             
+            // ✅ MODIFIED: The AI will now automatically detect values.
             const ulpAnalysisPrompt = `
                 You are an expert instructional designer. Your task is to generate a detailed analysis for a Unit Learning Plan (ULP) based on the provided standards and content.
 
@@ -221,7 +211,8 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
           		  	* **Support Discussion:** For Firm-Up (A), provide questions to check for understanding and a short summarization of the lesson. For Deepen (M), provide a **detailed summarization** of key concepts in addition to in-depth elaboration and probing questions.
                     * **Formative Assessment:** A specific, aligned assessment strategy. **Exception:** Omit this for Transfer (T#) competencies.
                 4.  **Final Synthesis:** A summary and wrap up that connects key points across lessons that would prepare students for the Performance Task.
-                5.  **Unit Performance Task (Transfer):** As a separate, final item, design a detailed GRASPS Performance Task based on the overall unit **Performance Standard**. Include a comprehensive scoring rubric in a tabular format.
+                5.  **Unit Performance Task (Transfer):** Design a detailed GRASPS Performance Task based on the overall unit **Performance Standard**. Include a comprehensive scoring rubric in a tabular format.
+                6.  **Values Integration (Automatic):** As the very last section, analyze all the content you have generated for this ULP. Based on the topics, activities, and performance task, identify 2-4 key values (e.g., integrity, stewardship, critical thinking, collaboration) that are naturally embedded or can be cultivated. For each identified value, provide a short enagaging and interactive overview in the ${selectedLanguage} explaining how it is reflected in the unit and can be fostered in students.
             `;
             
             const analysisText = await callGeminiWithLimitCheck(ulpAnalysisPrompt, { maxOutputTokens: 8192 });
@@ -260,11 +251,14 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
                         * **Title Row:** Create a title row: '<tr><td colspan='2' style='background: #4B5563; color: white; padding: 10px; font-weight: bold;'>FINAL SYNTHESIS</td></tr>'.
                         * **Content Row:** Create a single row after the title: '<tr><td colspan='2' style='padding: 10px; border-bottom: 1px solid #E2E8F0;'>'. This cell must contain the full summary.
 					* **D. Transfer Section:**
-                        * **Title Row:** \`<tr><td colspan='2' style='background: linear-gradient(to right, #f97316, #fbbf24); ...'>TRANSFER</td></tr>\`.
+                        * **Title Row:** \`<tr><td colspan='2' style='background: linear-gradient(to right, #f97316, #fbbf24); color: white; padding: 10px; font-weight: bold;'>TRANSFER</td></tr>\`.
                         * **Content Rows:** For each Transfer (T#) competency, create one \`<tr>\` with two \`<td>\` cells. The 'Learning Process' cell contains only activities and a summary.
-                6.  **Unit Performance Task Section:** After all other sections, add this final part.
-                    * **Title Row:** \`<tr><td colspan='2' style='background-color: #111827; color: white; ... text-align: center;'>UNIT PERFORMANCE TASK</td></tr>\`.
-                    * **Content Row:** Create one \`<tr><td colspan='2' ...>\` containing the full GRASPS Task and its scoring rubric worth 50 Points, which MUST be an HTML \`<table>\`.
+                6.  **Unit Performance Task Section:** After all other sections, add this part.
+                    * **Title Row:** \`<tr><td colspan='2' style='background-color: #111827; color: white; font-weight: bold; padding: 10px; text-align: center;'>UNIT PERFORMANCE TASK</td></tr>\`.
+                    * **Content Row:** Create one \`<tr><td colspan='2' style='padding: 10px; border-bottom: 1px solid #E2E8F0;'>\` containing the full GRASPS Task and its scoring rubric worth 50 Points, which MUST be an HTML \`<table>\`.
+                7.  **Values Integration Section:** As the final part of the table, add the Values Integration content.
+                    * **Title Row:** \`<tr><td colspan='2' style='background-color: #dbeafe; color: #1e40af; font-weight: bold; padding: 10px;'>VALUES INTEGRATION</td></tr>\`.
+                    * **Content Row:** Create one \`<tr><td colspan='2' style='padding: 10px;'>\` containing the full text generated for the automatically-detected Values Integration.
                 **Final JSON Output Structure:**
                 {"generated_lessons": [{"lessonTitle": "Unit Learning Plan: ${sourceInfo.title}", "learningObjectives": [], "pages": [{"title": "PEAC Unit Learning Plan", "content": "..."}]}]}
             `;
