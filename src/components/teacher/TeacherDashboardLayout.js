@@ -57,7 +57,9 @@ const GlobalAiSpinner = ({ isGenerating, text }) => {
 const TeacherDashboardLayout = (props) => {
     const {
         user, userProfile, loading, error, activeView, handleViewChange, isSidebarOpen, setIsSidebarOpen, logout,
-        isAiGenerating, isChatOpen, setIsChatOpen, messages, isAiThinking, handleAskAi, userFirstName,
+        isAiGenerating,
+        setIsAiGenerating, // ✅ FIXED: Added the missing prop here
+        isChatOpen, setIsChatOpen, messages, isAiThinking, handleAskAi, userFirstName,
         aiConversationStarted, handleAskAiWrapper, isAiHubOpen, setIsAiHubOpen, activeSubject,
         activeUnit, onSetActiveUnit, setViewLessonModalOpen,
         ...rest
@@ -114,7 +116,7 @@ const TeacherDashboardLayout = (props) => {
     };
 
     const courseCategories = [...new Set(courses.map(c => c.category).filter(Boolean))]
-        .map((name, index) => ({ id: `cat-${index}`, name }));
+        .map(name => ({ id: name, name: name }));
 
 
     const renderMainContent = () => {
@@ -293,7 +295,11 @@ const TeacherDashboardLayout = (props) => {
             <ArchivedClassesModal isOpen={rest.isArchivedModalOpen} onClose={() => rest.setIsArchivedModalOpen(false)} archivedClasses={rest.archivedClasses} onUnarchive={rest.handleUnarchiveClass} onDelete={(classId) => rest.handleDeleteClass(classId, true)} />
             <EditProfileModal isOpen={rest.isEditProfileModalOpen} onClose={() => rest.setEditProfileModalOpen(false)} userProfile={userProfile} onUpdate={rest.handleUpdateProfile} />
             <ChangePasswordModal isOpen={rest.isChangePasswordModalOpen} onClose={() => rest.setChangePasswordModalOpen(false)} onSubmit={rest.handleChangePassword} />
-            <CreateCategoryModal isOpen={rest.isCreateCategoryModalOpen} onClose={() => rest.setCreateCategoryModalOpen(false)} onCategoryCreated={() => { }} />
+            <CreateCategoryModal 
+                isOpen={rest.isCreateCategoryModalOpen} 
+                onClose={() => rest.setCreateCategoryModalOpen(false)} 
+                teacherId={user?.uid || user?.id} 
+            />
             
             {categoryToEdit && (
                 <EditCategoryModal 
@@ -305,12 +311,12 @@ const TeacherDashboardLayout = (props) => {
             )}
 
             <CreateClassModal isOpen={rest.isCreateClassModalOpen} onClose={() => rest.setCreateClassModalOpen(false)} teacherId={user?.uid || user?.id} />
-            <CreateCourseModal isOpen={rest.isCreateCourseModalOpen} onClose={() => rest.setCreateCourseModalOpen(false)} teacherId={user?.uid || user?.id} courseCategories={rest.courseCategories} />
-            <ClassOverviewModal isOpen={rest.classOverviewModal.isOpen} onClose={() => rest.setClassOverviewModal({ isOpen: false, data: null })} classData={rest.classOverviewModal.data} courses={rest.courses} onRemoveStudent={rest.handleRemoveStudentFromClass} />
+            <CreateCourseModal isOpen={rest.isCreateCourseModalOpen} onClose={() => rest.setCreateCourseModalOpen(false)} teacherId={user?.uid || user?.id} courseCategories={courseCategories} />
+            <ClassOverviewModal isOpen={rest.classOverviewModal.isOpen} onClose={() => rest.setClassOverviewModal({ isOpen: false, data: null })} classData={rest.classOverviewModal.data} courses={courses} onRemoveStudent={rest.handleRemoveStudentFromClass} />
             <EditClassModal isOpen={rest.isEditClassModalOpen} onClose={() => rest.setEditClassModalOpen(false)} classData={rest.classToEdit} />
             <AddUnitModal isOpen={rest.isAddUnitModalOpen} onClose={() => rest.setAddUnitModalOpen(false)} subjectId={activeSubject?.id} />
             {rest.selectedUnit && <EditUnitModal isOpen={rest.editUnitModalOpen} onClose={() => rest.setEditUnitModalOpen(false)} unit={rest.selectedUnit} />}
-            {rest.selectedUnit && <AddLessonModal isOpen={rest.addLessonModalOpen} onClose={() => rest.setAddLessonModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} setIsAiGenerating={rest.setIsAiGenerating} />}
+            {rest.selectedUnit && <AddLessonModal isOpen={rest.addLessonModalOpen} onClose={() => rest.setAddLessonModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} setIsAiGenerating={setIsAiGenerating} />}
             {rest.selectedUnit && <AddQuizModal isOpen={rest.addQuizModalOpen} onClose={() => rest.setAddQuizModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} />}
             {rest.selectedUnit && <DeleteUnitModal isOpen={rest.deleteUnitModalOpen} onClose={() => rest.setDeleteUnitModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} />}
             {rest.selectedLesson && <EditLessonModal isOpen={rest.editLessonModalOpen} onClose={() => rest.setEditLessonModalOpen(false)} lesson={rest.selectedLesson} />}

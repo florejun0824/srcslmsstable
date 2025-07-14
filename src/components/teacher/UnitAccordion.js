@@ -227,7 +227,8 @@ function SortableUnitCard(props) {
                 </div>
                 <div className="relative z-10">
                     <div className="mb-4 p-3 bg-white/20 rounded-lg inline-block"><Icon className="w-8 h-8 text-white" /></div>
-                    <h2 className="text-xl font-bold text-white truncate">{unit.title}</h2>
+                    {/* ✅ MODIFIED: Removed 'truncate' and adjusted font size for the unit title */}
+                    <h2 className="text-lg font-bold text-white">{unit.title}</h2>
                 </div>
                 <p className="relative z-10 text-white/80 text-sm mt-2">Select to view content</p>
             </div>
