@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import UnitAccordion from '../../UnitAccordion'; // Corrected path
+import UnitAccordion from '../../UnitAccordion';
 import {
     PencilSquareIcon, TrashIcon, PlusCircleIcon, ArrowUturnLeftIcon, SparklesIcon,
     BookOpenIcon, CalculatorIcon, BeakerIcon, GlobeAltIcon, ComputerDesktopIcon,
-    PaintBrushIcon, UserGroupIcon, CodeBracketIcon, MusicalNoteIcon,
+    PaintBrushIcon, UserGroupIcon, CodeBracketIcon, MusicalNoteIcon, WrenchScrewdriverIcon, 
     MagnifyingGlassIcon,
     UsersIcon as LearnerIcon,
     AcademicCapIcon as TeacherIcon
@@ -18,7 +18,8 @@ const CoursesView = (props) => {
         handleCategoryClick, handleEditCategory, setCreateCategoryModalOpen, setCreateCourseModalOpen,
         activeView,
         activeUnit,
-        onSetActiveUnit
+        onSetActiveUnit,
+        onAddSubjectClick
     } = props;
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -34,13 +35,76 @@ const CoursesView = (props) => {
     }, [activeView]);
 
     const wrapper = "bg-white/70 backdrop-blur-md border border-white/30 p-4 sm:p-6 rounded-xl shadow";
-    const subjectVisuals = [
-        { icon: BookOpenIcon, color: 'from-sky-500 to-indigo-500' }, { icon: CalculatorIcon, color: 'from-green-500 to-emerald-500' },
-        { icon: BeakerIcon, color: 'from-violet-500 to-purple-500' }, { icon: GlobeAltIcon, color: 'from-rose-500 to-pink-500' },
-        { icon: ComputerDesktopIcon, color: 'from-slate-600 to-slate-800' }, { icon: PaintBrushIcon, color: 'from-amber-500 to-orange-500' },
-        { icon: UserGroupIcon, color: 'from-teal-500 to-cyan-500' }, { icon: CodeBracketIcon, color: 'from-gray-700 to-gray-900' },
+    
+    // Original defaultSubjectVisuals (kept for fallback/reference if needed, but colors now separate)
+    const defaultSubjectVisuals = [
+        { icon: BookOpenIcon, color: 'from-sky-500 to-indigo-500' }, 
+        { icon: CalculatorIcon, color: 'from-green-500 to-emerald-500' },
+        { icon: BeakerIcon, color: 'from-violet-500 to-purple-500' }, 
+        { icon: GlobeAltIcon, color: 'from-rose-500 to-pink-500' },
+        { icon: ComputerDesktopIcon, color: 'from-slate-600 to-slate-800' }, 
+        { icon: PaintBrushIcon, color: 'from-amber-500 to-orange-500' },
+        { icon: UserGroupIcon, color: 'from-teal-500 to-cyan-500' }, 
+        { icon: CodeBracketIcon, color: 'from-gray-700 to-gray-900' },
         { icon: MusicalNoteIcon, color: 'from-fuchsia-500 to-purple-600' },
+        { icon: SparklesIcon, color: 'from-yellow-400 to-orange-500' } 
     ];
+
+    // ✅ NEW: Expanded set of gradient colors for more variation
+    const availableGradients = [
+        'from-sky-500 to-indigo-500', // Blue-Indigo
+        'from-green-500 to-emerald-500', // Green-Emerald
+        'from-violet-500 to-purple-500', // Violet-Purple
+        'from-rose-500 to-pink-500', // Rose-Pink
+        'from-amber-500 to-orange-500', // Amber-Orange
+        'from-teal-500 to-cyan-500', // Teal-Cyan
+        'from-red-500 to-orange-500', // Red-Orange
+        'from-blue-500 to-purple-600', // Blue-Purple
+        'from-fuchsia-500 to-pink-600', // Fuchsia-Pink
+        'from-lime-500 to-green-600', // Lime-Green
+        'from-indigo-500 to-blue-600', // Indigo-Blue
+        'from-yellow-500 to-amber-500', // Yellow-Amber
+        'from-slate-600 to-gray-800', // Dark Slate-Gray
+    ];
+
+    // MODIFIED: Dynamically get icon and color based on subject title AND unique ID
+    const getSubjectIconAndColor = (subjectTitle, itemIdentifier) => {
+        const lowerCaseTitle = subjectTitle.toLowerCase();
+        let IconComponent = BookOpenIcon; // Default icon
+
+        // Determine Icon based on title content
+        if (lowerCaseTitle.includes('math') || lowerCaseTitle.includes('mathematics') || lowerCaseTitle.includes('algebra') || lowerCaseTitle.includes('geometry') || lowerCaseTitle.includes('calculus')) {
+            IconComponent = CalculatorIcon;
+        } else if (lowerCaseTitle.includes('english') || lowerCaseTitle.includes('filipino') || lowerCaseTitle.includes('literature') || lowerCaseTitle.includes('language')) {
+            IconComponent = BookOpenIcon;
+        } else if (lowerCaseTitle.includes('religious education') || lowerCaseTitle.includes('christian social living') || lowerCaseTitle.includes('religion') || lowerCaseTitle.includes('values')) {
+            IconComponent = BookOpenIcon; // Using BookOpenIcon as a general learning icon for religious studies
+        } else if (lowerCaseTitle.includes('science') || lowerCaseTitle.includes('biology') || lowerCaseTitle.includes('chemistry') || lowerCaseTitle.includes('physics')) {
+            IconComponent = BeakerIcon;
+        } else if (lowerCaseTitle.includes('araling panlipunan') || lowerCaseTitle.includes('history') || lowerCaseTitle.includes('geography') || lowerCaseTitle.includes('social studies')) {
+            IconComponent = GlobeAltIcon;
+        } else if (lowerCaseTitle.includes('mapeh') || lowerCaseTitle.includes('music') || lowerCaseTitle.includes('arts') || lowerCaseTitle.includes('pe') || lowerCaseTitle.includes('health')) {
+            IconComponent = MusicalNoteIcon;
+        } else if (lowerCaseTitle.includes('tle') || lowerCaseTitle.includes('technology') || lowerCaseTitle.includes('livelihood') || lowerCaseTitle.includes('tools') || lowerCaseTitle.includes('home economics')) {
+            IconComponent = WrenchScrewdriverIcon;
+        } else {
+            // If no specific match, use a generic icon (e.g., SparklesIcon from default visuals)
+            IconComponent = defaultSubjectVisuals[0].icon; // Or you can cycle for generic too
+        }
+        
+        // Always determine color based on itemIdentifier for variation
+        let hash = 0;
+        if (itemIdentifier) {
+            for (let i = 0; i < itemIdentifier.length; i++) {
+                hash = itemIdentifier.charCodeAt(i) + ((hash << 5) - hash);
+            }
+        }
+        const colorIndex = Math.abs(hash) % availableGradients.length; 
+        const gradientColor = availableGradients[colorIndex];
+
+        return { icon: IconComponent, color: gradientColor };
+    };
+
 
     if (activeSubject) {
         return (
@@ -58,7 +122,8 @@ const CoursesView = (props) => {
                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                          <div className="flex items-center gap-3">
                              <h1 className="text-2xl font-bold text-gray-800">{activeSubject.title}</h1>
-                             <button onClick={() => handleOpenEditSubject(activeSubject)} className="text-gray-400 hover:text-blue-600" title="Edit Subject Name"><PencilSquareIcon className="w-5 h-5" /></button>
+                             {/* The edit button for activeSubject is already here */}
+                             <button onClick={() => handleOpenEditSubject(activeSubject)} className="text-gray-400 hover:text-primary-600" title="Edit Subject Name"><PencilSquareIcon className="w-5 h-5" /></button>
                              <button onClick={() => handleOpenDeleteSubject(activeSubject)} className="text-gray-400 hover:text-red-600" title="Delete Subject"><TrashIcon className="w-5 h-5" /></button>
                          </div>
                          <div className="flex gap-2 flex-wrap">
@@ -89,7 +154,12 @@ const CoursesView = (props) => {
 
     if (selectedCategory) {
         const categoryCourses = courses.filter(c => c.category === selectedCategory);
-        categoryCourses.sort((a, b) => a.title.localeCompare(b.title));
+        
+        // Use localeCompare with numeric: true for natural sorting
+        categoryCourses.sort((a, b) => 
+            a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })
+        ); 
+        
         const filteredCourses = categoryCourses.filter(course =>
             course.title.toLowerCase().includes(searchTerm.toLowerCase())
         );
@@ -103,7 +173,15 @@ const CoursesView = (props) => {
                         </button>
                         <h1 className="text-3xl font-bold text-gray-800 truncate">{selectedCategory}</h1>
                     </div>
-                    <button onClick={() => setCreateCourseModalOpen(true)} className="btn-primary gap-2">
+                    {/* Call onAddSubjectClick with the selectedCategory.name */}
+                    <button 
+                        onClick={() => {
+                            if (onAddSubjectClick) {
+                                onAddSubjectClick(selectedCategory);
+                            }
+                        }} 
+                        className="btn-primary gap-2"
+                    >
                         <PlusCircleIcon className="w-5 h-5" />
                         Add Subject
                     </button>
@@ -118,7 +196,8 @@ const CoursesView = (props) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredCourses.length > 0 ? (
                         filteredCourses.map((course, index) => {
-                            const { icon: Icon, color } = subjectVisuals[index % subjectVisuals.length];
+                            // MODIFIED: Get icon and color dynamically based on title and ID
+                            const { icon: Icon, color } = getSubjectIconAndColor(course.title, course.id); 
                             return (
                                 <div key={course.id} onClick={() => setActiveSubject(course)} className={`group relative p-6 rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between h-full bg-gradient-to-br ${color}`}>
                                     <div className="relative z-10">
@@ -126,6 +205,18 @@ const CoursesView = (props) => {
                                         <h2 className="text-lg font-bold text-white">{course.title}</h2>
                                     </div>
                                     <p className="relative z-10 text-white/80 text-sm mt-2">Select to view units</p>
+                                    
+                                    {/* Pencil icon on each subject card */}
+                                    <button 
+                                        onClick={(e) => { 
+                                            e.stopPropagation(); // Prevent card click from propagating
+                                            handleOpenEditSubject(course); 
+                                        }} 
+                                        className="absolute top-3 right-3 p-2 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/20" 
+                                        title="Edit Subject Name"
+                                    >
+                                        <PencilSquareIcon className="w-5 h-5" />
+                                    </button>
                                 </div>
                             );
                         })
@@ -151,9 +242,10 @@ const CoursesView = (props) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {categoriesToShow.map((cat, index) => {
                         const courseCount = courses.filter(c => c.category === cat.name).length;
-                        const { icon: Icon, color } = subjectVisuals[index % subjectVisuals.length];
+                        // MODIFIED: Get icon and color dynamically for category cards too
+                        const { icon: Icon, color } = getSubjectIconAndColor(cat.name, cat.id); 
                         return (
-                            <div key={cat.id} onClick={() => handleCategoryClick(cat.name)} className="group relative bg-white p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden">
+                            <div key={cat.id} onClick={() => handleCategoryClick(cat.name)} className="group relative p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden">
                                 <div className={`absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br ${color} rounded-full opacity-20 group-hover:opacity-30 transition-all`}></div>
                                 <div className="relative z-10">
                                     <div className={`p-4 inline-block bg-gradient-to-br ${color} text-white rounded-xl mb-4`}><Icon className="w-8 h-8" /></div>
@@ -178,7 +270,7 @@ const CoursesView = (props) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div onClick={() => setActiveContentGroup('Learner')} className="group relative p-8 rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer overflow-hidden flex items-center bg-gradient-to-br from-sky-500 to-blue-600 text-white">
                     <LearnerIcon className="w-24 h-24 absolute -right-6 -bottom-6 opacity-10" />
-                    {/* ✅ MODIFIED: Removed the extra wrapper `div` to fix the layout */}
+                    {/* Removed the extra wrapper `div` to fix the layout */}
                     <div>
                         <div className="p-4 bg-white/20 rounded-lg inline-block mb-4"><LearnerIcon className="w-10 h-10" /></div>
                         <h2 className="text-3xl font-bold">Learner's Content</h2>
@@ -197,7 +289,7 @@ const CoursesView = (props) => {
                 </div>
                 <div onClick={() => setActiveContentGroup('Teacher')} className="group relative p-8 rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer overflow-hidden flex items-center bg-gradient-to-br from-purple-500 to-violet-600 text-white">
                     <TeacherIcon className="w-24 h-24 absolute -right-6 -bottom-6 opacity-10" />
-                    {/* ✅ MODIFIED: Removed the extra wrapper `div` to fix the layout */}
+                    {/* Removed the extra wrapper `div` to fix the layout */}
                     <div>
                         <div className="p-4 bg-white/20 rounded-lg inline-block mb-4"><TeacherIcon className="w-10 h-10" /></div>
                         <h2 className="text-3xl font-bold">Teacher's Content</h2>

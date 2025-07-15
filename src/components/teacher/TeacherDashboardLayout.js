@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     HomeIcon, AcademicCapIcon, BookOpenIcon, UserIcon, ShieldCheckIcon, Bars3Icon,
-    ArrowLeftOnRectangleIcon, MagnifyingGlassIcon, ExclamationTriangleIcon, UserGroupIcon
+    ArrowLeftOnRectangleIcon, ExclamationTriangleIcon, UserGroupIcon 
 } from '@heroicons/react/24/outline';
 import { collection, query, where, getDocs, writeBatch, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -27,7 +27,7 @@ import ChangePasswordModal from './ChangePasswordModal';
 import CreateCategoryModal from './CreateCategoryModal';
 import EditCategoryModal from './EditCategoryModal';
 import CreateClassModal from './CreateClassModal';
-import CreateCourseModal from './CreateCourseModal';
+import CreateCourseModal from './CreateCourseModal'; // Import CreateCourseModal
 import ClassOverviewModal from './ClassOverviewModal';
 import EditClassModal from '../common/EditClassModal';
 import AddUnitModal from './AddUnitModal';
@@ -58,7 +58,7 @@ const TeacherDashboardLayout = (props) => {
     const {
         user, userProfile, loading, error, activeView, handleViewChange, isSidebarOpen, setIsSidebarOpen, logout,
         isAiGenerating,
-        setIsAiGenerating, // ✅ FIXED: Added the missing prop here
+        setIsAiGenerating,
         isChatOpen, setIsChatOpen, messages, isAiThinking, handleAskAi, userFirstName,
         aiConversationStarted, handleAskAiWrapper, isAiHubOpen, setIsAiHubOpen, activeSubject,
         activeUnit, onSetActiveUnit, setViewLessonModalOpen,
@@ -69,6 +69,10 @@ const TeacherDashboardLayout = (props) => {
     const [categoryToEdit, setCategoryToEdit] = useState(null);
     const [isEditCategoryModalOpen, setIsEditCategoryModalOpen] = useState(false);
     const { showToast } = useToast();
+
+    // ✅ FIXED: Declared setPreselectedCategoryForCourseModal using useState
+    const [preselectedCategoryForCourseModal, setPreselectedCategoryForCourseModal] = useState(null);
+
 
     useEffect(() => {
         const q = query(collection(db, 'courses'));
@@ -119,6 +123,12 @@ const TeacherDashboardLayout = (props) => {
         .map(name => ({ id: name, name: name }));
 
 
+    // NEW HANDLER: To open CreateCourseModal with preselected category
+    const handleAddSubjectWithCategory = (categoryName) => {
+        setPreselectedCategoryForCourseModal(categoryName);
+        rest.setCreateCourseModalOpen(true); // Open the modal
+    };
+
     const renderMainContent = () => {
         if (loading) return <Spinner />;
         if (error) {
@@ -149,6 +159,7 @@ const TeacherDashboardLayout = (props) => {
                             courses={courses}
                             courseCategories={courseCategories}
                             handleEditCategory={handleEditCategory}
+                            onAddSubjectClick={handleAddSubjectWithCategory} 
                         />;
             case 'studentManagement':
                 return <StudentManagementView {...rest} />;
@@ -162,16 +173,20 @@ const TeacherDashboardLayout = (props) => {
     };
 
     const SidebarContent = () => (
-        <div className="bg-white/90 h-full p-4">
-            <div className="flex items-center gap-2 mb-6 px-2"><img src="https://i.ibb.co/XfJ8scGX/1.png" alt="Logo" className="w-9 h-9 rounded-full" /><span className="font-bold text-lg">SRCS LMS</span></div>
-            <div className="bg-white/60 p-4 rounded-xl">
+        // Applied glassmorphism directly to the sidebar container
+        <div className="p-4 h-full shadow-lg rounded-r-2xl bg-white/30 backdrop-blur-lg border border-white/20">
+            <div className="flex items-center gap-2 mb-8 px-2">
+                <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="Logo" className="w-10 h-10 rounded-full shadow-md" />
+                <span className="font-bold text-xl text-gray-900">SRCS LMS</span>
+            </div>
+            <nav className="space-y-2">
                 <SidebarButton icon={<HomeIcon className="h-6 w-6" />} text="Home" onClick={() => handleViewChange('home')} isActive={activeView === 'home'} />
                 <SidebarButton icon={<UserGroupIcon className="h-6 w-6" />} text="Students" onClick={() => handleViewChange('studentManagement')} isActive={activeView === 'studentManagement'} />
                 <SidebarButton icon={<AcademicCapIcon className="h-6 w-6" />} text="Classes" onClick={() => handleViewChange('classes')} isActive={activeView === 'classes'} />
                 <SidebarButton icon={<BookOpenIcon className="h-6 w-6" />} text="Subjects" onClick={() => handleViewChange('courses')} isActive={activeView === 'courses' || rest.selectedCategory} />
                 <SidebarButton icon={<UserIcon className="h-6 w-6" />} text="Profile" onClick={() => handleViewChange('profile')} isActive={activeView === 'profile'} />
                 {userProfile?.role === 'admin' && (<SidebarButton icon={<ShieldCheckIcon className="h-6 w-6" />} text="Admin Console" onClick={() => handleViewChange('admin')} isActive={activeView === 'admin'} />)}
-            </div>
+            </nav>
         </div>
     );
 
@@ -184,87 +199,42 @@ const TeacherDashboardLayout = (props) => {
     ];
 
     return (
-        <div className="min-h-screen bg-slate-100 flex flex-col">
-		<style jsx global>{`
-		    .btn-primary {
-		        display: inline-flex; align-items: center; gap: 0.5rem; justify-content: center;
-		        background-image: linear-gradient(to right, #3b82f6, #8b5cf6);
-		        color: white; font-weight: 600;
-		        padding: 0.5rem 1rem; border-radius: 0.5rem;
-		        border: none;
-		        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-		        transition: all 0.2s ease-in-out;
-		    }
-		    .btn-primary:hover {
-		        filter: brightness(1.1);
-		        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-		    }
-		    .btn-secondary {
-		       display: inline-flex; align-items: center; justify-content: center;
-		       background-color: #f1f5f9; /* slate-100 */
-		       color: #475569; /* slate-600 */
-		       font-weight: 600;
-		       padding: 0.5rem 1rem;
-		       border-radius: 0.5rem;
-		       border: 1px solid #e2e8f0; /* slate-200 */
-		       box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-		       transition: all 0.2s ease-in-out;
-		    }
-		    .btn-secondary:hover {
-		       background-color: #e2e8f0; /* slate-200 */
-		       border-color: #cbd5e1; /* slate-300 */
-		    }
-		    .btn-gradient-green {
-		        display: inline-flex; align-items: center; gap: 0.5rem; justify-content: center;
-		        background-image: linear-gradient(to right, #10b981, #22c55e); /* Emerald to Green */
-		        color: white; font-weight: 600;
-		        padding: 0.5rem 1rem; border-radius: 0.5rem; border: none;
-		        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-		        transition: all 0.2s ease-in-out;
-		    }
-		    .btn-gradient-green:hover {
-		       filter: brightness(1.1);
-		       box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-		    }
-		    .btn-gradient-purple {
-		        display: inline-flex; align-items: center; gap: 0.5rem; justify-content: center;
-		        background-image: linear-gradient(to right, #8b5cf6, #d946ef); /* Violet to Fuchsia */
-		        color: white; font-weight: 600;
-		        padding: 0.5rem 1rem; border-radius: 0.5rem; border: none;
-		        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-		        transition: all 0.2s ease-in-out;
-		    }
-		     .btn-gradient-purple:hover {
-		       filter: brightness(1.1);
-		       box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-		    }
-		    @media (max-width: 767px) {
-		       main {
-		           padding-bottom: 70px !important;
-		       }
-		    }
-		`}</style>
+        <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary-50 to-blue-100">
             
             <div className="md:flex flex-1">
-                <aside className="w-64 flex-shrink-0 hidden md:block shadow-lg"><SidebarContent /></aside>
+                <aside className="w-64 flex-shrink-0 hidden md:block">
+                    <SidebarContent />
+                </aside>
                 <div className={`fixed inset-0 z-50 md:hidden transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                     <div className="absolute inset-0 bg-black/50" onClick={() => setIsSidebarOpen(false)}></div>
                     <div className="relative w-64 h-full"><SidebarContent /></div>
                 </div>
                 
                 <div className="flex-1 flex flex-col">
-                    <nav className="bg-white/70 backdrop-blur-md p-3 flex justify-between items-center sticky top-0 z-40 border-b border-white/30">
-                        <button className="md:hidden p-2 rounded-full" onClick={() => setIsSidebarOpen(true)}><Bars3Icon className="h-6 w-6" /></button>
+                    <nav className="bg-white/90 backdrop-blur-md p-3 flex justify-between items-center sticky top-0 z-40 border-b border-white/30 shadow-lg">
+                        <button className="md:hidden p-2 rounded-full hover:bg-gray-100 text-gray-700 transition-colors" onClick={() => setIsSidebarOpen(true)}>
+                            <Bars3Icon className="h-6 w-6" />
+                        </button>
                         <div className="flex-1"></div>
-                        <div className="flex items-center gap-4">
-                            <button className="p-2 rounded-full text-gray-600 hover:bg-gray-100" title="Search"><MagnifyingGlassIcon className="h-5 w-5" /></button>
+                        <div className="flex items-center gap-4 px-2">
+                            {/* Removed the Notifications Bell */}
+                            {/* <button className="relative p-2 rounded-full text-gray-600 hover:bg-gray-100 transition-colors" title="Notifications">
+                                <BellIcon className="h-5 w-5" />
+                                {unreadNotificationsCount > 0 && (
+                                    <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full transform translate-x-1/2 -translate-y-1/2">
+                                        {unreadNotificationsCount}
+                                    </span>
+                                )}
+                            </button> */}
+
                             <div className="flex items-center gap-2 border-l border-gray-200 pl-4">
-                                <div onClick={() => handleViewChange('profile')} className="flex items-center gap-2 cursor-pointer" title="View Profile">
+                                <div onClick={() => handleViewChange('profile')} className="flex items-center gap-2 cursor-pointer transition-colors hover:text-primary-600" title="View Profile">
                                     <UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="sm" />
-                                    <span className="hidden sm:block font-medium text-gray-700 hover:text-blue-600">{userProfile?.firstName || 'Profile'}</span>
+                                    <span className="hidden sm:block font-medium text-gray-700">{userProfile?.firstName || 'Profile'}</span>
                                 </div>
-                                <button onClick={logout} className="flex items-center p-2 rounded-lg text-red-600 hover:bg-red-50" title="Logout">
-                                    <ArrowLeftOnRectangleIcon className="h-5 w-5" />
+                                {/* Enhanced Logout Button */}
+                                <button onClick={logout} className="flex items-center p-2.5 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-700 transition-colors" title="Logout">
+                                    <ArrowLeftOnRectangleIcon className="h-6 w-6" /> {/* Increased icon size */}
                                 </button>
                             </div>
                         </div>
@@ -311,7 +281,17 @@ const TeacherDashboardLayout = (props) => {
             )}
 
             <CreateClassModal isOpen={rest.isCreateClassModalOpen} onClose={() => rest.setCreateClassModalOpen(false)} teacherId={user?.uid || user?.id} />
-            <CreateCourseModal isOpen={rest.isCreateCourseModalOpen} onClose={() => rest.setCreateCourseModalOpen(false)} teacherId={user?.uid || user?.id} courseCategories={courseCategories} />
+            {/* Pass preselectedCategoryForCourseModal and reset it on close */}
+            <CreateCourseModal 
+                isOpen={rest.isCreateCourseModalOpen} 
+                onClose={() => {
+                    rest.setCreateCourseModalOpen(false);
+                    setPreselectedCategoryForCourseModal(null); // Reset when modal closes
+                }} 
+                teacherId={user?.uid || user?.id} 
+                courseCategories={courseCategories}
+                preselectedCategory={preselectedCategoryForCourseModal} // Pass the preselected category
+            />
             <ClassOverviewModal isOpen={rest.classOverviewModal.isOpen} onClose={() => rest.setClassOverviewModal({ isOpen: false, data: null })} classData={rest.classOverviewModal.data} courses={courses} onRemoveStudent={rest.handleRemoveStudentFromClass} />
             <EditClassModal isOpen={rest.isEditClassModalOpen} onClose={() => rest.setEditClassModalOpen(false)} classData={rest.classToEdit} />
             <AddUnitModal isOpen={rest.isAddUnitModalOpen} onClose={() => rest.setAddUnitModalOpen(false)} subjectId={activeSubject?.id} />
@@ -326,11 +306,11 @@ const TeacherDashboardLayout = (props) => {
             <EditSubjectModal isOpen={rest.isEditSubjectModalOpen} onClose={() => rest.setEditSubjectModalOpen(false)} subject={rest.subjectToActOn} />
             <DeleteSubjectModal isOpen={rest.isDeleteSubjectModalOpen} onClose={() => rest.setDeleteSubjectModalOpen(false)} subject={rest.subjectToActOn} />
             
-            <footer className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm flex justify-around md:hidden border-t border-gray-200/80 z-50">
+            <footer className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md flex justify-around md:hidden border-t border-gray-200 shadow-sm z-50">
                 {bottomNavItems.map(item => {
                     const isActive = activeView === item.view;
                     return (
-                        <button key={item.view} onClick={() => handleViewChange(item.view)} className={`flex-1 flex flex-col items-center justify-center pt-2 pb-1 text-center transition-colors duration-200 ${isActive ? 'text-blue-600' : 'text-gray-500 hover:text-blue-500'}`}>
+                        <button key={item.view} onClick={() => handleViewChange(item.view)} className={`flex-1 flex flex-col items-center justify-center pt-2 pb-1 text-center transition-colors duration-200 ${isActive ? 'text-primary-600' : 'text-gray-500 hover:text-primary-500'}`}>
                             <item.icon className="h-5 w-5" />
                             <span className="text-xs mt-1">{item.text}</span>
                         </button>

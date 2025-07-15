@@ -5,27 +5,37 @@ import { db } from '../../services/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import Modal from '../common/Modal';
 
-const CreateCourseModal = ({ isOpen, onClose, teacherId, courseCategories = [] }) => {
+// Added preselectedCategory prop
+const CreateCourseModal = ({ isOpen, onClose, teacherId, courseCategories = [], preselectedCategory = null }) => {
     const [courseTitle, setCourseTitle] = useState('');
-    const [category, setCategory] = useState('');
+    const [category, setCategory] = useState(''); // This state will hold the selected or preselected category
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { showToast } = useToast();
 
-    // This hook ensures the category defaults to the first item when the modal opens.
+    // This hook ensures the category defaults to the first item or preselected category when the modal opens.
     useEffect(() => {
-        if (isOpen && courseCategories.length > 0) {
-            setCategory(courseCategories[0].name);
+        if (isOpen) {
+            if (preselectedCategory) {
+                setCategory(preselectedCategory); // Prioritize preselected category
+            } else if (courseCategories.length > 0) {
+                setCategory(courseCategories[0].name); // Fallback to first available category
+            } else {
+                setCategory(''); // No categories available or preselected
+            }
         }
         // Reset form when modal is closed
         if (!isOpen) {
             setCourseTitle('');
-            setCategory('');
+            setCategory(''); // Clear category state too
         }
-    }, [isOpen, courseCategories]);
+    }, [isOpen, courseCategories, preselectedCategory]); // Added preselectedCategory to dependency array
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!courseTitle.trim() || !category) {
+        // Use the category that's either preselected or chosen from dropdown
+        const finalCategory = preselectedCategory || category;
+
+        if (!courseTitle.trim() || !finalCategory) { // Validate title and finalCategory
             showToast("Please provide a title and select a category.", "error");
             return;
         }
@@ -33,7 +43,7 @@ const CreateCourseModal = ({ isOpen, onClose, teacherId, courseCategories = [] }
         try {
             await addDoc(collection(db, "courses"), {
                 title: courseTitle,
-                category,
+                category: finalCategory, // Use finalCategory
                 teacherId,
                 units: []
             });
@@ -64,23 +74,35 @@ const CreateCourseModal = ({ isOpen, onClose, teacherId, courseCategories = [] }
                 </div>
                 <div>
                     <label htmlFor="category" className="block text-sm font-medium text-gray-700">Category</label>
-                    <select
-                        id="category"
-                        value={category}
-                        onChange={e => setCategory(e.target.value)}
-                        className="mt-1 w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                        disabled={courseCategories.length === 0}
-                    >
-                        <option value="" disabled>
-                            {courseCategories.length > 0 ? "Select a category..." : "No categories available"}
-                        </option>
-                        {courseCategories.map(cat => (
-                            <option key={cat.id} value={cat.name}>
-                                {cat.name}
+                    {preselectedCategory ? (
+                        // Display preselected category as disabled text
+                        <input
+                            type="text"
+                            id="category"
+                            value={preselectedCategory}
+                            className="mt-1 w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-600 cursor-not-allowed"
+                            disabled
+                        />
+                    ) : (
+                        // Display dropdown if no preselected category
+                        <select
+                            id="category"
+                            value={category}
+                            onChange={e => setCategory(e.target.value)}
+                            className="mt-1 w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                            disabled={courseCategories.length === 0}
+                        >
+                            <option value="" disabled>
+                                {courseCategories.length > 0 ? "Select a category..." : "No categories available"}
                             </option>
-                        ))}
-                    </select>
+                            {courseCategories.map(cat => (
+                                <option key={cat.id} value={cat.name}>
+                                    {cat.name}
+                                </option>
+                            ))}
+                        </select>
+                    )}
                 </div>
                 <div className="pt-4 flex justify-end">
                     <button type="submit" disabled={isSubmitting} className="btn-primary w-full">

@@ -7,7 +7,7 @@ const API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 // CORRECTED: Using the 'gemini-2.5-flash' model name as specified by the user.
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 
-const FREE_API_CALL_LIMIT_PER_MONTH = 50000;
+const FREE_API_CALL_LIMIT_PER_MONTH = 500000; // Keeping this at 500,000 as discussed
 
 // Helper function to create a delay
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -56,26 +56,42 @@ export const callGeminiWithLimitCheck = async (prompt, retries = 7, backoff = 30
             }),
         });
 
-        // Check for retryable server errors
+        // Check for retryable server errors (429: Rate Limit, 503: Service Unavailable)
         if (response.status === 429 || response.status === 503) {
             const error = new Error(response.status === 429 ? "Rate limit exceeded." : "Model is overloaded.");
-            error.status = response.status;
+            error.status = response.status; // Attach status for retry logic
             throw error;
         }
 
+        // If response is not OK (e.g., 400, 401, 500, etc., but not 429/503 handled above)
         if (!response.ok) {
             const errorText = await response.text();
+            console.error(`API call failed with status: ${response.status}. Raw Response: ${errorText}`);
             throw new Error(`API call failed with status: ${response.status}. Response: ${errorText}`);
         }
 
-        const data = await response.json();
+        // --- START OF CRITICAL CHANGE: Robust JSON parsing ---
+        let data;
+        try {
+            data = await response.json(); // Attempt to parse JSON
+        } catch (jsonError) {
+            // If JSON parsing fails, read the response as plain text for debugging
+            const rawResponseText = await response.text();
+            console.error("Failed to parse AI response as JSON.", jsonError);
+            console.error("Raw AI Response (non-JSON):", rawResponseText);
+            // Throw a new error with the raw response to provide more context
+            throw new Error(`AI response was not valid JSON. Raw response (first 500 chars): ${rawResponseText.substring(0, 500)}...`);
+        }
+        // --- END OF CRITICAL CHANGE ---
         
+        // Validate the structure of the successful JSON response
         if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
             console.error("Invalid response structure from AI:", data);
             throw new Error("AI response was not in the expected format.");
         }
 
         const textResponse = data.candidates[0].content.parts[0].text;
+        // Clean up any stray markdown code block delimiters if the AI includes them
         return textResponse.replace(/```json|```/g, '').trim();
 
     } catch (error) {
@@ -85,11 +101,14 @@ export const callGeminiWithLimitCheck = async (prompt, retries = 7, backoff = 30
             
             await delay(backoff);
             
+            // Decrement call count only if we are retrying a 429/503 error.
+            // This prevents false positive limit hits during temporary network/API issues.
             await updateDoc(usageDocRef, { callCount: increment(-1) });
 
             return callGeminiWithLimitCheck(prompt, retries - 1, backoff * 2);
         }
 
+        // Re-throw any other errors after logging them
         console.error("Error calling AI service:", error);
         throw error;
     }

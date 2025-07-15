@@ -64,11 +64,12 @@ const CreateAnnouncement = ({ teacherProfile, classes }) => {
     };
 
     return (
-        <div className="bg-white p-4 rounded-xl shadow">
-            <h2 className="font-bold text-lg mb-4">Create Announcement</h2>
+        // Applied glassmorphism styling to the main container
+        <div className="p-4 rounded-xl shadow-lg backdrop-blur-md bg-white/20 border border-white/30">
+            <h2 className="font-bold text-lg mb-4 text-gray-800">Create Announcement</h2> {/* Darker text for heading */}
             <form onSubmit={handleSubmit}>
                 <textarea
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 bg-white/70 text-gray-800" /* New background and text color for textarea */
                     rows="4"
                     placeholder="What do you want to announce?"
                     value={content}
@@ -76,7 +77,7 @@ const CreateAnnouncement = ({ teacherProfile, classes }) => {
                 />
                 <div className="mt-4 flex flex-col md:flex-row justify-between items-center gap-4">
                     <div className="flex items-center">
-                        <span className="font-semibold mr-4">Post to:</span>
+                        <span className="font-semibold mr-4 text-gray-700">Post to:</span> {/* Darker text */}
                         <label className="mr-4 flex items-center cursor-pointer">
                             <input
                                 type="radio"
@@ -84,7 +85,7 @@ const CreateAnnouncement = ({ teacherProfile, classes }) => {
                                 value="teacher"
                                 checked={audience === 'teacher'}
                                 onChange={() => setAudience('teacher')}
-                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300" /* Using new primary color */
                             />
                             <span className="ml-2 text-gray-700">Teachers</span>
                         </label>
@@ -95,14 +96,14 @@ const CreateAnnouncement = ({ teacherProfile, classes }) => {
                                 value="student"
                                 checked={audience === 'student'}
                                 onChange={() => setAudience('student')}
-                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300" /* Using new primary color */
                             />
                             <span className="ml-2 text-gray-700">Students</span>
                         </label>
                     </div>
                     <button
                         type="submit"
-                        className="btn-primary w-full md:w-auto"
+                        className="btn-primary w-full md:w-auto" /* Using global btn-primary */
                         disabled={isSubmitting}
                     >
                         {isSubmitting ? 'Posting...' : 'Post Announcement'}
@@ -122,8 +123,8 @@ const CreateAnnouncement = ({ teacherProfile, classes }) => {
                                     }}
                                     className={`p-2 border rounded-md text-sm cursor-pointer transition-colors ${
                                         selectedClasses.includes(cls.id)
-                                            ? 'bg-blue-600 text-white border-blue-600'
-                                            : 'bg-gray-100 hover:bg-gray-200'
+                                            ? 'bg-primary-600 text-white border-primary-600' /* Using new primary color */
+                                            : 'bg-white/50 hover:bg-white/70 border-gray-200 text-gray-700' /* Glassmorphism selection */
                                     }`}
                                 >
                                     <input
