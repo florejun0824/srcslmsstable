@@ -262,13 +262,14 @@ const StudentDashboardUI = ({
                         </div>
                     </header>
 
-                    <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-gray-50 md:rounded-br-2xl">
+                    {/* ✅ FIXED: Added padding-bottom to prevent overlap with the mobile nav */}
+                    <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-gray-50 md:rounded-br-2xl pb-24">
                         {renderView()}
                     </main>
                 </div>
 
                 {/* Mobile Bottom Nav */}
-                <footer className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg flex justify-around md:hidden border-t border-gray-100 shadow-lg rounded-t-3xl">
+               <footer className="fixed bottom-0 left-0 right-0 bg-white flex justify-around md:hidden border-t border-gray-200 shadow-lg rounded-t-3xl">
                     {sidebarNavItems.map(item => {
                         const isActive = view === item.view;
                         return (
@@ -284,8 +285,9 @@ const StudentDashboardUI = ({
                         )
                     })}
                 </footer>
-                {/* Spacer to prevent content from being hidden by the bottom nav */}
-                <div className="pb-16 md:pb-0"></div>
+                {/* REMOVED: The old spacer div is no longer needed because 
+                  we added padding directly to the <main> element.
+                */}
             </div>
         </div>
     );

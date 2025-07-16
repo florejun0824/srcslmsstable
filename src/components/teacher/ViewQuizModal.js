@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogPanel, Title, Button, TextInput } from '@tremor/react';
-import { ArrowLeftIcon, ArrowRightIcon, CheckCircleIcon, XCircleIcon, LockClosedIcon, ShieldExclamationIcon } from '@heroicons/react/24/solid';
+import { ArrowLeftIcon, ArrowRightIcon, CheckCircleIcon, XCircleIcon, LockClosedIcon, ShieldExclamationIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
 import { db } from '../../services/firebase';
 import {
     collection,
@@ -15,6 +15,18 @@ import {
 import Spinner from '../common/Spinner';
 import ContentRenderer from './ContentRenderer';
 
+// Fisher-Yates Shuffle Algorithm
+const shuffleArray = (array) => {
+    let currentIndex = array.length, randomIndex;
+    const newArray = [...array];
+    while (currentIndex !== 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+        [newArray[currentIndex], newArray[randomIndex]] = [newArray[randomIndex], newArray[currentIndex]];
+    }
+    return newArray;
+};
+
 export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, classId }) {
     const [currentQ, setCurrentQ] = useState(0);
     const [userAnswers, setUserAnswers] = useState({});
@@ -25,55 +37,59 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
     const [warnings, setWarnings] = useState(0);
     const [isLocked, setIsLocked] = useState(false);
     const hasSubmitted = useRef(false);
-
     const [questionResult, setQuestionResult] = useState(null);
     const [tempScore, setTempScore] = useState(0);
+    const [shuffledQuestions, setShuffledQuestions] = useState([]);
 
-    // Anti-cheating useEffect
+    // ✅ Switched to localStorage for true persistence
+    const warningKey = `quizWarnings_${quiz?.id}_${userProfile?.id}`;
+    const shuffleKey = `quizShuffle_${quiz?.id}_${userProfile?.id}`;
+
+    const issueWarning = useCallback(async () => {
+        const newWarningCount = warnings + 1;
+        
+        setWarnings(newWarningCount);
+        // ✅ Use localStorage
+        localStorage.setItem(warningKey, newWarningCount.toString());
+
+        if (newWarningCount >= 3) {
+            const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
+            await setDoc(lockRef, {
+                quizId: quiz.id, studentId: userProfile.id,
+                studentName: `${userProfile.firstName} ${userProfile.lastName}`,
+                classId: classId, lockedAt: serverTimestamp(),
+            });
+            setIsLocked(true);
+        } else {
+            alert(`Warning ${newWarningCount}: Navigating away or closing the quiz is not allowed.`);
+        }
+    }, [warnings, warningKey, quiz, userProfile, classId]);
+
+
     useEffect(() => {
-        const handleFocusLoss = async () => {
+        const handleFocusLoss = () => {
             if (!isOpen || hasSubmitted.current || isLocked || !classId || finalScore !== null) {
                 return;
             }
-            const newWarningCount = warnings + 1;
-            setWarnings(newWarningCount);
-            if (newWarningCount >= 3) {
-                alert("Warning 3: Your quiz has been locked due to multiple warnings. Please contact your teacher.");
-                const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
-                await setDoc(lockRef, {
-                    quizId: quiz.id, studentId: userProfile.id,
-                    studentName: `${userProfile.firstName} ${userProfile.lastName}`,
-                    classId: classId, lockedAt: serverTimestamp(),
-                });
-                setIsLocked(true);
-            } else {
-                alert(`Warning ${newWarningCount}: Navigating away from the quiz is not allowed.`);
-            }
+            issueWarning();
         };
         window.addEventListener('blur', handleFocusLoss);
         return () => window.removeEventListener('blur', handleFocusLoss);
-    }, [isOpen, warnings, isLocked, quiz, userProfile, classId, finalScore]);
+    }, [isOpen, isLocked, finalScore, classId, issueWarning]);
 
-    const fetchQuizStatus = useCallback(async () => {
-        if (!quiz?.id || !userProfile?.id) { setLoading(false); return; }
-        if (classId) {
-            setLoading(true);
-            const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
-            const lockSnap = await getDoc(lockRef);
-            if (lockSnap.exists()) setIsLocked(true);
-            
-            const submissionsRef = collection(db, 'quizSubmissions');
-            const q = query(submissionsRef, where("quizId", "==", quiz.id), where("studentId", "==", userProfile.id), where("classId", "==", classId));
-            const querySnapshot = await getDocs(q);
-            const submissions = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            submissions.sort((a, b) => (b.submittedAt?.seconds || 0) - (a.submittedAt?.seconds || 0));
-            setLatestSubmission(submissions[0] || null);
-            setAttemptsTaken(submissions.length);
-            setLoading(false);
-        } else {
-            setLoading(false);
-        }
-    }, [quiz, userProfile, classId]);
+    useEffect(() => {
+        const handleBeforeUnload = (event) => {
+            if (isOpen && classId && !isLocked && finalScore === null && !hasSubmitted.current) {
+                event.preventDefault();
+                event.returnValue = '';
+                return '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [isOpen, classId, isLocked, finalScore]);
 
     useEffect(() => {
         if (isOpen) {
@@ -82,31 +98,67 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
             setFinalScore(null);
             setQuestionResult(null);
             setTempScore(0);
-            setWarnings(0);
-            setIsLocked(false);
             hasSubmitted.current = false;
+            
+            if (classId) {
+                // ✅ Read from localStorage
+                const savedWarnings = localStorage.getItem(warningKey);
+                const initialWarnings = savedWarnings ? parseInt(savedWarnings, 10) : 0;
+                setWarnings(initialWarnings);
+                if (initialWarnings >= 3) setIsLocked(true);
+
+                // ✅ Read shuffle order from localStorage
+                const savedShuffle = localStorage.getItem(shuffleKey);
+                if (savedShuffle) {
+                    setShuffledQuestions(JSON.parse(savedShuffle));
+                } else {
+                    const newShuffled = shuffleArray(quiz.questions || []);
+                    setShuffledQuestions(newShuffled);
+                    localStorage.setItem(shuffleKey, JSON.stringify(newShuffled));
+                }
+            } else {
+                setShuffledQuestions(quiz.questions || []);
+            }
             fetchQuizStatus();
         }
-    }, [isOpen, fetchQuizStatus]);
+    }, [isOpen, classId, quiz?.questions, warningKey, shuffleKey]);
+
+
+    const fetchQuizStatus = useCallback(async () => {
+        if (!quiz?.id || !userProfile?.id || !classId) {
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
+        const lockSnap = await getDoc(lockRef);
+        if (lockSnap.exists()) setIsLocked(true);
+        
+        const submissionsRef = collection(db, 'quizSubmissions');
+        const q = query(submissionsRef, where("quizId", "==", quiz.id), where("studentId", "==", userProfile.id), where("classId", "==", classId));
+        const querySnapshot = await getDocs(q);
+        const submissions = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        submissions.sort((a, b) => (b.submittedAt?.seconds || 0) - (a.submittedAt?.seconds || 0));
+        setLatestSubmission(submissions[0] || null);
+        setAttemptsTaken(submissions.length);
+        setLoading(false);
+    }, [quiz, userProfile, classId]);
+
 
     if (!quiz) return null;
 
-    const questions = quiz.questions || [];
-    const totalQuestions = questions.length;
+    const totalQuestions = shuffledQuestions.length;
     const hasAttemptsLeft = classId ? attemptsTaken < 3 : true;
 
     const handleAnswer = (answer) => {
-        if (questionResult) return; 
-
+        if (questionResult) return;
         setUserAnswers({ ...userAnswers, [currentQ]: answer });
-        const question = questions[currentQ];
+        const question = shuffledQuestions[currentQ];
         let isCorrect = false;
 
-        if (question.type === 'multiple-choice') {
-            isCorrect = (answer === question.correctAnswerIndex);
-        } else if (question.type === 'true-false') {
-            isCorrect = (answer === question.correctAnswer);
-        } else if (question.type === 'identification') {
+        if (question.type === 'multiple-choice') isCorrect = (answer === question.correctAnswerIndex);
+        else if (question.type === 'true-false') isCorrect = (answer === question.correctAnswer);
+        else if (question.type === 'identification') {
             const formattedUserAnswer = String(answer || '').toLowerCase().trim();
             const formattedCorrectAnswer = String(question.correctAnswer || '').toLowerCase().trim();
             isCorrect = (formattedUserAnswer === formattedCorrectAnswer);
@@ -122,7 +174,7 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
 
     const handleNextQuestion = () => {
         if (currentQ < totalQuestions - 1) {
-            setQuestionResult(null); 
+            setQuestionResult(null);
             setCurrentQ(prev => prev + 1);
         } else {
             handleSubmit();
@@ -136,6 +188,10 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
         if (!hasAttemptsLeft) { alert("You have used all 3 attempts."); return; }
         
         setFinalScore(tempScore);
+        
+        // ✅ Clear localStorage ONLY on successful submission
+        localStorage.removeItem(warningKey);
+        localStorage.removeItem(shuffleKey);
 
         try {
             const submissionRef = doc(collection(db, 'quizSubmissions'));
@@ -150,9 +206,17 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
             console.error("Error saving submission:", error);
         }
     };
+    
+    const handleClose = () => {
+        if (isOpen && classId && !isLocked && finalScore === null && !hasSubmitted.current) {
+            issueWarning();
+        }
+        onClose();
+    };
 
+    // All render functions...
     const renderQuestion = () => {
-        const question = questions[currentQ];
+        const question = shuffledQuestions[currentQ];
         if (!question) return null;
 
         return (
@@ -163,7 +227,6 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                     <div className="space-y-3">
                         {question.options?.map((option, idx) => (
                             <div key={idx} onClick={() => handleAnswer(idx)} className="w-full p-4 rounded-lg border transition-all cursor-pointer hover:bg-gray-50">
-                                {/* --- FIX #1: Pass option.text, not the whole option object --- */}
                                 <ContentRenderer text={option.text} />
                             </div>
                         ))}
@@ -186,42 +249,33 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
     };
 
     const renderQuestionResult = () => {
-        const question = questions[currentQ];
+        const question = shuffledQuestions[currentQ];
         const isCorrect = questionResult === 'correct';
-        const userAnswerIndex = userAnswers[currentQ]; 
-        
-        let explanationText = 'No explanation provided.'; 
-        
-        if (question.type === 'multiple-choice') {
-            const selectedOption = question.options?.[userAnswerIndex];
-            if (selectedOption && selectedOption.explanation) {
-                explanationText = selectedOption.explanation;
-            } else if (!isCorrect && question.correctAnswerIndex !== undefined) {
-                const correctOption = question.options?.[question.correctAnswerIndex];
-                if (correctOption && correctOption.explanation) {
-                    explanationText = `The correct answer was "${correctOption.text}". ${correctOption.explanation}`;
-                }
-            }
-        } else if (question.type === 'true-false' || question.type === 'identification') {
-            if (question.explanation) {
-                 explanationText = question.explanation;
-            }
-        }
-
+    
         return (
             <div className={`p-4 rounded-lg ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border`}>
                 <div className="flex items-center gap-2">
                     {isCorrect ? <CheckCircleIcon className="h-6 w-6 text-green-500" /> : <XCircleIcon className="h-6 w-6 text-red-500" />}
                     <Title className={isCorrect ? 'text-green-700' : 'text-red-700'}>{isCorrect ? "Correct!" : "Incorrect"}</Title>
                 </div>
-                {!isCorrect && question.type === 'identification' && (
+                
+                {!isCorrect && (
                     <p className="mt-2 text-red-700 text-sm">
-                        Correct Answer: <span className="font-semibold">{question.correctAnswer}</span>
+                        Correct Answer: <span className="font-semibold">
+                            {question.type === 'multiple-choice' ? question.options[question.correctAnswerIndex]?.text : String(question.correctAnswer)}
+                        </span>
                     </p>
                 )}
-                <div className="mt-2 text-gray-700 text-sm">
-                    <strong>Explanation:</strong> <ContentRenderer text={explanationText} />
-                </div>
+                
+                {question.explanation && (
+                    <div className="mt-3 pt-3 border-t">
+                        <div className="flex items-start">
+                            <InformationCircleIcon className="h-5 w-5 text-gray-500 mr-2 mt-0.5 flex-shrink-0" />
+                            <div className="text-sm text-gray-700"><ContentRenderer text={question.explanation} /></div>
+                        </div>
+                    </div>
+                )}
+
                 <Button onClick={handleNextQuestion} className="mt-4 w-full">
                     {currentQ < totalQuestions - 1 ? 'Next Question' : 'Finish Quiz'}
                 </Button>
@@ -264,9 +318,8 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
         if (loading) return <Spinner />;
         if (isLocked) return renderSystemLockedView();
 
-        // This is the Teacher Preview mode
         if (!classId && !loading) {
-            const currentQuestionData = questions[currentQ];
+            const currentQuestionData = shuffledQuestions[currentQ];
             return (
                 <div className="flex flex-col h-full">
                     <div className="flex-grow overflow-y-auto">
@@ -282,7 +335,6 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                                         {currentQuestionData.type === 'multiple-choice' && currentQuestionData.options?.map((option, idx) => (
                                             <div key={idx} className={`flex items-center p-2 rounded-md text-sm ${option.isCorrect ? 'bg-green-100 text-green-800 font-semibold ring-1 ring-green-300' : 'bg-gray-100'}`}>
                                                 {option.isCorrect && <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />}
-                                                {/* --- FIX #2: Pass option.text, not the whole option object --- */}
                                                 <ContentRenderer text={option.text} />
                                             </div>
                                         ))}
@@ -306,10 +358,16 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                                         )}
                                     </div>
                                     
-                                    <div className="mt-4 pt-2 border-t text-sm text-gray-600">
-                                        <p><strong>Explanation:</strong></p>
-                                        <ContentRenderer text={currentQuestionData.explanation || 'No explanation provided.'} />
-                                    </div>
+                                    {currentQuestionData.explanation && (
+                                        <div className="mt-4 pt-3 border-t">
+                                            <div className="flex items-start">
+                                                <InformationCircleIcon className="h-5 w-5 text-gray-500 mr-2 mt-0.5 flex-shrink-0" />
+                                                <div className="text-sm text-gray-700">
+                                                    <ContentRenderer text={currentQuestionData.explanation} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                         ) : (
                             <p>This quiz has no questions.</p>
@@ -336,7 +394,7 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
     }
 
     return (
-        <Dialog open={isOpen} onClose={onClose} static={true} className="z-[100]">
+        <Dialog open={isOpen} onClose={handleClose} static={true} className="z-[100]">
             <DialogPanel className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
                 <div className="flex justify-between items-start">
                     <Title className="mb-4">{quiz.title}</Title>
@@ -351,7 +409,7 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                     {renderContent()}
                 </div>
                 <div className="flex justify-end gap-2 mt-4">
-                    <Button variant="primary" onClick={onClose}>Close</Button>
+                    <Button variant="primary" onClick={handleClose}>Close</Button>
                 </div>
             </DialogPanel>
         </Dialog>

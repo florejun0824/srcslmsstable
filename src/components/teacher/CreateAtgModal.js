@@ -3,7 +3,6 @@ import { Dialog } from '@headlessui/react';
 import { useToast } from '../../contexts/ToastContext';
 import { useCourseData } from '../../hooks/useCourseData';
 import SourceContentSelector from '../../hooks/SourceContentSelector';
-// ✅ MODIFIED: Import the correct function
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import Spinner from '../common/Spinner';
 import { XMarkIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
@@ -11,7 +10,7 @@ import LessonPage from './LessonPage';
 
 // Import Firebase Firestore functions for saving
 import { writeBatch, doc, collection, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../services/firebase'; // Ensure your firebase.js exports `db`
+import { db } from '../../services/firebase';
 
 
 // Helper functions (extractJson, tryParseJson)
@@ -33,7 +32,7 @@ const tryParseJson = (jsonString) => {
         try {
             return JSON.parse(sanitizedString);
         } catch (finalError) {
-            throw finalError; // Re-throw the final error if sanitization also fails
+            throw finalError;
         }
     }
 };
@@ -49,7 +48,6 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
     const [learningCompetencies, setLearningCompetencies] = useState('');
 
     const [scope, setScope] = useState('byUnit');
-    // Initialize selectedSubjectId with the prop subjectId, and selectedUnitIds with prop unitId
     const [currentSelectedSubjectId, setCurrentSelectedSubjectId] = useState(subjectId || '');
     const [currentSelectedUnitIds, setCurrentSelectedUnitIds] = useState(new Set(unitId ? [unitId] : []));
     const [currentSelectedLessonId, setCurrentSelectedLessonId] = useState('');
@@ -66,7 +64,6 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
 
             let sourceContent = '';
             let sourceTitle = '';
-            // These variables will correctly capture the IDs of the *source content* used for ATG generation
             let generatedFromUnitId = null; 
             let generatedFromSubjectId = null;
 
@@ -75,8 +72,8 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
                 const unitDetails = Array.from(currentSelectedUnitIds).map(id => unitsForSubject.find(u => u.id === id)).filter(Boolean);
                 
                 sourceTitle = unitDetails.map(u => u.title).join(' & ');
-                generatedFromUnitId = unitDetails[0]?.id || null; // Take the ID of the first selected unit as the source unit
-                generatedFromSubjectId = currentSelectedSubjectId; // Use the currently selected subject for units
+                generatedFromUnitId = unitDetails[0]?.id || null;
+                generatedFromSubjectId = currentSelectedSubjectId;
                 
                 const allLessonContents = [];
                 for (const unit of unitDetails) {
@@ -90,8 +87,8 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
                 if (!lesson) throw new Error("Selected lesson could not be found.");
                 sourceTitle = lesson.title;
                 sourceContent = lesson.pages.map(p => p.content).join('\n\n');
-                generatedFromUnitId = lesson.unitId; // Get unitId from the selected lesson
-                generatedFromSubjectId = lesson.subjectId; // Get subjectId from the selected lesson
+                generatedFromUnitId = lesson.unitId;
+                generatedFromSubjectId = lesson.subjectId;
             }
             if (!sourceContent) {
                 throw new Error("No source content found for the selected scope. Please ensure the selected units/lessons have content.");
@@ -174,7 +171,6 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
                 - **Standards:** How will the product be judged?
                 - **Scoring Rubric:** Following the GRASPS, create a detailed scoring rubric for the performance task. The rubric must have at least **three criteria** for success and at least **three proficiency levels** (e.g., Beginning, Developing, Accomplished) with clear descriptors for each level.`;
 
-            // ✅ MODIFIED: Using the new generic generator with a custom config for a large response.
             const analysisText = await callGeminiWithLimitCheck(atgAnalysisPrompt, { maxOutputTokens: 8192 });
             if (analysisText.toLowerCase().includes("i cannot")) throw new Error("AI failed during ATG content generation.");
             
@@ -193,21 +189,18 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
                 **FINAL JSON OUTPUT STRUCTURE:**
                 {"generated_lessons": [{"lessonTitle": "Adaptive Teaching Guide: ${sourceTitle}", "pages": [{"title": "PEAC Adaptive Teaching Guide", "content": "<table...>...</table>"}]}]}`;
 
-            // ✅ MODIFIED: Using the new generic generator with a custom config for a large response.
             const aiText = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 8192 });
             const jsonText = extractJson(aiText);
             const parsedResponse = JSON.parse(jsonText);
             
-            // Store additional data needed for saving the ATG
             setPreviewData({
-                ...parsedResponse, // Contains generated_lessons
-                // Capture the IDs of the *source content* that the ATG was generated from
+                ...parsedResponse,
                 sourceSubjectId: generatedFromSubjectId, 
                 sourceUnitId: generatedFromUnitId, 
-                contentStandard: contentStandard, // Include other form data as needed
+                contentStandard: contentStandard,
                 performanceStandard: performanceStandard,
                 learningCompetencies: learningCompetencies,
-                sourceTitle: sourceTitle, // Store the title for context
+                sourceTitle: sourceTitle,
             });
 
         } catch (err) {
@@ -218,15 +211,11 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
         }
     };
     
-    // The handleSave function is updated based on your request
     const handleSave = async () => {
         if (!previewData || !Array.isArray(previewData.generated_lessons) || previewData.generated_lessons.length === 0) {
             showToast("Cannot save: No ATG content to save.", "error");
             return;
         }
-
-        // Use the subjectId and unitId passed as props to the modal as the saving destination
-        // These are the initial IDs where the ATG should be stored in the database.
         if (!subjectId || !unitId) { 
             showToast("Could not save: Destination unit or subject is missing from modal props.", "error");
             return;
@@ -237,40 +226,27 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
 
         try {
             const batch = writeBatch(db);
-            
-            // Assuming there's only one "lesson" (the ATG) in generated_lessons for ATG content
             const atgLesson = previewData.generated_lessons[0]; 
-
-            const newAtgRef = doc(collection(db, 'lessons')); // Store ATGs in the 'lessons' collection (or 'atgs' if you prefer a separate collection)
+            const newAtgRef = doc(collection(db, 'lessons')); 
             
             batch.set(newAtgRef, {
-                title: atgLesson.lessonTitle, // e.g., "Adaptive Teaching Guide: [Unit Title]"
-                pages: atgLesson.pages || [], // Should contain the single page with HTML table
-                
-                // Use the unitId and subjectId passed as props to the modal as the saving destination
-                unitId: unitId, // from props
-                subjectId: subjectId, // from props
-                
-                contentType: "teacherAtg", // Crucial: Differentiate from student lessons. This is a custom type for ATGs.
-                
-                // Include other relevant data from the form inputs and source (stored in previewData)
+                title: atgLesson.lessonTitle,
+                pages: atgLesson.pages || [],
+                unitId: unitId,
+                subjectId: subjectId,
+                contentType: "teacherAtg",
                 contentStandard: previewData.contentStandard || '',
                 performanceStandard: previewData.performanceStandard || '',
                 learningCompetencies: previewData.learningCompetencies || '',
-                
-                // Store the IDs and title of the content that this ATG was generated FROM
                 sourceSubjectId: previewData.sourceSubjectId || '',
                 sourceUnitId: previewData.sourceUnitId || '',
-                sourceOfAtgTitle: previewData.sourceTitle || '', // Renamed for clarity on what it represents
-
+                sourceOfAtgTitle: previewData.sourceTitle || '',
                 createdAt: serverTimestamp(),
-                // If ATGs need an 'order' field similar to lessons, you'd add it here.
-                // For simplicity, it's omitted as specific ordering for ATGs isn't usually a primary requirement.
             });
             
             await batch.commit();
             showToast("Adaptive Teaching Guide saved successfully!", "success");
-            onClose(); // Close the modal after successful save
+            onClose();
 
         } catch (err) {
             console.error("Error saving ATG:", err);
@@ -280,51 +256,51 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
         }
     };
 
-
     return (
-        <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+        <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4">
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
-            <Dialog.Panel className="relative bg-slate-50 p-8 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+            {/* ✅ FIXED: Responsive padding and max-width for the dialog panel */}
+            <Dialog.Panel className="relative bg-slate-50 p-4 sm:p-6 rounded-2xl shadow-2xl w-full max-w-md lg:max-w-5xl max-h-[90vh] flex flex-col">
                 {(isGenerating || isSaving) && (
                     <div className="absolute inset-0 bg-white/80 flex flex-col justify-center items-center z-50 rounded-2xl">
                         <Spinner />
-                        <p className="mt-2 text-slate-600">{isGenerating ? 'AI is generating ATG...' : 'Saving ATG...'}</p>
+                        <p className="mt-2 text-sm text-slate-600">{isGenerating ? 'AI is generating ATG...' : 'Saving ATG...'}</p>
                     </div>
                 )}
                 
-                <div className="flex justify-between items-start mb-6">
-                    <div className="flex items-center gap-4">
-                        <div className="bg-gradient-to-br from-teal-500 to-cyan-600 p-3 rounded-xl text-white shadow-lg">
-                            <DocumentTextIcon className="h-8 w-8" />
+                <div className="flex justify-between items-start mb-4 sm:mb-6">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="bg-gradient-to-br from-teal-500 to-cyan-600 p-2 sm:p-3 rounded-xl text-white shadow-lg flex-shrink-0">
+                            <DocumentTextIcon className="h-6 w-6 sm:h-8 sm:h-8" />
                         </div>
                         <div>
-                            <Dialog.Title className="text-2xl font-bold text-slate-800">AI ATG Generator</Dialog.Title>
-                            <p className="text-slate-500">Create a PEAC Adaptive Teaching Guide from source content.</p>
+                            <Dialog.Title className="text-base sm:text-2xl font-bold text-slate-800">AI ATG Generator</Dialog.Title>
+                            <p className="text-xs sm:text-sm text-slate-500">Create a PEAC Adaptive Teaching Guide from source content.</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 rounded-full text-slate-400 hover:bg-slate-200"><XMarkIcon className="h-6 w-6" /></button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto -mr-4 pr-4">
+                <div className="flex-1 overflow-y-auto -mr-2 pr-2 sm:-mr-4 sm:pr-4">
                     {!previewData ? (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div className="bg-white p-6 rounded-xl shadow-md space-y-4">
-                                <h3 className="font-bold text-lg text-slate-700 border-b pb-2">Authoritative Inputs</h3>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md space-y-4">
+                                <h3 className="font-bold text-base sm:text-lg text-slate-700 border-b pb-2">Authoritative Inputs</h3>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-600 mb-1">Content Standard</label>
-                                    <textarea value={contentStandard} onChange={(e) => setContentStandard(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500" rows={3} />
+                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Content Standard</label>
+                                    <textarea value={contentStandard} onChange={(e) => setContentStandard(e.target.value)} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500" rows={3} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-600 mb-1">Performance Standard</label>
-                                    <textarea value={performanceStandard} onChange={(e) => setPerformanceStandard(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500" rows={3} />
+                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Performance Standard</label>
+                                    <textarea value={performanceStandard} onChange={(e) => setPerformanceStandard(e.target.value)} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500" rows={3} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-600 mb-1">Learning Competencies</label>
-                                    <textarea placeholder="One competency per line..." value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500" rows={4} />
+                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Learning Competencies</label>
+                                    <textarea placeholder="One competency per line..." value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500" rows={4} />
                                 </div>
                             </div>
-                            <div className="bg-white p-6 rounded-xl shadow-md">
-                                <h3 className="font-bold text-lg text-slate-700 border-b pb-2 mb-4">Source Content</h3>
+                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md">
+                                <h3 className="font-bold text-base sm:text-lg text-slate-700 border-b pb-2 mb-4">Source Content</h3>
                                 <SourceContentSelector
                                     scope={scope} handleScopeChange={(e) => setScope(e.target.value)}
                                     selectedSubjectId={currentSelectedSubjectId} handleSubjectChange={(e) => { setCurrentSelectedSubjectId(e.target.value); setCurrentSelectedUnitIds(new Set()); setCurrentSelectedLessonId(''); }}
@@ -342,24 +318,24 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <h2 className="text-xl font-bold text-slate-700">Preview ATG</h2>
-                            <div className="max-h-[60vh] overflow-y-auto border rounded-lg p-4 bg-slate-100">
+                            <h2 className="text-lg sm:text-xl font-bold text-slate-700">Preview ATG</h2>
+                            <div className="max-h-[60vh] overflow-y-auto border rounded-lg p-2 sm:p-4 bg-slate-100">
                                 {previewData?.generated_lessons?.[0] ? <LessonPage page={previewData.generated_lessons[0].pages[0]} /> : <p>Could not load preview.</p>}
                             </div>
                         </div>
                     )}
                 </div>
-
-                <div className="pt-6 flex justify-between items-center border-t border-slate-200 mt-6">
+                 {/* ✅ FIXED: Responsive footer buttons */}
+                <div className="pt-4 sm:pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-slate-200 mt-4 sm:mt-6">
                     {previewData ? (
                         <>
-                            <button onClick={() => setPreviewData(null)} disabled={isSaving || isGenerating} className="btn-secondary">Back to Edit</button>
-                            <button onClick={handleSave} className="btn-primary" disabled={isSaving}>
+                            <button onClick={() => setPreviewData(null)} disabled={isSaving || isGenerating} className="btn-secondary w-full sm:w-auto text-sm">Back to Edit</button>
+                            <button onClick={handleSave} className="btn-primary w-full sm:w-auto text-sm" disabled={isSaving}>
                                 {isSaving ? 'Saving...' : 'Accept & Save'}
                             </button>
                         </>
                     ) : (
-                        <button onClick={handleGenerate} disabled={isGenerating || loading} className="btn-primary ml-auto">
+                        <button onClick={handleGenerate} disabled={isGenerating || loading} className="btn-primary ml-auto w-full sm:w-auto text-sm">
                             {isGenerating ? 'Generating...' : 'Generate ATG'}
                         </button>
                     )}

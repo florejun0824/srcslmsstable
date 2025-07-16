@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, Title, Button, TextInput, Textarea } from '@tremor/react';
-// --- NEW: Import Menu from Headless UI and a new icon ---
 import { Menu } from '@headlessui/react';
 import { PlusIcon, TrashIcon, PencilIcon, EyeIcon, ChevronDownIcon } from '@heroicons/react/24/solid';
 import ContentRenderer from '../teacher/ContentRenderer';
@@ -36,40 +35,41 @@ export default function QuizFormModal({ isOpen, onClose, onSubmit, initialQuizDa
     const [isSaving, setIsSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('edit');
 
-    // ... (useEffect and all handler functions remain the same) ...
-     useEffect(() => {
+    useEffect(() => {
         if (isOpen) {
             if (initialQuizData) {
                 setTitle(initialQuizData.title || '');
                 const normalizedQuestions = (initialQuizData.questions || []).map((q, qIndex) => {
+                    // --- FIX: Ensure every loaded question has an explanation field ---
+                    const questionWithExplanation = { ...q, explanation: q.explanation || '' };
+
                     if (q.type === 'multiple-choice' && q.options) {
                         const correctIdx = q.correctAnswerIndex ?? 0;
                         const normalizedOptions = q.options.map((opt, oIndex) => {
                             if (typeof opt === 'string') {
                                 return { text: opt, isCorrect: oIndex === correctIdx };
                             }
-                            // Ensure every option has a text property, default to empty string if missing
                             return { text: opt.text || '', isCorrect: opt.isCorrect || false };
                         });
-                        // Ensure all options have the isCorrect flag set properly based on correctAnswerIndex
                         const finalOptions = normalizedOptions.map((opt, oIndex) => ({
                             ...opt,
                             isCorrect: oIndex === correctIdx
                         }));
-
-                        return { ...q, options: finalOptions, correctAnswerIndex: correctIdx };
+                        return { ...questionWithExplanation, options: finalOptions, correctAnswerIndex: correctIdx };
                     }
-                    return q;
+                    return questionWithExplanation;
                 });
                 setQuestions(normalizedQuestions.length > 0 ? normalizedQuestions : [{ type: 'multiple-choice', text: '', options: [{text: '', isCorrect: true}, {text: '', isCorrect: false}], correctAnswerIndex: 0, explanation: '' }]);
             } else {
                 setTitle('');
+                // --- FIX: Ensure a new question starts with an explanation field ---
                 setQuestions([{ type: 'multiple-choice', text: '', options: [{text: '', isCorrect: true}, {text: '', isCorrect: false}], correctAnswerIndex: 0, explanation: '' }]);
             }
             setActiveTab('edit');
         }
     }, [initialQuizData, isOpen]);
-     const handleQuestionChange = (index, field, value) => {
+
+    const handleQuestionChange = (index, field, value) => {
         const updatedQuestions = questions.map((q, i) => {
             if (i !== index) return q;
 
@@ -91,6 +91,7 @@ export default function QuizFormModal({ isOpen, onClose, onSubmit, initialQuizDa
         });
         setQuestions(updatedQuestions);
     };
+
     const handleOptionChange = (qIndex, oIndex, newText) => {
         const updatedQuestions = questions.map((q, i) => {
             if (i !== qIndex) return q;
@@ -116,16 +117,20 @@ export default function QuizFormModal({ isOpen, onClose, onSubmit, initialQuizDa
     };
 
     const addQuestion = () => {
+        // --- FIX: Ensure a newly added question has an explanation field ---
         setQuestions([...questions, { type: 'multiple-choice', text: '', options: [{text: '', isCorrect: true}, {text: '', isCorrect: false}], correctAnswerIndex: 0, explanation: '' }]);
     };
+
     const removeQuestion = (index) => {
         setQuestions(questions.filter((_, i) => i !== index));
     };
+
     const addOption = (qIndex) => {
         const updatedQuestions = [...questions];
         updatedQuestions[qIndex].options.push({text: '', isCorrect: false});
         setQuestions(updatedQuestions);
     };
+
     const removeOption = (qIndex, oIndex) => {
         const updatedQuestions = [...questions];
         const questionToUpdate = updatedQuestions[qIndex];
@@ -144,24 +149,27 @@ export default function QuizFormModal({ isOpen, onClose, onSubmit, initialQuizDa
 
         setQuestions(updatedQuestions);
     };
+
     const handleSave = async () => {
         setIsSaving(true);
         const finalQuestions = questions.map(q => {
+            // --- FIX: Ensure explanation is part of the final object being saved ---
+            const finalQuestion = { ...q, explanation: q.explanation || '' };
             if (q.type === 'multiple-choice') {
                 const updatedOptions = q.options.map((opt, index) => ({
-                    ...opt,
+                    text: opt.text, // only include text and isCorrect
                     isCorrect: index === q.correctAnswerIndex
                 }));
-                return { ...q, options: updatedOptions };
+                return { ...finalQuestion, options: updatedOptions };
             }
-            return q;
+            return finalQuestion;
         });
         await onSubmit({ title, questions: finalQuestions });
         setIsSaving(false);
     };
 
     const renderEditPane = (question, index) => (
-      <div className="space-y-4 bg-white p-4 rounded-b-lg border-x border-b">
+        <div className="space-y-4 bg-white p-4 rounded-b-lg border-x border-b">
             <div>
                 <label className="text-xs font-semibold text-gray-500">QUESTION</label>
                 <Textarea placeholder="Enter question text..." value={question.text || ''} onChange={(e) => handleQuestionChange(index, 'text', e.target.value)} rows={3}/>
@@ -185,6 +193,7 @@ export default function QuizFormModal({ isOpen, onClose, onSubmit, initialQuizDa
                 </Menu>
             </div>
             {renderAnswerFields(question, index)}
+            {/* --- FIX: Added the Textarea for the explanation field --- */}
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Explanation</label>
                 <Textarea placeholder="Explain why the answer is correct..." value={question.explanation || ''} onChange={(e) => handleQuestionChange(index, 'explanation', e.target.value)} rows={3}/>
@@ -192,52 +201,52 @@ export default function QuizFormModal({ isOpen, onClose, onSubmit, initialQuizDa
         </div>
     );
     
-    // ... (renderPreviewPane and renderAnswerFields functions remain the same) ...
-     const renderPreviewPane = (question, index) => (
-      <div className="prose max-w-none prose-sm bg-white p-4 rounded-b-lg border-x border-b">
+    // --- The rest of the file (renderPreviewPane, renderAnswerFields, etc.) remains unchanged ---
+    const renderPreviewPane = (question, index) => (
+        <div className="prose max-w-none prose-sm bg-white p-4 rounded-b-lg border-x border-b">
             <ContentRenderer text={question.text} />
-             {question.type === 'multiple-choice' && (
-                 <ul className="list-none pl-0 mt-4 space-y-2">
-                     {question.options.map((option, oIndex) => (
-                         <li key={oIndex} className={`flex items-start gap-3 p-2 rounded-md ${option.isCorrect ? 'bg-green-50 border border-green-200' : ''}`}>
-                             <input type="radio" checked={option.isCorrect} readOnly className="mt-1"/>
-                             {/* --- THIS IS THE CORRECTED LINE --- */}
-                             <ContentRenderer text={option.text} />
-                         </li>
-                     ))}
-                 </ul>
-             )}
-              {question.type === 'true-false' && (
-                  <p>Correct Answer: <strong>{String(question.correctAnswer)}</strong></p>
-             )}
-              {question.type === 'identification' && (
-                  <p>Correct Answer: <strong>{question.correctAnswer}</strong></p>
-             )}
+            {question.type === 'multiple-choice' && (
+                <ul className="list-none pl-0 mt-4 space-y-2">
+                    {question.options.map((option, oIndex) => (
+                        <li key={oIndex} className={`flex items-start gap-3 p-2 rounded-md ${option.isCorrect ? 'bg-green-50 border border-green-200' : ''}`}>
+                            <input type="radio" checked={option.isCorrect} readOnly className="mt-1"/>
+                            <ContentRenderer text={option.text} />
+                        </li>
+                    ))}
+                </ul>
+            )}
+            {question.type === 'true-false' && (
+                <p>Correct Answer: <strong>{String(question.correctAnswer)}</strong></p>
+            )}
+            {question.type === 'identification' && (
+                <p>Correct Answer: <strong>{question.correctAnswer}</strong></p>
+            )}
             <div className="mt-4 p-2 bg-slate-100 rounded">
                 <h4 className="text-xs font-bold">Explanation</h4>
                 <ContentRenderer text={question.explanation}/>
             </div>
         </div>
     );
+
     const renderAnswerFields = (question, qIndex) => {
         if (question.type === 'true-false') {
             return (
                 <div className="space-y-2">
-                     <label className="block text-sm font-medium text-gray-700">Correct Answer</label>
-                     <div className="flex gap-4">
+                    <label className="block text-sm font-medium text-gray-700">Correct Answer</label>
+                    <div className="flex gap-4">
                         <label className="flex items-center"><input type="radio" name={`correctAnswer-${qIndex}`} checked={question.correctAnswer === true} onChange={() => handleQuestionChange(qIndex, 'correctAnswer', true)} className="mr-2"/> True</label>
                         <label className="flex items-center"><input type="radio" name={`correctAnswer-${qIndex}`} checked={question.correctAnswer === false} onChange={() => handleQuestionChange(qIndex, 'correctAnswer', false)} className="mr-2"/> False</label>
-                     </div>
+                    </div>
                 </div>
             );
         }
         if (question.type === 'identification') {
-             return (
+            return (
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Correct Answer</label>
                     <TextInput value={question.correctAnswer || ''} onChange={(e) => handleQuestionChange(qIndex, 'correctAnswer', e.target.value)} />
                 </div>
-             );
+            );
         }
         if (question.type === 'multiple-choice') {
             return (
@@ -267,16 +276,16 @@ export default function QuizFormModal({ isOpen, onClose, onSubmit, initialQuizDa
                         <TextInput id="quizTitle" placeholder="Enter quiz title" value={title} onChange={(e) => setTitle(e.target.value)} />
                     </div>
                     <div className="sticky top-0 bg-slate-50 py-2 z-20 flex justify-center gap-2 border-b">
-                         <TabButton label="Edit" icon={PencilIcon} isActive={activeTab === 'edit'} onClick={() => setActiveTab('edit')} />
-                         <TabButton label="Preview" icon={EyeIcon} isActive={activeTab === 'preview'} onClick={() => setActiveTab('preview')} />
+                        <TabButton label="Edit" icon={PencilIcon} isActive={activeTab === 'edit'} onClick={() => setActiveTab('edit')} />
+                        <TabButton label="Preview" icon={EyeIcon} isActive={activeTab === 'preview'} onClick={() => setActiveTab('preview')} />
                     </div>
                     {questions.map((question, index) => (
                         <div key={index} className="bg-slate-100 rounded-lg shadow-sm">
-                           <div className="flex justify-between items-center p-2 bg-slate-200 rounded-t-lg border">
+                            <div className="flex justify-between items-center p-2 bg-slate-200 rounded-t-lg border">
                                 <p className="font-semibold text-gray-800">Question {index + 1}</p>
                                 <Button size="xs" variant="light" icon={TrashIcon} color="red" onClick={() => removeQuestion(index)} />
-                           </div>
-                           {activeTab === 'edit' ? renderEditPane(question, index) : renderPreviewPane(question, index)}
+                            </div>
+                            {activeTab === 'edit' ? renderEditPane(question, index) : renderPreviewPane(question, index)}
                         </div>
                     ))}
                     <Button icon={PlusIcon} variant="light" onClick={addQuestion} className="w-full justify-center">Add Question</Button>

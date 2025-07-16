@@ -13,18 +13,18 @@ const GradientCardButton = ({ title, description, icon: Icon, gradient, onClick,
     <button
         onClick={onClick}
         disabled={disabled}
-        className={`group relative text-white p-6 rounded-2xl shadow-lg text-left h-full flex flex-col bg-gradient-to-br ${gradient} ${
+        className={`group relative text-white p-4 sm:p-6 rounded-2xl shadow-lg text-left h-full flex flex-col bg-gradient-to-br ${gradient} ${
             disabled
                 ? 'opacity-50 cursor-not-allowed'
                 : 'transform hover:scale-105 transition-transform duration-300'
         }`}
     >
         <div className="mb-4">
-            <Icon className="w-12 h-12" />
+            <Icon className="w-10 h-10 sm:w-12 sm:w-12" />
         </div>
-        <h3 className="text-xl font-bold">{title}</h3>
-        <p className="text-sm text-white/80 mt-2 flex-grow">{description}</p>
-        <div className="mt-4 text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <h3 className="text-lg sm:text-xl font-bold">{title}</h3>
+        <p className="text-xs sm:text-sm text-white/80 mt-2 flex-grow">{description}</p>
+        <div className="mt-4 text-xs sm:text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             {disabled ? 'Requires a Unit' : 'Select →'}
         </div>
     </button>
@@ -52,7 +52,7 @@ export default function AiGenerationHub({ isOpen, onClose, subjectId, unitId }) 
             icon: AcademicCapIcon,
             gradient: "from-blue-500 to-indigo-600",
             action: () => setView('guide'),
-            disabled: !unitId // This button is disabled if no unitId is passed.
+            disabled: !unitId
         },
         {
             title: "PEAC ULP",
@@ -60,7 +60,7 @@ export default function AiGenerationHub({ isOpen, onClose, subjectId, unitId }) 
             icon: DocumentChartBarIcon,
             gradient: "from-purple-500 to-violet-600",
             action: () => setView('ulp'),
-            disabled: !unitId // This button is also disabled if no unitId is passed.
+            disabled: !unitId
         },
         {
             title: "PEAC ATG",
@@ -68,7 +68,7 @@ export default function AiGenerationHub({ isOpen, onClose, subjectId, unitId }) 
             icon: DocumentTextIcon,
             gradient: "from-teal-500 to-cyan-600",
             action: () => setView('atg'),
-            disabled: !unitId // This button is also disabled if no unitId is passed.
+            disabled: !unitId
         }
     ];
 
@@ -92,18 +92,21 @@ export default function AiGenerationHub({ isOpen, onClose, subjectId, unitId }) 
                     className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
                     onClick={handleCloseAll}
                 >
+                    {/* ✅ FIXED: Added flexbox layout and max-height to the modal panel */}
                     <div
-                        className="bg-gray-100 p-8 rounded-2xl shadow-2xl w-full max-w-4xl"
+                        className="bg-gray-100 p-6 sm:p-8 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh]"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-bold text-gray-800">Choose an AI Tool</h2>
+                        {/* ✅ FIXED: Header now remains fixed at the top */}
+                        <div className="flex justify-between items-center mb-6 flex-shrink-0">
+                            <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Choose an AI Tool</h2>
                             <button onClick={handleCloseAll} className="p-2 rounded-full text-gray-400 hover:bg-gray-200">
                                 <XMarkIcon className="w-6 h-6" />
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* ✅ FIXED: This grid area is now scrollable on its own */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 overflow-y-auto -mr-2 pr-2">
                             {generatorOptions.map((option) => (
                                 <GradientCardButton
                                     key={option.title}

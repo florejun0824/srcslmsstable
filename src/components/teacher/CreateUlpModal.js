@@ -40,14 +40,13 @@ const tryParseJson = (jsonString) => {
     }
 };
 
-export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUnitId, subjectId }) {
+export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId, subjectId }) {
     const { showToast } = useToast();
 
     const [inputs, setInputs] = useState({
         contentStandard: '',
         performanceStandard: '',
         learningCompetencies: '',
-        // ✅ REMOVED: No longer need manual values input
     });
 
     const [generationTarget, setGenerationTarget] = useState('teacherGuide');
@@ -79,7 +78,6 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
             const learnerSubjects = allFetchedSubjects.filter(subject => 
                 subject.category && learnerCategoryNames.includes(subject.category)
             );
-
             setAllSubjects(learnerSubjects);
             setIsLoadingSubjects(false);
 
@@ -90,7 +88,7 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
         });
 
         return () => unsubscribe();
-    }, [isOpen]);
+    }, [isOpen, showToast]);
 
     useEffect(() => {
         if (selectedSubjectId) {
@@ -174,7 +172,6 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
             setProgress(10);
             setProgressLabel('Analyzing requirements...');
             
-            // ✅ MODIFIED: The AI will now automatically detect values.
             const ulpAnalysisPrompt = `
                 You are an expert instructional designer. Your task is to generate a detailed analysis for a Unit Learning Plan (ULP) based on the provided standards and content.
 
@@ -324,68 +321,70 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
     };
 
     return (
-        <Dialog open={isOpen} onClose={!isSaving && !isGenerating ? onClose : () => {}} className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+        <Dialog open={isOpen} onClose={!isSaving && !isGenerating ? onClose : () => {}} className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4">
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" />
-            <Dialog.Panel className="relative bg-slate-50 p-8 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+             {/* ✅ FIXED: Responsive padding and max-width */}
+            <Dialog.Panel className="relative bg-slate-50 p-4 sm:p-6 rounded-2xl shadow-2xl w-full max-w-md lg:max-w-6xl max-h-[90vh] flex flex-col">
                 {(isGenerating || isSaving) && (
                     <div className="absolute inset-0 bg-white/80 flex flex-col justify-center items-center z-50 rounded-2xl space-y-3">
                         {isGenerating ? <ProgressIndicator progress={progress} /> : <Spinner />}
                         <p className="text-slate-600">{isGenerating ? progressLabel : 'Saving...'}</p>
                     </div>
                 )}
-                <div className="flex justify-between items-start mb-6">
-                    <div className="flex items-center gap-4">
-                        <div className="bg-gradient-to-br from-purple-500 to-violet-600 p-3 rounded-xl text-white shadow-lg">
-                            <DocumentChartBarIcon className="h-8 w-8" />
+                {/* ✅ FIXED: Responsive header layout and font sizes */}
+                <div className="flex justify-between items-start mb-4 sm:mb-6">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="bg-gradient-to-br from-purple-500 to-violet-600 p-2 sm:p-3 rounded-xl text-white shadow-lg">
+                            <DocumentChartBarIcon className="h-6 w-6 sm:h-8 sm:h-8" />
                         </div>
                         <div>
-                            <Dialog.Title className="text-2xl font-bold text-slate-800">AI PEAC Unit Learning Plan Generator</Dialog.Title>
-                            <p className="text-slate-500">Create unit learning plan for your units that aligns with PEAC standards.</p>
+                            <Dialog.Title className="text-base sm:text-2xl font-bold text-slate-800">AI PEAC Unit Learning Plan Generator</Dialog.Title>
+                            <p className="text-xs sm:text-sm text-slate-500">Create a ULP for your units that aligns with PEAC standards.</p>
                         </div>
                     </div>
-                    <button onClick={onClose} disabled={isSaving || isGenerating} className="p-2 rounded-full text-slate-400 hover:bg-slate-200">
+                    <button onClick={onClose} disabled={isSaving || isGenerating} className="p-2 rounded-full text-slate-400 hover:bg-slate-200 flex-shrink-0">
                         <XMarkIcon className="h-6 w-6" />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto -mr-4 pr-4">
+                <div className="flex-1 overflow-y-auto -mr-2 pr-2 sm:-mr-4 sm:pr-4">
                     {!previewData ? (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div className="bg-white p-6 rounded-xl shadow-md space-y-4">
-                                <h3 className="font-bold text-lg text-slate-700 border-b pb-2">Generation Options</h3>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md space-y-4">
+                                <h3 className="font-bold text-base sm:text-lg text-slate-700 border-b pb-2">Generation Options</h3>
                                 <div>
-                                    <label htmlFor="generationTarget" className="block text-sm font-medium text-slate-600 mb-1">Document to Generate</label>
-                                    <select name="generationTarget" value={generationTarget} onChange={(e) => setGenerationTarget(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                                    <label htmlFor="generationTarget" className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Document to Generate</label>
+                                    <select name="generationTarget" value={generationTarget} onChange={(e) => setGenerationTarget(e.target.value)} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500">
                                         <option value="teacherGuide">PEAC Unit Learning Plan (ULP)</option>
                                         <option value="studentLesson">Student Learning Guide</option>
                                         <option value="peacAtg">Adaptive Teaching Guide (ATG)</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label htmlFor="language" className="block text-sm font-medium text-slate-600 mb-1">Output Language</label>
+                                    <label htmlFor="language" className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Output Language</label>
                                     <div className="relative">
-                                        <select id="language" value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className="w-full appearance-none p-2 pl-8 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                                        <select id="language" value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className="w-full appearance-none p-2 pl-8 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500">
                                             <option>English</option><option>Filipino</option>
                                         </select>
                                         <LanguageIcon className="pointer-events-none absolute left-2 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                                     </div>
                                 </div>
-                                <h3 className="font-bold text-lg text-slate-700 border-b pt-2 pb-2">Authoritative Inputs</h3>
+                                <h3 className="font-bold text-base sm:text-lg text-slate-700 border-b pt-2 pb-2">Authoritative Inputs</h3>
                                 <div>
-                                    <label htmlFor="contentStandard" className="block text-sm font-medium text-slate-600 mb-1">Content Standard</label>
-                                    <textarea id="contentStandard" name="contentStandard" value={inputs.contentStandard} onChange={handleInputChange} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500" rows={3} />
+                                    <label htmlFor="contentStandard" className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Content Standard</label>
+                                    <textarea id="contentStandard" name="contentStandard" value={inputs.contentStandard} onChange={handleInputChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500" rows={3} />
                                 </div>
                                 <div>
-                                    <label htmlFor="performanceStandard" className="block text-sm font-medium text-slate-600 mb-1">Performance Standard</label>
-                                    <textarea id="performanceStandard" name="performanceStandard" value={inputs.performanceStandard} onChange={handleInputChange} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500" rows={3} />
+                                    <label htmlFor="performanceStandard" className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Performance Standard</label>
+                                    <textarea id="performanceStandard" name="performanceStandard" value={inputs.performanceStandard} onChange={handleInputChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500" rows={3} />
                                 </div>
                                 <div>
-                                    <label htmlFor="learningCompetencies" className="block text-sm font-medium text-slate-600 mb-1">Learning Competencies</label>
-                                    <textarea id="learningCompetencies" name="learningCompetencies" placeholder="One competency per line..." value={inputs.learningCompetencies} onChange={handleInputChange} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500" rows={4} />
+                                    <label htmlFor="learningCompetencies" className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Learning Competencies</label>
+                                    <textarea id="learningCompetencies" name="learningCompetencies" placeholder="One competency per line..." value={inputs.learningCompetencies} onChange={handleInputChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500" rows={4} />
                                 </div>
                             </div>
-                            <div className="bg-white p-6 rounded-xl shadow-md">
-                                <h3 className="font-bold text-lg text-slate-700 border-b pb-2 mb-4">Source Content</h3>
+                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md">
+                                <h3 className="font-bold text-base sm:text-lg text-slate-700 border-b pb-2 mb-4">Source Content</h3>
                                 <SourceContentSelector
                                     selectedSubjectId={selectedSubjectId}
                                     handleSubjectChange={(e) => { setSelectedSubjectId(e.target.value); setSelectedUnitIds(new Set()); }}
@@ -404,12 +403,12 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <h2 className="text-xl font-bold text-slate-700">Preview</h2>
-                            <div className="max-h-[60vh] overflow-y-auto border rounded-lg p-4 bg-slate-100 shadow-inner">
+                            <h2 className="text-lg sm:text-xl font-bold text-slate-700">Preview</h2>
+                            <div className="max-h-[60vh] overflow-y-auto border rounded-lg p-2 sm:p-4 bg-slate-100 shadow-inner">
                                 {previewData?.generated_lessons?.[0] ? (
                                      previewData.generated_lessons.map((lesson, index) => (
                                         <div key={index}>
-                                            <h3 className="font-bold text-lg sticky top-0 bg-white py-2">{lesson.lessonTitle}</h3>
+                                            <h3 className="font-bold text-base sm:text-lg sticky top-0 bg-white py-2">{lesson.lessonTitle}</h3>
                                             {Array.isArray(lesson.pages) && lesson.pages.map((page, pageIndex) => <LessonPage key={`${index}-${pageIndex}`} page={page} />)}
                                         </div>
                                     ))
@@ -421,16 +420,16 @@ export default function CreateAiLessonModal({ isOpen, onClose, unitId: initialUn
                     )}
                 </div>
 
-                <div className="pt-6 flex justify-between items-center border-t border-slate-200 mt-6">
+                <div className="pt-4 sm:pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-slate-200 mt-4 sm:mt-6">
                     {previewData ? (
                         <>
-                            <button onClick={() => setPreviewData(null)} disabled={isSaving || isGenerating} className="btn-secondary">Back to Edit</button>
-                            <button onClick={handleSave} disabled={isSaving || isGenerating} className="btn-primary">
+                            <button onClick={() => setPreviewData(null)} disabled={isSaving || isGenerating} className="btn-secondary w-full sm:w-auto text-sm">Back to Edit</button>
+                            <button onClick={handleSave} disabled={isSaving || isGenerating} className="btn-primary w-full sm:w-auto text-sm">
                                 {isSaving ? 'Saving...' : 'Accept & Save'}
                             </button>
                         </>
                     ) : (
-                        <button onClick={handleGenerate} disabled={isGenerating || !selectedUnitIds.size} className="btn-primary ml-auto">
+                        <button onClick={handleGenerate} disabled={isGenerating || !selectedUnitIds.size} className="btn-primary ml-auto w-full sm:w-auto text-sm">
                             {isGenerating ? 'Generating...' : 'Generate Content'}
                         </button>
                     )}

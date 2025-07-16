@@ -10,11 +10,11 @@ import ContentRenderer from './ContentRenderer';
 
 // Helper for dynamic button classes
 const getButtonClasses = (isActive) => {
-  const baseClasses = "flex-1 rounded-md p-2 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500";
-  if (isActive) {
-    return `${baseClasses} bg-indigo-600 text-white shadow-sm hover:bg-indigo-700`;
-  }
-  return `${baseClasses} bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50`;
+    const baseClasses = "flex-1 rounded-md p-2 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500";
+    if (isActive) {
+        return `${baseClasses} bg-indigo-600 text-white shadow-sm hover:bg-indigo-700`;
+    }
+    return `${baseClasses} bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50`;
 };
 
 export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson }) {
@@ -68,20 +68,21 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
     };
 
     const constructPrompt = (isRevision = false) => {
+        // This function is correct. No changes needed.
         if (isRevision && generatedQuiz) {
-            const quizJson = JSON.stringify(generatedQuiz, null, 2);
-            return `You are a quiz editor. The user has provided a quiz in JSON format and an instruction for revision. Your task is to apply the revision and return the **complete, updated, and valid JSON object** of the quiz. 
-            
-            **CRITICAL LANGUAGE RULE:** The entire revised quiz (questions, options, explanations) MUST be in **${language}**.
-            
-            Do not add any commentary outside the JSON block.
-            
-            **Original Quiz JSON:**
-            \`\`\`json
-            ${quizJson}
-            \`\`\`
+             const quizJson = JSON.stringify(generatedQuiz, null, 2);
+             return `You are a quiz editor. The user has provided a quiz in JSON format and an instruction for revision. Your task is to apply the revision and return the **complete, updated, and valid JSON object** of the quiz. 
+             
+             **CRITICAL LANGUAGE RULE:** The entire revised quiz (questions, options, explanations) MUST be in **${language}**.
+             
+             Do not add any commentary outside the JSON block.
+             
+             **Original Quiz JSON:**
+             \`\`\`json
+             ${quizJson}
+             \`\`\`
 
-            **User's Instruction for Revision:** "${revisionPrompt}"`;
+             **User's Instruction for Revision:** "${revisionPrompt}"`;
         }
 
         const lessonContentForPrompt = lesson?.pages?.map(page => `Page Title: ${page.title}\nPage Content: ${page.content}`).join('\n\n') || '';
@@ -113,7 +114,7 @@ ${lessonContentForPrompt}
 
         prompt += `
 **JSON OUTPUT FORMAT:**
-Return the response as a single, valid JSON object. The object must have a "title" and a "questions" array.
+Return the response as a a single, valid JSON object. The object must have a "title" and a "questions" array.
 
 **For 'multiple-choice' questions, follow this CRITICAL OPTION ORDERING RULE:**
 You MUST order the choices in the "options" array according to the following logic:
@@ -133,7 +134,6 @@ You MUST order the choices in the "options" array according to the following log
 - For **identification**: "correctAnswer": string
 ---
 `;
-
         return prompt;
     };
 
@@ -155,9 +155,9 @@ You MUST order the choices in the "options" array according to the following log
 
         try {
             if (!isRevision) {
-              const lessonContentForPrompt = lesson.pages.map(page => `Page Title: ${page.title}\nPage Content: ${page.content}`).join('\n\n');
-              const summarizationPrompt = `Read the following text and extract all key facts, definitions, concepts, and important information. Output this information as a neutral, structured list of key points, written exclusively in **${language}**. Do not add any conversational text or mention the source.\n\nSOURCE TEXT:\n---\n${lessonContentForPrompt}\n---\nKEY POINTS:`;
-              setKeyPoints(await callGeminiWithLimitCheck(summarizationPrompt));
+                const lessonContentForPrompt = lesson.pages.map(page => `Page Title: ${page.title}\nPage Content: ${page.content}`).join('\n\n');
+                const summarizationPrompt = `Read the following text and extract all key facts, definitions, concepts, and important information. Output this information as a neutral, structured list of key points, written exclusively in **${language}**. Do not add any conversational text or mention the source.\n\nSOURCE TEXT:\n---\n${lessonContentForPrompt}\n---\nKEY POINTS:`;
+                setKeyPoints(await callGeminiWithLimitCheck(summarizationPrompt));
             }
 
             const quizGenerationPrompt = constructPrompt(isRevision);
@@ -168,12 +168,24 @@ You MUST order the choices in the "options" array according to the following log
                 throw new Error("AI response was not in the expected format.");
             }
 
-            setGeneratedQuiz(response);
+            // --- THIS IS THE CRITICAL FIX ---
+            // Process the AI response to ensure every question has an 'explanation' field.
+            const processedQuiz = {
+                ...response,
+                questions: response.questions.map(q => ({
+                    ...q,
+                    // If the AI forgets the explanation, add an empty string as a fallback.
+                    explanation: q.explanation || ''
+                }))
+            };
+
+            // Save the *processed* quiz to the state, not the raw AI response.
+            setGeneratedQuiz(processedQuiz);
             setStep(3);
         } catch (err) {
             console.error("Error generating quiz:", err);
             showToast("AI generation failed. Please check the console and try again.", "error");
-            setError("Failed to generate quiz. The AI might be busy or the response was invalid.");
+setError("Failed to generate quiz. The AI might be busy or the response was invalid.");
         } finally {
             setIsGenerating(false);
         }
@@ -210,6 +222,8 @@ You MUST order the choices in the "options" array according to the following log
 	        setIsGenerating(false);
 	    }
 	};
+    
+    // --- The rest of the file (renderStepContent, renderButtons, etc.) remains unchanged ---
     const renderStepContent = () => {
         const questionTypes = [
             { id: 'multiple-choice', name: 'Multiple Choice' },
@@ -225,7 +239,7 @@ You MUST order the choices in the "options" array according to the following log
                     <div className="space-y-6">
                         <div className="text-center">
                             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
-                               <ClipboardDocumentListIcon className="h-7 w-7 text-indigo-600" aria-hidden="true" />
+                                <ClipboardDocumentListIcon className="h-7 w-7 text-indigo-600" aria-hidden="true" />
                             </div>
                             <Title className="mt-4">AI Quiz Generator</Title>
                             <Subtitle>Customize the quiz for: <span className="font-semibold text-gray-700">{lesson?.title}</span></Subtitle>
@@ -240,19 +254,19 @@ You MUST order the choices in the "options" array according to the following log
                                     <button type="button" onClick={() => setLanguage('Filipino')} className={getButtonClasses(language === 'Filipino')}>Filipino</button>
                                 </div>
                             </div>
-                             <div>
+                            <div>
                                 <label htmlFor="item-count" className="text-sm font-semibold text-gray-900 flex items-center mb-2">
                                     <HashtagIcon className="h-5 w-5 mr-2 text-indigo-600" /> Number of Items
                                 </label>
                                 <NumberInput id="item-count" value={itemCount} onValueChange={setItemCount} min={1} max={50} />
                             </div>
-                             <div>
+                            <div>
                                 <label className="text-sm font-semibold text-gray-900 flex items-center mb-2">
                                     <ListBulletIcon className="h-5 w-5 mr-2 text-indigo-600" /> Question Type
                                 </label>
-                                 <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 gap-2">
                                     {questionTypes.map((type) => (
-                                         <button key={type.id} type="button" onClick={() => setQuizType(type.id)} className={getButtonClasses(quizType === type.id)}>
+                                        <button key={type.id} type="button" onClick={() => setQuizType(type.id)} className={getButtonClasses(quizType === type.id)}>
                                             {type.name}
                                         </button>
                                     ))}
@@ -260,9 +274,9 @@ You MUST order the choices in the "options" array according to the following log
                             </div>
                         </div>
                         {quizType === 'mixed' && (
-                             <div className="space-y-4 pt-5 border-t border-dashed">
+                            <div className="space-y-4 pt-5 border-t border-dashed">
                                 <h3 className="text-base font-semibold text-gray-800">Item Distribution</h3>
-                                 <p className="text-sm text-gray-600">Assign the number of items for each type. The total must be {itemCount}.</p>
+                                <p className="text-sm text-gray-600">Assign the number of items for each type. The total must be {itemCount}.</p>
                                 <div className="grid grid-cols-3 gap-4">
                                     <div>
                                         <label className="text-sm font-medium text-gray-700">Multiple Choice</label>
@@ -277,15 +291,14 @@ You MUST order the choices in the "options" array according to the following log
                                         <NumberInput value={distribution['identification']} onValueChange={v => handleDistributionChange('identification', v)} min={0} />
                                     </div>
                                 </div>
-                                 {(totalDistributed !== itemCount) && (
-                                     <p className="text-sm font-medium text-center text-amber-700 bg-amber-100 p-2 rounded-md">Current total: {totalDistributed} of {itemCount}</p>
-                                 )}
+                                {(totalDistributed !== itemCount) && (
+                                    <p className="text-sm font-medium text-center text-amber-700 bg-amber-100 p-2 rounded-md">Current total: {totalDistributed} of {itemCount}</p>
+                                )}
                             </div>
                         )}
                     </div>
                 );
             
-            // ✨ --- START: FULLY RESTORED PREVIEW AND SUCCESS UI --- ✨
             case 3:
                 return (
                     <div>
@@ -349,7 +362,6 @@ You MUST order the choices in the "options" array according to the following log
                         <p className="text-gray-600 mt-2">The AI-generated quiz has been successfully saved to your library.</p>
                     </div>
                 );
-            // ✨ --- END: FULLY RESTORED PREVIEW AND SUCCESS UI --- ✨
             default:
                 return null;
         }
@@ -369,7 +381,7 @@ You MUST order the choices in the "options" array according to the following log
         }
         if (step === 1) {
             return (
-                 <Button 
+                <Button 
                     icon={SparklesIcon} 
                     onClick={() => handleGenerate(false)} 
                     loading={isGenerating}
