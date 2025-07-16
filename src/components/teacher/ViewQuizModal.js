@@ -14,6 +14,9 @@ import {
 } from 'firebase/firestore';
 import Spinner from '../common/Spinner';
 import ContentRenderer from './ContentRenderer';
+// ✅ ADDED: Imports for mobile app security
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 
 // Fisher-Yates Shuffle Algorithm
 const shuffleArray = (array) => {
@@ -41,7 +44,6 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
     const [tempScore, setTempScore] = useState(0);
     const [shuffledQuestions, setShuffledQuestions] = useState([]);
 
-    // ✅ Switched to localStorage for true persistence
     const warningKey = `quizWarnings_${quiz?.id}_${userProfile?.id}`;
     const shuffleKey = `quizShuffle_${quiz?.id}_${userProfile?.id}`;
 
@@ -49,7 +51,6 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
         const newWarningCount = warnings + 1;
         
         setWarnings(newWarningCount);
-        // ✅ Use localStorage
         localStorage.setItem(warningKey, newWarningCount.toString());
 
         if (newWarningCount >= 3) {
@@ -65,6 +66,55 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
         }
     }, [warnings, warningKey, quiz, userProfile, classId]);
 
+    const handleSubmit = useCallback(async () => {
+        if (!classId || hasSubmitted.current) { return; }
+        
+        hasSubmitted.current = true;
+        
+        let correctCount = 0;
+        shuffledQuestions.forEach((q, index) => {
+            const userAnswer = userAnswers[index];
+            if (q.type === 'multiple-choice' && userAnswer === q.correctAnswerIndex) correctCount++;
+            else if (q.type === 'identification' || q.type === 'exactAnswer') {
+                const formattedUserAnswer = String(userAnswer || '').toLowerCase().trim().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "");
+                const formattedCorrectAnswer = String(q.correctAnswer || '').toLowerCase().trim();
+                if (formattedUserAnswer === formattedCorrectAnswer) correctCount++;
+            }
+        });
+        
+        setFinalScore(correctCount);
+        
+        localStorage.removeItem(warningKey);
+        localStorage.removeItem(shuffleKey);
+
+        try {
+            const submissionRef = doc(collection(db, 'quizSubmissions'));
+            await setDoc(submissionRef, {
+                quizId: quiz.id, quizTitle: quiz.title, studentId: userProfile.id,
+                studentName: `${userProfile.firstName} ${userProfile.lastName}`, classId: classId,
+                score: correctCount, totalItems: shuffledQuestions.length, attemptNumber: attemptsTaken + 1,
+                submittedAt: serverTimestamp(), status: 'completed',
+            });
+            await fetchQuizStatus();
+        } catch (error) {
+            console.error("Error saving submission:", error);
+        }
+    }, [classId, hasSubmitted, shuffledQuestions, userAnswers, quiz, userProfile, attemptsTaken, warningKey, shuffleKey]);
+
+    // ✅ ADDED: Mobile App security listener
+    useEffect(() => {
+        if (isOpen && Capacitor.isNativePlatform() && finalScore === null && !isLocked) {
+            const listener = App.addListener('appStateChange', ({ isActive }) => {
+                if (!isActive) {
+                    console.log("App is inactive, submitting quiz.");
+                    handleSubmit();
+                }
+            });
+            return () => {
+                listener.remove();
+            };
+        }
+    }, [isOpen, finalScore, isLocked, handleSubmit]);
 
     useEffect(() => {
         const handleFocusLoss = () => {
@@ -101,13 +151,11 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
             hasSubmitted.current = false;
             
             if (classId) {
-                // ✅ Read from localStorage
                 const savedWarnings = localStorage.getItem(warningKey);
                 const initialWarnings = savedWarnings ? parseInt(savedWarnings, 10) : 0;
                 setWarnings(initialWarnings);
                 if (initialWarnings >= 3) setIsLocked(true);
 
-                // ✅ Read shuffle order from localStorage
                 const savedShuffle = localStorage.getItem(shuffleKey);
                 if (savedShuffle) {
                     setShuffledQuestions(JSON.parse(savedShuffle));
@@ -178,32 +226,6 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
             setCurrentQ(prev => prev + 1);
         } else {
             handleSubmit();
-        }
-    };
-
-    const handleSubmit = async () => {
-        if (!classId) { alert("This is a preview only."); return; }
-        if (hasSubmitted.current) return;
-        hasSubmitted.current = true;
-        if (!hasAttemptsLeft) { alert("You have used all 3 attempts."); return; }
-        
-        setFinalScore(tempScore);
-        
-        // ✅ Clear localStorage ONLY on successful submission
-        localStorage.removeItem(warningKey);
-        localStorage.removeItem(shuffleKey);
-
-        try {
-            const submissionRef = doc(collection(db, 'quizSubmissions'));
-            await setDoc(submissionRef, {
-                quizId: quiz.id, quizTitle: quiz.title, studentId: userProfile.id,
-                studentName: `${userProfile.firstName} ${userProfile.lastName}`, classId: classId,
-                score: tempScore, totalItems: totalQuestions, attemptNumber: attemptsTaken + 1,
-                submittedAt: serverTimestamp(), status: 'completed',
-            });
-            await fetchQuizStatus();
-        } catch (error) {
-            console.error("Error saving submission:", error);
         }
     };
     
