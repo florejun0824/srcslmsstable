@@ -48,7 +48,7 @@
     "sheetjs-style": "^0.15.8",
     "vm-browserify": "^1.1.2",
     "xlsx": "^0.18.5",
-    "@capacitor/core": "^7.4.2",
+    "@capacitor/core": "^7.4.2"
   },
   "scripts": {
     "start": "npx craco start",
