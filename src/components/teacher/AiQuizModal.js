@@ -185,43 +185,43 @@ You MUST order the choices in the "options" array according to the following log
         } catch (err) {
             console.error("Error generating quiz:", err);
             showToast("AI generation failed. Please check the console and try again.", "error");
-setError("Failed to generate quiz. The AI might be busy or the response was invalid.");
+            setError("Failed to generate quiz. The AI might be busy or the response was invalid.");
         } finally {
             setIsGenerating(false);
         }
     };
 
 
-	const handleSaveQuiz = async () => {
-	    if (!generatedQuiz || !lesson) return;
-	    setIsGenerating(true);
-	    try {
-	        const cleanedLessonTitle = lesson.title.replace(/Lesson\s*\d+:\s*/i, '').trim();
-	        const newQuizTitle = `Quiz: ${cleanedLessonTitle}`;
+    const handleSaveQuiz = async () => {
+        if (!generatedQuiz || !lesson) return;
+        setIsGenerating(true);
+        try {
+            const cleanedLessonTitle = lesson.title.replace(/Lesson\s*\d+:\s*/i, '').trim();
+            const newQuizTitle = `Quiz: ${cleanedLessonTitle}`;
 
-	        const quizRef = doc(collection(db, 'quizzes'));
-        
-	        await setDoc(quizRef, {
-	            ...generatedQuiz,
-	            title: newQuizTitle,
-	            language: language,
-	            // ✨ FIX: Prioritize the unitId from the lesson object for reliability.
-	            unitId: lesson.unitId || unitId, 
-	            subjectId,
-	            lessonId: lesson.id,
-	            createdAt: serverTimestamp(),
-	            createdBy: 'AI'
-	        });
+            const quizRef = doc(collection(db, 'quizzes'));
+            
+            await setDoc(quizRef, {
+                ...generatedQuiz,
+                title: newQuizTitle,
+                language: language,
+                // ✨ FIX: Prioritize the unitId from the lesson object for reliability.
+                unitId: lesson.unitId || unitId, 
+                subjectId,
+                lessonId: lesson.id,
+                createdAt: serverTimestamp(),
+                createdBy: 'AI'
+            });
 
-	        setStep(4);
-	        showToast("Quiz saved successfully!", "success");
-	    } catch (err) {
-	        console.error("Error saving quiz:", err);
-	        showToast("Failed to save the quiz to the database.", "error");
-	    } finally {
-	        setIsGenerating(false);
-	    }
-	};
+            setStep(4);
+            showToast("Quiz saved successfully!", "success");
+        } catch (err) {
+            console.error("Error saving quiz:", err);
+            showToast("Failed to save the quiz to the database.", "error");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
     
     // --- The rest of the file (renderStepContent, renderButtons, etc.) remains unchanged ---
     const renderStepContent = () => {
@@ -298,13 +298,13 @@ setError("Failed to generate quiz. The AI might be busy or the response was inva
                         )}
                     </div>
                 );
-            
+                
             case 3:
                 return (
-                    <div>
+                    <div className="flex flex-col h-full"> {/* Added flex-col and h-full */}
                         <Title>Step 3: Preview & Revise</Title>
                         <Subtitle>Review the generated quiz and request changes if needed.</Subtitle>
-                        <div className="mt-4 p-4 border rounded-lg max-h-[50vh] overflow-y-auto bg-gray-50">
+                        <div className="mt-4 p-4 border rounded-lg overflow-y-auto flex-grow bg-gray-50"> {/* Removed fixed max-h, added flex-grow */}
                             <h3 className="font-bold text-lg mb-2 text-gray-800">{generatedQuiz?.title}</h3>
                             {generatedQuiz?.questions.map((q, i) => (
                                 <div key={i} className="mb-4 text-sm p-3 bg-white rounded-md shadow-sm">
@@ -404,11 +404,11 @@ setError("Failed to generate quiz. The AI might be busy or the response was inva
             <Dialog open={isOpen} onClose={onClose} className="relative z-50">
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" />
                 <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-                    <DialogPanel className="max-w-md w-full bg-white p-6 rounded-2xl shadow-xl transition-all">
+                    <DialogPanel className="max-w-md w-full bg-white p-6 rounded-2xl shadow-xl transition-all flex flex-col max-h-[90vh]"> {/* Added flex flex-col and max-h-[90vh] */}
                         {isGenerating ? <QuizLoadingScreen /> : renderStepContent()}
                         {error && !isGenerating && <p className="text-sm text-red-500 mt-4 text-center">{error}</p>}
                         {!isGenerating && (
-                            <div className="mt-8 pt-6 border-t">
+                            <div className="mt-8 pt-6 border-t shrink-0"> {/* Added shrink-0 */}
                                 {renderButtons()}
                             </div>
                         )}
