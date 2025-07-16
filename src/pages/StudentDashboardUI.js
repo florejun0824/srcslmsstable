@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Card, Text, Button, Title, Badge, List, ListItem } from '@tremor/react';
 import {
     AcademicCapIcon,
@@ -40,6 +40,7 @@ const LoadingSpinner = () => (
     </div>
 );
 
+// ... (The rest of your components like getSubjectInfo, ClassLessonCard, etc. remain the same) ...
 // --- Subject Category Definitions ---
 const defaultSubjectCategories = {
     'Mathematics': { icon: CalculatorIcon, color: 'text-purple-600', bg: 'bg-purple-50', badgeBg: 'bg-purple-100', badgeText: 'text-purple-800', badgeBorder: 'border-purple-200' },
@@ -144,10 +145,9 @@ export const QuizCard = ({ quiz, onTakeQuiz, status }) => {
     );
 }
 
-// --- UI Component: Sidebar (Removed direct bg/rounded from this component's root div) ---
+// --- UI Component: Sidebar ---
 const SidebarContent = ({ view, handleViewChange, sidebarNavItems }) => {
     return (
-        // This div is now just the content structure, its parent 'aside' handles the card styling
         <div className="h-full flex flex-col">
             <div className="flex items-center gap-3 mb-10 px-2 pt-2">
                 <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="SRCS Logo" className="w-10 h-10 rounded-full" />
@@ -175,28 +175,11 @@ const SidebarContent = ({ view, handleViewChange, sidebarNavItems }) => {
         </div>
     );
 };
-
 // --- Main UI Component ---
 const StudentDashboardUI = ({
     userProfile, logout, view, isSidebarOpen, setIsSidebarOpen, handleViewChange,
     setJoinClassModalOpen, selectedClass, setSelectedClass, myClasses, isFetchingContent,
-    lessons, setLessonToView, quizzes, handleTakeQuizClick, db
 }) => {
-    const [selectedSubject, setSelectedSubject] = useState(null);
-
-    const coursesMap = myClasses.reduce((acc, enrolledClass) => {
-        acc[enrolledClass.id] = {
-            id: enrolledClass.id,
-            title: enrolledClass.title,
-            category: enrolledClass.category
-        };
-        return acc;
-    }, {});
-
-    const lessonsForSelectedSubject = selectedSubject
-        ? lessons.filter(lesson => lesson.courseId === selectedSubject.id)
-        : [];
-
     const sidebarNavItems = [
         { view: 'classes', text: 'My Classes', icon: UserGroupIcon, color: 'text-amber-500', bg: 'bg-amber-100' },
         { view: 'quizzes', text: 'Quizzes', icon: ClipboardDocumentCheckIcon, color: 'text-green-500', bg: 'bg-green-100' },
@@ -212,22 +195,26 @@ const StudentDashboardUI = ({
 
         switch (view) {
             case 'classes':
+            case 'default':
                 return (
-                    <Card className="max-w-full mx-auto p-6 rounded-3xl shadow-xl border border-gray-100 bg-gradient-to-br from-white to-amber-50/50">
-                        <div className="flex justify-between items-center mb-6">
-                            <div className="flex items-center gap-4">
-                                <UserGroupIcon className="h-9 w-9 text-amber-600" />
-                                <Title className="text-3xl font-extrabold text-gray-800">My Classes</Title>
+                     <Card className="max-w-full mx-auto p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl border border-gray-100 bg-gradient-to-br from-white to-amber-50/50">
+                        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
+                            <div className="flex items-center gap-3">
+                                {/* ✅ FIXED: Smaller icon on mobile */}
+                                <UserGroupIcon className="h-6 w-6 sm:h-8 sm:w-8 text-amber-600" />
+                                {/* ✅ FIXED: Smaller, responsive title font size */}
+                                <Title className="text-xl sm:text-2xl font-extrabold text-gray-800">My Classes</Title>
                             </div>
                             <Button
                                 onClick={() => setJoinClassModalOpen(true)}
-                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-md font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                                className="flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
                                 icon={PlusCircleIcon}
                             >
                                 Join Class
                             </Button>
                         </div>
-                        <Text className="text-gray-600 mb-8 max-w-2xl">Manage your class enrollments and explore class-specific announcements, lessons, and assignments.</Text>
+                        {/* ✅ FIXED: Smaller, responsive description font size */}
+                        <Text className="text-sm text-gray-600 mb-6 sm:mb-8 max-w-2xl">Manage your class enrollments and explore class-specific announcements, lessons, and assignments.</Text>
                         <StudentClassesTab classes={myClasses} onClassSelect={setSelectedClass} />
                     </Card>
                 );
@@ -237,49 +224,29 @@ const StudentDashboardUI = ({
                 return <StudentPerformanceTab userProfile={userProfile} classes={myClasses} />;
             case 'profile':
                 return <ProfilePage />;
-            default:
-                return (
-                    <Card className="max-w-full mx-auto p-6 rounded-3xl shadow-xl border border-gray-100 bg-gradient-to-br from-white to-amber-50/50">
-                        <div className="flex justify-between items-center mb-6">
-                            <div className="flex items-center gap-4">
-                                <UserGroupIcon className="h-9 w-9 text-amber-600" />
-                                <Title className="text-3xl font-extrabold text-gray-800">My Classes</Title>
-                            </div>
-                            <Button
-                                onClick={() => setJoinClassModalOpen(true)}
-                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-md font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                                icon={PlusCircleIcon}
-                            >
-                                Join Class
-                            </Button>
-                        </div>
-                        <Text className="text-gray-600 mb-8 max-w-2xl">Manage your class enrollments and explore class-specific announcements, lessons, and assignments.</Text>
-                        <StudentClassesTab classes={myClasses} onClassSelect={setSelectedClass} />
-                    </Card>
-                );
         }
     };
 
     return (
-        <div className="min-h-screen font-sans bg-gray-50 text-gray-800 p-4"> {/* Outer padding and background */}
-            <div className="h-full overflow-hidden bg-white rounded-3xl shadow-lg md:flex md:gap-6"> {/* Changed md:gap-4 to md:gap-6 */}
+        <div className="min-h-screen font-sans bg-gray-50 text-gray-800 md:p-4">
+            <div className="h-full overflow-hidden bg-white rounded-none md:rounded-3xl shadow-lg md:flex md:gap-4">
 
                 {/* Desktop Sidebar */}
-                <aside className="w-72 flex-shrink-0 hidden md:block bg-white rounded-2xl p-4"> {/* The aside itself now acts as the sidebar 'card' */}
+                <aside className="w-72 flex-shrink-0 hidden md:block bg-white rounded-2xl p-4">
                     <SidebarContent view={view} handleViewChange={handleViewChange} sidebarNavItems={sidebarNavItems} />
                 </aside>
 
                 {/* Mobile Sidebar */}
                 <div className={`fixed inset-0 z-50 md:hidden transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)}></div>
-                    <div className="relative w-64 h-full bg-white shadow-xl rounded-r-3xl">
+                    <div className="relative w-64 h-full bg-white shadow-xl rounded-r-3xl p-4">
                         <SidebarContent view={view} handleViewChange={handleViewChange} sidebarNavItems={sidebarNavItems} />
                     </div>
                 </div>
 
                 {/* Main Content Area (right panel) */}
-                <div className="flex-1 flex flex-col bg-gray-50 rounded-2xl overflow-hidden"> {/* This is the right panel, it gets its own background and rounding */}
-                    <header className="bg-white/90 backdrop-blur-xl p-4 flex items-center justify-between sticky top-0 z-40 border-b border-gray-100 shadow-sm rounded-t-2xl"> {/* Header inside right panel, now rounded-t-2xl */}
+                <div className="flex-1 flex flex-col bg-gray-50 rounded-none md:rounded-2xl overflow-hidden">
+                    <header className="bg-white/90 backdrop-blur-xl p-4 flex items-center justify-between sticky top-0 z-40 border-b border-gray-100 shadow-sm md:rounded-t-2xl">
                         <button className="md:hidden p-2 rounded-full text-gray-500 hover:bg-gray-100 transition-colors" onClick={() => setIsSidebarOpen(true)}>
                             <Bars3Icon className="h-6 w-6" />
                         </button>
@@ -295,7 +262,7 @@ const StudentDashboardUI = ({
                         </div>
                     </header>
 
-                    <main className="flex-1 overflow-y-auto p-6 lg:p-10 bg-gray-50 rounded-br-2xl">
+                    <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-gray-50 md:rounded-br-2xl">
                         {renderView()}
                     </main>
                 </div>
@@ -317,9 +284,12 @@ const StudentDashboardUI = ({
                         )
                     })}
                 </footer>
+                {/* Spacer to prevent content from being hidden by the bottom nav */}
+                <div className="pb-16 md:pb-0"></div>
             </div>
         </div>
     );
 };
+
 
 export default StudentDashboardUI;

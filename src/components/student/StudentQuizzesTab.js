@@ -1,51 +1,29 @@
-// src/components/student/StudentQuizzesTab.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '../../services/firebase';
 import { collection, query, getDocs, where, documentId, Timestamp } from 'firebase/firestore';
 import ViewQuizModal from '../teacher/ViewQuizModal';
 import Spinner from '../common/Spinner';
-import { AcademicCapIcon, BookOpenIcon, InformationCircleIcon, ClockIcon, CheckCircleIcon } from '@heroicons/react/24/outline'; // Add CheckCircleIcon
+import { AcademicCapIcon, BookOpenIcon, InformationCircleIcon, ClockIcon, CheckCircleIcon, ClipboardDocumentCheckIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 const StudentQuizzesTab = ({ classes, userProfile }) => {
     const [quizzes, setQuizzes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [viewQuizData, setViewQuizData] = useState(null);
-    const [quizFilter, setQuizFilter] = useState('active'); // 'active', 'completed', or 'overdue'
+    const [quizFilter, setQuizFilter] = useState('active');
 
-    // Function to determine if a quiz is active, overdue, or completed
     const getQuizStatus = (quizEntry, userSubmissionsMap) => {
         const now = Timestamp.now();
-        const availableFrom = quizEntry.availableFrom;
-        const availableUntil = quizEntry.availableUntil;
-
-        // Check if the student has completed this specific quiz (identified by quizId-classId for uniqueness)
         const hasSubmitted = userSubmissionsMap.has(`${quizEntry.id}-${quizEntry.classId}`);
+        if (hasSubmitted) return 'completed';
 
-        if (hasSubmitted) {
-            return 'completed';
-        }
+        const availableUntil = quizEntry.availableUntil;
+        if (availableUntil && availableUntil.seconds < now.seconds) return 'overdue';
 
-        // Check if the quiz is active
-        const isAvailableNow = (!availableFrom || availableFrom.seconds <= now.seconds) &&
-                               (!availableUntil || availableUntil.seconds >= now.seconds);
-
-        if (isAvailableNow) {
-            return 'active';
-        }
-
-        // If not active and not completed, it's overdue (assuming a deadline was set)
-        // Or if availableUntil is in the past
-        if (availableUntil && availableUntil.seconds < now.seconds) {
-            return 'overdue';
-        }
-
-        // Default to active if no dates or not yet available (future quiz)
-        // You might want a 'pending' or 'upcoming' status if availableFrom is in the future
-        return 'active'; // Default to active if no specific conditions met
+        return 'active';
     };
 
     const fetchSharedQuizzes = useCallback(async () => {
-        if (!classes || classes.length === 0) {
+        if (!classes || classes.length === 0 || !userProfile?.id) {
             setLoading(false);
             setQuizzes([]);
             return;
@@ -53,24 +31,15 @@ const StudentQuizzesTab = ({ classes, userProfile }) => {
         setLoading(true);
 
         try {
-            const quizToContextMap = new Map(); // Stores quizData and associated posts (with their dates)
-            const studentQuizSubmissions = new Map(); // To store student's submissions: Map<"quizId-classId", true>
+            const quizToContextMap = new Map();
+            const studentQuizSubmissions = new Map();
 
-            // Fetch student's quiz submissions first
-            if (userProfile?.id) { // Ensure userProfile and id exist
-                const submissionsQuery = query(
-                    collection(db, 'quizSubmissions'),
-                    where('studentId', '==', userProfile.id),
-                    // You might want to filter by a 'status' field in submissions, e.g., 'submitted'
-                    // where('status', '==', 'submitted')
-                );
-                const submissionsSnapshot = await getDocs(submissionsQuery);
-                submissionsSnapshot.forEach(doc => {
-                    const submissionData = doc.data();
-                    // Use a combined key (quizId-classId) if a quiz can be submitted multiple times for different classes
-                    studentQuizSubmissions.set(`${submissionData.quizId}-${submissionData.classId}`, true);
-                });
-            }
+            const submissionsQuery = query(collection(db, 'quizSubmissions'), where('studentId', '==', userProfile.id));
+            const submissionsSnapshot = await getDocs(submissionsQuery);
+            submissionsSnapshot.forEach(doc => {
+                const subData = doc.data();
+                studentQuizSubmissions.set(`${subData.quizId}-${subData.classId}`, true);
+            });
 
             const postPromises = classes.map(c =>
                 getDocs(query(collection(db, `classes/${c.id}/posts`)))
@@ -81,7 +50,7 @@ const StudentQuizzesTab = ({ classes, userProfile }) => {
             classPostSnapshots.forEach(({ snapshot, classId, className }) => {
                 snapshot.forEach(doc => {
                     const postData = doc.data();
-                    if (Array.isArray(postData.quizIds) && postData.quizIds.length > 0) {
+                    if (Array.isArray(postData.quizIds)) {
                         postData.quizIds.forEach(quizId => {
                             if (!quizToContextMap.has(quizId)) {
                                 quizToContextMap.set(quizId, { quizData: null, posts: [] });
@@ -92,7 +61,6 @@ const StudentQuizzesTab = ({ classes, userProfile }) => {
                                 className: className,
                                 availableFrom: postData.availableFrom,
                                 availableUntil: postData.availableUntil
-                                // Add other relevant post data if needed (e.g., attempts allowed for the post)
                             });
                         });
                     }
@@ -104,14 +72,15 @@ const StudentQuizzesTab = ({ classes, userProfile }) => {
             if (uniqueQuizIds.length > 0) {
                 const quizzesQuery = query(collection(db, 'quizzes'), where(documentId(), 'in', uniqueQuizIds));
                 const quizzesSnapshot = await getDocs(quizzesQuery);
-
                 quizzesSnapshot.forEach(doc => {
-                    quizToContextMap.get(doc.id).quizData = { id: doc.id, ...doc.data() };
+                    if (quizToContextMap.has(doc.id)) {
+                        quizToContextMap.get(doc.id).quizData = { id: doc.id, ...doc.data() };
+                    }
                 });
 
                 const finalList = [];
-                quizToContextMap.forEach(value => {
-                    if (value.quizData && value.posts.length > 0) {
+                quizToContextMap.forEach((value) => {
+                    if (value.quizData) {
                         value.posts.forEach(postContext => {
                             const quizWithContext = {
                                 ...value.quizData,
@@ -120,12 +89,8 @@ const StudentQuizzesTab = ({ classes, userProfile }) => {
                                 classId: postContext.classId,
                                 availableFrom: postContext.availableFrom,
                                 availableUntil: postContext.availableUntil,
-                                // Attempts taken would typically come from a specific submission record,
-                                // or if you track it directly on the quiz object for the student.
-                                // For simplicity, we'll assume a default or fetch if needed by ViewQuizModal.
-                                attemptsTaken: 0, // Placeholder, populate from submissions if available
+                                attemptsTaken: 0,
                             };
-                            // Determine the status here using the submission map
                             quizWithContext.status = getQuizStatus(quizWithContext, studentQuizSubmissions);
                             finalList.push(quizWithContext);
                         });
@@ -140,124 +105,65 @@ const StudentQuizzesTab = ({ classes, userProfile }) => {
         } finally {
             setLoading(false);
         }
-    }, [classes, userProfile]); // Added userProfile to dependency array
+    }, [classes, userProfile]);
 
     useEffect(() => {
         fetchSharedQuizzes();
-        return () => {
-            setQuizzes([]);
-            setViewQuizData(null);
-            setQuizFilter('active');
-        };
     }, [fetchSharedQuizzes]);
 
-    // Filter quizzes based on the current quizFilter state
-    const filteredQuizzes = quizzes.filter(quiz => {
-        // Now, we filter based on the 'status' property calculated for each quiz
-        return quiz.status === quizFilter;
-    });
+    const filteredQuizzes = quizzes.filter(quiz => quiz.status === quizFilter);
 
-const getTabClasses = (tabName) => `
-    flex items-center gap-2 px-4 py-2.5 font-semibold text-sm rounded-lg transition-all duration-300 ease-in-out
-    ${quizFilter === tabName
-        ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md' // Changed line
-        : 'text-gray-700 hover:bg-gray-100 hover:text-orange-600' // Adjusted hover text color for consistency
-    }
-`;
+    const getTabClasses = (tabName) => `
+        px-3 py-1.5 font-semibold text-xs sm:text-sm rounded-full transition-all duration-200
+        ${quizFilter === tabName
+            ? 'bg-blue-600 text-white shadow'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }
+    `;
 
-    if (loading) return <Spinner />;
+    if (loading) return <div className="flex justify-center p-10"><Spinner /></div>;
+
+    const statusInfo = {
+        active: { icon: AcademicCapIcon, text: "No active quizzes right now.", subtext: "New quizzes from your teacher will appear here." },
+        completed: { icon: CheckCircleIcon, text: "No completed quizzes.", subtext: "Quizzes you've submitted will be shown here." },
+        overdue: { icon: ExclamationTriangleIcon, text: "No overdue quizzes.", subtext: "You're all caught up!" }
+    };
+    const EmptyStateIcon = statusInfo[quizFilter]?.icon || BookOpenIcon;
 
     return (
         <>
-            <div className="bg-white/90 backdrop-blur-xl border border-white/30 p-6 rounded-2xl shadow-xl max-w-4xl mx-auto my-8">
-                <h1 className="text-3xl font-extrabold text-gray-800 mb-6 flex items-center">
-                    <AcademicCapIcon className="h-8 w-8 text-purple-600 mr-3" />
-                    My Quizzes
-                </h1>
-
-                <div className="border-b border-gray-200 mb-6">
-                    <nav className="flex space-x-4">
-                        <button onClick={() => setQuizFilter('active')} className={getTabClasses('active')}>
-                            Active
-                        </button>
-                        <button onClick={() => setQuizFilter('completed')} className={getTabClasses('completed')}>
-                            Completed
-                        </button>
-                        <button onClick={() => setQuizFilter('overdue')} className={getTabClasses('overdue')}>
-                            Overdue
-                        </button>
-                    </nav>
+            {/* ✅ FIXED: Reduced padding and margin for smaller screens */}
+            <div className="bg-white/90 backdrop-blur-xl border border-white/30 p-4 sm:p-5 rounded-2xl shadow-xl max-w-4xl mx-auto my-6">
+                <div className="flex items-center gap-3 mb-5">
+                    {/* ✅ FIXED: Smaller icon size for mobile */}
+                    <ClipboardDocumentCheckIcon className="h-7 w-7 sm:h-8 sm:w-8 text-blue-600" />
+                    {/* ✅ FIXED: Title font size is now responsive */}
+                    <h1 className="text-xl sm:text-2xl font-extrabold text-gray-800">My Quizzes</h1>
                 </div>
 
-                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+                <nav className="flex flex-wrap gap-2 sm:gap-3 mb-5">
+                    <button onClick={() => setQuizFilter('active')} className={getTabClasses('active')}>
+                        Active
+                    </button>
+                    <button onClick={() => setQuizFilter('completed')} className={getTabClasses('completed')}>
+                        Completed
+                    </button>
+                    <button onClick={() => setQuizFilter('overdue')} className={getTabClasses('overdue')}>
+                        Overdue
+                    </button>
+                </nav>
+
+                <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
                     {filteredQuizzes.length > 0 ? (
                         filteredQuizzes.map(quiz => (
-                            <div
-                                key={quiz.uniqueId}
-                                onClick={() => setViewQuizData(quiz)}
-                                // Apply styling based on the quiz's actual status
-                                className={`group relative p-5 rounded-xl border
-                                           ${quiz.status === 'active' ? 'border-blue-200 bg-gradient-to-br from-white to-blue-50' :
-                                             quiz.status === 'completed' ? 'border-green-200 bg-gradient-to-br from-white to-green-50' :
-                                             'border-red-200 bg-gradient-to-br from-white to-red-50 opacity-80'}
-                                           shadow-md hover:shadow-lg hover:scale-[1.005] transition-all duration-300 cursor-pointer
-                                           flex items-center space-x-4`}
-                            >
-                                <div className="flex-shrink-0">
-                                    {quiz.status === 'active' && <AcademicCapIcon className="h-8 w-8 text-blue-600 group-hover:text-blue-700 transition-colors" />}
-                                    {quiz.status === 'completed' && <CheckCircleIcon className="h-8 w-8 text-green-600 group-hover:text-green-700 transition-colors" />}
-                                    {quiz.status === 'overdue' && <ClockIcon className="h-8 w-8 text-red-500 group-hover:text-red-600 transition-colors" />}
-                                </div>
-                                <div className="flex-1">
-                                    <h2 className={`text-lg font-bold
-                                        ${quiz.status === 'active' ? 'text-gray-800 group-hover:text-blue-800' :
-                                          quiz.status === 'completed' ? 'text-gray-800 group-hover:text-green-800' :
-                                          'text-gray-700 group-hover:text-red-800'} transition-colors`}>
-                                        {quiz.title}
-                                        <span className="ml-2 text-sm text-gray-500 font-normal">{quiz.context}</span>
-                                    </h2>
-                                    {quiz.description && (
-                                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                                            {quiz.description}
-                                        </p>
-                                    )}
-                                    {/* Display date information for clarity */}
-                                    {(quiz.availableFrom || quiz.availableUntil) && (
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            {quiz.availableFrom && `Available from: ${quiz.availableFrom.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} `}
-                                            {quiz.availableUntil && `Until: ${quiz.availableUntil.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
-                                        </p>
-                                    )}
-                                    {/* Additional status info for completed/overdue */}
-                                    {quiz.status === 'completed' && (
-                                        <p className="text-xs text-green-600 mt-1 flex items-center">
-                                            <CheckCircleIcon className="h-4 w-4 mr-1" /> Submitted
-                                        </p>
-                                    )}
-                                    {quiz.status === 'overdue' && (
-                                        <p className="text-xs text-red-600 mt-1 flex items-center">
-                                            <ClockIcon className="h-4 w-4 mr-1" /> Deadline passed
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="flex-shrink-0">
-                                    <InformationCircleIcon className="h-5 w-5 text-gray-400 group-hover:text-purple-500 transition-colors" />
-                                </div>
-                            </div>
+                            <QuizListItem key={quiz.uniqueId} quiz={quiz} onClick={() => setViewQuizData(quiz)} />
                         ))
                     ) : (
-                        <div className="flex flex-col items-center justify-center p-12 text-gray-500">
-                            <BookOpenIcon className="h-16 w-16 mb-4 text-gray-300" />
-                            <p className="text-lg font-medium">
-                                {quizFilter === 'active' ? "No active quizzes at the moment." :
-                                 quizFilter === 'completed' ? "No completed quizzes found." :
-                                 "No overdue quizzes found."}
-                            </p>
-                            <p className="text-sm mt-2">
-                                {quizFilter === 'active' ? "Check back later or contact your teacher." :
-                                 quizFilter === 'completed' ? "You haven't submitted any quizzes yet." :
-                                 "You have no quizzes that have passed their deadline."}
-                            </p>
+                         // ✅ FIXED: Smaller padding and font sizes for empty state
+                        <div className="flex flex-col items-center justify-center p-8 sm:p-12 text-center bg-gray-50/50 rounded-2xl border-dashed border-gray-200 border">
+                            <EmptyStateIcon className="h-14 w-14 sm:h-16 sm:w-16 mb-4 text-gray-300" />
+                            <p className="text-base sm:text-lg font-medium text-gray-500">{statusInfo[quizFilter].text}</p>
+                            <p className="text-xs sm:text-sm mt-2 text-gray-400">{statusInfo[quizFilter].subtext}</p>
                         </div>
                     )}
                 </div>
@@ -271,6 +177,43 @@ const getTabClasses = (tabName) => `
                 classId={viewQuizData?.classId}
             />
         </>
+    );
+};
+
+const QuizListItem = ({ quiz, onClick }) => {
+    const statusStyles = {
+        active: { border: "border-blue-200", bg: "from-white to-blue-50", icon: AcademicCapIcon, iconColor: "text-blue-600", hoverColor: "group-hover:text-blue-800" },
+        completed: { border: "border-green-200", bg: "from-white to-green-50", icon: CheckCircleIcon, iconColor: "text-green-600", hoverColor: "group-hover:text-green-800" },
+        overdue: { border: "border-red-200", bg: "from-white to-red-50", icon: ClockIcon, iconColor: "text-red-500", hoverColor: "group-hover:text-red-800" },
+    };
+    const { border, bg, icon: Icon, iconColor, hoverColor } = statusStyles[quiz.status];
+
+    return (
+         <div
+            onClick={onClick}
+            // ✅ FIXED: Reduced padding and changed alignment for a more compact card
+            className={`group relative p-4 rounded-xl border ${border} bg-gradient-to-br ${bg} shadow-md hover:shadow-lg hover:scale-[1.005] transition-all duration-300 cursor-pointer flex flex-col justify-between h-full`}
+        >
+            <div className="flex items-start space-x-3">
+                 <div className="flex-shrink-0 pt-1"><Icon className={`h-5 w-5 ${iconColor} transition-colors`} /></div>
+                <div className="flex-1 min-w-0">
+                    {/* ✅ FIXED: Quiz title is truncated if too long */}
+                    <h2 className={`text-base font-bold text-gray-800 ${hoverColor} transition-colors truncate`}>
+                        {quiz.title}
+                    </h2>
+                     {/* ✅ FIXED: Context text is smaller */}
+                    <p className="text-xs text-gray-500 font-normal truncate">{quiz.context}</p>
+                </div>
+            </div>
+            
+            {/* ✅ FIXED: Due date is positioned at the bottom */}
+            {quiz.availableUntil && (
+                <div className={`text-xs mt-3 flex items-center self-end ${quiz.status === 'overdue' ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+                    <ClockIcon className="h-3.5 w-3.5 mr-1.5" />
+                    <span>Due: {quiz.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                </div>
+            )}
+        </div>
     );
 };
 
