@@ -246,20 +246,26 @@ const TeacherDashboardLayout = (props) => {
             </div>
             
             <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} subjectId={activeSubject?.id} unitId={activeUnit?.id} />
-            <AnimatedRobot onClick={() => setIsChatOpen(true)} />
-            <GlobalAiSpinner isGenerating={isAiGenerating} text="Crafting content..." />
             
-            <ChatDialog 
-                isOpen={isChatOpen} 
-                onClose={() => {
-                    setIsChatOpen(false);
-                    rest.setAiConversationStarted(false);
-                }} 
-                messages={messages} 
-                onSendMessage={handleAskAiWrapper} 
-                isAiThinking={isAiThinking}
-                userFirstName={userProfile?.firstName} 
-            />
+            {/* Show Robot Chatbot only on the Home screen */}
+            {activeView === 'home' && (
+                <>
+                    <AnimatedRobot onClick={() => setIsChatOpen(true)} />
+                    <ChatDialog 
+                        isOpen={isChatOpen} 
+                        onClose={() => {
+                            setIsChatOpen(false);
+                            rest.setAiConversationStarted(false);
+                        }} 
+                        messages={messages} 
+                        onSendMessage={handleAskAiWrapper} 
+                        isAiThinking={isAiThinking}
+                        userFirstName={userProfile?.firstName} 
+                    />
+                </>
+            )}
+
+            <GlobalAiSpinner isGenerating={isAiGenerating} text="Crafting content..." />
 
             {/* Render ALL Modals */}
             <ArchivedClassesModal isOpen={rest.isArchivedModalOpen} onClose={() => rest.setIsArchivedModalOpen(false)} archivedClasses={rest.archivedClasses} onUnarchive={rest.handleUnarchiveClass} onDelete={(classId) => rest.handleDeleteClass(classId, true)} />
