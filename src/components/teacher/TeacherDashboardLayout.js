@@ -88,6 +88,16 @@ const TeacherDashboardLayout = (props) => {
         if (!deleteTarget) return;
 
         const { type, name } = deleteTarget;
+
+        // --- SECURITY UPDATE: Only admins can delete categories ---
+        if (type === 'category' && userProfile?.role !== 'admin') {
+            showToast("You do not have permission to delete categories.", "error");
+            setIsDeleteModalOpen(false);
+            setDeleteTarget(null);
+            return; // Stop the function
+        }
+        // --- END OF SECURITY UPDATE ---
+
         setIsAiGenerating(true); // Show a loading spinner
 
         try {
