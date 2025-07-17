@@ -38,7 +38,6 @@ import ShareMultipleLessonsModal from '../components/teacher/ShareMultipleLesson
 import DeleteConfirmationModal from '../components/teacher/DeleteConfirmationModal';
 import EditSubjectModal from '../components/teacher/EditSubjectModal';
 import DeleteSubjectModal from '../components/teacher/DeleteSubjectModal';
-// ✅ 3. IMPORT THE AI HUB COMPONENT
 import AiGenerationHub from '../components/teacher/AiGenerationHub';
 
 // --- NEW: Global Spinner for AI tasks ---
@@ -59,10 +58,9 @@ const AnimatedRobot = ({ onClick }) => {
     const [animationState, setAnimationState] = useState('idle');
     const robotRef = useRef(null);
     const [isDragging, setIsDragging] = useState(false);
-    // Position now stores top/left instead of x/y for direct CSS application
     const [position, setPosition] = useState({ top: 0, left: 0 });
-    const [offset, setOffset] = useState({ x: 0, y: 0 }); // Offset from mouse click to element top-left
-    const dragStartedAt = useRef({ x: 0, y: 0 }); // To differentiate click from drag
+    const [offset, setOffset] = useState({ x: 0, y: 0 }); 
+    const dragStartedAt = useRef({ x: 0, y: 0 }); 
 
     useEffect(() => {
         let timeoutId;
@@ -82,27 +80,25 @@ const AnimatedRobot = ({ onClick }) => {
         return () => clearTimeout(timeoutId);
     }, []);
 
-    // Adjust initial position dynamically based on screen size
     useEffect(() => {
         const handleResize = () => {
             const currentRobotWidth = window.innerWidth < 768 ? 50 : 70;
             const currentRobotHeight = window.innerWidth < 768 ? 65 : 90;
-            const mobileNavHeight = 60; // Approximate height of your bottom navigation
+            const mobileNavHeight = 60; 
 
-            let initialLeft = window.innerWidth - currentRobotWidth - 20; // 20px right padding
-            let initialTop = window.innerHeight - currentRobotHeight - 20; // 20px bottom padding
+            let initialLeft = window.innerWidth - currentRobotWidth - 20;
+            let initialTop = window.innerHeight - currentRobotHeight - 20;
 
-            if (window.innerWidth < 768) { // Mobile view, adjust for bottom nav
-                initialTop = window.innerHeight - currentRobotHeight - mobileNavHeight - 20; // 20px above nav
+            if (window.innerWidth < 768) { 
+                initialTop = window.innerHeight - currentRobotHeight - mobileNavHeight - 20; 
             }
-            // Ensure robot stays within bounds on resize if it was dragged
             initialLeft = Math.max(0, Math.min(initialLeft, window.innerWidth - currentRobotWidth));
             initialTop = Math.max(0, Math.min(initialTop, window.innerHeight - currentRobotHeight - (window.innerWidth < 768 ? mobileNavHeight : 0)));
 
             setPosition({ left: initialLeft, top: initialTop });
         };
 
-        handleResize(); // Set initial position on mount
+        handleResize(); 
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
@@ -111,14 +107,14 @@ const AnimatedRobot = ({ onClick }) => {
     const handleMouseDown = useCallback((e) => {
         if (robotRef.current) {
             setIsDragging(true);
-            dragStartedAt.current = { x: e.clientX, y: e.clientY }; // Record start position
+            dragStartedAt.current = { x: e.clientX, y: e.clientY }; 
             const bbox = robotRef.current.getBoundingClientRect();
             setOffset({
                 x: e.clientX - bbox.left,
                 y: e.clientY - bbox.top,
             });
-            e.preventDefault(); // Prevent default browser drag behavior
-            e.stopPropagation(); // Stop event propagation to prevent text selection etc.
+            e.preventDefault(); 
+            e.stopPropagation(); 
         }
     }, []);
 
@@ -127,91 +123,73 @@ const AnimatedRobot = ({ onClick }) => {
 
         const newLeft = e.clientX - offset.x;
         const newTop = e.clientY - offset.y;
-
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
-
         const robotWidth = robotRef.current ? robotRef.current.offsetWidth : (window.innerWidth < 768 ? 50 : 70);
         const robotHeight = robotRef.current ? robotRef.current.offsetHeight : (window.innerWidth < 768 ? 65 : 90);
-
         const minLeft = 0;
         const minTop = 0;
         const maxLeft = viewportWidth - robotWidth;
-        const mobileNavHeight = (viewportWidth < 768) ? 60 : 0; // Approx nav height on mobile
+        const mobileNavHeight = (viewportWidth < 768) ? 60 : 0; 
         const maxTop = viewportHeight - robotHeight - mobileNavHeight;
-
         const boundedLeft = Math.max(minLeft, Math.min(newLeft, maxLeft));
         const boundedTop = Math.max(minTop, Math.min(newTop, maxTop));
-
         setPosition({ left: boundedLeft, top: boundedTop });
     }, [isDragging, offset]);
 
     const handleMouseUp = useCallback((e) => {
         setIsDragging(false);
-        // Check if the mouse moved significantly to distinguish drag from click
         const movedX = Math.abs(e.clientX - dragStartedAt.current.x);
         const movedY = Math.abs(e.clientY - dragStartedAt.current.y);
-
-        // If moved less than a small threshold (e.g., 5px), it's considered a click
         if (movedX < 5 && movedY < 5) {
             onClick();
         }
-        e.stopPropagation(); // Prevent further propagation after drag/click action
+        e.stopPropagation(); 
     }, [onClick]);
 
-    // Touch event handlers for mobile
     const handleTouchStart = useCallback((e) => {
         if (e.touches.length === 1 && robotRef.current) {
             setIsDragging(true);
-            dragStartedAt.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; // Record start position
+            dragStartedAt.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
             const touch = e.touches[0];
             const bbox = robotRef.current.getBoundingClientRect();
             setOffset({
                 x: touch.clientX - bbox.left,
                 y: touch.clientY - bbox.top,
             });
-            e.preventDefault(); // Prevent scrolling while dragging
-            e.stopPropagation(); // Stop event propagation
+            e.preventDefault(); 
+            e.stopPropagation(); 
         }
     }, []);
 
     const handleTouchMove = useCallback((e) => {
         if (!isDragging || e.touches.length !== 1) return;
-
         const touch = e.touches[0];
         const newLeft = touch.clientX - offset.x;
         const newTop = touch.clientY - offset.y;
-
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
-
-        const robotWidth = robotRef.current ? robotRef.current.offsetWidth : 50; // Use mobile default
-        const robotHeight = robotRef.current ? robotRef.current.offsetHeight : 65; // Use mobile default
-
+        const robotWidth = robotRef.current ? robotRef.current.offsetWidth : 50; 
+        const robotHeight = robotRef.current ? robotRef.current.offsetHeight : 65;
         const minLeft = 0;
         const minTop = 0;
         const maxLeft = viewportWidth - robotWidth;
-        const mobileNavHeight = 60; // Approximate height of your bottom navigation
+        const mobileNavHeight = 60; 
         const maxTop = viewportHeight - robotHeight - mobileNavHeight;
-
         const boundedLeft = Math.max(minLeft, Math.min(newLeft, maxLeft));
         const boundedTop = Math.max(minTop, Math.min(newTop, maxTop));
-
         setPosition({ left: boundedLeft, top: boundedTop });
-        e.preventDefault(); // Prevent scrolling while dragging
+        e.preventDefault(); 
     }, [isDragging, offset]);
 
     const handleTouchEnd = useCallback((e) => {
         setIsDragging(false);
-        // Check if the touch moved significantly to distinguish drag from tap
         const movedX = Math.abs(e.changedTouches[0].clientX - dragStartedAt.current.x);
         const movedY = Math.abs(e.changedTouches[0].clientY - dragStartedAt.current.y);
-
-        // If moved less than a small threshold (e.g., 5px), it's considered a click
         if (movedX < 5 && movedY < 5) {
             onClick();
         }
-        e.stopPropagation(); // Prevent further propagation
+        e.stopPropagation(); 
     }, [onClick]);
 
 
@@ -222,13 +200,11 @@ const AnimatedRobot = ({ onClick }) => {
             window.addEventListener('touchmove', handleTouchMove, { passive: false });
             window.addEventListener('touchend', handleTouchEnd);
         } else {
-            // Ensure listeners are removed even if `isDragging` changes due to external factors
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
             window.removeEventListener('touchmove', handleTouchMove);
             window.removeEventListener('touchend', handleTouchEnd);
         }
-        // Cleanup function
         return () => {
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
@@ -243,20 +219,19 @@ const AnimatedRobot = ({ onClick }) => {
             <style jsx>{`
                 .robot-container-fixed {
                     position: fixed;
-                    /* top and left set directly by JS in the style attribute */
-                    width: 70px; /* Desktop default */
-                    height: 90px; /* Desktop default */
+                    width: 70px; 
+                    height: 90px;
                     animation: robot-float 5s ease-in-out infinite;
-                    z-index: 1000; /* Higher z-index to ensure it's always on top */
-                    cursor: grab; /* Indicate it's draggable */
+                    z-index: 1000;
+                    cursor: grab;
                     background-color: rgba(255, 255, 255, 0.7);
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                    transition: box-shadow 0.3s ease-in-out; /* Only smooth shadow transition */
-                    will-change: top, left; /* Hint to browser for performance on position changes */
+                    transition: box-shadow 0.3s ease-in-out;
+                    will-change: top, left;
                 }
                 .robot-container-fixed.dragging {
                     cursor: grabbing;
@@ -283,14 +258,11 @@ const AnimatedRobot = ({ onClick }) => {
                 @keyframes antenna-glow { 0% { box-shadow: 0 0 8px #67e8f9; } 50% { box-shadow: 0 0 18px #a5f3fd, 0 0 8px #67e8f9; } 100% { box-shadow: 0 0 8px #67e8f9; } }
                 @keyframes panel-pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
                 @keyframes blink-animation { 0% { transform: scaleY(1); } 5% { transform: scaleY(0.1); } 10% { transform: scaleY(1); } 100% { transform: scaleY(1); } }
-
-                /* Mobile-specific styles for the robot icon */
-                @media (max-width: 767px) { /* Tailwind's 'md' breakpoint is 768px, so max-width 767px targets mobile */
+                @media (max-width: 767px) {
                     .robot-container-fixed {
-                        width: 50px; /* Smaller width for mobile */
-                        height: 65px; /* Smaller height for mobile */
+                        width: 50px; 
+                        height: 65px;
                     }
-                    /* Adjust internal robot parts for smaller size (relative to their new container size) */
                     .robot .head {
                         width: 40px;
                         height: 35px;
@@ -341,10 +313,9 @@ const AnimatedRobot = ({ onClick }) => {
             <div
                 ref={robotRef}
                 className={`robot-container-fixed ${isDragging ? 'dragging' : ''}`}
-                style={{ top: `${position.top}px`, left: `${position.left}px` }} // Use top/left directly
+                style={{ top: `${position.top}px`, left: `${position.left}px` }}
                 onMouseDown={handleMouseDown}
                 onTouchStart={handleTouchStart}
-                // No onClick directly here; handled by mouseUp/touchEnd to differentiate from drag
             >
                 <div className={`robot ${animationState}`}>
                     <div className="antenna"></div>
@@ -393,9 +364,14 @@ const CreateAnnouncement = ({ classes, onPost }) => {
 };
 
 const GradientStatCard = ({ icon, title, value, gradient, vectorIcon }) => (
-    <div className={`relative text-white p-6 rounded-xl shadow-lg overflow-hidden bg-gradient-to-br ${gradient} h-full`}>
-        {React.cloneElement(vectorIcon, { className: "absolute -right-4 -top-4 w-28 h-28 text-white opacity-10 -rotate-12 pointer-events-none" })}
-        <div className="relative z-10 flex flex-col justify-center h-full"><div className="mb-4 p-2 bg-white/20 rounded-lg inline-block self-start">{React.cloneElement(icon, { className: "w-7 h-7" })}</div><p className="text-4xl font-bold">{value}</p><p className="text-white/80">{title}</p></div>
+    <div className={`relative text-white p-4 sm:p-6 rounded-xl shadow-lg overflow-hidden bg-gradient-to-br ${gradient} h-full`}>
+        {React.cloneElement(vectorIcon, { className: "absolute -right-4 -top-4 w-24 h-24 sm:w-28 sm:h-28 text-white opacity-10 -rotate-12 pointer-events-none" })}
+        <div className="relative z-10 flex flex-col justify-center h-full">
+            <div className="mb-3 p-2 bg-white/20 rounded-lg inline-block self-start">{React.cloneElement(icon, { className: "w-6 h-6 sm:w-7 sm:h-7" })}</div>
+            {/* ✅ FIXED: Responsive font size for stat value */}
+            <p className="text-3xl sm:text-4xl font-bold">{value}</p>
+            <p className="text-sm text-white/80">{title}</p>
+        </div>
     </div>
 );
 
@@ -412,13 +388,33 @@ const InspirationCard = () => {
     }, []);
     const colorStyles = { blue: { border: 'border-blue-500', text: 'text-blue-500', bg: 'bg-blue-100' }, green: { border: 'border-green-500', text: 'text-green-500', bg: 'bg-green-100' }, purple: { border: 'border-purple-500', text: 'text-purple-500', bg: 'bg-purple-100' }, red: { border: 'border-red-500', text: 'text-red-500', bg: 'bg-red-100' }, indigo: { border: 'border-indigo-500', text: 'text-indigo-500', bg: 'bg-indigo-100' }, pink: { border: 'border-pink-500', text: 'text-pink-500', bg: 'bg-pink-100' }, yellow: { border: 'border-yellow-500', text: 'text-yellow-500', bg: 'bg-yellow-100' }, teal: { border: 'border-teal-500', text: 'text-teal-500', bg: 'bg-teal-100' }, orange: { border: 'border-orange-500', text: 'text-orange-500', bg: 'bg-orange-100' }, sky: { border: 'border-sky-500', text: 'text-sky-500', bg: 'bg-sky-100' }, lime: { border: 'border-lime-500', text: 'text-lime-500', bg: 'bg-lime-100' }, cyan: { border: 'border-cyan-500', text: 'text-cyan-500', bg: 'bg-cyan-100' }, fuchsia: { border: 'border-fuchsia-500', text: 'text-fuchsia-500', bg: 'bg-fuchsia-100' }, rose: { border: 'border-rose-500', text: 'text-rose-500', bg: 'bg-rose-100' }, gray: { border: 'border-gray-500', text: 'text-gray-500', bg: 'bg-gray-100' },};
     const currentColors = colorStyles[quote.color] || colorStyles.gray;
-    return (<div className={`bg-white p-6 rounded-xl shadow-lg h-full flex flex-col justify-center border-l-4 ${currentColors.border}`}><div className="flex items-start gap-4"><div className={`p-3 rounded-full ${currentColors.bg}`}><LightBulbIcon className="w-7 h-7" /></div><div><p className="font-bold text-gray-800">Inspiration for the Day</p><blockquote className="mt-1"><p className="text-gray-600 text-sm">"{quote.text}"</p><cite className="block text-right not-italic text-xs text-gray-500 mt-2">- {quote.author}</cite></blockquote></div></div></div>)
+    return (<div className={`bg-white p-4 sm:p-6 rounded-xl shadow-lg h-full flex flex-col justify-center border-l-4 ${currentColors.border}`}>
+        <div className="flex items-start gap-3 sm:gap-4">
+            <div className={`p-2 sm:p-3 rounded-full ${currentColors.bg}`}><LightBulbIcon className="w-6 h-6 sm:w-7 sm:h-7" /></div>
+            <div>
+                {/* ✅ FIXED: Responsive font size for card title */}
+                <p className="font-bold text-gray-800 text-sm sm:text-base">Inspiration for the Day</p>
+                <blockquote className="mt-1">
+                    <p className="text-gray-600 text-xs sm:text-sm">"{quote.text}"</p>
+                    <cite className="block text-right not-italic text-xs text-gray-500 mt-2">- {quote.author}</cite>
+                </blockquote>
+            </div>
+        </div>
+    </div>)
 }
 
 const ClockWidget = () => {
     const [time, setTime] = useState(new Date());
     useEffect(() => { const timerId = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timerId); }, []);
-    return (<div className="bg-gradient-to-br from-gray-800 to-gray-900 text-white p-6 rounded-xl shadow-lg flex flex-col justify-center items-center text-center h-full"><div className="flex items-center gap-2 text-lg text-gray-300"><CalendarDaysIcon className="w-5 h-5" /><span>{time.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</span></div><div className="text-5xl lg:text-6xl font-bold my-2 tracking-wider">{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div></div>)
+    return (<div className="bg-gradient-to-br from-gray-800 to-gray-900 text-white p-4 sm:p-6 rounded-xl shadow-lg flex flex-col justify-center items-center text-center h-full">
+        {/* ✅ FIXED: Responsive font size for date */}
+        <div className="flex items-center gap-2 text-xs sm:text-base text-gray-300">
+            <CalendarDaysIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span>{time.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</span>
+        </div>
+        {/* ✅ FIXED: Responsive font size for time */}
+        <div className="text-4xl sm:text-5xl lg:text-6xl font-bold my-1 sm:my-2 tracking-wider">{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+    </div>)
 };
 
 const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking, userFirstName }) => {
@@ -426,30 +422,11 @@ const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking, us
     const messagesEndRef = useRef(null);
     const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
     useEffect(scrollToBottom, [messages]);
-
-    // Track if conversation has started beyond the initial greeting
     const [conversationStarted, setConversationStarted] = useState(false);
-
-    const handleSend = () => {
-        if (input.trim()) {
-            onSendMessage(input);
-            setInput('');
-            setConversationStarted(true); // Once user sends a message, conversation has started
-        }
-    };
+    const handleSend = () => { if (input.trim()) { onSendMessage(input); setInput(''); setConversationStarted(true); } };
     const handleKeyPress = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } };
     if (!isOpen) return null;
-
-    // Initial AI greeting message
-    // Only show the full greeting (with name) if it's the very first message in the session.
-    // If messages already exist, it means the conversation has started, so no specific greeting is added here.
-    const initialGreeting = messages.length === 0 && !conversationStarted ? [{
-        sender: 'ai',
-        text: `Hello${userFirstName ? ` ${userFirstName}` : ''}! How can I assist you today?`
-    }] : [];
-
-
-    // Combine initial greeting with actual messages, but only if it's the very first interaction
+    const initialGreeting = messages.length === 0 && !conversationStarted ? [{ sender: 'ai', text: `Hello${userFirstName ? ` ${userFirstName}` : ''}! How can I assist you today?` }] : [];
     const displayMessages = initialGreeting.concat(messages);
 
     return (
@@ -504,6 +481,7 @@ const TeacherDashboardUI = (props) => {
         importClassSearchTerm, setImportClassSearchTerm, allLmsClasses, filteredLmsClasses, isImportViewLoading,
         selectedClassForImport, setSelectedClassForImport, handleBackToClassSelection, importTargetClassId,
         setImportTargetClassId, handleImportStudents, isImporting, studentsToImport,
+
         handleToggleStudentForImport, handleSelectAllStudents, isArchivedModalOpen, handleUnarchiveClass,
         isEditProfileModalOpen, handleUpdateProfile, isChangePasswordModalOpen, handleChangePassword,
         isCreateCategoryModalOpen, isEditCategoryModalOpen, setEditCategoryModalOpen, categoryToEdit,
@@ -515,66 +493,60 @@ const TeacherDashboardUI = (props) => {
         isEditSubjectModalOpen, setEditSubjectModalOpen, subjectToActOn, isDeleteSubjectModalOpen, setDeleteSubjectModalOpen,
         handleCreateAnnouncement, isChatOpen, setIsChatOpen, messages, isAiThinking, handleAskAi, handleRemoveStudentFromClass,
         setIsAiGenerating,
-        // ✅ 4. ACCEPT THE NEW PROPS
         isAiHubOpen, setIsAiHubOpen,
-        // --- AI EXAM GENERATOR PROPS ---
         isAiExamGeneratorModalOpen, setAiExamGeneratorModalOpen, isExamPreviewModalOpen, setExamPreviewModalOpen,
         generatedExamData, isGeneratingExam, onGenerateExam, onSaveExam, onRegenerate, examConfig, onOpenExamGenerator
     } = props;
     
-    // State to track if the AI conversation has moved beyond the initial greeting
     const [aiConversationStarted, setAiConversationStarted] = useState(false);
-
-    // Modified handleAskAi to conditionally add the user's name
     const handleAskAiWrapper = (message) => {
         handleAskAi(message);
         if (!aiConversationStarted) {
-            setAiConversationStarted(true); // Mark conversation as started after the first user message
+            setAiConversationStarted(true);
         }
     };
 
     const renderMainContent = () => {
         if (loading) return <Spinner />;
         if (error) { return <div className="bg-red-100 border border-red-300 text-red-800 p-4 rounded-md shadow-md"><div className="flex items-start gap-3"><ExclamationTriangleIcon className="w-5 h-5 mt-1" /><div><strong className="block">An error occurred</strong><span>{error}</span></div></div></div>; }
-
         const wrapper = "bg-white/70 backdrop-blur-md border border-white/30 p-4 sm:p-6 rounded-xl shadow";
         const classVisuals = [{ icon: AcademicCapIcon, color: 'from-orange-500 to-red-500' }, { icon: UserGroupIcon, color: 'from-blue-500 to-sky-500' }, { icon: ClipboardDocumentListIcon, color: 'from-yellow-500 to-amber-500' }, { icon: ShieldCheckIcon, color: 'from-green-500 to-lime-500' },];
         const subjectVisuals = [{ icon: BookOpenIcon, color: 'from-sky-500 to-indigo-500' }, { icon: CalculatorIcon, color: 'from-green-500 to-emerald-500' }, { icon: BeakerIcon, color: 'from-violet-500 to-purple-500' }, { icon: GlobeAltIcon, color: 'from-rose-500 to-pink-500' }, { icon: ComputerDesktopIcon, color: 'from-slate-600 to-slate-800' }, { icon: PaintBrushIcon, color: 'from-amber-500 to-orange-500' }, { icon: UserGroupIcon, color: 'from-teal-500 to-cyan-500' }, { icon: CodeBracketIcon, color: 'from-gray-700 to-gray-900' }, { icon: MusicalNoteIcon, color: 'from-fuchsia-500 to-purple-600' },];
         const gradientButtonStyle = "flex items-center justify-center px-4 py-2 font-semibold text-white bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed";
         
         switch (activeView) {
-            case 'admin':
-                return <div className={wrapper}><AdminDashboard /></div>;
-
+            case 'admin': return <div className={wrapper}><AdminDashboard /></div>;
             case 'studentManagement':
                 if (selectedClassForImport) {
                     return (
                         <div>
-                            <div className="mb-6"><button onClick={handleBackToClassSelection} className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4 font-semibold"><ArrowUturnLeftIcon className="w-4 h-4" />Back to Class Selection</button><h1 className="text-3xl font-bold text-gray-800">Import Students</h1><p className="text-gray-500 mt-1">Import students from <span className="font-semibold text-gray-700">"{selectedClassForImport.name}"</span> into your class.</p></div>
-                            <div className="bg-white p-6 rounded-xl shadow-lg space-y-8">
-                                <div><h2 className="text-lg font-semibold text-gray-700 mb-2">1. Import To Your Class</h2><div className="flex flex-col md:flex-row items-start md:items-center gap-4"><select value={importTargetClassId} onChange={e => setImportTargetClassId(e.target.value)} className="w-full md:w-auto flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"><option value="">-- Choose one of your classes --</option>{activeClasses.map(c => (<option key={c.id} value={c.id}>{c.name} ({c.gradeLevel} - {c.section})</option>))}</select><button onClick={handleImportStudents} disabled={!importTargetClassId || isImporting || studentsToImport.size === 0} className={`${gradientButtonStyle} w-full md:w-auto gap-2`}><UserPlusIcon className="w-5 h-5" />{isImporting ? 'Importing...' : `Import ${studentsToImport.size} Student(s)`}</button></div></div>
-                                <div><h2 className="text-lg font-semibold text-gray-700 mb-2">2. Select Students</h2><div className="border rounded-lg max-h-80 overflow-y-auto"><div className="flex items-center gap-4 p-3 border-b bg-gray-50 sticky top-0 z-10"><input type="checkbox" onChange={handleSelectAllStudents} checked={(selectedClassForImport.students?.length || 0) > 0 && studentsToImport.size === selectedClassForImport.students.length} id="select-all-students" className="h-5 w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500" /><label htmlFor="select-all-students" className="font-semibold text-gray-800">Select All ({selectedClassForImport.students?.length || 0})</label></div>{(selectedClassForImport.students && selectedClassForImport.students.length > 0) ? selectedClassForImport.students.map(student => (<div key={student.id} onClick={() => handleToggleStudentForImport(student.id)} className={`flex items-center gap-4 p-3 border-b last:border-b-0 cursor-pointer transition-colors ${studentsToImport.has(student.id) ? 'bg-blue-100' : 'hover:bg-gray-50'}`}><input type="checkbox" readOnly checked={studentsToImport.has(student.id)} className="h-5 w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500 pointer-events-none" /><UserInitialsAvatar firstName={student.firstName} lastName={student.lastName} /><div><p className="font-semibold text-gray-800">{student.firstName} {student.lastName}</p><p className="text-sm text-gray-500">{student.gradeLevel || 'N/A'}</p></div></div>)) : (<p className="p-4 text-center text-gray-500">This class has no students.</p>)}</div></div>
+                             {/* ✅ FIXED: Responsive typography for headers */}
+                            <div className="mb-6"><button onClick={handleBackToClassSelection} className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4 font-semibold"><ArrowUturnLeftIcon className="w-4 h-4" />Back</button><h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Import Students</h1><p className="text-sm text-gray-500 mt-1">Import students from <span className="font-semibold text-gray-700">"{selectedClassForImport.name}"</span> into your class.</p></div>
+                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg space-y-6">
+                                {/* ✅ FIXED: Responsive typography and layout for form elements */}
+                                <div><h2 className="text-base sm:text-lg font-semibold text-gray-700 mb-2">1. Import To Your Class</h2><div className="flex flex-col md:flex-row items-start md:items-center gap-3"><select value={importTargetClassId} onChange={e => setImportTargetClassId(e.target.value)} className="w-full md:w-auto flex-grow p-2 sm:p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"><option value="">-- Choose one of your classes --</option>{activeClasses.map(c => (<option key={c.id} value={c.id}>{c.name} ({c.gradeLevel} - {c.section})</option>))}</select><button onClick={handleImportStudents} disabled={!importTargetClassId || isImporting || studentsToImport.size === 0} className={`${gradientButtonStyle} w-full md:w-auto gap-2 text-sm`}><UserPlusIcon className="w-5 h-5" />{isImporting ? 'Importing...' : `Import ${studentsToImport.size} Student(s)`}</button></div></div>
+                                <div><h2 className="text-base sm:text-lg font-semibold text-gray-700 mb-2">2. Select Students</h2><div className="border rounded-lg max-h-80 overflow-y-auto"><div className="flex items-center gap-3 p-3 border-b bg-gray-50 sticky top-0 z-10"><input type="checkbox" onChange={handleSelectAllStudents} checked={(selectedClassForImport.students?.length || 0) > 0 && studentsToImport.size === selectedClassForImport.students.length} id="select-all-students" className="h-4 w-4 sm:h-5 sm:w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500" /><label htmlFor="select-all-students" className="font-semibold text-sm text-gray-800">Select All ({selectedClassForImport.students?.length || 0})</label></div>{(selectedClassForImport.students && selectedClassForImport.students.length > 0) ? selectedClassForImport.students.map(student => (<div key={student.id} onClick={() => handleToggleStudentForImport(student.id)} className={`flex items-center gap-3 p-3 border-b last:border-b-0 cursor-pointer transition-colors ${studentsToImport.has(student.id) ? 'bg-blue-100' : 'hover:bg-gray-50'}`}><input type="checkbox" readOnly checked={studentsToImport.has(student.id)} className="h-4 w-4 sm:h-5 sm:w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500 pointer-events-none" /><UserInitialsAvatar firstName={student.firstName} lastName={student.lastName} /><div><p className="font-semibold text-sm text-gray-800">{student.firstName} {student.lastName}</p><p className="text-xs text-gray-500">{student.gradeLevel || 'N/A'}</p></div></div>)) : (<p className="p-4 text-center text-sm text-gray-500">This class has no students.</p>)}</div></div>
                             </div>
                         </div>
                     );
                 }
                 return (
                     <div>
-                        <div className="mb-6"><h1 className="text-3xl font-bold text-gray-800">Browse Classes</h1><p className="text-gray-500 mt-1">Select a class below to import students from it.</p></div>
-                        <div className="mb-6 sticky top-0 bg-slate-100 py-3 z-20"><div className="relative"><MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" /><input type="text" placeholder={`Filter from ${allLmsClasses.length} classes...`} value={importClassSearchTerm} onChange={e => setImportClassSearchTerm(e.target.value)} className="w-full max-w-md p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div></div>
-                        {isImportViewLoading ? <Spinner /> : (<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{filteredLmsClasses.length > 0 ? filteredLmsClasses.map((c, index) => { const { icon: Icon, color } = classVisuals[index % classVisuals.length]; return (<div key={c.id} onClick={() => setSelectedClassForImport(c)} className="group relative bg-white p-6 rounded-2xl shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer"><div className={`absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br ${color} rounded-full opacity-10 group-hover:opacity-20 transition-all`}></div><div className="relative z-10 flex flex-col h-full"><div className={`p-4 inline-block bg-gradient-to-br ${color} text-white rounded-xl mb-4 self-start`}><Icon className="w-8 h-8" /></div><h2 className="text-xl font-bold text-gray-800 truncate mb-1">{c.name}</h2><p className="text-gray-500">{c.gradeLevel} - {c.section}</p><div className="mt-auto pt-4 border-t border-gray-100"><p className="text-xs text-gray-500">{c.students?.length || 0} student(s)</p></div></div></div>); }) : (<p className="col-span-full text-center text-gray-500 py-10">No classes match your search.</p>)}</div>)}
+                         {/* ✅ FIXED: Responsive typography and layout for headers and search */}
+                        <div className="mb-6"><h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Browse Classes</h1><p className="text-sm text-gray-500 mt-1">Select a class below to import students from it.</p></div>
+                        <div className="mb-6 sticky top-0 bg-slate-100 py-3 z-20"><div className="relative"><MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" /><input type="text" placeholder={`Filter from ${allLmsClasses.length} classes...`} value={importClassSearchTerm} onChange={e => setImportClassSearchTerm(e.target.value)} className="w-full max-w-md p-2 pl-10 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div></div>
+                        {isImportViewLoading ? <Spinner /> : (<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">{filteredLmsClasses.length > 0 ? filteredLmsClasses.map((c, index) => { const { icon: Icon, color } = classVisuals[index % classVisuals.length]; return (<div key={c.id} onClick={() => setSelectedClassForImport(c)} className="group relative bg-white p-4 sm:p-6 rounded-2xl shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer"><div className={`absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br ${color} rounded-full opacity-10 group-hover:opacity-20 transition-all`}></div><div className="relative z-10 flex flex-col h-full"><div className={`p-3 sm:p-4 inline-block bg-gradient-to-br ${color} text-white rounded-xl mb-4 self-start`}><Icon className="w-7 h-7 sm:w-8 sm:h-8" /></div><h2 className="text-lg sm:text-xl font-bold text-gray-800 truncate mb-1">{c.name}</h2><p className="text-sm text-gray-500">{c.gradeLevel} - {c.section}</p><div className="mt-auto pt-4 border-t border-gray-100"><p className="text-xs text-gray-500">{c.students?.length || 0} student(s)</p></div></div></div>); }) : (<p className="col-span-full text-center text-sm text-gray-500 py-10">No classes match your search.</p>)}</div>)}
                     </div>
                 );
-
             case 'courses':
-                if (selectedCategory) {
+                 if (selectedCategory) {
                     const categoryCourses = courses.filter(c => c.category === selectedCategory);
                     const handleSubjectChange = (e) => { const newActiveSubject = categoryCourses.find(c => c.id === e.target.value); setActiveSubject(newActiveSubject); };
                     return (
                         <div className="w-full">
                             <div className="flex items-center gap-2 mb-4">
                                 <button onClick={handleBackToCategoryList} className="text-gray-700 p-2 rounded-full hover:bg-gray-200"><ArrowUturnLeftIcon className="w-5 h-5" /></button>
-                                <select className="w-full p-3 border border-gray-300 rounded-lg bg-white text-base" value={activeSubject?.id || ''} onChange={handleSubjectChange} disabled={categoryCourses.length === 0}>
+                                <select className="w-full p-2 sm:p-3 text-sm sm:text-base border border-gray-300 rounded-lg bg-white" value={activeSubject?.id || ''} onChange={handleSubjectChange} disabled={categoryCourses.length === 0}>
                                     {categoryCourses.map(course => (<option key={course.id} value={course.id}>{course.title}</option>))}
                                 </select>
                             </div>
@@ -582,34 +554,17 @@ const TeacherDashboardUI = (props) => {
                                 <div className={wrapper}>
                                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                                         <div className="flex items-center gap-3">
-                                            <h1 className="text-2xl font-bold text-gray-800">{activeSubject.title}</h1>
+                                            <h1 className="text-xl sm:text-2xl font-bold text-gray-800">{activeSubject.title}</h1>
                                             <button onClick={() => handleOpenEditSubject(activeSubject)} className="text-gray-400 hover:text-blue-600" title="Edit Subject Name"><PencilSquareIcon className="w-5 h-5" /></button>
                                             <button onClick={() => handleOpenDeleteSubject(activeSubject)} className="text-gray-400 hover:text-red-600" title="Delete Subject"><TrashIcon className="w-5 h-5" /></button>
                                         </div>
                                         <div className="flex gap-2 flex-wrap">
-                                            <button onClick={() => setShareContentModalOpen(true)} className="btn-secondary">Share Content</button>
-                                            <button onClick={() => setAddUnitModalOpen(true)} className="btn-secondary">Add Unit</button>
-                                            {/* ✅ 5. ADD THE AI TOOLS BUTTON HERE */}
-                                            <button 
-                                                onClick={() => setIsAiHubOpen(true)} 
-                                                className="btn-primary gap-2"
-                                            >
-                                                <SparklesIcon className="w-5 h-5" />
-                                                AI Tools
-                                            </button>
+                                            <button onClick={() => setShareContentModalOpen(true)} className="btn-secondary text-xs sm:text-sm">Share</button>
+                                            <button onClick={() => setAddUnitModalOpen(true)} className="btn-secondary text-xs sm:text-sm">Add Unit</button>
+                                            <button onClick={() => setIsAiHubOpen(true)} className="btn-primary gap-2 text-xs sm:text-sm"><SparklesIcon className="w-5 h-5" />AI Tools</button>
                                         </div>
                                     </div>
-                                    <div>
-                                        <UnitAccordion 
-                                            subject={activeSubject} 
-                                            onInitiateDelete={handleInitiateDelete} 
-                                            userProfile={userProfile} 
-                                            onGenerateQuiz={handleGenerateQuizForLesson} 
-                                            isAiGenerating={isAiGenerating}
-                                            setIsAiGenerating={setIsAiGenerating}
-                                            // NOTE: The AI button logic is now removed from the accordion itself
-                                        />
-                                    </div>
+                                    <div><UnitAccordion subject={activeSubject} onInitiateDelete={handleInitiateDelete} userProfile={userProfile} onGenerateQuiz={handleGenerateQuizForLesson} isAiGenerating={isAiGenerating} setIsAiGenerating={setIsAiGenerating} /></div>
                                 </div>
                             ) : ( <div className={wrapper}><h1 className="text-2xl font-bold text-gray-800">{selectedCategory}</h1><div className="text-center py-10"><p className="text-gray-500">There are no subjects in this category yet.</p></div></div> )}
                         </div>
@@ -617,99 +572,71 @@ const TeacherDashboardUI = (props) => {
                 }
                 return (
                     <div>
-                        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3"><div><h1 className="text-3xl font-bold text-gray-800">Subjects</h1><p className="text-gray-500 mt-1">Manage subject categories and create new subjects.</p></div><div className="flex flex-shrink-0 gap-2"><button onClick={() => setCreateCategoryModalOpen(true)} className="btn-primary gap-2"><PlusCircleIcon className="w-5 h-5" />New Category</button><button onClick={() => setCreateCourseModalOpen(true)} className="btn-primary flex items-center"><PlusCircleIcon className="w-5 h-5 mr-2" />New Subject</button></div></div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{courseCategories.map((cat, index) => { const courseCount = courses.filter(c => c.category === cat.name).length; const { icon: Icon, color } = subjectVisuals[index % subjectVisuals.length]; return (<div key={cat.id} onClick={() => handleCategoryClick(cat.name)} className="group relative bg-white p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden"><div className={`absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br ${color} rounded-full opacity-20 group-hover:opacity-30 transition-all duration-300`}></div><div className="relative z-10"><div className={`p-4 inline-block bg-gradient-to-br ${color} text-white rounded-xl mb-4`}><Icon className="w-8 h-8" /></div><h2 className="text-xl font-bold text-gray-800 truncate mb-1">{cat.name}</h2><p className="text-gray-500">{courseCount} {courseCount === 1 ? 'Subject' : 'Subjects'}</p><button onClick={(e) => { e.stopPropagation(); handleEditCategory(cat); }} className="absolute top-4 right-4 p-2 rounded-full text-gray-400 bg-transparent opacity-0 group-hover:opacity-100 hover:bg-slate-200 transition-opacity" aria-label={`Edit category ${cat.name}`}><PencilSquareIcon className="w-5 h-5" /></button></div></div>); })}</div>
+                        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3"><div><h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Subjects</h1><p className="text-sm text-gray-500 mt-1">Manage subject categories and create new subjects.</p></div><div className="flex flex-shrink-0 gap-2"><button onClick={() => setCreateCategoryModalOpen(true)} className="btn-primary gap-2 text-xs sm:text-sm">New Category</button><button onClick={() => setCreateCourseModalOpen(true)} className="btn-primary flex items-center text-xs sm:text-sm"><PlusCircleIcon className="w-5 h-5 mr-2" />New Subject</button></div></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">{courseCategories.map((cat, index) => { const courseCount = courses.filter(c => c.category === cat.name).length; const { icon: Icon, color } = subjectVisuals[index % subjectVisuals.length]; return (<div key={cat.id} onClick={() => handleCategoryClick(cat.name)} className="group relative bg-white p-4 sm:p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden"><div className={`absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br ${color} rounded-full opacity-20 group-hover:opacity-30 transition-all`}></div><div className="relative z-10"><div className={`p-3 sm:p-4 inline-block bg-gradient-to-br ${color} text-white rounded-xl mb-4`}><Icon className="w-7 h-7 sm:w-8 sm:h-8" /></div><h2 className="text-lg sm:text-xl font-bold text-gray-800 truncate mb-1">{cat.name}</h2><p className="text-sm text-gray-500">{courseCount} {courseCount === 1 ? 'Subject' : 'Subjects'}</p><button onClick={(e) => { e.stopPropagation(); handleEditCategory(cat); }} className="absolute top-4 right-4 p-2 rounded-full text-gray-400 bg-transparent opacity-0 group-hover:opacity-100 hover:bg-slate-200 transition-opacity" aria-label={`Edit category ${cat.name}`}><PencilSquareIcon className="w-5 h-5" /></button></div></div>); })}</div>
                     </div>
                 );
 
             case 'classes':
-                return (
+                 return (
                     <div>
-                        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3"><div><h1 className="text-3xl font-bold text-gray-800">Classes</h1><p className="text-gray-500 mt-1">Select a class to view details or manage settings.</p></div><div className="flex flex-shrink-0 gap-2"><button onClick={() => setIsArchivedModalOpen(true)} className="btn-secondary">View Archived</button><button onClick={() => setCreateClassModalOpen(true)} className="btn-primary flex items-center"><PlusCircleIcon className="w-5 h-5 mr-2" />Create Class</button></div></div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{activeClasses.length > 0 ? activeClasses.map((c, index) => { const { icon: Icon, color } = classVisuals[index % classVisuals.length]; return (<div key={c.id} className="group relative bg-white p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300"><div onClick={() => { if (!isHoveringActions) setClassOverviewModal({ isOpen: true, data: c }); }} className="cursor-pointer flex-grow flex flex-col h-full"><div className={`absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br ${color} rounded-full opacity-10 group-hover:opacity-20 transition-all`}></div><div className="relative z-10"><div className={`p-4 inline-block bg-gradient-to-br ${color} text-white rounded-xl mb-4`}><Icon className="w-8 h-8" /></div><h2 className="text-xl font-bold text-gray-800 truncate mb-1">{c.name}</h2><p className="text-gray-500">{c.gradeLevel} - {c.section}</p></div>{c.classCode && (<div className="mt-auto pt-4 border-t border-gray-100"><p className="text-xs text-gray-500 mb-1">Class Code</p><div className="flex items-center gap-2"><p className="font-mono text-lg tracking-widest text-gray-700 bg-gray-100 px-2 py-1 rounded-md">{c.classCode}</p><button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(c.classCode); showToast("Class code copied!", "success"); }} className="p-1.5 rounded-md text-gray-400 hover:bg-gray-200 hover:text-gray-600" title="Copy code"><ClipboardIcon className="w-5 h-5" /></button></div></div>)}</div><div className="absolute top-0 right-0 p-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300" onMouseEnter={() => setIsHoveringActions(true)} onMouseLeave={() => setIsHoveringActions(false)}><button onClick={(e) => { e.stopPropagation(); handleOpenEditClassModal(c); }} className="p-2 rounded-full bg-white/60 backdrop-blur-sm hover:bg-white text-gray-700 shadow-md" title="Edit"><PencilSquareIcon className="w-5 h-5" /></button><button onClick={(e) => { e.stopPropagation(); handleArchiveClass(c.id); }} className="p-2 rounded-full bg-white/60 backdrop-blur-sm hover:bg-white text-gray-700 shadow-md" title="Archive"><ArchiveBoxIcon className="w-5 h-5" /></button><button onClick={(e) => { e.stopPropagation(); handleDeleteClass(c.id); }} className="p-2 rounded-full bg-white/60 backdrop-blur-sm hover:bg-white text-red-600 shadow-md" title="Delete"><TrashIcon className="w-5 h-5" /></button></div></div>); }) : <p className="col-span-full text-center text-gray-500 py-10">No active classes created yet.</p>}</div>
+                        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3"><div><h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Classes</h1><p className="text-sm text-gray-500 mt-1">Select a class to view details or manage settings.</p></div><div className="flex flex-shrink-0 gap-2"><button onClick={() => setIsArchivedModalOpen(true)} className="btn-secondary text-xs sm:text-sm">View Archived</button><button onClick={() => setCreateClassModalOpen(true)} className="btn-primary flex items-center text-xs sm:text-sm"><PlusCircleIcon className="w-5 h-5 mr-2" />Create Class</button></div></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">{activeClasses.length > 0 ? activeClasses.map((c, index) => { const { icon: Icon, color } = classVisuals[index % classVisuals.length]; return (<div key={c.id} className="group relative bg-white p-4 sm:p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300"><div onClick={() => { if (!isHoveringActions) setClassOverviewModal({ isOpen: true, data: c }); }} className="cursor-pointer flex-grow flex flex-col h-full"><div className={`absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br ${color} rounded-full opacity-10 group-hover:opacity-20 transition-all`}></div><div className="relative z-10"><div className={`p-3 sm:p-4 inline-block bg-gradient-to-br ${color} text-white rounded-xl mb-4`}><Icon className="w-7 h-7 sm:w-8 sm:h-8" /></div><h2 className="text-lg sm:text-xl font-bold text-gray-800 truncate mb-1">{c.name}</h2><p className="text-sm text-gray-500">{c.gradeLevel} - {c.section}</p></div>{c.classCode && (<div className="mt-auto pt-4 border-t border-gray-100"><p className="text-xs text-gray-500 mb-1">Class Code</p><div className="flex items-center gap-2"><p className="font-mono text-base sm:text-lg tracking-widest text-gray-700 bg-gray-100 px-2 py-1 rounded-md">{c.classCode}</p><button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(c.classCode); showToast("Class code copied!", "success"); }} className="p-1.5 rounded-md text-gray-400 hover:bg-gray-200 hover:text-gray-600" title="Copy code"><ClipboardIcon className="w-5 h-5" /></button></div></div>)}</div><div className="absolute top-0 right-0 p-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300" onMouseEnter={() => setIsHoveringActions(true)} onMouseLeave={() => setIsHoveringActions(false)}><button onClick={(e) => { e.stopPropagation(); handleOpenEditClassModal(c); }} className="p-2 rounded-full bg-white/60 backdrop-blur-sm hover:bg-white text-gray-700 shadow-md" title="Edit"><PencilSquareIcon className="w-5 h-5" /></button><button onClick={(e) => { e.stopPropagation(); handleArchiveClass(c.id); }} className="p-2 rounded-full bg-white/60 backdrop-blur-sm hover:bg-white text-gray-700 shadow-md" title="Archive"><ArchiveBoxIcon className="w-5 h-5" /></button><button onClick={(e) => { e.stopPropagation(); handleDeleteClass(c.id); }} className="p-2 rounded-full bg-white/60 backdrop-blur-sm hover:bg-white text-red-600 shadow-md" title="Delete"><TrashIcon className="w-5 h-5" /></button></div></div>); }) : <p className="col-span-full text-center text-sm text-gray-500 py-10">No active classes created yet.</p>}</div>
                     </div>
                 );
             case 'profile':
-                return (
+                 return (
                     <div className="max-w-6xl mx-auto">
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                
-                            {/* --- Left Column: User Info Card --- */}
                             <div className="lg:col-span-1">
-                                <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-8 text-center text-white h-full flex flex-col justify-between">
+                                <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-6 sm:p-8 text-center text-white h-full flex flex-col justify-between">
                                     <div>
-                                        <div className="relative inline-block mb-4 w-40 h-40 rounded-full overflow-hidden">
-                                            <UserInitialsAvatar
-                                                firstName={userProfile?.firstName}
-                                                lastName={userProfile?.lastName}
-                                                size="full"
-                                            />
+                                        <div className="relative inline-block mb-4 w-32 h-32 sm:w-40 sm:h-40 rounded-full overflow-hidden">
+                                            <UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="full" />
                                         </div>
-                                        <h1 className="text-3xl font-bold text-white">
-                                            {userProfile?.firstName} {userProfile?.lastName}
-                                        </h1>
-                                        <p className="text-md text-slate-400 capitalize">{userProfile?.role}</p>
+                                        <h1 className="text-2xl sm:text-3xl font-bold text-white">{userProfile?.firstName} {userProfile?.lastName}</h1>
+                                        <p className="text-sm sm:text-base text-slate-400 capitalize">{userProfile?.role}</p>
                                     </div>
                                     <div className="space-y-4 mt-8 text-left">
-                                        <div className="flex items-center gap-4 p-3 bg-white/5 rounded-lg">
-                                            <EnvelopeIcon className="w-6 h-6 text-white/70" />
+                                        <div className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
+                                            <EnvelopeIcon className="w-5 h-5 text-white/70 mt-1" />
                                             <div>
-                                                <p className="text-sm text-white/60">Email</p>
-                                                <p className="font-semibold text-white">{userProfile?.email}</p>
+                                                <p className="text-xs sm:text-sm text-white/60">Email</p>
+                                                <p className="font-semibold text-sm break-all">{userProfile?.email}</p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-4 p-3 bg-white/5 rounded-lg">
-                                            <IdentificationIcon className="w-6 h-6 text-white/70" />
+                                        <div className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
+                                            <IdentificationIcon className="w-5 h-5 text-white/70 mt-1" />
                                             <div>
-                                                <p className="text-sm text-white/60">User ID</p>
-                                                <p className="font-mono text-xs text-white">{user?.uid || user?.id}</p>
+                                                <p className="text-xs sm:text-sm text-white/60">User ID</p>
+                                                <p className="font-mono text-xs break-all">{user?.uid || user?.id}</p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-
-                            {/* --- Right Column: Actions --- */}
                             <div className="lg:col-span-2">
-                                <div className="bg-white rounded-2xl shadow-xl p-8 h-full">
-                                    <h3 className="text-2xl font-bold text-slate-800 mb-6">Account Actions</h3>
+                                <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 h-full">
+                                    <h3 className="text-xl sm:text-2xl font-bold text-slate-800 mb-6">Account Actions</h3>
                                     <div className="space-y-4">
-                                        <button 
-                                            onClick={() => setEditProfileModalOpen(true)} 
-                                            className="w-full text-left flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-300 group"
-                                        >
-                                            <div className="p-3 bg-blue-100 rounded-lg">
-                                                <PencilSquareIcon className="w-6 h-6 text-blue-600" />
-                                            </div>
+                                        <button onClick={() => setEditProfileModalOpen(true)} className="w-full text-left flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-300 group">
+                                            <div className="p-3 bg-blue-100 rounded-lg"><PencilSquareIcon className="w-6 h-6 text-blue-600" /></div>
                                             <div>
-                                                <p className="font-semibold text-slate-800">Edit Profile</p>
-                                                <p className="text-sm text-slate-500">Update your first and last name.</p>
+                                                <p className="font-semibold text-slate-800 text-sm sm:text-base">Edit Profile</p>
+                                                <p className="text-xs sm:text-sm text-slate-500">Update your first and last name.</p>
                                             </div>
                                             <span className="ml-auto text-slate-400 group-hover:text-blue-600 transition-colors">&rarr;</span>
                                         </button>
-
-                                        <button 
-                                            onClick={() => setChangePasswordModalOpen(true)} 
-                                            className="w-full text-left flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-300 group"
-                                        >
-                                            <div className="p-3 bg-purple-100 rounded-lg">
-                                                <KeyIcon className="w-6 h-6 text-purple-600" />
-                                            </div>
+                                        <button onClick={() => setChangePasswordModalOpen(true)} className="w-full text-left flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-300 group">
+                                            <div className="p-3 bg-purple-100 rounded-lg"><KeyIcon className="w-6 h-6 text-purple-600" /></div>
                                             <div>
-                                                <p className="font-semibold text-slate-800">Change Password</p>
-                                                <p className="text-sm text-slate-500">Update your account security.</p>
+                                                <p className="font-semibold text-slate-800 text-sm sm:text-base">Change Password</p>
+                                                <p className="text-xs sm:text-sm text-slate-500">Update your account security.</p>
                                             </div>
                                             <span className="ml-auto text-slate-400 group-hover:text-purple-600 transition-colors">&rarr;</span>
                                         </button>
-                
                                         <div className="pt-8">
-                                            <button 
-                                                onClick={logout} 
-                                                className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-gradient-to-r from-red-500 to-orange-500 text-white font-bold rounded-lg hover:shadow-xl hover:scale-[1.02] transform transition-all duration-300 shadow-lg"
-                                            >
-                                                <ArrowLeftOnRectangleIcon className="w-6 h-6" />
-                                                Logout
-                                            </button>
+                                            <button onClick={logout} className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-gradient-to-r from-red-500 to-orange-500 text-white font-bold rounded-lg hover:shadow-xl hover:scale-[1.02] transform transition-all duration-300 shadow-lg text-sm sm:text-base"><ArrowLeftOnRectangleIcon className="w-6 h-6" />Logout</button>
                                         </div>
                                     </div>
                                 </div>
@@ -717,17 +644,15 @@ const TeacherDashboardUI = (props) => {
                         </div>
                     </div>
                 );
-            
             case 'home':
             default:
                 return (
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                         <div className="relative flex justify-between items-start pt-4">
                             <div>
-                                <h1 className="text-3xl font-bold text-gray-800">Welcome back, {userProfile?.firstName}!</h1>
-                                <p className="text-gray-500 mt-1">Here is your dashboard overview.</p>
+                                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Welcome back, {userProfile?.firstName}!</h1>
+                                <p className="text-sm text-gray-500 mt-1">Here is your dashboard overview.</p>
                             </div>
-                            {/* The AnimatedRobot is now fixed on screen, rendered globally */}
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <GradientStatCard title="Active Classes" value={activeClasses.length} icon={<AcademicCapIcon />} gradient="from-blue-500 to-indigo-600" vectorIcon={<AcademicCapIcon />} />
@@ -735,25 +660,25 @@ const TeacherDashboardUI = (props) => {
                             <ClockWidget />
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div className="bg-white p-6 rounded-xl shadow-lg">
-                                <h2 className="text-xl font-bold text-gray-800 mb-4">Make an Announcement</h2>
+                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+                                <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4">Make an Announcement</h2>
                                 <CreateAnnouncement classes={activeClasses} onPost={handleCreateAnnouncement} />
                             </div>
-                            <div className="bg-white p-6 rounded-xl shadow-lg">
-                                <h2 className="text-xl font-bold text-gray-700 mb-4">Recent Teacher Announcements</h2>
+                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+                                <h2 className="text-lg sm:text-xl font-bold text-gray-700 mb-4">Recent Teacher Announcements</h2>
                                 <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2">
                                     {teacherAnnouncements.length > 0 ? teacherAnnouncements.map(post => {
                                         const canModify = userProfile?.role === 'admin' || userProfile?.id === post.teacherId;
                                         return (
-                                            <div key={post.id} className="bg-slate-50 p-4 rounded-lg border group relative">
+                                            <div key={post.id} className="bg-slate-50 p-3 sm:p-4 rounded-lg border group relative">
                                                 {editingAnnId === post.id ? (
-                                                    <><textarea className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" rows="3" value={editingAnnText} onChange={(e) => setEditingAnnText(e.target.value)} /><div className="flex justify-end gap-2 mt-2"><button className="btn-secondary" onClick={() => setEditingAnnId(null)}>Cancel</button><button className="btn-primary" onClick={handleUpdateTeacherAnn}>Save</button></div></>
+                                                    <><textarea className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" rows="3" value={editingAnnText} onChange={(e) => setEditingAnnText(e.target.value)} /><div className="flex justify-end gap-2 mt-2"><button className="btn-secondary text-xs" onClick={() => setEditingAnnId(null)}>Cancel</button><button className="btn-primary text-xs" onClick={handleUpdateTeacherAnn}>Save</button></div></>
                                                 ) : (
-                                                    <>{canModify && (<div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => handleStartEditAnn(post)} className="p-1 hover:bg-gray-200 rounded-full" title="Edit"><PencilSquareIcon className="w-4 h-4 text-gray-600" /></button><button onClick={() => handleDeleteTeacherAnn(post.id)} className="p-1 hover:bg-gray-200 rounded-full" title="Delete"><TrashIcon className="w-4 h-4 text-red-500" /></button></div>)}<p className="text-gray-800 whitespace-pre-wrap pr-10">{post.content}</p><div className="text-xs text-gray-400 mt-3 pt-2 border-t border-gray-100 flex justify-between"><span>From: {post.teacherName}</span><span>{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString() : ''}</span></div></>
+                                                    <>{canModify && (<div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => handleStartEditAnn(post)} className="p-1 hover:bg-gray-200 rounded-full" title="Edit"><PencilSquareIcon className="w-4 h-4 text-gray-600" /></button><button onClick={() => handleDeleteTeacherAnn(post.id)} className="p-1 hover:bg-gray-200 rounded-full" title="Delete"><TrashIcon className="w-4 h-4 text-red-500" /></button></div>)}<p className="text-sm text-gray-800 whitespace-pre-wrap pr-10">{post.content}</p><div className="text-xs text-gray-400 mt-3 pt-2 border-t border-gray-100 flex justify-between"><span>From: {post.teacherName}</span><span>{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString() : ''}</span></div></>
                                                 )}
                                             </div>
                                         );
-                                    }) : (<p className="text-center text-gray-500 py-8">No new announcements for teachers.</p>)}
+                                    }) : (<p className="text-center text-sm text-gray-500 py-8">No new announcements for teachers.</p>)}
                                 </div>
                             </div>
                         </div>
@@ -785,7 +710,6 @@ const TeacherDashboardUI = (props) => {
     ];
 
     return (
-        // Main container is now a flex column to properly position header, main, and footer
         <div className="min-h-screen bg-slate-100 flex flex-col"> 
              <style jsx global>{`
                  .btn-primary {
@@ -803,63 +727,40 @@ const TeacherDashboardUI = (props) => {
                  }
                  .btn-secondary {
                     display: inline-flex; align-items: center; justify-content: center;
-                    background-color: #f1f5f9; /* slate-100 */
-                    color: #475569; /* slate-600 */
+                    background-color: #f1f5f9;
+                    color: #475569;
                     font-weight: 600;
                     padding: 0.5rem 1rem;
                     border-radius: 0.5rem;
-                    border: 1px solid #e2e8f0; /* slate-200 */
+                    border: 1px solid #e2e8f0;
                     box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
                     transition: all 0.2s ease-in-out;
                  }
                  .btn-secondary:hover {
-                    background-color: #e2e8f0; /* slate-200 */
-                    border-color: #cbd5e1; /* slate-300 */
+                    background-color: #e2e8f0;
+                    border-color: #cbd5e1;
                  }
-                 /* Global padding for mobile main content to prevent overlap with fixed footer */
                  @media (max-width: 767px) {
                     main {
-                        padding-bottom: 70px !important; /* Adjust as needed, based on your footer's exact height + desired spacing */
+                        padding-bottom: 70px !important; 
                     }
                  }
              `}</style>
-            {/* This flex container now holds sidebar + main content */}
             <div className="md:flex flex-1"> 
                 <aside className="w-64 flex-shrink-0 hidden md:block shadow-lg"><SidebarContent /></aside>
                 <div className={`fixed inset-0 z-50 md:hidden transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}><div className="absolute inset-0 bg-black/50" onClick={() => setIsSidebarOpen(false)}></div><div className="relative w-64 h-full"><SidebarContent /></div></div>
-                {/* This internal flex column ensures nav, main, and robot icon are properly stacked */}
                 <div className="flex-1 flex flex-col">
                     <nav className="bg-white/70 backdrop-blur-md p-3 flex justify-between items-center sticky top-0 z-40 border-b border-white/30"><button className="md:hidden p-2 rounded-full" onClick={() => setIsSidebarOpen(true)}><Bars3Icon className="h-6 w-6" /></button><div className="flex-1"></div><div className="flex items-center gap-4"><button className="p-2 rounded-full text-gray-600 hover:bg-gray-100" title="Search"><MagnifyingGlassIcon className="h-5 w-5" /></button><div className="flex items-center gap-2 border-l border-gray-200 pl-4"><div onClick={() => handleViewChange('profile')} className="flex items-center gap-2 cursor-pointer" title="View Profile"><UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="sm" /><span className="hidden sm:block font-medium text-gray-700 hover:text-blue-600">{userProfile?.firstName || 'Profile'}</span></div><button onClick={logout} className="flex items-center p-2 rounded-lg text-red-600 hover:bg-red-50" title="Logout"><ArrowLeftOnRectangleIcon className="h-5 w-5" /></button></div></div></nav>
-                    <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto"> {/* Removed pb-24 here and added it globally via CSS */}
+                    <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
                         {renderMainContent()}
                     </main>
                 </div>
             </div>
             
-            {/* ✅ 6. RENDER THE AI HUB HERE */}
-            <AiGenerationHub
-                isOpen={isAiHubOpen}
-                onClose={() => setIsAiHubOpen(false)}
-                subjectId={activeSubject?.id}
-                unitId={null} // Pass null, as the button is at the subject level
-            />
-
-            {/* Robot Icon is rendered globally as a fixed element, its position is managed by JS/CSS */}
+            <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} subjectId={activeSubject?.id} unitId={null} />
             <AnimatedRobot onClick={() => setIsChatOpen(true)} />
-             <GlobalAiSpinner isGenerating={isAiGenerating} text="Crafting content..." />
-
-            {/* Chat Dialog and Modals are already fixed/absolute, so they should overlay correctly */}
-            <ChatDialog 
-                isOpen={isChatOpen} 
-                onClose={() => {
-                    setIsChatOpen(false);
-                    setAiConversationStarted(false); // Reset conversation status when chat is closed
-                }} 
-                messages={messages} 
-                onSendMessage={handleAskAiWrapper} 
-                isAiThinking={isAiThinking}
-                userFirstName={userProfile?.firstName} 
-            />
+            <GlobalAiSpinner isGenerating={isAiGenerating} text="Crafting content..." />
+            <ChatDialog isOpen={isChatOpen} onClose={() => { setIsChatOpen(false); setAiConversationStarted(false); }} messages={messages} onSendMessage={handleAskAiWrapper} isAiThinking={isAiThinking} userFirstName={userProfile?.firstName} />
             <ArchivedClassesModal isOpen={isArchivedModalOpen} onClose={() => setIsArchivedModalOpen(false)} archivedClasses={archivedClasses} onUnarchive={handleUnarchiveClass} onDelete={(classId) => handleDeleteClass(classId, true)} />
             <EditProfileModal isOpen={isEditProfileModalOpen} onClose={() => setEditProfileModalOpen(false)} userProfile={userProfile} onUpdate={handleUpdateProfile} />
             <ChangePasswordModal isOpen={isChangePasswordModalOpen} onClose={() => setChangePasswordModalOpen(false)} onSubmit={handleChangePassword} />
@@ -881,24 +782,6 @@ const TeacherDashboardUI = (props) => {
             <EditSubjectModal isOpen={isEditSubjectModalOpen} onClose={() => setEditSubjectModalOpen(false)} subject={subjectToActOn} />
             <DeleteSubjectModal isOpen={isDeleteSubjectModalOpen} onClose={() => setDeleteSubjectModalOpen(false)} subject={subjectToActOn} />
             
-            {/* --- Temporarily Removed AI Exam Generator Modals --- */}
-            {/* <AiExamGeneratorModal 
-                isOpen={isAiExamGeneratorModalOpen}
-                onClose={() => setAiExamGeneratorModalOpen(false)}
-                onGenerate={onGenerateExam}
-                isGenerating={isGeneratingExam}
-                initialConfig={examConfig}
-            />
-            <ExamPreviewModal
-                isOpen={isExamPreviewModalOpen}
-                onClose={() => setExamPreviewModalOpen(false)}
-                examData={generatedExamData}
-                onSave={onSaveExam}
-                onRegenerate={onRegenerate}
-            /> */}
-
-
-            {/* The mobile footer is kept fixed and should now be visible */}
             <footer className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm flex justify-around md:hidden border-t border-gray-200/80 z-50">
                 {bottomNavItems.map(item => {
                     const isActive = activeView === item.view;

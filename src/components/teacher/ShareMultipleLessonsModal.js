@@ -27,7 +27,7 @@ function CustomMultiSelect({ title, options, selectedValues, onSelectionChange, 
     const renderOptions = () => {
         if (!isGrouped) {
             return options.map(({ value, label }) => (
-                <li key={value} onClick={() => onSelectionChange(value)} className="flex items-center justify-between p-2 hover:bg-slate-100 cursor-pointer rounded-md">
+                <li key={value} onClick={() => onSelectionChange(value)} className="flex items-center justify-between p-2 hover:bg-slate-100 cursor-pointer rounded-md text-sm md:text-base">
                     <span className="text-slate-700">{label}</span>
                     {selectedValues.includes(value) && <CheckIcon className="h-5 w-5 text-indigo-600" />}
                 </li>
@@ -44,11 +44,11 @@ function CustomMultiSelect({ title, options, selectedValues, onSelectionChange, 
                     {onSelectGroup && (
                         <div className="flex items-center gap-2 p-2 my-1 bg-slate-100 rounded-md sticky top-0 z-10">
                             <GroupCheckbox checked={isAllSelected} indeterminate={isPartiallySelected} onChange={() => onSelectGroup(groupName)} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
-                            <label onClick={() => onSelectGroup(groupName)} className="font-bold text-slate-800 cursor-pointer select-none flex-grow">{groupName}</label>
+                            <label onClick={() => onSelectGroup(groupName)} className="font-bold text-slate-800 cursor-pointer select-none flex-grow text-sm md:text-base">{groupName}</label>
                         </div>
                     )}
                     {groupOptions.map(({ value, label }) => (
-                        <li key={value} onClick={() => onSelectionChange(value)} className="flex items-center justify-between p-2 pl-8 hover:bg-slate-100 cursor-pointer rounded-md">
+                        <li key={value} onClick={() => onSelectionChange(value)} className="flex items-center justify-between p-2 pl-8 hover:bg-slate-100 cursor-pointer rounded-md text-sm md:text-base">
                             <span className="text-slate-700">{label}</span>
                             {selectedValues.includes(value) && <CheckIcon className="h-5 w-5 text-indigo-600" />}
                         </li>
@@ -61,11 +61,11 @@ function CustomMultiSelect({ title, options, selectedValues, onSelectionChange, 
     return (
         <div className="relative">
             <button type="button" onClick={onToggle} disabled={disabled} className="flex w-full items-center justify-between rounded-lg bg-white p-2.5 text-left text-slate-700 shadow-sm border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:cursor-not-allowed">
-                <span className="block truncate">{selectedCount > 0 ? `${selectedCount} ${title} Selected` : `Select ${title}`}</span>
+                <span className="block truncate text-sm md:text-base">{selectedCount > 0 ? `${selectedCount} ${title} Selected` : `Select ${title}`}</span>
                 <ChevronDownIcon className={`h-5 w-5 text-slate-400 transform transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
             {isOpen && (
-                <div className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm p-2">
+                <div className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none p-2">
                     <ul className="space-y-1">{renderOptions()}</ul>
                 </div>
             )}
@@ -93,9 +93,9 @@ const CustomDateTimePicker = ({ selectedDate, onDateChange, isClearable = false,
     };
     const timeValue = selectedDate ? `${String(selectedDate.getHours()).padStart(2, '0')}:${String(selectedDate.getMinutes()).padStart(2, '0')}` : '';
     return (
-        <div className="flex gap-2">
-            <PortalDatePicker className="w-2/3" selected={selectedDate} onSelect={handleDateSelect} placeholder={placeholder} enableClear={isClearable} />
-            <input type="time" value={timeValue} onChange={(e) => handleTimeSelect(e.target.value)} className="w-1/3 rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2.5 bg-white" />
+        <div className="flex flex-col sm:flex-row gap-2">
+            <PortalDatePicker className="w-full sm:w-2/3" selected={selectedDate} onSelect={handleDateSelect} placeholder={placeholder} enableClear={isClearable} />
+            <input type="time" value={timeValue} onChange={(e) => handleTimeSelect(e.target.value)} className="w-full sm:w-1/3 rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm p-2.5 bg-white" />
         </div>
     );
 };
@@ -126,7 +126,8 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     useEffect(() => {
         const fetchPrerequisites = async () => {
             if (!isOpen || !user?.id || !subject?.id) return;
-            // ... (Your existing data fetching logic remains the same)
+            
+            // Fetch Classes
             try {
                 const classesRef = collection(db, 'classes');
                 const q = query(classesRef, where('teacherId', '==', user.id));
@@ -136,8 +137,11 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 console.error("Error fetching classes: ", err);
                 setError("Failed to load classes.");
             }
+            
+            // Fetch Content (Lessons and Quizzes)
             setContentLoading(true);
             try {
+                // Fetch and sort units
                 const unitsQuery = query(collection(db, 'units'), where('subjectId', '==', subject.id));
                 const unitsSnapshot = await getDocs(unitsQuery);
                 const sortedUnits = unitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => {
@@ -147,9 +151,12 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                     };
                     return extractNumber(a.title) - extractNumber(b.title);
                 });
+
+                // Fetch lessons and group them by unit
                 const lessonsQuery = query(collection(db, 'lessons'), where('subjectId', '==', subject.id));
                 const lessonsSnapshot = await getDocs(lessonsQuery);
                 const allFetchedLessons = lessonsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), value: doc.id, label: doc.data().title }));
+                
                 const groupedLessons = {};
                 sortedUnits.forEach(unit => {
                     const lessonsForThisUnit = allFetchedLessons.filter(lesson => lesson.unitId === unit.id).sort((a, b) => a.order - b.order);
@@ -162,9 +169,12 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                     groupedLessons['Uncategorized'] = uncategorizedLessons;
                 }
                 setAllLessons(groupedLessons);
+
+                // Fetch quizzes and group them by unit
                 const quizzesQuery = query(collection(db, 'quizzes'), where('subjectId', '==', subject.id));
                 const quizzesSnapshot = await getDocs(quizzesQuery);
                 const allFetchedQuizzes = quizzesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), value: doc.id, label: doc.data().title }));
+                
                 const groupedQuizzes = {};
                 sortedUnits.forEach(unit => {
                     const lessonIdsInUnit = allFetchedLessons.filter(lesson => lesson.unitId === unit.id).map(lesson => lesson.id);
@@ -179,6 +189,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                     groupedQuizzes['Uncategorized'] = uncategorizedQuizzes;
                 }
                 setAllQuizzes(groupedQuizzes);
+
             } catch (e) {
                 console.error("Error fetching content for sharing:", e);
                 setError("Could not load content for this subject.");
@@ -194,60 +205,62 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         setters[type](prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
     };
 
-    const handleSelectUnit = (unitName) => {
-        const lessonIdsInUnit = allLessons[unitName]?.map(lesson => lesson.value) || [];
-        if (lessonIdsInUnit.length === 0) return;
-        const allSelected = lessonIdsInUnit.every(id => selectedLessons.includes(id));
-        setSelectedLessons(currentSelected => {
-            const selectedSet = new Set(currentSelected);
-            if (allSelected) {
-                lessonIdsInUnit.forEach(id => selectedSet.delete(id));
+    const handleSelectUnit = (unitName, type) => {
+        const sourceData = type === 'lesson' ? allLessons : allQuizzes;
+        const setSelected = type === 'lesson' ? setSelectedLessons : setSelectedQuizzes;
+        const currentSelected = type === 'lesson' ? selectedLessons : selectedQuizzes;
+
+        const idsInUnit = sourceData[unitName]?.map(item => item.value) || [];
+        if (idsInUnit.length === 0) return;
+
+        const allSelectedInUnit = idsInUnit.every(id => currentSelected.includes(id));
+        
+        setSelected(prevSelected => {
+            const selectedSet = new Set(prevSelected);
+            if (allSelectedInUnit) {
+                idsInUnit.forEach(id => selectedSet.delete(id));
             } else {
-                lessonIdsInUnit.forEach(id => selectedSet.add(id));
-            }
-            return Array.from(selectedSet);
-        });
-    };
-    
-    const handleSelectUnitForQuizzes = (unitName) => {
-        const quizIdsInUnit = allQuizzes[unitName]?.map(quiz => quiz.value) || [];
-        if (quizIdsInUnit.length === 0) return;
-        const allSelected = quizIdsInUnit.every(id => selectedQuizzes.includes(id));
-        setSelectedQuizzes(currentSelected => {
-            const selectedSet = new Set(currentSelected);
-            if (allSelected) {
-                quizIdsInUnit.forEach(id => selectedSet.delete(id));
-            } else {
-                quizIdsInUnit.forEach(id => selectedSet.add(id));
+                idsInUnit.forEach(id => selectedSet.add(id));
             }
             return Array.from(selectedSet);
         });
     };
 
     const handleShare = async () => {
-        // ... (Your existing handleShare logic remains the same)
         if (selectedClasses.length === 0) return setError("Please select at least one class.");
         if (selectedLessons.length === 0 && selectedQuizzes.length === 0) return setError("Please select at least one lesson or quiz.");
-        setLoading(true); setError(''); setSuccess('');
+        
+        setLoading(true); 
+        setError(''); 
+        setSuccess('');
+
         try {
             const batch = writeBatch(db);
             const contentParts = [];
             if (selectedLessons.length > 0) contentParts.push(`${selectedLessons.length} lesson(s)`);
             if (selectedQuizzes.length > 0) contentParts.push(`${selectedQuizzes.length} quiz(zes)`);
+
             for (const classId of selectedClasses) {
                 const postTitle = `New materials shared for ${subject.title}`;
                 const postContent = `The following materials are now available: ${contentParts.join(' and ')}.`;
                 const newPostRef = doc(collection(db, `classes/${classId}/posts`));
+                
                 let postData = {
-                    title: postTitle, content: postContent, author: user.displayName || 'Teacher',
-                    createdAt: serverTimestamp(), subjectId: subject.id,
+                    title: postTitle, 
+                    content: postContent, 
+                    author: user.displayName || 'Teacher',
+                    createdAt: serverTimestamp(), 
+                    subjectId: subject.id,
                     availableFrom: Timestamp.fromDate(availableFrom),
                     availableUntil: availableUntil ? Timestamp.fromDate(availableUntil) : null,
                 };
+                
                 if (selectedLessons.length > 0) postData.lessonIds = selectedLessons;
                 if (selectedQuizzes.length > 0) postData.quizIds = selectedQuizzes;
+                
                 batch.set(newPostRef, postData);
             }
+            
             await batch.commit();
             setSuccess(`Successfully shared materials to ${selectedClasses.length} class(es).`);
             setTimeout(() => handleClose(), 2000);
@@ -260,10 +273,13 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     };
 
     const handleClose = () => {
-        setSelectedClasses([]); setSelectedLessons([]); setSelectedQuizzes([]);
+        setSelectedClasses([]); 
+        setSelectedLessons([]); 
+        setSelectedQuizzes([]);
         setAvailableFrom(new Date());
         setAvailableUntil(null);
-        setError(''); setSuccess(''); 
+        setError(''); 
+        setSuccess(''); 
         setAllLessons({}); 
         setAllQuizzes({});
         setActiveDropdown(null);
@@ -274,74 +290,76 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
 
     return (
         <Dialog open={isOpen} onClose={handleClose} static={true} className="z-[100]">
-            {/* --- FIX: The DialogPanel is now a flex container to manage layout --- */}
-            <DialogPanel className="w-full flex flex-col transform rounded-2xl bg-slate-100 text-left align-middle shadow-xl transition-all max-w-2xl md:max-w-[75vw] md:h-[90vh] md:max-h-[900px] md:mx-auto">
-                
-                {/* --- HEADER (No Overflow) --- */}
-                <div className="flex-shrink-0 p-6 md:p-8 pb-4">
-                    <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-4">
-                            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-3 rounded-xl shadow-lg">
-                                <ShareIcon className="h-6 w-6 text-white" />
+             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" />
+             <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
+                <DialogPanel className="w-full flex flex-col transform rounded-2xl bg-slate-50 text-left align-middle shadow-xl transition-all max-w-4xl h-full md:h-[90vh] md:max-h-[900px]">
+                    
+                    {/* --- HEADER (Fixed) --- */}
+                    <div className="flex-shrink-0 p-4 md:p-6 pb-4 border-b border-slate-200">
+                        <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-3 md:gap-4">
+                                <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-3 rounded-xl shadow-lg">
+                                    <ShareIcon className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg md:text-xl font-bold text-slate-800">Share Content</h2>
+                                    <p className="text-xs md:text-sm text-slate-500">Share from "{subject.title}"</p>
+                                </div>
                             </div>
-                            <div>
-                                <h2 className="text-xl font-bold text-slate-800">Share Content</h2>
-                                <p className="text-sm text-slate-500">Share from "{subject.title}"</p>
-                            </div>
+                            <button onClick={handleClose} className="p-1.5 rounded-full text-slate-400 hover:bg-slate-200 transition-colors">
+                                <XMarkIcon className="w-5 h-5" />
+                            </button>
                         </div>
-                        <button onClick={handleClose} className="p-1.5 rounded-full text-slate-400 hover:bg-slate-200">
-                            <XMarkIcon className="w-5 h-5" />
-                        </button>
                     </div>
-                </div>
 
-                {/* --- SCROLLABLE CONTENT AREA --- */}
-                <div className="flex-grow overflow-y-auto px-6 md:px-8 custom-scrollbar">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                        {/* --- Left Column --- */}
-                        <div className="space-y-6">
-                            <div className="p-4 bg-white rounded-xl shadow">
-                                <label className="text-base font-semibold text-slate-800 mb-2 block">1. Share With</label>
-                                <CustomMultiSelect title="Classes" options={classes} selectedValues={selectedClasses} onSelectionChange={(id) => handleSelection(id, 'class')} disabled={contentLoading} isOpen={activeDropdown === 'classes'} onToggle={() => handleToggleDropdown('classes')} />
-                            </div>
-                            <div className="p-4 bg-white rounded-xl shadow">
-                                <label className="text-base font-semibold text-slate-800 mb-2 block">2. Set Availability</label>
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-600 mb-1">Available From</label>
-                                        <CustomDateTimePicker selectedDate={availableFrom} onDateChange={setAvailableFrom} placeholder="Select start date and time" isClearable={false} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-600 mb-1">Available Until (Optional)</label>
-                                        <CustomDateTimePicker selectedDate={availableUntil} onDateChange={setAvailableUntil} placeholder="No end date or time" isClearable={true} />
+                    {/* --- SCROLLABLE CONTENT AREA --- */}
+                    <div className="flex-grow overflow-y-auto p-4 md:p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 md:gap-y-6">
+                            {/* --- Left Column --- */}
+                            <div className="space-y-4 md:space-y-6">
+                                <div className="p-4 bg-white rounded-xl shadow-sm border">
+                                    <label className="text-base font-semibold text-slate-800 mb-2 block">1. Share With</label>
+                                    <CustomMultiSelect title="Classes" options={classes} selectedValues={selectedClasses} onSelectionChange={(id) => handleSelection(id, 'class')} disabled={contentLoading} isOpen={activeDropdown === 'classes'} onToggle={() => handleToggleDropdown('classes')} />
+                                </div>
+                                <div className="p-4 bg-white rounded-xl shadow-sm border">
+                                    <label className="text-base font-semibold text-slate-800 mb-2 block">2. Set Availability</label>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-600 mb-1">Available From</label>
+                                            <CustomDateTimePicker selectedDate={availableFrom} onDateChange={setAvailableFrom} placeholder="Select start date and time" isClearable={false} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-600 mb-1">Available Until (Optional)</label>
+                                            <CustomDateTimePicker selectedDate={availableUntil} onDateChange={setAvailableUntil} placeholder="No end date or time" isClearable={true} />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        {/* --- Right Column --- */}
-                        <div className="p-4 bg-white rounded-xl shadow">
-                            <label className="text-base font-semibold text-slate-800 mb-2 block">3. Choose Content</label>
-                            <div className="space-y-3">
-                                <CustomMultiSelect title="Lessons" options={allLessons} selectedValues={selectedLessons} onSelectionChange={(id) => handleSelection(id, 'lesson')} onSelectGroup={handleSelectUnit} disabled={contentLoading} isOpen={activeDropdown === 'lessons'} onToggle={() => handleToggleDropdown('lessons')} />
-                                <CustomMultiSelect title="Quizzes" options={allQuizzes} selectedValues={selectedQuizzes} onSelectionChange={(id) => handleSelection(id, 'quiz')} onSelectGroup={handleSelectUnitForQuizzes} disabled={contentLoading} isOpen={activeDropdown === 'quizzes'} onToggle={() => handleToggleDropdown('quizzes')} />
+                            {/* --- Right Column --- */}
+                            <div className="p-4 bg-white rounded-xl shadow-sm border">
+                                <label className="text-base font-semibold text-slate-800 mb-2 block">3. Choose Content</label>
+                                <div className="space-y-3">
+                                    <CustomMultiSelect title="Lessons" options={allLessons} selectedValues={selectedLessons} onSelectionChange={(id) => handleSelection(id, 'lesson')} onSelectGroup={(unitName) => handleSelectUnit(unitName, 'lesson')} disabled={contentLoading} isOpen={activeDropdown === 'lessons'} onToggle={() => handleToggleDropdown('lessons')} />
+                                    <CustomMultiSelect title="Quizzes" options={allQuizzes} selectedValues={selectedQuizzes} onSelectionChange={(id) => handleSelection(id, 'quiz')} onSelectGroup={(unitName) => handleSelectUnit(unitName, 'quiz')} disabled={contentLoading} isOpen={activeDropdown === 'quizzes'} onToggle={() => handleToggleDropdown('quizzes')} />
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {/* --- FOOTER (No Overflow) --- */}
-                <div className="flex-shrink-0 p-6 md:p-8 pt-6 border-t border-slate-200">
-                    {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
-                    {success && <p className="text-green-600 text-sm mb-4 text-center">{success}</p>}
-                    <div className="flex justify-end gap-3">
-                        <Button variant="secondary" onClick={handleClose} disabled={loading}>Cancel</Button>
-                        <button onClick={handleShare} disabled={loading || contentLoading || thingsToShareCount === 0} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg shadow-md hover:shadow-xl hover:scale-[1.02] transform transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed">
-                            <ShareIcon className="h-5 w-5"/>
-                            {loading ? 'Sharing...' : `Share ${thingsToShareCount} Item(s)`}
-                        </button>
+                    {/* --- FOOTER (Fixed) --- */}
+                    <div className="flex-shrink-0 p-4 md:p-6 pt-4 border-t border-slate-200">
+                        {error && <p className="text-red-500 text-sm mb-3 text-center">{error}</p>}
+                        {success && <p className="text-green-600 text-sm mb-3 text-center">{success}</p>}
+                        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                            <Button variant="secondary" onClick={handleClose} disabled={loading}>Cancel</Button>
+                            <button onClick={handleShare} disabled={loading || contentLoading || thingsToShareCount === 0 || selectedClasses.length === 0} className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg shadow-md hover:shadow-lg hover:scale-[1.02] transform transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100">
+                                <ShareIcon className="h-5 w-5"/>
+                                {loading ? 'Sharing...' : `Share ${thingsToShareCount} Item(s)`}
+                            </button>
+                        </div>
                     </div>
-                </div>
-            </DialogPanel>
+                </DialogPanel>
+            </div>
         </Dialog>
     );
 }
