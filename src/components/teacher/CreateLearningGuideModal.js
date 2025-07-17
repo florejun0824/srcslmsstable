@@ -174,10 +174,15 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 **CRITICAL JSON FORMATTING RULES (NON-NEGOTIABLE):**
                 1.  **Entire response MUST be a single JSON object.**
                 2.  **No Trailing Commas.**
-                **OTHER CRITICAL INSTRUCTIONS:**
-                3.  **Intelligent SVG Diagram Generation:** If a diagram is needed, it should be clean, informative, and well-designed.
-                4.  ${languageInstruction}
-                5.  ${formatSpecificInstructions}
+                
+                **ABSOLUTE RULE FOR DIAGRAMS (NON-NEGOTIABLE):**
+                When a diagram is necessary to explain a concept (e.g., photosynthesis, parts of a cell, a historical timeline), you MUST generate a clean, modern, and informative SVG diagram.
+                - The page 'type' MUST be set to "diagram-data".
+                - The page 'content' MUST contain the full, valid, and complete SVG code as a string (e.g., "<svg width='100' height='100' xmlns='http://www.w3.org/2000/svg'>...</svg>").
+                - **UNDER NO CIRCUMSTANCES** should you ever return a textual description of a diagram, an image URL, or a placeholder. You must generate the SVG code itself. Failure to provide SVG code for a diagram will be considered a failed response.
+                
+                ${languageInstruction}
+                ${formatSpecificInstructions}
             `;
             let finalPrompt;
             const isRegeneration = !!regenerationNote && !!previewData;
