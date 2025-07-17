@@ -1,7 +1,88 @@
 import React, { useState, useEffect } from 'react';
-import { AnimatePresence, motion, useSpring, useTransform } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 
-// Expanded and more creative loading messages
+// --- Animation Styles ---
+// Styles for the rotating rings, RGB effect, and the animated book.
+const animationStyles = `
+    .loader-container {
+        perspective: 800px;
+    }
+    .ring {
+        position: absolute;
+        border-radius: 50%;
+        border-style: solid;
+        opacity: 0.9;
+    }
+    /* --- ROTATION KEYFRAMES (unchanged) --- */
+    @keyframes rotate-one {
+        0% { transform: rotateX(65deg) rotateZ(0deg); }
+        100% { transform: rotateX(65deg) rotateZ(360deg); }
+    }
+    @keyframes rotate-two {
+        0% { transform: rotateX(65deg) rotateZ(0deg); }
+        100% { transform: rotateX(65deg) rotateZ(-360deg); }
+    }
+    @keyframes rotate-three {
+        0% { transform: rotateX(0deg) rotateY(55deg) rotateZ(0deg); }
+        100% { transform: rotateX(0deg) rotateY(55deg) rotateZ(360deg); }
+    }
+    @keyframes rotate-four {
+        0% { transform: rotateX(0deg) rotateY(55deg) rotateZ(0deg); }
+        100% { transform: rotateX(0deg) rotateY(55deg) rotateZ(-360deg); }
+    }
+
+    /* --- NEW RGB/HUE-ROTATE KEYFRAME --- */
+    @keyframes rgb-cycle {
+        0% { filter: hue-rotate(0deg); }
+        100% { filter: hue-rotate(360deg); }
+    }
+
+    /* --- UPDATED RING STYLES WITH RGB ANIMATION --- */
+    .ring-1 {
+        border-width: 3px;
+        /* A bright base color for the hue rotation */
+        border-color: #ff00de transparent #ff00de transparent;
+        /* Combine rotation and color cycle animations */
+        animation: rotate-one 3s linear infinite, rgb-cycle 4s linear infinite;
+    }
+    .ring-2 {
+        border-width: 3px;
+        border-color: transparent #00f2ff transparent #00f2ff;
+        animation: rotate-two 3s linear infinite, rgb-cycle 4s linear infinite;
+        /* Add a delay to the color cycle so it's out of sync with ring 1 */
+        animation-delay: 0s, -1s;
+    }
+    .ring-3 {
+        border-width: 3px;
+        border-color: #ff00de transparent #ff00de transparent;
+        animation: rotate-three 2.5s linear infinite, rgb-cycle 4s linear infinite;
+        /* Add a different delay */
+        animation-delay: 0s, -2s;
+    }
+    .ring-4 {
+        border-width: 3px;
+        border-color: transparent #00f2ff transparent #00f2ff;
+        animation: rotate-four 2.5s linear infinite, rgb-cycle 4s linear infinite;
+        /* Add a different delay */
+        animation-delay: 0s, -3s;
+    }
+
+    /* --- BOOK ANIMATION (unchanged) --- */
+    @keyframes turn-page {
+        0%, 25% {
+            transform: rotateY(0deg);
+        }
+        50%, 100% {
+            transform: rotateY(-180deg);
+        }
+    }
+    .page-flipper {
+        transform-origin: left center;
+        animation: turn-page 4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+    }
+`;
+
+// Creative loading messages
 const loadingMessages = [
     "Brewing up some brilliant ideas...",
     "Assembling atoms of knowledge...",
@@ -19,141 +100,66 @@ const loadingMessages = [
     "The neural network is firing on all cylinders!",
 ];
 
-// A more visually engaging SVG animation component
-const ThinkingAnimation = () => (
-    <div className="relative w-24 h-24 md:w-28 md:h-28">
-        {/* Base brain icon with a subtle gradient */}
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute inset-0 w-full h-full text-indigo-200 opacity-50">
-            <defs>
-                <linearGradient id="brainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#A5B4FC" />
-                    <stop offset="100%" stopColor="#C7D2FE" />
-                </linearGradient>
-            </defs>
-            <path d="M12 2a4.5 4.5 0 00-4.5 4.5c0 1.04.36 2.08.98 2.92C7.16 11.48 6 13.62 6 16c0 2.21 1.79 4 4 4h4c2.21 0 4-1.79 4-4 0-2.38-1.16-4.52-2.48-6.58.62-.84.98-1.88.98-2.92A4.5 4.5 0 0012 2zm0 2c1.38 0 2.5 1.12 2.5 2.5S13.38 9 12 9s-2.5-1.12-2.5-2.5S10.62 4 12 4z" fill="url(#brainGradient)" />
-        </svg>
+// Updated book component with blue and white colors
+const AnimatedBook = () => (
+    <svg
+        width="60"
+        height="60"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+    >
+        {/* Book Cover */}
+        <path d="M4 19.5A2.5 2.5 0 016.5 17H20v2H6.5A2.5 2.5 0 014 19.5z" fill="#2563eb" />
+        <path d="M4 4.5A2.5 2.5 0 016.5 2H20v2H6.5A2.5 2.5 0 014 4.5z" fill="#2563eb" />
+        {/* Pages */}
+        <g className="page-flipper" style={{ animationDelay: '0s' }}>
+            <path d="M4 4.5A2.5 2.5 0 016.5 2H12v17.5H6.5A2.5 2.5 0 014 17V4.5z" fill="#ffffff" />
+        </g>
+         <g className="page-flipper" style={{ animationDelay: '-0.2s' }}>
+            <path d="M4 4.5A2.5 2.5 0 016.5 2H12v17.5H6.5A2.5 2.5 0 014 17V4.5z" fill="#dbeafe" />
+        </g>
+        <path d="M12 2h8.5A2.5 2.5 0 0123 4.5v12.5a2.5 2.5 0 01-2.5 2.5H12V2z" fill="#3b82f6" />
+    </svg>
+);
 
-        {/* Animated "thinking" pulses */}
-        <div className="absolute inset-0">
-            <span className="absolute block w-3 h-3 bg-indigo-500 rounded-full animate-pulse" style={{ top: '30%', left: '45%', animationDelay: '0s' }}></span>
-            <span className="absolute block w-2 h-2 bg-purple-500 rounded-full animate-pulse" style={{ top: '45%', left: '30%', animationDelay: '0.2s' }}></span>
-            <span className="absolute block w-3 h-3 bg-indigo-500 rounded-full animate-pulse" style={{ top: '60%', left: '60%', animationDelay: '0.4s' }}></span>
-            <span className="absolute block w-2 h-2 bg-purple-500 rounded-full animate-pulse" style={{ top: '25%', left: '65%', animationDelay: '0.6s' }}></span>
-        </div>
+
+// The animation component, now with a child for the center element
+const RotatingRingsAnimation = ({ children }) => (
+    <div className="relative w-48 h-48 mx-auto mb-8 loader-container flex items-center justify-center">
+        {/* The centered element */}
+        <div className="absolute z-10">{children}</div>
+        {/* The rings */}
+        <div className="ring ring-1 w-48 h-48"></div>
+        <div className="ring ring-2 w-48 h-48"></div>
+        <div className="ring ring-3 w-36 h-36"></div>
+        <div className="ring ring-4 w-36 h-36"></div>
     </div>
 );
 
-// New Progress Circle Component
-const ProgressCircle = ({ progress }) => {
-    const size = 140;
-    const strokeWidth = 10;
-    const radius = (size - strokeWidth) / 2;
-    const circumference = radius * 2 * Math.PI;
-
-    // Animate the progress value for a smooth counter
-    const animatedProgress = useSpring(0, {
-        stiffness: 100,
-        damping: 30,
-        restDelta: 0.001
-    });
-
-    useEffect(() => {
-        animatedProgress.set(progress);
-    }, [animatedProgress, progress]);
-
-    const displayProgress = useTransform(animatedProgress, (v) => Math.round(v));
-
-    return (
-        <div className="relative" style={{ width: size, height: size }}>
-            <motion.svg
-                width={size}
-                height={size}
-                viewBox={`0 0 ${size} ${size}`}
-                className="-rotate-90"
-            >
-                <defs>
-                    <linearGradient id="progressGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#818CF8" />
-                        <stop offset="100%" stopColor="#A78BFA" />
-                    </linearGradient>
-                </defs>
-                <circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    strokeWidth={strokeWidth}
-                    className="stroke-slate-200"
-                    fill="transparent"
-                />
-                <motion.circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    strokeWidth={strokeWidth}
-                    stroke="url(#progressGradient)"
-                    fill="transparent"
-                    strokeLinecap="round"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={useTransform(animatedProgress, v => circumference - (v / 100) * circumference)}
-                />
-            </motion.svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-                 <motion.span className="text-xl font-bold text-slate-700">
-                    {displayProgress}
-                </motion.span>
-                <span className="text-sm font-bold text-slate-500">%</span>
-            </div>
-        </div>
-    );
-};
-
-
-const InteractiveLoadingScreen = ({ topic, isSaving, generationProgress }) => {
+const InteractiveLoadingScreen = ({ topic = "your topic", isSaving = false }) => {
     const [messageIndex, setMessageIndex] = useState(0);
-    // This state is for demonstration purposes only.
-    // In a real app, `generationProgress` would be passed as a prop from the parent component.
-    const [simulatedProgress, setSimulatedProgress] = useState(0);
 
     useEffect(() => {
-        if (isSaving || generationProgress) return; // Don't simulate if saving or if real progress is provided
-
-        // Simulate progress from 0 to 99 over a few seconds
-        const interval = setInterval(() => {
-            setSimulatedProgress(prev => {
-                if (prev >= 99) {
-                    clearInterval(interval);
-                    return 99;
-                }
-                return prev + 1;
-            });
-        }, 80); // Adjust timing as needed
-
-        return () => clearInterval(interval);
-    }, [isSaving, generationProgress]);
-
-    useEffect(() => {
-        if (isSaving) return; // Don't cycle messages when saving
-
+        if (isSaving) return;
         const interval = setInterval(() => {
             setMessageIndex(prevIndex => (prevIndex + 1) % loadingMessages.length);
-        }, 3500); // Change message every 3.5 seconds
-
+        }, 3500);
         return () => clearInterval(interval);
     }, [isSaving]);
 
     const currentMessage = isSaving ? "Almost there..." : loadingMessages[messageIndex];
-    const progress = generationProgress !== undefined ? generationProgress : simulatedProgress;
 
     return (
-        <div className="flex flex-col items-center justify-center text-center p-6 bg-gradient-to-br from-slate-50 to-gray-100 rounded-lg">
-            <div className="relative flex items-center justify-center mb-6">
-                <ProgressCircle progress={progress} />
-                <div className="absolute">
-                    <ThinkingAnimation />
-                </div>
-            </div>
+        // Using a light theme
+        <div className="flex flex-col items-center justify-center text-center p-6 bg-white rounded-lg min-h-screen text-slate-800">
+            <style>{animationStyles}</style>
             
-            <h2 className="text-lg md:text-xl font-bold text-slate-800 mb-2">
+            <RotatingRingsAnimation>
+                <AnimatedBook />
+            </RotatingRingsAnimation>
+            
+            <h2 className="text-lg md:text-xl font-bold text-slate-800 mb-2 tracking-wide">
                 {isSaving ? 'Saving Your Work...' : `Generating Lesson on "${topic}"`}
             </h2>
 
@@ -175,4 +181,13 @@ const InteractiveLoadingScreen = ({ topic, isSaving, generationProgress }) => {
     );
 };
 
-export default InteractiveLoadingScreen;
+// Main App component to render the loading screen
+function App() {
+    return (
+        <div className="bg-white">
+             <InteractiveLoadingScreen />
+        </div>
+    );
+}
+
+export default App;
