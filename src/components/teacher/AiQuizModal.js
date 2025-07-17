@@ -68,7 +68,6 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
     };
 
     const constructPrompt = (isRevision = false) => {
-        // This function is correct. No changes needed.
         if (isRevision && generatedQuiz) {
               const quizJson = JSON.stringify(generatedQuiz, null, 2);
               return `You are a quiz editor. The user has provided a quiz in JSON format and an instruction for revision. Your task is to apply the revision and return the **complete, updated, and valid JSON object** of the quiz. 
@@ -195,20 +194,6 @@ You MUST order the choices in the "options" array according to the following log
             const cleanedLessonTitle = lesson.title.replace(/Lesson\s*\d+:\s*/i, '').trim();
             const newQuizTitle = `Quiz: ${cleanedLessonTitle}`;
 
-<<<<<<< HEAD
-	        const quizRef = doc(collection(db, 'quizzes'));
-        
-	        await setDoc(quizRef, {
-	            ...generatedQuiz,
-	            title: newQuizTitle,
-	            language: language,
-	            unitId: lesson.unitId || unitId, 
-	            subjectId,
-	            lessonId: lesson.id,
-	            createdAt: serverTimestamp(),
-	            createdBy: 'AI'
-	        });
-=======
             const quizRef = doc(collection(db, 'quizzes'));
             
             await setDoc(quizRef, {
@@ -222,7 +207,6 @@ You MUST order the choices in the "options" array according to the following log
                 createdAt: serverTimestamp(),
                 createdBy: 'AI'
             });
->>>>>>> f328ad980eceebbcbe5cb2bbbe42e14eff37224f
 
             setStep(4);
             showToast("Quiz saved successfully!", "success");
@@ -311,15 +295,10 @@ You MUST order the choices in the "options" array according to the following log
                 
             case 3:
                 return (
-                    <div className="flex flex-col h-full"> {/* Added flex-col and h-full */}
+                    <div className="flex flex-col h-full">
                         <Title>Step 3: Preview & Revise</Title>
                         <Subtitle>Review the generated quiz and request changes if needed.</Subtitle>
-<<<<<<< HEAD
-                        {/* CORRECTED: Removed max-h and overflow from this div */}
-                        <div className="mt-4 p-4 border rounded-lg bg-gray-50">
-=======
-                        <div className="mt-4 p-4 border rounded-lg overflow-y-auto flex-grow bg-gray-50"> {/* Removed fixed max-h, added flex-grow */}
->>>>>>> f328ad980eceebbcbe5cb2bbbe42e14eff37224f
+                        <div className="mt-4 p-4 border rounded-lg overflow-y-auto flex-grow bg-gray-50">
                             <h3 className="font-bold text-lg mb-2 text-gray-800">{generatedQuiz?.title}</h3>
                             {generatedQuiz?.questions.map((q, i) => (
                                 <div key={i} className="mb-4 text-sm p-3 bg-white rounded-md shadow-sm">
@@ -419,10 +398,7 @@ You MUST order the choices in the "options" array according to the following log
             <Dialog open={isOpen} onClose={onClose} className="relative z-50">
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" />
                 <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-<<<<<<< HEAD
-                    {/* CORRECTED: Replaced the DialogPanel structure */}
                     <DialogPanel className="max-w-md w-full bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh] transition-all">
-                        {/* Main Content Area: This div will now scroll if content is too long */}
                         <div className="flex-1 overflow-y-auto p-6">
                             {isGenerating ? (
                                 <QuizLoadingScreen />
@@ -433,16 +409,8 @@ You MUST order the choices in the "options" array according to the following log
                                 <p className="text-sm text-red-500 mt-4 text-center">{error}</p>
                             )}
                         </div>
-                        {/* Footer Area: This div will remain sticky at the bottom */}
                         {!isGenerating && (
                             <div className="flex-shrink-0 px-6 py-4 border-t">
-=======
-                    <DialogPanel className="max-w-md w-full bg-white p-6 rounded-2xl shadow-xl transition-all flex flex-col max-h-[90vh]"> {/* Added flex flex-col and max-h-[90vh] */}
-                        {isGenerating ? <QuizLoadingScreen /> : renderStepContent()}
-                        {error && !isGenerating && <p className="text-sm text-red-500 mt-4 text-center">{error}</p>}
-                        {!isGenerating && (
-                            <div className="mt-8 pt-6 border-t shrink-0"> {/* Added shrink-0 */}
->>>>>>> f328ad980eceebbcbe5cb2bbbe42e14eff37224f
                                 {renderButtons()}
                             </div>
                         )}
