@@ -147,9 +147,9 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 				**CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
                 For all scientific content, especially in subjects like Science, Chemistry, Physics, and Math, you MUST use LaTeX for all chemical formulas and mathematical equations.
                 - Enclose ALL LaTeX expressions in single dollar signs ($...$).
-                - For subscripts, use an underscore. For example, to write H₂O, you MUST write `$H_2O$`.
-                - For superscripts (like ions or exponents), use a caret. For example, to write Ca²⁺, you MUST write `$Ca^{2+}$`.
-                - This is a strict requirement. Do not write plain text like 'H2O' or 'x = 2'. Always use LaTeX formatting like `$H_2O$` or `$x = 2$`.
+                - For subscripts, use an underscore. For example, to write H₂O, you MUST write \`$H_2O$\`.
+                - For superscripts (like ions or exponents), use a caret. For example, to write Ca²⁺, you MUST write \`$Ca^{2+}$\`.
+                - This is a strict requirement. Do not write plain text like 'H2O' or 'x = 2'. Always use LaTeX formatting like \`$H_2O$\` or \`$x = 2$\`.
 				
                 **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section (e.g., explaining the "Legislative Branch") is too long for one page and its discussion must continue onto the next page (or multiple subsequent pages), the heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page where the topic is introduced.
                 **ALL** subsequent pages that are continuations of that same topic **MUST** have an empty string for their title: \`"title": ""\`.
@@ -174,6 +174,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 
                 **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide real, verifiable academic or reputable web sources. Do NOT invent sources. Every last page of the lesson should have references on it.
             `;
+
             const languageInstruction = `
                 **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
             `;
@@ -189,10 +190,10 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 
                 **CRITICAL SVG STYLING AND LAYOUT RULES:**
                 To prevent visual issues, every generated SVG MUST adhere to these styling rules:
-                1.  **Font Size:** Use a small, consistent font size for all text labels, such as `font-size="8px"` or `font-size="10px"`, to ensure text fits within the diagram.
-                2.  **Text Layout & Wrapping:** For labels with more than one word, you MUST use `<tspan>` elements to break the text into multiple lines. This prevents text from overflowing. Position text labels with adequate padding so they do not overlap with other text or diagram elements.
-                3.  **Responsive Sizing:** The root `<svg>` element MUST include a `viewBox` attribute (e.g., `viewBox="0 0 200 150"`) to ensure the diagram scales correctly without distortion.
-                4.  **Clean Design:** Keep the design simple. Use clean lines (e.g., `stroke-width="1"`) and a professional, limited color palette.
+                1.  **Font Size:** Use a small, consistent font size for all text labels, such as \`font-size="8px"\` or \`font-size="10px"\`, to ensure text fits within the diagram.
+                2.  **Text Layout & Wrapping:** For labels with more than one word, you MUST use \`<tspan>\` elements to break the text into multiple lines. This prevents text from overflowing. Position text labels with adequate padding so they do not overlap with other text or diagram elements.
+                3.  **Responsive Sizing:** The root \`<svg>\` element MUST include a \`viewBox\` attribute (e.g., \`viewBox="0 0 200 150"\`) to ensure the diagram scales correctly without distortion.
+                4.  **Clean Design:** Keep the design simple. Use clean lines (e.g., \`stroke-width="1"\`) and a professional, limited color palette.
 
                 - **UNDER NO CIRCUMSTANCES** should you ever return a textual description of a diagram, an image URL, or a placeholder. You must generate the SVG code itself. Failure to provide SVG code for a diagram will be considered a failed response.
                 
