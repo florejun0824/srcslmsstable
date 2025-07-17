@@ -143,13 +143,13 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 ${perspectiveInstruction}
 
                 **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the science or the concept. Introduce key figures, explore historical context, and delve into fascinating real-world applications. Use vivid analogies and metaphors to illuminate complex ideas. The content should flow logically and build on itself, like a well-structured story.
-                
 				**CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
-                For all scientific content, especially in subjects like Science, Chemistry, Physics, and Math, you MUST use LaTeX for all chemical formulas and mathematical equations.
-                - Enclose ALL LaTeX expressions in single dollar signs ($...$).
-                - For subscripts, use an underscore. For example, to write H₂O, you MUST write \`$H_2O$\`.
-                - For superscripts (like ions or exponents), use a caret. For example, to write Ca²⁺, you MUST write \`$Ca^{2+}$\`.
-                - This is a strict requirement. Do not write plain text like 'H2O' or 'x = 2'. Always use LaTeX formatting like \`$H_2O$\` or \`$x = 2$\`.
+                You MUST use LaTeX for all mathematical equations, variables, and chemical formulas.
+                - **Rule:** Every LaTeX expression MUST start with a single dollar sign (\`$\`) and end with a single dollar sign (\`$\`). There are no exceptions.
+                - **Example (Equation):** To write F = ma, you MUST write \`$F = ma$\`.
+                - **Example (Chemical Formula):** To write H₂O, you MUST write \`$H_2O$\`.
+                - **Example (Variable):** To refer to the variable 'x' in an equation, you MUST write \`$x$\`.
+                - **CRITICAL CHECK:** Before finishing, ensure every opening \`$\` has a corresponding closing \`$\`. Incomplete expressions like \`$F = ma\` are strictly forbidden and will result in a failed response.
 				
                 **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section (e.g., explaining the "Legislative Branch") is too long for one page and its discussion must continue onto the next page (or multiple subsequent pages), the heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page where the topic is introduced.
                 **ALL** subsequent pages that are continuations of that same topic **MUST** have an empty string for their title: \`"title": ""\`.
