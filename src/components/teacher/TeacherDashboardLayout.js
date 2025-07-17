@@ -69,10 +69,61 @@ const TeacherDashboardLayout = (props) => {
     const [categoryToEdit, setCategoryToEdit] = useState(null);
     const [isEditCategoryModalOpen, setIsEditCategoryModalOpen] = useState(false);
     const { showToast } = useToast();
-
+    
     // ✅ FIXED: Declared setPreselectedCategoryForCourseModal using useState
     const [preselectedCategoryForCourseModal, setPreselectedCategoryForCourseModal] = useState(null);
 
+    // --- CORRECTED CODE: Added state and handlers for deletion ---
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+
+    // This function opens the confirmation modal
+    const handleInitiateDelete = (type, id, name) => {
+        setDeleteTarget({ type, id, name });
+        setIsDeleteModalOpen(true);
+    };
+
+    // This function contains the actual deletion logic
+    const handleConfirmDelete = async () => {
+        if (!deleteTarget) return;
+
+        const { type, name } = deleteTarget;
+        setIsAiGenerating(true); // Show a loading spinner
+
+        try {
+            if (type === 'category') {
+                // Find all subjects/courses that belong to this category
+                const coursesInCategoryQuery = query(collection(db, 'courses'), where('category', '==', name));
+                const querySnapshot = await getDocs(coursesInCategoryQuery);
+
+                if (querySnapshot.empty) {
+                    showToast(`Category "${name}" is already empty. No subjects to delete.`, "info");
+                } else {
+                    // Use a batch write to delete all found subjects at once
+                    const batch = writeBatch(db);
+                    querySnapshot.forEach(docSnapshot => {
+                        batch.delete(doc(db, 'courses', docSnapshot.id));
+                    });
+
+                    // Commit the batch to execute the deletions
+                    await batch.commit();
+                    showToast(`Successfully deleted category "${name}" and all its subjects.`, "success");
+                }
+            } else {
+                // You can add logic for other deletion types here in the future
+                console.log(`Deletion logic for type "${type}" needs to be implemented.`);
+                showToast(`Deletion for "${type}" is not yet implemented.`, "warning");
+            }
+        } catch (error) {
+            console.error(`Error deleting ${type}:`, error);
+            showToast(`Failed to delete ${type}. Please try again.`, "error");
+        } finally {
+            setIsAiGenerating(false); // Hide the loading spinner
+            setIsDeleteModalOpen(false);
+            setDeleteTarget(null);
+        }
+    };
+    // --- END OF CORRECTION ---
 
     useEffect(() => {
         const q = query(collection(db, 'courses'));
@@ -160,6 +211,8 @@ const TeacherDashboardLayout = (props) => {
                             courseCategories={courseCategories}
                             handleEditCategory={handleEditCategory}
                             onAddSubjectClick={handleAddSubjectWithCategory} 
+                            // Pass the new delete handler to CoursesView
+                            handleInitiateDelete={handleInitiateDelete}
                         />;
             case 'studentManagement':
                 return <StudentManagementView {...rest} />;
@@ -217,24 +270,13 @@ const TeacherDashboardLayout = (props) => {
                         </button>
                         <div className="flex-1"></div>
                         <div className="flex items-center gap-4 px-2">
-                            {/* Removed the Notifications Bell */}
-                            {/* <button className="relative p-2 rounded-full text-gray-600 hover:bg-gray-100 transition-colors" title="Notifications">
-                                <BellIcon className="h-5 w-5" />
-                                {unreadNotificationsCount > 0 && (
-                                    <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full transform translate-x-1/2 -translate-y-1/2">
-                                        {unreadNotificationsCount}
-                                    </span>
-                                )}
-                            </button> */}
-
                             <div className="flex items-center gap-2 border-l border-gray-200 pl-4">
                                 <div onClick={() => handleViewChange('profile')} className="flex items-center gap-2 cursor-pointer transition-colors hover:text-primary-600" title="View Profile">
                                     <UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="sm" />
                                     <span className="hidden sm:block font-medium text-gray-700">{userProfile?.firstName || 'Profile'}</span>
                                 </div>
-                                {/* Enhanced Logout Button */}
                                 <button onClick={logout} className="flex items-center p-2.5 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-700 transition-colors" title="Logout">
-                                    <ArrowLeftOnRectangleIcon className="h-6 w-6" /> {/* Increased icon size */}
+                                    <ArrowLeftOnRectangleIcon className="h-6 w-6" />
                                 </button>
                             </div>
                         </div>
@@ -287,7 +329,6 @@ const TeacherDashboardLayout = (props) => {
             )}
 
             <CreateClassModal isOpen={rest.isCreateClassModalOpen} onClose={() => rest.setCreateClassModalOpen(false)} teacherId={user?.uid || user?.id} />
-            {/* Pass preselectedCategoryForCourseModal and reset it on close */}
             <CreateCourseModal 
                 isOpen={rest.isCreateCourseModalOpen} 
                 onClose={() => {
@@ -308,7 +349,15 @@ const TeacherDashboardLayout = (props) => {
             {rest.selectedLesson && <EditLessonModal isOpen={rest.editLessonModalOpen} onClose={() => rest.setEditLessonModalOpen(false)} lesson={rest.selectedLesson} />}
             {rest.selectedLesson && <ViewLessonModal isOpen={rest.viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={rest.selectedLesson} />}
             {activeSubject && (<ShareMultipleLessonsModal isOpen={rest.isShareContentModalOpen} onClose={() => rest.setShareContentModalOpen(false)} subject={activeSubject} />)}
-            <DeleteConfirmationModal isOpen={rest.isDeleteModalOpen} onClose={() => rest.setIsDeleteModalOpen(false)} onConfirm={rest.handleConfirmDelete} deletingItemType={rest.deleteTarget?.type} />
+            
+            {/* CORRECTED: Use local state and handlers for the delete modal */}
+            <DeleteConfirmationModal 
+                isOpen={isDeleteModalOpen} 
+                onClose={() => setIsDeleteModalOpen(false)} 
+                onConfirm={handleConfirmDelete} 
+                deletingItemType={deleteTarget?.type} 
+            />
+
             <EditSubjectModal isOpen={rest.isEditSubjectModalOpen} onClose={() => rest.setEditSubjectModalOpen(false)} subject={rest.subjectToActOn} />
             <DeleteSubjectModal isOpen={rest.isDeleteSubjectModalOpen} onClose={() => rest.setDeleteSubjectModalOpen(false)} subject={rest.subjectToActOn} />
             

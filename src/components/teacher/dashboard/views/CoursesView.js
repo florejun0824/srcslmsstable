@@ -231,13 +231,25 @@ const CoursesView = (props) => {
         const learnerCategories = courseCategories.filter(cat => !cat.name.toLowerCase().includes("teach"));
         const categoriesToShow = activeContentGroup === 'Learner' ? learnerCategories : teacherCategories;
         
+        // Sort categories alphabetically by name
+        categoriesToShow.sort((a, b) => a.name.localeCompare(b.name));
+
         return (
             <div>
-                 <div className="flex items-center gap-4 mb-4">
-                    <button onClick={() => setActiveContentGroup(null)} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-200 transition-colors" title="Back to Content Types">
-                        <ArrowUturnLeftIcon className="w-5 h-5 text-gray-700" />
+                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => setActiveContentGroup(null)} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-200 transition-colors" title="Back to Content Types">
+                            <ArrowUturnLeftIcon className="w-5 h-5 text-gray-700" />
+                        </button>
+                        <h1 className="text-3xl font-bold text-gray-800 truncate">{activeContentGroup}'s Content</h1>
+                    </div>
+                    <button
+                        onClick={() => setCreateCategoryModalOpen(true)}
+                        className="btn-primary gap-2"
+                    >
+                        <PlusCircleIcon className="w-5 h-5" />
+                        Add Category
                     </button>
-                    <h1 className="text-3xl font-bold text-gray-800 truncate">{activeContentGroup}'s Content</h1>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {categoriesToShow.map((cat, index) => {
@@ -251,7 +263,26 @@ const CoursesView = (props) => {
                                     <div className={`p-4 inline-block bg-gradient-to-br ${color} text-white rounded-xl mb-4`}><Icon className="w-8 h-8" /></div>
                                     <h2 className="text-lg font-bold text-gray-800 mb-1">{cat.name}</h2>
                                     <p className="text-gray-500">{courseCount} {courseCount === 1 ? 'Subject' : 'Subjects'}</p>
-                                    <button onClick={(e) => { e.stopPropagation(); handleEditCategory(cat); }} className="absolute top-4 right-4 p-2 rounded-full text-gray-400 bg-transparent opacity-0 group-hover:opacity-100 hover:bg-slate-200" aria-label={`Edit category ${cat.name}`}><PencilSquareIcon className="w-5 h-5" /></button>
+                                    
+                                    <div className="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleEditCategory(cat); }} 
+                                            className="p-2 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-800" 
+                                            title={`Edit category ${cat.name}`}
+                                        >
+                                            <PencilSquareIcon className="w-5 h-5" />
+                                        </button>
+                                        <button 
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                handleInitiateDelete('category', cat.id, cat.name); 
+                                            }} 
+                                            className="p-2 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600" 
+                                            title={`Delete category ${cat.name}`}
+                                        >
+                                            <TrashIcon className="w-5 h-5" />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         );
@@ -265,7 +296,6 @@ const CoursesView = (props) => {
         <div>
             <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div><h1 className="text-3xl font-bold text-gray-800">Content Type</h1><p className="text-gray-500 mt-1">Select a content type to view its categories.</p></div>
-                <div className="flex flex-shrink-0 gap-2"><button onClick={() => setCreateCategoryModalOpen(true)} className="btn-secondary gap-2"><PlusCircleIcon className="w-5 h-5" />New Category</button></div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div onClick={() => setActiveContentGroup('Learner')} className="group relative p-8 rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer overflow-hidden flex items-center bg-gradient-to-br from-sky-500 to-blue-600 text-white">
@@ -275,16 +305,6 @@ const CoursesView = (props) => {
                         <div className="p-4 bg-white/20 rounded-lg inline-block mb-4"><LearnerIcon className="w-10 h-10" /></div>
                         <h2 className="text-3xl font-bold">Learner's Content</h2>
                         <p className="text-white/80">Access all student-facing materials and subjects.</p>
-                        <button 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setCreateCategoryModalOpen(true);
-                            }} 
-                            className="inline-flex items-center gap-2 justify-center mt-4 px-4 py-2 font-semibold text-white bg-white/20 rounded-lg hover:bg-white/30 transition-colors duration-200"
-                        >
-                            <PlusCircleIcon className="w-5 h-5" />
-                            Add Category
-                        </button>
                     </div>
                 </div>
                 <div onClick={() => setActiveContentGroup('Teacher')} className="group relative p-8 rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer overflow-hidden flex items-center bg-gradient-to-br from-purple-500 to-violet-600 text-white">
@@ -294,16 +314,6 @@ const CoursesView = (props) => {
                         <div className="p-4 bg-white/20 rounded-lg inline-block mb-4"><TeacherIcon className="w-10 h-10" /></div>
                         <h2 className="text-3xl font-bold">Teacher's Content</h2>
                         <p className="text-white/80">Access all teacher guides and resources.</p>
-                        <button 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setCreateCategoryModalOpen(true);
-                            }} 
-                            className="inline-flex items-center gap-2 justify-center mt-4 px-4 py-2 font-semibold text-white bg-white/20 rounded-lg hover:bg-white/30 transition-colors duration-200"
-                        >
-                            <PlusCircleIcon className="w-5 h-5" />
-                            Add Category
-                        </button>
                     </div>
                 </div>
             </div>
