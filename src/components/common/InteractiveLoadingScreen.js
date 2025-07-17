@@ -2,87 +2,81 @@ import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 // --- Animation Styles ---
-// Styles for the rotating rings, RGB effect, and the animated book.
+// Styles adjusted for a light background.
 const animationStyles = `
-    .loader-container {
-        perspective: 800px;
-    }
-    .ring {
-        position: absolute;
-        border-radius: 50%;
-        border-style: solid;
-        opacity: 0.9;
-    }
-    /* --- ROTATION KEYFRAMES (unchanged) --- */
-    @keyframes rotate-one {
-        0% { transform: rotateX(65deg) rotateZ(0deg); }
-        100% { transform: rotateX(65deg) rotateZ(360deg); }
-    }
-    @keyframes rotate-two {
-        0% { transform: rotateX(65deg) rotateZ(0deg); }
-        100% { transform: rotateX(65deg) rotateZ(-360deg); }
-    }
-    @keyframes rotate-three {
-        0% { transform: rotateX(0deg) rotateY(55deg) rotateZ(0deg); }
-        100% { transform: rotateX(0deg) rotateY(55deg) rotateZ(360deg); }
-    }
-    @keyframes rotate-four {
-        0% { transform: rotateX(0deg) rotateY(55deg) rotateZ(0deg); }
-        100% { transform: rotateX(0deg) rotateY(55deg) rotateZ(-360deg); }
+    /* Keyframes for the book's gentle float and glow */
+    @keyframes book-pulse {
+        0%, 100% { 
+            transform: translateY(0px) scale(1); 
+            filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.4));
+        }
+        50% { 
+            transform: translateY(-4px) scale(1.03); 
+            filter: drop-shadow(0 0 16px rgba(129, 140, 248, 0.5));
+        }
     }
 
-    /* --- NEW RGB/HUE-ROTATE KEYFRAME --- */
-    @keyframes rgb-cycle {
-        0% { filter: hue-rotate(0deg); }
-        100% { filter: hue-rotate(360deg); }
-    }
-
-    /* --- UPDATED RING STYLES WITH RGB ANIMATION --- */
-    .ring-1 {
-        border-width: 3px;
-        /* A bright base color for the hue rotation */
-        border-color: #ff00de transparent #ff00de transparent;
-        /* Combine rotation and color cycle animations */
-        animation: rotate-one 3s linear infinite, rgb-cycle 4s linear infinite;
-    }
-    .ring-2 {
-        border-width: 3px;
-        border-color: transparent #00f2ff transparent #00f2ff;
-        animation: rotate-two 3s linear infinite, rgb-cycle 4s linear infinite;
-        /* Add a delay to the color cycle so it's out of sync with ring 1 */
-        animation-delay: 0s, -1s;
-    }
-    .ring-3 {
-        border-width: 3px;
-        border-color: #ff00de transparent #ff00de transparent;
-        animation: rotate-three 2.5s linear infinite, rgb-cycle 4s linear infinite;
-        /* Add a different delay */
-        animation-delay: 0s, -2s;
-    }
-    .ring-4 {
-        border-width: 3px;
-        border-color: transparent #00f2ff transparent #00f2ff;
-        animation: rotate-four 2.5s linear infinite, rgb-cycle 4s linear infinite;
-        /* Add a different delay */
-        animation-delay: 0s, -3s;
-    }
-
-    /* --- BOOK ANIMATION (unchanged) --- */
+    /* Keyframes for the book pages turning */
     @keyframes turn-page {
-        0%, 25% {
-            transform: rotateY(0deg);
+        0%, 20% { transform: rotateY(0deg); }
+        80%, 100% { transform: rotateY(-180deg); }
+    }
+
+    /* Keyframes for particles spiraling in from the RIGHT */
+    @keyframes spiral-absorb-right {
+        0% {
+            transform: rotate(0deg) translateX(100px) scale(1.2);
+            opacity: 1;
         }
-        50%, 100% {
-            transform: rotateY(-180deg);
+        100% {
+            transform: rotate(360deg) translateX(0px) scale(0);
+            opacity: 0;
         }
+    }
+
+    /* Keyframes for particles spiraling in from the LEFT */
+    @keyframes spiral-absorb-left {
+        0% {
+            transform: rotate(0deg) translateX(-100px) scale(1.2);
+            opacity: 1;
+        }
+        100% {
+            transform: rotate(-360deg) translateX(0px) scale(0);
+            opacity: 0;
+        }
+    }
+
+    /* Keyframes for the glowing platform */
+    @keyframes platform-glow {
+        0%, 100% { opacity: 0.7; transform: scaleX(1); }
+        50% { opacity: 1; transform: scaleX(1.05); }
+    }
+
+    /* Applying the animations */
+    .book-anim {
+        animation: book-pulse 6s ease-in-out infinite;
     }
     .page-flipper {
-        transform-origin: left center;
-        animation: turn-page 4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+        transform-origin: 75px 45px;
+        animation: turn-page 5s cubic-bezier(0.6, 0, 0.4, 1) infinite;
+    }
+    .particle-spiral-right {
+        /* ✅ FIXED: Changed timing to ease-in for a clear absorption effect */
+        animation: spiral-absorb-right 3s ease-in infinite;
+        transform-origin: center;
+    }
+    .particle-spiral-left {
+        /* ✅ FIXED: Changed timing to ease-in for a clear absorption effect */
+        animation: spiral-absorb-left 3s ease-in infinite;
+        transform-origin: center;
+    }
+    .platform-anim {
+        animation: platform-glow 6s ease-in-out infinite;
+        transform-origin: center;
     }
 `;
 
-// Creative loading messages
+// Loading messages (unchanged)
 const loadingMessages = [
     "Brewing up some brilliant ideas...",
     "Assembling atoms of knowledge...",
@@ -95,49 +89,83 @@ const loadingMessages = [
     "Just a moment, creating something amazing!",
     "Did you know? The human brain has about 86 billion neurons.",
     "Warming up the creativity engines...",
-    "Connecting concepts and weaving narratives...",
-    "Crafting educational magic...",
-    "The neural network is firing on all cylinders!",
 ];
 
-// Updated book component with blue and white colors
-const AnimatedBook = () => (
-    <svg
-        width="60"
-        height="60"
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-    >
-        {/* Book Cover */}
-        <path d="M4 19.5A2.5 2.5 0 016.5 17H20v2H6.5A2.5 2.5 0 014 19.5z" fill="#2563eb" />
-        <path d="M4 4.5A2.5 2.5 0 016.5 2H20v2H6.5A2.5 2.5 0 014 4.5z" fill="#2563eb" />
-        {/* Pages */}
-        <g className="page-flipper" style={{ animationDelay: '0s' }}>
-            <path d="M4 4.5A2.5 2.5 0 016.5 2H12v17.5H6.5A2.5 2.5 0 014 17V4.5z" fill="#ffffff" />
-        </g>
-         <g className="page-flipper" style={{ animationDelay: '-0.2s' }}>
-            <path d="M4 4.5A2.5 2.5 0 016.5 2H12v17.5H6.5A2.5 2.5 0 014 17V4.5z" fill="#dbeafe" />
-        </g>
-        <path d="M12 2h8.5A2.5 2.5 0 0123 4.5v12.5a2.5 2.5 0 01-2.5 2.5H12V2z" fill="#3b82f6" />
-    </svg>
-);
+// The "EnchantedTomeAnimation" component with more particles
+const EnchantedTomeAnimation = () => {
+    // ✅ ADDED: More particles for a richer effect
+    const rightParticles = [
+        { delay: '0s', color: '#f59e0b', r: 2.5 },
+        { delay: '-0.5s', color: '#f472b6', r: 2 },
+        { delay: '-1s', color: '#d946ef', r: 2.5 },
+        { delay: '-1.5s', color: '#22d3ee', r: 2 },
+        { delay: '-2s', color: '#818cf8', r: 1.5 },
+        { delay: '-2.5s', color: '#facc15', r: 2 },
+        { delay: '-3s', color: '#f472b6', r: 2.5 },
+        { delay: '-3.5s', color: '#22d3ee', r: 2 },
+    ];
+    
+    // ✅ ADDED: More particles for a richer effect
+    const leftParticles = [
+        { delay: '-0.25s', color: '#22d3ee', r: 3 },
+        { delay: '-0.75s', color: '#818cf8', r: 2.5 },
+        { delay: '-1.25s', color: '#f59e0b', r: 2 },
+        { delay: '-1.75s', color: '#d946ef', r: 2.5 },
+        { delay: '-2.25s', color: '#f472b6', r: 1.5 },
+        { delay: '-2.75s', color: '#facc15', r: 2.5 },
+        { delay: '-3.25s', color: '#818cf8', r: 2 },
+        { delay: '-3.75s', color: '#22d3ee', r: 2 },
+    ];
 
+    return (
+        <div className="relative w-56 h-56 mx-auto mb-4 flex items-center justify-center">
+            <svg viewBox="0 0 200 200" className="w-full h-full overflow-visible">
+                <defs>
+                    <radialGradient id="platform-gradient" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stopColor="rgba(203, 213, 225, 0.5)" />
+                        <stop offset="100%" stopColor="rgba(226, 232, 240, 0)" />
+                    </radialGradient>
+                    <filter id="glow-filter"><feGaussianBlur stdDeviation="1.5" /></filter>
+                </defs>
 
-// The animation component, now with a child for the center element
-const RotatingRingsAnimation = ({ children }) => (
-    <div className="relative w-48 h-48 mx-auto mb-8 loader-container flex items-center justify-center">
-        {/* The centered element */}
-        <div className="absolute z-10">{children}</div>
-        {/* The rings */}
-        <div className="ring ring-1 w-48 h-48"></div>
-        <div className="ring ring-2 w-48 h-48"></div>
-        <div className="ring ring-3 w-36 h-36"></div>
-        <div className="ring ring-4 w-36 h-36"></div>
-    </div>
-);
+                {/* Glowing Platform */}
+                <ellipse cx="100" cy="150" rx="70" ry="20" fill="url(#platform-gradient)" className="platform-anim" />
 
-const InteractiveLoadingScreen = ({ topic = "your topic", isSaving = false }) => {
+                {/* Spiraling Particles */}
+                <g transform="translate(100, 100)">
+                    {/* Map over right particles */}
+                    {rightParticles.map((p, i) => (
+                        <circle key={`r-${i}`} cx="0" cy="0" r={p.r} fill={p.color} className="particle-spiral-right" style={{ animationDelay: p.delay }} />
+                    ))}
+                    {/* Map over left particles */}
+                    {leftParticles.map((p, i) => (
+                        <circle key={`l-${i}`} cx="0" cy="0" r={p.r} fill={p.color} className="particle-spiral-left" style={{ animationDelay: p.delay }} />
+                    ))}
+                </g>
+                
+                {/* Central Magical Book */}
+                <g className="book-anim" transform="translate(30, 55) scale(1)">
+                    <path d="M10 95 A 5 5 0 0 1 15 90 H 135 A 5 5 0 0 1 140 95 V 5 A 5 5 0 0 1 135 0 H 15 A 5 5 0 0 1 10 5 Z" fill="#312e81" />
+                    <path d="M15 5 H 135 V 90 H 15 Z" fill="#4338ca" stroke="#a78bfa" strokeWidth="1" />
+                    
+                    <g className="page-flipper" style={{ animationDelay: '0s' }}><path d="M15 0 H 75 V 90 H 15 A 5 5 0 0 1 10 85 V 5 A 5 5 0 0 1 15 0 Z" fill="#e0e7ff" /></g>
+                    <g className="page-flipper" style={{ animationDelay: '-0.5s' }}><path d="M15 0 H 75 V 90 H 15 A 5 5 0 0 1 10 85 V 5 A 5 5 0 0 1 15 0 Z" fill="#c7d2fe" /></g>
+                    
+                    <path d="M75 0 H 135 A 5 5 0 0 1 140 5 V 85 A 5 5 0 0 1 135 90 H 75 Z" fill="#3730a3" />
+                    {/* Arcane Symbol */}
+                    <g transform="translate(107.5, 45)" stroke="#facc15" strokeWidth="1.5" style={{ filter: 'url(#glow-filter)'}}>
+                        <circle cx="0" cy="0" r="15" fill="none" />
+                        <path d="M 0 -10 L 0 10 M -10 0 L 10 0" />
+                        <circle cx="0" cy="0" r="5" fill="none" />
+                    </g>
+                </g>
+            </svg>
+        </div>
+    );
+};
+
+// The main component that receives props from its parent
+const InteractiveLoadingScreen = ({ topic, isSaving = false }) => {
     const [messageIndex, setMessageIndex] = useState(0);
 
     useEffect(() => {
@@ -151,16 +179,14 @@ const InteractiveLoadingScreen = ({ topic = "your topic", isSaving = false }) =>
     const currentMessage = isSaving ? "Almost there..." : loadingMessages[messageIndex];
 
     return (
-        // Using a light theme
-        <div className="flex flex-col items-center justify-center text-center p-6 bg-white rounded-lg min-h-screen text-slate-800">
+        // Container with a new light theme
+        <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center text-center p-6 md:p-8 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
             <style>{animationStyles}</style>
             
-            <RotatingRingsAnimation>
-                <AnimatedBook />
-            </RotatingRingsAnimation>
+            <EnchantedTomeAnimation />
             
             <h2 className="text-lg md:text-xl font-bold text-slate-800 mb-2 tracking-wide">
-                {isSaving ? 'Saving Your Work...' : `Generating Lesson on "${topic}"`}
+                {isSaving ? 'Saving Your Lesson...' : `Generating Lesson on "${topic}"`}
             </h2>
 
             <div className="h-12 flex items-center justify-center">
@@ -181,13 +207,4 @@ const InteractiveLoadingScreen = ({ topic = "your topic", isSaving = false }) =>
     );
 };
 
-// Main App component to render the loading screen
-function App() {
-    return (
-        <div className="bg-white">
-             <InteractiveLoadingScreen />
-        </div>
-    );
-}
-
-export default App;
+export default InteractiveLoadingScreen;
