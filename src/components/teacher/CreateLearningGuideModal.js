@@ -136,8 +136,15 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${formData.gradeLevel}**. Your writing must be clear, accessible, and tailored to the cognitive and developmental level of this grade. The complexity of vocabulary, sentence structure, and conceptual depth should be appropriate for a ${formData.gradeLevel}th grader.
             ${perspectiveInstruction}
             **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the science or the concept. Introduce key figures, explore historical context, and delve into fascinating real-world applications. Use vivid analogies and metaphors to illuminate complex ideas. The content should flow logically and build on itself, like a well-structured story.
+            
+            **CRITICAL FORMATTING RULE (NON-NEGOTIABLE):** You MUST NOT use Markdown code block formatting (like indenting with four spaces or using triple backticks \`\`\`) for regular content like bulleted lists or standard paragraphs. Code block formatting should only be used for displaying actual programming code snippets.
+
             **CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
-            You MUST use LaTeX for all mathematical equations, variables, and chemical formulas. Rule: Every LaTeX expression MUST start with a single dollar sign (\`$\`) and end with a single dollar sign (\`$\`). Example (Equation): To write F = ma, you MUST write \`$F = ma$\`. Example (Chemical Formula): To write H₂O, you MUST write \`$H_2O$\`.
+            You MUST use LaTeX for all mathematical equations, variables, and chemical formulas.
+            - **Rule:** Every LaTeX expression MUST start with a single dollar sign (\`$\`) and end with a single dollar sign (\`$\`).
+            - **Forbidden Formats:** Expressions like \`\${P_{in}}\$\`, \`'{P_{in}}'\`, \`\\(P_{in}\\)\`, or \`\\[P_{in}\\]\` are strictly forbidden. Only single dollar signs are allowed.
+            - **Example:** To write H₂O, you MUST write \`$H_2O$\`.
+
             **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, the heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \`"title": ""\`.
             **Textbook Chapter Structure (NON-NEGOTIABLE):** You MUST generate the lesson pages in this exact sequence. The 'title' field for each special section MUST be exactly as specified.
             1. **${objectivesLabel}:** The lesson MUST begin with the learning objectives (in the "learningObjectives" array).
