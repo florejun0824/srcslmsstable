@@ -19,20 +19,18 @@ const extractJson = (text) => {
     throw new Error("AI response did not contain a valid JSON object.");
 };
 
-// ✅ FIXED: Reverted to a simpler, safer sanitization function that only fixes trailing commas.
-// The complex regex fixes were causing unpredictable side effects.
+// Using a safer parser that only fixes trailing commas, as the main fix is now the retry loop.
 const tryParseJson = (jsonString) => {
     try {
         return JSON.parse(jsonString);
     } catch (e) {
         console.warn("Standard JSON.parse failed. Attempting to fix trailing commas.", e);
-        // This is a safe and common sanitization.
         const sanitized = jsonString.replace(/,\s*([}\]])/g, '$1');
         try {
             return JSON.parse(sanitized);
         } catch (finalError) {
             console.error("Sanitization failed. The error is likely in the generated JSON structure.", finalError);
-            throw e; // Throw original error for better context.
+            throw e; 
         }
     }
 };
@@ -141,7 +139,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 `;
             }
 
-           const masterInstructions = `
+            const masterInstructions = `
                 **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter.
 
                 **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${formData.gradeLevel}**. Your writing must be clear, accessible, and tailored to the cognitive and developmental level of this grade. The complexity of vocabulary, sentence structure, and conceptual depth should be appropriate for a ${formData.gradeLevel}th grader.
@@ -187,84 +185,106 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             `;
 
             let finalPrompt;
-            const isRegeneration = !!regenerationNote && !!previewData;
-            
-            const regenerationInstructions = `You are a JSON editing expert. Modify the following JSON data based on this user instruction: "${regenerationNote}".
-                **EXISTING JSON TO MODIFY:**
-                ---
-                ${isRegeneration ? JSON.stringify(previewData, null, 2) : ''}
-                ---
-                You MUST adhere to all of the original rules that were used to create it. Return ONLY the complete, updated, and valid JSON object.`;
-            
-            // ✅ FIXED: Added a "Pre-flight Check" to the prompt to force the AI to self-correct.
-            const creationInstructions = `You are an expert instructional designer and author.
-                
-                **ABSOLUTE PRIMARY RULE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
-                - No other text or conversation is allowed outside this JSON object.
-                
-                **JSON SYNTAX RULES (NON-NEGOTIABLE):**
-                1. All property names must be in double quotes (e.g., "title").
-                2. A colon (:) MUST follow every property name.
-                3. All backslashes (\\) inside string values MUST be escaped (\\\\).
-                4. No trailing commas are allowed.
-                
-                **CRITICAL PRE-FLIGHT CHECK (NON-NEGOTIABLE):**
-                Before outputting the JSON, you MUST mentally verify it passes this checklist. A single failure here will invalidate the entire response.
-                1. Did I forget a colon \`:\` after ANY property name (e.g., \`"title" {\` is WRONG)?
-                2. Did I forget a comma \`,\` between any two elements in an array (e.g., \`["a" "b"]\` or \`[{...} {...}]\` are WRONG)?
-                3. Did I forget a comma \`,\` between any two properties in an object (e.g., \`"key1":"v1" "key2":"v2"\` is WRONG)?
-                4. Does every opening brace \`{\` and bracket \`[\` have a matching closing brace \`}\` and bracket \`]\`?
-                5. Are all backslashes \`\\\` correctly escaped as \`\\\\\`?
+            let lastError = null;
+            let currentText = null;
 
-                **OUTPUT JSON STRUCTURE (Follow this exactly):**
-                {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": [...], "pages": [{"title": "...", "content": "...", "type": "text|diagram-data"}, ... ]}, ... ]}
-
-                ---
-                **GENERATION TASK DETAILS**
-                ---
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                if (attempt === 1) {
+                    // Initial generation prompt
+                    const isRegeneration = !!regenerationNote && !!previewData;
+                    if (isRegeneration) {
+                        finalPrompt = `You are a JSON editing expert. Modify the following JSON data based on this user instruction: "${regenerationNote}".
+                        **EXISTING JSON TO MODIFY:**
+                        ---
+                        ${JSON.stringify(previewData, null, 2)}
+                        ---
+                        You MUST adhere to all of the original rules that were used to create it. Return ONLY the complete, updated, and valid JSON object.`;
+                    } else {
+                        finalPrompt = `You are an expert instructional designer and author.
                 
-                **Core Content Information:**
-                - **Subject:** "${subjectName}"
-                - **Grade Level:** ${formData.gradeLevel}
-                - **Topic:** "${formData.content}"
-                - **Content Standard:** "${formData.contentStandard}"
-                - **Performance Standard:** "${formData.performanceStandard}"
-                
-                **Learning Competencies to Address (Use these as a guide):**
-                "${formData.learningCompetencies}"
-                
-                **CRITICAL INSTRUCTION FOR LEARNING OBJECTIVES (NON-NEGOTIABLE):**
-                Generate a 'learningObjectives' array with 3-5 distinct objectives starting with a verb (e.g., "Differentiate between..."). Do not include introductory phrases.
+                        **ABSOLUTE PRIMARY RULE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
+                        - No other text or conversation is allowed outside this JSON object.
+                        
+                        **JSON SYNTAX RULES (NON-NEGOTIABLE):**
+                        1. All property names must be in double quotes (e.g., "title").
+                        2. A colon (:) MUST follow every property name.
+                        3. All backslashes (\\) inside string values MUST be escaped (\\\\).
+                        4. No trailing commas are allowed.
+                        
+                        **CRITICAL PRE-FLIGHT CHECK (NON-NEGOTIABLE):**
+                        Before outputting the JSON, you MUST mentally verify it passes this checklist. A single failure here will invalidate the entire response.
+                        1. Did I forget a colon \`:\` after ANY property name (e.g., \`"title" {\` is WRONG)?
+                        2. Did I forget a comma \`,\` between any two elements in an array (e.g., \`["a" "b"]\` or \`[{...} {...}]\` are WRONG)?
+                        3. Did I forget a comma \`,\` between any two properties in an object (e.g., \`"key1":"v1" "key2":"v2"\` is WRONG)?
+                        4. Does every opening brace \`{\` and bracket \`[\` have a matching closing brace \`}\` and bracket \`]\`?
+                        5. Are all backslashes \`\\\` correctly escaped as \`\\\\\`?
 
-                **Lesson Details:**
-                - **Number of Lessons to Generate:** ${formData.lessonCount}
-                - **Lesson Title Rule:** Each "lessonTitle" MUST be unique and start with "Lesson #[Lesson Number]: " (or "Aralin #[Lesson Number]: ").
+                        **OUTPUT JSON STRUCTURE (Follow this exactly):**
+                        {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": [...], "pages": [{"title": "...", "content": "...", "type": "text|diagram-data"}, ... ]}, ... ]}
 
-                **CRITICAL PAGE COUNT AND NARRATIVE DEPTH INSTRUCTION:**
-                You MUST generate a very substantial lesson with a minimum of **30 pages for EACH lesson**. Achieve this length by providing immense depth and narrative richness (history, applications, analogies, story-like structure). A "page" is ~200-300 words or a complex diagram.
+                        ---
+                        **GENERATION TASK DETAILS**
+                        ---
+                        
+                        **Core Content Information:**
+                        - **Subject:** "${subjectName}"
+                        - **Grade Level:** ${formData.gradeLevel}
+                        - **Topic:** "${formData.content}"
+                        - **Content Standard:** "${formData.contentStandard}"
+                        - **Performance Standard:** "${formData.performanceStandard}"
+                        
+                        **Learning Competencies to Address (Use these as a guide):**
+                        "${formData.learningCompetencies}"
+                        
+                        **CRITICAL INSTRUCTION FOR LEARNING OBJECTIVES (NON-NEGOTIABLE):**
+                        Generate a 'learningObjectives' array with 3-5 distinct objectives starting with a verb (e.g., "Differentiate between..."). Do not include introductory phrases.
 
-                ---
-                **MASTER INSTRUCTION SET (Apply all of these rules to the content):**
-                ---
-                ${masterInstructions}
-            `;
+                        **Lesson Details:**
+                        - **Number of Lessons to Generate:** ${formData.lessonCount}
+                        - **Lesson Title Rule:** Each "lessonTitle" MUST be unique and start with "Lesson #[Lesson Number]: " (or "Aralin #[Lesson Number]: ").
 
-            if (isRegeneration) {
-                finalPrompt = regenerationInstructions;
-            } else {
-                finalPrompt = creationInstructions;
+                        **CRITICAL PAGE COUNT AND NARRATIVE DEPTH INSTRUCTION:**
+                        You MUST generate a very substantial lesson with a minimum of **30 pages for EACH lesson**. Achieve this length by providing immense depth and narrative richness (history, applications, analogies, story-like structure). A "page" is ~200-300 words or a complex diagram.
+
+                        ---
+                        **MASTER INSTRUCTION SET (Apply all of these rules to the content):**
+                        ---
+                        ${masterInstructions}
+                        `;
+                    }
+                } else {
+                    // This is a retry attempt. Ask the AI to fix its own mistake.
+                    showToast(`AI response was invalid. Attempting to self-correct (Attempt ${attempt})...`, "warning");
+                    finalPrompt = `The following text is not valid JSON and produced this error: "${lastError.message}". Please correct the syntax errors in the JSON and return ONLY the complete, corrected, and valid JSON object. Do not apologize or add extra text.
+                    ---
+                    BROKEN JSON TEXT:
+                    ${currentText}
+                    ---
+                    Return ONLY the corrected JSON.`;
+                }
+
+                try {
+                    const aiResponse = await callGeminiWithLimitCheck(finalPrompt);
+                    currentText = extractJson(aiResponse);
+                    const parsedResponse = tryParseJson(currentText);
+
+                    setPreviewData(parsedResponse);
+                    showToast("Content generated successfully!", "success");
+                    setIsGenerating(false);
+                    return;
+
+                } catch (error) {
+                    console.error(`Attempt ${attempt} failed:`, error);
+                    lastError = error;
+                }
             }
 
-            const aiText = await callGeminiWithLimitCheck(finalPrompt);
-            const jsonText = extractJson(aiText);
-            const parsedResponse = tryParseJson(jsonText);
-
-            setPreviewData(parsedResponse);
-            showToast("Content generated successfully!", "success");
+            // If all attempts fail, throw the last recorded error.
+            throw lastError;
 
         } catch (err) {
-            console.error("Error during generation:", err);
-            showToast(err.message, "error");
+            console.error("Error during generation after all retries:", err);
+            showToast(err.message || "Failed to generate content after multiple attempts.", "error");
         } finally {
             setIsGenerating(false);
         }
