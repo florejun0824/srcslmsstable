@@ -131,11 +131,12 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             let perspectiveInstruction = '';
             if (catholicSubjects.includes(subjectName)) {
                 perspectiveInstruction = `
-                    **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. This is non-negotiable. All explanations, examples, and interpretations must align with Catholic teachings, doctrines, and values. You must integrate principles from the Catechism of the Catholic Church, relevant encyclicals, and Sacred Scripture where appropriate.
+                **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. This is non-negotiable. All explanations, examples, and interpretations must align with Catholic teachings, doctrines, and values. You must integrate principles from the Catechism of the Catholic Church, relevant encyclicals, and Sacred Scripture where appropriate.
                 `;
             }
 
-            const formatSpecificInstructions = `
+            // ✅ REFACTORED PROMPT: All structural and formatting rules are now consolidated here for clarity.
+            const masterInstructions = `
                 **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter.
 
                 **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${formData.gradeLevel}**. Your writing must be clear, accessible, and tailored to the cognitive and developmental level of this grade. The complexity of vocabulary, sentence structure, and conceptual depth should be appropriate for a ${formData.gradeLevel}th grader.
@@ -143,6 +144,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 ${perspectiveInstruction}
 
                 **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the science or the concept. Introduce key figures, explore historical context, and delve into fascinating real-world applications. Use vivid analogies and metaphors to illuminate complex ideas. The content should flow logically and build on itself, like a well-structured story.
+                
 				**CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
                 You MUST use LaTeX for all mathematical equations, variables, and chemical formulas.
                 - **Rule:** Every LaTeX expression MUST start with a single dollar sign (\`$\`) and end with a single dollar sign (\`$\`). There are no exceptions.
@@ -153,104 +155,91 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 				
                 **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section (e.g., explaining the "Legislative Branch") is too long for one page and its discussion must continue onto the next page (or multiple subsequent pages), the heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page where the topic is introduced.
                 **ALL** subsequent pages that are continuations of that same topic **MUST** have an empty string for their title: \`"title": ""\`.
-                **UNDER NO CIRCUMSTANCES** should you ever create headings like:
-                - "Topic Title (Continuation)"
-                - "Topic Title (Part 2)"
-                - "Topic Title (Ikalawang Bahagi)"
-                - "Continuation of Topic Title"
-                - Any rephrasing or repetition of the original title.
-                The content should flow seamlessly from one page to the next as if the page break doesn't exist. This is a strict formatting requirement.
+                **UNDER NO CIRCUMSTANCES** should you ever create headings like "Topic Title (Continuation)" or "Topic Title (Part 2)". The content should flow seamlessly.
 
                 **Textbook Chapter Structure:** You MUST organize the lesson content in the following sequence:
                 1.  **Standalone ${objectivesLabel} Section:** A "learningObjectives" array.
-                2.  **Engaging Introduction:** A captivating opening that poses a fascinating question or tells a surprising anecdote related to the topic.
+                2.  **Engaging Introduction:** A captivating opening that poses a fascinating question or tells a surprising anecdote.
                 3.  **Introductory Activity:** A single, thought-provoking warm-up activity labeled "${letsGetStartedLabel}".
                 4.  **Core Content Sections:** The main, narrative-driven content.
-                5.  **Check for Understanding:** After a major, substantial section of content (not frequently), you may include a single, thoughtful activity or a few critical thinking questions labeled "${checkUnderstandingLabel}". Avoid littering the text with constant, small activities.
-                6.  **${lessonSummaryLabel}:** A concise summary of the key ideas.
-                7.  **${wrapUpLabel}/Conclusion:** A powerful concluding statement that reinforces the topic's importance.
+                5.  **Check for Understanding:** After a major section, you may include a single, thoughtful activity or a few critical thinking questions labeled "${checkUnderstandingLabel}".
+                6.  **${lessonSummaryLabel}:** A concise summary.
+                7.  **${wrapUpLabel}/Conclusion:** A powerful concluding statement.
                 8.  **${endOfLessonAssessmentLabel}:** A dedicated assessment with **8-10 questions** and a labeled "${answerKeyLabel}".
                 9.  **Final Page - ${referencesLabel}:** The last page MUST be for references only.
 
-                **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide real, verifiable academic or reputable web sources. Do NOT invent sources. Every last page of the lesson should have references on it.
-            `;
+                **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide real, verifiable academic or reputable web sources. Do NOT invent sources.
 
-			const languageInstruction = `
+                **ABSOLUTE RULE FOR DIAGRAMS (NON-NEGOTIABLE):**
+                When a diagram is necessary, you MUST generate a clean, modern, and informative SVG diagram.
+                - The page 'type' MUST be set to "diagram-data".
+                - The page 'content' MUST contain the full, valid, and complete SVG code as a string.
+                - **CRITICAL SVG STYLING AND LAYOUT RULES:**
+                    1.  **Font Size:** Use a small, consistent font size like \`font-size="8px"\` or \`font-size="10px"\`.
+                    2.  **Text Layout & Wrapping:** For multi-word labels, you MUST use \`<tspan>\` elements to break the text into multiple lines. Position text labels with adequate padding so they do not overlap.
+                    3.  **Responsive Sizing:** The root \`<svg>\` element MUST include a \`viewBox\` attribute (e.g., \`viewBox="0 0 200 150"\`).
+                - **UNDER NO CIRCUMSTANCES** should you ever return a textual description of a diagram. You must generate the SVG code itself.
+
                 **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
             `;
-            const studentLessonInstructions = `
-                **CRITICAL JSON FORMATTING RULES (NON-NEGOTIABLE):**
-                1.  **Entire response MUST be a single JSON object.**
-                2.  **No Trailing Commas.**
-                3.  **JSON String Escaping:** All backslashes (\\) within the JSON content MUST be properly escaped with a second backslash (\\\\). For example, a LaTeX command like \`\\frac{1}{2}\` MUST be written as \`"\\\\frac{1}{2}"\` inside the JSON string. This is a non-negotiable requirement for valid JSON.
-                
-				**ABSOLUTE RULE FOR DIAGRAMS (NON-NEGOTIABLE):**
-                When a diagram is necessary to explain a concept (e.g., photosynthesis, parts of a cell, a historical timeline), you MUST generate a clean, modern, and informative SVG diagram.
-                - The page 'type' MUST be set to "diagram-data".
-                - The page 'content' MUST contain the full, valid, and complete SVG code as a string (e.g., "<svg ...>...</svg>").
 
-                **CRITICAL SVG STYLING AND LAYOUT RULES:**
-                To prevent visual issues, every generated SVG MUST adhere to these styling rules:
-                1.  **Font Size:** Use a small, consistent font size for all text labels, such as \`font-size="8px"\` or \`font-size="10px"\`, to ensure text fits within the diagram.
-                2.  **Text Layout & Wrapping:** For labels with more than one word, you MUST use \`<tspan>\` elements to break the text into multiple lines. This prevents text from overflowing. Position text labels with adequate padding so they do not overlap with other text or diagram elements.
-                3.  **Responsive Sizing:** The root \`<svg>\` element MUST include a \`viewBox\` attribute (e.g., \`viewBox="0 0 200 150"\`) to ensure the diagram scales correctly without distortion.
-                4.  **Clean Design:** Keep the design simple. Use clean lines (e.g., \`stroke-width="1"\`) and a professional, limited color palette.
-
-                - **UNDER NO CIRCUMSTANCES** should you ever return a textual description of a diagram, an image URL, or a placeholder. You must generate the SVG code itself. Failure to provide SVG code for a diagram will be considered a failed response.
-                
-                ${languageInstruction}
-                ${formatSpecificInstructions}
-            `;
             let finalPrompt;
             const isRegeneration = !!regenerationNote && !!previewData;
-            if (isRegeneration) {
-                const existingJsonString = JSON.stringify(previewData, null, 2);
-                finalPrompt = `You are a JSON editing expert. Modify the following JSON data based on this user instruction: "${regenerationNote}".
+            
+            const regenerationInstructions = `You are a JSON editing expert. Modify the following JSON data based on this user instruction: "${regenerationNote}".
                 **EXISTING JSON TO MODIFY:**
                 ---
-                ${existingJsonString}
+                ${isRegeneration ? JSON.stringify(previewData, null, 2) : ''}
                 ---
-                You MUST adhere to all of the original rules that were used to create it, especially the 'Professor/Author' persona, the grade level targeting, the Catholic perspective (if applicable), the intelligent creation of learning objectives, and the absolute rule for content continuation.
-                ${studentLessonInstructions}
-                Return ONLY the complete, updated, and valid JSON object.`;
-            } else {
-                finalPrompt = `You are an expert instructional designer and author, creating a deeply engaging, narrative-driven textbook chapter for a specific high school grade level.
+                You MUST adhere to all of the original rules that were used to create it, especially the 'Professor/Author' persona, grade level targeting, and all formatting rules. Return ONLY the complete, updated, and valid JSON object.`;
+            
+            const creationInstructions = `You are an expert instructional designer and author.
+                
+                **ABSOLUTE PRIMARY RULE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
+                - No other text, conversation, or apologies are allowed outside of this JSON object.
+                - **JSON SYNTAX RULES (NON-NEGOTIABLE):**
+                    1. All property names must be in double quotes (e.g., "title").
+                    2. A colon (:) MUST follow every property name.
+                    3. All backslashes (\\) inside string values MUST be escaped (\\\\). For example, a LaTeX command like \`\\frac{1}{2}\` must be written as \`"\\\\frac{1}{2}"\`.
+                    4. No trailing commas are allowed after the last element in an array or object.
+                
+                **OUTPUT JSON STRUCTURE (Follow this exactly):**
+                {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": [...], "pages": [{"title": "...", "content": "...", "type": "text|diagram-data"}, ... ]}, ... ]}
+
+                ---
+                **GENERATION TASK DETAILS**
+                ---
+                
                 **Core Content Information:**
-                ---
-                **Subject:** "${subjectName}"
-                **Grade Level:** ${formData.gradeLevel}
-                **Topic:** "${formData.content}"
-                **Content Standard:** "${formData.contentStandard}"
-                **Performance Standard:** "${formData.performanceStandard}"
-                ---
+                - **Subject:** "${subjectName}"
+                - **Grade Level:** ${formData.gradeLevel}
+                - **Topic:** "${formData.content}"
+                - **Content Standard:** "${formData.contentStandard}"
+                - **Performance Standard:** "${formData.performanceStandard}"
+                
                 **Learning Competencies to Address (Use these as a guide):**
                 "${formData.learningCompetencies}"
                 
                 **CRITICAL INSTRUCTION FOR LEARNING OBJECTIVES (NON-NEGOTIABLE):**
-                Based on the topic and competencies, generate a 'learningObjectives' array with 3-5 distinct objectives.
-                - **FORMATTING RULE:** Each objective MUST be a concise, action-oriented phrase starting with a verb (e.g., "Differentiate between talents and skills," "Analyze the author's use of foreshadowing," "Solve linear equations with two variables.").
-                - **ABSOLUTE RESTRICTION:** **DO NOT** include introductory phrases like "Students will be able to" or "By the end of this lesson" within each objective string. Only the action phrase is allowed.
-                - **DO NOT** simply copy the learning competencies. Create new, more specific objectives.
+                Based on the topic and competencies, generate a 'learningObjectives' array with 3-5 distinct objectives starting with a verb (e.g., "Differentiate between..."). Do not include introductory phrases like "Students will be able to...". Create new, specific objectives.
 
                 **Lesson Details:**
                 - **Number of Lessons to Generate:** ${formData.lessonCount}
-                
-                **CRITICAL LESSON TITLE RULE:**
-                Each "lessonTitle" MUST be unique and intriguing, starting with "Lesson #[Lesson Number]: " (or "Aralin #[Lesson Number]: " for Filipino).
+                - **Lesson Title Rule:** Each "lessonTitle" MUST be unique and intriguing, starting with "Lesson #[Lesson Number]: " (or "Aralin #[Lesson Number]: " for Filipino).
 
                 **CRITICAL PAGE COUNT AND NARRATIVE DEPTH INSTRUCTION:**
-                This is the most important instruction. You MUST generate a very substantial and comprehensive lesson with a minimum of **30 pages for EACH lesson**.
-                You will achieve this length by providing **immense depth and narrative richness**. Do not just state facts; tell the story behind them. To fill the pages, you MUST:
-                1.  **Explore Historical Context:** Discuss the origins of the ideas and the key people involved.
-                2.  **Delve into Real-World Applications:** Provide detailed examples of how this topic matters in technology, nature, or society.
-                3.  **Use Rich Analogies:** Use vivid, well-explained analogies and metaphors to make complex ideas intuitive.
-                4.  **Build a Narrative:** Structure the content like a story, with a clear beginning, a building of ideas, and a satisfying conclusion.
-                A "page" is a conceptual unit of about **200-300 words** of engaging, narrative-driven text, or a single complex diagram with a detailed explanation.
+                You MUST generate a very substantial lesson with a minimum of **30 pages for EACH lesson**. Achieve this length by providing immense depth and narrative richness (historical context, real-world applications, rich analogies, and a story-like structure). A "page" is a conceptual unit of about **200-300 words** or a single complex diagram.
 
-                ${studentLessonInstructions}
+                ---
+                **MASTER INSTRUCTION SET (Apply all of these rules to the content):**
+                ---
+                ${masterInstructions}
+            `;
 
-                **Final Output Structure:**
-                {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": ["Differentiate between...", "Analyze the use of..."], "pages": [{"title": "...", "content": "...", "type": "text|diagram-data"}, ... ]}, ... ]}`;
+            if (isRegeneration) {
+                finalPrompt = regenerationInstructions;
+            } else {
+                finalPrompt = creationInstructions;
             }
 
             const aiText = await callGeminiWithLimitCheck(finalPrompt);
@@ -322,14 +311,12 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
     return (
         <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4">
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
-             {/* ✅ FIXED: Responsive padding and max-width for the dialog panel */}
             <Dialog.Panel className="relative bg-slate-50 p-4 sm:p-6 rounded-2xl shadow-2xl w-full max-w-md lg:max-w-5xl max-h-[90vh] flex flex-col">
                 {(isGenerating || isSaving) && (
                     <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl">
                         <InteractiveLoadingScreen topic={formData.content || "new ideas"} isSaving={isSaving} />
                     </div>
                 )}
-                 {/* ✅ FIXED: Responsive header with adaptive font sizes and layout */}
                 <div className="flex justify-between items-start mb-4 sm:mb-6">
                     <div className="flex items-center gap-3 sm:gap-4">
                         <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2 sm:p-3 rounded-xl text-white shadow-lg flex-shrink-0">
@@ -427,7 +414,6 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                         </div>
                     )}
                 </div>
-                 {/* ✅ FIXED: Responsive footer buttons */}
                 <div className="pt-4 sm:pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-slate-200 mt-4 sm:mt-6">
                     {previewData ? (
                         <>
