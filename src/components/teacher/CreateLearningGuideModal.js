@@ -19,7 +19,7 @@ const extractJson = (text) => {
     throw new Error("AI response did not contain a valid JSON object.");
 };
 
-// Using a safer parser that only fixes trailing commas.
+// Using a safer parser that only fixes trailing commas, as the main fix is now the retry loop.
 const tryParseJson = (jsonString) => {
     try {
         return JSON.parse(jsonString);
@@ -116,16 +116,12 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
     const handleGenerate = async (regenerationNote = '') => {
         setIsGenerating(true);
         if (!regenerationNote) setPreviewData(null);
-        
-        let lastError = null;
-        let lastResponseText = null;
 
         try {
             if (!formData.content || !formData.learningCompetencies) {
                 throw new Error("Please provide the Main Content/Topic and Learning Competencies.");
             }
 
-            // Define all labels and instructions once.
             const objectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
             const letsGetStartedLabel = formData.language === 'Filipino' ? 'Simulan Natin!' : "Let's Get Started!";
             const checkUnderstandingLabel = formData.language === 'Filipino' ? 'Suriin ang Pag-unawa' : "Check for Understanding";
@@ -145,96 +141,150 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 
             const masterInstructions = `
                 **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter.
+
                 **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${formData.gradeLevel}**. Your writing must be clear, accessible, and tailored to the cognitive and developmental level of this grade. The complexity of vocabulary, sentence structure, and conceptual depth should be appropriate for a ${formData.gradeLevel}th grader.
+                
                 ${perspectiveInstruction}
+
                 **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the science or the concept. Introduce key figures, explore historical context, and delve into fascinating real-world applications. Use vivid analogies and metaphors to illuminate complex ideas. The content should flow logically and build on itself, like a well-structured story.
+                
 				**CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
-                You MUST use LaTeX for all mathematical equations, variables, and chemical formulas. Rule: Every LaTeX expression MUST start with a single dollar sign (\`$\`) and end with a single dollar sign (\`$\`). Example (Equation): To write F = ma, you MUST write \`$F = ma$\`. Example (Chemical Formula): To write H₂O, you MUST write \`$H_2O$\`.
-				**ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, the heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \`"title": ""\`.
+                You MUST use LaTeX for all mathematical equations, variables, and chemical formulas.
+                - **Rule:** Every LaTeX expression MUST start with a single dollar sign (\`$\`) and end with a single dollar sign (\`$\`). There are no exceptions.
+                - **Example (Equation):** To write F = ma, you MUST write \`$F = ma$\`.
+                - **Example (Chemical Formula):** To write H₂O, you MUST write \`$H_2O$\`.
+                - **CRITICAL CHECK:** Before finishing, ensure every opening \`$\` has a corresponding closing \`$\`.
+				
+                **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, the heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \`"title": ""\`.
+
                 **Textbook Chapter Structure (NON-NEGOTIABLE):** You MUST generate the lesson pages in this exact sequence. The 'title' field for each special section MUST be exactly as specified.
-                1. **${objectivesLabel}:** The lesson MUST begin with the learning objectives (in the "learningObjectives" array).
-                2. **Engaging Introduction:** The first page of the 'pages' array must be a captivating opening.
-                3. **Introductory Activity ("${letsGetStartedLabel}"):** A single page with a short warm-up activity. The 'title' MUST be exactly "${letsGetStartedLabel}".
-                4. **Core Content Sections:** The main narrative content across multiple pages.
-                5. **Check for Understanding ("${checkUnderstandingLabel}"):** A page with a thoughtful activity. The 'title' MUST be exactly "${checkUnderstandingLabel}".
-                6. **Summary ("${lessonSummaryLabel}"):** A page with a concise summary. The 'title' MUST be exactly "${lessonSummaryLabel}".
-                7. **Conclusion ("${wrapUpLabel}"):** A page with a powerful concluding statement. The 'title' MUST be exactly "${wrapUpLabel}".
-                8. **Assessment ("${endOfLessonAssessmentLabel}"):** A multi-page assessment section. The first page's 'title' MUST be "${endOfLessonAssessmentLabel}". It must contain 8-10 questions.
-                9. **Answer Key ("${answerKeyLabel}"):** A page with the answers. The 'title' MUST be exactly "${answerKeyLabel}".
-                10. **References ("${referencesLabel}"):** The absolute last page must ONLY contain references. The 'title' MUST be exactly "${referencesLabel}".
+                1.  **${objectivesLabel}:** The lesson MUST begin with the learning objectives. This content is part of the top-level "learningObjectives" array in the JSON and should be presented first in the lesson flow.
+                2.  **Engaging Introduction:** The first page of the 'pages' array must be a captivating opening that poses a fascinating question or tells a surprising anecdote related to the topic.
+                3.  **Introductory Activity ("${letsGetStartedLabel}"):** Following the introduction, create a single page with a short, thought-provoking warm-up activity. The 'title' for this page MUST be exactly "${letsGetStartedLabel}".
+                4.  **Core Content Sections:** Generate the main, narrative-driven content across multiple pages. This is where you will explain the topic in depth, tell stories, and use analogies.
+                5.  **Check for Understanding ("${checkUnderstandingLabel}"):** After a major content section, you may insert a page with a single, thoughtful activity or a few critical thinking questions. The 'title' for this page MUST be exactly "${checkUnderstandingLabel}".
+                6.  **Summary ("${lessonSummaryLabel}"):** After all core content, create a page with a concise summary of the key ideas. The 'title' for this page MUST be exactly "${lessonSummaryLabel}".
+                7.  **Conclusion ("${wrapUpLabel}"):** Follow the summary with a page containing a powerful concluding statement that reinforces the topic's importance. The 'title' for this page MUST be exactly "${wrapUpLabel}".
+                8.  **Assessment ("${endOfLessonAssessmentLabel}"):** After the conclusion, create a multi-page assessment section. The first page of this section must have the 'title' "${endOfLessonAssessmentLabel}". The assessment must contain 8-10 questions.
+                9.  **Answer Key ("${answerKeyLabel}"):** Immediately following the assessment questions, include a final page with the 'title' "${answerKeyLabel}" that lists all the answers.
+                10. **References ("${referencesLabel}"):** The absolute last page of the lesson must ONLY contain references. The 'title' for this page MUST be exactly "${referencesLabel}".
+
                 **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide real, verifiable academic or reputable web sources.
+
                 **ABSOLUTE RULE FOR DIAGRAMS (NON-NEGOTIABLE):**
-                When a diagram is necessary, you MUST generate a clean, modern, SVG diagram. The page 'type' MUST be set to "diagram-data". The 'content' MUST contain the full SVG code. CRITICAL SVG STYLING RULES: Use small font sizes (\`font-size="8px"\`), use \`<tspan>\` for text wrapping, and include a \`viewBox\` attribute.
+                When a diagram is necessary, you MUST generate a clean, modern, SVG diagram.
+                - The page 'type' MUST be set to "diagram-data".
+                - The page 'content' MUST contain the full, valid SVG code.
+                - **CRITICAL SVG STYLING AND LAYOUT RULES:**
+                    1.  **Font Size:** Use a small, consistent font size like \`font-size="8px"\`.
+                    2.  **Text Wrapping:** Use \`<tspan>\` elements to break long labels into multiple lines.
+                    3.  **Responsive Sizing:** The root \`<svg>\` element MUST include a \`viewBox\` attribute.
+                - **UNDER NO CIRCUMSTANCES** should you return a textual description of a diagram.
+
                 **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
             `;
 
+            let finalPrompt;
+            let lastError = null;
+            let currentText = null;
+
             for (let attempt = 1; attempt <= 3; attempt++) {
-                let prompt;
                 if (attempt === 1) {
+                    // Initial generation prompt
                     const isRegeneration = !!regenerationNote && !!previewData;
                     if (isRegeneration) {
-                        prompt = `You are a JSON editing expert. Modify the following JSON based on: "${regenerationNote}". EXISTING JSON: ${JSON.stringify(previewData, null, 2)}. Return ONLY the valid JSON.`;
+                        finalPrompt = `You are a JSON editing expert. Modify the following JSON data based on this user instruction: "${regenerationNote}".
+                        **EXISTING JSON TO MODIFY:**
+                        ---
+                        ${JSON.stringify(previewData, null, 2)}
+                        ---
+                        You MUST adhere to all of the original rules that were used to create it. Return ONLY the complete, updated, and valid JSON object.`;
                     } else {
-                        prompt = `You are an expert instructional designer.
+                        finalPrompt = `You are an expert instructional designer and author.
+                
                         **ABSOLUTE PRIMARY RULE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
+                        - No other text or conversation is allowed outside this JSON object.
+                        
                         **JSON SYNTAX RULES (NON-NEGOTIABLE):**
-                        1. All property names must be in double quotes.
+                        1. All property names must be in double quotes (e.g., "title").
                         2. A colon (:) MUST follow every property name.
-                        3. All backslashes (\\) must be escaped (\\\\).
-                        4. No trailing commas.
+                        3. All backslashes (\\) inside string values MUST be escaped (\\\\).
+                        4. No trailing commas are allowed.
+                        
                         **CRITICAL PRE-FLIGHT CHECK (NON-NEGOTIABLE):**
-                        Before outputting, verify: 1. No missing colons? 2. No missing commas in arrays? 3. No missing commas in objects? 4. All brackets/braces matched? 5. All backslashes escaped?
-                        **OUTPUT JSON STRUCTURE:** {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": [...], "pages": [{"title": "...", "content": "...", "type": "text|diagram-data"}, ... ]}, ... ]}
+                        Before outputting the JSON, you MUST mentally verify it passes this checklist. A single failure here will invalidate the entire response.
+                        1. Did I forget a colon \`:\` after ANY property name (e.g., \`"title" {\` is WRONG)?
+                        2. Did I forget a comma \`,\` between any two elements in an array (e.g., \`["a" "b"]\` or \`[{...} {...}]\` are WRONG)?
+                        3. Did I forget a comma \`,\` between any two properties in an object (e.g., \`"key1":"v1" "key2":"v2"\` is WRONG)?
+                        4. Does every opening brace \`{\` and bracket \`[\` have a matching closing brace \`}\` and bracket \`]\`?
+                        5. Are all backslashes \`\\\` correctly escaped as \`\\\\\`?
+
+                        **OUTPUT JSON STRUCTURE (Follow this exactly):**
+                        {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": [...], "pages": [{"title": "...", "content": "...", "type": "text|diagram-data"}, ... ]}, ... ]}
+
                         ---
                         **GENERATION TASK DETAILS**
                         ---
-                        **Core Content:** Subject: "${subjectName}", Grade: ${formData.gradeLevel}, Topic: "${formData.content}", Content Standard: "${formData.contentStandard}", Performance Standard: "${formData.performanceStandard}"
-                        **Learning Competencies:** "${formData.learningCompetencies}"
-                        **CRITICAL OBJECTIVES INSTRUCTION:** Generate a 'learningObjectives' array with 3-5 distinct objectives starting with a verb.
-                        **Lesson Details:** Number of Lessons: ${formData.lessonCount}. Title Rule: Each "lessonTitle" must be unique and start with "Lesson #[Lesson Number]: ".
-                        **PAGE COUNT/DEPTH:** Minimum of **30 pages for EACH lesson**. Achieve this with deep narrative richness (history, applications, analogies).
+                        
+                        **Core Content Information:**
+                        - **Subject:** "${subjectName}"
+                        - **Grade Level:** ${formData.gradeLevel}
+                        - **Topic:** "${formData.content}"
+                        - **Content Standard:** "${formData.contentStandard}"
+                        - **Performance Standard:** "${formData.performanceStandard}"
+                        
+                        **Learning Competencies to Address (Use these as a guide):**
+                        "${formData.learningCompetencies}"
+                        
+                        **CRITICAL INSTRUCTION FOR LEARNING OBJECTIVES (NON-NEGOTIABLE):**
+                        Generate a 'learningObjectives' array with 3-5 distinct objectives starting with a verb (e.g., "Differentiate between..."). Do not include introductory phrases.
+
+                        **Lesson Details:**
+                        - **Number of Lessons to Generate:** ${formData.lessonCount}
+                        - **Lesson Title Rule:** Each "lessonTitle" MUST be unique and start with "Lesson #[Lesson Number]: " (or "Aralin #[Lesson Number]: ").
+
+                        **CRITICAL PAGE COUNT AND NARRATIVE DEPTH INSTRUCTION:**
+                        You MUST generate a very substantial lesson with a minimum of **30 pages for EACH lesson**. Achieve this length by providing immense depth and narrative richness (history, applications, analogies, story-like structure). A "page" is ~200-300 words or a complex diagram.
+
                         ---
-                        **MASTER INSTRUCTION SET:**
+                        **MASTER INSTRUCTION SET (Apply all of these rules to the content):**
                         ---
-                        ${masterInstructions}`;
+                        ${masterInstructions}
+                        `;
                     }
                 } else {
+                    // This is a retry attempt. Ask the AI to fix its own mistake.
                     showToast(`AI response was invalid. Attempting to self-correct (Attempt ${attempt})...`, "warning");
-                    prompt = `The following text is not valid JSON and produced this error: "${lastError.message}". Correct the syntax errors and return ONLY the complete, valid JSON object.
+                    finalPrompt = `The following text is not valid JSON and produced this error: "${lastError.message}". Please correct the syntax errors in the JSON and return ONLY the complete, corrected, and valid JSON object. Do not apologize or add extra text.
                     ---
                     BROKEN JSON TEXT:
-                    ${lastResponseText}
-                    ---`;
+                    ${currentText}
+                    ---
+                    Return ONLY the corrected JSON.`;
                 }
 
                 try {
-                    const aiResponse = await callGeminiWithLimitCheck(prompt);
-                    lastResponseText = extractJson(aiResponse);
-                    const parsedResponse = tryParseJson(lastResponseText);
+                    const aiResponse = await callGeminiWithLimitCheck(finalPrompt);
+                    currentText = extractJson(aiResponse);
+                    const parsedResponse = tryParseJson(currentText);
+
                     setPreviewData(parsedResponse);
                     showToast("Content generated successfully!", "success");
                     setIsGenerating(false);
                     return;
+
                 } catch (error) {
                     console.error(`Attempt ${attempt} failed:`, error);
                     lastError = error;
                 }
             }
+
+            // If all attempts fail, throw the last recorded error.
             throw lastError;
+
         } catch (err) {
             console.error("Error during generation after all retries:", err);
-            // ✅ FIXED: Show a much more helpful error message to the user.
-            const userFriendlyError = `The AI failed to generate valid content after 3 attempts. This can happen with very complex requests.
-
-Error: ${err.message}
-
-What to do next:
-1. Try generating again with a smaller request (e.g., 1 lesson instead of 3).
-2. If it still fails, the AI's response below can be checked with an online tool like JSONLint to find the exact error.`;
-            
-            showToast(userFriendlyError, "error", 15000); // Show toast for 15 seconds
-            console.log("--- LAST FAILED AI RESPONSE (for debugging) ---");
-            console.log(lastResponseText);
+            showToast(err.message || "Failed to generate content after multiple attempts.", "error");
         } finally {
             setIsGenerating(false);
         }
