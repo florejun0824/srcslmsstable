@@ -19,35 +19,41 @@ const extractJson = (text) => {
     throw new Error("AI response did not contain a valid JSON object.");
 };
 
-// ✅ FIXED: This function now includes a rule to fix the "Expected ':'" error.
+// ✅ FIXED: This function is now more robust and handles multiple missing colon cases.
 const tryParseJson = (jsonString) => {
     try {
         // Attempt a strict parse first.
         return JSON.parse(jsonString);
     } catch (e) {
-        console.warn("Standard JSON.parse failed. Attempting to sanitize the JSON string.", e);
+        console.warn("Standard JSON.parse failed. Attempting advanced sanitization.", e);
         let sanitized = jsonString;
 
-        // NEW: Attempt to fix missing colons after a property name.
+        // Fix missing colons between a property name and a string value.
         // e.g., { "key" "value" } -> { "key": "value" }
         sanitized = sanitized.replace(/"\s*"/g, '": "');
 
+        // NEW: Fix missing colons between a property name and an object value.
+        // e.g., { "pages" { ... } } -> { "pages": { ... } }
+        sanitized = sanitized.replace(/"\s*{/g, '": {');
+
+        // NEW: Fix missing colons between a property name and an array value.
+        // e.g., { "generated_lessons" [ ... ] } -> { "generated_lessons": [ ... ] }
+        sanitized = sanitized.replace(/"\s*\[/g, '": [');
+
         // Attempt to fix missing commas between object properties.
-        // e.g., { "key1": "value1" "key2": "value2" } -> { "key1": "value1", "key2": "value2" }
         sanitized = sanitized.replace(/}"\s*"/g, '}", "');
 
         // Attempt to fix missing commas between objects in an array.
-        // e.g., [ { ... } { ... } ] -> [ { ... }, { ... } ]
         sanitized = sanitized.replace(/}\s*{/g, '}, {');
 
         // Attempt to fix trailing commas.
         sanitized = sanitized.replace(/,\s*([}\]])/g, '$1');
 
         try {
-            console.log("Attempting to parse sanitized JSON.");
+            console.log("Attempting to parse sanitized JSON after multiple fixes.");
             return JSON.parse(sanitized);
         } catch (finalError) {
-            console.error("Sanitization failed. Could not parse the JSON even after attempts to fix it.", finalError);
+            console.error("Advanced sanitization failed. Could not parse the JSON.", finalError);
             // Throw the original, more informative error.
             throw e;
         }
