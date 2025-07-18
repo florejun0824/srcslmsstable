@@ -19,7 +19,7 @@ const extractJson = (text) => {
     throw new Error("AI response did not contain a valid JSON object.");
 };
 
-// ✅ FIXED: This function is now more robust and attempts to fix common AI syntax errors.
+// ✅ FIXED: This function now includes a rule to fix the "Expected ':'" error.
 const tryParseJson = (jsonString) => {
     try {
         // Attempt a strict parse first.
@@ -27,6 +27,10 @@ const tryParseJson = (jsonString) => {
     } catch (e) {
         console.warn("Standard JSON.parse failed. Attempting to sanitize the JSON string.", e);
         let sanitized = jsonString;
+
+        // NEW: Attempt to fix missing colons after a property name.
+        // e.g., { "key" "value" } -> { "key": "value" }
+        sanitized = sanitized.replace(/"\s*"/g, '": "');
 
         // Attempt to fix missing commas between object properties.
         // e.g., { "key1": "value1" "key2": "value2" } -> { "key1": "value1", "key2": "value2" }
