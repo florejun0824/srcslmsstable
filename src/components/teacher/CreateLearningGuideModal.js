@@ -175,13 +175,14 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide real, verifiable academic or reputable web sources. Do NOT invent sources. Every last page of the lesson should have references on it.
             `;
 
-            const languageInstruction = `
+			const languageInstruction = `
                 **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
             `;
             const studentLessonInstructions = `
                 **CRITICAL JSON FORMATTING RULES (NON-NEGOTIABLE):**
                 1.  **Entire response MUST be a single JSON object.**
                 2.  **No Trailing Commas.**
+                3.  **JSON String Escaping:** All backslashes (\\) within the JSON content MUST be properly escaped with a second backslash (\\\\). For example, a LaTeX command like \`\\frac{1}{2}\` MUST be written as \`"\\\\frac{1}{2}"\` inside the JSON string. This is a non-negotiable requirement for valid JSON.
                 
 				**ABSOLUTE RULE FOR DIAGRAMS (NON-NEGOTIABLE):**
                 When a diagram is necessary to explain a concept (e.g., photosynthesis, parts of a cell, a historical timeline), you MUST generate a clean, modern, and informative SVG diagram.
