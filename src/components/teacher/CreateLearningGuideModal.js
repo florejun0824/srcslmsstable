@@ -19,43 +19,20 @@ const extractJson = (text) => {
     throw new Error("AI response did not contain a valid JSON object.");
 };
 
-// ✅ FIXED: This function is now more robust and handles multiple missing colon cases.
+// ✅ FIXED: Reverted to a simpler, safer sanitization function that only fixes trailing commas.
+// The complex regex fixes were causing unpredictable side effects.
 const tryParseJson = (jsonString) => {
     try {
-        // Attempt a strict parse first.
         return JSON.parse(jsonString);
     } catch (e) {
-        console.warn("Standard JSON.parse failed. Attempting advanced sanitization.", e);
-        let sanitized = jsonString;
-
-        // Fix missing colons between a property name and a string value.
-        // e.g., { "key" "value" } -> { "key": "value" }
-        sanitized = sanitized.replace(/"\s*"/g, '": "');
-
-        // NEW: Fix missing colons between a property name and an object value.
-        // e.g., { "pages" { ... } } -> { "pages": { ... } }
-        sanitized = sanitized.replace(/"\s*{/g, '": {');
-
-        // NEW: Fix missing colons between a property name and an array value.
-        // e.g., { "generated_lessons" [ ... ] } -> { "generated_lessons": [ ... ] }
-        sanitized = sanitized.replace(/"\s*\[/g, '": [');
-
-        // Attempt to fix missing commas between object properties.
-        sanitized = sanitized.replace(/}"\s*"/g, '}", "');
-
-        // Attempt to fix missing commas between objects in an array.
-        sanitized = sanitized.replace(/}\s*{/g, '}, {');
-
-        // Attempt to fix trailing commas.
-        sanitized = sanitized.replace(/,\s*([}\]])/g, '$1');
-
+        console.warn("Standard JSON.parse failed. Attempting to fix trailing commas.", e);
+        // This is a safe and common sanitization.
+        const sanitized = jsonString.replace(/,\s*([}\]])/g, '$1');
         try {
-            console.log("Attempting to parse sanitized JSON after multiple fixes.");
             return JSON.parse(sanitized);
         } catch (finalError) {
-            console.error("Advanced sanitization failed. Could not parse the JSON.", finalError);
-            // Throw the original, more informative error.
-            throw e;
+            console.error("Sanitization failed. The error is likely in the generated JSON structure.", finalError);
+            throw e; // Throw original error for better context.
         }
     }
 };
@@ -164,7 +141,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 `;
             }
 
-            const masterInstructions = `
+           const masterInstructions = `
                 **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter.
 
                 **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${formData.gradeLevel}**. Your writing must be clear, accessible, and tailored to the cognitive and developmental level of this grade. The complexity of vocabulary, sentence structure, and conceptual depth should be appropriate for a ${formData.gradeLevel}th grader.
@@ -178,35 +155,33 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 - **Rule:** Every LaTeX expression MUST start with a single dollar sign (\`$\`) and end with a single dollar sign (\`$\`). There are no exceptions.
                 - **Example (Equation):** To write F = ma, you MUST write \`$F = ma$\`.
                 - **Example (Chemical Formula):** To write H₂O, you MUST write \`$H_2O$\`.
-                - **Example (Variable):** To refer to the variable 'x' in an equation, you MUST write \`$x$\`.
-                - **CRITICAL CHECK:** Before finishing, ensure every opening \`$\` has a corresponding closing \`$\`. Incomplete expressions like \`$F = ma\` are strictly forbidden and will result in a failed response.
+                - **CRITICAL CHECK:** Before finishing, ensure every opening \`$\` has a corresponding closing \`$\`.
 				
-                **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section (e.g., explaining the "Legislative Branch") is too long for one page and its discussion must continue onto the next page (or multiple subsequent pages), the heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page where the topic is introduced.
-                **ALL** subsequent pages that are continuations of that same topic **MUST** have an empty string for their title: \`"title": ""\`.
-                **UNDER NO CIRCUMSTANCES** should you ever create headings like "Topic Title (Continuation)" or "Topic Title (Part 2)". The content should flow seamlessly.
+                **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, the heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \`"title": ""\`.
 
-                **Textbook Chapter Structure:** You MUST organize the lesson content in the following sequence:
-                1.  **Standalone ${objectivesLabel} Section:** A "learningObjectives" array.
-                2.  **Engaging Introduction:** A captivating opening that poses a fascinating question or tells a surprising anecdote.
-                3.  **Introductory Activity:** A single, thought-provoking warm-up activity labeled "${letsGetStartedLabel}".
-                4.  **Core Content Sections:** The main, narrative-driven content.
-                5.  **Check for Understanding:** After a major section, you may include a single, thoughtful activity or a few critical thinking questions labeled "${checkUnderstandingLabel}".
-                6.  **${lessonSummaryLabel}:** A concise summary.
-                7.  **${wrapUpLabel}/Conclusion:** A powerful concluding statement.
-                8.  **${endOfLessonAssessmentLabel}:** A dedicated assessment with **8-10 questions** and a labeled "${answerKeyLabel}".
-                9.  **Final Page - ${referencesLabel}:** The last page MUST be for references only.
+                **Textbook Chapter Structure (NON-NEGOTIABLE):** You MUST generate the lesson pages in this exact sequence. The 'title' field for each special section MUST be exactly as specified.
+                1.  **${objectivesLabel}:** The lesson MUST begin with the learning objectives. This content is part of the top-level "learningObjectives" array in the JSON and should be presented first in the lesson flow.
+                2.  **Engaging Introduction:** The first page of the 'pages' array must be a captivating opening that poses a fascinating question or tells a surprising anecdote related to the topic.
+                3.  **Introductory Activity ("${letsGetStartedLabel}"):** Following the introduction, create a single page with a short, thought-provoking warm-up activity. The 'title' for this page MUST be exactly "${letsGetStartedLabel}".
+                4.  **Core Content Sections:** Generate the main, narrative-driven content across multiple pages. This is where you will explain the topic in depth, tell stories, and use analogies.
+                5.  **Check for Understanding ("${checkUnderstandingLabel}"):** After a major content section, you may insert a page with a single, thoughtful activity or a few critical thinking questions. The 'title' for this page MUST be exactly "${checkUnderstandingLabel}".
+                6.  **Summary ("${lessonSummaryLabel}"):** After all core content, create a page with a concise summary of the key ideas. The 'title' for this page MUST be exactly "${lessonSummaryLabel}".
+                7.  **Conclusion ("${wrapUpLabel}"):** Follow the summary with a page containing a powerful concluding statement that reinforces the topic's importance. The 'title' for this page MUST be exactly "${wrapUpLabel}".
+                8.  **Assessment ("${endOfLessonAssessmentLabel}"):** After the conclusion, create a multi-page assessment section. The first page of this section must have the 'title' "${endOfLessonAssessmentLabel}". The assessment must contain 8-10 questions.
+                9.  **Answer Key ("${answerKeyLabel}"):** Immediately following the assessment questions, include a final page with the 'title' "${answerKeyLabel}" that lists all the answers.
+                10. **References ("${referencesLabel}"):** The absolute last page of the lesson must ONLY contain references. The 'title' for this page MUST be exactly "${referencesLabel}".
 
-                **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide real, verifiable academic or reputable web sources. Do NOT invent sources.
+                **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide real, verifiable academic or reputable web sources.
 
                 **ABSOLUTE RULE FOR DIAGRAMS (NON-NEGOTIABLE):**
-                When a diagram is necessary, you MUST generate a clean, modern, and informative SVG diagram.
+                When a diagram is necessary, you MUST generate a clean, modern, SVG diagram.
                 - The page 'type' MUST be set to "diagram-data".
-                - The page 'content' MUST contain the full, valid, and complete SVG code as a string.
+                - The page 'content' MUST contain the full, valid SVG code.
                 - **CRITICAL SVG STYLING AND LAYOUT RULES:**
-                    1.  **Font Size:** Use a small, consistent font size like \`font-size="8px"\` or \`font-size="10px"\`.
-                    2.  **Text Layout & Wrapping:** For multi-word labels, you MUST use \`<tspan>\` elements to break the text into multiple lines. Position text labels with adequate padding so they do not overlap.
-                    3.  **Responsive Sizing:** The root \`<svg>\` element MUST include a \`viewBox\` attribute (e.g., \`viewBox="0 0 200 150"\`).
-                - **UNDER NO CIRCUMSTANCES** should you ever return a textual description of a diagram. You must generate the SVG code itself.
+                    1.  **Font Size:** Use a small, consistent font size like \`font-size="8px"\`.
+                    2.  **Text Wrapping:** Use \`<tspan>\` elements to break long labels into multiple lines.
+                    3.  **Responsive Sizing:** The root \`<svg>\` element MUST include a \`viewBox\` attribute.
+                - **UNDER NO CIRCUMSTANCES** should you return a textual description of a diagram.
 
                 **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
             `;
@@ -219,18 +194,28 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 ---
                 ${isRegeneration ? JSON.stringify(previewData, null, 2) : ''}
                 ---
-                You MUST adhere to all of the original rules that were used to create it, especially the 'Professor/Author' persona, grade level targeting, and all formatting rules. Return ONLY the complete, updated, and valid JSON object.`;
+                You MUST adhere to all of the original rules that were used to create it. Return ONLY the complete, updated, and valid JSON object.`;
             
+            // ✅ FIXED: Added a "Pre-flight Check" to the prompt to force the AI to self-correct.
             const creationInstructions = `You are an expert instructional designer and author.
                 
                 **ABSOLUTE PRIMARY RULE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
-                - No other text, conversation, or apologies are allowed outside of this JSON object.
-                - **JSON SYNTAX RULES (NON-NEGOTIABLE):**
-                    1. All property names must be in double quotes (e.g., "title").
-                    2. A colon (:) MUST follow every property name.
-                    3. All backslashes (\\) inside string values MUST be escaped (\\\\). For example, a LaTeX command like \`\\frac{1}{2}\` must be written as \`"\\\\frac{1}{2}"\`.
-                    4. No trailing commas are allowed after the last element in an array or object.
+                - No other text or conversation is allowed outside this JSON object.
                 
+                **JSON SYNTAX RULES (NON-NEGOTIABLE):**
+                1. All property names must be in double quotes (e.g., "title").
+                2. A colon (:) MUST follow every property name.
+                3. All backslashes (\\) inside string values MUST be escaped (\\\\).
+                4. No trailing commas are allowed.
+                
+                **CRITICAL PRE-FLIGHT CHECK (NON-NEGOTIABLE):**
+                Before outputting the JSON, you MUST mentally verify it passes this checklist. A single failure here will invalidate the entire response.
+                1. Did I forget a colon \`:\` after ANY property name (e.g., \`"title" {\` is WRONG)?
+                2. Did I forget a comma \`,\` between any two elements in an array (e.g., \`["a" "b"]\` or \`[{...} {...}]\` are WRONG)?
+                3. Did I forget a comma \`,\` between any two properties in an object (e.g., \`"key1":"v1" "key2":"v2"\` is WRONG)?
+                4. Does every opening brace \`{\` and bracket \`[\` have a matching closing brace \`}\` and bracket \`]\`?
+                5. Are all backslashes \`\\\` correctly escaped as \`\\\\\`?
+
                 **OUTPUT JSON STRUCTURE (Follow this exactly):**
                 {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": [...], "pages": [{"title": "...", "content": "...", "type": "text|diagram-data"}, ... ]}, ... ]}
 
@@ -249,14 +234,14 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 "${formData.learningCompetencies}"
                 
                 **CRITICAL INSTRUCTION FOR LEARNING OBJECTIVES (NON-NEGOTIABLE):**
-                Based on the topic and competencies, generate a 'learningObjectives' array with 3-5 distinct objectives starting with a verb (e.g., "Differentiate between..."). Do not include introductory phrases like "Students will be able to...". Create new, specific objectives.
+                Generate a 'learningObjectives' array with 3-5 distinct objectives starting with a verb (e.g., "Differentiate between..."). Do not include introductory phrases.
 
                 **Lesson Details:**
                 - **Number of Lessons to Generate:** ${formData.lessonCount}
-                - **Lesson Title Rule:** Each "lessonTitle" MUST be unique and intriguing, starting with "Lesson #[Lesson Number]: " (or "Aralin #[Lesson Number]: " for Filipino).
+                - **Lesson Title Rule:** Each "lessonTitle" MUST be unique and start with "Lesson #[Lesson Number]: " (or "Aralin #[Lesson Number]: ").
 
                 **CRITICAL PAGE COUNT AND NARRATIVE DEPTH INSTRUCTION:**
-                You MUST generate a very substantial lesson with a minimum of **30 pages for EACH lesson**. Achieve this length by providing immense depth and narrative richness (historical context, real-world applications, rich analogies, and a story-like structure). A "page" is a conceptual unit of about **200-300 words** or a single complex diagram.
+                You MUST generate a very substantial lesson with a minimum of **30 pages for EACH lesson**. Achieve this length by providing immense depth and narrative richness (history, applications, analogies, story-like structure). A "page" is ~200-300 words or a complex diagram.
 
                 ---
                 **MASTER INSTRUCTION SET (Apply all of these rules to the content):**
