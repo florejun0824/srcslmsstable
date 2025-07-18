@@ -19,18 +19,37 @@ const extractJson = (text) => {
     throw new Error("AI response did not contain a valid JSON object.");
 };
 
+// ✅ FIXED: This function is now more robust and attempts to fix common AI syntax errors.
 const tryParseJson = (jsonString) => {
     try {
+        // Attempt a strict parse first.
         return JSON.parse(jsonString);
-    } catch (error) {
-        let sanitizedString = jsonString.replace(/,\s*([}\]])/g, '$1');
+    } catch (e) {
+        console.warn("Standard JSON.parse failed. Attempting to sanitize the JSON string.", e);
+        let sanitized = jsonString;
+
+        // Attempt to fix missing commas between object properties.
+        // e.g., { "key1": "value1" "key2": "value2" } -> { "key1": "value1", "key2": "value2" }
+        sanitized = sanitized.replace(/}"\s*"/g, '}", "');
+
+        // Attempt to fix missing commas between objects in an array.
+        // e.g., [ { ... } { ... } ] -> [ { ... }, { ... } ]
+        sanitized = sanitized.replace(/}\s*{/g, '}, {');
+
+        // Attempt to fix trailing commas.
+        sanitized = sanitized.replace(/,\s*([}\]])/g, '$1');
+
         try {
-            return JSON.parse(sanitizedString);
+            console.log("Attempting to parse sanitized JSON.");
+            return JSON.parse(sanitized);
         } catch (finalError) {
-            throw error;
+            console.error("Sanitization failed. Could not parse the JSON even after attempts to fix it.", finalError);
+            // Throw the original, more informative error.
+            throw e;
         }
     }
 };
+
 
 export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subjectId }) {
     const { showToast } = useToast();
@@ -135,7 +154,6 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 `;
             }
 
-            // ✅ REFACTORED PROMPT: All structural and formatting rules are now consolidated here for clarity.
             const masterInstructions = `
                 **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter.
 
