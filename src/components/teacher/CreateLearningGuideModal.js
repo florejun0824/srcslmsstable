@@ -5,7 +5,7 @@ import { db } from '../../services/firebase';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 import InteractiveLoadingScreen from '../common/InteractiveLoadingScreen';
-import { XMarkIcon, AcademicCapIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, AcademicCapIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import LessonPage from './LessonPage';
 
 // Helper functions (extractJson, tryParseJson)
@@ -19,7 +19,6 @@ const extractJson = (text) => {
     throw new Error("AI response did not contain a valid JSON object.");
 };
 
-// Using a safer parser that only fixes trailing commas.
 const tryParseJson = (jsonString) => {
     try {
         return JSON.parse(jsonString);
@@ -47,6 +46,8 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
     const [availableUnits, setAvailableUnits] = useState([]);
     const [selectedUnitId, setSelectedUnitId] = useState('');
     const [subjectName, setSubjectName] = useState('');
+
+    const [failedLessonNumber, setFailedLessonNumber] = useState(null);
 
     const [formData, setFormData] = useState({
         content: '',
@@ -113,136 +114,173 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         setFormData(prev => ({ ...prev, [name]: finalValue }));
     };
 
-    const handleGenerate = async (regenerationNote = '') => {
-        setIsGenerating(true);
-        if (!regenerationNote) setPreviewData(null);
-        
+    const getMasterInstructions = () => {
+        const objectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
+        const letsGetStartedLabel = formData.language === 'Filipino' ? 'Simulan Natin!' : "Let's Get Started!";
+        const checkUnderstandingLabel = formData.language === 'Filipino' ? 'Suriin ang Pag-unawa' : "Check for Understanding";
+        const lessonSummaryLabel = formData.language === 'Filipino' ? 'Buod ng Aralin' : "Lesson Summary";
+        const wrapUpLabel = formData.language === 'Filipino' ? 'Pagbubuod' : "Wrap-Up";
+        const endOfLessonAssessmentLabel = formData.language === 'Filipino' ? 'Pagtatasa sa Katapusan ng Aralin' : "End-of-Lesson Assessment";
+        const referencesLabel = formData.language === 'Filipino' ? 'Mga Sanggunian' : "References";
+        const answerKeyLabel = formData.language === 'Filipino' ? 'Susi sa Pagwawasto' : 'Answer Key';
+        const catholicSubjects = ["Christian Social Living 7-10", "Religious Education 11-12"];
+        let perspectiveInstruction = '';
+        if (catholicSubjects.includes(subjectName)) {
+            perspectiveInstruction = `
+                **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. This is non-negotiable. All explanations, examples, and interpretations must align with Catholic teachings, doctrines, and values. You must integrate principles from the Catechism of the Catholic Church, relevant encyclicals, and Sacred Scripture where appropriate.
+            `;
+        }
+
+        return `
+            **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter.
+            **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${formData.gradeLevel}**. Your writing must be clear, accessible, and tailored to the cognitive and developmental level of this grade. The complexity of vocabulary, sentence structure, and conceptual depth should be appropriate for a ${formData.gradeLevel}th grader.
+            ${perspectiveInstruction}
+            **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the science or the concept. Introduce key figures, explore historical context, and delve into fascinating real-world applications. Use vivid analogies and metaphors to illuminate complex ideas. The content should flow logically and build on itself, like a well-structured story.
+            **CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
+            You MUST use LaTeX for all mathematical equations, variables, and chemical formulas. Rule: Every LaTeX expression MUST start with a single dollar sign (\`$\`) and end with a single dollar sign (\`$\`). Example (Equation): To write F = ma, you MUST write \`$F = ma$\`. Example (Chemical Formula): To write H₂O, you MUST write \`$H_2O$\`.
+            **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, the heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \`"title": ""\`.
+            **Textbook Chapter Structure (NON-NEGOTIABLE):** You MUST generate the lesson pages in this exact sequence. The 'title' field for each special section MUST be exactly as specified.
+            1. **${objectivesLabel}:** The lesson MUST begin with the learning objectives (in the "learningObjectives" array).
+            2. **Engaging Introduction:** The first page of the 'pages' array must be a captivating opening.
+            3. **Introductory Activity ("${letsGetStartedLabel}"):** A single page with a short warm-up activity. The 'title' MUST be exactly "${letsGetStartedLabel}".
+            4. **Core Content Sections:** The main narrative content across multiple pages.
+            5. **Check for Understanding ("${checkUnderstandingLabel}"):** A page with a thoughtful activity. The 'title' MUST be exactly "${checkUnderstandingLabel}".
+            6. **Summary ("${lessonSummaryLabel}"):** A page with a concise summary. The 'title' MUST be exactly "${lessonSummaryLabel}".
+            7. **Conclusion ("${wrapUpLabel}"):** A page with a powerful concluding statement. The 'title' MUST be exactly "${wrapUpLabel}".
+            8. **Assessment ("${endOfLessonAssessmentLabel}"):** A multi-page assessment section. The first page's 'title' MUST be "${endOfLessonAssessmentLabel}". It must contain 8-10 questions.
+            9. **Answer Key ("${answerKeyLabel}"):** A page with the answers. The 'title' MUST be exactly "${answerKeyLabel}".
+            10. **References ("${referencesLabel}"):** The absolute last page must ONLY contain references. The 'title' MUST be exactly "${referencesLabel}".
+            **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide real, verifiable academic or reputable web sources.
+            **ABSOLUTE RULE FOR DIAGRAMS (NON-NEGOTIABLE):**
+            When a diagram is necessary, you MUST generate a clean, modern, SVG diagram. The page 'type' MUST be set to "diagram-data". The 'content' MUST contain the full SVG code. CRITICAL SVG STYLING RULES: Use small font sizes (\`font-size="8px"\`), use \`<tspan>\` for text wrapping, and include a \`viewBox\` attribute.
+            **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
+        `;
+    };
+
+    const generateSingleLesson = async (lessonNumber, totalLessons, previousLessonSummary) => {
         let lastError = null;
         let lastResponseText = null;
+        const masterInstructions = getMasterInstructions();
+
+        let continuityInstruction = '';
+        if (lessonNumber > 1 && previousLessonSummary) {
+            continuityInstruction = `
+                **CRITICAL CONTINUITY INSTRUCTION:** You are generating Lesson ${lessonNumber}. The previous lesson (Lesson ${lessonNumber - 1}) covered the following topics:
+                ---
+                **Summary of Previous Lesson:**
+                ${previousLessonSummary}
+                ---
+                You MUST ensure this new lesson logically follows the previous one. Do not repeat the content from the summary. Begin with a brief recap or transition, and then introduce the new topics for this current lesson.
+            `;
+        }
+
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            let prompt;
+            if (attempt === 1) {
+                prompt = `You are an expert instructional designer.
+                    **ABSOLUTE PRIMARY RULE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
+                    **JSON SYNTAX RULES (NON-NEGOTIABLE):** 1. All keys in quotes. 2. Colon after every key. 3. Backslashes escaped (\\\\). 4. No trailing commas.
+                    **CRITICAL PRE-FLIGHT CHECK:** Before outputting, verify: 1. No missing colons? 2. No missing commas? 3. Brackets/braces matched? 4. Backslashes escaped?
+                    **OUTPUT JSON STRUCTURE:** {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": [...], "pages": [...]}]}
+                    ---
+                    **GENERATION TASK DETAILS**
+                    ---
+                    **Core Content:** Subject: "${subjectName}", Grade: ${formData.gradeLevel}, Topic: "${formData.content}"
+                    **Learning Competencies:** "${formData.learningCompetencies}"
+                    **CRITICAL OBJECTIVES INSTRUCTION:** Generate 'learningObjectives' array with 3-5 objectives.
+                    **Lesson Details:** You are generating **Lesson ${lessonNumber} of ${totalLessons}**. The "lessonTitle" MUST be unique and start with "Lesson ${lessonNumber}: ".
+                    ${continuityInstruction}
+                    **PAGE COUNT/DEPTH:** Minimum of **30 pages for this single lesson**. Achieve this with deep narrative richness.
+                    ---
+                    **MASTER INSTRUCTION SET:**
+                    ---
+                    ${masterInstructions}`;
+            } else {
+                showToast(`AI response was invalid. Retrying Lesson ${lessonNumber} (Attempt ${attempt})...`, "warning");
+                prompt = `The following text is not valid JSON and produced this error: "${lastError.message}". Correct the syntax and return ONLY the valid JSON object. BROKEN JSON: ${lastResponseText}`;
+            }
+
+            try {
+                const aiResponse = await callGeminiWithLimitCheck(prompt);
+                lastResponseText = extractJson(aiResponse);
+                const parsedResponse = tryParseJson(lastResponseText);
+                return parsedResponse; 
+            } catch (error) {
+                console.error(`Attempt ${attempt} for Lesson ${lessonNumber} failed:`, error);
+                lastError = error;
+            }
+        }
+        throw lastError;
+    };
+
+    const runGenerationLoop = async (startLessonNumber) => {
+        setIsGenerating(true);
+        setFailedLessonNumber(null);
+        
+        let currentLessons = previewData ? previewData.generated_lessons : [];
+        const lessonSummaryLabel = formData.language === 'Filipino' ? 'Buod ng Aralin' : "Lesson Summary";
+
+        const findSummaryContent = (lesson) => {
+            if (!lesson || !lesson.pages) return "";
+            const summaryPage = lesson.pages.find(p => p.title === lessonSummaryLabel);
+            return summaryPage ? summaryPage.content : "";
+        };
 
         try {
             if (!formData.content || !formData.learningCompetencies) {
                 throw new Error("Please provide the Main Content/Topic and Learning Competencies.");
             }
 
-            // Define all labels and instructions once.
-            const objectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
-            const letsGetStartedLabel = formData.language === 'Filipino' ? 'Simulan Natin!' : "Let's Get Started!";
-            const checkUnderstandingLabel = formData.language === 'Filipino' ? 'Suriin ang Pag-unawa' : "Check for Understanding";
-            const lessonSummaryLabel = formData.language === 'Filipino' ? 'Buod ng Aralin' : "Lesson Summary";
-            const wrapUpLabel = formData.language === 'Filipino' ? 'Pagbubuod' : "Wrap-Up";
-            const endOfLessonAssessmentLabel = formData.language === 'Filipino' ? 'Pagtatasa sa Katapusan ng Aralin' : "End-of-Lesson Assessment";
-            const referencesLabel = formData.language === 'Filipino' ? 'Mga Sanggunian' : "References";
-            const answerKeyLabel = formData.language === 'Filipino' ? 'Susi sa Pagwawasto' : 'Answer Key';
-            
-            const catholicSubjects = ["Christian Social Living 7-10", "Religious Education 11-12"];
-            let perspectiveInstruction = '';
-            if (catholicSubjects.includes(subjectName)) {
-                perspectiveInstruction = `
-                **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. This is non-negotiable. All explanations, examples, and interpretations must align with Catholic teachings, doctrines, and values. You must integrate principles from the Catechism of the Catholic Church, relevant encyclicals, and Sacred Scripture where appropriate.
-                `;
-            }
+            for (let i = startLessonNumber; i <= formData.lessonCount; i++) {
+                showToast(`Generating Lesson ${i} of ${formData.lessonCount}...`, "info", 10000);
+                
+                const lastSuccessfulLesson = currentLessons.length > 0 ? currentLessons[currentLessons.length - 1] : null;
+                const previousLessonSummary = lastSuccessfulLesson ? findSummaryContent(lastSuccessfulLesson) : "";
 
-            const masterInstructions = `
-                **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter.
-                **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${formData.gradeLevel}**. Your writing must be clear, accessible, and tailored to the cognitive and developmental level of this grade. The complexity of vocabulary, sentence structure, and conceptual depth should be appropriate for a ${formData.gradeLevel}th grader.
-                ${perspectiveInstruction}
-                **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the science or the concept. Introduce key figures, explore historical context, and delve into fascinating real-world applications. Use vivid analogies and metaphors to illuminate complex ideas. The content should flow logically and build on itself, like a well-structured story.
-				**CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
-                You MUST use LaTeX for all mathematical equations, variables, and chemical formulas. Rule: Every LaTeX expression MUST start with a single dollar sign (\`$\`) and end with a single dollar sign (\`$\`). Example (Equation): To write F = ma, you MUST write \`$F = ma$\`. Example (Chemical Formula): To write H₂O, you MUST write \`$H_2O$\`.
-				**ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, the heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \`"title": ""\`.
-                **Textbook Chapter Structure (NON-NEGOTIABLE):** You MUST generate the lesson pages in this exact sequence. The 'title' field for each special section MUST be exactly as specified.
-                1. **${objectivesLabel}:** The lesson MUST begin with the learning objectives (in the "learningObjectives" array).
-                2. **Engaging Introduction:** The first page of the 'pages' array must be a captivating opening.
-                3. **Introductory Activity ("${letsGetStartedLabel}"):** A single page with a short warm-up activity. The 'title' MUST be exactly "${letsGetStartedLabel}".
-                4. **Core Content Sections:** The main narrative content across multiple pages.
-                5. **Check for Understanding ("${checkUnderstandingLabel}"):** A page with a thoughtful activity. The 'title' MUST be exactly "${checkUnderstandingLabel}".
-                6. **Summary ("${lessonSummaryLabel}"):** A page with a concise summary. The 'title' MUST be exactly "${lessonSummaryLabel}".
-                7. **Conclusion ("${wrapUpLabel}"):** A page with a powerful concluding statement. The 'title' MUST be exactly "${wrapUpLabel}".
-                8. **Assessment ("${endOfLessonAssessmentLabel}"):** A multi-page assessment section. The first page's 'title' MUST be "${endOfLessonAssessmentLabel}". It must contain 8-10 questions.
-                9. **Answer Key ("${answerKeyLabel}"):** A page with the answers. The 'title' MUST be exactly "${answerKeyLabel}".
-                10. **References ("${referencesLabel}"):** The absolute last page must ONLY contain references. The 'title' MUST be exactly "${referencesLabel}".
-                **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide real, verifiable academic or reputable web sources.
-                **ABSOLUTE RULE FOR DIAGRAMS (NON-NEGOTIABLE):**
-                When a diagram is necessary, you MUST generate a clean, modern, SVG diagram. The page 'type' MUST be set to "diagram-data". The 'content' MUST contain the full SVG code. CRITICAL SVG STYLING RULES: Use small font sizes (\`font-size="8px"\`), use \`<tspan>\` for text wrapping, and include a \`viewBox\` attribute.
-                **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
-            `;
-
-            for (let attempt = 1; attempt <= 3; attempt++) {
-                let prompt;
-                if (attempt === 1) {
-                    const isRegeneration = !!regenerationNote && !!previewData;
-                    if (isRegeneration) {
-                        prompt = `You are a JSON editing expert. Modify the following JSON based on: "${regenerationNote}". EXISTING JSON: ${JSON.stringify(previewData, null, 2)}. Return ONLY the valid JSON.`;
-                    } else {
-                        prompt = `You are an expert instructional designer.
-                        **ABSOLUTE PRIMARY RULE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
-                        **JSON SYNTAX RULES (NON-NEGOTIABLE):**
-                        1. All property names must be in double quotes.
-                        2. A colon (:) MUST follow every property name.
-                        3. All backslashes (\\) must be escaped (\\\\).
-                        4. No trailing commas.
-                        **CRITICAL PRE-FLIGHT CHECK (NON-NEGOTIABLE):**
-                        Before outputting, verify: 1. No missing colons? 2. No missing commas in arrays? 3. No missing commas in objects? 4. All brackets/braces matched? 5. All backslashes escaped?
-                        **OUTPUT JSON STRUCTURE:** {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": [...], "pages": [{"title": "...", "content": "...", "type": "text|diagram-data"}, ... ]}, ... ]}
-                        ---
-                        **GENERATION TASK DETAILS**
-                        ---
-                        **Core Content:** Subject: "${subjectName}", Grade: ${formData.gradeLevel}, Topic: "${formData.content}", Content Standard: "${formData.contentStandard}", Performance Standard: "${formData.performanceStandard}"
-                        **Learning Competencies:** "${formData.learningCompetencies}"
-                        **CRITICAL OBJECTIVES INSTRUCTION:** Generate a 'learningObjectives' array with 3-5 distinct objectives starting with a verb.
-                        **Lesson Details:** Number of Lessons: ${formData.lessonCount}. Title Rule: Each "lessonTitle" must be unique and start with "Lesson #[Lesson Number]: ".
-                        **PAGE COUNT/DEPTH:** Minimum of **30 pages for EACH lesson**. Achieve this with deep narrative richness (history, applications, analogies).
-                        ---
-                        **MASTER INSTRUCTION SET:**
-                        ---
-                        ${masterInstructions}`;
-                    }
+                const singleLessonData = await generateSingleLesson(i, formData.lessonCount, previousLessonSummary);
+                
+                if (singleLessonData && singleLessonData.generated_lessons && singleLessonData.generated_lessons.length > 0) {
+                    currentLessons.push(...singleLessonData.generated_lessons);
+                    setPreviewData({ generated_lessons: [...currentLessons] });
                 } else {
-                    showToast(`AI response was invalid. Attempting to self-correct (Attempt ${attempt})...`, "warning");
-                    prompt = `The following text is not valid JSON and produced this error: "${lastError.message}". Correct the syntax errors and return ONLY the complete, valid JSON object.
-                    ---
-                    BROKEN JSON TEXT:
-                    ${lastResponseText}
-                    ---`;
-                }
-
-                try {
-                    const aiResponse = await callGeminiWithLimitCheck(prompt);
-                    lastResponseText = extractJson(aiResponse);
-                    const parsedResponse = tryParseJson(lastResponseText);
-                    setPreviewData(parsedResponse);
-                    showToast("Content generated successfully!", "success");
-                    setIsGenerating(false);
-                    return;
-                } catch (error) {
-                    console.error(`Attempt ${attempt} failed:`, error);
-                    lastError = error;
+                    throw new Error(`Received invalid or empty data for lesson ${i}.`);
                 }
             }
-            throw lastError;
+            showToast("All lessons generated successfully!", "success");
+
         } catch (err) {
-            console.error("Error during generation after all retries:", err);
-            // ✅ FIXED: Show a much more helpful error message to the user.
-            const userFriendlyError = `The AI failed to generate valid content after 3 attempts. This can happen with very complex requests.
-
-Error: ${err.message}
-
-What to do next:
-1. Try generating again with a smaller request (e.g., 1 lesson instead of 3).
-2. If it still fails, the AI's response below can be checked with an online tool like JSONLint to find the exact error.`;
-            
-            showToast(userFriendlyError, "error", 15000); // Show toast for 15 seconds
-            console.log("--- LAST FAILED AI RESPONSE (for debugging) ---");
-            console.log(lastResponseText);
+            const failedLessonNum = currentLessons.length + 1;
+            console.error(`Error during generation of Lesson ${failedLessonNum}:`, err);
+            setFailedLessonNumber(failedLessonNum);
+            const userFriendlyError = `Failed to generate Lesson ${failedLessonNum}. You can try to continue the generation.`;
+            showToast(userFriendlyError, "error", 15000);
         } finally {
             setIsGenerating(false);
         }
     };
+    
+    const handleInitialGenerate = () => {
+        setPreviewData(null);
+        runGenerationLoop(1);
+    };
+
+    const handleContinueGenerate = () => {
+        if (failedLessonNumber) {
+            runGenerationLoop(failedLessonNumber);
+        }
+    };
+
+    const handleBackToEdit = () => {
+        setPreviewData(null);
+        setFailedLessonNumber(null);
+    };
+    
+    const handleRegenerate = async (regenerationNote) => {
+        showToast("To regenerate, please go back to edit and start a new generation.", "warning");
+    };
 
     const handleSave = async () => {
         const finalUnitId = unitId || selectedUnitId;
-
         if (!previewData || !Array.isArray(previewData.generated_lessons) || previewData.generated_lessons.length === 0) {
             showToast("Cannot save: Invalid or empty lesson data.", "error");
             return;
@@ -251,13 +289,10 @@ What to do next:
             showToast("Could not save: Please select a destination unit.", "error");
             return;
         }
-
         setIsSaving(true);
         showToast(`Saving ${previewData.generated_lessons.length} lesson(s)...`, "info");
-
         try {
             const batch = writeBatch(db);
-
             previewData.generated_lessons.forEach((lesson, index) => {
                 const newLessonRef = doc(collection(db, 'lessons'));
                 batch.set(newLessonRef, {
@@ -271,12 +306,9 @@ What to do next:
                     order: existingLessonCount + index,
                 });
             });
-
             await batch.commit();
-
             showToast(`${previewData.generated_lessons.length} lesson(s) saved successfully!`, "success");
             onClose();
-
         } catch (err) {
             console.error("Save error:", err);
             showToast("Failed to save lessons.", "error");
@@ -393,23 +425,30 @@ What to do next:
                                     </div>
                                 )) : <p className="text-red-600">Could not generate a valid preview.</p>}
                             </div>
-                            <textarea value={extraInstruction} onChange={(e) => setExtraInstruction(e.target.value)} placeholder="Request changes..." className="w-full border p-2 rounded-lg text-sm" rows={2} />
+                            <textarea value={extraInstruction} onChange={(e) => setExtraInstruction(e.target.value)} placeholder="Make changes to the entire set of lessons..." className="w-full border p-2 rounded-lg text-sm" rows={2} />
                         </div>
                     )}
                 </div>
                 <div className="pt-4 sm:pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-slate-200 mt-4 sm:mt-6">
                     {previewData ? (
-                        <>
-                            <button onClick={() => setPreviewData(null)} disabled={isSaving || isGenerating} className="btn-secondary w-full sm:w-auto text-sm">Back to Edit</button>
-                            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                                <button onClick={() => handleGenerate(extraInstruction)} disabled={isGenerating} className="btn-secondary w-full sm:w-auto text-sm">Regenerate</button>
-                                <button onClick={handleSave} className="btn-primary w-full sm:w-auto text-sm" disabled={!isValidPreview || isSaving}>
-                                    {isSaving ? 'Saving...' : 'Accept & Save'}
-                                </button>
-                            </div>
-                        </>
+                         <>
+                         <button onClick={handleBackToEdit} disabled={isSaving || isGenerating} className="btn-secondary w-full sm:w-auto text-sm">Back to Edit</button>
+                         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                            {failedLessonNumber ? (
+                                 <button onClick={handleContinueGenerate} disabled={isGenerating} className="btn-primary w-full sm:w-auto text-sm flex items-center justify-center gap-2">
+                                     <ArrowPathIcon className="h-5 w-5" />
+                                     Continue from Lesson {failedLessonNumber}
+                                 </button>
+                            ) : (
+                                 <button onClick={() => handleRegenerate(extraInstruction)} disabled={isGenerating} className="btn-secondary w-full sm:w-auto text-sm">Regenerate</button>
+                            )}
+                             <button onClick={handleSave} className="btn-primary w-full sm:w-auto text-sm" disabled={!isValidPreview || isSaving || failedLessonNumber}>
+                                 {isSaving ? 'Saving...' : 'Accept & Save'}
+                             </button>
+                         </div>
+                     </>
                     ) : (
-                        <button onClick={() => handleGenerate()} disabled={isGenerating} className="btn-primary ml-auto w-full sm:w-auto text-sm">
+                        <button onClick={handleInitialGenerate} disabled={isGenerating} className="btn-primary ml-auto w-full sm:w-auto text-sm">
                             {isGenerating ? 'Generating...' : 'Generate Document'}
                         </button>
                     )}
