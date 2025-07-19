@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
-import { XMarkIcon, ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/24/solid';
-import ContentRenderer from '../teacher/ContentRenderer'; // Ensure path is correct
+import { XMarkIcon, ArrowLeftIcon, ArrowRightIcon, ArrowDownTrayIcon } from '@heroicons/react/24/solid';
+import ContentRenderer from '../teacher/ContentRenderer'; 
 
 export default function ViewLessonModal({ isOpen, onClose, lesson }) {
   const [currentPage, setCurrentPage] = useState(0);
@@ -18,8 +18,7 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
 
   const totalPages = lesson.pages.length;
   const pageData = lesson.pages[currentPage];
-
-  // --- NEW: Calculate progress for the visual progress bar ---
+  
   const progressPercentage = totalPages > 1 ? ((currentPage + 1) / totalPages) * 100 : 100;
 
   const goToNextPage = () => {
@@ -32,13 +31,10 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
 
   return (
     <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* --- UPDATED: Softer backdrop with blur --- */}
       <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" aria-hidden="true" />
       
-      {/* --- UPDATED: Main panel with new styling and transitions --- */}
       <Dialog.Panel className="relative bg-slate-50 rounded-2xl shadow-2xl w-full max-w-4xl z-10 flex flex-col max-h-[95vh] overflow-hidden">
         
-        {/* --- NEW: Visual Progress Bar --- */}
         <div className="w-full bg-slate-200 h-1.5">
           <div
             className="bg-indigo-600 h-1.5 rounded-r-full transition-all duration-500 ease-out"
@@ -46,9 +42,24 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
           />
         </div>
 
-        {/* --- UPDATED: Header with better spacing and a close button --- */}
         <div className="flex justify-between items-center p-6 flex-shrink-0">
-          <Dialog.Title className="text-2xl font-bold text-slate-800">{lesson.title}</Dialog.Title>
+          <div className="flex items-center gap-4">
+            <Dialog.Title className="text-2xl font-bold text-slate-800">{lesson.title}</Dialog.Title>
+
+            {/* --- MODIFIED: Download button with gradient styling --- */}
+            {lesson.studyGuideUrl && (
+              <a
+                href={lesson.studyGuideUrl}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-md hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 ease-in-out transform hover:scale-105"
+              >
+                <ArrowDownTrayIcon className="h-5 w-5" />
+                Download Guide
+              </a>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="p-2 rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors"
@@ -57,7 +68,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
           </button>
         </div>
 
-        {/* --- UPDATED: Scrolling content area with better typography --- */}
         <div className="overflow-y-auto flex-grow px-6 pb-6 modern-scrollbar">
           {pageData && (
             <div className="prose max-w-none prose-slate">
@@ -75,7 +85,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
           )}
         </div>
 
-        {/* --- UPDATED: Footer with redesigned buttons and no border --- */}
         <div className="flex justify-between items-center p-5 bg-slate-50/80 backdrop-blur-sm border-t border-slate-200 flex-shrink-0">
           <button
             onClick={goToPreviousPage}

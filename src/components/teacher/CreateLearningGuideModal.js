@@ -21,12 +21,14 @@ const extractJson = (text) => {
 
 const tryParseJson = (jsonString) => {
     try {
-        return JSON.parse(jsonString);
+        // This pre-processes the string to fix bad escape characters before parsing.
+        const sanitizedString = jsonString.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\');
+        return JSON.parse(sanitizedString);
     } catch (e) {
         console.warn("Standard JSON.parse failed. Attempting to fix trailing commas.", e);
-        const sanitized = jsonString.replace(/,\s*([}\]])/g, '$1');
+        const sanitizedWithCommas = jsonString.replace(/,\s*([}\]])/g, '$1');
         try {
-            return JSON.parse(sanitized);
+            return JSON.parse(sanitizedWithCommas);
         } catch (finalError) {
             console.error("Sanitization failed. The error is likely in the generated JSON structure.", finalError);
             throw e; 
@@ -145,6 +147,11 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             - **Forbidden Formats:** Expressions like \`\${P_{in}}\$\`, \`'{P_{in}}'\`, \`\\(P_{in}\\)\`, or \`\\[P_{in}\\]\` are strictly forbidden. Only single dollar signs are allowed.
             - **Example:** To write H₂O, you MUST write \`$H_2O$\`.
 
+            **CRITICAL INSTRUCTION FOR LATEX IN JSON (NON-NEGOTIABLE):**
+            When writing LaTeX inside the JSON, you MUST escape all backslashes. A single backslash \`\\\` must be written as a double backslash \`\\\\\`.
+            - **Correct Example:** To write \`$\\rightarrow$\`, you MUST write it in the JSON as \`"$\\rightarrow$"\`.
+            - **Incorrect Example:** Writing \`"$\\rightarrow$"\` will break the JSON.
+
             **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, the heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \`"title": ""\`.
             **Textbook Chapter Structure (NON-NEGOTIABLE):** You MUST generate the lesson pages in this exact sequence. The 'title' field for each special section MUST be exactly as specified.
             1. **${objectivesLabel}:** The lesson MUST begin with the learning objectives (in the "learningObjectives" array).
@@ -160,6 +167,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide real, verifiable academic or reputable web sources.
             **ABSOLUTE RULE FOR DIAGRAMS (NON-NEGOTIABLE):**
             When a diagram is necessary, you MUST generate a clean, modern, SVG diagram. The page 'type' MUST be set to "diagram-data". The 'content' MUST contain the full SVG code. CRITICAL SVG STYLING RULES: Use small font sizes (\`font-size="8px"\`), use \`<tspan>\` for text wrapping, and include a \`viewBox\` attribute.
+
             **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
         `;
     };
@@ -253,6 +261,8 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                     throw new Error(`Received invalid or empty data for lesson ${i}.`);
                 }
             }
+            
+            setPreviewData({ generated_lessons: currentLessons });
             showToast("All lessons generated successfully!", "success");
 
         } catch (err) {
@@ -266,7 +276,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         }
     };
     
-    const handleInitialGenerate = () => {
+    const handleInitialGenerate = async () => {
         setPreviewData(null);
         runGenerationLoop(1);
     };
