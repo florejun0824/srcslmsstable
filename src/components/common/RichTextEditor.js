@@ -22,9 +22,10 @@ const RichTextEditor = ({ value, onChange }) => {
             quillInstance.current = new window.Quill(editorRef.current, {
                 theme: 'snow',
                 modules: {
+                    // --- MODIFIED: Added 'link' to the toolbar ---
                     toolbar: [
                         [{ 'header': [1, 2, false] }],
-                        ['bold', 'italic', 'underline'],
+                        ['bold', 'italic', 'underline', 'link'], // The 'link' option is added here
                         [{ 'list': 'ordered' }, { 'list': 'bullet' }]
                     ]
                 }
