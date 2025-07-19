@@ -3,7 +3,7 @@ import {
     HomeIcon, AcademicCapIcon, BookOpenIcon, UserIcon, ShieldCheckIcon, Bars3Icon,
     ArrowLeftOnRectangleIcon, ExclamationTriangleIcon, UserGroupIcon 
 } from '@heroicons/react/24/outline';
-import { collection, query, where, getDocs, writeBatch, doc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, writeBatch, doc, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -89,14 +89,32 @@ const TeacherDashboardLayout = (props) => {
 
         const { type, name } = deleteTarget;
 
-        // --- SECURITY UPDATE: Only admins can delete categories ---
-        if (type === 'category' && userProfile?.role !== 'admin') {
-            showToast("You do not have permission to delete categories.", "error");
-            setIsDeleteModalOpen(false);
-            setDeleteTarget(null);
-            return; // Stop the function
-        }
-        // --- END OF SECURITY UPDATE ---
+		// Updated code with lesson deletion logic
+		if (type === 'category') {
+		    // ... existing category deletion logic remains the same ...
+		    const coursesInCategoryQuery = query(collection(db, 'courses'), where('category', '==', name));
+		    const querySnapshot = await getDocs(coursesInCategoryQuery);
+
+		    if (querySnapshot.empty) {
+		        showToast(`Category "${name}" is already empty. No subjects to delete.`, "info");
+		    } else {
+		        const batch = writeBatch(db);
+		        querySnapshot.forEach(docSnapshot => {
+		            batch.delete(doc(db, 'courses', docSnapshot.id));
+		        });
+		        await batch.commit();
+		        showToast(`Successfully deleted category "${name}" and all its subjects.`, "success");
+		    }
+		} else if (type === 'lesson') {
+		    // --- NEW: Logic to delete a single lesson ---
+		    await deleteDoc(doc(db, 'lessons', deleteTarget.id));
+		    showToast(`Lesson "${name}" was successfully deleted.`, "success");
+
+		} else {
+		    // This remains as a fallback for any other types
+		    console.log(`Deletion logic for type "${type}" needs to be implemented.`);
+		    showToast(`Deletion for "${type}" is not yet implemented.`, "warning");
+		}
 
         setIsAiGenerating(true); // Show a loading spinner
 
