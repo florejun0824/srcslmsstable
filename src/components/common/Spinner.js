@@ -16,19 +16,24 @@ const Spinner = ({ isLoading = true, text = 'Loading...' }) => {
   useEffect(() => {
     // Only run the effect if the spinner is active
     if (isLoading) {
-      setDisplayedText(''); // Reset text when spinner appears
-
-      let index = 0;
       const timer = setInterval(() => {
-        setDisplayedText((prev) => prev + text.charAt(index));
-        index++;
-        if (index === text.length) {
-          clearInterval(timer);
-        }
+        // Use the length of the currently displayed text to get the next character
+        setDisplayedText(currentText => {
+          // If we've typed out the whole string, stop the interval
+          if (currentText.length === text.length) {
+            clearInterval(timer);
+            return currentText;
+          }
+          // Otherwise, add the next character from the full text
+          return text.substring(0, currentText.length + 1);
+        });
       }, 150); // Adjust speed of typing here (in milliseconds)
 
-      // Cleanup function to clear the interval if the component unmounts
-      return () => clearInterval(timer);
+      // Cleanup function to clear the interval and reset the text
+      return () => {
+        clearInterval(timer);
+        setDisplayedText('');
+      };
     }
   }, [isLoading, text]);
 
