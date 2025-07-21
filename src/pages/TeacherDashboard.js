@@ -264,18 +264,19 @@ const TeacherDashboard = () => {
 			**CRITICAL INSTRUCTIONS:**
 			1.  **JSON Output:** Your response MUST be a single, valid JSON object with a key "slides" which is an array of objects.
 			2.  **Slide Object Structure:** Each slide object MUST have three string keys: "title", "body", and "notes".
-			3.  **One Idea Per Slide:** This is the most important rule.
+            3.  **Language Match:** Your response MUST be in the same language as the provided 'LESSON CONTENT TO PROCESS'. If the lesson is in Filipino, the output must be in Filipino. If it is in English, the output must be in English.
+			4.  **One Idea Per Slide:** This is the most important rule.
 			    - Be extremely aggressive in splitting content. A single paragraph from the source may need to become 2-3 slides.
 			    - If you see a concept and an example for it, they MUST be on separate slides.
 			    - Never put more than one key concept, definition, or major point on a single slide. Avoid slides with titles like "Concept (Part 2)".
-			4.  **Body Formatting Rules:**
+			5.  **Body Formatting Rules:**
 			    - Use well-written paragraphs by default for all explanations and discussions.
 			    - ONLY use bullet points when the source text provides an explicit list (e.g., components, steps, features, pros/cons).
 			    - When using bullet points, start each item with "- ".
 			    - Never mix paragraphs and bullet points in the same slide body.
-			5.  **No Markdown:** The output text in "title", "body", and "notes" fields MUST be plain text. Do NOT include any markdown like ** or *.
-			6.  **Speaker Notes:** The "notes" field for each slide MUST include a section labeled "Essential Questions:" containing 1-2 thought-provoking questions for the teacher to ask students.
-			7.  **Specific Slides:**
+			6.  **No Markdown:** The output text in "title", "body", and "notes" fields MUST be plain text. Do NOT include any markdown like ** or *.
+			7.  **Speaker Notes:** The "notes" field for each slide MUST include a section labeled "Essential Questions:" containing 1-2 thought-provoking questions for the teacher to ask students. This section should also match the language of the lesson.
+			8.  **Specific Slides:**
 			    - The first slide's title should be the overall presentation title.
 			    - The second slide's title must be "Learning Objectives", with the body containing a bulleted list of 3-5 objectives.
 
