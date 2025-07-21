@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { addDoc, serverTimestamp, collection, query, where, onSnapshot, orderBy, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { addDoc, serverTimestamp, collection, query, where, onSnapshot, orderBy, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { callGeminiWithLimitCheck } from '../services/aiService';
+import { createPresentationFromData } from '../services/googleSlidesService';
 import TeacherDashboardLayout from '../components/teacher/TeacherDashboardLayout';
+import PresentationPreviewModal from '../components/teacher/PresentationPreviewModal';
+import BetaWarningModal from '../components/teacher/BetaWarningModal'; // ✅ ADDED: Import the BetaWarningModal
 
 const LMS_KNOWLEDGE_BASE = `
   System Features Overview:
@@ -27,13 +30,15 @@ const TeacherDashboard = () => {
     const [courses, setCourses] = useState([]);
     const [courseCategories, setCourseCategories] = useState([]);
     const [teacherAnnouncements, setTeacherAnnouncements] = useState([]);
+    const [allUnits, setAllUnits] = useState([]);
+    const [allLessons, setAllLessons] = useState([]);
+    
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeView, setActiveView] = useState('home');
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [activeSubject, setActiveSubject] = useState(null);
     
-    // MODIFIED: Add activeUnit state here
     const [activeUnit, setActiveUnit] = useState(null);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -80,6 +85,15 @@ const TeacherDashboard = () => {
     const [isAiHubOpen, setIsAiHubOpen] = useState(false);
     const [aiConversationStarted, setAiConversationStarted] = useState(false);
 
+    const [presentationPreviewData, setPresentationPreviewData] = useState(null);
+    const [isPresentationPreviewModalOpen, setPresentationPreviewModalOpen] = useState(false);
+    const [isSavingPresentation, setIsSavingPresentation] = useState(false);
+
+    // ✅ ADDED: State for the new Beta Warning Modal flow
+    const [isBetaWarningModalOpen, setIsBetaWarningModalOpen] = useState(false);
+    const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState([]);
+
+
     useEffect(() => {
         if (userProfile && messages.length === 0) {
             setMessages([
@@ -97,7 +111,9 @@ const TeacherDashboard = () => {
             { query: query(collection(db, "subjectCategories"), orderBy("name")), setter: setCourseCategories },
             { query: query(collection(db, "classes"), where("teacherId", "==", teacherId)), setter: setClasses },
             { query: query(collection(db, "courses")), setter: setCourses },
-            { query: query(collection(db, "teacherAnnouncements"), orderBy("createdAt", "desc")), setter: setTeacherAnnouncements }
+            { query: query(collection(db, "teacherAnnouncements"), orderBy("createdAt", "desc")), setter: setTeacherAnnouncements },
+            { query: query(collection(db, "units"), orderBy("createdAt")), setter: setAllUnits },
+            { query: query(collection(db, "lessons"), orderBy("createdAt")), setter: setAllLessons },
         ];
         const unsubscribers = queries.map(({ query, setter }) =>
             onSnapshot(query, (snapshot) => {
@@ -184,6 +200,165 @@ const TeacherDashboard = () => {
             else { showToast("The AI Assistant could not generate a quiz. Please try again.", "error"); console.error("AI Generation Error:", error); }
         } finally { setIsAiGenerating(false); }
     };
+
+    // ✅ ADDED: This function now just opens the warning modal
+    const handleInitiatePresentationGeneration = (lessonIds) => {
+        if (!lessonIds || lessonIds.length === 0) {
+            showToast("Please select one or more lessons to include in the presentation.", "warning");
+            return;
+        }
+        setLessonsToProcessForPPT(lessonIds);
+        setIsBetaWarningModalOpen(true);
+    };
+
+    // ✅ MODIFIED: This function is now the confirmation action. It uses `lessonsToProcessForPPT` from state.
+	const handleGeneratePresentationPreview = async () => {
+        const lessonIds = lessonsToProcessForPPT; // Use lesson IDs from state
+
+	    if (!activeSubject) {
+	        showToast("No active subject selected. This is required for folder creation.", "warning");
+	        return;
+	    }
+
+	    setIsAiGenerating(true);
+	    showToast("Gathering content and generating preview...", "info");
+
+	    try {
+	        const selectedLessonsData = allLessons.filter(l => lessonIds.includes(l.id));
+
+	        if (selectedLessonsData.length === 0) {
+	            throw new Error("No lesson data found for the selected IDs.");
+	        }
+
+	        const allLessonContent = selectedLessonsData
+	            .map(lesson => {
+	                if (!lesson.pages || lesson.pages.length === 0) {
+	                    console.warn(`[SKIPPED] Lesson "${lesson.title}" has no pages.`);
+	                    return '';
+	                }
+
+	                const validPages = lesson.pages.filter(
+	                    page => page.content && page.content.trim() !== ''
+	                );
+
+	                if (validPages.length === 0) {
+	                    console.warn(`[SKIPPED] Lesson "${lesson.title}" has no valid content.`);
+	                    return '';
+	                }
+
+	                const pageText = validPages
+	                    .map(page => `Page Title: ${page.title}\n${page.content.trim()}`)
+	                    .join('\n\n');
+
+	                return `Lesson: ${lesson.title}\n${pageText}`;
+	            })
+	            .filter(entry => entry.trim() !== '')
+	            .join('\n\n---\n\n');
+
+	        if (!allLessonContent || allLessonContent.trim().length === 0) {
+	            throw new Error("Selected lessons contain no usable content to generate slides.");
+	        }
+
+			const presentationPrompt = `You are a master educator and curriculum designer. Your goal is to transform the provided lesson text into a masterfully structured and highly effective educational presentation.
+
+			**CRITICAL INSTRUCTIONS:**
+			1.  **JSON Output:** Your response MUST be a single, valid JSON object with a key "slides" which is an array of objects.
+			2.  **Slide Object Structure:** Each slide object MUST have three string keys: "title", "body", and "notes".
+			3.  **One Idea Per Slide:** This is the most important rule.
+			    - Be extremely aggressive in splitting content. A single paragraph from the source may need to become 2-3 slides.
+			    - If you see a concept and an example for it, they MUST be on separate slides.
+			    - Never put more than one key concept, definition, or major point on a single slide. Avoid slides with titles like "Concept (Part 2)".
+			4.  **Body Formatting Rules:**
+			    - Use well-written paragraphs by default for all explanations and discussions.
+			    - ONLY use bullet points when the source text provides an explicit list (e.g., components, steps, features, pros/cons).
+			    - When using bullet points, start each item with "- ".
+			    - Never mix paragraphs and bullet points in the same slide body.
+			5.  **No Markdown:** The output text in "title", "body", and "notes" fields MUST be plain text. Do NOT include any markdown like ** or *.
+			6.  **Speaker Notes:** The "notes" field for each slide MUST include a section labeled "Essential Questions:" containing 1-2 thought-provoking questions for the teacher to ask students.
+			7.  **Specific Slides:**
+			    - The first slide's title should be the overall presentation title.
+			    - The second slide's title must be "Learning Objectives", with the body containing a bulleted list of 3-5 objectives.
+
+			**LESSON CONTENT TO PROCESS:**
+			---
+			${allLessonContent}`;
+
+	        const aiResponseText = await callGeminiWithLimitCheck(presentationPrompt);
+
+	        const jsonText = aiResponseText.match(/```json\s*([\s\S]*?)\s*```/)?.[1] || aiResponseText;
+	        const parsedData = JSON.parse(jsonText);
+
+	        if (!parsedData.slides || !Array.isArray(parsedData.slides)) {
+	            throw new Error("AI response did not contain a valid 'slides' array.");
+	        }
+
+	        setPresentationPreviewData({ ...parsedData, lessonIds });
+	        setPresentationPreviewModalOpen(true);
+
+	    } catch (error) {
+	        console.error("Presentation Preview Generation Error:", error);
+	        showToast(`Preview Error: ${error.message}`, "error");
+	    } finally {
+	        setIsAiGenerating(false);
+	    }
+	};
+
+	const handleCreatePresentation = async () => {
+	  if (!presentationPreviewData) {
+	    showToast("No preview data available to create a presentation.", "error");
+	    return;
+	  }
+
+	  setIsSavingPresentation(true);
+	  try {
+	    const { slides, lessonIds } = presentationPreviewData;
+
+	    const firstLesson = allLessons.find(l => l.id === lessonIds[0]);
+	    if (!firstLesson) throw new Error("First lesson not found.");
+
+	    const unit = allUnits.find(u => u.id === firstLesson.unitId);
+	    if (!unit) throw new Error("Associated unit not found.");
+
+	    const subjectName = activeSubject?.title || "Untitled Subject";
+	    const unitName = unit.name || "Untitled Unit";
+
+	    const sourceTitle = lessonIds.length > 1
+	      ? `${unitName} Summary`
+	      : firstLesson.title;
+
+	    const presentationTitle = `Presentation for: ${sourceTitle}`;
+
+	    const cleanedSlides = slides.map(slide => ({
+	      ...slide,
+	      body: slide.body
+	        .split('\n')
+	        .map(line => line.trim())
+	        .join('\n'),
+	      notes: slide.notes?.trim() || ''
+	    }));
+
+	    const presentationUrl = await createPresentationFromData(
+	      cleanedSlides,
+	      presentationTitle,
+	      subjectName,
+	      unitName
+	    );
+
+	    window.open(presentationUrl, '_blank');
+
+	    // ✅ MODIFIED: Changed the toast message for clarity
+	    showToast("Presentation created! You can now copy the notes.", "success");
+    
+	    // ✅ MODIFIED: This line is removed to keep the modal open
+	    // setPresentationPreviewModalOpen(false); 
+
+	  } catch (error) {
+	    console.error("Presentation Creation Error:", error);
+	    showToast(`Creation Error: ${error.message}`, "error");
+	  } finally {
+	    setIsSavingPresentation(false);
+	  }
+	};
 
     const handleInitiateDelete = (type, id, unitId, subjectId) => { setDeleteTarget({ type, id, unitId, subjectId }); setIsDeleteModalOpen(true); };
     const handleConfirmDelete = async (confirmationText) => {
@@ -314,127 +489,145 @@ const TeacherDashboard = () => {
     };
 
     return (
-        <TeacherDashboardLayout
-            user={user}
-            userProfile={userProfile}
-            loading={loading}
-            error={error}
-            activeView={activeView}
-            handleViewChange={handleViewChange}
-            isSidebarOpen={isSidebarOpen}
-            setIsSidebarOpen={setIsSidebarOpen}
-            logout={logout}
-            showToast={showToast}
-            activeClasses={activeClasses}
-            archivedClasses={archivedClasses}
-            courses={courses}
-            courseCategories={courseCategories}
-            teacherAnnouncements={teacherAnnouncements}
-            selectedCategory={selectedCategory}
-            handleCategoryClick={handleCategoryClick}
-            handleBackToCategoryList={handleBackToCategoryList}
-            activeSubject={activeSubject}
-            setActiveSubject={setActiveSubject}
-            // MODIFIED: Pass the new state and function down to the layout
-            activeUnit={activeUnit}
-            onSetActiveUnit={setActiveUnit}
-            handleOpenEditClassModal={handleOpenEditClassModal}
-            handleArchiveClass={handleArchiveClass}
-            handleDeleteClass={handleDeleteClass}
-            isHoveringActions={isHoveringActions}
-            setIsHoveringActions={setIsHoveringActions}
-            setClassOverviewModal={setClassOverviewModal}
-            setIsArchivedModalOpen={setIsArchivedModalOpen}
-            setCreateClassModalOpen={setCreateClassModalOpen}
-            setCreateCategoryModalOpen={setCreateCategoryModalOpen}
-            setCreateCourseModalOpen={setCreateCourseModalOpen}
-            handleEditCategory={handleEditCategory}
-            handleOpenEditSubject={handleOpenEditSubject}
-            handleOpenDeleteSubject={handleOpenDeleteSubject}
-            setShareContentModalOpen={setShareContentModalOpen}
-            handleInitiateDelete={handleInitiateDelete}
-            handleGenerateQuizForLesson={handleGenerateQuizForLesson}
-            isAiGenerating={isAiGenerating}
-            setEditProfileModalOpen={setEditProfileModalOpen}
-            setChangePasswordModalOpen={setChangePasswordModalOpen}
-            editingAnnId={editingAnnId}
-            editingAnnText={editingAnnText}
-            setEditingAnnText={setEditingAnnText}
-            handleStartEditAnn={handleStartEditAnn}
-            handleUpdateTeacherAnn={handleUpdateTeacherAnn}
-            setEditingAnnId={setEditingAnnId}
-            handleDeleteTeacherAnn={handleDeleteTeacherAnn}
-            importClassSearchTerm={importClassSearchTerm}
-            setImportClassSearchTerm={setImportClassSearchTerm}
-            allLmsClasses={allLmsClasses}
-            filteredLmsClasses={filteredLmsClasses}
-            isImportViewLoading={isImportViewLoading}
-            selectedClassForImport={selectedClassForImport}
-            setSelectedClassForImport={setSelectedClassForImport}
-            handleBackToClassSelection={handleBackToClassSelection}
-            importTargetClassId={importTargetClassId}
-            setImportTargetClassId={setImportTargetClassId}
-            handleImportStudents={handleImportStudents}
-            isImporting={isImporting}
-            studentsToImport={studentsToImport}
-            handleToggleStudentForImport={handleToggleStudentForImport}
-            handleSelectAllStudents={handleSelectAllStudents}
-            isArchivedModalOpen={isArchivedModalOpen}
-            handleUnarchiveClass={handleUnarchiveClass}
-            isEditProfileModalOpen={isEditProfileModalOpen}
-            handleUpdateProfile={handleUpdateProfile}
-            isChangePasswordModalOpen={isChangePasswordModalOpen}
-            handleChangePassword={handleChangePassword}
-            isCreateCategoryModalOpen={isCreateCategoryModalOpen}
-            isEditCategoryModalOpen={isEditCategoryModalOpen}
-            setEditCategoryModalOpen={setEditCategoryModalOpen}
-            categoryToEdit={categoryToEdit}
-            isCreateClassModalOpen={isCreateClassModalOpen}
-            isCreateCourseModalOpen={isCreateCourseModalOpen}
-            classOverviewModal={classOverviewModal}
-            isEditClassModalOpen={isEditClassModalOpen}
-            setEditClassModalOpen={setEditClassModalOpen}
-            classToEdit={classToEdit}
-            isAddUnitModalOpen={isAddUnitModalOpen}
-            setAddUnitModalOpen={setAddUnitModalOpen}
-            editUnitModalOpen={editUnitModalOpen}
-            setEditUnitModalOpen={setEditUnitModalOpen}
-            selectedUnit={selectedUnit}
-            addLessonModalOpen={addLessonModalOpen}
-            setAddLessonModalOpen={setAddLessonModalOpen}
-            addQuizModalOpen={addQuizModalOpen}
-            setAddQuizModalOpen={setAddQuizModalOpen}
-            deleteUnitModalOpen={deleteUnitModalOpen}
-            setDeleteUnitModalOpen={setDeleteUnitModalOpen}
-            editLessonModalOpen={editLessonModalOpen}
-            setEditLessonModalOpen={setEditLessonModalOpen}
-            selectedLesson={selectedLesson}
-            viewLessonModalOpen={viewLessonModalOpen}
-            setViewLessonModalOpen={setViewLessonModalOpen}
-            isShareContentModalOpen={isShareContentModalOpen}
-            isDeleteModalOpen={isDeleteModalOpen}
-            setIsDeleteModalOpen={setIsDeleteModalOpen}
-            handleConfirmDelete={handleConfirmDelete}
-            deleteTarget={deleteTarget}
-            isEditSubjectModalOpen={isEditSubjectModalOpen}
-            setEditSubjectModalOpen={setEditSubjectModalOpen}
-            subjectToActOn={subjectToActOn}
-            isDeleteSubjectModalOpen={isDeleteSubjectModalOpen}
-            setDeleteSubjectModalOpen={setDeleteSubjectModalOpen}
-            handleCreateAnnouncement={handleCreateAnnouncement}
-            isChatOpen={isChatOpen}
-            setIsChatOpen={setIsChatOpen}
-            messages={messages}
-            isAiThinking={isAiThinking}
-            handleAskAi={handleAskAi}
-            handleAskAiWrapper={handleAskAiWrapper}
-            aiConversationStarted={aiConversationStarted}
-            setAiConversationStarted={setAiConversationStarted}
-            handleRemoveStudentFromClass={handleRemoveStudentFromClass}
-            setIsAiGenerating={setIsAiGenerating}
-            isAiHubOpen={isAiHubOpen}
-            setIsAiHubOpen={setIsAiHubOpen}
-        />
+        <>
+            <TeacherDashboardLayout
+                user={user}
+                userProfile={userProfile}
+                loading={loading}
+                error={error}
+                activeView={activeView}
+                handleViewChange={handleViewChange}
+                isSidebarOpen={isSidebarOpen}
+                setIsSidebarOpen={setIsSidebarOpen}
+                logout={logout}
+                showToast={showToast}
+                activeClasses={activeClasses}
+                archivedClasses={archivedClasses}
+                courses={courses}
+                courseCategories={courseCategories}
+                teacherAnnouncements={teacherAnnouncements}
+                selectedCategory={selectedCategory}
+                handleCategoryClick={handleCategoryClick}
+                handleBackToCategoryList={handleBackToCategoryList}
+                activeSubject={activeSubject}
+                setActiveSubject={setActiveSubject}
+                activeUnit={activeUnit}
+                onSetActiveUnit={setActiveUnit}
+                handleOpenEditClassModal={handleOpenEditClassModal}
+                handleArchiveClass={handleArchiveClass}
+                handleDeleteClass={handleDeleteClass}
+                isHoveringActions={isHoveringActions}
+                setIsHoveringActions={setIsHoveringActions}
+                setClassOverviewModal={setClassOverviewModal}
+                setIsArchivedModalOpen={setIsArchivedModalOpen}
+                setCreateClassModalOpen={setCreateClassModalOpen}
+                setCreateCategoryModalOpen={setCreateCategoryModalOpen}
+                setCreateCourseModalOpen={setCreateCourseModalOpen}
+                handleEditCategory={handleEditCategory}
+                handleOpenEditSubject={handleOpenEditSubject}
+                handleOpenDeleteSubject={handleOpenDeleteSubject}
+                setShareContentModalOpen={setShareContentModalOpen}
+                handleInitiateDelete={handleInitiateDelete}
+                handleGenerateQuizForLesson={handleGenerateQuizForLesson}
+                onGeneratePresentationPreview={handleInitiatePresentationGeneration} // ✅ MODIFIED: Pass the new initiator function
+                isAiGenerating={isAiGenerating}
+                setEditProfileModalOpen={setEditProfileModalOpen}
+                setChangePasswordModalOpen={setChangePasswordModalOpen}
+                editingAnnId={editingAnnId}
+                editingAnnText={editingAnnText}
+                setEditingAnnText={setEditingAnnText}
+                handleStartEditAnn={handleStartEditAnn}
+                handleUpdateTeacherAnn={handleUpdateTeacherAnn}
+                setEditingAnnId={setEditingAnnId}
+                handleDeleteTeacherAnn={handleDeleteTeacherAnn}
+                importClassSearchTerm={importClassSearchTerm}
+                setImportClassSearchTerm={setImportClassSearchTerm}
+                allLmsClasses={allLmsClasses}
+                filteredLmsClasses={filteredLmsClasses}
+                isImportViewLoading={isImportViewLoading}
+                selectedClassForImport={selectedClassForImport}
+                setSelectedClassForImport={setSelectedClassForImport}
+                handleBackToClassSelection={handleBackToClassSelection}
+                importTargetClassId={importTargetClassId}
+                setImportTargetClassId={setImportTargetClassId}
+                handleImportStudents={handleImportStudents}
+                isImporting={isImporting}
+                studentsToImport={studentsToImport}
+                handleToggleStudentForImport={handleToggleStudentForImport}
+                handleSelectAllStudents={handleSelectAllStudents}
+                isArchivedModalOpen={isArchivedModalOpen}
+                handleUnarchiveClass={handleUnarchiveClass}
+                isEditProfileModalOpen={isEditProfileModalOpen}
+                handleUpdateProfile={handleUpdateProfile}
+                isChangePasswordModalOpen={isChangePasswordModalOpen}
+                handleChangePassword={handleChangePassword}
+                isCreateCategoryModalOpen={isCreateCategoryModalOpen}
+                isEditCategoryModalOpen={isEditCategoryModalOpen}
+                setEditCategoryModalOpen={setEditCategoryModalOpen}
+                categoryToEdit={categoryToEdit}
+                isCreateClassModalOpen={isCreateClassModalOpen}
+                isCreateCourseModalOpen={isCreateCourseModalOpen}
+                classOverviewModal={classOverviewModal}
+                isEditClassModalOpen={isEditClassModalOpen}
+                setEditClassModalOpen={setEditClassModalOpen}
+                classToEdit={classToEdit}
+                isAddUnitModalOpen={isAddUnitModalOpen}
+                setAddUnitModalOpen={setAddUnitModalOpen}
+                editUnitModalOpen={editUnitModalOpen}
+                setEditUnitModalOpen={setEditUnitModalOpen}
+                selectedUnit={selectedUnit}
+                addLessonModalOpen={addLessonModalOpen}
+                setAddLessonModalOpen={setAddLessonModalOpen}
+                addQuizModalOpen={addQuizModalOpen}
+                setAddQuizModalOpen={setAddQuizModalOpen}
+                deleteUnitModalOpen={deleteUnitModalOpen}
+                setDeleteUnitModalOpen={setDeleteUnitModalOpen}
+                editLessonModalOpen={editLessonModalOpen}
+                setEditLessonModalOpen={setEditLessonModalOpen}
+                selectedLesson={selectedLesson}
+                viewLessonModalOpen={viewLessonModalOpen}
+                setViewLessonModalOpen={setViewLessonModalOpen}
+                isShareContentModalOpen={isShareContentModalOpen}
+                isDeleteModalOpen={isDeleteModalOpen}
+                setIsDeleteModalOpen={setIsDeleteModalOpen}
+                handleConfirmDelete={handleConfirmDelete}
+                deleteTarget={deleteTarget}
+                isEditSubjectModalOpen={isEditSubjectModalOpen}
+                setEditSubjectModalOpen={setEditSubjectModalOpen}
+                subjectToActOn={subjectToActOn}
+                isDeleteSubjectModalOpen={isDeleteSubjectModalOpen}
+                setDeleteSubjectModalOpen={setDeleteSubjectModalOpen}
+                handleCreateAnnouncement={handleCreateAnnouncement}
+                isChatOpen={isChatOpen}
+                setIsChatOpen={setIsChatOpen}
+                messages={messages}
+                isAiThinking={isAiThinking}
+                handleAskAi={handleAskAi}
+                handleAskAiWrapper={handleAskAiWrapper}
+                aiConversationStarted={aiConversationStarted}
+                setAiConversationStarted={setAiConversationStarted}
+                handleRemoveStudentFromClass={handleRemoveStudentFromClass}
+                setIsAiGenerating={setIsAiGenerating}
+                isAiHubOpen={isAiHubOpen}
+                setIsAiHubOpen={setIsAiHubOpen}
+            />
+            {/* ✅ ADDED: Render the BetaWarningModal */}
+            <BetaWarningModal
+                isOpen={isBetaWarningModalOpen}
+                onClose={() => setIsBetaWarningModalOpen(false)}
+                onConfirm={() => {
+                    setIsBetaWarningModalOpen(false);
+                    handleGeneratePresentationPreview();
+                }}
+            />
+			<PresentationPreviewModal
+			    isOpen={isPresentationPreviewModalOpen}
+			    onClose={() => setPresentationPreviewModalOpen(false)}
+			    previewData={presentationPreviewData}
+			    onConfirm={handleCreatePresentation}
+			    isSaving={isSavingPresentation}
+			/>
+        </>
     );
 };
 

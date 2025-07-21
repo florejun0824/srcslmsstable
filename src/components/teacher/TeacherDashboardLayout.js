@@ -27,7 +27,7 @@ import ChangePasswordModal from './ChangePasswordModal';
 import CreateCategoryModal from './CreateCategoryModal';
 import EditCategoryModal from './EditCategoryModal';
 import CreateClassModal from './CreateClassModal';
-import CreateCourseModal from './CreateCourseModal'; // Import CreateCourseModal
+import CreateCourseModal from './CreateCourseModal'; 
 import ClassOverviewModal from './ClassOverviewModal';
 import EditClassModal from '../common/EditClassModal';
 import AddUnitModal from './AddUnitModal';
@@ -62,6 +62,7 @@ const TeacherDashboardLayout = (props) => {
         isChatOpen, setIsChatOpen, messages, isAiThinking, handleAskAi, userFirstName,
         aiConversationStarted, handleAskAiWrapper, isAiHubOpen, setIsAiHubOpen, activeSubject,
         activeUnit, onSetActiveUnit, setViewLessonModalOpen,
+        // ❌ REMOVED: Incorrect prop name was here
         ...rest
     } = props;
 
@@ -70,28 +71,22 @@ const TeacherDashboardLayout = (props) => {
     const [isEditCategoryModalOpen, setIsEditCategoryModalOpen] = useState(false);
     const { showToast } = useToast();
     
-    // ✅ FIXED: Declared setPreselectedCategoryForCourseModal using useState
     const [preselectedCategoryForCourseModal, setPreselectedCategoryForCourseModal] = useState(null);
 
-    // --- CORRECTED CODE: Added state and handlers for deletion ---
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState(null);
 
-    // This function opens the confirmation modal
     const handleInitiateDelete = (type, id, name) => {
         setDeleteTarget({ type, id, name });
         setIsDeleteModalOpen(true);
     };
 
-    // This function contains the actual deletion logic
     const handleConfirmDelete = async () => {
         if (!deleteTarget) return;
 
         const { type, name } = deleteTarget;
 
-		// Updated code with lesson deletion logic
 		if (type === 'category') {
-		    // ... existing category deletion logic remains the same ...
 		    const coursesInCategoryQuery = query(collection(db, 'courses'), where('category', '==', name));
 		    const querySnapshot = await getDocs(coursesInCategoryQuery);
 
@@ -106,39 +101,33 @@ const TeacherDashboardLayout = (props) => {
 		        showToast(`Successfully deleted category "${name}" and all its subjects.`, "success");
 		    }
 		} else if (type === 'lesson') {
-		    // --- NEW: Logic to delete a single lesson ---
 		    await deleteDoc(doc(db, 'lessons', deleteTarget.id));
 		    showToast(`Lesson "${name}" was successfully deleted.`, "success");
 
 		} else {
-		    // This remains as a fallback for any other types
 		    console.log(`Deletion logic for type "${type}" needs to be implemented.`);
 		    showToast(`Deletion for "${type}" is not yet implemented.`, "warning");
 		}
 
-        setIsAiGenerating(true); // Show a loading spinner
+        setIsAiGenerating(true); 
 
         try {
             if (type === 'category') {
-                // Find all subjects/courses that belong to this category
                 const coursesInCategoryQuery = query(collection(db, 'courses'), where('category', '==', name));
                 const querySnapshot = await getDocs(coursesInCategoryQuery);
 
                 if (querySnapshot.empty) {
                     showToast(`Category "${name}" is already empty. No subjects to delete.`, "info");
                 } else {
-                    // Use a batch write to delete all found subjects at once
                     const batch = writeBatch(db);
                     querySnapshot.forEach(docSnapshot => {
                         batch.delete(doc(db, 'courses', docSnapshot.id));
                     });
 
-                    // Commit the batch to execute the deletions
                     await batch.commit();
                     showToast(`Successfully deleted category "${name}" and all its subjects.`, "success");
                 }
             } else {
-                // You can add logic for other deletion types here in the future
                 console.log(`Deletion logic for type "${type}" needs to be implemented.`);
                 showToast(`Deletion for "${type}" is not yet implemented.`, "warning");
             }
@@ -146,12 +135,11 @@ const TeacherDashboardLayout = (props) => {
             console.error(`Error deleting ${type}:`, error);
             showToast(`Failed to delete ${type}. Please try again.`, "error");
         } finally {
-            setIsAiGenerating(false); // Hide the loading spinner
+            setIsAiGenerating(false); 
             setIsDeleteModalOpen(false);
             setDeleteTarget(null);
         }
     };
-    // --- END OF CORRECTION ---
 
     useEffect(() => {
         const q = query(collection(db, 'courses'));
@@ -202,10 +190,9 @@ const TeacherDashboardLayout = (props) => {
         .map(name => ({ id: name, name: name }));
 
 
-    // NEW HANDLER: To open CreateCourseModal with preselected category
     const handleAddSubjectWithCategory = (categoryName) => {
         setPreselectedCategoryForCourseModal(categoryName);
-        rest.setCreateCourseModalOpen(true); // Open the modal
+        rest.setCreateCourseModalOpen(true); 
     };
 
     const renderMainContent = () => {
@@ -239,8 +226,8 @@ const TeacherDashboardLayout = (props) => {
                             courseCategories={courseCategories}
                             handleEditCategory={handleEditCategory}
                             onAddSubjectClick={handleAddSubjectWithCategory} 
-                            // Pass the new delete handler to CoursesView
                             handleInitiateDelete={handleInitiateDelete}
+                            // ❌ REMOVED: Incorrect prop was passed here
                         />;
             case 'studentManagement':
                 return <StudentManagementView {...rest} />;
@@ -254,7 +241,6 @@ const TeacherDashboardLayout = (props) => {
     };
 
     const SidebarContent = () => (
-        // Applied glassmorphism directly to the sidebar container
         <div className="p-4 h-full shadow-lg rounded-r-2xl bg-white/30 backdrop-blur-lg border border-white/20">
             <div className="flex items-center gap-2 mb-8 px-2">
                 <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="Logo" className="w-10 h-10 rounded-full shadow-md" />
@@ -317,7 +303,6 @@ const TeacherDashboardLayout = (props) => {
             
             <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} subjectId={activeSubject?.id} unitId={activeUnit?.id} />
             
-            {/* Show Robot Chatbot only on the Home screen */}
             {activeView === 'home' && (
                 <>
                     <AnimatedRobot onClick={() => setIsChatOpen(true)} />
@@ -337,7 +322,6 @@ const TeacherDashboardLayout = (props) => {
 
             <GlobalAiSpinner isGenerating={isAiGenerating} text="Crafting content..." />
 
-            {/* Render ALL Modals */}
             <ArchivedClassesModal isOpen={rest.isArchivedModalOpen} onClose={() => rest.setIsArchivedModalOpen(false)} archivedClasses={rest.archivedClasses} onUnarchive={rest.handleUnarchiveClass} onDelete={(classId) => rest.handleDeleteClass(classId, true)} />
             <EditProfileModal isOpen={rest.isEditProfileModalOpen} onClose={() => rest.setEditProfileModalOpen(false)} userProfile={userProfile} onUpdate={rest.handleUpdateProfile} />
             <ChangePasswordModal isOpen={rest.isChangePasswordModalOpen} onClose={() => rest.setChangePasswordModalOpen(false)} onSubmit={rest.handleChangePassword} />
@@ -361,11 +345,11 @@ const TeacherDashboardLayout = (props) => {
                 isOpen={rest.isCreateCourseModalOpen} 
                 onClose={() => {
                     rest.setCreateCourseModalOpen(false);
-                    setPreselectedCategoryForCourseModal(null); // Reset when modal closes
+                    setPreselectedCategoryForCourseModal(null); 
                 }} 
                 teacherId={user?.uid || user?.id} 
                 courseCategories={courseCategories}
-                preselectedCategory={preselectedCategoryForCourseModal} // Pass the preselected category
+                preselectedCategory={preselectedCategoryForCourseModal}
             />
             <ClassOverviewModal isOpen={rest.classOverviewModal.isOpen} onClose={() => rest.setClassOverviewModal({ isOpen: false, data: null })} classData={rest.classOverviewModal.data} courses={courses} onRemoveStudent={rest.handleRemoveStudentFromClass} />
             <EditClassModal isOpen={rest.isEditClassModalOpen} onClose={() => rest.setEditClassModalOpen(false)} classData={rest.classToEdit} />
@@ -378,7 +362,6 @@ const TeacherDashboardLayout = (props) => {
             {rest.selectedLesson && <ViewLessonModal isOpen={rest.viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={rest.selectedLesson} />}
             {activeSubject && (<ShareMultipleLessonsModal isOpen={rest.isShareContentModalOpen} onClose={() => rest.setShareContentModalOpen(false)} subject={activeSubject} />)}
             
-            {/* CORRECTED: Use local state and handlers for the delete modal */}
             <DeleteConfirmationModal 
                 isOpen={isDeleteModalOpen} 
                 onClose={() => setIsDeleteModalOpen(false)} 

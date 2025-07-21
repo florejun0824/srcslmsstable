@@ -199,13 +199,40 @@ function SortableQuizItem({ quiz, unitId, onEdit, onDelete, onView }) {
     );
 }
 
-function SortableLessonItem({ lesson, unitId, exportingLessonId, onExport, onExportUlpPdf, onExportAtgPdf, ...props }) {
+// ✅ MODIFIED: Added selectedLessons and onLessonSelect props
+function SortableLessonItem({ lesson, unitId, exportingLessonId, onExport, onExportUlpPdf, onExportAtgPdf, selectedLessons, onLessonSelect, ...props }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: lesson.id, data: { type: 'lesson', unitId: unitId } });
     const style = { transform: CSS.Transform.toString(transform), transition };
     const isExporting = exportingLessonId === lesson.id;
     const isUlp = lesson.title.includes('Unit Learning Plan');
     const isAtg = lesson.title.includes('Adaptive Teaching Guide');
-    return ( <div ref={setNodeRef} style={style} {...attributes} className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center group mb-2 touch-none"> <div className="flex items-center gap-3"> <button {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600"><Bars3Icon className="h-5 w-5" /></button> <DocumentTextIcon className="w-5 h-5 text-blue-500 flex-shrink-0" /> <p className="text-sm text-gray-800 font-medium">{lesson.title}</p> </div> <div className="flex items-center gap-1"> <button onClick={props.onView} className="p-1.5 text-gray-500 hover:text-blue-600 rounded-full" title="View Lesson"><EyeIcon className="h-5 w-5" /></button> <ActionMenu> <MenuItem icon={PencilIcon} text="Edit Lesson" onClick={props.onEdit} /> {isUlp ? ( <MenuItem icon={isExporting ? ArrowPathIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => onExportUlpPdf(lesson)} disabled={isExporting} /> ) : isAtg ? ( <MenuItem icon={isExporting ? ArrowPathIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => onExportAtgPdf(lesson)} disabled={isExporting} /> ) : ( <MenuItem icon={isExporting ? ArrowPathIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as .docx"} onClick={() => onExport(lesson)} disabled={isExporting} /> )} <MenuItem icon={SparklesIcon} text="AI Generate Quiz" onClick={props.onGenerateQuiz} disabled={props.isAiGenerating} /> <MenuItem icon={TrashIcon} text="Delete Lesson" onClick={props.onDelete} /> </ActionMenu> </div> </div> );
+    const isSelected = selectedLessons.has(lesson.id);
+
+    return ( 
+        <div ref={setNodeRef} style={style} {...attributes} className={`p-3 rounded-lg shadow-sm border flex justify-between items-center group mb-2 touch-none transition-colors ${isSelected ? 'bg-blue-100 border-blue-300' : 'bg-white border-gray-200'}`}>
+            <div className="flex items-center gap-3">
+                <button {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600"><Bars3Icon className="h-5 w-5" /></button>
+                {/* ✅ NEW: Checkbox for lesson selection */}
+                <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => onLessonSelect(lesson.id)}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <DocumentTextIcon className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                <p className="text-sm text-gray-800 font-medium">{lesson.title}</p>
+            </div>
+            <div className="flex items-center gap-1">
+                <button onClick={props.onView} className="p-1.5 text-gray-500 hover:text-blue-600 rounded-full" title="View Lesson"><EyeIcon className="h-5 w-5" /></button>
+                <ActionMenu>
+                    <MenuItem icon={PencilIcon} text="Edit Lesson" onClick={props.onEdit} />
+                    {isUlp ? ( <MenuItem icon={isExporting ? ArrowPathIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => onExportUlpPdf(lesson)} disabled={isExporting} /> ) : isAtg ? ( <MenuItem icon={isExporting ? ArrowPathIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => onExportAtgPdf(lesson)} disabled={isExporting} /> ) : ( <MenuItem icon={isExporting ? ArrowPathIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as .docx"} onClick={() => onExport(lesson)} disabled={isExporting} /> )}
+                    <MenuItem icon={SparklesIcon} text="AI Generate Quiz" onClick={props.onGenerateQuiz} disabled={props.isAiGenerating} />
+                    <MenuItem icon={TrashIcon} text="Delete Lesson" onClick={props.onDelete} />
+                </ActionMenu>
+            </div>
+        </div>
+    );
 }
 
 function SortableUnitCard(props) {
@@ -227,7 +254,6 @@ function SortableUnitCard(props) {
                 </div>
                 <div className="relative z-10">
                     <div className="mb-4 p-3 bg-white/20 rounded-lg inline-block"><Icon className="w-8 h-8 text-white" /></div>
-                    {/* ✅ MODIFIED: Removed 'truncate' and adjusted font size for the unit title */}
                     <h2 className="text-lg font-bold text-white">{unit.title}</h2>
                 </div>
                 <p className="relative z-10 text-white/80 text-sm mt-2">Select to view content</p>
@@ -249,7 +275,8 @@ const customSort = (a, b) => {
     return timeA - timeB;
 };
 
-export default function UnitAccordion({ subject, onInitiateDelete, userProfile, isAiGenerating, setIsAiGenerating, activeUnit, onSetActiveUnit }) {
+// ✅ MODIFIED: Added selectedLessons and onLessonSelect props
+export default function UnitAccordion({ subject, onInitiateDelete, userProfile, isAiGenerating, setIsAiGenerating, activeUnit, onSetActiveUnit, selectedLessons, onLessonSelect }) {
     const [units, setUnits] = useState([]);
     const [lessons, setLessons] = useState({});
     const [quizzes, setQuizzes] = useState({});
@@ -532,7 +559,10 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                                             onExport={handleExportDocx} 
                                                             onExportUlpPdf={handleExportUlpAsPdf} 
                                                             onExportAtgPdf={handleExportAtgPdf} 
-                                                            exportingLessonId={exportingLessonId} 
+                                                            exportingLessonId={exportingLessonId}
+                                                            // ✅ ADDED: Pass selection state to SortableLessonItem
+                                                            selectedLessons={selectedLessons}
+                                                            onLessonSelect={onLessonSelect}
                                                         />
                                                     )
                                                 ) : (
