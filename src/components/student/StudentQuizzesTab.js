@@ -3,9 +3,9 @@ import { db } from '../../services/firebase';
 import { collection, query, getDocs, where, documentId, Timestamp } from 'firebase/firestore';
 import ViewQuizModal from '../teacher/ViewQuizModal';
 import Spinner from '../common/Spinner';
-import { AcademicCapIcon, BookOpenIcon, InformationCircleIcon, ClockIcon, CheckCircleIcon, ClipboardDocumentCheckIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { AcademicCapIcon, ClockIcon, CheckCircleIcon, ClipboardDocumentCheckIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
-const StudentQuizzesTab = ({ classes, userProfile }) => {
+const StudentQuizzesTab = ({ classes, userProfile, isModule = false }) => {
     const [quizzes, setQuizzes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [viewQuizData, setViewQuizData] = useState(null);
@@ -106,65 +106,80 @@ const StudentQuizzesTab = ({ classes, userProfile }) => {
             setLoading(false);
         }
     }, [classes, userProfile]);
-
+    
     useEffect(() => {
         fetchSharedQuizzes();
     }, [fetchSharedQuizzes]);
 
     const filteredQuizzes = quizzes.filter(quiz => quiz.status === quizFilter);
+    const activeQuizzes = quizzes.filter(quiz => quiz.status === 'active');
 
     const getTabClasses = (tabName) => `
-        px-3 py-1.5 font-semibold text-xs sm:text-sm rounded-full transition-all duration-200
+        px-4 py-2 font-semibold text-sm rounded-lg transition-all duration-200
         ${quizFilter === tabName
-            ? 'bg-blue-600 text-white shadow'
-            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            ? 'bg-indigo-600 text-white shadow'
+            : 'bg-white hover:bg-slate-100 text-slate-600'
         }
     `;
 
-    if (loading) return <div className="flex justify-center p-10"><Spinner /></div>;
+    if (loading && !isModule) return <div className="flex justify-center p-10"><Spinner /></div>;
 
-    const statusInfo = {
-        active: { icon: AcademicCapIcon, text: "No active quizzes right now.", subtext: "New quizzes from your teacher will appear here." },
-        completed: { icon: CheckCircleIcon, text: "No completed quizzes.", subtext: "Quizzes you've submitted will be shown here." },
-        overdue: { icon: ExclamationTriangleIcon, text: "No overdue quizzes.", subtext: "You're all caught up!" }
-    };
-    const EmptyStateIcon = statusInfo[quizFilter]?.icon || BookOpenIcon;
-
+    const EmptyState = ({icon: Icon, text, subtext}) => (
+        <div className="text-center py-10 px-4 bg-slate-100 rounded-lg">
+            <Icon className="h-12 w-12 mx-auto text-slate-400" />
+            <p className="mt-4 text-md font-semibold text-slate-600">{text}</p>
+            <p className="mt-1 text-sm text-slate-400">{subtext}</p>
+        </div>
+    );
+    
+    if (isModule) {
+        return (
+            <div className="bg-white/60 p-6 rounded-2xl border border-slate-200/80 backdrop-blur-xl h-full flex flex-col">
+                <h2 className="text-2xl font-bold text-slate-800 mb-4">Upcoming Quizzes</h2>
+                {loading ? <div className="flex-1 flex items-center justify-center"><Spinner/></div> :
+                <div className="flex-1 space-y-3 overflow-y-auto">
+                    {activeQuizzes.length > 0 ? (
+                        activeQuizzes.slice(0, 3).map(quiz => (
+                            <QuizListItem key={quiz.uniqueId} quiz={quiz} onClick={() => setViewQuizData(quiz)} />
+                        ))
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-center p-4 bg-slate-100/50 rounded-lg">
+                             <CheckCircleIcon className="h-10 w-10 mx-auto text-green-500" />
+                             <p className="mt-3 text-md font-semibold text-slate-600">All caught up!</p>
+                             <p className="mt-1 text-xs text-slate-400">No active quizzes right now.</p>
+                        </div>
+                    )}
+                </div>
+                }
+            </div>
+        );
+    }
+    
     return (
         <>
-            {/* ✅ FIXED: Reduced padding and margin for smaller screens */}
-            <div className="bg-white/90 backdrop-blur-xl border border-white/30 p-4 sm:p-5 rounded-2xl shadow-xl max-w-4xl mx-auto my-6">
-                <div className="flex items-center gap-3 mb-5">
-                    {/* ✅ FIXED: Smaller icon size for mobile */}
-                    <ClipboardDocumentCheckIcon className="h-7 w-7 sm:h-8 sm:w-8 text-blue-600" />
-                    {/* ✅ FIXED: Title font size is now responsive */}
-                    <h1 className="text-xl sm:text-2xl font-extrabold text-gray-800">My Quizzes</h1>
+            <div className="bg-white/60 p-6 rounded-2xl border border-slate-200/80 backdrop-blur-xl max-w-5xl mx-auto">
+                <div className="flex items-center gap-4 mb-6">
+                    <ClipboardDocumentCheckIcon className="h-8 w-8 text-indigo-600" />
+                    <h1 className="text-3xl font-bold text-slate-900">My Quizzes</h1>
                 </div>
 
-                <nav className="flex flex-wrap gap-2 sm:gap-3 mb-5">
-                    <button onClick={() => setQuizFilter('active')} className={getTabClasses('active')}>
-                        Active
-                    </button>
-                    <button onClick={() => setQuizFilter('completed')} className={getTabClasses('completed')}>
-                        Completed
-                    </button>
-                    <button onClick={() => setQuizFilter('overdue')} className={getTabClasses('overdue')}>
-                        Overdue
-                    </button>
+                <nav className="flex flex-wrap gap-3 mb-6 p-2 bg-slate-100 rounded-xl">
+                    <button onClick={() => setQuizFilter('active')} className={getTabClasses('active')}>Active</button>
+                    <button onClick={() => setQuizFilter('completed')} className={getTabClasses('completed')}>Completed</button>
+                    <button onClick={() => setQuizFilter('overdue')} className={getTabClasses('overdue')}>Overdue</button>
                 </nav>
 
-                <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="space-y-4">
                     {filteredQuizzes.length > 0 ? (
                         filteredQuizzes.map(quiz => (
                             <QuizListItem key={quiz.uniqueId} quiz={quiz} onClick={() => setViewQuizData(quiz)} />
                         ))
                     ) : (
-                         // ✅ FIXED: Smaller padding and font sizes for empty state
-                        <div className="flex flex-col items-center justify-center p-8 sm:p-12 text-center bg-gray-50/50 rounded-2xl border-dashed border-gray-200 border">
-                            <EmptyStateIcon className="h-14 w-14 sm:h-16 sm:w-16 mb-4 text-gray-300" />
-                            <p className="text-base sm:text-lg font-medium text-gray-500">{statusInfo[quizFilter].text}</p>
-                            <p className="text-xs sm:text-sm mt-2 text-gray-400">{statusInfo[quizFilter].subtext}</p>
-                        </div>
+                        <EmptyState 
+                            icon={quizFilter === 'active' ? CheckCircleIcon : ExclamationTriangleIcon}
+                            text={`No ${quizFilter} quizzes.`}
+                            subtext={quizFilter === 'active' ? "You're all caught up!" : "Nothing to see here."}
+                        />
                     )}
                 </div>
             </div>
@@ -182,34 +197,25 @@ const StudentQuizzesTab = ({ classes, userProfile }) => {
 
 const QuizListItem = ({ quiz, onClick }) => {
     const statusStyles = {
-        active: { border: "border-blue-200", bg: "from-white to-blue-50", icon: AcademicCapIcon, iconColor: "text-blue-600", hoverColor: "group-hover:text-blue-800" },
-        completed: { border: "border-green-200", bg: "from-white to-green-50", icon: CheckCircleIcon, iconColor: "text-green-600", hoverColor: "group-hover:text-green-800" },
-        overdue: { border: "border-red-200", bg: "from-white to-red-50", icon: ClockIcon, iconColor: "text-red-500", hoverColor: "group-hover:text-red-800" },
+        active: { border: "border-sky-500", icon: AcademicCapIcon, iconColor: "text-sky-600" },
+        completed: { border: "border-green-500", icon: CheckCircleIcon, iconColor: "text-green-600" },
+        overdue: { border: "border-red-500", icon: ClockIcon, iconColor: "text-red-600" },
     };
-    const { border, bg, icon: Icon, iconColor, hoverColor } = statusStyles[quiz.status];
+    const { border, icon: Icon, iconColor } = statusStyles[quiz.status];
 
     return (
          <div
             onClick={onClick}
-            // ✅ FIXED: Reduced padding and changed alignment for a more compact card
-            className={`group relative p-4 rounded-xl border ${border} bg-gradient-to-br ${bg} shadow-md hover:shadow-lg hover:scale-[1.005] transition-all duration-300 cursor-pointer flex flex-col justify-between h-full`}
+            className={`group relative p-4 rounded-lg bg-white hover:bg-slate-50 border ${border} transition-all duration-200 cursor-pointer flex items-center space-x-4 shadow-sm`}
         >
-            <div className="flex items-start space-x-3">
-                 <div className="flex-shrink-0 pt-1"><Icon className={`h-5 w-5 ${iconColor} transition-colors`} /></div>
-                <div className="flex-1 min-w-0">
-                    {/* ✅ FIXED: Quiz title is truncated if too long */}
-                    <h2 className={`text-base font-bold text-gray-800 ${hoverColor} transition-colors truncate`}>
-                        {quiz.title}
-                    </h2>
-                     {/* ✅ FIXED: Context text is smaller */}
-                    <p className="text-xs text-gray-500 font-normal truncate">{quiz.context}</p>
-                </div>
+            <Icon className={`h-6 w-6 flex-shrink-0 ${iconColor}`} />
+            <div className="flex-1 min-w-0">
+                <h2 className="text-md font-semibold text-slate-800 truncate">{quiz.title}</h2>
+                <p className="text-sm text-slate-500 font-normal truncate">{quiz.context}</p>
             </div>
-            
-            {/* ✅ FIXED: Due date is positioned at the bottom */}
             {quiz.availableUntil && (
-                <div className={`text-xs mt-3 flex items-center self-end ${quiz.status === 'overdue' ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
-                    <ClockIcon className="h-3.5 w-3.5 mr-1.5" />
+                <div className={`text-sm flex items-center self-start ${quiz.status === 'overdue' ? 'text-red-600' : 'text-slate-500'}`}>
+                    <ClockIcon className="h-4 w-4 mr-1.5" />
                     <span>Due: {quiz.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                 </div>
             )}

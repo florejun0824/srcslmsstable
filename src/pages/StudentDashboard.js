@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, getDocs, documentId } from 'firebase/firestore';
 
-// Import the new UI component
+// Import the UI component and the generic Spinner
 import StudentDashboardUI from './StudentDashboardUI';
 import JoinClassModal from '../components/student/JoinClassModal';
 import ViewQuizModal from '../components/teacher/ViewQuizModal';
@@ -140,16 +140,13 @@ const StudentDashboard = () => {
 			                        }
 			                    }
                     
-			                    // ✅ FIX: A more robust sorting function that sorts by 'order' first, then by title as a fallback.
 			                    categorizedLessons.sort((a, b) => {
-			                        // Prioritize the 'order' field if it exists and is valid
 			                        const orderA = a.order ?? Infinity;
 			                        const orderB = b.order ?? Infinity;
 			                        if (orderA !== orderB) {
 			                            return orderA - orderB;
 			                        }
 
-			                        // Fallback: If 'order' is the same or missing, parse numbers from the title
 			                        const numA = parseInt(a.title.match(/\d+/)?.[0] || 0, 10);
 			                        const numB = parseInt(b.title.match(/\d+/)?.[0] || 0, 10);
 			                        return numA - numB;
@@ -194,7 +191,13 @@ const StudentDashboard = () => {
         }
     };
     
-    if (authLoading) return <div className="flex h-screen items-center justify-center"><Spinner /></div>;
+    if (authLoading) {
+        return (
+            <div className="flex h-screen items-center justify-center">
+                <Spinner />
+            </div>
+        );
+    }
 
     return (
         <>

@@ -1,62 +1,58 @@
 import React from 'react';
-import { Card, Text } from '@tremor/react';
-import { AcademicCapIcon, UserGroupIcon, ClipboardDocumentListIcon, ShieldCheckIcon, InboxIcon } from '@heroicons/react/24/solid';
+import { Text } from '@tremor/react';
+import { AcademicCapIcon, UserGroupIcon, ClipboardDocumentListIcon, ShieldCheckIcon, InboxIcon, ArrowRightIcon } from '@heroicons/react/24/solid';
 
 const classVisuals = [
-    { icon: AcademicCapIcon, color: 'from-orange-500 to-red-500' },
-    { icon: UserGroupIcon, color: 'from-blue-500 to-sky-500' },
-    { icon: ClipboardDocumentListIcon, color: 'from-yellow-500 to-amber-500' },
-    { icon: ShieldCheckIcon, color: 'from-green-500 to-lime-500' },
+    { icon: AcademicCapIcon, color: 'text-orange-500', glow: 'hover:shadow-orange-500/20', bg: 'bg-orange-100' },
+    { icon: UserGroupIcon, color: 'text-blue-500', glow: 'hover:shadow-blue-500/20', bg: 'bg-blue-100' },
+    { icon: ClipboardDocumentListIcon, color: 'text-yellow-500', glow: 'hover:shadow-yellow-500/20', bg: 'bg-yellow-100' },
+    { icon: ShieldCheckIcon, color: 'text-green-500', glow: 'hover:shadow-green-500/20', bg: 'bg-green-100' },
 ];
 
 const StudentClassCard = ({ classData, onSelect, visual }) => {
-    const { icon: Icon, color } = visual;
+    const { icon: Icon, color, glow, bg } = visual;
 
     return (
-        <Card
+        <div
             onClick={() => onSelect(classData)}
-            // ✅ UPDATED: Further reduced padding for a more compact card
-            className="group relative p-3 sm:p-4 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden"
+            className={`group bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm ${glow} hover:border-indigo-300 hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between`}
         >
-            <div className={`absolute -top-8 -right-8 w-20 h-20 sm:w-28 sm:h-28 bg-gradient-to-br ${color} rounded-full opacity-10 group-hover:opacity-20 transition-all duration-300`}></div>
-            <div className="relative z-10">
-                {/* ✅ UPDATED: Smaller icon and container */}
-                <div className={`p-2 inline-block bg-gradient-to-br ${color} text-white rounded-lg mb-2 shadow-sm`}>
-                    <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+            <div>
+                <div className={`w-12 h-12 flex items-center justify-center rounded-lg mb-4 ${bg}`}>
+                    <Icon className={`w-7 h-7 ${color}`} />
                 </div>
-                {/* ✅ UPDATED: Significantly smaller font size for the title */}
-                <h3 className="text-sm sm:text-base font-bold text-gray-800 truncate">{classData.name}</h3>
-                {/* ✅ UPDATED: Extra small text for details */}
-                <Text className="text-xs text-gray-600">{classData.gradeLevel} - {classData.section}</Text>
-                 <Text className="mt-2 text-xs text-gray-500">Teacher: {classData.teacherName}</Text>
+                <h3 className="text-lg font-bold text-slate-800 truncate">{classData.name}</h3>
+                <Text className="text-sm text-slate-500">{classData.gradeLevel} - {classData.section}</Text>
             </div>
-        </Card>
+            <Text className="mt-4 text-xs text-slate-400">Teacher: {classData.teacherName}</Text>
+        </div>
     );
 };
-
 
 const StudentClassesTab = ({ classes, onClassSelect }) => {
     if (!classes || classes.length === 0) {
         return (
-            <div className="text-center py-16 px-4">
-                <InboxIcon className="h-14 w-14 mx-auto text-gray-300" />
-                <p className="mt-4 text-base font-medium text-gray-600">No classes found.</p>
-                <p className="mt-1 text-xs text-gray-400">You are not enrolled in any classes yet.</p>
+            <div className="text-center py-20 px-4 bg-white rounded-xl border border-dashed border-slate-200">
+                <InboxIcon className="h-16 w-16 mx-auto text-slate-300" />
+                <p className="mt-5 text-lg font-semibold text-slate-600">No classes found.</p>
+                <p className="mt-1 text-sm text-slate-400">You are not enrolled in any classes yet.</p>
             </div>
         );
     }
 
     return (
-        // ✅ UPDATED: Tighter grid spacing
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-            {classes.map((classData, index) => (
-                <StudentClassCard
-                    key={classData.id}
-                    classData={classData}
-                    onSelect={onClassSelect}
-                    visual={classVisuals[index % classVisuals.length]}
-                />
-            ))}
+        <div className="bg-white/60 p-6 rounded-2xl border border-slate-200/80 backdrop-blur-xl">
+             <h2 className="text-2xl font-bold text-slate-800 mb-4">My Classes</h2>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {classes.map((classData, index) => (
+                    <StudentClassCard
+                        key={classData.id}
+                        classData={classData}
+                        onSelect={onClassSelect}
+                        visual={classVisuals[index % classVisuals.length]}
+                    />
+                ))}
+            </div>
         </div>
     );
 };
