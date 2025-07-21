@@ -22,27 +22,37 @@ export default function ContentRenderer({ htmlContent, text }) {
 
   // --- Priority 2: If Markdown text is provided, process and render it ---
   if (text && typeof text === 'string') {
-    const normalizedText = text.replace(/\\n/g, '\n');
-    const processedText = normalizedText.replace(/\n/g, '  \n');
+    // Decode incorrectly escaped Unicode sequences that the AI may generate.
+    const unescapedText = text.replace(/\\u([\dA-F]{4})/gi, (match, grp) =>
+      String.fromCharCode(parseInt(grp, 16))
+    );
+    
+    const normalizedText = unescapedText.replace(/\\n/g, '\n');
+    let processedText = normalizedText.replace(/\n/g, '  \n');
+
+    // ✅ FIX: Sanitize the text to remove code block fences (```) that the AI
+    // sometimes adds around regular paragraphs.
+    const trimmedText = processedText.trim();
+    if (trimmedText.startsWith('```') && trimmedText.endsWith('```')) {
+      // Remove the first and last ```, then trim any resulting whitespace.
+      processedText = trimmedText.substring(3, trimmedText.length - 3).trim();
+    }
+
 
     return (
       <div className="content-renderer prose max-w-full">
         <ReactMarkdown
           children={processedText}
           remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={[rehypeKatex, rehypeRaw]} // This plugin correctly handles SVG rendering now
+          rehypePlugins={[rehypeKatex, rehypeRaw]} 
           components={{
-            // The custom rule for 'strong' tags remains unchanged.
             strong: ({ node, ...props }) => {
               if (props.children && typeof props.children[0] === 'string' && props.children[0].includes('___')) {
                 return <span className="font-normal tracking-widest text-blue-500">{props.children}</span>;
               }
               return <strong {...props} />;
             },
-            // The custom rule for 'img' tags remains unchanged.
             img: ({ node, ...props }) => <img {...props} alt="" className="max-w-full" />,
-            // ✅ FIXED: The faulty 'svg' override has been removed.
-            // rehype-raw will now handle rendering SVG diagrams correctly.
           }}
         />
       </div>
