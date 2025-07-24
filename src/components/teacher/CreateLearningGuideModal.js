@@ -116,93 +116,121 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         setFormData(prev => ({ ...prev, [name]: finalValue }));
     };
 
-    const getMasterInstructions = () => {
-        const objectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
-        const letsGetStartedLabel = formData.language === 'Filipino' ? 'Simulan Natin!' : "Let's Get Started!";
-        const checkUnderstandingLabel = formData.language === 'Filipino' ? 'Suriin ang Pag-unawa' : "Check for Understanding";
-        const lessonSummaryLabel = formData.language === 'Filipino' ? 'Buod ng Aralin' : "Lesson Summary";
-        const wrapUpLabel = formData.language === 'Filipino' ? 'Pagbubuod' : "Wrap-Up";
-        const endOfLessonAssessmentLabel = formData.language === 'Filipino' ? 'Pagtatasa sa Katapusan ng Aralin' : "End-of-Lesson Assessment";
-        const referencesLabel = formData.language === 'Filipino' ? 'Mga Sanggunian' : "References";
-        const answerKeyLabel = formData.language === 'Filipino' ? 'Susi sa Pagwawasto' : 'Answer Key';
-        const catholicSubjects = ["Christian Social Living 7-10", "Religious Education 11-12"];
-        let perspectiveInstruction = '';
-        if (catholicSubjects.includes(subjectName)) {
-            perspectiveInstruction = `
-                **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. This is non-negotiable. All explanations, examples, and interpretations must align with Catholic teachings, doctrines, and values. You must integrate principles from the Catechism of the Catholic Church, relevant encyclicals, and Sacred Scripture where appropriate.
-            `;
-        }
+	const getMasterInstructions = () => {
+		    const objectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
+		    const letsGetStartedLabel = formData.language === 'Filipino' ? 'Simulan Natin!' : "Let's Get Started!";
+		    const checkUnderstandingLabel = formData.language === 'Filipino' ? 'Suriin ang Pag-unawa' : "Check for Understanding";
+		    const lessonSummaryLabel = formData.language === 'Filipino' ? 'Buod ng Aralin' : "Lesson Summary";
+		    const wrapUpLabel = formData.language === 'Filipino' ? 'Pagbubuod' : "Wrap-Up";
+		    const endOfLessonAssessmentLabel = formData.language === 'Filipino' ? 'Pagtatasa sa Katapusan ng Aralin' : "End-of-Lesson Assessment";
+		    const referencesLabel = formData.language === 'Filipino' ? 'Mga Sanggunian' : "References";
+		    const answerKeyLabel = formData.language === 'Filipino' ? 'Susi sa Pagwawasto' : 'Answer Key';
+		    const catholicSubjects = ["Christian Social Living 7-10", "Religious Education 11-12"];
+		    let perspectiveInstruction = '';
+		    if (catholicSubjects.includes(subjectName)) {
+		        perspectiveInstruction = `
+		            **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. This is non-negotiable. All explanations, examples, and interpretations must align with Catholic teachings, doctrines, and values. You must integrate principles from the Catechism of the Catholic Church, relevant encyclicals, and Sacred Scripture where appropriate.
+		        `;
+		    }
 
-return `
-            **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter.
-            **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${formData.gradeLevel}**. Your writing must be clear, accessible, and tailored to the cognitive and developmental level of this grade. The complexity of vocabulary, sentence structure, and conceptual depth should be appropriate for a ${formData.gradeLevel}th grader.
-            ${perspectiveInstruction}
-            **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the science or the concept. Introduce key figures, explore historical context, and delve into fascinating real-world applications. Use vivid analogies and metaphors to illuminate complex ideas. The content should flow logically and build on itself, like a well-structured story.
+		    return `
+		            **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter.
+		            **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${formData.gradeLevel}**. Your writing must be clear, accessible, and tailored to the cognitive and developmental level of this grade. The complexity of vocabulary, sentence structure, and conceptual depth should be appropriate for a ${formData.gradeLevel}th grader.
+		            ${perspectiveInstruction}
+		            **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the science or the concept. Introduce key figures, explore historical context, and delve into fascinating real-world applications. Use vivid analogies and metaphors to illuminate complex ideas. The content should flow logically and build on itself, like a well-structured story.
             
-            **CRITICAL FORMATTING RULE (NON-NEGOTIABLE):** You MUST NOT use Markdown code block formatting (like indenting with four spaces or using triple backticks \`\`\`) for regular content like bulleted lists or standard paragraphs. Code block formatting should only be used for displaying actual programming code snippets.
+		            **CRITICAL FORMATTING RULE (NON-NEGOTIABLE):** You MUST NOT use Markdown code block formatting (like indenting with four spaces or using triple backticks \`\`\`) for regular content like bulleted lists or standard paragraphs. Code block formatting is reserved ONLY for actual programming code snippets.
+	            
+		            **CRITICAL JSON STRING RULE (NON-NEGOTIABLE):** When writing text content inside the JSON, do NOT escape standard quotation marks.
+		            - **Correct:** \`"title": "The Art of \\"How Much?\\""\`
+		            - **Incorrect:** \`"title": "The Art of \\\\\\"How Much?\\\\\\""\`
+        
+		            **CRITICAL TEXT FORMATTING RULE (NON-NEGOTIABLE):**
+		            - To make text bold, you MUST use Markdown's double asterisks (**).
+		            - You are STRICTLY FORBIDDEN from using LaTeX commands like \\textbf{} or \\textit{} for text formatting.
 
-            **CRITICAL JSON STRING RULE (NON-NEGOTIABLE):**
-            When writing text content inside the JSON, do NOT escape standard quotation marks.
-            - **Correct:** \`"title": "The Art of \\"How Much?\\""\`
-            - **Incorrect:** \`"title": "The Art of \\\\\\"How Much?\\\\\\""\`
-			
-            **CRITICAL TEXT FORMATTING RULE (NON-NEGOTIABLE):**
-            - To make text bold, you MUST use Markdown's double asterisks (**).
-            - You are STRICTLY FORBIDDEN from using LaTeX commands like \\textbf{} or \\textit{} for text formatting.
-            - **Correct Example:** To bold the term 'Product Identifier', you MUST write: \`**Product Identifier**:\`.
-            - **Incorrect Example:** Do NOT write: \`\\textbf{Product Identifier}:\`.
+		            **CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
+		            You MUST use LaTeX for all mathematical equations, variables, and chemical formulas.
+		            - **For INLINE formulas** (within a sentence), you MUST use single dollar signs. Correct: The formula for water is $H_2O$.
+		            - **For BLOCK formulas** (on their own line), you MUST use double dollar signs. This is for larger, centered formulas.
+		            - **CRITICAL LATEX ESCAPING IN JSON:** To prevent the JSON from breaking, every single backslash \`\\\` in your LaTeX code MUST be escaped with a second backslash. So, \`\\\` becomes \`\\\\\`.
+		            - **CORRECT EXAMPLE:** To write the LaTeX formula \`$$% \\text{ by Mass} = \\frac{\\text{Mass of Solute}}{\\text{Mass of Solution}} \\times 100\\%%$$\`, you MUST write it in the JSON string like this:
+		              \`"content": "$$% \\\\text{ by Mass} = \\\\frac{\\\\text{Mass of Solute}}{\\\\text{Mass of Solution}} \\\\times 100\\%%$$"\`
+		            - **INCORRECT (This will break):** \`"content": "$$% \\text{ by Mass} ..."\`
 
-            **CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
-            You MUST use LaTeX for all mathematical equations, variables, and chemical formulas.
-            - **Rule:** Every LaTeX expression MUST start with a single dollar sign (\`$\`) and end with a single dollar sign (\`$\`). Backslashes (\`\\\`) should only be used for specific LaTeX commands (e.g., \`\\alpha\`, \`\\rightarrow\`), not for simple variable or element names.
-            - **Correct Formula Example:** To write the formula for percent by mass, you MUST write: \`$% \\text{ by Mass} = \\frac{\\text{Mass of Solute}}{\\text{Mass of Solution}} \\times 100\\%$\`
-            - **FORBIDDEN PATTERNS (DO NOT DO THIS):**
-                - Missing opening dollar sign: \`C_3H_6O$\` or \`\\frac{5}{100} ... $\` (WRONG)
-                - Starting with a backslash or space: \`\\ % , by , Mass = ...$\` (WRONG)
-                - Using unnecessary backslashes: \`$\\C_3H_6O$\` (WRONG)
-                - Using other delimiters: \`\\(C_3H_6O\\)\` (WRONG)
+		            **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, the heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \`"title": ""\`.
 
-            **CRITICAL INSTRUCTION FOR CONCISENESS (NON-NEGOTIABLE):**
-            You MUST write clearly and avoid clumsy repetition. Do not repeat numbers or words unnecessarily.
-            - **Correct:** "...in a 100-gram solution..."
-            - **Incorrect:** "...in a 100 100-gram solution..."
+		            **Textbook Chapter Structure (NON-NEGOTIABLE):** You MUST generate the lesson pages in this exact sequence. The 'title' field for each special section MUST be exactly as specified.
+		            1. **${objectivesLabel}:** The lesson MUST begin with the learning objectives (in the "learningObjectives" array).
+		            2. **Engaging Introduction:** The first page of the 'pages' array must be a captivating opening.
+		            3. **Introductory Activity ("${letsGetStartedLabel}"):** A single page with a short warm-up activity. The 'title' MUST be exactly "${letsGetStartedLabel}".
+		            4. **Core Content Sections:** The main narrative content across multiple pages.
+		            5. **Check for Understanding ("${checkUnderstandingLabel}"):** A page with a thoughtful activity. The 'title' MUST be exactly "${checkUnderstandingLabel}".
+		            6. **Summary ("${lessonSummaryLabel}"):** A page with a concise summary. The 'title' MUST be exactly "${lessonSummaryLabel}".
+		            7. **Conclusion ("${wrapUpLabel}"):** A page with a powerful concluding statement. The 'title' MUST be exactly "${wrapUpLabel}".
+		            8. **Assessment ("${endOfLessonAssessmentLabel}"):** A multi-page assessment section. The first page's 'title' MUST be "${endOfLessonAssessmentLabel}". It must contain 8-10 questions.
+		            9. **Answer Key ("${answerKeyLabel}"):** A page with the answers. The 'title' MUST be exactly "${answerKeyLabel}".
+		            10. **References ("${referencesLabel}"):** The absolute last page must ONLY contain references. The 'title' MUST be exactly "${referencesLabel}".
 
-            **CRITICAL INSTRUCTION FOR LATEX IN JSON (NON-NEGOTIABLE):**
-            When writing LaTeX inside the JSON, you MUST escape all backslashes. A single backslash \`\\\` must be written as a double backslash \`\\\\\`.
-            - **Correct Example:** To write \`$\\rightarrow$\`, you MUST write it in the JSON as \`"$\\rightarrow$"\`.
-            - **Incorrect Example:** Writing \`"$\\rightarrow$"\` will break the JSON.
+		            **ABSOLUTE RULE FOR DIAGRAMS (NON-NEGOTIABLE):**
+		            When a diagram is necessary, you MUST generate a clean, modern, SVG diagram. The page 'type' MUST be "diagram-data". The 'content' MUST contain the full SVG code. 
+	            
+		            **CRITICAL GOAL FOR REALISM:** Your primary goal is to create a diagram that is a **faithful and structurally accurate representation of the real-world object**. You must act as a technical illustrator drawing from observation. Do not oversimplify or abstract the object into basic geometric shapes.
+	            
+		            **Layout and Font Rules:**
+		            - **ViewBox is Mandatory:** The SVG MUST have a \`viewBox\` attribute for proper scaling.
+		            - **STRICT FONT SIZE RULE:** You MUST use a **font-size between "4px" and "6px"**.
+		            - **Text Anchoring:** Use the \`text-anchor\` attribute (e.g., "middle", "start", "end") to align text.
+		            - **NO LATEX IN SVG:** Use Unicode characters for symbols (e.g., 'δ', '→', '⁺').
+	            
+		            {/* ✅ NEW INSTRUCTION FOR CLEAR LABEL PLACEMENT */}
+		            - **Intelligent Label Placement with Leader Lines:** This is CRITICAL. Every label must be unambiguously connected to the component it describes. You MUST **draw a thin, straight <line> or simple dashed <path> from the text label directly to its corresponding feature** on the diagram. This removes all confusion.
+	            
+		            **Visual Style & Detail Guide:**
+		            - **Anatomical Accuracy:** The shape, proportions, and key components of the object MUST be true-to-life. For example, a laboratory beaker must have its **pouring spout and rolled rim**. A microscope must have its eyepiece, objective lenses, and stage in the correct arrangement. You must draw the object's specific, defining contours.
+		            - **Use Gradients for Depth:** For container objects, use a \`<linearGradient>\` in the \`<defs>\` section to create a subtle 3D or glassy effect.
+		            - **Add Highlights:** For glassy or shiny surfaces, add a small, white path or shape with partial opacity to simulate a reflection.
+		            - **Use Professional Colors:** Avoid overly bright, saturated "cartoon" colors. Use a more muted, professional color palette.
 
-            **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, the heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \`"title": ""\`.
-            **Textbook Chapter Structure (NON-NEGOTIABLE):** You MUST generate the lesson pages in this exact sequence. The 'title' field for each special section MUST be exactly as specified.
-            1. **${objectivesLabel}:** The lesson MUST begin with the learning objectives (in the "learningObjectives" array).
-            2. **Engaging Introduction:** The first page of the 'pages' array must be a captivating opening.
-            3. **Introductory Activity ("${letsGetStartedLabel}"):** A single page with a short warm-up activity. The 'title' MUST be exactly "${letsGetStartedLabel}".
-            4. **Core Content Sections:** The main narrative content across multiple pages.
-            5. **Check for Understanding ("${checkUnderstandingLabel}"):** A page with a thoughtful activity. The 'title' MUST be exactly "${checkUnderstandingLabel}".
-            6. **Summary ("${lessonSummaryLabel}"):** A page with a concise summary. The 'title' MUST be exactly "${lessonSummaryLabel}".
-            7. **Conclusion ("${wrapUpLabel}"):** A page with a powerful concluding statement. The 'title' MUST be exactly "${wrapUpLabel}".
-            8. **Assessment ("${endOfLessonAssessmentLabel}"):** A multi-page assessment section. The first page's 'title' MUST be "${endOfLessonAssessmentLabel}". It must contain 8-10 questions.
-            9. **Answer Key ("${answerKeyLabel}"):** A page with the answers. The 'title' MUST be exactly "${answerKeyLabel}".
-            10. **References ("${referencesLabel}"):** The absolute last page must ONLY contain references. The 'title' MUST be exactly "${referencesLabel}".
-            **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide real, verifiable academic or reputable web sources.
-			**ABSOLUTE RULE FOR DIAGRAMS (NON-NEGOTIABLE):**
-            When a diagram is necessary, you MUST generate a clean, modern, SVG diagram. The page 'type' MUST be set to "diagram-data". The 'content' MUST contain the full SVG code.
-            - **Text & Labels:** Each distinct label MUST be in its own \`<text>\` element with specific \`x\` and \`y\` coordinates. Do NOT put all labels in one line.
-            - **Special Characters:** For symbols like delta, you MUST use the Unicode character directly (e.g., 'δ'). Do NOT use LaTeX (like \`$\\delta$\`) inside an SVG.
-            - **Styling:** Use a small font size (e.g., \`font-size="10px"\`) and include a \`viewBox\` attribute for proper scaling.
-            - **Correct Example:**
-              \`<svg viewBox="0 0 100 50">
-                <rect x="10" y="10" width="30" height="30" fill="skyblue" />
-                <text x="12" y="28" font-size="10px">H₂O</text>
-                <text x="50" y="28" font-size="10px">Water Molecule</text>
-                <text x="18" y="8" font-size="12px" fill="red">δ-</text>
-              </svg>\`
+		            **Advanced Example (Follow this style for a realistic, clearly-labeled beaker):**
+		            \`<svg viewBox="0 0 160 180" font-family="sans-serif">
+		              <defs>
+		                <linearGradient id="glassyLook" x1="0%" y1="0%" x2="100%" y2="0%">
+		                  <stop offset="0%" style="stop-color:#FFFFFF; stop-opacity:0.5" />
+		                  <stop offset="50%" style="stop-color:#E0F7FA; stop-opacity:0.7" />
+		                  <stop offset="100%" style="stop-color:#B2EBF2; stop-opacity:0.9" />
+		                </linearGradient>
+		              </defs>
+	              
+		              {/* Structurally accurate beaker path with rolled rim and pouring spout */}
+		              <path d="M25 15 C 20 15, 20 25, 25 25 V 170 H 125 V 25 C 130 25, 130 15, 125 15 H 90 C 85 5, 65 5, 60 15 H 25 Z" fill="url(#glassyLook)" stroke="#004D40" stroke-width="1.5"/>
+	              
+		              {/* Liquid inside the beaker */}
+		              <rect x="27" y="100" width="96" height="68" fill="#4DD0E1" opacity="0.75" rx="2"/>
+	              
+		              {/* Glass highlight on the side */}
+		              <path d="M 40 30 C 32 60, 32 120, 40 150" fill="white" opacity="0.6" stroke="none" />
 
-            **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
-`;
+		              {/* --- Labels with Leader Lines --- */}
+		              <g font-size="6px" fill="#004D40" stroke="#37474F">
+		                {/* Label for Pouring Spout */}
+		                <text x="75" y="4" text-anchor="middle">Pouring Spout</text>
+		                <path d="M75 7 L75 12" stroke-width="1"/>
 
-    };
+		                {/* Label for Liquid */}
+		                <text x="130" y="140" text-anchor="start">H₂O Solution</text>
+		                <path d="M100 138 L128 138" stroke-width="1"/>
 
+		                {/* Label for a Measurement Mark using a dashed line */}
+		                <text x="0" y="103" text-anchor="start">100ml Mark</text>
+		                <path d="M45 101.5 L25 101.5" stroke-width="1" stroke-dasharray="2 2"/>
+		              </g>
+		            </svg>\`
+
+		            **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
+		    `;
+		};
+		
     const generateSingleLesson = async (lessonNumber, totalLessons, previousLessonSummary) => {
         let lastError = null;
         let lastResponseText = null;
