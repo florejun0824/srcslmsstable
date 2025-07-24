@@ -133,7 +133,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             `;
         }
 
-        return `
+return `
             **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter.
             **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${formData.gradeLevel}**. Your writing must be clear, accessible, and tailored to the cognitive and developmental level of this grade. The complexity of vocabulary, sentence structure, and conceptual depth should be appropriate for a ${formData.gradeLevel}th grader.
             ${perspectiveInstruction}
@@ -141,11 +141,25 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             
             **CRITICAL FORMATTING RULE (NON-NEGOTIABLE):** You MUST NOT use Markdown code block formatting (like indenting with four spaces or using triple backticks \`\`\`) for regular content like bulleted lists or standard paragraphs. Code block formatting should only be used for displaying actual programming code snippets.
 
+            **CRITICAL JSON STRING RULE (NON-NEGOTIABLE):**
+            When writing text content inside the JSON, do NOT escape standard quotation marks.
+            - **Correct:** \`"title": "The Art of \\"How Much?\\""\`
+            - **Incorrect:** \`"title": "The Art of \\\\\\"How Much?\\\\\\""\`
+
             **CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
             You MUST use LaTeX for all mathematical equations, variables, and chemical formulas.
-            - **Rule:** Every LaTeX expression MUST start with a single dollar sign (\`$\`) and end with a single dollar sign (\`$\`).
-            - **Forbidden Formats:** Expressions like \`\${P_{in}}\$\`, \`'{P_{in}}'\`, \`\\(P_{in}\\)\`, or \`\\[P_{in}\\]\` are strictly forbidden. Only single dollar signs are allowed.
-            - **Example:** To write H₂O, you MUST write \`$H_2O$\`.
+            - **Rule:** Every LaTeX expression MUST start with a single dollar sign (\`$\`) and end with a single dollar sign (\`$\`). Backslashes (\`\\\`) should only be used for specific LaTeX commands (e.g., \`\\alpha\`, \`\\rightarrow\`), not for simple variable or element names.
+            - **Correct Formula Example:** To write the formula for percent by mass, you MUST write: \`$% \\text{ by Mass} = \\frac{\\text{Mass of Solute}}{\\text{Mass of Solution}} \\times 100\\%$\`
+            - **FORBIDDEN PATTERNS (DO NOT DO THIS):**
+                - Missing opening dollar sign: \`C_3H_6O$\` or \`\\frac{5}{100} ... $\` (WRONG)
+                - Starting with a backslash or space: \`\\ % , by , Mass = ...$\` (WRONG)
+                - Using unnecessary backslashes: \`$\\C_3H_6O$\` (WRONG)
+                - Using other delimiters: \`\\(C_3H_6O\\)\` (WRONG)
+
+            **CRITICAL INSTRUCTION FOR CONCISENESS (NON-NEGOTIABLE):**
+            You MUST write clearly and avoid clumsy repetition. Do not repeat numbers or words unnecessarily.
+            - **Correct:** "...in a 100-gram solution..."
+            - **Incorrect:** "...in a 100 100-gram solution..."
 
             **CRITICAL INSTRUCTION FOR LATEX IN JSON (NON-NEGOTIABLE):**
             When writing LaTeX inside the JSON, you MUST escape all backslashes. A single backslash \`\\\` must be written as a double backslash \`\\\\\`.

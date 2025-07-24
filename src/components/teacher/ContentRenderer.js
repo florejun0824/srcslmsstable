@@ -27,10 +27,14 @@ export default function ContentRenderer({ htmlContent, text }) {
       String.fromCharCode(parseInt(grp, 16))
     );
     
-    const normalizedText = unescapedText.replace(/\\n/g, '\n');
+    // ✅ BAND-AID FIX: Add this line to clean up escaped quotation marks.
+    const cleanText = unescapedText.replace(/\\"/g, '"');
+    
+    // Use the new `cleanText` variable for the next operation.
+    const normalizedText = cleanText.replace(/\\n/g, '\n');
     let processedText = normalizedText.replace(/\n/g, '  \n');
 
-    // ✅ FIX: Sanitize the text to remove code block fences (```) that the AI
+    // FIX: Sanitize the text to remove code block fences (```) that the AI
     // sometimes adds around regular paragraphs.
     const trimmedText = processedText.trim();
     if (trimmedText.startsWith('```') && trimmedText.endsWith('```')) {
