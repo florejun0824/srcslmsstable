@@ -263,8 +263,3 @@ background-color: #333 !important;
     @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500;
 }
 
-.content-renderer svg {
-  width: 100%;
-  height: auto;
-  max-width: 100%;
-}

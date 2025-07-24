@@ -13,32 +13,72 @@ import 'katex/dist/katex.min.css';
  * This acts as a safety net to fix AI mistakes in SVGs.
  */
 const processSvgContent = (svgString) => {
-  // 1. Remove LaTeX math delimiters ($) and common commands
-  let cleanedSvg = svgString.replace(/\$/g, '');
+  // 1. Initial text-based cleaning
+  let cleanedSvg = svgString.replace(/\$/g, ''); // Remove LaTeX delimiters
   cleanedSvg = cleanedSvg.replace(/\\delta\^\{?-\}?/g, 'δ-');
   cleanedSvg = cleanedSvg.replace(/\\delta\^\{?\+\}?/g, 'δ+');
   cleanedSvg = cleanedSvg.replace(/Na\^\{?\+\}?/g, 'Na⁺');
   cleanedSvg = cleanedSvg.replace(/Cl\^\{?-\}?/g, 'Cl⁻');
 
   try {
-    // 2. Parse the SVG to manipulate it as a DOM object in memory
+    // 2. Parse the SVG for DOM manipulation
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(cleanedSvg, "image/svg+xml");
-    const textElements = svgDoc.getElementsByTagName('text');
+    const svgElement = svgDoc.documentElement;
 
-    // 3. Force font-size and prevent overflow on all text elements
-    for (let i = 0; i < textElements.length; i++) {
-      const textElement = textElements[i];
-      const currentFontSize = parseFloat(textElement.getAttribute('font-size')) || 6;
-
-      // Force font-size to be within a safe range (e.g., max 6px)
-      if (currentFontSize > 6) {
-        textElement.setAttribute('font-size', '6px');
+    // ✨ NEW: Ensure a viewBox is present for proper scaling
+    if (!svgElement.getAttribute('viewBox')) {
+      const width = svgElement.getAttribute('width');
+      const height = svgElement.getAttribute('height');
+      if (width && height) {
+        svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`);
       }
+    }
+    
+    // ✨ NEW: Create a clipping path to prevent overflow
+    const clipPathId = 'svg-clip-path';
+    const clipPath = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+    clipPath.setAttribute('id', clipPathId);
+    
+    const clipRect = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    clipRect.setAttribute('width', '100%');
+    clipRect.setAttribute('height', '100%');
+    clipPath.appendChild(clipRect);
+    
+    // Add the clip path to the <defs> section of the SVG
+    let defs = svgDoc.getElementsByTagName('defs')[0];
+    if (!defs) {
+      defs = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      svgElement.prepend(defs);
+    }
+    defs.appendChild(clipPath);
 
-      // Add text-fitting attributes to prevent long labels from overflowing
-      textElement.setAttribute('textLength', '100%');
-      textElement.setAttribute('lengthAdjust', 'spacingAndGlyphs');
+    // Apply the clipping path to all top-level graphical elements
+    const topLevelElements = Array.from(svgElement.children).filter(
+        (child) => ['g', 'path', 'rect', 'circle', 'line', 'text'].includes(child.tagName.toLowerCase())
+    );
+    topLevelElements.forEach(el => el.setAttribute('clip-path', `url(#${clipPathId})`));
+
+
+    // 3. Apply professional styling to all elements
+    const allElements = svgDoc.getElementsByTagName('*');
+    for (let i = 0; i < allElements.length; i++) {
+        const el = allElements[i];
+        
+        // ✨ NEW: Set a professional, sans-serif font for all text
+        if (el.tagName.toLowerCase() === 'text') {
+            el.setAttribute('font-family', "'Inter', sans-serif"); // Using Inter from your index.html
+            el.setAttribute('font-size', '6px'); // Keep font size small and consistent
+            el.setAttribute('font-weight', 'normal'); // Ensure text is not bold
+            el.setAttribute('textLength', '100%'); // Fit text to its container
+            el.setAttribute('lengthAdjust', 'spacingAndGlyphs'); // Adjust spacing to fit
+        }
+
+        // ✨ NEW: Standardize strokes for a cleaner look
+        if (el.hasAttribute('stroke')) {
+            el.setAttribute('stroke', '#333'); // A dark grey for all strokes
+            el.setAttribute('stroke-width', '0.5'); // A thin, consistent stroke width
+        }
     }
 
     // 4. Serialize the modified SVG back to a string
@@ -46,8 +86,7 @@ const processSvgContent = (svgString) => {
     return serializer.serializeToString(svgDoc);
   } catch (error) {
     console.error("Could not parse or process SVG:", error);
-    // Fallback to the initial cleaned string if parsing fails
-    return cleanedSvg;
+    return cleanedSvg; // Fallback to the cleaned string
   }
 };
 
