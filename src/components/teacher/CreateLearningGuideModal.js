@@ -145,6 +145,12 @@ return `
             When writing text content inside the JSON, do NOT escape standard quotation marks.
             - **Correct:** \`"title": "The Art of \\"How Much?\\""\`
             - **Incorrect:** \`"title": "The Art of \\\\\\"How Much?\\\\\\""\`
+			
+            **CRITICAL TEXT FORMATTING RULE (NON-NEGOTIABLE):**
+            - To make text bold, you MUST use Markdown's double asterisks (**).
+            - You are STRICTLY FORBIDDEN from using LaTeX commands like \\textbf{} or \\textit{} for text formatting.
+            - **Correct Example:** To bold the term 'Product Identifier', you MUST write: \`**Product Identifier**:\`.
+            - **Incorrect Example:** Do NOT write: \`\\textbf{Product Identifier}:\`.
 
             **CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
             You MUST use LaTeX for all mathematical equations, variables, and chemical formulas.
@@ -179,11 +185,22 @@ return `
             9. **Answer Key ("${answerKeyLabel}"):** A page with the answers. The 'title' MUST be exactly "${answerKeyLabel}".
             10. **References ("${referencesLabel}"):** The absolute last page must ONLY contain references. The 'title' MUST be exactly "${referencesLabel}".
             **CRITICAL INSTRUCTION FOR REFERENCES:** You MUST provide real, verifiable academic or reputable web sources.
-            **ABSOLUTE RULE FOR DIAGRAMS (NON-NEGOTIABLE):**
-            When a diagram is necessary, you MUST generate a clean, modern, SVG diagram. The page 'type' MUST be set to "diagram-data". The 'content' MUST contain the full SVG code. CRITICAL SVG STYLING RULES: Use small font sizes (\`font-size="8px"\`), use \`<tspan>\` for text wrapping, and include a \`viewBox\` attribute.
+			**ABSOLUTE RULE FOR DIAGRAMS (NON-NEGOTIABLE):**
+            When a diagram is necessary, you MUST generate a clean, modern, SVG diagram. The page 'type' MUST be set to "diagram-data". The 'content' MUST contain the full SVG code.
+            - **Text & Labels:** Each distinct label MUST be in its own \`<text>\` element with specific \`x\` and \`y\` coordinates. Do NOT put all labels in one line.
+            - **Special Characters:** For symbols like delta, you MUST use the Unicode character directly (e.g., 'δ'). Do NOT use LaTeX (like \`$\\delta$\`) inside an SVG.
+            - **Styling:** Use a small font size (e.g., \`font-size="10px"\`) and include a \`viewBox\` attribute for proper scaling.
+            - **Correct Example:**
+              \`<svg viewBox="0 0 100 50">
+                <rect x="10" y="10" width="30" height="30" fill="skyblue" />
+                <text x="12" y="28" font-size="10px">H₂O</text>
+                <text x="50" y="28" font-size="10px">Water Molecule</text>
+                <text x="18" y="8" font-size="12px" fill="red">δ-</text>
+              </svg>\`
 
             **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
-        `;
+`;
+
     };
 
     const generateSingleLesson = async (lessonNumber, totalLessons, previousLessonSummary) => {

@@ -8,6 +8,9 @@ let gapiInited = false;
 let gisInited = false;
 let tokenClient;
 
+/**
+ * Initializes the GAPI client. This is used for making requests to the Google Slides and Drive APIs.
+ */
 const initializeGapiClient = () => {
     return new Promise((resolve, reject) => {
         if (!window.gapi) return reject(new Error("Google API script (gapi) not loaded."));
@@ -26,32 +29,74 @@ const initializeGapiClient = () => {
     });
 };
 
-const requestAccessToken = () => {
+/**
+ * Initializes the Google Identity Services (GIS) client.
+ */
+const initializeGisClient = () => {
     return new Promise((resolve, reject) => {
         if (!window.google?.accounts?.oauth2) {
             return reject(new Error("Google Identity Services (GIS) script not loaded."));
         }
+        if (gisInited) return resolve();
 
-        if (!gisInited) {
-            tokenClient = window.google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: (tokenResponse) => {
-                    if (tokenResponse && tokenResponse.access_token) {
-                        resolve(tokenResponse);
-                    } else {
-                        reject(new Error('User closed the authentication popup.'));
-                    }
-                },
-                error_callback: (error) => {
-                    reject(new Error('GIS Error: ' + JSON.stringify(error)));
-                }
-            });
-            gisInited = true;
-        }
-        tokenClient.requestAccessToken();
+        tokenClient = window.google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: SCOPES,
+            callback: () => {},
+        });
+        gisInited = true;
+        resolve();
     });
 };
+
+
+/**
+ * Redirects the user to Google's authentication page.
+ * @param {object} slideData - The data needed to create the presentation.
+ * @param {string} presentationTitle - The title for the new presentation.
+ * @param {string} subjectName - The subject name for the folder structure.
+ * @param {string} unitName - The unit name for the folder structure.
+ */
+export const redirectToGoogleAuth = (slideData, presentationTitle, subjectName, unitName) => {
+    sessionStorage.setItem('googleSlidesData', JSON.stringify({
+        slideData,
+        presentationTitle,
+        subjectName,
+        unitName
+    }));
+    tokenClient.requestAccessToken({prompt: ''});
+};
+
+/**
+ * Checks if the user is returning from the Google Auth redirect and handles the token.
+ * This function should be called when your application loads.
+ * It now ensures the GAPI client is ready before processing the token.
+ */
+export const handleAuthRedirect = async () => {
+    // Ensure the GAPI client is initialized before we try to use it.
+    if (!gapiInited) {
+        try {
+            await initializeGapiClient();
+        } catch (error) {
+            console.error("Failed to initialize GAPI client during auth redirect handling:", error);
+            return false;
+        }
+    }
+
+    const params = new URLSearchParams(window.location.hash.substring(1));
+    const accessToken = params.get('access_token');
+    
+    if (accessToken) {
+        // If we have a token, set it in the GAPI client.
+        window.gapi.client.setToken({ access_token: accessToken });
+        // Remove the token from the URL so it's not visible to the user.
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+        return true; // Indicate that auth was successful.
+    }
+    
+    return false; // No auth token found.
+};
+
 
 const findOrCreateFolder = async (folderName, parentFolderId = 'root') => {
     const response = await window.gapi.client.drive.files.list({
@@ -75,45 +120,53 @@ const findOrCreateFolder = async (folderName, parentFolderId = 'root') => {
     }
 };
 
+/**
+ * The main function to create the presentation. It now checks for authentication first.
+ * If not authenticated, it will trigger the redirect flow.
+ */
 export const createPresentationFromData = async (slideData, presentationTitle, subjectName, unitName) => {
     try {
         if (!TEMPLATE_ID) throw new Error("Google Slides Template ID is not defined.");
 
-        const gapi = gapiInited ? window.gapi : await initializeGapiClient();
-        if (!gapi.client.getToken()) gapi.client.setToken(await requestAccessToken());
+        if (!gapiInited) await initializeGapiClient();
+        if (!gisInited) await initializeGisClient();
 
+        if (!window.gapi.client.getToken()) {
+            redirectToGoogleAuth(slideData, presentationTitle, subjectName, unitName);
+            throw new Error("REDIRECTING_FOR_AUTH");
+        }
+        
         const subjectFolderId = await findOrCreateFolder(subjectName);
         const unitFolderId = await findOrCreateFolder(unitName, subjectFolderId);
 
-        const copiedFile = await gapi.client.drive.files.copy({
+        const copiedFile = await window.gapi.client.drive.files.copy({
             fileId: TEMPLATE_ID,
             resource: { name: presentationTitle, parents: [unitFolderId] }
         });
         const presentationId = copiedFile.result.id;
 
-        const presentation = await gapi.client.slides.presentations.get({ presentationId });
+        const presentation = await window.gapi.client.slides.presentations.get({ presentationId });
         const masterSlideId = presentation.result.slides[0].objectId;
 
         if (presentation.result.slides.length > 1) {
             const deleteRequests = presentation.result.slides.slice(1).map(slide => ({
                 deleteObject: { objectId: slide.objectId }
             }));
-            await gapi.client.slides.presentations.batchUpdate({ presentationId, requests: deleteRequests });
+            await window.gapi.client.slides.presentations.batchUpdate({ presentationId, requests: deleteRequests });
         }
 
         if (slideData.length > 1) {
             const duplicateRequests = Array.from({ length: slideData.length - 1 }, () => ({
                 duplicateObject: { objectId: masterSlideId }
             }));
-            await gapi.client.slides.presentations.batchUpdate({ presentationId, requests: duplicateRequests });
+            await window.gapi.client.slides.presentations.batchUpdate({ presentationId, requests: duplicateRequests });
         }
 
-        const finalPresentation = await gapi.client.slides.presentations.get({ presentationId });
+        const finalPresentation = await window.gapi.client.slides.presentations.get({ presentationId });
         const allSlides = finalPresentation.result.slides;
 
         const populateRequests = [];
-
-        // ✅ A more robust helper function to find shapes by their text tags
+        
         const findShapeByTextTag = (pageElements, tag) => {
             if (!pageElements) return null;
             const lowerCaseTag = tag.toLowerCase();
@@ -135,7 +188,6 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
             const data = slideData[index];
             if (!data) return;
 
-            // Find shapes by the placeholder text from your template
             const titleShape = findShapeByTextTag(slide.pageElements, '{{title}}');
             const bodyShape = findShapeByTextTag(slide.pageElements, '{{body}}');
             const notesShape = findShapeByTextTag(slide.notesPage?.pageElements, '{{notes}}');
@@ -190,13 +242,20 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
         });
 
         if (populateRequests.length > 0) {
-            await gapi.client.slides.presentations.batchUpdate({ presentationId, requests: populateRequests });
+            await window.gapi.client.slides.presentations.batchUpdate({ presentationId, requests: populateRequests });
         }
+
+        sessionStorage.removeItem('googleSlidesData');
 
         const presentationUrl = `https://docs.google.com/presentation/d/${presentationId}/edit`;
         return presentationUrl;
 
     } catch (error) {
+        if (error.message === "REDIRECTING_FOR_AUTH") {
+            console.log("Redirecting to Google for authentication...");
+            return;
+        }
+        
         console.error("Error creating Google Slides presentation:", error);
         let message = "Failed to create Google Slides presentation. Please check console for details.";
         if (error?.result?.error?.message) {
