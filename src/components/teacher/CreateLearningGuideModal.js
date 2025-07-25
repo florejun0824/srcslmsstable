@@ -137,7 +137,12 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 	            **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter.
 	            **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${formData.gradeLevel}**. Your writing must be clear, accessible, and tailored to the cognitive and developmental level of this grade. The complexity of vocabulary, sentence structure, and conceptual depth should be appropriate for a ${formData.gradeLevel}th grader.
 	            ${perspectiveInstruction}
-	            **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the science or the concept. Introduce key figures, explore historical context, and delve into fascinating real-world applications. Use vivid analogies and metaphors to illuminate complex ideas. The content should flow logically and build on itself, like a well-structured story.
+	            
+				{/* ✅ ENHANCED FOR HIGHER QUALITY CONTENT */}
+					            **CRITICAL INSTRUCTION FOR CORE CONTENT (NON-NEGOTIABLE):** Your primary goal is to create **rich, detailed, and engaging content that is easy to understand**, not a brief summary.
+					            - **Be a Master Storyteller:** Do not just list facts. Weave them into a compelling narrative. Explain the 'why' behind the 'what'. Use historical context, real-world examples, and fascinating anecdotes to make the material come alive.
+					            - **Unpack Every Detail:** Assume the reader is intelligent but knows nothing about the topic. Explain every concept thoroughly. Define all key terms. Use vivid analogies and metaphors to clarify complex ideas. Each paragraph must be rich with information and explanation.
+					            - **ABSOLUTE RULE - NO SUPERFICIAL CONTENT:** You are strictly forbidden from creating a high-level summary or a simple list of facts. You must write with depth, providing detailed explanations that a ${formData.gradeLevel}th grader can easily follow and learn from.
             
 	            **CRITICAL FORMATTING RULE (NON-NEGOTIABLE):** You MUST NOT use Markdown code block formatting (like indenting with four spaces or using triple backticks \`\`\`) for regular content like bulleted lists or standard paragraphs. Code block formatting is reserved ONLY for actual programming code snippets.
             
@@ -148,7 +153,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 	            **CRITICAL TEXT FORMATTING RULE (NON-NEGOTIABLE):**
 	            - To make text bold, you MUST use Markdown's double asterisks (**).
 	            - You are STRICTLY FORBIDDEN from using LaTeX commands like \\textbf{} or \\textit{} for text formatting.
-	            - **✅ NEW (ABSOLUTE RULE):** You are **STRICTLY FORBIDDEN** from bolding the introductory phrase or "title" of a bullet point. Bolding should only be used for genuine emphasis on specific words within a sentence.
+	            - **ABSOLUTE RULE:** You are **STRICTLY FORBIDDEN** from bolding the introductory phrase or "title" of a bullet point. Bolding should only be used for genuine emphasis on specific words within a sentence.
 	                - **Correct:** \`* Handle with Care: Carry glassware with two hands if it's large.\`
 	                - **INCORRECT:** \`* **Handle with Care**: Carry glassware with two hands if it's large.\`
 
@@ -160,6 +165,9 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 	            - **CORRECT EXAMPLE:** To write the LaTeX formula \`$$% \\text{ by Mass} = \\frac{\\text{Mass of Solute}}{\\text{Mass of Solution}} \\times 100\\%%$$\`, you MUST write it in the JSON string like this:
 	              \`"content": "$$% \\\\text{ by Mass} = \\\\frac{\\\\text{Mass of Solute}}{\\\\text{Mass of Solution}} \\\\times 100\\%%$$"\`
 	            - **INCORRECT (This will break):** \`"content": "$$% \\text{ by Mass} ..."\`
+				✅ **NEW (ABSOLUTE RULE):** You are STRICTLY FORBIDDEN from using plain text for mathematical symbols.
+	                - **Correct:** \`(10-2) \\times 180^\\circ\` (which becomes $((10-2) \\times 180^\\circ)$)
+	                - **INCORRECT:** \`(10-2) imes 180^\`
 
 	            **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, a heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \`"title": ""\`.
 
@@ -175,70 +183,48 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 	            9. **Answer Key ("${answerKeyLabel}"):** A page with the answers. The 'title' MUST be exactly "${answerKeyLabel}".
 	            10. **References ("${referencesLabel}"):** The absolute last page must ONLY contain references. The 'title' MUST be exactly "${referencesLabel}".
 
-	            **ABSOLUTE RULE FOR DIAGRAMS (NON-NEGOTIABLE):**
-	            When a diagram is necessary, you MUST generate a clean, modern, SVG diagram. The page 'type' MUST be "diagram-data". The 'content' MUST contain the full SVG code. 
-            
-	            **CRITICAL GOAL FOR REALISM:** Your primary goal is to create a diagram that is a **faithful and structurally accurate representation of the real-world object**. You must act as a technical illustrator drawing from observation. Do not oversimplify or abstract the object into basic geometric shapes.
-            
-	            **CRITICAL RULE FOR DIAGRAM LOGIC (NON-NEGOTIABLE):**
-	            - The diagram MUST respect real-world physics and conventions.
-	            - **For measuring tools (beakers, graduated cylinders):** Volume markers MUST be in the correct order. The smallest value (e.g., 50ml) MUST be at the bottom, and the values MUST increase going up to the largest value (e.g., 200ml) at the top. This is a strict requirement.
-            
-	            **Layout and Font Rules:**
-	            - **ViewBox is Mandatory:** The SVG MUST have a \`viewBox\` attribute for proper scaling.
-	            - **STRICT FONT SIZE RULE:** You MUST use a **font-size between "4px" and "6px"**.
-	            - **STRICT FONT WEIGHT RULE:** You MUST set \`font-weight="normal"\` on all text elements to prevent bolding.
-	            - **Text Anchoring:** Use the \`text-anchor\` attribute (e.g., "middle", "start", "end") to align text.
-	            - **NO LATEX IN SVG:** Use Unicode characters for symbols (e.g., 'δ', '→', '⁺').
-            
-	            - **Intelligent Label Placement with Leader Lines:** This is CRITICAL. Every label must be unambiguously connected to the component it describes. You MUST **draw a thin, straight <line> or simple dashed <path> from the text label directly to its corresponding feature** on the diagram. This removes all confusion.
-            
-	            **Visual Style & Detail Guide:**
-	            - **Anatomical Accuracy:** The shape, proportions, and key components of the object MUST be true-to-life. For example, a laboratory beaker must have its **pouring spout and rolled rim**. A microscope must have its eyepiece, objective lenses, and stage in the correct arrangement. You must draw the object's specific, defining contours.
-	            - **Use Gradients for Depth:** For container objects, use a \`<linearGradient>\` in the \`<defs>\` section to create a subtle 3D or glassy effect.
-	            - **Add Highlights:** For glassy or shiny surfaces, add a small, white path or shape with partial opacity to simulate a reflection.
-	            - **Use Professional Colors:** Avoid overly bright, saturated "cartoon" colors. Use a more muted, professional color palette.
+	            **CRITICAL INSTRUCTION FOR REFERENCES (NON-NEGOTIABLE):**
+	            - The "${referencesLabel}" page MUST list at least 3-5 specific, real-world sources.
+	            - You are FORBIDDEN from listing generic textbook titles like "Biology Textbook".
+	            - Each reference MUST be formatted properly, including author(s), year, title, and publisher or URL.
+	            - **Example of correct formatting:** \`* Brown, T. L., LeMay, H. E., & Bursten, B. E. (2018). *Chemistry: The Central Science* (14th ed.). Pearson.\`
 
-	            **Advanced Example (Follow this style for a realistic, clearly-labeled beaker):**
-	            \`<svg viewBox="0 0 160 180" font-family="sans-serif" font-weight="normal">
-	              <defs>
-	                <linearGradient id="glassyLook" x1="0%" y1="0%" x2="100%" y2="0%">
-	                  <stop offset="0%" style="stop-color:#FFFFFF; stop-opacity:0.5" />
-	                  <stop offset="50%" style="stop-color:#E0F7FA; stop-opacity:0.7" />
-	                  <stop offset="100%" style="stop-color:#B2EBF2; stop-opacity:0.9" />
-	                </linearGradient>
-	              </defs>
-              
-	              {/* Structurally accurate beaker path with rolled rim and pouring spout */}
-	              <path d="M25 15 C 20 15, 20 25, 25 25 V 170 H 125 V 25 C 130 25, 130 15, 125 15 H 90 C 85 5, 65 5, 60 15 H 25 Z" fill="url(#glassyLook)" stroke="#004D40" stroke-width="1.5"/>
-              
-	              {/* Liquid inside the beaker */}
-	              <rect x="27" y="100" width="96" height="68" fill="#4DD0E1" opacity="0.75" rx="2"/>
-              
-	              {/* Glass highlight on the side */}
-	              <path d="M 40 30 C 32 60, 32 120, 40 150" fill="white" opacity="0.6" stroke="none" />
+            {/* ✅ --- INTERACTIVE DIAGRAM WORKFLOW --- ✅ */}
+            **ABSOLUTE RULE FOR DIAGRAMS (NON-NEGOTIABLE):**
+            When a diagram of a physical object or concept is needed, you MUST change the page 'type' to **"diagram-data"**. The 'content' for this page MUST be a JSON object with two keys: "diagram_prompt" and "labels".
 
-	              {/* --- Labels with Leader Lines --- */}
-	              <g font-size="6px" fill="#004D40" stroke="#37474F" font-weight="normal">
-	                {/* Label for Pouring Spout */}
-	                <text x="75" y="4" text-anchor="middle">Pouring Spout</text>
-	                <path d="M75 7 L75 12" stroke-width="1"/>
+            1.  **"diagram_prompt" (string):** This is a prompt for an AI image generator. It MUST describe a **clean, professional, UNLABELED image**.
+            2.  **"labels" (array of strings):** This is an array of the correctly spelled English label names (e.g., ["Eyepiece", "Objective Lens", "Stage"]). Do NOT include coordinates.
 
-	                {/* Label for Liquid */}
-	                <text x="130" y="140" text-anchor="start">H₂O Solution</text>
-	                <path d="M100 138 L128 138" stroke-width="1"/>
+            {/* ✅ NEW: Stricter rules for image style and text prevention */}
+            **CRITICAL RULE FOR IMAGE STYLE (NON-NEGOTIABLE):**
+            - For scientific equipment or biological subjects (like microscopes, cells), the style should be "professional technical illustration" or "photorealistic diagram".
+            - For abstract subjects like **Mathematics**, the style MUST be **"clean vector diagram"** or **"minimalist infographic style"** with simple shapes and clear lines. The image MUST NOT resemble a scanned textbook page. Avoid photorealism for these subjects.
+            
+            **ABSOLUTE RULE FOR IMAGE PROMPTS (NON-NEGOTIABLE):** The "diagram_prompt" MUST explicitly forbid the generator from adding any text. It must end with the exact phrase: **". The image must be clean and contain absolutely no text, no letters, no numbers, and no words."** This is a strict, non-negotiable requirement. Any generated text-like artifacts are a failure.
 
-	                {/* Logically correct measurement marks */}
-	                <text x="5" y="150" text-anchor="start">50ml</text>
-	                <path d="M25 148 L15 148" stroke-width="1" />
-	                <text x="5" y="103" text-anchor="start">100ml</text>
-	                <path d="M25 101.5 L15 101.5" stroke-width="1" />
-	              </g>
-	            </svg>\`
+            **EXAMPLE OF A CORRECT "diagram-data" PAGE (FOLLOW THIS STRUCTURE EXACTLY):**
+            \`
+            {
+                "title": "The Compound Light Microscope",
+                "type": "diagram-data",
+                "content": {
+                    "diagram_prompt": "A professional, full-color technical illustration of a compound light microscope on a clean white background. The style should be clean and modern, like a high-quality biology textbook. The image must be clean and contain absolutely no text, no letters, and no numbers, and no words.",
+                    "labels": [
+                        "Eyepiece",
+                        "Objective Lenses",
+                        "Stage",
+                        "Illuminator",
+                        "Focusing Knob",
+                        "Base"
+                    ]
+                }
+            }
+            \`
 
-	            **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
-	    `;
-	};
+            **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
+    `;
+};
 		
     const generateSingleLesson = async (lessonNumber, totalLessons, previousLessonSummary) => {
         let lastError = null;
@@ -408,137 +394,153 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         ? 'Sa pagtatapos ng araling ito, magagawa ng mga mag-aaral na:' 
         : 'By the end of this lesson, students will be able to:';
 
-    return (
-        <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4">
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
-            <Dialog.Panel className="relative bg-slate-50 p-4 sm:p-6 rounded-2xl shadow-2xl w-full max-w-md lg:max-w-5xl max-h-[90vh] flex flex-col">
-                {(isGenerating || isSaving) && (
-                    <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl">
-                        <InteractiveLoadingScreen topic={formData.content || "new ideas"} isSaving={isSaving} />
-                    </div>
-                )}
-                <div className="flex justify-between items-start mb-4 sm:mb-6">
-                    <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2 sm:p-3 rounded-xl text-white shadow-lg flex-shrink-0">
-                            <AcademicCapIcon className="h-6 w-6 sm:h-8 sm:h-8" />
-                        </div>
-                        <div>
-                            <Dialog.Title className="text-base sm:text-2xl font-bold text-slate-800">AI Learning Guide Generator</Dialog.Title>
-                            <p className="text-xs sm:text-sm text-slate-500">Create new student-facing lessons from scratch.</p>
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="p-2 rounded-full text-slate-400 hover:bg-slate-200"><XMarkIcon className="h-6 w-6" /></button>
-                </div>
-                <div className="flex-1 overflow-y-auto -mr-2 pr-2 sm:-mr-4 sm:pr-4">
-                    {!previewData ? (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md space-y-4">
-                                <h3 className="font-bold text-base sm:text-lg text-slate-700 border-b pb-2">Core Content</h3>
-                                {availableUnits.length > 0 && !unitId && (
-                                    <div>
-                                        <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Destination Unit</label>
-                                        <select value={selectedUnitId} onChange={(e) => setSelectedUnitId(e.target.value)} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white">
-                                            {availableUnits.map(unit => (<option key={unit.id} value={unit.id}>{unit.title}</option>))}
-                                        </select>
-                                    </div>
-                                )}
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Main Content / Topic</label>
-                                    <textarea placeholder="e.g., The Photosynthesis Process" name="content" value={formData.content} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" rows={3} />
-                                </div>
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Learning Competencies</label>
-                                    <textarea placeholder="e.g., Describe the process of photosynthesis..." name="learningCompetencies" value={formData.learningCompetencies} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" rows={4} />
-                                </div>
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Content Standard (Optional)</label>
-                                    <textarea name="contentStandard" value={formData.contentStandard} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" rows={2} />
-                                </div>
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Performance Standard (Optional)</label>
-                                    <textarea name="performanceStandard" value={formData.performanceStandard} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" rows={2} />
-                                </div>
-                            </div>
-                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md space-y-4">
-                               <h3 className="font-bold text-base sm:text-lg text-slate-700 border-b pb-2">Settings</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Language</label>
-                                        <select name="language" value={formData.language} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                                            <option value="English">English</option>
-                                            <option value="Filipino">Filipino</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Grade Level</label>
-                                        <select name="gradeLevel" value={formData.gradeLevel} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                                            <option value="7">Grade 7</option>
-                                            <option value="8">Grade 8</option>
-                                            <option value="9">Grade 9</option>
-                                            <option value="10">Grade 10</option>
-                                            <option value="11">Grade 11</option>
-                                            <option value="12">Grade 12</option>
-                                        </select>
-                                    </div>
-                                </div>
+		return (
+		    <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4">
+		        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+		        <Dialog.Panel className="relative bg-slate-50 p-4 sm:p-6 rounded-2xl shadow-2xl w-full max-w-md lg:max-w-5xl max-h-[90vh] flex flex-col">
+		            {(isGenerating || isSaving) && (
+		                <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl">
+		                    <InteractiveLoadingScreen topic={formData.content || "new ideas"} isSaving={isSaving} />
+                    
+		                    {/* ✅ NEW: Progress indicator for lesson generation */}
+		                    {isGenerating && !isSaving && (
+		                        <div className="text-center mt-4 px-4">
+		                            <p className="text-lg font-semibold text-slate-700 animate-pulse">
+		                                Generating Lesson {Math.min((previewData?.generated_lessons?.length || 0) + 1, formData.lessonCount)} of {formData.lessonCount}
+		                            </p>
+		                            <p className="text-sm text-slate-500 mt-1">Please wait, this may take a moment...</p>
+		                            <div className="w-64 bg-slate-200 rounded-full h-2.5 mt-3 overflow-hidden">
+		                                <div 
+		                                    className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2.5 rounded-full transition-all duration-500 ease-out" 
+		                                    style={{ width: `${((previewData?.generated_lessons?.length || 0) / formData.lessonCount) * 100}%` }}>
+		                                </div>
+		                            </div>
+		                        </div>
+		                    )}
+		                </div>
+		            )}
+		            <div className="flex justify-between items-start mb-4 sm:mb-6">
+		                <div className="flex items-center gap-3 sm:gap-4">
+		                    <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2 sm:p-3 rounded-xl text-white shadow-lg flex-shrink-0">
+		                        <AcademicCapIcon className="h-6 w-6 sm:h-8 sm:h-8" />
+		                    </div>
+		                    <div>
+		                        <Dialog.Title className="text-base sm:text-2xl font-bold text-slate-800">AI Learning Guide Generator</Dialog.Title>
+		                        <p className="text-xs sm:text-sm text-slate-500">Create new student-facing lessons from scratch.</p>
+		                    </div>
+		                </div>
+		                <button onClick={onClose} className="p-2 rounded-full text-slate-400 hover:bg-slate-200"><XMarkIcon className="h-6 w-6" /></button>
+		            </div>
+		            <div className="flex-1 overflow-y-auto -mr-2 pr-2 sm:-mr-4 sm:pr-4">
+		                {!previewData ? (
+		                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+		                        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md space-y-4">
+		                            <h3 className="font-bold text-base sm:text-lg text-slate-700 border-b pb-2">Core Content</h3>
+		                            {availableUnits.length > 0 && !unitId && (
+		                                <div>
+		                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Destination Unit</label>
+		                                    <select value={selectedUnitId} onChange={(e) => setSelectedUnitId(e.target.value)} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white">
+		                                        {availableUnits.map(unit => (<option key={unit.id} value={unit.id}>{unit.title}</option>))}
+		                                    </select>
+		                                </div>
+		                            )}
+		                            <div>
+		                                <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Main Content / Topic</label>
+		                                <textarea placeholder="e.g., The Photosynthesis Process" name="content" value={formData.content} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" rows={3} />
+		                            </div>
+		                            <div>
+		                                <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Learning Competencies</label>
+		                                <textarea placeholder="e.g., Describe the process of photosynthesis..." name="learningCompetencies" value={formData.learningCompetencies} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" rows={4} />
+		                            </div>
+		                            <div>
+		                                <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Content Standard (Optional)</label>
+		                                <textarea name="contentStandard" value={formData.contentStandard} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" rows={2} />
+		                            </div>
+		                            <div>
+		                                <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Performance Standard (Optional)</label>
+		                                <textarea name="performanceStandard" value={formData.performanceStandard} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" rows={2} />
+		                            </div>
+		                        </div>
+		                        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md space-y-4">
+		                           <h3 className="font-bold text-base sm:text-lg text-slate-700 border-b pb-2">Settings</h3>
+		                            <div className="grid grid-cols-2 gap-4">
+		                                <div>
+		                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Language</label>
+		                                    <select name="language" value={formData.language} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+		                                        <option value="English">English</option>
+		                                        <option value="Filipino">Filipino</option>
+		                                    </select>
+		                                </div>
+		                                <div>
+		                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Grade Level</label>
+		                                    <select name="gradeLevel" value={formData.gradeLevel} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+		                                        <option value="7">Grade 7</option>
+		                                        <option value="8">Grade 8</option>
+		                                        <option value="9">Grade 9</option>
+		                                        <option value="10">Grade 10</option>
+		                                        <option value="11">Grade 11</option>
+		                                        <option value="12">Grade 12</option>
+		                                    </select>
+		                                </div>
+		                            </div>
 
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Number of Lessons</label>
-                                    <input type="number" name="lessonCount" min="1" max="10" value={formData.lessonCount} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" />
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            <h2 className="text-lg sm:text-xl font-bold text-slate-700">Preview Content</h2>
-                            <div className="space-y-2 max-h-[60vh] overflow-y-auto border rounded-lg p-2 sm:p-4 bg-slate-100">
-                                {isValidPreview ? previewData.generated_lessons.map((lesson, index) => (
-                                    <div key={index}>
-                                        <h3 className="font-bold text-base sm:text-xl sticky top-0 bg-slate-100 py-2 z-10">{lesson.lessonTitle}</h3>
-                                        {lesson.learningObjectives && lesson.learningObjectives.length > 0 && (
-                                            <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-200 text-blue-800 rounded-r-lg text-sm">
-                                                <p className="font-semibold mb-2">{currentObjectivesLabel}</p>
-                                                <p className="mb-2">{objectivesIntro}</p>
-                                                <ul className="list-disc list-inside pl-4">
-                                                    {lesson.learningObjectives.map((objective, objIndex) => (
-                                                        <li key={objIndex} className="mb-1">{objective}</li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        )}
-                                        {lesson.pages.map((page, pageIndex) => <LessonPage key={`${index}-${pageIndex}`} page={page} />)}
-                                    </div>
-                                )) : <p className="text-red-600">Could not generate a valid preview.</p>}
-                            </div>
-                            <textarea value={extraInstruction} onChange={(e) => setExtraInstruction(e.target.value)} placeholder="Make changes to the entire set of lessons..." className="w-full border p-2 rounded-lg text-sm" rows={2} />
-                        </div>
-                    )}
-                </div>
-                <div className="pt-4 sm:pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-slate-200 mt-4 sm:mt-6">
-                    {previewData ? (
-                         <>
-                         <button onClick={handleBackToEdit} disabled={isSaving || isGenerating} className="btn-secondary w-full sm:w-auto text-sm">Back to Edit</button>
-                         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                            {failedLessonNumber ? (
-                                 <button onClick={handleContinueGenerate} disabled={isGenerating} className="btn-primary w-full sm:w-auto text-sm flex items-center justify-center gap-2">
-                                     <ArrowPathIcon className="h-5 w-5" />
-                                     Continue from Lesson {failedLessonNumber}
-                                 </button>
-                            ) : (
-                                 <button onClick={() => handleRegenerate(extraInstruction)} disabled={isGenerating} className="btn-secondary w-full sm:w-auto text-sm">Regenerate</button>
-                            )}
-                             <button onClick={handleSave} className="btn-primary w-full sm:w-auto text-sm" disabled={!isValidPreview || isSaving || failedLessonNumber}>
-                                 {isSaving ? 'Saving...' : 'Accept & Save'}
-                             </button>
-                         </div>
-                     </>
-                    ) : (
-                        <button onClick={handleInitialGenerate} disabled={isGenerating} className="btn-primary ml-auto w-full sm:w-auto text-sm">
-                            {isGenerating ? 'Generating...' : 'Generate Document'}
-                        </button>
-                    )}
-                </div>
-            </Dialog.Panel>
-        </Dialog>
-    );
+		                            <div>
+		                                <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Number of Lessons</label>
+		                                <input type="number" name="lessonCount" min="1" max="10" value={formData.lessonCount} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" />
+		                            </div>
+		                        </div>
+		                    </div>
+		                ) : (
+		                    <div className="space-y-4">
+		                        <h2 className="text-lg sm:text-xl font-bold text-slate-700">Preview Content</h2>
+		                        <div className="space-y-2 max-h-[60vh] overflow-y-auto border rounded-lg p-2 sm:p-4 bg-slate-100">
+		                            {isValidPreview ? previewData.generated_lessons.map((lesson, index) => (
+		                                <div key={index}>
+		                                    <h3 className="font-bold text-base sm:text-xl sticky top-0 bg-slate-100 py-2 z-10">{lesson.lessonTitle}</h3>
+		                                    {lesson.learningObjectives && lesson.learningObjectives.length > 0 && (
+		                                        <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-200 text-blue-800 rounded-r-lg text-sm">
+		                                            <p className="font-semibold mb-2">{currentObjectivesLabel}</p>
+		                                            <p className="mb-2">{objectivesIntro}</p>
+		                                            <ul className="list-disc list-inside pl-4">
+		                                                {lesson.learningObjectives.map((objective, objIndex) => (
+		                                                    <li key={objIndex} className="mb-1">{objective}</li>
+		                                                ))}
+		                                            </ul>
+		                                        </div>
+		                                    )}
+		                                    {lesson.pages.map((page, pageIndex) => <LessonPage key={`${index}-${pageIndex}`} page={page} />)}
+		                                </div>
+		                            )) : <p className="text-red-600">Could not generate a valid preview.</p>}
+		                        </div>
+		                        <textarea value={extraInstruction} onChange={(e) => setExtraInstruction(e.target.value)} placeholder="Make changes to the entire set of lessons..." className="w-full border p-2 rounded-lg text-sm" rows={2} />
+		                    </div>
+		                )}
+		            </div>
+		            <div className="pt-4 sm:pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-slate-200 mt-4 sm:mt-6">
+		                {previewData ? (
+		                     <>
+		                     <button onClick={handleBackToEdit} disabled={isSaving || isGenerating} className="btn-secondary w-full sm:w-auto text-sm">Back to Edit</button>
+		                     <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+		                        {failedLessonNumber ? (
+		                             <button onClick={handleContinueGenerate} disabled={isGenerating} className="btn-primary w-full sm:w-auto text-sm flex items-center justify-center gap-2">
+		                                 <ArrowPathIcon className="h-5 w-5" />
+		                                 Continue from Lesson {failedLessonNumber}
+		                             </button>
+		                        ) : (
+		                             <button onClick={() => handleRegenerate(extraInstruction)} disabled={isGenerating} className="btn-secondary w-full sm:w-auto text-sm">Regenerate</button>
+		                        )}
+		                         <button onClick={handleSave} className="btn-primary w-full sm:w-auto text-sm" disabled={!isValidPreview || isSaving || failedLessonNumber}>
+		                             {isSaving ? 'Saving...' : 'Accept & Save'}
+		                         </button>
+		                     </div>
+		                 </>
+		                ) : (
+		                    <button onClick={handleInitialGenerate} disabled={isGenerating} className="btn-primary ml-auto w-full sm:w-auto text-sm">
+		                        {isGenerating ? 'Generating...' : 'Generate Document'}
+		                    </button>
+		                )}
+		            </div>
+		        </Dialog.Panel>
+		    </Dialog>
+		);
 }
