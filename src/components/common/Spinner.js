@@ -9,7 +9,7 @@ import './Spinner.css'; // This will now apply the new Ethereal Chronos Bloom st
  * @param {boolean} [props.isLoading=true] - Set to false to hide the spinner.
  * @param {string} [props.text='Opening the Portal to a Whole New World for You...'] - The text to be displayed.
  */
-const Spinner = ({ isLoading = true, text = 'Getting Ready for a Multiverse Dive...' }) => {
+const Spinner = ({ isLoading = true, text = 'Preparing Something Great for You...' }) => {
   const [displayedText, setDisplayedText] = useState('');
   const numPetals = 6; // Number of primary bloom petals/shards
   const numMotes = 80; // Number of drifting energy motes/pollen

@@ -109,13 +109,46 @@ const HomeView = ({
     // --- End Filtering Logic ---
 
     // --- Logic for Today's Activities Notice ---
-    const today = new Date();
-    // Format today's date to 'YYYY-MM-DD' for comparison with activity.startDate
-    const todayFormatted = today.toISOString().split('T')[0];
+    const now = new Date();
+    const todayFormatted = now.toISOString().split('T')[0]; // YYYY-MM-DD
 
     const todayActivities = scheduleActivities.filter(activity => {
-        // Check if the activity's start date is exactly today
-        return activity.startDate === todayFormatted;
+        // First, check if the activity is scheduled for today
+        if (activity.startDate !== todayFormatted) {
+            return false;
+        }
+
+        // If it's today, now check the time if available
+        if (activity.time && activity.time !== 'N/A') {
+            try {
+                // Construct a Date object for the activity's scheduled time today
+                let [timePart, ampm] = activity.time.split(' ');
+                let [hours, minutes] = timePart.split(':').map(Number);
+
+                if (ampm && ampm.toUpperCase() === 'PM' && hours !== 12) {
+                    hours += 12;
+                } else if (ampm && ampm.toUpperCase() === 'AM' && hours === 12) {
+                    hours = 0; // 12 AM (midnight) is 00 hours
+                }
+
+                const activityDateTime = new Date(
+                    now.getFullYear(),
+                    now.getMonth(),
+                    now.getDate(),
+                    hours,
+                    minutes
+                );
+
+                // Filter out if the activity's scheduled time is in the past
+                if (activityDateTime < now) {
+                    return false;
+                }
+            } catch (e) {
+                console.error("Error parsing activity time, displaying by default:", activity.time, e);
+                // If time parsing fails, assume it should be displayed (or handle error as preferred)
+            }
+        }
+        return true; // Keep the activity if it's today and its time hasn't passed (or no time specified/parsed)
     });
 
     // Effect to cycle through today's activities
@@ -196,7 +229,7 @@ const HomeView = ({
                         onClick={() => setIsScheduleModalOpen(true)} // Open the modal on click
                     >
                         <CalendarDaysIcon className="h-10 w-10 text-rose-500 mb-2" />
-                        <h3 className="font-bold text-gray-800 text-lg">Upcoming Deadlines</h3>
+                        <h3 className="font-bold text-gray-800 text-lg">Schedule of Activities</h3>
                         <p className="text-sm text-gray-500 mt-1">Check out what's due soon.</p>
                     </div>
                 </div>
@@ -354,7 +387,7 @@ const HomeView = ({
                     50% { opacity: 0.5; }
                 }
 
-                /* Removed .animate-pulse-fade-in keyframes */
+                /* Removed .animate-pulse-fade-in keyframes as requested */
 
 
                 .btn-primary-glow-light {

@@ -220,7 +220,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                     * **Success Indicators:** 2-3 specific, observable indicators.
                     * **In-Person & Online Activities:** Design a scaffolded activity and its online alternative. Provide the detailed instructions for each activity and the Materials needed.
                     * **C-E-R Requirement:** At least one "Deepen (M)" activity MUST be a C-E-R task.
-            		* **Support Discussion:** For Firm-Up (A), provide questions to check for understanding and a short summarization of the lesson. For Deepen (M), provide a **detailed summarization** of key concepts in addition to in-depth elaboration and probing questions.
+            		* **Support Discussion:** For Firm-Up (A), provide questions to check for understanding and an in-depth discussion for the lesson that will be a support to the activity so that students will better understand important concepts and ideas. For Deepen (M), provide a **detailed summarization** of key concepts in addition to in-depth elaboration and probing questions.
                     * **End-of-Lesson Assessment:** Design a specific, aligned end-of-lesson assessment for this competency.
                         * **For Acquisition (A) competencies, choose ONLY one of the following types:** Multiple Choice, Fill in the blank, Matching Type, Enumeration, Alternative Response, Hands-on operation, or Labeling.
                         * **For Meaning-Making (M) competencies, choose ONLY one of the following types:** Short Paragraph, Essay, Critique Writing, Concept Mapping, or Journal Writing.
