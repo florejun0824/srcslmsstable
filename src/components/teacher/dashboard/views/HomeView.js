@@ -1,9 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { AcademicCapIcon, PencilSquareIcon, TrashIcon, MegaphoneIcon, CalendarDaysIcon, ClockIcon } from '@heroicons/react/24/outline';
 import CreateAnnouncement from '../widgets/CreateAnnouncement';
 import GradientStatCard from '../widgets/GradientStatCard';
 import InspirationCard from '../widgets/InspirationCard';
 import ClockWidget from '../widgets/ClockWidget';
+import ScheduleModal from '../widgets/ScheduleModal';
+
+// CORRECTED: Import Firestore functions and db instance from the specified path
+import { db } from '../../../../services/firebase';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
 const HomeView = ({
     userProfile,
@@ -18,6 +23,117 @@ const HomeView = ({
     setEditingAnnId,
     handleDeleteTeacherAnn,
 }) => {
+    const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+    const [scheduleActivities, setScheduleActivities] = useState([]); // This will store ALL schedules from Firestore
+    const scheduleCollectionRef = collection(db, 'schedules'); // Reference to your 'schedules' collection in Firestore
+
+    // State for cycling through today's activities
+    const [currentActivityIndex, setCurrentActivityIndex] = useState(0);
+
+    // Fetch schedules from Firestore on component mount
+    useEffect(() => {
+        const getSchedules = async () => {
+            try {
+                const data = await getDocs(scheduleCollectionRef);
+                // Map the Firestore documents to your component's state format
+                setScheduleActivities(data.docs.map((doc) => ({ ...doc.data(), id: doc.id })));
+            } catch (error) {
+                console.error("Error fetching schedules:", error);
+                // Handle error (e.g., show an error message to the user)
+            }
+        };
+        getSchedules();
+    }, []); // Empty dependency array means this effect runs once on mount
+
+    const handleAddScheduleActivity = async (newActivity) => {
+        try {
+            // Add a new document to the 'schedules' collection
+            const docRef = await addDoc(scheduleCollectionRef, newActivity);
+            // Update local state with the new activity including its Firestore generated ID
+            setScheduleActivities(prev => [...prev, { ...newActivity, id: docRef.id }]);
+        } catch (error) {
+            console.error("Error adding schedule activity:", error);
+            // Handle error
+        }
+    };
+
+    const handleUpdateScheduleActivity = async (updatedActivity) => {
+        try {
+            // Create a document reference for the specific activity
+            const activityDocRef = doc(db, 'schedules', updatedActivity.id);
+            // Exclude 'id' from the data sent to Firestore as it's part of the document reference
+            const { id, ...dataToUpdate } = updatedActivity;
+            await updateDoc(activityDocRef, dataToUpdate);
+            // Update local state
+            setScheduleActivities(prev =>
+                prev.map(activity => (activity.id === updatedActivity.id ? updatedActivity : activity))
+            );
+        } catch (error) {
+            console.error("Error updating schedule activity:", error);
+            // Handle error
+        }
+    };
+
+    const handleDeleteScheduleActivity = async (id) => {
+        try {
+            // Create a document reference for the specific activity
+            const activityDocRef = doc(db, 'schedules', id);
+            await deleteDoc(activityDocRef);
+            // Update local state by filtering out the deleted activity
+            setScheduleActivities(prev => prev.filter(activity => activity.id !== id));
+        } catch (error) {
+            console.error("Error deleting schedule activity:", error);
+            // Handle error
+        }
+    };
+
+    // --- Filtering Logic for Displaying Schedules in Modal ---
+    const currentMonth = new Date().getMonth(); // 0-11 for Jan-Dec
+    const currentYear = new Date().getFullYear();
+
+    const filteredScheduleActivitiesForDisplay = scheduleActivities.filter(activity => {
+        const activityEndDate = new Date(activity.endDate); // Assuming endDate is "YYYY-MM-DD"
+        const activityEndMonth = activityEndDate.getMonth();
+        const activityEndYear = activityEndDate.getFullYear();
+
+        // Display activities that end in the current year AND current/future month,
+        // OR activities that end in any future year.
+        if (activityEndYear > currentYear) {
+            return true; // Activity ends in a future year, always display
+        }
+        if (activityEndYear === currentYear && activityEndMonth >= currentMonth) {
+            return true; // Activity ends in the current year and current or future month, display
+        }
+        return false; // Activity ends in a past month/year, do not display
+    });
+    // --- End Filtering Logic ---
+
+    // --- Logic for Today's Activities Notice ---
+    const today = new Date();
+    // Format today's date to 'YYYY-MM-DD' for comparison with activity.startDate
+    const todayFormatted = today.toISOString().split('T')[0];
+
+    const todayActivities = scheduleActivities.filter(activity => {
+        // Check if the activity's start date is exactly today
+        return activity.startDate === todayFormatted;
+    });
+
+    // Effect to cycle through today's activities
+    useEffect(() => {
+        if (todayActivities.length > 1) {
+            const interval = setInterval(() => {
+                setCurrentActivityIndex((prevIndex) =>
+                    (prevIndex + 1) % todayActivities.length
+                );
+            }, 5000); // Change activity every 5 seconds
+            return () => clearInterval(interval); // Cleanup on unmount
+        } else {
+            setCurrentActivityIndex(0); // Reset to first activity (or 0 if none)
+        }
+    }, [todayActivities.length]); // Re-run effect if number of today's activities changes
+    // --- END Logic for Today's Activities Notice ---
+
+
     return (
         <div className="relative min-h-screen p-4 md:p-8 bg-gray-100 text-gray-800 font-sans overflow-hidden rounded-3xl">
             {/* Dynamic Background Elements */}
@@ -32,11 +148,34 @@ const HomeView = ({
                 {/* Header with a subtle animated gradient */}
                 <div className="relative p-6 md:p-8 bg-white rounded-3xl shadow-2xl overflow-hidden animate-fade-in-down">
                     <div className="absolute inset-0 bg-gradient-to-r from-primary-600/10 via-transparent to-indigo-600/10 opacity-50 animate-pulse-light"></div>
-                    <div className="relative z-10">
-                        <h1 className="text-4xl lg:text-5xl font-extrabold text-gray-800 drop-shadow-sm leading-tight">
-                            Hey there, {userProfile?.firstName}!
-                        </h1>
-                        <p className="text-lg text-gray-500 mt-2">SRCS LMS dashboard at a glance.</p>
+                    <div className="relative z-10 flex flex-col md:flex-row md:items-start md:justify-between">
+                        <div>
+                            <h1 className="text-4xl lg:text-5xl font-extrabold text-gray-800 drop-shadow-sm leading-tight">
+                                Hey there, {userProfile?.firstName}!
+                            </h1>
+                            <p className="text-lg text-gray-500 mt-2">SRCS LMS dashboard at a glance.</p>
+                        </div>
+
+                        {/* Display Today's Activities Notice */}
+                        {todayActivities.length > 0 && (
+                            <div className="mt-6 md:mt-0 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-md shadow-inner max-w-md ml-auto">
+                                <p className="font-semibold text-lg flex items-center">
+                                    <CalendarDaysIcon className="w-6 h-6 mr-2" />
+                                    Upcoming Today:
+                                </p>
+                                <div className="mt-2" style={{ minHeight: '2rem' }}> {/* minHeight to prevent layout shifts */}
+                                    {todayActivities[currentActivityIndex] && (
+                                        // Key forces re-render, transition-opacity provides the fade
+                                        <p key={todayActivities[currentActivityIndex].id} className="text-base transition-opacity duration-1000 ease-in-out opacity-100">
+                                            <span className="font-medium">{todayActivities[currentActivityIndex].title}</span>
+                                            {todayActivities[currentActivityIndex].time && todayActivities[currentActivityIndex].time !== 'N/A' && ` at ${todayActivities[currentActivityIndex].time}`}
+                                            {todayActivities[currentActivityIndex].inCharge && ` (In-charge: ${todayActivities[currentActivityIndex].inCharge})`}
+                                        </p>
+                                    )}
+                                </div>
+                                <p className="text-sm mt-3 text-yellow-700">Don't miss out on these important activities!</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -51,8 +190,11 @@ const HomeView = ({
                     />
                     <InspirationCard className="rounded-3xl shadow-xl transition transform hover:scale-105 duration-300 ease-in-out hover:shadow-2xl animate-fade-in animation-delay-300" />
                     <ClockWidget className="rounded-3xl shadow-xl transition transform hover:scale-105 duration-300 ease-in-out hover:shadow-2xl animate-fade-in animation-delay-600" />
-                    {/* Replaced Quick Announce with Upcoming Deadlines */}
-                    <div className="bg-white p-6 rounded-3xl shadow-xl flex items-center justify-center flex-col text-center transition transform hover:scale-105 duration-300 ease-in-out animate-fade-in animation-delay-900">
+                    {/* Upcoming Deadlines Card - Now Clickable */}
+                    <div
+                        className="bg-white p-6 rounded-3xl shadow-xl flex items-center justify-center flex-col text-center cursor-pointer transition transform hover:scale-105 duration-300 ease-in-out animate-fade-in animation-delay-900"
+                        onClick={() => setIsScheduleModalOpen(true)} // Open the modal on click
+                    >
                         <CalendarDaysIcon className="h-10 w-10 text-rose-500 mb-2" />
                         <h3 className="font-bold text-gray-800 text-lg">Upcoming Deadlines</h3>
                         <p className="text-sm text-gray-500 mt-1">Check out what's due soon.</p>
@@ -128,6 +270,17 @@ const HomeView = ({
                 </div>
             </div>
 
+            {/* Schedule Modal - now receives filtered activities */}
+            <ScheduleModal
+                isOpen={isScheduleModalOpen}
+                onClose={() => setIsScheduleModalOpen(false)}
+                userRole={userProfile?.role}
+                scheduleActivities={filteredScheduleActivitiesForDisplay}
+                onAddActivity={handleAddScheduleActivity}
+                onUpdateActivity={handleUpdateScheduleActivity}
+                onDeleteActivity={handleDeleteScheduleActivity}
+            />
+
             {/* Custom CSS for the light theme and animations */}
             <style jsx>{`
                 .custom-scrollbar::-webkit-scrollbar {
@@ -200,6 +353,9 @@ const HomeView = ({
                     0%, 100% { opacity: 0.2; }
                     50% { opacity: 0.5; }
                 }
+
+                /* Removed .animate-pulse-fade-in keyframes */
+
 
                 .btn-primary-glow-light {
                     background-color: #f43f5e;
