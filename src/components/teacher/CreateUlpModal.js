@@ -133,18 +133,33 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         if (selectedUnitIds.size === 0) {
             return { title: '', content: '', lessonTitles: [], error: "Please select at least one source unit." };
         }
+
         const unitDetails = Array.from(selectedUnitIds)
             .map(id => unitsForSubject.find(u => u.id === id))
             .filter(Boolean);
+        
         const title = unitDetails.map(u => u.title).join(' & ');
+        
+        let formattedLessonList = [];
+        unitDetails.forEach(unit => {
+            formattedLessonList.push(`Unit: ${unit.title}`);
+            const relevantLessons = lessonsForUnit.filter(lesson => lesson.unitId === unit.id);
+            relevantLessons.forEach(lesson => {
+                formattedLessonList.push(`- ${lesson.title}`);
+            });
+        });
+
         const relevantLessons = lessonsForUnit.filter(lesson => selectedUnitIds.has(lesson.unitId));
-        const lessonTitles = relevantLessons.map(lesson => lesson.title);
+        const lessonTitles = formattedLessonList;
+        
         const content = relevantLessons
             .map(l => l.pages.map(p => p.content).join('\n'))
             .join('\n\n---\n\n');
+        
         if (!content && generationTarget === 'teacherGuide') {
             return { title, content: '', lessonTitles, error: `The selected unit(s) '${title}' appear to have no lesson content.`};
         }
+        
         return { title, content, lessonTitles, error: null };
     }, [selectedUnitIds, unitsForSubject, lessonsForUnit, generationTarget]);
 
@@ -180,18 +195,18 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 - **Performance Standard:** ${inputs.performanceStandard}
                 - **Learning Competencies:**
                     ${inputs.learningCompetencies}
-                - **Lesson Titles from Source:** ${sourceInfo.lessonTitles.join(', ')}
+                - **Lesson Titles from Source:** ${sourceInfo.lessonTitles.join('\n')}
                 - **Source Content:** [Content is provided for context. Do NOT quote directly in the output.]
                 - **Language Requirement:** You MUST generate the entire response exclusively in the following language: ${selectedLanguage}.
 
                 **CRITICAL OVERARCHING RULES:**
                 1.  **NO DIRECT QUOTING:** Under NO circumstances should you directly quote, reference, or instruct the user to "post" or "read from" the 'Source Content' in your generated activities. You must create NEW and ORIGINAL activities inspired by the competencies and themes.
                 2.  **STRICT ADHERENCE:** You MUST follow the structure and formatting instructions below precisely and in order.
-				3.  **SCAFFOLDING REQUIREMENT:** This is a non-negotiable rule. The activities you design from the Firm-Up to Transfer sections MUST directly and intentionally build the specific skills and knowledge students will need to successfully complete the final Performance Task. Each activity should be a clear step towards that final goal.
+                3.  **SCAFFOLDING REQUIREMENT:** This is a non-negotiable rule. The activities you design from the Firm-Up to Transfer sections MUST directly and intentionally build the specific skills and knowledge students will need to successfully complete the final Performance Task. Each activity should be a clear step towards that final goal.
 
                 **ULP STRUCTURE AND CONTENT (IN ORDER):**
                 1.  **Explore Stage:** You MUST structure this stage in the following exact order:
-                    * **Lessons List:** Start by listing the exact lesson titles provided in the 'Lesson Titles from Source' input. Do not invent or change them.
+                    * **Lessons List:** Start by listing the exact lesson titles provided in the 'Lesson Titles from Source' input. Do not invent or change them. Note: If multiple units are selected, the list will include unit headers.
                     * **Unit Overview:** Provide an engaging and catchy overview of the unit's purpose.
                     * **Hooked Activities:** Design engaging activities to capture student interest.
                     * **Map of Conceptual Change:** Create an activity for students to map their prior or new knowledge (e.g., a K-W-L chart).
@@ -205,8 +220,12 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                     * **Success Indicators:** 2-3 specific, observable indicators.
                     * **In-Person & Online Activities:** Design a scaffolded activity and its online alternative. Provide the detailed instructions for each activity and the Materials needed.
                     * **C-E-R Requirement:** At least one "Deepen (M)" activity MUST be a C-E-R task.
-          		  	* **Support Discussion:** For Firm-Up (A), provide questions to check for understanding and a short summarization of the lesson. For Deepen (M), provide a **detailed summarization** of key concepts in addition to in-depth elaboration and probing questions.
-                    * **Formative Assessment:** A specific, aligned assessment strategy. **Exception:** Omit this for Transfer (T#) competencies.
+            		* **Support Discussion:** For Firm-Up (A), provide questions to check for understanding and a short summarization of the lesson. For Deepen (M), provide a **detailed summarization** of key concepts in addition to in-depth elaboration and probing questions.
+                    * **End-of-Lesson Assessment:** Design a specific, aligned end-of-lesson assessment for this competency.
+                        * **For Acquisition (A) competencies, choose ONLY one of the following types:** Multiple Choice, Fill in the blank, Matching Type, Enumeration, Alternative Response, Hands-on operation, or Labeling.
+                        * **For Meaning-Making (M) competencies, choose ONLY one of the following types:** Short Paragraph, Essay, Critique Writing, Concept Mapping, or Journal Writing.
+                        * **Exception:** Omit this for Transfer (T#) competencies.
+                    * **Activity Materials & Templates:** For any activity that lists materials like "scenario cards" or "templates", you MUST provide the complete content for those materials directly below the activity instructions. For example, if you list "5 scenario cards" as a material, you must then provide the content for those 5 cards.
                 4.  **Final Synthesis:** A summary and wrap up that connects key points across lessons that would prepare students for the Performance Task.
                 5.  **Unit Performance Task (Transfer):** Design a detailed GRASPS Performance Task based on the overall unit **Performance Standard**. Include a comprehensive scoring rubric in a tabular format.
                 6.  **Values Integration (Automatic):** As the very last section, analyze all the content you have generated for this ULP. Based on the topics, activities, and performance task, identify 2-4 key values (e.g., integrity, stewardship, critical thinking, collaboration) that are naturally embedded or can be cultivated. For each identified value, provide a short enagaging and interactive overview in the ${selectedLanguage} explaining how it is reflected in the unit and can be fostered in students.
@@ -240,22 +259,22 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                         * **Title Row:** Create a title row: '<tr><td colspan='2' style='background: linear-gradient(to right, #6366f1, #8b5cf6); color: white; padding: 10px; font-weight: bold;'>FIRM-UP (ACQUISITION)</td></tr>'.
                         * **Content Rows:** For each Acquisition (A#) competency, create one '<tr>' with two '<td>' cells styled with 'style='padding: 10px; border-bottom: 1px solid #E2E8F0; vertical-align: top;''.
                             * **First Cell ('Learning Focus'):** Must contain the competency code and text, the Learning Targets, and the Success Indicators.
-                            * **Second Cell ('Learning Process'):** Must contain the Activities (In-person and Online with detailed instructions and materials), Support Discussion, and Formative Assessment.
+                            * **Second Cell ('Learning Process'):** Must contain the Activities (In-person and Online with detailed instructions and materials), Support Discussion, End-of-Lesson Assessment, and any required templates/cards.
                     * **B. Deepen (Meaning-Making) Section:**
                         * **Title Row:** Create a title row: '<tr><td colspan='2' style='background: linear-gradient(to right, #10b981, #2dd4bf); color: white; padding: 10px; font-weight: bold;'>DEEPEN (MEANING-MAKING)</td></tr>'.
                         * **Content Rows:** For each Meaning-Making (M#) competency, create one '<tr>' with two '<td>' cells, following the same column content rules as above.
                     * **C. Final Synthesis Section:**
                         * **Title Row:** Create a title row: '<tr><td colspan='2' style='background: #4B5563; color: white; padding: 10px; font-weight: bold;'>FINAL SYNTHESIS</td></tr>'.
                         * **Content Row:** Create a single row after the title: '<tr><td colspan='2' style='padding: 10px; border-bottom: 1px solid #E2E8F0;'>'. This cell must contain the full summary.
-					* **D. Transfer Section:**
-                        * **Title Row:** \`<tr><td colspan='2' style='background: linear-gradient(to right, #f97316, #fbbf24); color: white; padding: 10px; font-weight: bold;'>TRANSFER</td></tr>\`.
-                        * **Content Rows:** For each Transfer (T#) competency, create one \`<tr>\` with two \`<td>\` cells. The 'Learning Process' cell contains only activities and a summary.
+                    * **D. Transfer Section:**
+                        * **Title Row:** '<tr><td colspan="2" style="background: linear-gradient(to right, #f97316, #fbbf24); color: white; padding: 10px; font-weight: bold;">TRANSFER</td></tr>'.
+                        * **Content Rows:** For each Transfer (T#) competency, create one '<tr>' with two '<td>' cells. The 'Learning Process' cell contains only activities and a summary.
                 6.  **Unit Performance Task Section:** After all other sections, add this part.
-                    * **Title Row:** \`<tr><td colspan='2' style='background-color: #111827; color: white; font-weight: bold; padding: 10px; text-align: center;'>UNIT PERFORMANCE TASK</td></tr>\`.
-                    * **Content Row:** Create one \`<tr><td colspan='2' style='padding: 10px; border-bottom: 1px solid #E2E8F0;'>\` containing the full GRASPS Task and its scoring rubric worth 50 Points, which MUST be an HTML \`<table>\`.
+                    * **Title Row:** '<tr><td colspan="2" style="background-color: #111827; color: white; font-weight: bold; padding: 10px; text-align: center;">UNIT PERFORMANCE TASK</td></tr>'.
+                    * **Content Row:** Create one '<tr><td colspan="2" style="padding: 10px; border-bottom: 1px solid #E2E8F0;">' containing the full GRASPS Task and its scoring rubric worth 50 Points, which MUST be an HTML '<table>'.
                 7.  **Values Integration Section:** As the final part of the table, add the Values Integration content.
-                    * **Title Row:** \`<tr><td colspan='2' style='background-color: #dbeafe; color: #1e40af; font-weight: bold; padding: 10px;'>VALUES INTEGRATION</td></tr>\`.
-                    * **Content Row:** Create one \`<tr><td colspan='2' style='padding: 10px;'>\` containing the full text generated for the automatically-detected Values Integration.
+                    * **Title Row:** '<tr><td colspan="2" style="background-color: #dbeafe; color: #1e40af; font-weight: bold; padding: 10px;">VALUES INTEGRATION</td></tr>'.
+                    * **Content Row:** Create one '<tr><td colspan="2" style="padding: 10px;">' containing the full text generated for the automatically-detected Values Integration.
                 **Final JSON Output Structure:**
                 {"generated_lessons": [{"lessonTitle": "Unit Learning Plan: ${sourceInfo.title}", "learningObjectives": [], "pages": [{"title": "PEAC Unit Learning Plan", "content": "..."}]}]}
             `;
@@ -406,12 +425,12 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                             <h2 className="text-lg sm:text-xl font-bold text-slate-700">Preview</h2>
                             <div className="max-h-[60vh] overflow-y-auto border rounded-lg p-2 sm:p-4 bg-slate-100 shadow-inner">
                                 {previewData?.generated_lessons?.[0] ? (
-                                     previewData.generated_lessons.map((lesson, index) => (
-                                        <div key={index}>
-                                            <h3 className="font-bold text-base sm:text-lg sticky top-0 bg-white py-2">{lesson.lessonTitle}</h3>
-                                            {Array.isArray(lesson.pages) && lesson.pages.map((page, pageIndex) => <LessonPage key={`${index}-${pageIndex}`} page={page} />)}
-                                        </div>
-                                    ))
+                                        previewData.generated_lessons.map((lesson, index) => (
+                                            <div key={index}>
+                                                <h3 className="font-bold text-base sm:text-lg sticky top-0 bg-white py-2">{lesson.lessonTitle}</h3>
+                                                {Array.isArray(lesson.pages) && lesson.pages.map((page, pageIndex) => <LessonPage key={`${index}-${pageIndex}`} page={page} />)}
+                                            </div>
+                                        ))
                                 ) : (
                                     <p>Could not load preview. The AI may have returned an invalid format.</p>
                                 )}

@@ -2,12 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
-// NEW: Added framer-motion for animations
 import { motion, AnimatePresence } from 'framer-motion';
 import { XMarkIcon, ArrowLeftIcon, ArrowRightIcon, ListBulletIcon, ArrowDownTrayIcon } from '@heroicons/react/24/solid';
 import LessonPage from './LessonPage';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../services/firebase';
+import { useToast } from '../../contexts/ToastContext';
+import { uploadImageBlob } from '../../services/storageService';
 
-// --- NEW: Animation variants for page transitions ---
+// --- Animation variants for page transitions ---
 const pageVariants = {
   hidden: (direction) => ({
     opacity: 0,
@@ -25,7 +28,7 @@ const pageVariants = {
   }),
 };
 
-// --- NEW: Animation variants for staggering objectives ---
+// --- Animation variants for staggering objectives ---
 const objectivesContainerVariants = {
   visible: {
     transition: {
@@ -39,20 +42,24 @@ const objectiveItemVariants = {
   visible: { opacity: 1, y: 0 },
 };
 
-export default function ViewLessonModal({ isOpen, onClose, lesson }) {
+export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate }) {
     const [currentPage, setCurrentPage] = useState(0);
-    // NEW: State to track animation direction for page slides
     const [direction, setDirection] = useState(1);
+    const [currentLesson, setCurrentLesson] = useState(lesson);
+    const { showToast } = useToast();
+    const [isFinalizing, setIsFinalizing] = useState(false);
 
-    const pages = lesson?.pages || [];
-    const objectives = lesson?.objectives || [];
+    useEffect(() => {
+        setCurrentLesson(lesson);
+    }, [lesson]);
+
+    const lessonTitle = currentLesson?.lessonTitle || currentLesson?.title || 'Lesson';
+    const pages = currentLesson?.pages || [];
+    const objectives = currentLesson?.learningObjectives || currentLesson?.objectives || [];
     const totalPages = pages.length;
-
-    // --- REFRESHED: Improved logic for language detection ---
-    const objectivesLabel = lesson?.language === 'Filipino' ? "Mga Layunin" : "Objectives";
+    const objectivesLabel = currentLesson?.language === 'Filipino' ? "Mga Layunin sa Pagkatuto" : "Learning Objectives";
     const progressPercentage = totalPages > 0 ? ((currentPage + 1) / totalPages) * 100 : 0;
     
-    // --- NEW: Keyboard navigation ---
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (!isOpen) return;
@@ -64,27 +71,67 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, currentPage, totalPages]); // Re-bind if state changes
+    }, [isOpen, currentPage, totalPages]);
 
     useEffect(() => {
         if (isOpen) {
             setCurrentPage(0);
         }
     }, [isOpen]);
+    
+    // ✅ MODIFIED: This function now saves diagram data without re-uploading external images.
+    const handleFinalizeDiagram = async (pageIndex, finalizedContent) => {
+        if (isFinalizing) return;
+        setIsFinalizing(true);
+        showToast("Finalizing diagram...", "info");
 
-    if (!isOpen || !lesson) {
+        try {
+            // The content already includes the external URL. We will save it directly.
+            let contentToSave = { ...finalizedContent };
+
+            // The block that checked for and re-uploaded non-Firebase images has been removed.
+            // This ensures that if `generatedImageUrl` is an external URL, it will be saved as-is.
+            // If the image was AI-generated and has a temporary URL, you may still want to upload it.
+            // For this implementation, we assume any existing URL is what you want to keep.
+
+            const updatedPages = currentLesson.pages.map((page, index) =>
+                index === pageIndex ? { ...page, content: JSON.stringify(contentToSave) } : page
+            );
+
+            const updatedLesson = { ...currentLesson, pages: updatedPages };
+            setCurrentLesson(updatedLesson);
+
+            const lessonRef = doc(db, 'lessons', currentLesson.id);
+            await updateDoc(lessonRef, {
+                pages: updatedPages
+            });
+            
+            showToast("Diagram finalized and saved successfully!", "success");
+            if (onUpdate) {
+                onUpdate(updatedLesson);
+            }
+        } catch (error) {
+            console.error("Error finalizing diagram:", error);
+            showToast("Failed to save the finalized diagram.", "error");
+            setCurrentLesson(lesson);
+        } finally {
+            setIsFinalizing(false);
+        }
+    };
+
+    if (!isOpen || !currentLesson) {
         return null;
     }
 
     const goToNextPage = () => {
         if (currentPage < totalPages - 1) {
-            setDirection(1); // Set direction for "forward" animation
+            setDirection(1);
             setCurrentPage(currentPage + 1);
         }
     };
     const goToPreviousPage = () => {
         if (currentPage > 0) {
-            setDirection(-1); // Set direction for "backward" animation
+            setDirection(-1);
             setCurrentPage(currentPage - 1);
         }
     };
@@ -103,25 +150,24 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
             />
             
             <Dialog.Panel as={motion.div} 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-                className="relative bg-slate-50 rounded-2xl shadow-2xl w-full max-w-4xl z-10 flex flex-col max-h-[95vh] h-[95vh] overflow-hidden"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+              className="relative bg-slate-50 rounded-2xl shadow-2xl w-full max-w-4xl z-10 flex flex-col max-h-[95vh] h-[95vh] overflow-hidden"
             >
-                {/* --- REFRESHED: Thicker progress bar --- */}
                 <div className="w-full bg-slate-200 h-2 flex-shrink-0">
                     <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-r-full transition-all duration-500 ease-out" style={{ width: `${progressPercentage}%` }} />
                 </div>
 
                 <div className="flex justify-between items-center p-4 sm:p-5 border-b border-slate-200 flex-shrink-0">
                     <div className="flex items-center gap-4 overflow-hidden">
-                        <Dialog.Title className="text-lg sm:text-xl font-bold text-slate-800 truncate">{lesson.title}</Dialog.Title>
-                        {lesson.studyGuideUrl && (
-                             <a href={lesson.studyGuideUrl} download target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 transition-all duration-200 transform hover:scale-105 whitespace-nowrap">
-                                <ArrowDownTrayIcon className="h-4 w-4" />
-                                <span className="hidden sm:inline">Download Guide</span>
-                            </a>
+                        <Dialog.Title className="text-lg sm:text-xl font-bold text-slate-800 truncate">{lessonTitle}</Dialog.Title>
+                        {currentLesson.studyGuideUrl && (
+                             <a href={currentLesson.studyGuideUrl} download target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 transition-all duration-200 transform hover:scale-105 whitespace-nowrap">
+                                 <ArrowDownTrayIcon className="h-4 w-4" />
+                                 <span className="hidden sm:inline">Download Guide</span>
+                             </a>
                         )}
                     </div>
                     <button onClick={onClose} className="p-1.5 rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors flex-shrink-0 ml-4">
@@ -129,11 +175,10 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
                     </button>
                 </div>
 
-                {/* --- REFRESHED: Main content area with animations --- */}
                 <div className="flex-grow overflow-y-auto modern-scrollbar relative">
                     <AnimatePresence initial={false} custom={direction}>
                         <motion.div
-                            key={currentPage} // This key is crucial for AnimatePresence
+                            key={currentPage}
                             custom={direction}
                             variants={pageVariants}
                             initial="hidden"
@@ -141,7 +186,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
                             exit="exit"
                             className="p-4 sm:p-6 w-full h-full"
                         >
-                            {/* --- REFRESHED: Staggered animation for objectives --- */}
                             {currentPage === 0 && objectives.length > 0 && (
                                 <motion.div
                                     variants={objectivesContainerVariants}
@@ -164,7 +208,12 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
                                 </motion.div>
                             )}
                             {pageData ? (
-                                <LessonPage page={pageData} />
+                                <LessonPage 
+                                    page={pageData} 
+                                    isEditable={true}
+                                    onFinalizeDiagram={(finalizedContent) => handleFinalizeDiagram(currentPage, finalizedContent)}
+                                    isFinalizing={isFinalizing}
+                                />
                             ) : (
                                 currentPage === 0 && objectives.length > 0 ? null : <p className="text-slate-500">This lesson has no content pages.</p>
                             )}
@@ -172,7 +221,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
                     </AnimatePresence>
                 </div>
 
-                {/* --- REFRESHED: Cleaner and more responsive footer --- */}
                 <div className="flex justify-between items-center p-3 sm:p-4 bg-slate-100/80 backdrop-blur-sm border-t border-slate-200/80 flex-shrink-0">
                     <button onClick={goToPreviousPage} disabled={currentPage === 0} className="flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-full sm:rounded-lg text-slate-600 hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-transparent transition-all">
                         <ArrowLeftIcon className="h-5 w-5" />

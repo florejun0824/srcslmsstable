@@ -1,6 +1,6 @@
 import React from 'react';
 import UserInitialsAvatar from '../../../common/UserInitialsAvatar';
-import { EnvelopeIcon, IdentificationIcon, PencilSquareIcon, KeyIcon, ArrowLeftOnRectangleIcon } from '@heroicons/react/24/outline';
+import { UserCircleIcon, EnvelopeIcon, IdentificationIcon, KeyIcon, ArrowLeftOnRectangleIcon } from '@heroicons/react/24/solid';
 
 const ProfileView = ({
     user,
@@ -10,65 +10,76 @@ const ProfileView = ({
     logout
 }) => {
     return (
-        <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-1">
-                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-8 text-center text-white h-full flex flex-col justify-between">
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans">
+            <div className="max-w-7xl mx-auto w-full space-y-10">
+                <div className="text-center">
+                    <h2 className="text-5xl font-extrabold text-slate-900 tracking-tight">
+                        My Profile
+                    </h2>
+                    <p className="mt-4 text-xl text-gray-500">
+                        Manage your account settings and personal information.
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                    {/* User Info Card */}
+                    <div className="lg:col-span-1 rounded-3xl bg-white shadow-xl border border-gray-200 p-8 text-center text-slate-800 flex flex-col justify-between transform transition-all duration-500 hover:scale-105">
                         <div>
-                            <div className="relative inline-block mb-4 w-40 h-40 rounded-full overflow-hidden">
+                            <div className="relative inline-block mb-6 w-48 h-48 rounded-full overflow-hidden border-4 border-indigo-200 shadow-lg">
                                 <UserInitialsAvatar
                                     firstName={userProfile?.firstName}
                                     lastName={userProfile?.lastName}
                                     size="full"
                                 />
+                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-pink-500/10 mix-blend-overlay rounded-full"></div>
                             </div>
-                            <h1 className="text-3xl font-bold text-white">
+                            <h1 className="text-4xl font-bold text-slate-900 tracking-wide">
                                 {userProfile?.firstName} {userProfile?.lastName}
                             </h1>
-                            <p className="text-md text-slate-400 capitalize">{userProfile?.role}</p>
+                            <p className="mt-2 text-lg text-gray-600 font-medium capitalize">{userProfile?.role}</p>
                         </div>
-                        <div className="space-y-4 mt-8 text-left">
-                            <div className="flex items-center gap-4 p-3 bg-white/5 rounded-lg">
-                                <EnvelopeIcon className="w-6 h-6 text-white/70" />
+                        <div className="space-y-5 mt-10 text-left">
+                            <div className="flex items-center gap-5 p-4 rounded-xl bg-gray-50 border border-gray-200 transition-all duration-300 hover:bg-indigo-50">
+                                <EnvelopeIcon className="w-8 h-8 text-indigo-500" />
                                 <div>
-                                    <p className="text-sm text-white/60">Email</p>
-                                    <p className="font-semibold text-white">{userProfile?.email}</p>
+                                    <p className="text-sm text-gray-400 font-light">Email Address</p>
+                                    <p className="font-semibold text-slate-800 text-lg">{userProfile?.email}</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-4 p-3 bg-white/5 rounded-lg">
-                                <IdentificationIcon className="w-6 h-6 text-white/70" />
+                            <div className="flex items-center gap-5 p-4 rounded-xl bg-gray-50 border border-gray-200 transition-all duration-300 hover:bg-indigo-50">
+                                <IdentificationIcon className="w-8 h-8 text-indigo-500" />
                                 <div>
-                                    <p className="text-sm text-white/60">User ID</p>
-                                    <p className="font-mono text-xs text-white">{user?.uid || user?.id}</p>
+                                    <p className="text-sm text-gray-400 font-light">User ID</p>
+                                    <p className="font-mono text-sm text-slate-800">{user?.uid || user?.id}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div className="lg:col-span-2">
-                    <div className="bg-white rounded-2xl shadow-xl p-8 h-full">
-                        <h3 className="text-2xl font-bold text-slate-800 mb-6">Account Actions</h3>
-                        <div className="space-y-4">
-                            <button onClick={() => setEditProfileModalOpen(true)} className="w-full text-left flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-300 group">
-                                <div className="p-3 bg-blue-100 rounded-lg"><PencilSquareIcon className="w-6 h-6 text-blue-600" /></div>
-                                <div>
-                                    <p className="font-semibold text-slate-800">Edit Profile</p>
-                                    <p className="text-sm text-slate-500">Update your first and last name.</p>
+                    {/* Account Actions Card */}
+                    <div className="lg:col-span-2 rounded-3xl bg-white shadow-xl border border-gray-200 p-8">
+                        <h3 className="text-3xl font-bold text-slate-900 mb-8 tracking-wide">Account Actions</h3>
+                        <div className="space-y-6">
+                            <button onClick={() => setEditProfileModalOpen(true)} className="w-full text-left flex items-center gap-6 p-5 rounded-2xl bg-gray-50 border border-gray-200 transition-all duration-500 hover:bg-indigo-50 group transform hover:-translate-y-1 hover:shadow-lg">
+                                <div className="p-4 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl shadow-lg"><UserCircleIcon className="w-8 h-8 text-white" /></div>
+                                <div className="flex-grow">
+                                    <p className="font-semibold text-slate-900 text-xl">Edit Profile</p>
+                                    <p className="text-md text-gray-500 mt-1">Update your first and last name.</p>
                                 </div>
-                                <span className="ml-auto text-slate-400 group-hover:text-blue-600 transition-colors">&rarr;</span>
+                                <span className="text-gray-400 group-hover:text-blue-500 transition-colors duration-300 text-3xl font-light">&rarr;</span>
                             </button>
-                            <button onClick={() => setChangePasswordModalOpen(true)} className="w-full text-left flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all duration-300 group">
-                                <div className="p-3 bg-purple-100 rounded-lg"><KeyIcon className="w-6 h-6 text-purple-600" /></div>
-                                <div>
-                                    <p className="font-semibold text-slate-800">Change Password</p>
-                                    <p className="text-sm text-slate-500">Update your account security.</p>
+                            <button onClick={() => setChangePasswordModalOpen(true)} className="w-full text-left flex items-center gap-6 p-5 rounded-2xl bg-gray-50 border border-gray-200 transition-all duration-500 hover:bg-indigo-50 group transform hover:-translate-y-1 hover:shadow-lg">
+                                <div className="p-4 bg-gradient-to-br from-purple-600 to-pink-500 rounded-xl shadow-lg"><KeyIcon className="w-8 h-8 text-white" /></div>
+                                <div className="flex-grow">
+                                    <p className="font-semibold text-slate-900 text-xl">Change Password</p>
+                                    <p className="text-md text-gray-500 mt-1">Update your account security.</p>
                                 </div>
-                                <span className="ml-auto text-slate-400 group-hover:text-purple-600 transition-colors">&rarr;</span>
+                                <span className="text-gray-400 group-hover:text-purple-500 transition-colors duration-300 text-3xl font-light">&rarr;</span>
                             </button>
-                            <div className="pt-8">
-                                <button onClick={logout} className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-gradient-to-r from-red-500 to-orange-500 text-white font-bold rounded-lg hover:shadow-xl hover:scale-[1.02] transform transition-all duration-300 shadow-lg">
-                                    <ArrowLeftOnRectangleIcon className="w-6 h-6" /> Logout
+                            <div className="pt-10">
+                                <button onClick={logout} className="w-full flex items-center justify-center gap-4 py-4 px-6 bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold rounded-2xl shadow-lg hover:shadow-2xl hover:scale-[1.01] transform transition-all duration-500 border-2 border-transparent hover:border-red-300 group">
+                                    <ArrowLeftOnRectangleIcon className="w-7 h-7 transform group-hover:-translate-x-1 transition-transform duration-300" />
+                                    <span className="text-xl">Logout</span>
                                 </button>
                             </div>
                         </div>

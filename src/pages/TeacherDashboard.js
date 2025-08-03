@@ -7,7 +7,7 @@ import { callGeminiWithLimitCheck } from '../services/aiService';
 import { createPresentationFromData } from '../services/googleSlidesService';
 import TeacherDashboardLayout from '../components/teacher/TeacherDashboardLayout';
 import PresentationPreviewModal from '../components/teacher/PresentationPreviewModal';
-import BetaWarningModal from '../components/teacher/BetaWarningModal'; // ✅ ADDED: Import the BetaWarningModal
+import BetaWarningModal from '../components/teacher/BetaWarningModal'; 
 
 const LMS_KNOWLEDGE_BASE = `
   System Features Overview:
@@ -89,10 +89,10 @@ const TeacherDashboard = () => {
     const [isPresentationPreviewModalOpen, setPresentationPreviewModalOpen] = useState(false);
     const [isSavingPresentation, setIsSavingPresentation] = useState(false);
 
-    // ✅ ADDED: State for the new Beta Warning Modal flow
     const [isBetaWarningModalOpen, setIsBetaWarningModalOpen] = useState(false);
     const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState([]);
-
+    
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
         if (userProfile && messages.length === 0) {
@@ -201,7 +201,6 @@ const TeacherDashboard = () => {
         } finally { setIsAiGenerating(false); }
     };
 
-    // ✅ ADDED: This function now just opens the warning modal
     const handleInitiatePresentationGeneration = (lessonIds) => {
         if (!lessonIds || lessonIds.length === 0) {
             showToast("Please select one or more lessons to include in the presentation.", "warning");
@@ -211,9 +210,8 @@ const TeacherDashboard = () => {
         setIsBetaWarningModalOpen(true);
     };
 
-    // ✅ MODIFIED: This function is now the confirmation action. It uses `lessonsToProcessForPPT` from state.
 	const handleGeneratePresentationPreview = async () => {
-        const lessonIds = lessonsToProcessForPPT; // Use lesson IDs from state
+        const lessonIds = lessonsToProcessForPPT;
 
 	    if (!activeSubject) {
 	        showToast("No active subject selected. This is required for folder creation.", "warning");
@@ -347,12 +345,8 @@ const TeacherDashboard = () => {
 
 	    window.open(presentationUrl, '_blank');
 
-	    // ✅ MODIFIED: Changed the toast message for clarity
 	    showToast("Presentation created! You can now copy the notes.", "success");
     
-	    // ✅ MODIFIED: This line is removed to keep the modal open
-	    // setPresentationPreviewModalOpen(false); 
-
 	  } catch (error) {
 	    console.error("Presentation Creation Error:", error);
 	    showToast(`Creation Error: ${error.message}`, "error");
@@ -382,7 +376,17 @@ const TeacherDashboard = () => {
     
     const activeClasses = classes.filter(c => !c.isArchived);
     const archivedClasses = classes.filter(c => c.isArchived);
-    const handleViewChange = (view) => { setActiveView(view); setSelectedCategory(null); setIsSidebarOpen(false); };
+    
+    const handleViewChange = (view) => { 
+        if (activeView === view) {
+            setReloadKey(prevKey => prevKey + 1);
+        } else {
+            setActiveView(view); 
+            setSelectedCategory(null);
+            setIsSidebarOpen(false);
+        }
+    };
+    
     const handleCategoryClick = (categoryName) => { setSelectedCategory(categoryName); };
     const handleBackToCategoryList = () => { setSelectedCategory(null); };
     const handleOpenEditClassModal = (classData) => { setClassToEdit(classData); setEditClassModalOpen(true); };
@@ -530,7 +534,7 @@ const TeacherDashboard = () => {
                 setShareContentModalOpen={setShareContentModalOpen}
                 handleInitiateDelete={handleInitiateDelete}
                 handleGenerateQuizForLesson={handleGenerateQuizForLesson}
-                onGeneratePresentationPreview={handleInitiatePresentationGeneration} // ✅ MODIFIED: Pass the new initiator function
+                onGeneratePresentationPreview={handleInitiatePresentationGeneration}
                 isAiGenerating={isAiGenerating}
                 setEditProfileModalOpen={setEditProfileModalOpen}
                 setChangePasswordModalOpen={setChangePasswordModalOpen}
@@ -611,8 +615,9 @@ const TeacherDashboard = () => {
                 setIsAiGenerating={setIsAiGenerating}
                 isAiHubOpen={isAiHubOpen}
                 setIsAiHubOpen={setIsAiHubOpen}
+                reloadKey={reloadKey}
             />
-            {/* ✅ ADDED: Render the BetaWarningModal */}
+            
             <BetaWarningModal
                 isOpen={isBetaWarningModalOpen}
                 onClose={() => setIsBetaWarningModalOpen(false)}

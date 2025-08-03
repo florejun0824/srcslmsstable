@@ -16,6 +16,14 @@ import {
     RectangleStackIcon,
     QueueListIcon,
     ArrowUturnLeftIcon,
+    BookmarkIcon,
+    BookmarkSlashIcon,
+    ArrowsUpDownIcon,
+    EllipsisVerticalIcon,
+    DocumentMagnifyingGlassIcon,
+    CheckCircleIcon,
+    MinusCircleIcon,
+    CloudArrowUpIcon
 } from '@heroicons/react/24/solid';
 import {
     DndContext,
@@ -54,11 +62,9 @@ import Spinner from '../common/Spinner';
 const convertSvgStringToPngDataUrl = (svgString) => {
     return new Promise((resolve, reject) => {
         let correctedSvgString = svgString;
-
         if (!correctedSvgString.includes('xmlns=')) {
             correctedSvgString = correctedSvgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
         }
-
         const defaultStyles = `
             <style>
                 .center-node { fill: #cce5ff; stroke: #007bff; stroke-width: 2; }
@@ -75,12 +81,10 @@ const convertSvgStringToPngDataUrl = (svgString) => {
         
         const img = new Image();
         const dataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(correctedSvgString)}`;
-
         img.onload = () => {
             const canvas = document.createElement('canvas');
             const fallbackWidth = 600; 
             let { width, height } = img;
-
             if (!width || !height) {
                 const viewBoxMatch = correctedSvgString.match(/viewBox="([0-9\s.,-]+)"/);
                 if (viewBoxMatch && viewBoxMatch[1]) {
@@ -97,24 +101,20 @@ const convertSvgStringToPngDataUrl = (svgString) => {
                 width = fallbackWidth;
                 height = 450;
             }
-
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
             const dataUrl = canvas.toDataURL('image/png');
-            
             if (dataUrl === 'data:,') {
                  reject(new Error("Canvas generated an empty data URL, the SVG might be invalid."));
             } else {
                 resolve({ dataUrl, width, height });
             }
         };
-
         img.onerror = () => {
             reject(new Error("Failed to load the SVG string into an image. It might be malformed."));
         };
-        
         img.src = dataUri;
     });
 };
@@ -150,15 +150,30 @@ const ActionMenu = ({ children }) => {
     return (
         <>
             <div role="button" tabIndex={0} ref={iconRef} onClick={handleToggle} onPointerDown={(e) => e.stopPropagation()} className="p-1.5 text-gray-500 hover:text-gray-900 rounded-full cursor-pointer hover:bg-gray-100">
-                <Bars3Icon className="h-5 w-5" />
+                <EllipsisVerticalIcon className="h-5 w-5" />
             </div>
             {isOpen && <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>{children}</MenuPortal>}
         </>
     );
 };
 
-const MenuItem = ({ icon: Icon, text, onClick, disabled = false }) => ( <button onClick={onClick} disabled={disabled} className="flex items-center w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"> <Icon className={`h-5 w-5 mr-3 ${disabled ? 'text-gray-400 animate-spin' : ''}`} /> <span>{text}</span> </button> );
-const ColumnHeader = ({ title, icon: Icon, onAdd }) => ( <div className="flex justify-between items-center mb-4"> <div className="flex items-center gap-2"> <Icon className="w-5 h-5 text-gray-500" /> <h3 className="font-semibold text-gray-800">{title}</h3> </div> <button onClick={onAdd} className="flex items-center justify-center w-7 h-7 bg-gray-200 text-gray-600 rounded-full hover:bg-blue-500 hover:text-white transition-all" title={`Add New ${title.slice(0, -1)}`}> <PlusIcon className="w-4 h-4" /> </button> </div> );
+const MenuItem = ({ icon: Icon, text, onClick, disabled = false, loading = false }) => (
+    <button onClick={onClick} disabled={disabled || loading} className="flex items-center w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
+        <Icon className={`h-5 w-5 mr-3 ${loading ? 'animate-spin' : ''}`} />
+        <span>{text}</span>
+    </button>
+);
+const ColumnHeader = ({ title, icon: Icon, onAdd }) => (
+    <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2">
+            <Icon className="w-5 h-5 text-gray-500" />
+            <h3 className="font-semibold text-gray-800">{title}</h3>
+        </div>
+        <button onClick={onAdd} className="flex items-center justify-center w-7 h-7 bg-gray-200 text-gray-600 rounded-full hover:bg-blue-500 hover:text-white transition-all" title={`Add New ${title.slice(0, -1)}`}>
+            <PlusIcon className="w-4 h-4" />
+        </button>
+    </div>
+);
 
 function SortableQuizItem({ quiz, unitId, onEdit, onDelete, onView }) {
     const {
@@ -178,58 +193,99 @@ function SortableQuizItem({ quiz, unitId, onEdit, onDelete, onView }) {
     };
 
     return (
-        <div ref={setNodeRef} style={style} {...attributes} className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center group mb-2 touch-none">
-            <div className="flex items-center gap-3">
-                <button {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600">
-                    <Bars3Icon className="h-5 w-5" />
-                </button>
-                <ClipboardDocumentListIcon className="w-5 h-5 text-purple-500 flex-shrink-0" />
-                <p className="text-sm text-gray-800 font-medium">{quiz.title}</p>
-            </div>
-            <div className="flex items-center gap-1">
-                <button onClick={onView} className="p-1.5 text-gray-500 hover:text-blue-600 rounded-full" title="View Quiz">
-                    <EyeIcon className="h-5 w-5" />
-                </button>
-                <ActionMenu>
-                    <MenuItem icon={PencilIcon} text="Edit Quiz" onClick={() => onEdit(quiz)} />
-                    <MenuItem icon={TrashIcon} text="Delete Quiz" onClick={onDelete} />
-                </ActionMenu>
+        <div
+            ref={setNodeRef}
+            style={style}
+            {...attributes}
+            className="p-4 rounded-2xl border-2 bg-white border-gray-200 hover:border-purple-300 hover:shadow-md transition-all duration-200 flex flex-col group touch-none"
+        >
+            <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-purple-100 text-purple-700">
+                        <ClipboardDocumentListIcon className="w-5 h-5" />
+                    </div>
+                    <h4 className="text-lg font-medium text-gray-800">
+                        {quiz.title}
+                    </h4>
+                </div>
+                <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button {...listeners} className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Drag to reorder">
+                        <ArrowsUpDownIcon className="w-5 h-5" />
+                    </button>
+                    <button onClick={onView} className="p-1.5 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-100 transition-colors" title="View Quiz">
+                        <EyeIcon className="w-5 h-5" />
+                    </button>
+                    <ActionMenu>
+                        <MenuItem icon={PencilIcon} text="Edit Quiz" onClick={() => onEdit(quiz)} />
+                        <MenuItem icon={TrashIcon} text="Delete Quiz" onClick={onDelete} />
+                    </ActionMenu>
+                </div>
             </div>
         </div>
     );
 }
 
-// ✅ MODIFIED: Added selectedLessons and onLessonSelect props
 function SortableLessonItem({ lesson, unitId, exportingLessonId, onExport, onExportUlpPdf, onExportAtgPdf, selectedLessons, onLessonSelect, ...props }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: lesson.id, data: { type: 'lesson', unitId: unitId } });
     const style = { transform: CSS.Transform.toString(transform), transition };
     const isExporting = exportingLessonId === lesson.id;
-    const isUlp = lesson.title.includes('Unit Learning Plan');
-    const isAtg = lesson.title.includes('Adaptive Teaching Guide');
+    
+    const title = lesson.lessonTitle || lesson.title || '';
+    const isUlp = title.includes('Unit Learning Plan');
+    const isAtg = title.includes('Adaptive Teaching Guide');
     const isSelected = selectedLessons.has(lesson.id);
 
     return ( 
-        <div ref={setNodeRef} style={style} {...attributes} className={`p-3 rounded-lg shadow-sm border flex justify-between items-center group mb-2 touch-none transition-colors ${isSelected ? 'bg-blue-100 border-blue-300' : 'bg-white border-gray-200'}`}>
-            <div className="flex items-center gap-3">
-                <button {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600"><Bars3Icon className="h-5 w-5" /></button>
-                {/* ✅ NEW: Checkbox for lesson selection */}
-                <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => onLessonSelect(lesson.id)}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <DocumentTextIcon className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                <p className="text-sm text-gray-800 font-medium">{lesson.title}</p>
-            </div>
-            <div className="flex items-center gap-1">
-                <button onClick={props.onView} className="p-1.5 text-gray-500 hover:text-blue-600 rounded-full" title="View Lesson"><EyeIcon className="h-5 w-5" /></button>
-                <ActionMenu>
-                    <MenuItem icon={PencilIcon} text="Edit Lesson" onClick={props.onEdit} />
-                    {isUlp ? ( <MenuItem icon={isExporting ? ArrowPathIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => onExportUlpPdf(lesson)} disabled={isExporting} /> ) : isAtg ? ( <MenuItem icon={isExporting ? ArrowPathIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => onExportAtgPdf(lesson)} disabled={isExporting} /> ) : ( <MenuItem icon={isExporting ? ArrowPathIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as .docx"} onClick={() => onExport(lesson)} disabled={isExporting} /> )}
-                    <MenuItem icon={SparklesIcon} text="AI Generate Quiz" onClick={props.onGenerateQuiz} disabled={props.isAiGenerating} />
-                    <MenuItem icon={TrashIcon} text="Delete Lesson" onClick={props.onDelete} />
-                </ActionMenu>
+        <div 
+            ref={setNodeRef} 
+            style={style} 
+            {...attributes} 
+            className={`
+                p-4 rounded-2xl border-2 transition-all duration-200 flex flex-col group touch-none
+                ${isSelected ? 'bg-indigo-50 border-indigo-500 shadow-lg' : 'bg-white border-gray-200 hover:border-indigo-300 hover:shadow-md'}
+            `}
+        >
+            <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-full ${isSelected ? 'bg-indigo-200 text-indigo-700' : 'bg-gray-100 text-gray-500'}`}>
+                        <DocumentTextIcon className="w-5 h-5" />
+                    </div>
+                    <h4 className={`text-lg font-medium ${isSelected ? 'text-indigo-800' : 'text-gray-800'}`}>
+                        {title}
+                    </h4>
+                </div>
+                <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button {...listeners} className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Drag to reorder">
+                        <ArrowsUpDownIcon className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onLessonSelect(lesson.id);
+                        }}
+                        className={`p-1.5 rounded-full transition-colors duration-200 z-10
+                            ${isSelected ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}
+                        `}
+                        title={isSelected ? "Deselect Lesson" : "Select Lesson"}
+                    >
+                        {isSelected ? <CheckCircleIcon className="w-5 h-5" /> : <MinusCircleIcon className="w-5 h-5" />}
+                    </button>
+                    <button onClick={props.onView} className="p-1.5 rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-100 transition-colors" title="View Lesson">
+                        <DocumentMagnifyingGlassIcon className="h-5 w-5" />
+                    </button>
+                    <ActionMenu>
+                        <MenuItem icon={PencilIcon} text="Edit Lesson" onClick={props.onEdit} />
+                        {isUlp ? (
+                            <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => onExportUlpPdf(lesson)} loading={isExporting} />
+                        ) : isAtg ? (
+                            <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => onExportAtgPdf(lesson)} loading={isExporting} />
+                        ) : (
+                            <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as .docx"} onClick={() => onExport(lesson)} loading={isExporting} />
+                        )}
+                        <MenuItem icon={SparklesIcon} text="AI Generate Quiz" onClick={props.onGenerateQuiz} disabled={props.isAiGenerating} />
+                        <MenuItem icon={TrashIcon} text="Delete Lesson" onClick={props.onDelete} />
+                    </ActionMenu>
+                </div>
             </div>
         </div>
     );
@@ -246,7 +302,7 @@ function SortableUnitCard(props) {
     return (
         <div ref={setNodeRef} style={style} {...attributes} className="touch-none">
             <div onClick={() => onSelect(unit)} className={`group relative p-6 rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between h-full bg-gradient-to-br ${color}`}>
-                <button {...listeners} className="absolute top-3 left-3 p-1.5 text-white/50 hover:text-white cursor-grab opacity-50 group-hover:opacity-100 transition-opacity" title="Drag to reorder"><Bars3Icon className="h-5 w-5" /></button>
+                <button {...listeners} className="absolute top-3 left-3 p-1.5 text-white/50 hover:text-white cursor-grab opacity-50 group-hover:opacity-100 transition-opacity" title="Drag to reorder"><ArrowsUpDownIcon className="h-5 w-5" /></button>
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={(e) => { e.stopPropagation(); onOpenAiHub(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white" title="AI Tools for this unit"><SparklesIcon className="w-5 h-5" /></button>
                     <button onClick={(e) => { e.stopPropagation(); onEdit(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white" title="Edit Unit"><PencilIcon className="w-5 h-5" /></button>
@@ -275,7 +331,6 @@ const customSort = (a, b) => {
     return timeA - timeB;
 };
 
-// ✅ MODIFIED: Added selectedLessons and onLessonSelect props
 export default function UnitAccordion({ subject, onInitiateDelete, userProfile, isAiGenerating, setIsAiGenerating, activeUnit, onSetActiveUnit, selectedLessons, onLessonSelect }) {
     const [units, setUnits] = useState([]);
     const [lessons, setLessons] = useState({});
@@ -315,7 +370,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             setUnits(fetchedUnits);
         }, (error) => console.error("Error fetching units: ", error));
         return () => unsubscribe();
-    }, [subject?.id]);
+    }, [subject?.id, onSetActiveUnit]);
 
     useEffect(() => {
         if (units.length === 0) { setLessons({}); setQuizzes({}); return; }
@@ -439,7 +494,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	    setExportingLessonId(lesson.id);
 	    showToast("Generating .docx file...", "info");
 	    try {
-	        let finalHtml = `<h1>${lesson.title}</h1>`;
+	        let finalHtml = `<h1>${lesson.lessonTitle || lesson.title}</h1>`;
 	        for (const page of lesson.pages) {
 	            const cleanTitle = page.title.replace(/^page\s*\d+\s*[:-]?\s*/i, '');
 	            const rawHtml = marked.parse(page.content || '');
@@ -472,7 +527,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        const blobUrl = URL.createObjectURL(fileBlob);
 	        const link = document.createElement('a');
 	        link.href = blobUrl;
-	        link.download = `${lesson.title}.docx`;
+	        link.download = `${lesson.lessonTitle || lesson.title}.docx`;
 	        document.body.appendChild(link);
 	        link.click();
 	        document.body.removeChild(link);
@@ -494,7 +549,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	    htmlContent = htmlContent.replace(/<thead[\s\S]*?<\/thead>/i, '');
 	    const tableFooter = "<tfoot><tr><td colspan='2' style='border-top: 1px solid #ccc; padding: 0 !important; height: 1px !important; line-height: 0 !important;'>&nbsp;</td></tr></tfoot>";
 	    htmlContent = htmlContent.replace('</table>', tableFooter + '</table>');
-	    const title = lesson.title;
+	    const title = lesson.lessonTitle || lesson.title;
 	    const printWindow = window.open('', '_blank');
 	    if (!printWindow) { showToast("Could not open a new window. Please disable your pop-up blocker.", "error"); setExportingLessonId(null); return; }
 	    printWindow.document.write(`<html><head><title>${title}</title><style>@media print{@page{size: 8.5in 13in;margin: 1in;}body{margin:0;font-family:sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}table{width:100%;border-collapse:collapse;font-size:9pt;}td,th{border:1px solid #ccc;padding:6px;text-align:left;}tfoot{display:table-footer-group;}}</style></head><body>${htmlContent}</body></html>`);
@@ -506,7 +561,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	    if (exportingLessonId) return;
 	    setExportingLessonId(lesson.id);
 	    showToast("Preparing PDF for printing...", "info");
-	    let finalHtml = `<h1>${lesson.title}</h1>`;
+	    let finalHtml = `<h1>${lesson.lessonTitle || lesson.title}</h1>`;
 	    for (const page of lesson.pages) {
 	        const cleanTitle = page.title.replace(/^page\s*\d+\s*[:-]?\s*/i, '');
 	        const rawHtml = marked.parse(page.content || '');
@@ -514,7 +569,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	    }
 	    const printWindow = window.open('', '_blank');
 	    if (!printWindow) { showToast("Could not open a new window. Please disable your pop-up blocker.", "error"); setExportingLessonId(null); return; }
-	    printWindow.document.write(`<html><head><title>${lesson.title}</title><style>@media print{@page{size: 8.5in 13in;margin: 1in;}body{margin:0;font-family:sans-serif;}h1,h2,h3{page-break-after:avoid;}ul,p{page-break-inside:avoid;}}</style></head><body>${finalHtml}</body></html>`);
+	    printWindow.document.write(`<html><head><title>${lesson.lessonTitle || lesson.title}</title><style>@media print{@page{size: 8.5in 13in;margin: 1in;}body{margin:0;font-family:sans-serif;}h1,h2,h3{page-break-after:avoid;}ul,p{page-break-inside:avoid;}}</style></head><body>${finalHtml}</body></html>`);
 	    printWindow.document.close();
 	    setTimeout(() => { printWindow.focus(); printWindow.print(); setExportingLessonId(null); }, 500);
 	};
@@ -542,38 +597,39 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                 </button>
                                 <div className="bg-slate-50 p-4 md:p-6 rounded-xl border">
                                     <div className="grid md:grid-cols-2 gap-6">
-                                        <div className="bg-white p-4 rounded-xl border shadow-sm">
+                                        <div>
                                             <ColumnHeader title="Lessons" icon={DocumentTextIcon} onAdd={() => handleOpenUnitModal(setAddLessonModalOpen, activeUnit)} />
                                             <SortableContext items={lessonsForActiveUnit.map(l => l.id)} strategy={verticalListSortingStrategy}>
-                                                {lessonsForActiveUnit.length > 0 ? (
-                                                    lessonsForActiveUnit.map(lesson => 
-                                                        <SortableLessonItem 
-                                                            key={lesson.id} 
-                                                            lesson={lesson} 
-                                                            unitId={activeUnit.id} 
-                                                            onView={() => handleOpenLessonModal(setViewLessonModalOpen, lesson)} 
-                                                            onEdit={() => handleOpenLessonModal(setEditLessonModalOpen, lesson)} 
-                                                            onDelete={() => onInitiateDelete('lesson', lesson.id)} 
-                                                            onGenerateQuiz={() => handleOpenAiQuizModal(lesson)} 
-                                                            isAiGenerating={isAiGenerating} 
-                                                            onExport={handleExportDocx} 
-                                                            onExportUlpPdf={handleExportUlpAsPdf} 
-                                                            onExportAtgPdf={handleExportAtgPdf} 
-                                                            exportingLessonId={exportingLessonId}
-                                                            // ✅ ADDED: Pass selection state to SortableLessonItem
-                                                            selectedLessons={selectedLessons}
-                                                            onLessonSelect={onLessonSelect}
-                                                        />
-                                                    )
-                                                ) : (
-                                                    <p className="text-sm text-center text-gray-500 p-4">No lessons yet.</p>
-                                                )}
+                                                <div className="grid grid-cols-1 gap-4">
+                                                    {lessonsForActiveUnit.length > 0 ? (
+                                                        lessonsForActiveUnit.map(lesson => 
+                                                            <SortableLessonItem 
+                                                                key={lesson.id} 
+                                                                lesson={lesson} 
+                                                                unitId={activeUnit.id} 
+                                                                onView={() => handleOpenLessonModal(setViewLessonModalOpen, lesson)} 
+                                                                onEdit={() => handleOpenLessonModal(setEditLessonModalOpen, lesson)} 
+                                                                onDelete={() => onInitiateDelete('lesson', lesson.id)} 
+                                                                onGenerateQuiz={() => handleOpenAiQuizModal(lesson)} 
+                                                                isAiGenerating={isAiGenerating} 
+                                                                onExport={handleExportDocx} 
+                                                                onExportUlpPdf={handleExportUlpAsPdf} 
+                                                                onExportAtgPdf={handleExportAtgPdf} 
+                                                                exportingLessonId={exportingLessonId}
+                                                                selectedLessons={selectedLessons}
+                                                                onLessonSelect={onLessonSelect}
+                                                            />
+                                                        )
+                                                    ) : (
+                                                        <p className="text-sm text-center text-gray-500 p-4">No lessons yet.</p>
+                                                    )}
+                                                </div>
                                             </SortableContext>
                                         </div>
-                                        <div className="bg-white p-4 rounded-xl border shadow-sm">
+                                        <div>
                                             <ColumnHeader title="Quizzes" icon={ClipboardDocumentListIcon} onAdd={() => handleOpenUnitModal(setAddQuizModalOpen, activeUnit)} />
                                             <SortableContext items={quizzesForActiveUnit.map(q => q.id)} strategy={verticalListSortingStrategy}>
-                                                <div className="space-y-2">
+                                                <div className="grid grid-cols-1 gap-4">
                                                     {quizzesForActiveUnit.length > 0 ? (
                                                         quizzesForActiveUnit.map(quiz => 
                                                             <SortableQuizItem
