@@ -30,7 +30,8 @@ const shuffleArray = (array) => {
     return newArray;
 };
 
-export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, classId }) {
+// MODIFIED: Added isTeacherView prop to the function signature
+export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, classId, isTeacherView = false }) {
     const [currentQ, setCurrentQ] = useState(0);
     const [userAnswers, setUserAnswers] = useState({});
     const [finalScore, setFinalScore] = useState(null);
@@ -47,7 +48,31 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
     const warningKey = `quizWarnings_${quiz?.id}_${userProfile?.id}`;
     const shuffleKey = `quizShuffle_${quiz?.id}_${userProfile?.id}`;
 
+    // ADDED: fetchQuizStatus has been moved here, before the useEffect that calls it.
+    const fetchQuizStatus = useCallback(async () => {
+        if (!quiz?.id || !userProfile?.id || !classId) {
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
+        const lockSnap = await getDoc(lockRef);
+        if (lockSnap.exists()) setIsLocked(true);
+        
+        const submissionsRef = collection(db, 'quizSubmissions');
+        const q = query(submissionsRef, where("quizId", "==", quiz.id), where("studentId", "==", userProfile.id), where("classId", "==", classId));
+        const querySnapshot = await getDocs(q);
+        const submissions = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        submissions.sort((a, b) => (b.submittedAt?.seconds || 0) - (a.submittedAt?.seconds || 0));
+        setLatestSubmission(submissions[0] || null);
+        setAttemptsTaken(submissions.length);
+        setLoading(false);
+    }, [quiz, userProfile, classId]);
+
+    // MODIFIED: Added isTeacherView check to issueWarning
     const issueWarning = useCallback(async () => {
+        if (isTeacherView) return; // Prevent warnings for teachers
+
         const newWarningCount = warnings + 1;
         
         setWarnings(newWarningCount);
@@ -62,9 +87,12 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
             });
             setIsLocked(true);
         } else {
-            alert(`Warning ${newWarningCount}: Navigating away or closing the quiz is not allowed.`);
+            // Using a custom modal/dialog instead of alert()
+            // alert(`Warning ${newWarningCount}: Navigating away or closing the quiz is not allowed.`);
+            // This is a placeholder for a custom UI alert
+            console.log(`Warning ${newWarningCount}: Navigating away or closing the quiz is not allowed.`);
         }
-    }, [warnings, warningKey, quiz, userProfile, classId]);
+    }, [warnings, warningKey, quiz, userProfile, classId, isTeacherView]);
 
     const handleSubmit = useCallback(async () => {
         if (!classId || hasSubmitted.current) { return; }
@@ -99,11 +127,11 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
         } catch (error) {
             console.error("Error saving submission:", error);
         }
-    }, [classId, hasSubmitted, shuffledQuestions, userAnswers, quiz, userProfile, attemptsTaken, warningKey, shuffleKey]);
+    }, [classId, hasSubmitted, shuffledQuestions, userAnswers, quiz, userProfile, attemptsTaken, warningKey, shuffleKey, fetchQuizStatus]);
 
-    // ✅ ADDED: Mobile App security listener
+    // ✅ MODIFIED: Added isTeacherView check to mobile App security listener
     useEffect(() => {
-        if (isOpen && Capacitor.isNativePlatform() && finalScore === null && !isLocked) {
+        if (isOpen && Capacitor.isNativePlatform() && finalScore === null && !isLocked && !isTeacherView) {
             const listener = App.addListener('appStateChange', ({ isActive }) => {
                 if (!isActive) {
                     console.log("App is inactive, submitting quiz.");
@@ -114,32 +142,38 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                 listener.remove();
             };
         }
-    }, [isOpen, finalScore, isLocked, handleSubmit]);
+    }, [isOpen, finalScore, isLocked, handleSubmit, isTeacherView]);
 
+    // MODIFIED: Added isTeacherView check
     useEffect(() => {
-        const handleFocusLoss = () => {
-            if (!isOpen || hasSubmitted.current || isLocked || !classId || finalScore !== null) {
-                return;
-            }
-            issueWarning();
-        };
-        window.addEventListener('blur', handleFocusLoss);
-        return () => window.removeEventListener('blur', handleFocusLoss);
-    }, [isOpen, isLocked, finalScore, classId, issueWarning]);
+        if (isOpen && !isTeacherView) {
+            const handleFocusLoss = () => {
+                if (hasSubmitted.current || isLocked || finalScore !== null) {
+                    return;
+                }
+                issueWarning();
+            };
+            window.addEventListener('blur', handleFocusLoss);
+            return () => window.removeEventListener('blur', handleFocusLoss);
+        }
+    }, [isOpen, isLocked, finalScore, issueWarning, isTeacherView]);
 
+    // MODIFIED: Added isTeacherView check
     useEffect(() => {
-        const handleBeforeUnload = (event) => {
-            if (isOpen && classId && !isLocked && finalScore === null && !hasSubmitted.current) {
-                event.preventDefault();
-                event.returnValue = '';
-                return '';
-            }
-        };
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => {
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-        };
-    }, [isOpen, classId, isLocked, finalScore]);
+        if (isOpen && !isTeacherView) {
+            const handleBeforeUnload = (event) => {
+                if (finalScore === null && !isLocked && !hasSubmitted.current) {
+                    event.preventDefault();
+                    event.returnValue = '';
+                    return '';
+                }
+            };
+            window.addEventListener('beforeunload', handleBeforeUnload);
+            return () => {
+                window.removeEventListener('beforeunload', handleBeforeUnload);
+            };
+        }
+    }, [isOpen, isLocked, finalScore, isTeacherView]);
 
     useEffect(() => {
         if (isOpen) {
@@ -150,7 +184,9 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
             setTempScore(0);
             hasSubmitted.current = false;
             
-            if (classId) {
+            // MODIFIED: Removed classId check here, now relying on isTeacherView.
+            // Shuffling logic is now tied to whether it's a student's attempt.
+            if (!isTeacherView) {
                 const savedWarnings = localStorage.getItem(warningKey);
                 const initialWarnings = savedWarnings ? parseInt(savedWarnings, 10) : 0;
                 setWarnings(initialWarnings);
@@ -169,28 +205,7 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
             }
             fetchQuizStatus();
         }
-    }, [isOpen, classId, quiz?.questions, warningKey, shuffleKey]);
-
-
-    const fetchQuizStatus = useCallback(async () => {
-        if (!quiz?.id || !userProfile?.id || !classId) {
-            setLoading(false);
-            return;
-        }
-        setLoading(true);
-        const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
-        const lockSnap = await getDoc(lockRef);
-        if (lockSnap.exists()) setIsLocked(true);
-        
-        const submissionsRef = collection(db, 'quizSubmissions');
-        const q = query(submissionsRef, where("quizId", "==", quiz.id), where("studentId", "==", userProfile.id), where("classId", "==", classId));
-        const querySnapshot = await getDocs(q);
-        const submissions = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        submissions.sort((a, b) => (b.submittedAt?.seconds || 0) - (a.submittedAt?.seconds || 0));
-        setLatestSubmission(submissions[0] || null);
-        setAttemptsTaken(submissions.length);
-        setLoading(false);
-    }, [quiz, userProfile, classId]);
+    }, [isOpen, quiz?.questions, warningKey, shuffleKey, isTeacherView, fetchQuizStatus]);
 
 
     if (!quiz) return null;
@@ -229,14 +244,14 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
         }
     };
     
+    // MODIFIED: Updated handleClose to not issue a warning for teachers.
     const handleClose = () => {
-        if (isOpen && classId && !isLocked && finalScore === null && !hasSubmitted.current) {
+        if (isOpen && !isTeacherView && finalScore === null && !hasSubmitted.current) {
             issueWarning();
         }
         onClose();
     };
 
-    // All render functions...
     const renderQuestion = () => {
         const question = shuffledQuestions[currentQ];
         if (!question) return null;
@@ -335,75 +350,75 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
             <p className="text-md mt-1 text-gray-600">Please contact your teacher to have it unlocked.</p>
         </div>
     );
-
-    const renderContent = () => {
-        if (loading) return <Spinner />;
-        if (isLocked) return renderSystemLockedView();
-
-        if (!classId && !loading) {
-            const currentQuestionData = shuffledQuestions[currentQ];
-            return (
-                <div className="flex flex-col h-full">
-                    <div className="flex-grow overflow-y-auto">
-                        <p className="text-center text-sm text-blue-600 bg-blue-50 p-2 rounded-md mb-4">This is a teacher preview.</p>
-                        {currentQuestionData ? (
-                                <div className="mb-4 p-4 border rounded-lg">
-                                    <div className="font-semibold flex items-start">
-                                        <span>{currentQ + 1}.&nbsp;</span>
-                                        <ContentRenderer text={currentQuestionData.text} />
-                                    </div>
-                                    
-                                    <div className="mt-4 space-y-2">
-                                        {currentQuestionData.type === 'multiple-choice' && currentQuestionData.options?.map((option, idx) => (
-                                            <div key={idx} className={`flex items-center p-2 rounded-md text-sm ${option.isCorrect ? 'bg-green-100 text-green-800 font-semibold ring-1 ring-green-300' : 'bg-gray-100'}`}>
-                                                {option.isCorrect && <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />}
-                                                <ContentRenderer text={option.text} />
+    
+    const renderTeacherPreview = () => {
+        const currentQuestionData = shuffledQuestions[currentQ];
+        return (
+            <div className="flex flex-col h-full">
+                <div className="flex-grow overflow-y-auto">
+                    {currentQuestionData ? (
+                            <div className="mb-4 p-4 border rounded-lg bg-gray-50">
+                                <div className="font-semibold flex items-start text-lg">
+                                    <span>{currentQ + 1}.&nbsp;</span>
+                                    <ContentRenderer text={currentQuestionData.text} />
+                                </div>
+                                
+                                <div className="mt-4 space-y-2">
+                                    {currentQuestionData.type === 'multiple-choice' && currentQuestionData.options?.map((option, idx) => (
+                                        <div key={idx} className={`flex items-center p-2 rounded-md text-sm ${option.isCorrect ? 'bg-green-100 text-green-800 font-semibold ring-1 ring-green-300' : 'bg-gray-100'}`}>
+                                            {option.isCorrect && <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />}
+                                            <ContentRenderer text={option.text} />
+                                        </div>
+                                    ))}
+                                    {currentQuestionData.type === 'true-false' && (
+                                        <>
+                                            <div className={`flex items-center p-2 rounded-md text-sm ${currentQuestionData.correctAnswer === true ? 'bg-green-100 text-green-800 font-semibold ring-1 ring-green-300' : 'bg-gray-100'}`}>
+                                                {currentQuestionData.correctAnswer === true && <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />}
+                                                True
                                             </div>
-                                        ))}
-                                        {currentQuestionData.type === 'true-false' && (
-                                            <>
-                                                <div className={`flex items-center p-2 rounded-md text-sm ${currentQuestionData.correctAnswer === true ? 'bg-green-100 text-green-800 font-semibold ring-1 ring-green-300' : 'bg-gray-100'}`}>
-                                                    {currentQuestionData.correctAnswer === true && <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />}
-                                                    True
-                                                </div>
-                                                <div className={`flex items-center p-2 rounded-md text-sm ${currentQuestionData.correctAnswer === false ? 'bg-green-100 text-green-800 font-semibold ring-1 ring-green-300' : 'bg-gray-100'}`}>
-                                                    {currentQuestionData.correctAnswer === false && <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />}
-                                                    False
-                                                </div>
-                                            </>
-                                        )}
-                                        {currentQuestionData.type === 'identification' && (
-                                            <div className="flex items-center p-2 rounded-md text-sm bg-green-100 text-green-800 font-semibold ring-1 ring-green-300">
-                                                <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />
-                                                Correct Answer: <ContentRenderer text={currentQuestionData.correctAnswer} />
+                                            <div className={`flex items-center p-2 rounded-md text-sm ${currentQuestionData.correctAnswer === false ? 'bg-green-100 text-green-800 font-semibold ring-1 ring-green-300' : 'bg-gray-100'}`}>
+                                                {currentQuestionData.correctAnswer === false && <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />}
+                                                False
                                             </div>
-                                        )}
-                                    </div>
-                                    
-                                    {currentQuestionData.explanation && (
-                                        <div className="mt-4 pt-3 border-t">
-                                            <div className="flex items-start">
-                                                <InformationCircleIcon className="h-5 w-5 text-gray-500 mr-2 mt-0.5 flex-shrink-0" />
-                                                <div className="text-sm text-gray-700">
-                                                    <ContentRenderer text={currentQuestionData.explanation} />
-                                                </div>
-                                            </div>
+                                        </>
+                                    )}
+                                    {currentQuestionData.type === 'identification' && (
+                                        <div className="flex items-center p-2 rounded-md text-sm bg-green-100 text-green-800 font-semibold ring-1 ring-green-300">
+                                            <CheckCircleIcon className="h-4 w-4 mr-2 text-green-600" />
+                                            Correct Answer: <ContentRenderer text={currentQuestionData.correctAnswer} />
                                         </div>
                                     )}
                                 </div>
-                        ) : (
-                            <p>This quiz has no questions.</p>
-                        )}
-                    </div>
-                     <div className="flex-shrink-0 flex justify-between items-center pt-4 mt-4 border-t">
-                        <Button icon={ArrowLeftIcon} onClick={() => setCurrentQ(prev => Math.max(0, prev - 1))} disabled={currentQ === 0}>Previous</Button>
-                        <span className="text-sm font-medium text-gray-600">Question {currentQ + 1} of {totalQuestions}</span>
-                        <Button icon={ArrowRightIcon} iconPosition="right" onClick={() => setCurrentQ(prev => Math.min(totalQuestions - 1, prev + 1))} disabled={currentQ === totalQuestions - 1}>Next</Button>
-                    </div>
+                                
+                                {currentQuestionData.explanation && (
+                                    <div className="mt-4 pt-3 border-t">
+                                        <div className="flex items-start">
+                                            <InformationCircleIcon className="h-5 w-5 text-gray-500 mr-2 mt-0.5 flex-shrink-0" />
+                                            <div className="text-sm text-gray-700">
+                                                <ContentRenderer text={currentQuestionData.explanation} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                    ) : (
+                        <p className="text-center text-gray-500">This quiz has no questions.</p>
+                    )}
                 </div>
-            );
-        }
-        
+                 <div className="flex-shrink-0 flex justify-between items-center pt-4 mt-4 border-t">
+                    <Button icon={ArrowLeftIcon} onClick={() => setCurrentQ(prev => Math.max(0, prev - 1))} disabled={currentQ === 0}>Previous</Button>
+                    <span className="text-sm font-medium text-gray-600">Question {currentQ + 1} of {totalQuestions}</span>
+                    <Button icon={ArrowRightIcon} iconPosition="right" onClick={() => setCurrentQ(prev => Math.min(totalQuestions - 1, prev + 1))} disabled={currentQ === totalQuestions - 1}>Next</Button>
+                </div>
+            </div>
+        );
+    };
+
+    const renderContent = () => {
+        if (loading) return <Spinner />;
+        if (isTeacherView) return renderTeacherPreview();
+        if (isLocked) return renderSystemLockedView();
+
         if (!hasAttemptsLeft) return renderNoAttemptsLeftView();
         if (finalScore !== null) return renderResults();
         if (totalQuestions === 0) return <p className="text-center text-gray-500">This quiz has no questions.</p>;
@@ -420,18 +435,25 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
             <DialogPanel className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
                 <div className="flex justify-between items-start">
                     <Title className="mb-4">{quiz.title}</Title>
-                    {classId && !isLocked && hasAttemptsLeft && finalScore === null && (
+                    {/* MODIFIED: Show warnings only if it's a student view */}
+                    {!isTeacherView && classId && !isLocked && hasAttemptsLeft && finalScore === null && (
                         <div className="flex items-center gap-2 text-yellow-600 bg-yellow-100 border border-yellow-300 px-3 py-1 rounded-full">
                             <ShieldExclamationIcon className="w-5 h-5"/>
                             <span className="text-sm font-medium">Warnings: {warnings} / 3</span>
                         </div>
                     )}
                 </div>
+                {/* MODIFIED: Added a distinct banner for teacher view */}
+                {isTeacherView && (
+                    <p className="teacher-preview-banner text-center text-sm font-semibold text-blue-700 bg-blue-100 p-2 rounded-md mb-4">
+                        Teacher Preview - Anti-cheating features are disabled.
+                    </p>
+                )}
                 <div className="min-h-[250px]">
                     {renderContent()}
                 </div>
                 <div className="flex justify-end gap-2 mt-4">
-                    <Button variant="primary" onClick={handleClose}>Close</Button>
+                    <Button variant="primary" onClick={onClose}>Close</Button>
                 </div>
             </DialogPanel>
         </Dialog>

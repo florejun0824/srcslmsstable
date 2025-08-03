@@ -114,39 +114,40 @@ const StudentQuizzesTab = ({ classes, userProfile, isModule = false }) => {
     const filteredQuizzes = quizzes.filter(quiz => quiz.status === quizFilter);
     const activeQuizzes = quizzes.filter(quiz => quiz.status === 'active');
 
+    // Updated tab classes for a pill/segmented look with icons
     const getTabClasses = (tabName) => `
-        px-4 py-2 font-semibold text-sm rounded-lg transition-all duration-200
+        flex items-center gap-2 px-5 py-2 font-semibold text-sm rounded-full transition-all duration-300 shadow-sm
         ${quizFilter === tabName
-            ? 'bg-indigo-600 text-white shadow'
-            : 'bg-white hover:bg-slate-100 text-slate-600'
+            ? 'bg-indigo-700 text-white shadow-lg'
+            : 'bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700'
         }
     `;
 
     if (loading && !isModule) return <div className="flex justify-center p-10"><Spinner /></div>;
 
     const EmptyState = ({icon: Icon, text, subtext}) => (
-        <div className="text-center py-10 px-4 bg-slate-100 rounded-lg">
-            <Icon className="h-12 w-12 mx-auto text-slate-400" />
-            <p className="mt-4 text-md font-semibold text-slate-600">{text}</p>
-            <p className="mt-1 text-sm text-slate-400">{subtext}</p>
+        <div className="text-center py-16 px-6 bg-slate-50 rounded-xl">
+            <Icon className="h-16 w-16 mx-auto text-slate-300" />
+            <p className="mt-6 text-xl font-semibold text-slate-500">{text}</p>
+            <p className="mt-2 text-md text-slate-400">{subtext}</p>
         </div>
     );
     
     if (isModule) {
         return (
-            <div className="bg-white/60 p-6 rounded-2xl border border-slate-200/80 backdrop-blur-xl h-full flex flex-col">
-                <h2 className="text-2xl font-bold text-slate-800 mb-4">Upcoming Quizzes</h2>
+            <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 h-full flex flex-col">
+                <h2 className="text-3xl font-extrabold text-slate-800 mb-6">Upcoming Quizzes</h2>
                 {loading ? <div className="flex-1 flex items-center justify-center"><Spinner/></div> :
-                <div className="flex-1 space-y-3 overflow-y-auto">
+                <div className="flex-1 space-y-4 overflow-y-auto">
                     {activeQuizzes.length > 0 ? (
                         activeQuizzes.slice(0, 3).map(quiz => (
                             <QuizListItem key={quiz.uniqueId} quiz={quiz} onClick={() => setViewQuizData(quiz)} />
                         ))
                     ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-center p-4 bg-slate-100/50 rounded-lg">
-                             <CheckCircleIcon className="h-10 w-10 mx-auto text-green-500" />
-                             <p className="mt-3 text-md font-semibold text-slate-600">All caught up!</p>
-                             <p className="mt-1 text-xs text-slate-400">No active quizzes right now.</p>
+                        <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-green-50/70 rounded-xl">
+                             <CheckCircleIcon className="h-14 w-14 mx-auto text-green-500" />
+                             <p className="mt-4 text-xl font-bold text-slate-700">All caught up!</p>
+                             <p className="mt-2 text-md text-slate-500">No active quizzes right now.</p>
                         </div>
                     )}
                 </div>
@@ -157,19 +158,25 @@ const StudentQuizzesTab = ({ classes, userProfile, isModule = false }) => {
     
     return (
         <>
-            <div className="bg-white/60 p-6 rounded-2xl border border-slate-200/80 backdrop-blur-xl max-w-5xl mx-auto">
-                <div className="flex items-center gap-4 mb-6">
-                    <ClipboardDocumentCheckIcon className="h-8 w-8 text-indigo-600" />
-                    <h1 className="text-3xl font-bold text-slate-900">My Quizzes</h1>
+            <div className="bg-white/60 p-8 rounded-3xl border border-slate-200/80 backdrop-blur-xl max-w-5xl mx-auto shadow-lg">
+                <div className="flex items-center gap-5 mb-8">
+                    <ClipboardDocumentCheckIcon className="h-10 w-10 text-indigo-700" />
+                    <h1 className="text-4xl font-extrabold text-slate-900">My Quizzes</h1>
                 </div>
 
-                <nav className="flex flex-wrap gap-3 mb-6 p-2 bg-slate-100 rounded-xl">
-                    <button onClick={() => setQuizFilter('active')} className={getTabClasses('active')}>Active</button>
-                    <button onClick={() => setQuizFilter('completed')} className={getTabClasses('completed')}>Completed</button>
-                    <button onClick={() => setQuizFilter('overdue')} className={getTabClasses('overdue')}>Overdue</button>
+                <nav className="flex flex-wrap gap-4 mb-8 p-3 bg-slate-100 rounded-2xl shadow-inner">
+                    <button onClick={() => setQuizFilter('active')} className={getTabClasses('active')}>
+                        <AcademicCapIcon className="h-5 w-5" /> Active
+                    </button>
+                    <button onClick={() => setQuizFilter('completed')} className={getTabClasses('completed')}>
+                        <CheckCircleIcon className="h-5 w-5" /> Completed
+                    </button>
+                    <button onClick={() => setQuizFilter('overdue')} className={getTabClasses('overdue')}>
+                        <ExclamationTriangleIcon className="h-5 w-5" /> Overdue
+                    </button>
                 </nav>
 
-                <div className="space-y-4">
+                <div className="space-y-5 min-h-[300px]"> {/* Added min-height for consistent layout */}
                     {filteredQuizzes.length > 0 ? (
                         filteredQuizzes.map(quiz => (
                             <QuizListItem key={quiz.uniqueId} quiz={quiz} onClick={() => setViewQuizData(quiz)} />
@@ -178,7 +185,7 @@ const StudentQuizzesTab = ({ classes, userProfile, isModule = false }) => {
                         <EmptyState 
                             icon={quizFilter === 'active' ? CheckCircleIcon : ExclamationTriangleIcon}
                             text={`No ${quizFilter} quizzes.`}
-                            subtext={quizFilter === 'active' ? "You're all caught up!" : "Nothing to see here."}
+                            subtext={quizFilter === 'active' ? "You're all caught up and ready for new challenges!" : "No items to display in this category."}
                         />
                     )}
                 </div>
@@ -197,25 +204,29 @@ const StudentQuizzesTab = ({ classes, userProfile, isModule = false }) => {
 
 const QuizListItem = ({ quiz, onClick }) => {
     const statusStyles = {
-        active: { border: "border-sky-500", icon: AcademicCapIcon, iconColor: "text-sky-600" },
-        completed: { border: "border-green-500", icon: CheckCircleIcon, iconColor: "text-green-600" },
-        overdue: { border: "border-red-500", icon: ClockIcon, iconColor: "text-red-600" },
+        active: { border: "border-sky-500", iconBg: "bg-sky-100", iconColor: "text-sky-600", icon: AcademicCapIcon },
+        completed: { border: "border-green-500", iconBg: "bg-green-100", iconColor: "text-green-600", icon: CheckCircleIcon },
+        overdue: { border: "border-red-500", iconBg: "bg-red-100", iconColor: "text-red-600", icon: ClockIcon },
     };
-    const { border, icon: Icon, iconColor } = statusStyles[quiz.status];
+    const { border, iconBg, iconColor, icon: Icon } = statusStyles[quiz.status];
 
     return (
          <div
             onClick={onClick}
-            className={`group relative p-4 rounded-lg bg-white hover:bg-slate-50 border ${border} transition-all duration-200 cursor-pointer flex items-center space-x-4 shadow-sm`}
+            className={`group relative p-5 rounded-2xl bg-white hover:bg-slate-50 border-l-4 ${border} transition-all duration-200 cursor-pointer flex items-center space-x-5 shadow-md hover:shadow-lg transform hover:-translate-y-1`}
         >
-            <Icon className={`h-6 w-6 flex-shrink-0 ${iconColor}`} />
-            <div className="flex-1 min-w-0">
-                <h2 className="text-md font-semibold text-slate-800 truncate">{quiz.title}</h2>
-                <p className="text-sm text-slate-500 font-normal truncate">{quiz.context}</p>
+            <div className={`p-2 rounded-full ${iconBg}`}>
+                <Icon className={`h-7 w-7 flex-shrink-0 ${iconColor}`} />
             </div>
+            
+            <div className="flex-1 min-w-0">
+                <h2 className="text-xl font-bold text-slate-900 leading-tight">{quiz.title}</h2>
+                <p className="text-sm text-slate-600 font-medium mt-0.5">{quiz.context}</p>
+            </div>
+
             {quiz.availableUntil && (
-                <div className={`text-sm flex items-center self-start ${quiz.status === 'overdue' ? 'text-red-600' : 'text-slate-500'}`}>
-                    <ClockIcon className="h-4 w-4 mr-1.5" />
+                <div className={`text-sm flex items-center self-start flex-shrink-0 ml-auto pl-4 border-l border-slate-200 ${quiz.status === 'overdue' ? 'text-red-700 font-bold' : 'text-slate-500'}`}>
+                    <ClockIcon className="h-5 w-5 mr-2" />
                     <span>Due: {quiz.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                 </div>
             )}

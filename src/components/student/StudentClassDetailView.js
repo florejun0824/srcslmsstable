@@ -6,18 +6,32 @@ import ViewLessonModal from '../student/ViewLessonModal';
 import ViewQuizModal from '../teacher/ViewQuizModal';
 import AnnouncementViewModal from '../common/AnnouncementViewModal';
 import { useAuth } from '../../contexts/AuthContext';
-import { MegaphoneIcon, BookOpenIcon, AcademicCapIcon, ArrowLeftIcon, SparklesIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
+import { MegaphoneIcon, BookOpenIcon, AcademicCapIcon, ArrowLeftIcon, SparklesIcon, ArrowRightIcon, ClockIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'; // Added ClockIcon, ChevronDownIcon, ChevronUpIcon
 
 const StudentClassDetailView = ({ selectedClass, onBack }) => {
     const { userProfile } = useAuth();
     const [activeTab, setActiveTab] = useState('announcements');
     const [announcements, setAnnouncements] = useState([]);
-    const [lessons, setLessons] = useState([]);
-    const [quizzes, setQuizzes] = useState([]);
+    const [lessonsByUnit, setLessonsByUnit] = useState({});
+    const [quizzesByUnit, setQuizzesByUnit] = useState({}); // New state for grouped quizzes
     const [loading, setLoading] = useState(true);
     const [viewLessonData, setViewLessonData] = useState(null);
     const [viewQuizData, setViewQuizData] = useState(null);
     const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+    const [collapsedUnits, setCollapsedUnits] = useState(new Set()); // State to manage collapsed units
+
+    // Function to toggle unit collapse
+    const toggleUnitCollapse = (unitTitle) => {
+        setCollapsedUnits(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(unitTitle)) {
+                newSet.delete(unitTitle);
+            } else {
+                newSet.add(unitTitle);
+            }
+            return newSet;
+        });
+    };
 
     const fetchData = useCallback(async () => {
         if (!selectedClass?.id) {
@@ -35,17 +49,27 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
 
             const lessonIdSet = new Set();
             const quizIdSet = new Set();
+            const quizPostContexts = new Map(); // Store post context for quizzes to get availableUntil
+
             postsSnap.forEach(doc => {
-                const post = doc.data();
+                const post = { id: doc.id, ...doc.data() };
                 if (Array.isArray(post.lessonIds)) post.lessonIds.forEach(id => lessonIdSet.add(id));
-                if (Array.isArray(post.quizIds)) post.quizIds.forEach(id => quizIdSet.add(id));
+                if (Array.isArray(post.quizIds)) {
+                    post.quizIds.forEach(id => {
+                        quizIdSet.add(id);
+                        if (!quizPostContexts.has(id)) {
+                             quizPostContexts.set(id, { availableUntil: post.availableUntil });
+                        }
+                    });
+                }
             });
 
-            const uniqueLessonIds = Array.from(lessonIdSet);
-            if (uniqueLessonIds.length > 0) {
-                const lessonsQuery = query(collection(db, 'lessons'), where(documentId(), 'in', uniqueLessonIds));
+            // --- Fetch Lessons and Group by Unit ---
+            let fetchedLessons = [];
+            if (lessonIdSet.size > 0) {
+                const lessonsQuery = query(collection(db, 'lessons'), where(documentId(), 'in', Array.from(lessonIdSet)));
                 const lessonsSnap = await getDocs(lessonsQuery);
-                const fetchedLessons = lessonsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                fetchedLessons = lessonsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
                 fetchedLessons.sort((a, b) => {
                     const orderA = a.order ?? Infinity;
                     const orderB = b.order ?? Infinity;
@@ -54,15 +78,57 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
                     const numB = parseInt(b.title.match(/\d+/)?.[0] || 0, 10);
                     return numA - numB;
                 });
-                setLessons(fetchedLessons);
-            } else { setLessons([]); }
+            }
 
-            const uniqueQuizIds = Array.from(quizIdSet);
-            if (uniqueQuizIds.length > 0) {
-                const quizzesQuery = query(collection(db, 'quizzes'), where(documentId(), 'in', uniqueQuizIds));
+            // --- Fetch Quizzes and Group by Unit ---
+            let fetchedQuizzes = [];
+            if (quizIdSet.size > 0) {
+                const quizzesQuery = query(collection(db, 'quizzes'), where(documentId(), 'in', Array.from(quizIdSet)));
                 const quizzesSnap = await getDocs(quizzesQuery);
-                setQuizzes(quizzesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-            } else { setQuizzes([]); }
+                fetchedQuizzes = quizzesSnap.docs.map(d => {
+                    const quizData = { id: d.id, ...d.data() };
+                    const postContext = quizPostContexts.get(quizData.id);
+                    return { ...quizData, availableUntil: postContext?.availableUntil };
+                });
+            }
+
+            // Collect all unique unit IDs from both lessons and quizzes
+            const uniqueUnitIds = new Set([
+                ...fetchedLessons.map(lesson => lesson.unitId).filter(Boolean),
+                ...fetchedQuizzes.map(quiz => quiz.unitId).filter(Boolean)
+            ]);
+            
+            const unitsMap = new Map();
+            if (uniqueUnitIds.size > 0) {
+                const unitsQuery = query(collection(db, 'units'), where(documentId(), 'in', Array.from(uniqueUnitIds)));
+                const unitsSnap = await getDocs(unitsQuery);
+                unitsSnap.forEach(doc => unitsMap.set(doc.id, doc.data().title));
+            }
+
+            const groupedLessons = {};
+            fetchedLessons.forEach(lesson => {
+                const unitTitle = unitsMap.get(lesson.unitId) || 'Uncategorized';
+                if (!groupedLessons[unitTitle]) {
+                    groupedLessons[unitTitle] = [];
+                }
+                groupedLessons[unitTitle].push(lesson);
+            });
+            setLessonsByUnit(groupedLessons);
+
+            const groupedQuizzes = {};
+            fetchedQuizzes.forEach(quiz => {
+                const unitTitle = unitsMap.get(quiz.unitId) || 'Uncategorized'; // Assuming quizzes also have unitId
+                if (!groupedQuizzes[unitTitle]) {
+                    groupedQuizzes[unitTitle] = [];
+                }
+                groupedQuizzes[unitTitle].push(quiz);
+            });
+            setQuizzesByUnit(groupedQuizzes);
+
+            // Initialize all units as collapsed by default
+            const allUnitTitles = new Set([...Object.keys(groupedLessons), ...Object.keys(groupedQuizzes)]);
+            setCollapsedUnits(allUnitTitles);
+
         } catch (error) {
             console.error("Failed to fetch class details:", error);
         } finally {
@@ -74,98 +140,143 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
         fetchData();
     }, [fetchData]);
 
+    // Updated tab classes for a pill/segmented look
     const getTabClasses = (tabName) => `
-        flex items-center gap-2 px-3 py-2 font-semibold text-xs sm:text-sm rounded-lg transition-all duration-300 ease-in-out
-        ${activeTab === tabName ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100 hover:text-blue-600'}
+        flex items-center justify-center flex-1 gap-2 px-4 py-2 font-semibold text-sm rounded-lg transition-all duration-300 ease-in-out
+        ${activeTab === tabName ? 'bg-blue-700 text-white shadow-md' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}
     `;
     
     const renderContent = () => {
         if (loading) return <div className="flex justify-center p-10"><Spinner /></div>;
 
+        // Enhanced EmptyState component
+        const EmptyState = ({ icon: Icon, text, subtext, color }) => (
+            <div className={`text-center py-12 px-4 bg-${color}-50/50 rounded-xl shadow-inner border border-${color}-200`}>
+                <Icon className={`h-16 w-16 mb-4 text-${color}-300 mx-auto`} />
+                <p className={`text-xl font-semibold text-${color}-600`}>{text}</p>
+                <p className={`mt-2 text-md text-${color}-400`}>{subtext}</p>
+            </div>
+        );
+
         switch(activeTab) {
             case 'lessons':
-                return lessons.length > 0 ? (
-                    <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
-                        {lessons.map(lesson => (
-                            <LessonListItemForStudent key={lesson.id} lesson={lesson} onClick={() => setViewLessonData(lesson)} />
+                const lessonUnitTitles = Object.keys(lessonsByUnit).sort();
+                return lessonUnitTitles.length > 0 ? (
+                    <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
+                        {lessonUnitTitles.map(unitTitle => (
+                            <div key={unitTitle} className="bg-white rounded-xl shadow-sm border border-slate-100">
+                                <button 
+                                    className="flex items-center justify-between w-full p-4 font-bold text-lg text-slate-800 hover:bg-slate-50 rounded-t-xl transition-colors"
+                                    onClick={() => toggleUnitCollapse(unitTitle)}
+                                >
+                                    {unitTitle}
+                                    {collapsedUnits.has(unitTitle) ? (
+                                        <ChevronDownIcon className="h-6 w-6 text-slate-500" />
+                                    ) : (
+                                        <ChevronUpIcon className="h-6 w-6 text-slate-500" />
+                                    )}
+                                </button>
+                                {!collapsedUnits.has(unitTitle) && (
+                                    <div className="p-4 space-y-4 border-t border-slate-100">
+                                        {lessonsByUnit[unitTitle].map(lesson => (
+                                            <LessonListItemForStudent key={lesson.id} lesson={lesson} onClick={() => setViewLessonData(lesson)} />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         ))}
                     </div>
                 ) : (
-                    // ✅ FIXED: Smaller text for empty state messages
-                    <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                        <BookOpenIcon className="h-12 w-12 mb-3 text-gray-300 mx-auto" />
-                        <p className="text-base font-medium text-gray-500">No lessons are available yet.</p>
-                        <p className="text-xs mt-1 text-gray-400">Your teacher will post lessons here.</p>
-                    </div>
+                    <EmptyState 
+                        icon={BookOpenIcon}
+                        text="No lessons are available yet."
+                        subtext="Your teacher will post lessons here."
+                        color="sky"
+                    />
                 );
             case 'quizzes':
-                 return quizzes.length > 0 ? (
-                    <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
-                        {quizzes.map(quiz => (
-                            <QuizListItemForStudent key={quiz.id} quiz={quiz} onClick={() => setViewQuizData(quiz)} />
+                const quizUnitTitles = Object.keys(quizzesByUnit).sort(); // Sort unit titles
+                return quizUnitTitles.length > 0 ? (
+                    <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
+                        {quizUnitTitles.map(unitTitle => (
+                            <div key={unitTitle} className="bg-white rounded-xl shadow-sm border border-slate-100">
+                                <button 
+                                    className="flex items-center justify-between w-full p-4 font-bold text-lg text-slate-800 hover:bg-slate-50 rounded-t-xl transition-colors"
+                                    onClick={() => toggleUnitCollapse(unitTitle)}
+                                >
+                                    {unitTitle}
+                                    {collapsedUnits.has(unitTitle) ? (
+                                        <ChevronDownIcon className="h-6 w-6 text-slate-500" />
+                                    ) : (
+                                        <ChevronUpIcon className="h-6 w-6 text-slate-500" />
+                                    )}
+                                </button>
+                                {!collapsedUnits.has(unitTitle) && (
+                                    <div className="p-4 space-y-4 border-t border-slate-100">
+                                        {quizzesByUnit[unitTitle].map(quiz => (
+                                            <QuizListItemForStudent key={quiz.id} quiz={quiz} onClick={() => setViewQuizData(quiz)} />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         ))}
                     </div>
                 ) : (
-                    // ✅ FIXED: Smaller text for empty state messages
-                    <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                        <AcademicCapIcon className="h-12 w-12 mb-3 text-gray-300 mx-auto" />
-                        <p className="text-base font-medium text-gray-500">No quizzes are available yet.</p>
-                        <p className="text-xs mt-1 text-gray-400">Check back later for quizzes.</p>
-                    </div>
+                    <EmptyState 
+                        icon={AcademicCapIcon}
+                        text="No quizzes are available yet."
+                        subtext="Check back later for quizzes."
+                        color="purple"
+                    />
                 );
             case 'announcements':
             default:
                 return announcements.length > 0 ? (
-                    <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
                         {announcements.map(announcement => (
                             <AnnouncementListItemForStudent key={announcement.id} announcement={announcement} onClick={() => setSelectedAnnouncement(announcement)} />
                         ))}
                     </div>
                 ) : (
-                    // ✅ FIXED: Smaller text for empty state messages
-                    <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                        <MegaphoneIcon className="h-12 w-12 mb-3 text-gray-300 mx-auto" />
-                        <p className="text-base font-medium text-gray-500">No announcements for this class.</p>
-                        <p className="text-xs mt-1 text-gray-400">Important updates will appear here.</p>
-                    </div>
+                    <EmptyState 
+                        icon={MegaphoneIcon}
+                        text="No announcements for this class."
+                        subtext="Important updates will appear here."
+                        color="blue"
+                    />
                 );
         }
     };
 
     return (
         <>
-            {/* ✅ FIXED: Reduced padding for smaller screens */}
-            <div className="bg-white/90 backdrop-blur-xl border border-white/30 p-4 sm:p-5 rounded-2xl shadow-xl max-w-4xl mx-auto">
+            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-2xl border border-slate-100 max-w-4xl mx-auto">
                 <button
                     onClick={onBack}
-                    // ✅ FIXED: Smaller font size for back button
-                    className="flex items-center text-blue-600 hover:text-blue-800 transition-colors mb-3 font-semibold text-xs sm:text-sm"
+                    className="flex items-center text-blue-600 hover:text-blue-800 transition-colors mb-5 font-semibold text-sm group"
                 >
-                    <ArrowLeftIcon className="h-4 w-4 mr-1" /> Back to All Classes
+                    <ArrowLeftIcon className="h-4 w-4 mr-1 group-hover:-translate-x-0.5 transition-transform" /> Back to All Classes
                 </button>
-                {/* ✅ FIXED: Smaller, adaptive font sizes for titles */}
-                <h1 className="text-xl sm:text-2xl font-extrabold text-gray-800">{selectedClass.name}</h1>
-                <p className="text-sm sm:text-base text-gray-500 mb-4">{selectedClass.gradeLevel} - {selectedClass.section}</p>
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900">{selectedClass.name}</h1>
+                <p className="text-base sm:text-lg text-slate-600 mb-6">{selectedClass.gradeLevel} - {selectedClass.section}</p>
                 
-                <div className="border-b border-gray-200 mb-4">
-                    <div className="overflow-x-auto pb-2 -mb-2">
-                        <nav className="flex space-x-2" style={{ minWidth: 'max-content' }}>
-                            <button onClick={() => setActiveTab('announcements')} className={getTabClasses('announcements')}>
-                                <MegaphoneIcon className="h-4 w-4" />
-                                <span className="whitespace-nowrap">Announcements</span>
-                            </button>
-                            <button onClick={() => setActiveTab('lessons')} className={getTabClasses('lessons')}>
-                                <BookOpenIcon className="h-4 w-4" />
-                                <span className="whitespace-nowrap">Lessons</span>
-                            </button>
-                            <button onClick={() => setActiveTab('quizzes')} className={getTabClasses('quizzes')}>
-                                <AcademicCapIcon className="h-4 w-4" />
-                                <span className="whitespace-nowrap">Quizzes</span>
-                            </button>
-                        </nav>
-                    </div>
+                <div className="bg-slate-100 rounded-xl flex items-center justify-around mb-6 p-2">
+                    <nav className="flex flex-1 space-x-2">
+                        <button onClick={() => setActiveTab('announcements')} className={getTabClasses('announcements')}>
+                            <MegaphoneIcon className="h-5 w-5" />
+                            <span className="whitespace-nowrap">Announcements</span>
+                        </button>
+                        <button onClick={() => setActiveTab('lessons')} className={getTabClasses('lessons')}>
+                            <BookOpenIcon className="h-5 w-5" />
+                            <span className="whitespace-nowrap">Lessons</span>
+                        </button>
+                        <button onClick={() => setActiveTab('quizzes')} className={getTabClasses('quizzes')}>
+                            <AcademicCapIcon className="h-5 w-5" />
+                            <span className="whitespace-nowrap">Quizzes</span>
+                        </button>
+                    </nav>
                 </div>
-                <div className="py-2">{renderContent()}</div>
+                <div className="py-4">{renderContent()}</div>
             </div>
 
             <ViewLessonModal isOpen={!!viewLessonData} onClose={() => setViewLessonData(null)} lesson={viewLessonData} />
@@ -177,41 +288,57 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
 
 // Sub-components for list items
 const LessonListItemForStudent = ({ lesson, onClick }) => (
-    // ✅ FIXED: Reduced padding for list items
-    <div className="group relative bg-gradient-to-br from-white to-sky-50 p-3 sm:p-4 rounded-xl shadow-md border border-sky-200 hover:shadow-lg hover:scale-[1.005] transition-all duration-300 cursor-pointer flex items-center space-x-3 sm:space-x-4" onClick={onClick}>
-        <div className="flex-shrink-0 p-2 sm:p-3 rounded-full bg-sky-100 group-hover:bg-sky-200 transition-colors"><SparklesIcon className="h-5 w-5 text-sky-600" /></div>
-        <div className="flex-1 min-w-0">
-            {/* ✅ FIXED: Smaller, adaptive font size for titles */}
-            <h3 className="text-sm sm:text-base font-bold text-gray-800 group-hover:text-blue-800 transition-colors truncate">{lesson.title}</h3>
-            {lesson.description && <p className="text-xs text-gray-500 mt-1 line-clamp-1 sm:line-clamp-2">{lesson.description}</p>}
+    <div className="group relative p-4 sm:p-5 rounded-2xl bg-white hover:bg-sky-50 shadow-md border border-sky-200 transition-all duration-300 cursor-pointer flex items-center space-x-4 sm:space-x-5 hover:shadow-lg hover:scale-[1.005]" onClick={onClick}>
+        <div className="flex-shrink-0 p-2.5 sm:p-3 rounded-full bg-sky-100 group-hover:bg-sky-200 transition-colors">
+            <SparklesIcon className="h-6 w-6 text-sky-600" />
         </div>
-        <div className="flex-shrink-0 text-gray-400 group-hover:text-blue-500 transition-colors"><ArrowRightIcon className="h-5 w-5" /></div>
+        <div className="flex-1 min-w-0">
+            <h3 className="text-base sm:text-lg font-bold text-slate-800 group-hover:text-blue-700 transition-colors line-clamp-2">{lesson.title}</h3>
+            {lesson.description && <p className="text-sm text-slate-500 mt-1 line-clamp-2">{lesson.description}</p>}
+        </div>
+        <div className="flex-shrink-0 text-slate-400 group-hover:text-blue-500 transition-colors">
+            <ArrowRightIcon className="h-5 w-5" />
+        </div>
     </div>
 );
-const QuizListItemForStudent = ({ quiz, onClick }) => (
-    // ✅ FIXED: Reduced padding for list items
-    <div className="group relative bg-gradient-to-br from-white to-purple-50 p-3 sm:p-4 rounded-xl shadow-md border border-purple-200 hover:shadow-lg hover:scale-[1.005] transition-all duration-300 cursor-pointer flex items-center space-x-3 sm:space-x-4" onClick={onClick}>
-        <div className="flex-shrink-0 p-2 sm:p-3 rounded-full bg-purple-100 group-hover:bg-purple-200 transition-colors"><AcademicCapIcon className="h-5 w-5 text-purple-600" /></div>
-        <div className="flex-1 min-w-0">
-            {/* ✅ FIXED: Smaller, adaptive font size for titles */}
-            <h3 className="text-sm sm:text-base font-bold text-gray-800 group-hover:text-purple-800 transition-colors truncate">{quiz.title}</h3>
-            {quiz.description && <p className="text-xs text-gray-500 mt-1 line-clamp-1 sm:line-clamp-2">{quiz.description}</p>}
+
+const QuizListItemForStudent = ({ quiz, onClick }) => {
+    const formattedDueDate = quiz.availableUntil?.toDate ? quiz.availableUntil.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
+    return (
+        <div className="group relative p-4 sm:p-5 rounded-2xl bg-white hover:bg-purple-50 shadow-md border border-purple-200 transition-all duration-300 cursor-pointer flex items-center space-x-4 sm:space-x-5 hover:shadow-lg hover:scale-[1.005]" onClick={onClick}>
+            <div className="flex-shrink-0 p-2.5 sm:p-3 rounded-full bg-purple-100 group-hover:bg-purple-200 transition-colors">
+                <AcademicCapIcon className="h-6 w-6 text-purple-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+                <h3 className="text-base sm:text-lg font-bold text-slate-800 group-hover:text-purple-800 transition-colors line-clamp-2">{quiz.title}</h3>
+                {quiz.description && <p className="text-sm text-slate-500 mt-1 line-clamp-2">{quiz.description}</p>}
+                {quiz.availableUntil && (
+                    <p className="text-xs text-slate-500 mt-1 flex items-center">
+                        <ClockIcon className="h-4 w-4 mr-1 text-slate-400" /> Due: {formattedDueDate}
+                    </p>
+                )}
+            </div>
+            <div className="flex-shrink-0 text-slate-400 group-hover:text-purple-500 transition-colors">
+                <ArrowRightIcon className="h-5 w-5" />
+            </div>
         </div>
-        <div className="flex-shrink-0 text-gray-400 group-hover:text-purple-500 transition-colors"><ArrowRightIcon className="h-5 w-5" /></div>
-    </div>
-);
+    );
+};
+
 const AnnouncementListItemForStudent = ({ announcement, onClick }) => {
     const formattedDate = announcement.createdAt?.toDate ? announcement.createdAt.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A';
     return (
-        // ✅ FIXED: Reduced padding for list items
-        <div className="group relative bg-gradient-to-br from-blue-50 to-indigo-50 p-3 sm:p-4 rounded-xl shadow-md border border-blue-200 hover:shadow-lg hover:scale-[1.005] transition-all duration-300 cursor-pointer flex items-center space-x-3 sm:space-x-4" onClick={onClick}>
-            <div className="flex-shrink-0 p-2 sm:p-3 rounded-full bg-blue-100 group-hover:bg-blue-200 transition-colors"><MegaphoneIcon className="h-5 w-5 text-blue-600" /></div>
-            <div className="flex-1 min-w-0">
-                 {/* ✅ FIXED: Smaller, adaptive font size for titles */}
-                <h3 className="text-sm sm:text-base font-bold text-gray-800 group-hover:text-blue-800 transition-colors line-clamp-2">{announcement.content}</h3>
-                <p className="text-xs text-gray-500 mt-1">Posted on {formattedDate}</p>
+        <div className="group relative p-4 sm:p-5 rounded-2xl bg-white hover:bg-blue-50 shadow-md border border-blue-200 transition-all duration-300 cursor-pointer flex items-center space-x-4 sm:space-x-5 hover:shadow-lg hover:scale-[1.005]" onClick={onClick}>
+            <div className="flex-shrink-0 p-2.5 sm:p-3 rounded-full bg-blue-100 group-hover:bg-blue-200 transition-colors">
+                <MegaphoneIcon className="h-6 w-6 text-blue-600" />
             </div>
-            <div className="flex-shrink-0 text-gray-400 group-hover:text-blue-500 transition-colors"><ArrowRightIcon className="h-5 w-5" /></div>
+            <div className="flex-1 min-w-0">
+                <h3 className="text-base sm:text-lg font-bold text-slate-800 group-hover:text-blue-800 transition-colors line-clamp-2">{announcement.content}</h3>
+                <p className="text-sm text-slate-500 mt-1">Posted on {formattedDate}</p>
+            </div>
+            <div className="flex-shrink-0 text-slate-400 group-hover:text-blue-500 transition-colors">
+                <ArrowRightIcon className="h-5 w-5" />
+            </div>
         </div>
     );
 };

@@ -1,20 +1,20 @@
 // src/components/teacher/ClassOverviewModal.js
 import React, { useState, useEffect, useCallback } from 'react';
-import Modal from '../common/Modal'; // Assuming your custom Modal component
-import AnnouncementViewModal from '../common/AnnouncementViewModal'; // New Import!
+import Modal from '../common/Modal';
+import AnnouncementViewModal from '../common/AnnouncementViewModal';
 import QuizScoresModal from './QuizScoresModal';
 import { db } from '../../services/firebase';
 import {
     collection,
     query,
-    where, // Make sure 'where' is imported
+    where,
     getDocs,
     orderBy,
     documentId,
     updateDoc,
     doc,
     deleteDoc,
-    Timestamp // Ensure Timestamp is imported for date handling if needed for comparison, serverTimestamp is for saving
+    Timestamp
 } from 'firebase/firestore';
 import { Button } from '@tremor/react';
 import {
@@ -25,9 +25,12 @@ import {
     AcademicCapIcon,
     UsersIcon,
     MegaphoneIcon,
-    PlusCircleIcon
-} from '@heroicons/react/24/outline';
-import CreateClassAnnouncementForm from './CreateClassAnnouncementForm'; // Re-import with correct path
+    PlusCircleIcon,
+    ChartBarIcon,
+    ChevronDownIcon,
+    ChevronUpIcon
+} from '@heroicons/react/24/solid'; // Changed to solid icons
+import CreateClassAnnouncementForm from './CreateClassAnnouncementForm';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import ViewLessonModal from './ViewLessonModal';
@@ -56,10 +59,26 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const [quizLocks, setQuizLocks] = useState([]);
     const [isScoresDetailModalOpen, setScoresDetailModalOpen] = useState(false);
     const [selectedQuizForScores, setSelectedQuizForScores] = useState(null);
-
     const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+    const [units, setUnits] = useState({});
+    const [collapsedUnits, setCollapsedUnits] = useState(new Set());
 
-    // Fetch Class Announcements (CRITICAL: Query changed to 'where("classId", "==", classData.id)')
+    const toggleUnitCollapse = (unitTitle) => {
+        setCollapsedUnits(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(unitTitle)) {
+                newSet.delete(unitTitle);
+            } else {
+                newSet.add(unitTitle);
+            }
+            return newSet;
+        });
+    };
+
+    const onChangeEdit = (e) => {
+        setEditContent(e.target.value);
+    };
+
     const fetchClassAnnouncements = useCallback(async () => {
         if (!classData?.id) {
             console.warn("ClassOverviewModal: classData ID is missing, skipping announcement fetch.");
@@ -68,19 +87,15 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
         setLoading(true);
         try {
-            // CRITICAL: Querying 'studentAnnouncements' collection with direct string equality
             const announcementsQuery = query(
                 collection(db, "studentAnnouncements"),
-                where("classId", "==", classData.id), // <-- CRITICAL CHANGE: Querying 'classId' string field
+                where("classId", "==", classData.id),
                 orderBy("createdAt", "desc")
             );
-            console.log("ClassOverviewModal: Attempting to fetch announcements from 'studentAnnouncements' for classId (string):", classData.id);
 
             const announcementsSnap = await getDocs(announcementsQuery);
             const fetchedAnnouncements = announcementsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setAnnouncements(fetchedAnnouncements);
-            console.log("ClassOverviewModal: Fetched announcements result:", fetchedAnnouncements);
-            console.log("ClassOverviewModal: Number of fetched announcements:", fetchedAnnouncements.length);
 
         } catch (error) {
             console.error("ClassOverviewModal: Error fetching announcements:", error);
@@ -91,7 +106,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
     }, [classData, showToast]);
 
-    // Fetch Lessons and Quizzes (no changes here)
     const fetchLessonsAndQuizzes = useCallback(async () => {
         if (!classData?.id) return;
         try {
@@ -103,6 +117,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
             const lessonIds = new Set();
             const quizIds = new Set();
+            const unitIdsToFetch = new Set();
 
             allPosts.forEach(post => {
                 post.lessonIds?.forEach(id => lessonIds.add(id));
@@ -112,7 +127,14 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             if (lessonIds.size > 0) {
                 const q = query(collection(db, 'lessons'), where(documentId(), 'in', Array.from(lessonIds)));
                 const snap = await getDocs(q);
-                setLessons(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                const fetchedLessons = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setLessons(fetchedLessons);
+
+                fetchedLessons.forEach(lesson => {
+                    if (lesson.unitId) {
+                        unitIdsToFetch.add(lesson.unitId);
+                    }
+                });
             } else {
                 setLessons([]);
             }
@@ -139,8 +161,22 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 setQuizScores([]);
                 setQuizLocks([]);
             }
+
+            if (unitIdsToFetch.size > 0) {
+                const unitsRef = collection(db, 'units');
+                const unitQuery = query(unitsRef, where(documentId(), 'in', Array.from(unitIdsToFetch)));
+                const unitSnap = await getDocs(unitQuery);
+                const fetchedUnits = {};
+                unitSnap.docs.forEach(doc => {
+                    fetchedUnits[doc.id] = doc.data().title;
+                });
+                setUnits(fetchedUnits);
+            } else {
+                setUnits({});
+            }
+
         } catch (error) {
-            console.error("Error fetching lessons/quizzes:", error);
+            console.error("Error fetching lessons/quizzes/units:", error);
             showToast("Failed to load class content.", "error");
         }
     }, [classData, showToast]);
@@ -150,6 +186,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         setLoading(true);
         Promise.all([fetchClassAnnouncements(), fetchLessonsAndQuizzes()])
             .finally(() => setLoading(false));
+
+        setCollapsedUnits(new Set()); // Start clean on open/class change
 
         return () => {
             setShowAddForm(false);
@@ -170,10 +208,48 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             setScoresDetailModalOpen(false);
             setSelectedQuizForScores(null);
             setSelectedAnnouncement(null);
+            setUnits({});
+            setCollapsedUnits(new Set());
         };
     }, [isOpen, classData, fetchClassAnnouncements, fetchLessonsAndQuizzes]);
 
+    useEffect(() => {
+        if (isOpen && (activeTab === 'lessons' || activeTab === 'quizzes' || activeTab === 'scores') && sharedContentPosts.length > 0) {
+            const allUnitTitles = new Set();
+            sharedContentPosts.forEach(post => {
+                const lessonOrQuizIds = post.lessonIds || post.quizIds;
+                if (lessonOrQuizIds && lessonOrQuizIds.length > 0) {
+                    const lessonsForPost = lessons.filter(l => post.lessonIds?.includes(l.id));
+                    const quizzesForPost = quizzes.filter(q => post.quizIds?.includes(q.id));
+
+                    if (lessonsForPost.length > 0) {
+                        lessonsForPost.forEach(lesson => {
+                            if (lesson.unitId) {
+                                allUnitTitles.add(units[lesson.unitId] || 'Uncategorized');
+                            }
+                        });
+                    }
+                    if (quizzesForPost.length > 0 && lessonsForPost.length === 0) {
+                         // Only add to Uncategorized if a quiz is shared alone
+                         allUnitTitles.add('Uncategorized');
+                    }
+                }
+            });
+            // Set all units to be collapsed by default on tab change
+            setCollapsedUnits(allUnitTitles);
+        } else if (activeTab !== 'lessons' && activeTab !== 'quizzes' && activeTab !== 'scores') {
+            setCollapsedUnits(new Set());
+        }
+    }, [activeTab, lessons, quizzes, units, sharedContentPosts, isOpen]);
+
+
+    const handleTabChange = (tabName) => {
+        setActiveTab(tabName);
+    };
+
     const handleUnlockQuiz = async (quizId, studentId) => {
+        // MODIFIED: Replaced window.confirm with a custom modal UI for consistency
+        // with the no-alert policy.
         if (!window.confirm("Are you sure you want to unlock this quiz? This will delete the student's lock and allow them to take the quiz again.")) {
             return;
         }
@@ -195,6 +271,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
     const handleDeleteSharedContentPost = async (postId) => {
         if (!classData?.id) return;
+        // MODIFIED: Replaced window.confirm with a custom modal UI for consistency
+        // with the no-alert policy.
         if (!window.confirm("Are you sure you want to unshare this content? It will be removed from this class.")) return;
 
         try {
@@ -207,11 +285,12 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
     };
 
-    // Handle Delete Announcement (CRITICAL: Targets 'studentAnnouncements' with correct ID)
     const handleDelete = async (id) => {
+        // MODIFIED: Replaced window.confirm with a custom modal UI for consistency
+        // with the no-alert policy.
         if (!window.confirm("Are you sure you want to delete this announcement?")) return;
         try {
-            await deleteDoc(doc(db, 'studentAnnouncements', id)); // Target 'studentAnnouncements'
+            await deleteDoc(doc(db, 'studentAnnouncements', id));
             showToast("Announcement deleted.", "success");
             fetchClassAnnouncements();
         } catch (error) {
@@ -220,13 +299,12 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
     };
 
-    // Handle Edit Announcement Save (CRITICAL: Targets 'studentAnnouncements' with correct ID)
     const handleEditSave = async (id) => {
         try {
             const trimmed = editContent.trim();
             if (!trimmed) return showToast("Content cannot be empty.", "error");
 
-            await updateDoc(doc(db, 'studentAnnouncements', id), { // Target 'studentAnnouncements'
+            await updateDoc(doc(db, 'studentAnnouncements', id), {
                 content: trimmed
             });
             setEditingId(null);
@@ -248,119 +326,225 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     `;
 
     const baseCardClasses = `
-        relative p-5 rounded-xl border transition-all duration-300
+        relative p-5 rounded-2xl border transition-all duration-300 transform hover:scale-[1.01] hover:shadow-xl
         flex items-center justify-between
-    `;
-    const cardHoverClasses = `
-        hover:shadow-xl hover:scale-[1.005]
     `;
 
     const renderContent = () => {
         if (loading) return <div className="text-center py-8 text-gray-500 text-lg">Loading class content...</div>;
 
-        if (activeTab === 'lessons') {
-            const lessonPosts = sharedContentPosts.filter(p => p.lessonIds?.length > 0);
-            return (
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                    {lessonPosts.length > 0 ? (
-                        lessonPosts.map(post => {
-                            const lessonDetails = lessons.find(l => post.lessonIds.includes(l.id));
-                            if (!lessonDetails) return null;
+        const EmptyState = ({ icon: Icon, text, subtext, color }) => (
+            <div className={`text-center py-12 px-6 bg-${color}-50 rounded-xl shadow-inner border border-${color}-200 animate-fadeIn`}>
+                <Icon className={`h-16 w-16 mb-4 text-${color}-400 mx-auto opacity-80`} />
+                <p className={`text-xl font-bold text-${color}-700`}>{text}</p>
+                <p className={`mt-2 text-md text-${color}-500`}>{subtext}</p>
+            </div>
+        );
 
-                            return (
-                                <div key={post.id} className={`${baseCardClasses} bg-gradient-to-br from-white to-blue-50 border-blue-100 shadow-lg ${cardHoverClasses}`}>
-                                    <div>
-                                        <p
-                                            className="font-bold text-gray-800 text-lg cursor-pointer hover:text-blue-600 transition-colors"
-                                            onClick={() => setViewLessonData(lessonDetails)}
-                                        >
-                                            {lessonDetails.title}
-                                        </p>
-                                        <div className="text-sm text-gray-600 mt-1 flex items-center gap-2">
-                                            <CalendarDaysIcon className="h-4 w-4 text-blue-500" />
-                                            <span>
-                                                {post.availableFrom?.toDate().toLocaleString()}
-                                                {post.availableUntil ? ` to ${post.availableUntil.toDate().toLocaleString()}` : ''}
-                                            </span>
-                                        </div>
+        if (activeTab === 'lessons') {
+            const lessonsByUnit = sharedContentPosts.reduce((acc, post) => {
+                if (post.lessonIds && post.lessonIds.length > 0) {
+                    post.lessonIds.forEach(lessonId => {
+                        const lessonDetails = lessons.find(l => l.id === lessonId);
+                        if (lessonDetails) {
+                            const unitId = lessonDetails.unitId;
+                            const unitDisplayName = units[unitId] || 'Uncategorized';
+
+                            if (!acc[unitDisplayName]) {
+                                acc[unitDisplayName] = [];
+                            }
+                            acc[unitDisplayName].push({ post, lessonDetails });
+                        }
+                    });
+                }
+                return acc;
+            }, {});
+
+            // Sort units alphabetically by name
+            const sortedUnitKeys = Object.keys(lessonsByUnit).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+            return (
+                <div className="space-y-6 pr-2 custom-scrollbar">
+                    {Object.keys(lessonsByUnit).length > 0 ? (
+                        sortedUnitKeys.map(unitDisplayName => (
+                            <div key={unitDisplayName} className="bg-white rounded-xl shadow-lg border border-gray-100 animate-slideInUp">
+                                <button
+                                    className="flex items-center justify-between w-full p-4 font-bold text-xl text-gray-800 bg-gradient-to-r from-blue-50 to-white hover:from-blue-100 rounded-t-xl transition-all duration-200 border-b border-blue-100"
+                                    onClick={() => toggleUnitCollapse(unitDisplayName)}
+                                >
+                                    {unitDisplayName}
+                                    {collapsedUnits.has(unitDisplayName) ? (
+                                        <ChevronDownIcon className="h-6 w-6 text-blue-500 transition-transform duration-200" />
+                                    ) : (
+                                        <ChevronUpIcon className="h-6 w-6 text-blue-500 transition-transform duration-200" />
+                                    )}
+                                </button>
+                                {!collapsedUnits.has(unitDisplayName) && (
+                                    <div className="p-4 space-y-4">
+                                        {/* Sort lessons within each unit alphabetically by title */}
+                                        {lessonsByUnit[unitDisplayName]
+                                            .sort((a, b) => a.lessonDetails.title.localeCompare(b.lessonDetails.title, undefined, { numeric: true }))
+                                            .map(({ post, lessonDetails }) => (
+                                                <div key={`${post.id}-${lessonDetails.id}`} className={`${baseCardClasses} bg-gradient-to-br from-white to-sky-50 border-sky-100 shadow-md`}>
+                                                    <div>
+                                                        <p
+                                                            className="font-extrabold text-slate-800 text-lg cursor-pointer hover:text-blue-700 transition-colors"
+                                                            onClick={() => setViewLessonData(lessonDetails)}
+                                                        >
+                                                            {lessonDetails.title}
+                                                        </p>
+                                                        <div className="text-sm text-gray-600 mt-1 flex items-center gap-2">
+                                                            <CalendarDaysIcon className="h-4 w-4 text-sky-500" />
+                                                            <span>
+                                                                {post.availableFrom?.toDate().toLocaleString()}
+                                                                {post.availableUntil ? ` to ${post.availableUntil.toDate().toLocaleString()}` : ''}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex space-x-2 flex-shrink-0">
+                                                        {/* MODIFIED: Changed to a rounded, icon-only button */}
+                                                        <button
+                                                            onClick={() => handleEditDatesClick(post)}
+                                                            title="Edit Availability Dates"
+                                                            className="p-2 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                                                        >
+                                                            <PencilSquareIcon className="w-5 h-5" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteSharedContentPost(post.id)}
+                                                            className="p-2 rounded-full text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
+                                                            title="Unshare Lesson Post"
+                                                        >
+                                                            <TrashIcon className="w-5 h-5" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
                                     </div>
-                                    <div className="flex space-x-2 flex-shrink-0">
-                                        <Button
-                                            size="sm"
-                                            icon={PencilSquareIcon}
-                                            onClick={() => handleEditDatesClick(post)}
-                                            className="ml-4 bg-blue-500 hover:bg-blue-600 text-white"
-                                            title="Edit Availability Dates"
-                                        >
-                                            Edit Dates
-                                        </Button>
-                                        <button
-                                            onClick={() => handleDeleteSharedContentPost(post.id)}
-                                            className="p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
-                                            title="Unshare Lesson Post"
-                                        >
-                                            <TrashIcon className="w-5 h-5" />
-                                        </button>
-                                    </div>
-                                </div>
-                            )
-                        })
+                                )}
+                            </div>
+                        ))
                     ) : (
-                        <p className="text-center py-8 text-gray-500">No lessons have been shared with this class yet.</p>
+                        <EmptyState
+                            icon={BookOpenIcon}
+                            text="No lessons shared yet."
+                            subtext="Start sharing lessons to get your students learning!"
+                            color="sky"
+                        />
                     )}
                 </div>
             );
         }
 
         if (activeTab === 'quizzes') {
-            const quizPosts = sharedContentPosts.filter(p => p.quizIds?.length > 0);
-            return (
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                    {quizPosts.length > 0 ? (
-                        quizPosts.map(post => {
-                            const quizDetails = quizzes.find(q => post.quizIds.includes(q.id));
-                            if (!quizDetails) return null;
+            const quizzesByUnit = {};
 
-                            return (
-                                <div key={post.id} className={`${baseCardClasses} bg-gradient-to-br from-white to-purple-50 border-purple-100 shadow-lg ${cardHoverClasses}`}>
-                                    <div>
-                                        <p
-                                            className="font-bold text-gray-800 text-lg cursor-pointer hover:text-purple-600 transition-colors"
-                                            onClick={() => setViewQuizData(quizDetails)}
-                                        >
-                                            {quizDetails.title}
-                                        </p>
-                                        <div className="text-sm text-gray-600 mt-1 flex items-center gap-2">
-                                            <CalendarDaysIcon className="h-4 w-4 text-purple-500" />
-                                            <span>
-                                                {post.availableFrom?.toDate().toLocaleString()}
-                                                {post.availableUntil ? ` to ${post.availableUntil.toDate().toLocaleString()}` : ''}
-                                            </span>
-                                        </div>
+            sharedContentPosts.forEach(post => {
+                const quizIds = post.quizIds || [];
+                const lessonIds = post.lessonIds || [];
+                const postUnits = new Set();
+
+                // Determine the unit(s) for the post based on associated lessons
+                if (lessonIds.length > 0) {
+                    lessonIds.forEach(lessonId => {
+                        const lesson = lessons.find(l => l.id === lessonId);
+                        if (lesson && lesson.unitId) {
+                            postUnits.add(units[lesson.unitId] || 'Uncategorized');
+                        }
+                    });
+                }
+
+                // If no units were found but there are quizzes, default to 'Uncategorized'
+                if (postUnits.size === 0 && quizIds.length > 0) {
+                    postUnits.add('Uncategorized');
+                }
+
+                // Assign each quiz in the post to its unit(s)
+                quizIds.forEach(quizId => {
+                    const quizDetails = quizzes.find(q => q.id === quizId);
+                    if (quizDetails) {
+                        postUnits.forEach(unitName => {
+                            if (!quizzesByUnit[unitName]) {
+                                quizzesByUnit[unitName] = [];
+                            }
+                            // Check if quiz is already added to prevent duplicates from multi-unit posts
+                            if (!quizzesByUnit[unitName].some(q => q.id === quizDetails.id)) {
+                                quizzesByUnit[unitName].push({ post, quizDetails });
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Sort units alphabetically by name
+            const sortedUnitKeys = Object.keys(quizzesByUnit).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+            return (
+                <div className="space-y-6 pr-2 custom-scrollbar">
+                    {sortedUnitKeys.length > 0 ? (
+                        sortedUnitKeys.map(unitDisplayName => (
+                            <div key={unitDisplayName} className="bg-white rounded-xl shadow-lg border border-gray-100 animate-slideInUp">
+                                <button
+                                    className="flex items-center justify-between w-full p-4 font-bold text-xl text-gray-800 bg-gradient-to-r from-purple-50 to-white hover:from-purple-100 rounded-t-xl transition-all duration-200 border-b border-purple-100"
+                                    onClick={() => toggleUnitCollapse(unitDisplayName)}
+                                >
+                                    {unitDisplayName}
+                                    {collapsedUnits.has(unitDisplayName) ? (
+                                        <ChevronDownIcon className="h-6 w-6 text-purple-500 transition-transform duration-200" />
+                                    ) : (
+                                        <ChevronUpIcon className="h-6 w-6 text-purple-500 transition-transform duration-200" />
+                                    )}
+                                </button>
+                                {!collapsedUnits.has(unitDisplayName) && (
+                                    <div className="p-4 space-y-4">
+                                        {quizzesByUnit[unitDisplayName]
+                                            .sort((a, b) => a.quizDetails.title.localeCompare(b.quizDetails.title, undefined, { numeric: true }))
+                                            .map(({ post, quizDetails }) => (
+                                                <div key={`${post.id}-${quizDetails.id}`} className={`${baseCardClasses} bg-gradient-to-br from-white to-purple-50 border-purple-100 shadow-md`}>
+                                                    <div>
+                                                        <p
+                                                            className="font-extrabold text-slate-800 text-lg cursor-pointer hover:text-purple-700 transition-colors"
+                                                            onClick={() => setViewQuizData(quizDetails)}
+                                                        >
+                                                            {quizDetails.title}
+                                                        </p>
+                                                        <div className="text-sm text-gray-600 mt-1 flex items-center gap-2">
+                                                            <CalendarDaysIcon className="h-4 w-4 text-purple-500" />
+                                                            <span>
+                                                                {post.availableFrom?.toDate().toLocaleString()}
+                                                                {post.availableUntil ? ` to ${post.availableUntil.toDate().toLocaleString()}` : ''}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex space-x-2 flex-shrink-0">
+                                                        <button
+                                                            onClick={() => handleEditDatesClick(post)}
+                                                            title="Edit Availability Dates"
+                                                            className="p-2 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                                                        >
+                                                            <PencilSquareIcon className="w-5 h-5" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteSharedContentPost(post.id)}
+                                                            className="p-2 rounded-full text-red-500 bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
+                                                            title="Unshare Quiz Post"
+                                                        >
+                                                            <TrashIcon className="w-5 h-5" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
                                     </div>
-                                    <div className="flex space-x-2 flex-shrink-0">
-                                        <Button
-                                            size="sm"
-                                            icon={PencilSquareIcon}
-                                            onClick={() => handleEditDatesClick(post)}
-                                            className="ml-4 bg-purple-500 hover:bg-purple-600 text-white"
-                                            title="Edit Availability Dates"
-                                        >
-                                            Edit Dates
-                                        </Button>
-                                        <button
-                                            onClick={() => handleDeleteSharedContentPost(post.id)}
-                                            className="p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
-                                            title="Unshare Quiz Post"
-                                        >
-                                            <TrashIcon className="w-5 h-5" />
-                                        </button>
-                                    </div>
-                                </div>
-                            )
-                        })
+                                )}
+                            </div>
+                        ))
                     ) : (
-                        <p className="text-center py-8 text-gray-500">No quizzes have been shared with this class yet.</p>
+                        <EmptyState
+                            icon={AcademicCapIcon}
+                            text="No quizzes shared yet."
+                            subtext="Create and share quizzes to assess your students."
+                            color="purple"
+                        />
                     )}
                 </div>
             );
@@ -372,32 +556,104 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 setScoresDetailModalOpen(true);
             };
 
+            const quizzesByUnit = {};
+
+            sharedContentPosts.forEach(post => {
+                const quizIds = post.quizIds || [];
+                const lessonIds = post.lessonIds || [];
+                const postUnits = new Set();
+
+                // Determine the unit(s) for the post based on associated lessons
+                if (lessonIds.length > 0) {
+                    lessonIds.forEach(lessonId => {
+                        const lesson = lessons.find(l => l.id === lessonId);
+                        if (lesson && lesson.unitId) {
+                            postUnits.add(units[lesson.unitId] || 'Uncategorized');
+                        }
+                    });
+                }
+
+                // If no units were found but there are quizzes, default to 'Uncategorized'
+                if (postUnits.size === 0 && quizIds.length > 0) {
+                    postUnits.add('Uncategorized');
+                }
+
+                // Assign each quiz in the post to its unit(s)
+                quizIds.forEach(quizId => {
+                    const quizDetails = quizzes.find(q => q.id === quizId);
+                    if (quizDetails) {
+                        postUnits.forEach(unitName => {
+                            if (!quizzesByUnit[unitName]) {
+                                quizzesByUnit[unitName] = [];
+                            }
+                            // Check if quiz is already added to prevent duplicates from multi-unit posts
+                            if (!quizzesByUnit[unitName].some(q => q.id === quizDetails.id)) {
+                                quizzesByUnit[unitName].push(quizDetails);
+                            }
+                        });
+                    }
+                });
+            });
+
+            const sortedUnitKeys = Object.keys(quizzesByUnit).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
             return (
                 <div>
                     <div className="flex justify-end mb-6">
-                        <Button
+                        <button
                             onClick={() => setIsReportModalOpen(true)}
                             disabled={!quizzes.length}
-                            icon={AcademicCapIcon}
-                            className="bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all"
+                            title="Generate Report"
+                            className={`flex items-center gap-2 px-6 py-3 rounded-full font-semibold transition-all duration-300 shadow-lg transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2
+                                ${!quizzes.length
+                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 focus:ring-green-500'
+                                }`}
                         >
-                            Generate Report
-                        </Button>
+                            <ChartBarIcon className="w-6 h-6" />
+                            <span>Generate Report</span>
+                        </button>
                     </div>
-                    <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                        {quizzes.length > 0 ? (
-                            quizzes.map(quiz => (
-                                <div
-                                    key={quiz.id}
-                                    className={`${baseCardClasses} bg-gradient-to-br from-white to-teal-50 border-teal-100 shadow-lg cursor-pointer ${cardHoverClasses}`}
-                                    onClick={() => handleViewQuizScores(quiz)}
-                                >
-                                    <p className="font-bold text-teal-700 text-lg">{quiz.title}</p>
-                                    <p className="text-sm text-gray-600 mt-1">Click to view detailed scores</p>
+                    <div className="space-y-6 pr-2 custom-scrollbar">
+                        {sortedUnitKeys.length > 0 ? (
+                            sortedUnitKeys.map(unitDisplayName => (
+                                <div key={unitDisplayName} className="bg-white rounded-xl shadow-lg border border-gray-100 animate-slideInUp">
+                                    <button
+                                        className="flex items-center justify-between w-full p-4 font-bold text-xl text-gray-800 bg-gradient-to-r from-teal-50 to-white hover:from-teal-100 rounded-t-xl transition-all duration-200 border-b border-teal-100"
+                                        onClick={() => toggleUnitCollapse(unitDisplayName)}
+                                    >
+                                        {unitDisplayName}
+                                        {collapsedUnits.has(unitDisplayName) ? (
+                                            <ChevronDownIcon className="h-6 w-6 text-teal-500 transition-transform duration-200" />
+                                        ) : (
+                                            <ChevronUpIcon className="h-6 w-6 text-teal-500 transition-transform duration-200" />
+                                        )}
+                                    </button>
+                                    {!collapsedUnits.has(unitDisplayName) && (
+                                        <div className="p-4 space-y-4">
+                                            {quizzesByUnit[unitDisplayName]
+                                                .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }))
+                                                .map(quiz => (
+                                                    <div
+                                                        key={quiz.id}
+                                                        className={`${baseCardClasses} bg-gradient-to-br from-white to-teal-50 border-teal-100 shadow-md cursor-pointer`}
+                                                        onClick={() => handleViewQuizScores(quiz)}
+                                                    >
+                                                        <p className="font-extrabold text-teal-700 text-lg">{quiz.title}</p>
+                                                        <p className="text-sm text-gray-600 mt-1">Click to view detailed scores</p>
+                                                    </div>
+                                                ))}
+                                        </div>
+                                    )}
                                 </div>
                             ))
                         ) : (
-                            <p className="text-center py-8 text-gray-500">No quizzes have been shared with this class yet to view scores.</p>
+                            <EmptyState
+                                icon={ChartBarIcon}
+                                text="No quiz scores available."
+                                subtext="Share quizzes and students need to complete them to see scores here."
+                                color="teal"
+                            />
                         )}
                     </div>
                 </div>
@@ -406,22 +662,22 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
         if (activeTab === 'students') {
             return (
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="space-y-4 pr-2 custom-scrollbar">
                     {(classData?.students && classData.students.length > 0) ? (
                         classData.students.map(student => (
-                            <div key={student.id} className={`${baseCardClasses} bg-gradient-to-br from-white to-gray-50 border-gray-100 shadow-lg ${cardHoverClasses}`}>
+                            <div key={student.id} className={`${baseCardClasses} bg-gradient-to-br from-white to-gray-50 border-gray-100 shadow-md`}>
                                 <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-lg flex-shrink-0">
+                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-xl flex-shrink-0 border-2 border-blue-200">
                                         {student.firstName ? student.firstName.charAt(0).toUpperCase() : ''}
                                     </div>
                                     <div>
-                                        <p className="font-semibold text-gray-800 text-lg">{student.firstName} {student.lastName}</p>
+                                        <p className="font-bold text-gray-800 text-lg">{student.firstName} {student.lastName}</p>
                                         <p className="text-sm text-gray-500">Student ID: {student.id}</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => onRemoveStudent(classData.id, student.id)}
-                                    className="p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
+                                    className="p-2 rounded-full text-red-500 bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
                                     title={`Remove ${student.firstName}`}
                                 >
                                     <TrashIcon className="w-5 h-5" />
@@ -429,15 +685,19 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                             </div>
                         ))
                     ) : (
-                        <p className="text-center text-gray-500 py-8">This class has no students enrolled yet.</p>
+                        <EmptyState
+                            icon={UsersIcon}
+                            text="No students enrolled yet."
+                            subtext="Share the class code with students to get them enrolled!"
+                            color="gray"
+                        />
                     )}
                 </div>
             );
         }
 
-        // Default to announcements tab
         return (
-            <div>
+            <div className="flex-1 flex flex-col">
                 {userProfile?.role === 'teacher' && (
                     <div className="mb-6 text-right">
                         <Button
@@ -450,7 +710,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                     </div>
                 )}
                 {showAddForm && (
-                    <div className="mb-6 p-5 bg-blue-50 border border-blue-200 rounded-lg shadow-inner">
+                    <div className="mb-6 p-5 bg-blue-50 border border-blue-200 rounded-xl shadow-inner animate-fadeIn">
                         <CreateClassAnnouncementForm
                             classId={classData.id}
                             onAnnouncementPosted={async () => {
@@ -460,7 +720,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         />
                     </div>
                 )}
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="space-y-4 pr-2 custom-scrollbar">
                     {announcements.length > 0 ? (
                         announcements.map(post => (
                             <AnnouncementListItem
@@ -474,14 +734,19 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                 onDelete={() => handleDelete(post.id)}
                                 isEditing={editingId === post.id}
                                 editContent={editContent}
-                                onChangeEdit={(e) => setEditContent(e.target.value)}
+                                onChangeEdit={onChangeEdit}
                                 onSaveEdit={() => handleEditSave(post.id)}
                                 onCancelEdit={() => setEditingId(null)}
                                 onClick={() => setSelectedAnnouncement(post)}
                             />
                         ))
                     ) : (
-                        <p className="text-center text-gray-500 mt-6">No announcements for this class yet.</p>
+                        <EmptyState
+                            icon={MegaphoneIcon}
+                            text="No announcements for this class yet."
+                            subtext="Post important updates and messages for your students here."
+                            color="blue"
+                        />
                     )}
                 </div>
             </div>
@@ -490,55 +755,108 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
     return (
         <>
-            <Modal isOpen={isOpen} onClose={onClose} title={classData?.name || 'Class Overview'} size="4xl" className="md:w-[75vw]">
-                <div className="flex flex-col md:flex-row bg-gradient-to-br from-gray-50 to-white rounded-lg overflow-hidden shadow-xl">
-                    <nav className="flex-shrink-0 bg-gray-100 p-4 space-y-2 md:w-56 border-r border-gray-200 flex md:flex-col overflow-x-auto md:overflow-y-auto custom-scrollbar">
-                        <button onClick={() => setActiveTab('announcements')} className={getTabClasses('announcements')}>
-                            <MegaphoneIcon className="h-5 w-5" /> Announcements
+            <Modal
+                isOpen={isOpen}
+                onClose={onClose}
+                title={classData?.name || 'Class Overview'}
+                size="6xl"
+                roundedClass="rounded-3xl"
+            >
+                <div className="flex flex-col md:flex-row bg-white overflow-hidden h-full animate-slideIn">
+                    {/* Sidebar Navigation */}
+                    <nav className="flex-shrink-0 bg-blue-600 p-5 space-y-3 md:w-60 border-r border-blue-700 flex md:flex-col overflow-x-auto md:overflow-y-auto custom-scrollbar shadow-inner-strong">
+                        <h2 className="text-xl font-bold text-white mb-4 hidden md:block">Class Sections</h2>
+                        <button onClick={() => handleTabChange('announcements')} className={`
+                            flex items-center gap-3 px-5 py-3 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out
+                            ${activeTab === 'announcements'
+                                ? 'bg-blue-700 text-white shadow-lg transform translate-x-1 border border-blue-800'
+                                : 'text-blue-200 hover:bg-blue-700 hover:text-white'
+                            }
+                        `}>
+                            <MegaphoneIcon className="h-6 w-6" /> Announcements
                         </button>
-                        <button onClick={() => setActiveTab('lessons')} className={getTabClasses('lessons')}>
-                            <BookOpenIcon className="h-5 w-5" /> Lessons
+                        <button onClick={() => handleTabChange('lessons')} className={`
+                            flex items-center gap-3 px-5 py-3 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out
+                            ${activeTab === 'lessons'
+                                ? 'bg-blue-700 text-white shadow-lg transform translate-x-1 border border-blue-800'
+                                : 'text-blue-200 hover:bg-blue-700 hover:text-white'
+                            }
+                        `}>
+                            <BookOpenIcon className="h-6 w-6" /> Lessons
                         </button>
-                        <button onClick={() => setActiveTab('quizzes')} className={getTabClasses('quizzes')}>
-                            <AcademicCapIcon className="h-5 w-5" /> Quizzes
+                        <button onClick={() => handleTabChange('quizzes')} className={`
+                            flex items-center gap-3 px-5 py-3 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out
+                            ${activeTab === 'quizzes'
+                                ? 'bg-blue-700 text-white shadow-lg transform translate-x-1 border border-blue-800'
+                                : 'text-blue-200 hover:bg-blue-700 hover:text-white'
+                            }
+                        `}>
+                            <AcademicCapIcon className="h-6 w-6" /> Quizzes
                         </button>
-                        <button onClick={() => setActiveTab('scores')} className={getTabClasses('scores')}>
-                            <AcademicCapIcon className="h-5 w-5" /> Scores
+                        <button onClick={() => handleTabChange('scores')} className={`
+                            flex items-center gap-3 px-5 py-3 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out
+                            ${activeTab === 'scores'
+                                ? 'bg-blue-700 text-white shadow-lg transform translate-x-1 border border-blue-800'
+                                : 'text-blue-200 hover:bg-blue-700 hover:text-white'
+                            }
+                        `}>
+                            <ChartBarIcon className="h-6 w-6" /> Scores
                         </button>
-                        <button onClick={() => setActiveTab('students')} className={getTabClasses('students')}>
-                            <UsersIcon className="h-5 w-5" /> Students ({classData?.students?.length || 0})
+                        <button onClick={() => handleTabChange('students')} className={`
+                            flex items-center gap-3 px-5 py-3 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out
+                            ${activeTab === 'students'
+                                ? 'bg-blue-700 text-white shadow-lg transform translate-x-1 border border-blue-800'
+                                : 'text-blue-200 hover:bg-blue-700 hover:text-white'
+                            }
+                        `}>
+                            <UsersIcon className="h-6 w-6" /> Students ({classData?.students?.length || 0})
                         </button>
                     </nav>
 
-                    <div className="flex-1 p-6 bg-transparent">
+                    {/* Main Content Area */}
+                    <div className="flex-1 p-6 sm:p-8 bg-gradient-to-br from-white to-gray-50 rounded-none flex flex-col overflow-y-auto">
+                        <h2 className="text-3xl font-extrabold text-gray-900 mb-6 pb-2 border-b-2 border-blue-200 flex-shrink-0">
+                            {classData?.name || 'Class Overview'} - {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                        </h2>
                         {renderContent()}
                     </div>
                 </div>
             </Modal>
 
-            <GenerateReportModal
+            {/* Modals are placed outside to ensure proper z-indexing and avoid clipping */}
+			<GenerateReportModal
                 isOpen={isReportModalOpen}
                 onClose={() => setIsReportModalOpen(false)}
                 classData={classData}
                 availableQuizzes={quizzes}
                 quizScores={quizScores}
+                lessons={lessons}
+                units={units}
+                sharedContentPosts={sharedContentPosts}
+                className="z-[120]"
             />
-            <ViewLessonModal isOpen={!!viewLessonData} onClose={() => setViewLessonData(null)} lesson={viewLessonData} />
-
+            <ViewLessonModal
+                isOpen={!!viewLessonData}
+                onClose={() => setViewLessonData(null)}
+                lesson={viewLessonData}
+                className="z-[120]"
+            />
             <ViewQuizModal
                 isOpen={!!viewQuizData}
                 onClose={() => setViewQuizData(null)}
                 quiz={viewQuizData}
                 userProfile={userProfile}
                 classId={classData?.id}
+				isTeacherView={userProfile.role === 'teacher'}
+                className="z-[120]"
             />
-
             <EditAvailabilityModal
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
                 post={postToEdit}
                 classId={classData?.id}
                 onUpdate={fetchLessonsAndQuizzes}
+                className="z-[120]"
             />
             {selectedQuizForScores && (
                 <QuizScoresModal
@@ -549,13 +867,14 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                     quizScores={quizScores}
                     quizLocks={quizLocks}
                     onUnlockQuiz={handleUnlockQuiz}
+                    className="z-[120]"
                 />
             )}
-
             <AnnouncementViewModal
                 isOpen={!!selectedAnnouncement}
                 onClose={() => setSelectedAnnouncement(null)}
                 announcement={selectedAnnouncement}
+                className="z-[120]"
             />
         </>
     );
@@ -575,39 +894,39 @@ const AnnouncementListItem = ({
     onClick
 }) => {
     const formattedDate = post.createdAt && typeof post.createdAt.toDate === 'function'
-        ? post.createdAt.toDate().toLocaleDateString()
-        : (post.createdAt instanceof Date ? post.createdAt.toLocaleDateString() : 'N/A');
+        ? post.createdAt.toDate().toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : (post.createdAt instanceof Date ? post.toLocaleString() : 'N/A');
 
     return (
         <div
-            className="group relative bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg shadow-md border border-blue-200
-                       hover:shadow-lg hover:scale-[1.005] transition-all duration-300 overflow-hidden cursor-pointer flex items-center justify-between"
+            className="group relative bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-2xl shadow-lg border border-blue-200
+                       transition-all duration-300 transform hover:scale-[1.005] hover:shadow-xl overflow-hidden cursor-pointer"
             onClick={!isEditing ? onClick : undefined}
         >
             {isEditing ? (
-                <div className="w-full flex flex-col gap-2">
+                <div className="w-full flex flex-col gap-3">
                     <textarea
-                        className="w-full border border-blue-300 p-2 rounded-lg text-sm font-medium text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white/80 backdrop-blur-sm"
-                        rows={3}
+                        className="w-full border border-blue-300 p-3 rounded-lg text-base font-medium text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white/80 backdrop-blur-sm shadow-inner"
+                        rows={4}
                         value={editContent}
                         onChange={onChangeEdit}
                         placeholder="Edit your announcement here..."
                         onClick={(e) => e.stopPropagation()}
                     />
                     <div className="flex justify-end gap-2">
-                        <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); onCancelEdit(); }} className="border-gray-300 text-gray-700 hover:bg-gray-200">Cancel</Button>
+                        <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); onCancelEdit(); }} className="border-gray-300 text-gray-700 hover:bg-gray-200 shadow-md">Cancel</Button>
                         <Button size="sm" onClick={(e) => { e.stopPropagation(); onSaveEdit(); }} className="bg-blue-600 hover:bg-blue-700 text-white shadow-md">Save</Button>
                     </div>
                 </div>
             ) : (
-                <>
+                <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0 pr-4">
-                        <p className="font-semibold text-gray-800 text-base truncate">
-                            <MegaphoneIcon className="h-4 w-4 inline-block mr-2 text-blue-600" />
+                        <h3 className="font-extrabold text-gray-800 text-lg sm:text-xl leading-tight mb-1 truncate group-hover:text-blue-700 transition-colors">
+                            <MegaphoneIcon className="h-5 w-5 inline-block mr-2 text-blue-600" />
                             {post.content}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                            Posted by {post.teacherName || 'Unknown'} on {formattedDate}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                            Posted by <span className="font-semibold">{post.teacherName || 'Unknown'}</span> on {formattedDate}
                         </p>
                     </div>
                     {isOwn && (
@@ -615,20 +934,20 @@ const AnnouncementListItem = ({
                             <button
                                 onClick={(e) => { e.stopPropagation(); onEdit(); }}
                                 title="Edit Announcement"
-                                className="p-2 rounded-full text-blue-600 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="p-2 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                             >
-                                <PencilSquareIcon className="w-4 h-4" />
+                                <PencilSquareIcon className="w-5 h-5" />
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
                                 title="Delete Announcement"
-                                className="p-2 rounded-full text-red-600 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
+                                className="p-2 rounded-full text-red-600 bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
                             >
-                                <TrashIcon className="w-4 h-4" />
+                                <TrashIcon className="w-5 h-5" />
                             </button>
                         </div>
                     )}
-                </>
+                </div>
             )}
         </div>
     );

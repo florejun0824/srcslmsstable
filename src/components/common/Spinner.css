@@ -1,39 +1,13 @@
-/* Spinner.css for the Ethereal Chronos Bloom - Beautiful & Adaptive Design */
+/* Spinner.css */
 
 :root {
-  /* --- Customizable Variables for Ethereal Chronos Bloom --- */
-  --spinner-size: 300px; /* Overall size, beautiful but not too big */
-  --petal-count: 6; /* Number of primary bloom petals/shards */
-  --petal-thickness: 10px; /* Thickness of the petal edges */
-  --core-diameter: 70px; /* Size of the central energy core */
-  --mote-count: 80; /* Number of drifting energy motes/pollen */
-
-  /* Ethereal Color Palette (Vibrant, translucent, adaptive) */
-  --color-core-inner: #FFD700; /* Gold for innermost glow */
-  --color-core-outer: #00FFFF; /* Cyan for outer core glow */
-  --color-petal-base-1: rgba(128, 0, 128, 0.4); /* Translucent Purple */
-  --color-petal-base-2: rgba(0, 200, 200, 0.4); /* Translucent Teal */
-  --color-petal-edge-1: #DA70D6; /* Orchid Pink for edges */
-  --color-petal-edge-2: #00FF7F; /* Emerald Green for edges */
-  --color-mote: #FFFFFF; /* White for motes, will pick up surrounding glow */
-
-  --animation-speed-bloom: 10s; /* How long one full bloom cycle takes */
-  --animation-speed-core-pulse: 2s; /* Speed of central core pulse */
-  --animation-speed-mote-drift: 8s; /* Speed of motes drifting away */
-  --animation-speed-overall-sway: 25s; /* Subtle overall movement */
-
-  --blur-light: 1px; /* For fine details */
-  --blur-medium: 10px; /* For soft glows */
-  --blur-heavy: 25px; /* For intense core diffusion */
-
-  /* Text & General Glows (adjusted to complement the new palette) */
-  --text-color: #E0FFFF; /* Light, ethereal color */
-  --text-glow-primary: #8A2BE2; /* BlueViolet */
-  --text-glow-secondary: #00FFFF; /* Cyan */
-
-  /* Transparent background for adaptability - spinner itself handles its visibility */
-  --overlay-bg: rgba(0, 0, 0, 0);
-  --backdrop-filter-intensity: none;
+  /* --- Customize your spinner here --- */
+  --spinner-size: 60px;
+  --spinner-color-start: #6A82FB;
+  --spinner-color-end: #FC5C7D;
+  --spinner-speed: 1.5s;
+  --text-color: #f0f0f0;
+  --overlay-bg: rgba(22, 22, 22, 0.3);
 }
 
 .spinner-overlay {
@@ -46,245 +20,256 @@
   justify-content: center;
   align-items: center;
   background-color: var(--overlay-bg);
-  backdrop-filter: var(--backdrop-filter-intensity);
-  -webkit-backdrop-filter: var(--backdrop-filter-intensity);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
   z-index: 9999;
-  perspective: 1200px; /* Moderate perspective for depth */
-  overflow: hidden;
 }
 
 .spinner-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2.5rem; /* Spacing between spinner and text */
-  position: relative;
+  gap: 1rem;
+}
+
+.spinner-svg {
   width: var(--spinner-size);
   height: var(--spinner-size);
-  transform-style: preserve-3d;
-  /* Gentle initial state for a smooth entrance */
-  transform: rotateX(5deg) rotateY(-3deg) scale(0.9);
-  opacity: 0;
-  animation: spinnerEntrance 1.5s ease-out forwards,
-             overallSway var(--animation-speed-overall-sway) ease-in-out infinite alternate;
+  animation: rotate var(--spinner-speed) linear infinite;
+}
+
+.spinner-path {
+  stroke: url(#spinner-gradient);
+  stroke-linecap: round;
+  animation: dash calc(var(--spinner-speed) * 1.2) ease-in-out infinite;
+}
+
+.spinner-text {
+  color: var(--text-color);
+  font-size: 1.1em;
+  font-weight: 500;
+  animation: fadeInOut 2s ease-in-out infinite;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Keyframe Animations */
+@keyframes rotate {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dash {
+  0% {
+    stroke-dasharray: 1, 150;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: -35;
+  }
+  100% {
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: -124;
+  }
+}
+
+@keyframes fadeInOut {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Conic Gradient Definition - needs to be in an SVG in the HTML or dynamically injected */
+/* For simplicity, we add it directly in the main App or index.html body */
+/* Or, we can keep the gradient simple if not wanting to edit HTML */
+.spinner-path {
+    /* Fallback for browsers that don't support conic-gradient in stroke */
+    stroke: var(--spinner-color-start);
+    /* For modern browsers, we will use a gradient defined in the SVG */
+}
+
+/* To use a gradient, you would add this SVG definition to your main index.html file */
+/* <svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="spinner-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="var(--spinner-color-start)" />
+      <stop offset="100%" stop-color="var(--spinner-color-end)" />
+    </linearGradient>
+  </defs>
+</svg>
+*/
+
+/* A simpler cross-browser approach is to use a linear gradient like this */
+.spinner-svg {
+    background: conic-gradient(from 90deg at 50% 50%, var(--spinner-color-start), var(--spinner-color-end));
+    border-radius: 50%;
+}
+.spinner-path {
+    stroke: #ffffff; /* Or your overlay's background color to create the 'cut-out' effect */
+    stroke-width: 6; /* Make it slightly wider than the original stroke-width */
+}
+/* --- Add these new styles to your Spinner.css --- */
+
+/* Container for the text and cursor */
+.spinner-text-container {
+  color: var(--text-color);
+  font-size: 1.1em;
+  font-weight: 500;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  height: 1.5em; /* Reserve space to prevent layout shift */
+  font-family: monospace; /* Monospace font looks best for typewriter effect */
+}
+
+/* Blinking cursor style */
+.typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background-color: var(--text-color);
+  margin-left: 4px;
+  animation: blink 1s step-end infinite;
+  vertical-align: bottom;
+}
+
+
+/* --- You can remove or replace the old .spinner-text animation --- */
+/* REMOVE THIS:
+.spinner-text {
+  ...
+  animation: fadeInOut 2s ease-in-out infinite;
+}
+*/
+
+/* --- Add this new Keyframe animation for the cursor --- */
+@keyframes blink {
+  from, to {
+    background-color: transparent;
+  }
+  50% {
+    background-color: var(--text-color);
+  }
+}
+/* Spinner.css for the Pulsar Spinner */
+
+:root {
+  /* --- Customize your spinner here --- */
+  --spinner-size: 70px;
+  --spinner-pulse-speed: 1.8s;
+  --spinner-rotation-speed: 15s;
+
+  /* Vibrant, modern color palette for the gradient */
+  --color-1: #00c6ff;
+  --color-2: #9c4bff;
+  --color-3: #ff6ec4;
+
+  --text-color: #e0e0e0;
+  --overlay-bg: rgba(10, 10, 15, 0.4);
+}
+
+.spinner-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--overlay-bg);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  z-index: 9999;
+}
+
+.spinner-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
 }
 
 /*
- * The Ethereal Chronos Bloom structure
- * Main container for the central core, petals, and particles.
+ * The Pulsar Spinner
+ * This is where the magic happens.
+ * It's a container that clips a blurred, rotating gradient.
 */
-.ethereal-chronos-bloom {
+.pulsar-spinner {
   position: relative;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%; /* Base for circular bloom */
-  transform-style: preserve-3d;
-  /* Overall subtle glow to define its ethereal presence */
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2),
-              0 0 40px rgba(0, 0, 0, 0.1);
-  overflow: visible; /* Petals/particles can extend beyond */
-}
-
-/* Central glowing core / stamen */
-.bloom-core {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: var(--core-diameter);
-  height: var(--core-diameter);
-  transform: translate(-50%, -50%) translateZ(calc(var(--core-diameter) / 4));
+  width: var(--spinner-size);
+  height: var(--spinner-size);
   border-radius: 50%;
-  background: radial-gradient(circle at center,
-    var(--color-core-inner) 0%,
-    var(--color-core-outer) 70%,
-    transparent 100%
-  );
-  filter: blur(var(--blur-heavy));
-  box-shadow: 0 0 15px var(--color-core-inner), 0 0 30px var(--color-core-outer);
-  animation: corePulse var(--animation-speed-core-pulse) ease-in-out infinite alternate;
-  z-index: 100; /* Ensure core is always on top */
+  animation: pulse var(--spinner-pulse-speed) cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Individual bloom petals/shards */
-.bloom-petal {
+/*
+ * The pseudo-element holds the rotating gradient.
+ * It's larger than its parent and heavily blurred, creating the soft, fluid look.
+*/
+.pulsar-spinner::before {
+  content: '';
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: calc(var(--spinner-size) * 0.7); /* Petal size */
-  height: calc(var(--spinner-size) * 0.7);
-  transform-origin: 50% 50%; /* Rotate around its center for basic testing */
-  border-radius: 40% 60% 70% 30% / 40% 40% 60% 60%; /* Organic, petal-like shape */
-  background: linear-gradient(
-    45deg,
-    var(--color-petal-base-1),
-    var(--color-petal-base-2)
+  /* Make it larger to allow for a soft blurred edge */
+  top: -15%;
+  left: -15%;
+  width: 130%;
+  height: 130%;
+  background: conic-gradient(
+    from 90deg,
+    var(--color-1),
+    var(--color-2),
+    var(--color-3),
+    var(--color-1)
   );
-  border: var(--petal-thickness) solid transparent;
-  box-shadow:
-    inset 0 0 5px rgba(255, 255, 255, 0.2), /* Inner light */
-    0 0 15px var(--color-petal-edge-1), /* Main glow */
-    0 0 30px var(--color-petal-edge-2); /* Secondary glow */
-  filter: blur(var(--blur-medium));
-  opacity: 0.7; /* Translucent effect */
-  will-change: transform, opacity, filter;
-  animation: petalBloom var(--animation-speed-bloom) ease-in-out infinite alternate;
-}
-
-/* Dynamic positioning and rotation for each petal */
-.bloom-petal:nth-child(1) {
-  transform: translate(-50%, -50%) rotateZ(0deg) rotateX(10deg) translateZ(-5px);
-  animation-delay: -0s;
-  background: linear-gradient(45deg, var(--color-petal-base-1), var(--color-petal-base-2));
-  box-shadow: inset 0 0 5px rgba(255,255,255,0.2), 0 0 15px var(--color-petal-edge-1), 0 0 30px var(--color-petal-edge-2);
-}
-.bloom-petal:nth-child(2) {
-  transform: translate(-50%, -50%) rotateZ(calc(360deg / var(--petal-count) * 1)) rotateX(10deg) translateZ(-5px);
-  animation-delay: calc(var(--animation-speed-bloom) / var(--petal-count) * -1);
-  background: linear-gradient(45deg, var(--color-petal-base-2), var(--color-petal-base-1));
-  box-shadow: inset 0 0 5px rgba(255,255,255,0.2), 0 0 15px var(--color-petal-edge-2), 0 0 30px var(--color-petal-edge-1);
-}
-.bloom-petal:nth-child(3) {
-  transform: translate(-50%, -50%) rotateZ(calc(360deg / var(--petal-count) * 2)) rotateX(10deg) translateZ(-5px);
-  animation-delay: calc(var(--animation-speed-bloom) / var(--petal-count) * -2);
-  background: linear-gradient(45deg, var(--color-petal-base-1), var(--color-petal-base-2));
-  box-shadow: inset 0 0 5px rgba(255,255,255,0.2), 0 0 15px var(--color-petal-edge-1), 0 0 30px var(--color-petal-edge-2);
-}
-.bloom-petal:nth-child(4) {
-  transform: translate(-50%, -50%) rotateZ(calc(360deg / var(--petal-count) * 3)) rotateX(10deg) translateZ(-5px);
-  animation-delay: calc(var(--animation-speed-bloom) / var(--petal-count) * -3);
-  background: linear-gradient(45deg, var(--color-petal-base-2), var(--color-petal-base-1));
-  box-shadow: inset 0 0 5px rgba(255,255,255,0.2), 0 0 15px var(--color-petal-edge-2), 0 0 30px var(--color-petal-edge-1);
-}
-.bloom-petal:nth-child(5) {
-  transform: translate(-50%, -50%) rotateZ(calc(360deg / var(--petal-count) * 4)) rotateX(10deg) translateZ(-5px);
-  animation-delay: calc(var(--animation-speed-bloom) / var(--petal-count) * -4);
-  background: linear-gradient(45deg, var(--color-petal-base-1), var(--color-petal-base-2));
-  box-shadow: inset 0 0 5px rgba(255,255,255,0.2), 0 0 15px var(--color-petal-edge-1), 0 0 30px var(--color-petal-edge-2);
-}
-.bloom-petal:nth-child(6) {
-  transform: translate(-50%, -50%) rotateZ(calc(360deg / var(--petal-count) * 5)) rotateX(10deg) translateZ(-5px);
-  animation-delay: calc(var(--animation-speed-bloom) / var(--petal-count) * -5);
-  background: linear-gradient(45deg, var(--color-petal-base-2), var(--color-petal-base-1));
-  box-shadow: inset 0 0 5px rgba(255,255,255,0.2), 0 0 15px var(--color-petal-edge-2), 0 0 30px var(--color-petal-edge-1);
-}
-/* For more petals, adjust --petal-count and add more :nth-child rules */
-
-
-/* Energy motes / Pollen particles */
-.energy-mote {
-  position: absolute;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background-color: var(--color-mote);
-  box-shadow: 0 0 5px var(--color-mote), 0 0 10px var(--color-mote-glow);
-  filter: blur(var(--blur-light));
-  opacity: 0;
-  will-change: transform, opacity;
-  animation: moteDrift var(--animation-speed-mote-drift) linear infinite;
+  filter: blur(calc(var(--spinner-size) / 3));
+  animation: rotate var(--spinner-rotation-speed) linear infinite;
 }
 
 
-/* --- Keyframe Animations for Ethereal Chronos Bloom --- */
-
-/* Overall spinner entrance */
-@keyframes spinnerEntrance {
-  0% { transform: rotateX(5deg) rotateY(-3deg) scale(0.9); opacity: 0; }
-  100% { transform: rotateX(0deg) rotateY(0deg) scale(1); opacity: 1; }
-}
-
-/* Overall subtle sway/hum for the container */
-@keyframes overallSway {
-  0%, 100% { transform: rotateX(0deg) rotateY(0deg) scale(1); }
-  50% { transform: rotateX(0.5deg) rotateY(0.5deg) scale(1.005); }
-}
-
-/* Central core pulse */
-@keyframes corePulse {
-  0%, 100% {
-    transform: translate(-50%, -50%) translateZ(calc(var(--core-diameter) / 4)) scale(1);
-    filter: blur(var(--blur-heavy));
-  }
-  50% {
-    transform: translate(-50%, -50%) translateZ(calc(var(--core-diameter) / 4 + 5px)) scale(1.08);
-    filter: blur(calc(var(--blur-heavy) + 5px));
-  }
-}
-
-/* Petal blooming animation */
-@keyframes petalBloom {
-  0%, 100% {
-    transform: translate(-50%, -50%) rotateZ(var(--_initial-rotate-z)) rotateX(var(--_initial-rotate-x)) translateZ(-5px);
-    opacity: 0.7;
-    filter: blur(var(--blur-medium));
-  }
-  50% {
-    transform: translate(-50%, -50%) rotateZ(calc(var(--_initial-rotate-z) + 10deg)) rotateX(calc(var(--_initial-rotate-x) + 5deg)) translateZ(0px); /* Open slightly */
-    opacity: 0.85;
-    filter: blur(calc(var(--blur-medium) + 5px));
-  }
-}
-
-/* Mote drift animation */
-@keyframes moteDrift {
-  0% {
-    transform: translate(0, 0) scale(0.5) opacity(0);
-  }
-  10% { opacity: 1; transform: translate(var(--mote-start-x), var(--mote-start-y)) scale(1); }
-  90% { opacity: 0.5; }
-  100% {
-    transform: translate(var(--mote-end-x), var(--mote-end-y)) scale(0.2);
-    opacity: 0;
-  }
-}
-
-
-/* --- Typewriter Text Styles (adjusted to match new palette) --- */
+/* --- Typewriter Text Styles --- */
 
 .spinner-text-container {
   color: var(--text-color);
-  font-size: 1.5em;
-  font-weight: 700;
-  height: 2em;
-  font-family: 'Orbitron', 'Space Mono', monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  text-align: center;
-  text-shadow:
-    0 0 6px var(--text-glow-primary),
-    0 0 15px var(--text-glow-primary),
-    0 0 25px var(--text-glow-secondary),
-    0 0 40px rgba(0, 255, 255, 0.3);
-  animation: textGlowFlicker 1.5s ease-in-out infinite alternate;
-  opacity: 1;
-  width: 100%;
-  padding: 0 10px;
-  box-sizing: border-box;
-}
-
-@keyframes textGlowFlicker {
-  0%, 100% {
-    text-shadow: 0 0 6px var(--text-glow-primary), 0 0 15px var(--text-glow-primary);
-    opacity: 1;
-  }
-  50% {
-    text-shadow: 0 0 4px var(--text-glow-primary), 0 0 20px var(--text-glow-primary), 0 0 30px var(--text-glow-secondary);
-    opacity: 0.95;
-  }
+  font-size: 1.1em;
+  font-weight: 500;
+  height: 1.5em; /* Reserve space to prevent layout shift */
+  font-family: 'SF Mono', 'Fira Code', 'IBM Plex Mono', monospace;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
 }
 
 .typing-cursor {
   display: inline-block;
-  width: 3px;
-  height: 1.5em;
+  width: 2px;
+  height: 1.1em;
   background-color: var(--text-color);
-  opacity: 1;
-  margin-left: 8px;
-  animation: blink 0.15s step-end infinite;
+  opacity: 0.7;
+  margin-left: 4px;
+  animation: blink 1s step-end infinite;
   vertical-align: bottom;
-  box-shadow: 0 0 6px var(--text-color);
 }
 
+
+/* --- Keyframe Animations --- */
+
+/* Rotates the gradient for the fluid color-shifting effect */
+@keyframes rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Creates the gentle "breathing" or pulsing effect */
+@keyframes pulse {
+  50% {
+    transform: scale(0.92);
+    opacity: 0.85;
+  }
+}
+
+/* Blinking animation for the typewriter cursor */
 @keyframes blink {
   50% {
     opacity: 0;
