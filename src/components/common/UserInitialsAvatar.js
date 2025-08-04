@@ -20,12 +20,21 @@ const sizeClasses = {
     lg: 'w-12 h-12 text-lg',    // Large (e.g., headers, profile cards)
     xl: 'w-16 h-16 text-2xl',   // Extra Large (e.g., hero sections)
     '2xl': 'w-24 h-24 text-4xl', // Very Large (e.g., dedicated profile page)
+    full: 'w-48 h-48 text-7xl', // Added 'full' size for the specific use case
 };
 
-const UserInitialsAvatar = ({ user, size = 'md', className = '' }) => {
-    // Ensure user object exists and has displayName or email
-    // Now 'sizeClasses' is defined before this block.
-    if (!user || (!user.displayName && !user.email)) {
+const UserInitialsAvatar = ({ firstName, lastName, user, size = 'md', className = '' }) => {
+    // Determine the name to use for initials, prioritizing firstName and lastName props
+    let nameToUse = '';
+    if (firstName && lastName) {
+        nameToUse = `${firstName} ${lastName}`;
+    } else if (user && user.displayName) {
+        nameToUse = user.displayName;
+    } else if (user && user.email) {
+        nameToUse = user.email;
+    }
+
+    if (!nameToUse) {
         return (
             <div className={`relative flex items-center justify-center font-semibold rounded-full bg-gray-300 text-gray-600 overflow-hidden ${sizeClasses[size] || sizeClasses['md']} ${className}`}>
                 <span className="opacity-70">?</span>
@@ -41,7 +50,6 @@ const UserInitialsAvatar = ({ user, size = 'md', className = '' }) => {
         return `${parts[0].charAt(0).toUpperCase()}${parts[parts.length - 1].charAt(0).toUpperCase()}`;
     };
 
-    const nameToUse = user.displayName || user.email;
     const initials = getInitials(nameToUse);
 
     // Create a deterministic index from the user's name (more robust).
