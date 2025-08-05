@@ -61,7 +61,6 @@ const tryParseJson = (jsonString) => {
     }
 };
 
-// ✨ FIX: Moved translations object to be accessible by the entire component for the preview fix.
 const translations = {
     'English': {
         'multiple_choice': 'Instructions: Choose the letter of the best answer.',
@@ -70,6 +69,8 @@ const translations = {
         'identification': 'Instructions: Provide the correct answer on the space provided.',
         'essay': 'Instructions: Answer the following question in a comprehensive essay.',
         'solving': 'Instructions: Solve the following problems. Show your complete solution.',
+        'analogy': 'Instructions: Complete the following analogies by choosing the best answer.',
+        'interpretive': 'Instructions: Read the passage below and answer the questions that follow.',
         'columnA': 'Column A',
         'columnB': 'Column B',
         'columnC': 'Column C',
@@ -81,6 +82,8 @@ const translations = {
             'identification': 'Identification',
             'essay': 'Essay',
             'solving': 'Solving',
+            'analogy': 'Analogy',
+            'interpretive': 'Interpretive',
         }
     },
     'Filipino': {
@@ -90,6 +93,8 @@ const translations = {
         'identification': 'Panuto: Ibigay ang tamang sagot sa nakalaang puwang.',
         'essay': 'Panuto: Sagutin ang sumusunod na tanong sa isang komprehensibong sanaysay.',
         'solving': 'Panuto: Lutasin ang mga sumusunod na suliranin. Ipakita ang iyong kumpletong solusyon.',
+        'analogy': 'Panuto: Kumpletuhin ang mga sumusunod na analohiya sa pamamagitan ng pagpili ng pinakamahusay na sagot.',
+        'interpretive': 'Panuto: Basahin ang talata sa ibaba at sagutin ang mga sumusunod na tanong.',
         'columnA': 'Hanay A',
         'columnB': 'Hanay B',
         'columnC': 'Hanay C',
@@ -101,11 +106,12 @@ const translations = {
             'identification': 'Pagtukoy',
             'essay': 'Sanaysay',
             'solving': 'Paglutas ng Suliranin',
+            'analogy': 'Analohiya',
+            'interpretive': 'Interpretibong Pagbasa',
         }
     }
 };
 
-// Updated function to generate the simplified TOS Markdown
 const generateTosMarkdown = (tos) => {
     if (!tos) return 'No Table of Specifications generated.';
 
@@ -115,7 +121,7 @@ const generateTosMarkdown = (tos) => {
     markdown += `**Grade Level:** ${header.gradeLevel}\n\n`;
     markdown += `### TABLE OF SPECIFICATIONS (TOS)\n\n`;
 
-    const tableHeader = `| Objectives/Learning Competencies | No. of hours spent | Weight % | No. of Items | Easy (Knowledge) Nos. | Average (Comprehension) Nos. | Difficult (Application) Nos. |\n`;
+    const tableHeader = `| Objectives/Learning Competencies | No. of hours spent | Weight % | No. of Items | Easy (Knowledge) 60% | Average (Comprehension) 30% | Difficult (Application) 10% |\n`;
     const tableDivider = `|---|---|---|---|---|---|---|\n`;
 
     let tableBody = tos.competencyBreakdown.map(row =>
@@ -126,7 +132,6 @@ const generateTosMarkdown = (tos) => {
 
     return markdown + tableHeader + tableDivider + tableBody + '\n' + totalRow;
 };
-
 
 const generateExamQuestionsMarkdown = (questions, language) => {
     if (!questions || questions.length === 0) return 'No exam questions generated.';
@@ -154,7 +159,12 @@ const generateExamQuestionsMarkdown = (questions, language) => {
             markdown += `\n# ${romanNumerals[typeCounter]}. ${typeHeader}\n`;
             typeCounter++;
 
-            markdown += `${questionsOfType[0].instruction || t[type]}\n\n`;
+            if (type === 'interpretive' && questionsOfType[0].passage) {
+                markdown += `${questionsOfType[0].instruction || t[type]}\n\n`;
+                markdown += `> ${questionsOfType[0].passage.replace(/\n/g, '\n> ')}\n\n`;
+            } else {
+                 markdown += `${questionsOfType[0].instruction || t[type]}\n\n`;
+            }
 
             if (type === 'matching_type_v2') {
                 markdown += `|${t.columnA}|${t.columnB}|${t.columnC}|\n`;
@@ -175,18 +185,16 @@ const generateExamQuestionsMarkdown = (questions, language) => {
             } else {
                 questionsOfType.forEach(q => {
                     markdown += `${q.questionNumber}. ${q.question}\n`;
-                    if (q.type === 'multiple_choice' || q.type === 'simple_recall') {
-                        if (q.options) {
-                            q.options.forEach((option, index) => {
-                                const optionText = option.trim();
-                                if (/^[a-d]\.\s/.test(optionText)) {
-                                     markdown += `   ${optionText}\n`;
-                                } else {
-                                     markdown += `   ${String.fromCharCode(97 + index)}. ${optionText}\n`;
-                                }
-                            });
-                            markdown += `\n`;
-                        }
+                    if (q.options) {
+                        q.options.forEach((option, index) => {
+                            const optionText = option.trim();
+                            if (/^[a-d]\.\s/.test(optionText)) {
+                                 markdown += `   ${optionText}\n`;
+                            } else {
+                                 markdown += `   ${String.fromCharCode(97 + index)}. ${optionText}\n`;
+                            }
+                        });
+                        markdown += `\n`;
                     } else if (q.type === 'essay' && q.rubric) {
                         markdown += `**${t.rubric}:**\n\n`;
                         q.rubric.forEach(item => {
@@ -202,8 +210,6 @@ const generateExamQuestionsMarkdown = (questions, language) => {
     return markdown;
 };
 
-
-// Helper function to generate Markdown for the answer key
 const generateAnswerKeyMarkdown = (questions) => {
     if (!questions || questions.length === 0) return 'No answer key generated.';
     let markdown = `### Answer Key\n\n`;
@@ -223,7 +229,6 @@ const generateAnswerKeyMarkdown = (questions) => {
     return markdown;
 };
 
-// Helper function to generate Markdown for the explanations
 const generateExplanationsMarkdown = (questions) => {
     if (!questions || questions.length === 0) return 'No explanations generated.';
     let markdown = `### Explanations\n\n`;
@@ -240,7 +245,6 @@ const generateExplanationsMarkdown = (questions) => {
     return markdown;
 };
 
-// Updated component to render the simplified TOS table
 const TOSPreviewTable = ({ tos }) => (
     <div className="overflow-x-auto text-sm">
         <div className="bg-white p-4 rounded-lg shadow-sm mb-4">
@@ -295,7 +299,6 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
     const [isGenerating, setIsGenerating] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     
-    // State for the source content selection
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [selectedLessons, setSelectedLessons] = useState([]);
     
@@ -326,7 +329,7 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
     const isValidForGeneration = totalConfiguredItems > 0 && selectedLessons.length > 0 && learningCompetencies.trim() !== '';
     const isValidPreview = previewData?.tos?.header && previewData?.examQuestions?.length > 0;
 
-	const handleGenerate = async () => {
+    const handleGenerate = async () => {
 	        if (!selectedCourse || selectedLessons.length === 0 || learningCompetencies.trim() === '') {
 	            showToast("Please select a source subject, at least one lesson, and provide learning competencies.", "error");
 	            return;
@@ -359,7 +362,9 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 	    },
 	    "examQuestions": [
 	        { "questionNumber": 1, "type": "multiple_choice", "instruction": "...", "question": "...", "options": ["...", "...", "...", "..."], "correctAnswer": "...", "explanation": "...", "difficulty": "Easy", "bloomLevel": "Remembering" },
+            { "questionNumber": 11, "type": "analogy", "instruction": "...", "question": "...", "options": ["...", "...", "...", "..."], "correctAnswer": "...", "explanation": "...", "difficulty": "Easy", "bloomLevel": "Remembering" },
 	        { "questionNumber": 11, "type": "matching_type_v2", "instruction": "...", "columnA": ["...", "..."], "columnB": ["...", "..."], "correctAnswers": {"A": "1", "B": "2"}, "difficulty": "Average", "bloomLevel": "Understanding" },
+            { "questionNumber": 21, "type": "interpretive", "instruction": "...", "passage": "...", "question": "...", "options": ["...", "...", "...", "..."], "correctAnswer": "...", "explanation": "...", "difficulty": "Average", "bloomLevel": "Analyzing" },
 	        { "questionNumber": 21, "type": "alternative_response", "instruction": "${alternativeResponseInstruction}", "question": "...", "correctAnswer": "True", "explanation": "...", "difficulty": "Easy", "bloomLevel": "Remembering" },
 	        { "questionNumber": 31, "type": "essay", "instruction": "...", "question": "...", "rubric": [ {"criteria": "...", "points": 0} ], "difficulty": "Difficult", "bloomLevel": "Creating" }
 	    ]
@@ -373,33 +378,38 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 	- **Total Hours for Topic:** ${totalHours || 'not specified'}
 	- **Total Items:** ${totalConfiguredItems}
 	- **Test Structure:** ${formattedTestStructure}
-	- **✨ FIX: The Difficulty Distribution has been updated as per your request.**
-	- **Difficulty Distribution (Revised Bloom's Taxonomy):**
-	    - Easy (60%): Remembering (Knowledge)
-	    - Average (30%): Understanding, Evaluating, Analyzing (Comprehension)
-	    - Difficult (10%): Applying, Creating (Application & Thinking)
-	---
+	
 	**CRITICAL GENERATION RULES (NON-NEGOTIABLE):**
-
-	1.  **LANGUAGE:** ALL generated text (instructions, questions, options, rubrics, explanations, etc.) MUST be in the specified language: **${language}**. This includes translating test type concepts (e.g., 'Multiple Choice' becomes 'Maraming Pagpipilian' if language is Filipino).
-
-	2.  **MULTIPLE-CHOICE OPTION ORDERING (MANDATORY):** For ALL 'multiple_choice' questions, you MUST physically order the strings within the "options" array based on the following logic. THIS IS A STRICT REQUIREMENT.
-    	* **Pyramid Style (Shortest to Longest):** If choices are sentences or phrases, you MUST order them from SHORTEST to LONGEST based on character count. This rule **overrides** alphabetical ordering.
-    	* **Alphabetical:** Apply ONLY if choices are single words.
-    	* **Numerical:** Apply ONLY if choices are numbers.
-    	* **Chronological:** Apply ONLY if choices are dates.
-    	* **EXAMPLE (Pyramid Style):** For a question in Filipino, if the options are ["Ang pamilya", "Ang Diyos", "Upang mas lalo nating maramdaman ang Kanyang pagmamahal", "Ang ating sarili"], they MUST be ordered in the JSON by length as: ["Ang Diyos", "Ang pamilya", "Ang ating sarili", "Upang mas lalo nating maramdaman ang Kanyang pagmamahal"]. Note that "Ang Diyos" (9 chars) correctly comes before "Ang pamilya" (11 chars).
-
-	3.  **ESSAY QUESTION GENERATION (ABSOLUTE RULE):** If the test structure includes "Essay", you MUST generate **EXACTLY ONE (1)** miss universe-like essay question. The number range provided (e.g., '31-35') corresponds to the **TOTAL POINTS** for that single question's rubric (i.e., 5 points). DO NOT create multiple essay questions. The 'questionNumber' should be the start of the range (e.g., 31).
-
-	4.  **MATCHING TYPE:** Group ALL items into a SINGLE question object for 'matching_type_v2'. 'columnA' should contain the questions, and 'columnB' should contain the answers plus ONE extra distractor.
-
-	5.  **TOS & NUMBERING:**
+	
+	1. **LANGUAGE:** ALL generated text (instructions, questions, options, rubrics, explanations, etc.) MUST be in the specified language: **${language}**. This includes translating test type concepts (e.g., 'Multiple Choice' becomes 'Maraming Pagpipilian' if language is Filipino).
+	
+	2. **DIFFICULTY DISTRIBUTION (STRICT):** You must strictly adhere to the following percentages for the total number of items:
+	    - Easy: 60% of 'Total Items'.
+	    - Average: 30% of 'Total Items'.
+	    - Difficult: 10% of 'Total Items'.
+	    
+	    If the calculation results in a non-whole number, you must round down. Any remaining items must be added to the 'Easy' category to ensure the total number of items matches 'Total Items'.
+	
+	3. **MULTIPLE-CHOICE & ANALOGY OPTION ORDERING (MANDATORY):** For ALL 'multiple_choice' and 'analogy' questions, you MUST order the strings within the "options" array based on the following logic. This is a strict requirement.
+	    * **Pyramid Style (Shortest to Longest):** If choices are sentences or phrases, you MUST order them from SHORTEST to LONGEST based on character count. This rule **overrides** all other ordering.
+	    * **Alphabetical:** Apply ONLY if choices are single words.
+	    * **Numerical:** Apply ONLY if choices are numbers.
+	    * **Chronological:** Apply ONLY if choices are dates.
+	    * **EXAMPLE (Pyramid Style - Filipino):**
+	        For the question, if the options are ["Ang pamilya", "Ang Diyos", "Upang mas lalo nating maramdaman ang Kanyang pagmamahal", "Ang ating sarili"], the correct order in the JSON's "options" array is:
+	        ["Ang Diyos", "Ang pamilya", "Ang ating sarili", "Upang mas lalo nating maramdaman ang Kanyang pagmamahal"].
+	        This is because "Ang Diyos" (9 chars) is shorter than "Ang pamilya" (11 chars), which is shorter than "Ang ating sarili" (16 chars), etc.
+	
+	4. **ESSAY QUESTION GENERATION (ABSOLUTE RULE):** If the test structure includes "Essay", you MUST generate **EXACTLY ONE (1)** single miss universe style essay question. The number range provided (e.g., '31-35') corresponds to the **TOTAL POINTS** for that single question's rubric (i.e., 5 points). DO NOT create multiple essay questions. The 'questionNumber' should be the start of the range (e.g., 31).
+	
+	5. **MATCHING TYPE:** Group ALL items for a matching type into a SINGLE question object. 'columnA' should contain the questions, and 'columnB' should contain the answers plus ONE extra distractor.
+	
+	6. **TOS & NUMBERING:**
 	    * For Matching Types, the 'itemNumbers' in the TOS must be a sequential list (e.g., "11, 12, 13, 14, 15").
 	    * For the single Essay question, assign its entire point value and number range (e.g., '31-35') to the 'difficultItems' column for the single most relevant competency.
-
-	6.  **CONTENT ADHERENCE:** All questions must be strictly based on the provided **Lesson Content**. Do not use external knowledge. Avoid phrases like "According to the lesson...".
-
+	
+	7. **CONTENT ADHERENCE:** All questions must be strictly based on the provided **Lesson Content**. Do not use external knowledge. Avoid phrases like "According to the lesson...".
+	
 	**Final Check:** Review your generated JSON for syntax errors (commas, quotes, brackets) before outputting.
 	`;
 	        try {
@@ -577,6 +587,8 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                                             <option>Identification</option>
                                                             <option>Solving</option>
                                                             <option>Essay</option>
+                                                            <option>Analogy</option>
+                                                            <option>Interpretive</option>
                                                         </select>
                                                     </div>
                                                     <div className="col-span-12 md:col-span-6">
@@ -616,7 +628,7 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                                 const groupedQuestions = {};
                                                 previewData.examQuestions.forEach(q => {
                                                     if (!groupedQuestions[q.type]) {
-                                                        groupedQuestions[q.type] = { instruction: q.instruction, questions: [] };
+                                                        groupedQuestions[q.type] = { instruction: q.instruction, passage: q.passage, questions: [] };
                                                     }
                                                     groupedQuestions[q.type].questions.push(q);
                                                 });
@@ -624,13 +636,13 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                                 const t = translations[language] || translations['English'];
 
                                                 return Object.entries(groupedQuestions).map(([type, data], typeIndex) => {
-                                                    // ✨ FIX: This line now correctly looks up the translated header for the PREVIEW.
                                                     const typeHeader = t.test_types[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
                                                     return (
                                                         <div key={type} className="mt-6">
                                                             <h4 className="text-md font-bold">{romanNumerals[typeIndex]}. {typeHeader}</h4>
                                                             {data.instruction && <p className="text-sm font-semibold italic text-gray-600 my-2">{data.instruction}</p>}
+                                                            {data.passage && <p className="text-sm text-gray-800 italic my-2 p-3 bg-gray-100 rounded-md border border-gray-200">{data.passage}</p>}
                                                             <ol className="list-inside space-y-4">
                                                                 {data.questions.map((q, index) => (
                                                                     <li key={index} className="pl-2">
