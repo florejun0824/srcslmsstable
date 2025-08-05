@@ -152,7 +152,7 @@ const InteractiveLoadingScreen = ({ currentLessonIndex = 0, totalLessons = 0, is
                 <CelestialBloomAnimation />
                 
                 <h2 className="relative z-10 text-3xl md:text-4xl font-extrabold text-slate-800 mb-2 tracking-wide">
-                    {isSaving ? 'Saving Your Lesson...' : `Preparing Your Lessons`}
+                    {isSaving ? 'Saving Your Lesson...' : `Preparing Something Great For You!`}
                 </h2>
 
                 {/* Conditional rendering to fix the "1 of 0" bug */}

@@ -2,14 +2,17 @@ import React, { useState, useEffect } from 'react';
 import CreateLearningGuideModal from './CreateLearningGuideModal';
 import CreateUlpModal from './CreateUlpModal';
 import CreateAtgModal from './CreateAtgModal';
+import CreateExamAndTosModal from './CreateExamAndTosModal';
 import {
     DocumentTextIcon,
     DocumentChartBarIcon,
     AcademicCapIcon,
-    XMarkIcon
+    XMarkIcon,
+    PencilSquareIcon
 } from '@heroicons/react/24/outline';
 
-const GradientCardButton = ({ title, description, icon: Icon, gradient, onClick, disabled }) => (
+// ✅ MODIFIED: Added 'badge' prop
+const GradientCardButton = ({ title, description, icon: Icon, gradient, onClick, disabled, badge }) => (
     <button
         onClick={onClick}
         disabled={disabled}
@@ -22,7 +25,15 @@ const GradientCardButton = ({ title, description, icon: Icon, gradient, onClick,
         <div className="mb-4">
             <Icon className="w-10 h-10 sm:w-12 sm:w-12" />
         </div>
-        <h3 className="text-lg sm:text-xl font-bold">{title}</h3>
+        <div className="flex items-center">
+             <h3 className="text-lg sm:text-xl font-bold">{title}</h3>
+             {/* ✅ MODIFIED: Render the badge if it exists */}
+             {badge && (
+                <span className="ml-2 text-xs font-bold px-2 py-1 bg-white/20 rounded-full">
+                    {badge}
+                </span>
+            )}
+        </div>
         <p className="text-xs sm:text-sm text-white/80 mt-2 flex-grow">{description}</p>
         <div className="mt-4 text-xs sm:text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             {disabled ? 'Requires a Unit' : 'Select →'}
@@ -69,6 +80,16 @@ export default function AiGenerationHub({ isOpen, onClose, subjectId, unitId }) 
             gradient: "from-teal-500 to-cyan-600",
             action: () => setView('atg'),
             disabled: !unitId
+        },
+        {
+            title: "Exam & TOS Generator",
+            description: "Create a complete exam with a Table of Specifications based on your lesson content.",
+            icon: PencilSquareIcon,
+            gradient: "from-amber-500 to-orange-600",
+            action: () => setView('exam'),
+            disabled: !unitId,
+            // ✅ MODIFIED: Added a badge property
+            badge: "BETA"
         }
     ];
 
@@ -83,7 +104,10 @@ export default function AiGenerationHub({ isOpen, onClose, subjectId, unitId }) 
         ActiveGeneratorModal = <CreateUlpModal isOpen={true} onClose={handleCloseAll} subjectId={subjectId} unitId={unitId} />;
     } else if (view === 'atg') {
         ActiveGeneratorModal = <CreateAtgModal isOpen={true} onClose={handleCloseAll} subjectId={subjectId} unitId={unitId} />;
+    } else if (view === 'exam') {
+        ActiveGeneratorModal = <CreateExamAndTosModal isOpen={true} onClose={handleCloseAll} subjectId={subjectId} unitId={unitId} />;
     }
+
 
     return (
         <>
@@ -92,12 +116,10 @@ export default function AiGenerationHub({ isOpen, onClose, subjectId, unitId }) 
                     className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
                     onClick={handleCloseAll}
                 >
-                    {/* ✅ FIXED: Added flexbox layout and max-height to the modal panel */}
                     <div
                         className="bg-gray-100 p-6 sm:p-8 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh]"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* ✅ FIXED: Header now remains fixed at the top */}
                         <div className="flex justify-between items-center mb-6 flex-shrink-0">
                             <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Choose an AI Tool</h2>
                             <button onClick={handleCloseAll} className="p-2 rounded-full text-gray-400 hover:bg-gray-200">
@@ -105,8 +127,7 @@ export default function AiGenerationHub({ isOpen, onClose, subjectId, unitId }) 
                             </button>
                         </div>
 
-                        {/* ✅ FIXED: This grid area is now scrollable on its own */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 overflow-y-auto -mr-2 pr-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 overflow-y-auto -mr-2 pr-2">
                             {generatorOptions.map((option) => (
                                 <GradientCardButton
                                     key={option.title}
@@ -116,6 +137,8 @@ export default function AiGenerationHub({ isOpen, onClose, subjectId, unitId }) 
                                     gradient={option.gradient}
                                     onClick={option.action}
                                     disabled={option.disabled}
+                                    // ✅ MODIFIED: Added the new badge prop
+                                    badge={option.badge}
                                 />
                             ))}
                         </div>

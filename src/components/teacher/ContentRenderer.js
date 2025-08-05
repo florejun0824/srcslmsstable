@@ -9,7 +9,7 @@ import remarkGfm from 'remark-gfm';
 import 'katex/dist/katex.min.css';
 
 /**
- * ✨ NEW: Robust SVG processing function.
+ * Robust SVG processing function.
  * This acts as a safety net to fix AI mistakes in SVGs.
  */
 const processSvgContent = (svgString) => {
@@ -26,7 +26,7 @@ const processSvgContent = (svgString) => {
     const svgDoc = parser.parseFromString(cleanedSvg, "image/svg+xml");
     const svgElement = svgDoc.documentElement;
 
-    // ✨ NEW: Ensure a viewBox is present for proper scaling
+    // Ensure a viewBox is present for proper scaling
     if (!svgElement.getAttribute('viewBox')) {
       const width = svgElement.getAttribute('width');
       const height = svgElement.getAttribute('height');
@@ -35,7 +35,7 @@ const processSvgContent = (svgString) => {
       }
     }
     
-    // ✨ NEW: Create a clipping path to prevent overflow
+    // Create a clipping path to prevent overflow
     const clipPathId = 'svg-clip-path';
     const clipPath = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
     clipPath.setAttribute('id', clipPathId);
@@ -65,7 +65,7 @@ const processSvgContent = (svgString) => {
     for (let i = 0; i < allElements.length; i++) {
         const el = allElements[i];
         
-        // ✨ NEW: Set a professional, sans-serif font for all text
+        // Set a professional, sans-serif font for all text
         if (el.tagName.toLowerCase() === 'text') {
             el.setAttribute('font-family', "'Inter', sans-serif"); // Using Inter from your index.html
             el.setAttribute('font-size', '6px'); // Keep font size small and consistent
@@ -74,7 +74,7 @@ const processSvgContent = (svgString) => {
             el.setAttribute('lengthAdjust', 'spacingAndGlyphs'); // Adjust spacing to fit
         }
 
-        // ✨ NEW: Standardize strokes for a cleaner look
+        // Standardize strokes for a cleaner look
         if (el.hasAttribute('stroke')) {
             el.setAttribute('stroke', '#333'); // A dark grey for all strokes
             el.setAttribute('stroke-width', '0.5'); // A thin, consistent stroke width
@@ -92,7 +92,7 @@ const processSvgContent = (svgString) => {
 
 
 /**
- * NEW: Helper function to remove duplicated lines from AI output.
+ * Helper function to remove duplicated lines from AI output.
  */
 const removeDuplicateLines = (text) => {
     if (!text) return '';
@@ -113,7 +113,7 @@ export default function ContentRenderer({ htmlContent, text }) {
   
   // --- Priority 1: If raw HTML content (like an SVG) is provided, clean and render it ---
   if (htmlContent && typeof htmlContent === 'string') {
-    // ✅ FIX: Use the new, more robust SVG processing function.
+    // FIX: Use the new, more robust SVG processing function.
     const sanitizedHtml = processSvgContent(htmlContent);
     return (
       <div
@@ -129,13 +129,17 @@ export default function ContentRenderer({ htmlContent, text }) {
       String.fromCharCode(parseInt(grp, 16))
     );
     
-    // ✅ FIX: The AI prompt now handles escaping correctly, so we no longer need
+    // The AI prompt now handles escaping correctly, so we no longer need
     // to process \\n or \\" here. We will just process the escaped backslashes in the LaTeX.
     // This looks for an even number of backslashes and replaces them with half that many.
     // e.g., `\\frac` becomes `\frac`, and `\\\\` becomes `\\`.
     const normalizedText = unescapedText.replace(/\\\\/g, '\\');
     
     let processedText = normalizedText;
+
+    // FIX: Replace single newlines with a markdown hard line break (two spaces + newline)
+    // This ensures that newlines are correctly rendered as line breaks instead of being ignored.
+    processedText = processedText.replace(/\n(?!\n)/g, '  \n');
 
     const trimmedText = processedText.trim();
     if (trimmedText.startsWith('```') && trimmedText.endsWith('```')) {
