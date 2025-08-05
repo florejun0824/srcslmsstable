@@ -31,7 +31,7 @@ const tryParseJson = (jsonString) => {
             return JSON.parse(sanitizedWithCommas);
         } catch (finalError) {
             console.error("Sanitization failed. The error is likely in the generated JSON structure.", finalError);
-            throw e; 
+            throw e;
         }
     }
 };
@@ -50,6 +50,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
     const [subjectName, setSubjectName] = useState('');
 
     const [failedLessonNumber, setFailedLessonNumber] = useState(null);
+    const [lessonProgress, setLessonProgress] = useState({ current: 0, total: 0 });
 
     const [formData, setFormData] = useState({
         content: '',
@@ -315,6 +316,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             }
 
             for (let i = startLessonNumber; i <= formData.lessonCount; i++) {
+                setLessonProgress({ current: i, total: formData.lessonCount });
                 showToast(`Generating Lesson ${i} of ${formData.lessonCount}...`, "info", 10000);
                 
                 const lastSuccessfulLesson = currentLessons.length > 0 ? currentLessons[currentLessons.length - 1] : null;
@@ -331,12 +333,14 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             }
             
             setPreviewData({ generated_lessons: currentLessons });
+            setLessonProgress({ current: 0, total: 0 });
             showToast("All lessons generated successfully!", "success");
 
         } catch (err) {
             const failedLessonNum = currentLessons.length + 1;
             console.error(`Error during generation of Lesson ${failedLessonNum}:`, err);
             setFailedLessonNumber(failedLessonNum);
+            setLessonProgress({ current: failedLessonNum, total: formData.lessonCount });
             const userFriendlyError = `Failed to generate Lesson ${failedLessonNum}. You can try to continue the generation.`;
             showToast(userFriendlyError, "error", 15000);
         } finally {
@@ -358,6 +362,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
     const handleBackToEdit = () => {
         setPreviewData(null);
         setFailedLessonNumber(null);
+        setLessonProgress({ current: 0, total: 0 });
     };
     
     const handleRegenerate = async (regenerationNote) => {
@@ -414,7 +419,11 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             <Dialog.Panel className="relative bg-slate-50 p-4 sm:p-6 rounded-2xl shadow-2xl w-full max-w-md lg:max-w-5xl max-h-[90vh] flex flex-col">
                 {(isGenerating || isSaving) && (
                     <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl">
-                        <InteractiveLoadingScreen topic={formData.content || "new ideas"} isSaving={isSaving} />
+                        <InteractiveLoadingScreen 
+                            topic={formData.content || "new ideas"} 
+                            isSaving={isSaving} 
+                            lessonProgress={lessonProgress}
+                        />
                     </div>
                 )}
                 <div className="flex justify-between items-start mb-4 sm:mb-6">

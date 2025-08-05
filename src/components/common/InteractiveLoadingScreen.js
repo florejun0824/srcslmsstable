@@ -1,171 +1,130 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
-// --- Animation Styles ---
-// Styles adjusted for a light background.
+// --- Animation Styles for the Celestial Bloom UI ---
 const animationStyles = `
-    /* Keyframes for the book's gentle float and glow */
-    @keyframes book-pulse {
-        0%, 100% { 
-            transform: translateY(0px) scale(1); 
-            filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.4));
-        }
-        50% { 
-            transform: translateY(-4px) scale(1.03); 
-            filter: drop-shadow(0 0 16px rgba(129, 140, 248, 0.5));
-        }
+    /* Keyframes for the outermost rings */
+    @keyframes bloom-pulse-outer {
+        0%, 100% { transform: scale(1); opacity: 0.8; }
+        50% { transform: scale(1.1); opacity: 1; }
     }
+    
+    /* Keyframes for the middle rings */
+    @keyframes bloom-pulse-middle {
+        0%, 100% { transform: scale(0.9); opacity: 0.8; }
+        50% { transform: scale(1); opacity: 1; }
+    }
+    
+    /* Keyframes for the central core */
+    @keyframes bloom-pulse-core {
+        0%, 100% { transform: scale(0.6); opacity: 1; }
+        50% { transform: scale(0.7); opacity: 0.9; }
+    }
+    
+    /* Keyframes for the stars' subtle pulse */
+    @keyframes star-pulse {
+        0%, 100% { r: 1; }
+        50% { r: 2; }
+    }
+    
+    .outer-anim { animation: bloom-pulse-outer 5s ease-in-out infinite; }
+    .middle-anim { animation: bloom-pulse-middle 4s ease-in-out infinite; }
+    .core-anim { animation: bloom-pulse-core 3s ease-in-out infinite; }
+    .star-pulse-anim { animation: star-pulse 2s linear infinite; }
+    .outer-rotate-anim { animation: rotate-slow 20s linear infinite; }
+    .inner-rotate-anim { animation: rotate-fast 15s linear infinite reverse; }
 
-    /* Keyframes for the book pages turning */
-    @keyframes turn-page {
-        0%, 20% { transform: rotateY(0deg); }
-        80%, 100% { transform: rotateY(-180deg); }
+    @keyframes rotate-slow {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
     }
-
-    /* Keyframes for particles spiraling in from the RIGHT */
-    @keyframes spiral-absorb-right {
-        0% {
-            transform: rotate(0deg) translateX(100px) scale(1.2);
-            opacity: 1;
-        }
-        100% {
-            transform: rotate(360deg) translateX(0px) scale(0);
-            opacity: 0;
-        }
-    }
-
-    /* Keyframes for particles spiraling in from the LEFT */
-    @keyframes spiral-absorb-left {
-        0% {
-            transform: rotate(0deg) translateX(-100px) scale(1.2);
-            opacity: 1;
-        }
-        100% {
-            transform: rotate(-360deg) translateX(0px) scale(0);
-            opacity: 0;
-        }
-    }
-
-    /* Keyframes for the glowing platform */
-    @keyframes platform-glow {
-        0%, 100% { opacity: 0.7; transform: scaleX(1); }
-        50% { opacity: 1; transform: scaleX(1.05); }
-    }
-
-    /* Applying the animations */
-    .book-anim {
-        animation: book-pulse 6s ease-in-out infinite;
-    }
-    .page-flipper {
-        transform-origin: 75px 45px;
-        animation: turn-page 5s cubic-bezier(0.6, 0, 0.4, 1) infinite;
-    }
-    .particle-spiral-right {
-        /* ✅ FIXED: Changed timing to ease-in for a clear absorption effect */
-        animation: spiral-absorb-right 3s ease-in infinite;
-        transform-origin: center;
-    }
-    .particle-spiral-left {
-        /* ✅ FIXED: Changed timing to ease-in for a clear absorption effect */
-        animation: spiral-absorb-left 3s ease-in infinite;
-        transform-origin: center;
-    }
-    .platform-anim {
-        animation: platform-glow 6s ease-in-out infinite;
-        transform-origin: center;
+    
+    @keyframes rotate-fast {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
     }
 `;
 
-// Loading messages (unchanged)
+// A greatly expanded list of humorous and engaging messages (at least 25)
 const loadingMessages = [
-    "Brewing up some brilliant ideas...",
+    "Cultivating a celestial bloom of knowledge...",
+    "Watching the lessons blossom...",
+    "Igniting the flow of inspiration...",
+    "Weaving a tapestry of learning...",
+    "Building your digital masterpiece...",
+    "Analyzing data streams...",
+    "Constructing your curriculum...",
+    "Warming up the creativity engines...",
     "Assembling atoms of knowledge...",
     "Teaching the AI about your topic...",
     "Turning good ideas into great lessons...",
-    "Unpacking the mysteries of the universe...",
     "Finding the perfect words...",
-    "Polishing the lesson plan...",
-    "Consulting the muses of education...",
-    "Just a moment, creating something amazing!",
-    "Did you know? The human brain has about 86 billion neurons.",
-    "Warming up the creativity engines...",
+    "Ensuring every byte is perfectly placed...",
+    "Awakening the core processing unit...",
+    "Almost there! Just one more block to place...",
+    "The algorithms are humming with delight...",
+    "Crafting a lesson you'll actually enjoy...",
+    "Unleashing the magic of learning...",
+    "Bending reality to fit your curriculum...",
+    "Don't worry, the digital ink is very fast.",
+    "Loading the wisdom of the ages...",
 ];
 
-// The "EnchantedTomeAnimation" component with more particles
-const EnchantedTomeAnimation = () => {
-    // ✅ ADDED: More particles for a richer effect
-    const rightParticles = [
-        { delay: '0s', color: '#f59e0b', r: 2.5 },
-        { delay: '-0.5s', color: '#f472b6', r: 2 },
-        { delay: '-1s', color: '#d946ef', r: 2.5 },
-        { delay: '-1.5s', color: '#22d3ee', r: 2 },
-        { delay: '-2s', color: '#818cf8', r: 1.5 },
-        { delay: '-2.5s', color: '#facc15', r: 2 },
-        { delay: '-3s', color: '#f472b6', r: 2.5 },
-        { delay: '-3.5s', color: '#22d3ee', r: 2 },
-    ];
-    
-    // ✅ ADDED: More particles for a richer effect
-    const leftParticles = [
-        { delay: '-0.25s', color: '#22d3ee', r: 3 },
-        { delay: '-0.75s', color: '#818cf8', r: 2.5 },
-        { delay: '-1.25s', color: '#f59e0b', r: 2 },
-        { delay: '-1.75s', color: '#d946ef', r: 2.5 },
-        { delay: '-2.25s', color: '#f472b6', r: 1.5 },
-        { delay: '-2.75s', color: '#facc15', r: 2.5 },
-        { delay: '-3.25s', color: '#818cf8', r: 2 },
-        { delay: '-3.75s', color: '#22d3ee', r: 2 },
-    ];
-
+// The new "CelestialBloomAnimation" component
+const CelestialBloomAnimation = () => {
     return (
-        <div className="relative w-56 h-56 mx-auto mb-4 flex items-center justify-center">
-            <svg viewBox="0 0 200 200" className="w-full h-full overflow-visible">
+        <div className="relative w-64 h-64 mx-auto mb-6 flex items-center justify-center">
+            <svg viewBox="0 0 200 200" className="w-full h-full">
                 <defs>
-                    <radialGradient id="platform-gradient" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" stopColor="rgba(203, 213, 225, 0.5)" />
-                        <stop offset="100%" stopColor="rgba(226, 232, 240, 0)" />
+                    <radialGradient id="core-gradient" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stopColor="#f59e0b" />
+                        <stop offset="100%" stopColor="#f97316" stopOpacity="0" />
                     </radialGradient>
-                    <filter id="glow-filter"><feGaussianBlur stdDeviation="1.5" /></filter>
+                    <filter id="glow-filter"><feGaussianBlur stdDeviation="3" /></filter>
                 </defs>
-
-                {/* Glowing Platform */}
-                <ellipse cx="100" cy="150" rx="70" ry="20" fill="url(#platform-gradient)" className="platform-anim" />
-
-                {/* Spiraling Particles */}
-                <g transform="translate(100, 100)">
-                    {/* Map over right particles */}
-                    {rightParticles.map((p, i) => (
-                        <circle key={`r-${i}`} cx="0" cy="0" r={p.r} fill={p.color} className="particle-spiral-right" style={{ animationDelay: p.delay }} />
-                    ))}
-                    {/* Map over left particles */}
-                    {leftParticles.map((p, i) => (
-                        <circle key={`l-${i}`} cx="0" cy="0" r={p.r} fill={p.color} className="particle-spiral-left" style={{ animationDelay: p.delay }} />
-                    ))}
-                </g>
                 
-                {/* Central Magical Book */}
-                <g className="book-anim" transform="translate(30, 55) scale(1)">
-                    <path d="M10 95 A 5 5 0 0 1 15 90 H 135 A 5 5 0 0 1 140 95 V 5 A 5 5 0 0 1 135 0 H 15 A 5 5 0 0 1 10 5 Z" fill="#312e81" />
-                    <path d="M15 5 H 135 V 90 H 15 Z" fill="#4338ca" stroke="#a78bfa" strokeWidth="1" />
-                    
-                    <g className="page-flipper" style={{ animationDelay: '0s' }}><path d="M15 0 H 75 V 90 H 15 A 5 5 0 0 1 10 85 V 5 A 5 5 0 0 1 15 0 Z" fill="#e0e7ff" /></g>
-                    <g className="page-flipper" style={{ animationDelay: '-0.5s' }}><path d="M15 0 H 75 V 90 H 15 A 5 5 0 0 1 10 85 V 5 A 5 5 0 0 1 15 0 Z" fill="#c7d2fe" /></g>
-                    
-                    <path d="M75 0 H 135 A 5 5 0 0 1 140 5 V 85 A 5 5 0 0 1 135 90 H 75 Z" fill="#3730a3" />
-                    {/* Arcane Symbol */}
-                    <g transform="translate(107.5, 45)" stroke="#facc15" strokeWidth="1.5" style={{ filter: 'url(#glow-filter)'}}>
-                        <circle cx="0" cy="0" r="15" fill="none" />
-                        <path d="M 0 -10 L 0 10 M -10 0 L 10 0" />
-                        <circle cx="0" cy="0" r="5" fill="none" />
+                <g transform="translate(100, 100)">
+                    {/* Central pulsating core */}
+                    <circle r="15" fill="url(#core-gradient)" className="core-anim" style={{ filter: 'url(#glow-filter)' }} />
+
+                    {/* Inner intricate design */}
+                    <g className="inner-rotate-anim" transform-origin="center center">
+                        <path d="M 0,-40 Q 20,0 0,40 Q -20,0 0,-40 Z" fill="#c084fc" opacity="0.6" style={{ filter: 'url(#glow-filter)' }} />
+                        <path d="M 0,-40 Q 20,0 0,40 Q -20,0 0,-40 Z" transform="rotate(45)" fill="#38bdf8" opacity="0.6" style={{ filter: 'url(#glow-filter)' }} />
                     </g>
+                    
+                    {/* Outer blooming rings */}
+                    <g className="outer-rotate-anim" transform-origin="center center">
+                        <circle r="60" stroke="#f472b6" strokeWidth="2" fill="none" opacity="0.4" className="outer-anim" />
+                        <path d="M-80,0 A80,80 0 0,1 80,0 A80,80 0 0,1 -80,0 Z M-70,0 A70,70 0 0,0 70,0 A70,70 0 0,0 -70,0 Z" 
+                            fill="none" stroke="#f472b6" strokeWidth="1" transform-origin="center center" className="middle-anim" />
+                    </g>
+
+                    {/* Random stars/particles */}
+                    {[...Array(20)].map((_, i) => (
+                        <circle
+                            key={i}
+                            cx={Math.random() * 160 - 80}
+                            cy={Math.random() * 160 - 80}
+                            r="1"
+                            fill="#facc15"
+                            className="star-pulse-anim"
+                            style={{ animationDelay: `${Math.random() * 2}s` }}
+                        />
+                    ))}
                 </g>
             </svg>
         </div>
     );
 };
 
-// The main component that receives props from its parent
-const InteractiveLoadingScreen = ({ topic, isSaving = false }) => {
+/**
+ * A loading screen that displays progress and cycles through engaging messages.
+ * @param {number} currentLessonIndex The index of the current lesson (0-based).
+ * @param {number} totalLessons The total number of lessons to be created.
+ * @param {boolean} isSaving If true, shows a saving message.
+ */
+const InteractiveLoadingScreen = ({ currentLessonIndex = 0, totalLessons = 0, isSaving = false }) => {
     const [messageIndex, setMessageIndex] = useState(0);
 
     useEffect(() => {
@@ -179,31 +138,46 @@ const InteractiveLoadingScreen = ({ topic, isSaving = false }) => {
     const currentMessage = isSaving ? "Almost there..." : loadingMessages[messageIndex];
 
     return (
-        // Container with a new light theme
-        <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center text-center p-6 md:p-8 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
+        <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-100 rounded-[3rem] overflow-hidden"
+        >
             <style>{animationStyles}</style>
-            
-            <EnchantedTomeAnimation />
-            
-            <h2 className="text-lg md:text-xl font-bold text-slate-800 mb-2 tracking-wide">
-                {isSaving ? 'Saving Your Lesson...' : `Generating Lesson on "${topic}"`}
-            </h2>
 
-            <div className="h-12 flex items-center justify-center">
-                <AnimatePresence mode="wait">
-                    <motion.p
-                        key={currentMessage}
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        transition={{ duration: 0.5 }}
-                        className="text-sm md:text-base text-slate-600"
-                    >
-                        {currentMessage}
-                    </motion.p>
-                </AnimatePresence>
+            <div className="w-full max-w-lg mx-auto flex flex-col items-center justify-center text-center p-8 bg-white/40 border-2 border-slate-200 rounded-3xl backdrop-blur-xl shadow-lg shadow-gray-200/50">
+                
+                <CelestialBloomAnimation />
+                
+                <h2 className="relative z-10 text-3xl md:text-4xl font-extrabold text-slate-800 mb-2 tracking-wide">
+                    {isSaving ? 'Saving Your Lesson...' : `Preparing Your Lessons`}
+                </h2>
+
+                {/* Conditional rendering to fix the "1 of 0" bug */}
+                {totalLessons > 0 && (
+                    <p className="relative z-10 text-sm md:text-base text-slate-600 font-semibold mb-4">
+                        Lesson {currentLessonIndex + 1} of {totalLessons}
+                    </p>
+                )}
+
+                <div className="relative z-10 h-16 flex items-center justify-center px-4">
+                    <AnimatePresence mode="wait">
+                        <motion.p
+                            key={currentMessage}
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            transition={{ duration: 0.5 }}
+                            className="text-base md:text-lg text-slate-600 font-medium max-w-xs md:max-w-md"
+                        >
+                            {currentMessage}
+                        </motion.p>
+                    </AnimatePresence>
+                </div>
             </div>
-        </div>
+        </motion.div>
     );
 };
 
