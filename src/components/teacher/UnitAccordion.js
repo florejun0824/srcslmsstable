@@ -545,33 +545,134 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	    if (exportingLessonId) return;
 	    setExportingLessonId(lesson.id);
 	    showToast("Preparing PDF for printing...", "info");
-	    let htmlContent = lesson.pages[0]?.content || '<h1>No Content</h1>';
-	    htmlContent = htmlContent.replace(/<thead[\s\S]*?<\/thead>/i, '');
-	    const tableFooter = "<tfoot><tr><td colspan='2' style='border-top: 1px solid #ccc; padding: 0 !important; height: 1px !important; line-height: 0 !important;'>&nbsp;</td></tr></tfoot>";
-	    htmlContent = htmlContent.replace('</table>', tableFooter + '</table>');
+
+	    const htmlContent = lesson.pages[0]?.content || '<h1>No Content</h1>';
 	    const title = lesson.lessonTitle || lesson.title;
 	    const printWindow = window.open('', '_blank');
-	    if (!printWindow) { showToast("Could not open a new window. Please disable your pop-up blocker.", "error"); setExportingLessonId(null); return; }
-	    printWindow.document.write(`<html><head><title>${title}</title><style>@media print{@page{size: 8.5in 13in;margin: 1in;}body{margin:0;font-family:sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}table{width:100%;border-collapse:collapse;font-size:9pt;}td,th{border:1px solid #ccc;padding:6px;text-align:left;}tfoot{display:table-footer-group;}}</style></head><body>${htmlContent}</body></html>`);
+
+	    if (!printWindow) {
+	        showToast("Could not open a new window. Please disable your pop-up blocker.", "error");
+	        setExportingLessonId(null);
+	        return;
+	    }
+
+	    printWindow.document.write(`
+	        <html>
+	            <head>
+	                <title>${title}</title>
+	                <style>
+	                    @media print {
+	                        @page {
+	                            size: 8.5in 13in;
+	                            margin: 1in;
+	                        }
+	                        body {
+	                            margin: 0;
+	                            font-family: sans-serif;
+	                            -webkit-print-color-adjust: exact;
+	                            print-color-adjust: exact;
+	                        }
+	                        table {
+	                            width: 100%;
+	                            border-collapse: collapse;
+	                            page-break-inside: auto; /* Allow table to break across pages */
+	                        }
+	                        tr {
+	                            page-break-inside: avoid; /* Avoid breaking inside a row */
+	                            page-break-after: auto;
+	                        }
+	                        thead {
+	                            display: table-header-group; /* Repeat table header on each page */
+	                        }
+	                        td, th {
+	                            border: 1px solid #ccc;
+	                            padding: 8px; /* Increased padding slightly for readability */
+	                            text-align: left;
+	                        }
+	                        /* Ensure nested tables also have borders and good layout */
+	                        table table {
+	                            margin-top: 5px;
+	                            border: 1px solid #ccc;
+	                        }
+	                    }
+	                </style>
+	            </head>
+	            <body>
+	                ${htmlContent}
+	            </body>
+	        </html>`);
+
 	    printWindow.document.close();
-	    setTimeout(() => { printWindow.focus(); printWindow.print(); setExportingLessonId(null); }, 500);
+	    setTimeout(() => {
+	        printWindow.focus();
+	        printWindow.print();
+	        setExportingLessonId(null);
+	    }, 500);
 	};
     
 	const handleExportAtgPdf = (lesson) => {
 	    if (exportingLessonId) return;
 	    setExportingLessonId(lesson.id);
 	    showToast("Preparing PDF for printing...", "info");
+
 	    let finalHtml = `<h1>${lesson.lessonTitle || lesson.title}</h1>`;
 	    for (const page of lesson.pages) {
 	        const cleanTitle = page.title.replace(/^page\s*\d+\s*[:-]?\s*/i, '');
 	        const rawHtml = marked.parse(page.content || '');
 	        finalHtml += `<h2>${cleanTitle}</h2>` + rawHtml;
 	    }
+    
 	    const printWindow = window.open('', '_blank');
-	    if (!printWindow) { showToast("Could not open a new window. Please disable your pop-up blocker.", "error"); setExportingLessonId(null); return; }
-	    printWindow.document.write(`<html><head><title>${lesson.lessonTitle || lesson.title}</title><style>@media print{@page{size: 8.5in 13in;margin: 1in;}body{margin:0;font-family:sans-serif;}h1,h2,h3{page-break-after:avoid;}ul,p{page-break-inside:avoid;}}</style></head><body>${finalHtml}</body></html>`);
+    
+	    if (!printWindow) {
+	        showToast("Could not open a new window. Please disable your pop-up blocker.", "error");
+	        setExportingLessonId(null);
+	        return;
+	    }
+    
+	    printWindow.document.write(`
+	        <html>
+	            <head>
+	                <title>${lesson.lessonTitle || lesson.title}</title>
+	                <style>
+	                    @media print {
+	                        @page {
+	                            size: 8.5in 13in; /* Retained original page size */
+	                            margin: 1in;
+	                        }
+	                        body {
+	                            margin: 0;
+	                            font-family: sans-serif;
+	                        }
+	                        h1, h2, h3 {
+	                            page-break-after: avoid; /* Prevents breaking right after a header */
+	                        }
+	                        ul, p {
+	                            page-break-inside: avoid; /* Tries to keep paragraphs together */
+	                        }
+	                        /* Ensures any tables in the ATG are also closed */
+	                        table {
+	                           width: 100%;
+	                           border-collapse: collapse;
+	                        }
+	                        td, th {
+	                           border: 1px solid #ccc;
+	                           padding: 6px;
+	                        }
+	                    }
+	                </style>
+	            </head>
+	            <body>
+	                ${finalHtml}
+	            </body>
+	        </html>`);
+
 	    printWindow.document.close();
-	    setTimeout(() => { printWindow.focus(); printWindow.print(); setExportingLessonId(null); }, 500);
+	    setTimeout(() => {
+	        printWindow.focus();
+	        printWindow.print();
+	        setExportingLessonId(null);
+	    }, 500);
 	};
 
     const unitVisuals = [

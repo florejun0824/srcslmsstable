@@ -247,14 +247,14 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 ---
                 **CRITICAL JSON & HTML Formatting Rules:**
                 1.  **Single JSON Object:** The entire response MUST be a single, valid JSON object.
-                2.  **HTML Table:** The 'content' value must be a single string containing a complete '<table style='width: 100%; border-collapse: collapse;'>...</table>'. Use single quotes for all HTML attributes.
-                3.  **Explore Stage Generation:**
-                    * First, create a title row for the Explore stage: '<tr><td colspan='2' style='background-color: #374151; color: white; font-weight: bold; padding: 10px;'>EXPLORE STAGE</td></tr>'.
-                    * Next, create the main content row for this stage with two cells ('<td>').
-                    * **First Cell:** Leave this cell blank.
-                    * **Second Cell:** Contains the "Lessons List", "Unit Overview", "Hooked Activities", "Essential Questions", and "Map of Conceptual Change", in that order.
-                4.  **Main Column Headers:** After the Explore stage, create the main headers: '<thead><tr><th style='background-color: #4A5568; color: white; padding: 12px; text-align: left;'>Learning Focus</th><th style='background-color: #4A5568; color: white; padding: 12px; text-align: left;'>Learning Process</th></tr></thead>'.
-                5.  **Competency Section Generation:** After the main headers, generate the content in three distinct sections. For each section, first output the main title row, then output the content rows for each competency belonging to that section.
+                2.  **HTML Table:** The 'content' value must be a single string containing a complete '<table style='width: 100%; border-collapse: collapse;'>...</table>'.
+                3.  **Main Column Headers:** The table MUST begin with a '<thead>' section. Inside it, create the main headers: '<thead><tr><th style='background-color: #4A5568; color: white; padding: 12px; text-align: left;'>Learning Focus</th><th style='background-color: #4A5568; color: white; padding: 12px; text-align: left;'>Learning Process</th></tr></thead>'.
+                4.  **Explore Stage Generation:**
+                    * Immediately after the '<thead>', start the '<tbody>'. The first rows in the body MUST be for the Explore stage.
+                    * First, create a title row: '<tr><td colspan='2' style='background-color: #374151; color: white; font-weight: bold; padding: 10px;'>EXPLORE STAGE</td></tr>'.
+                    * Next, create the content row. This row will have a single cell that spans both columns: '<td colspan='2' style='padding: 10px; border: 1px solid #E2E8F0;'>'.
+                    * Inside this single '<td>', place the "Lessons List", "Unit Overview", "Hooked Activities", "Essential Questions", and "Map of Conceptual Change", in that order.
+                5.  **Competency Section Generation:** After the Explore stage rows, continue adding rows to the SAME '<tbody>' for the following sections in this exact order: Firm-Up, Deepen, and Transfer. For each section, first output the main title row, then output the content rows for each competency belonging to that section.
                     * **A. Firm-Up (Acquisition) Section:**
                         * **Title Row:** Create a title row: '<tr><td colspan='2' style='background: linear-gradient(to right, #6366f1, #8b5cf6); color: white; padding: 10px; font-weight: bold;'>FIRM-UP (ACQUISITION)</td></tr>'.
                         * **Content Rows:** For each Acquisition (A#) competency, create one '<tr>' with two '<td>' cells styled with 'style='padding: 10px; border-bottom: 1px solid #E2E8F0; vertical-align: top;''.
