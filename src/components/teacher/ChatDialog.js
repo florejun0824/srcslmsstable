@@ -1,75 +1,119 @@
 import React, { useState, useEffect, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
-import { XMarkIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import { TransitionGroup, CSSTransition } from 'react-transition-group';
+import ContentRenderer from './ContentRenderer';
 
-const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking, userFirstName }) => {
-    const [input, setInput] = useState('');
+const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking }) => {
     const messagesEndRef = useRef(null);
-    const [conversationStarted, setConversationStarted] = useState(false);
+    const [inputValue, setInputValue] = useState('');
+    const textareaRef = useRef(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
-    useEffect(scrollToBottom, [messages]);
+    useEffect(() => {
+        if (isOpen) {
+            scrollToBottom();
+        }
+    }, [messages, isAiThinking, isOpen]);
 
     const handleSend = () => {
-        if (input.trim()) {
-            onSendMessage(input);
-            setInput('');
-            setConversationStarted(true);
+        if (inputValue.trim()) {
+            onSendMessage(inputValue);
+            setInputValue('');
+            if (textareaRef.current) {
+                textareaRef.current.style.height = 'auto';
+            }
         }
     };
-    
-    const handleKeyPress = (e) => {
+
+    const handleKeyDown = (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSend();
         }
     };
 
-    if (!isOpen) return null;
+    const handleInput = () => {
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+        }
+    };
 
-    const initialGreeting = messages.length === 0 && !conversationStarted ? [{
-        sender: 'ai',
-        text: `Hello${userFirstName ? ` ${userFirstName}` : ''}! How can I assist you today?`
-    }] : [];
-
-    const displayMessages = initialGreeting.concat(messages);
+    const chatbotProfilePic = 'https://i.ibb.co/x8PrqMXN/chatbot-2.png';
 
     return (
-        <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[70vh] flex flex-col">
-                <div className="flex justify-between items-center p-4 border-b">
-                    <h2 className="text-lg font-bold text-gray-800">Chat with your AI Assistant</h2>
-                    <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200"><XMarkIcon className="w-6 h-6 text-gray-600" /></button>
-                </div>
-                <div className="flex-1 p-4 overflow-y-auto space-y-4">
-                    {displayMessages.map((msg, index) => (
-                        <div key={index} className={`flex items-end gap-2 ${msg.sender === 'user' ? 'justify-end' : ''}`}>
-                            {msg.sender === 'ai' && <div className="w-8 h-8 rounded-full bg-slate-700 flex-shrink-0 self-start"></div>}
-                            <div className={`max-w-xl p-3 rounded-2xl ${msg.sender === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
-                                {msg.sender === 'ai' ? (
-                                    <ReactMarkdown className="prose prose-sm prose-p:my-0 prose-ul:my-0 prose-li:my-0">
-                                        {msg.text}
-                                    </ReactMarkdown>
-                                ) : (
-                                    <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
-                                )}
+        <CSSTransition
+            in={isOpen}
+            timeout={300}
+            classNames="chat-dialog"
+            unmountOnExit
+        >
+            <div className="chat-dialog">
+                <div className="chat-header">
+                    <div className="chat-info">
+                        <img src={chatbotProfilePic} alt="Chatbot" className="chat-profile-pic" />
+                        <div>
+                            <div className="font-bold">AI Assistant</div>
+                            <div className="text-xs text-gray-500">
+                                {isAiThinking ? 'Typing...' : 'Online'}
                             </div>
                         </div>
-                    ))}
-                    {isAiThinking && (<div className="flex items-end gap-2"><div className="w-8 h-8 rounded-full bg-slate-700 flex-shrink-0"></div><div className="max-w-md p-3 rounded-2xl bg-gray-200 text-gray-500 text-sm">AI is typing...</div></div>)}
+                    </div>
+                    <button onClick={onClose} className="close-btn">&times;</button>
+                </div>
+                <div className="chat-messages">
+                    <TransitionGroup>
+                        {messages.map((msg, index) => (
+                            <CSSTransition
+                                key={index}
+                                timeout={300}
+                                classNames="message"
+                            >
+                                <div className={`message-bubble ${msg.sender === 'user' ? 'user-message' : 'ai-message'}`}>
+                                    {msg.sender === 'ai' && <img src={chatbotProfilePic} alt="AI" className="message-avatar" />}
+                                    <div className="message-content">
+                                        {msg.sender === 'ai' ? (
+                                            <div className="markdown-content text-xs">
+                                                <ContentRenderer text={msg.text} />
+                                            </div>
+                                        ) : (
+                                            <div className="text text-sm whitespace-pre-wrap">{msg.text}</div>
+                                        )}
+                                    </div>
+                                </div>
+                            </CSSTransition>
+                        ))}
+                    </TransitionGroup>
+                    {isAiThinking && (
+                        <div className="message-bubble ai-message">
+                            <img src={chatbotProfilePic} alt="AI" className="message-avatar" />
+                            <div className="message-content">
+                                <div className="typing-indicator">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     <div ref={messagesEndRef} />
                 </div>
-                <div className="p-4 border-t">
-                    <div className="relative">
-                        <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyPress={handleKeyPress} placeholder="Ask a question..." className="w-full p-3 pr-16 border border-gray-300 rounded-xl resize-none focus:ring-2 focus:ring-blue-500" rows="1"/>
-                        <button onClick={handleSend} className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-300" disabled={!input.trim() || isAiThinking}><PaperAirplaneIcon className="w-5 h-5" /></button>
-                    </div>
+                <div className="chat-input-area">
+                    <textarea
+                        ref={textareaRef}
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        onInput={handleInput}
+                        placeholder="Type a message..."
+                        className="chat-input"
+                    />
+                    <button type="button" onClick={handleSend} className="send-btn">Send</button>
                 </div>
             </div>
-        </div>
+        </CSSTransition>
     );
 };
 

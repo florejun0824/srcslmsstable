@@ -26,11 +26,19 @@ const ProfileView = ({
                     <div className="lg:col-span-1 rounded-3xl bg-white shadow-xl border border-gray-200 p-8 text-center text-slate-800 flex flex-col justify-between transform transition-all duration-500 hover:scale-105">
                         <div>
                             <div className="relative inline-block mb-6 w-48 h-48 rounded-full overflow-hidden border-4 border-indigo-200 shadow-lg">
-                                <UserInitialsAvatar
-                                    firstName={userProfile?.firstName}
-                                    lastName={userProfile?.lastName}
-                                    size="full"
-                                />
+                                {userProfile?.photoURL ? (
+                                    <img
+                                        src={userProfile.photoURL}
+                                        alt={`${userProfile?.firstName} ${userProfile?.lastName}`}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <UserInitialsAvatar
+                                        firstName={userProfile?.firstName}
+                                        lastName={userProfile?.lastName}
+                                        size="full"
+                                    />
+                                )}
                                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-pink-500/10 mix-blend-overlay rounded-full"></div>
                             </div>
                             <h1 className="text-4xl font-bold text-slate-900 tracking-wide">

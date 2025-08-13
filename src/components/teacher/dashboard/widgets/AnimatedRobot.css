@@ -1,0 +1,371 @@
+/* AnimatedRobot.css */
+
+/* Base button styles */
+.floating-chat-button {
+  z-index: 1000;
+  border-radius: 50%;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: transparent; /* Remove the blue background */
+  border: none;
+  color: #fff;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  position: relative; /* Needed for the pseudo-element */
+  width: 80px;
+  height: 80px;
+}
+
+/* Swirling particles effect */
+.floating-chat-button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(0,123,255,0.7) 0%, rgba(2, 237, 255, 0.5) 10%, transparent 70%);
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    filter: blur(8px);
+    z-index: -1;
+    opacity: 0.8;
+    animation: swirl 8s linear infinite;
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.3s ease;
+}
+
+/* Hover effect */
+.floating-chat-button.hover {
+  transform: scale(1.1);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.floating-chat-button.hover::before {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 1;
+}
+
+/* Active/click effect */
+.floating-chat-button:active,
+.floating-chat-button.click {
+  transform: scale(0.95);
+  background-color: transparent; /* Keep background transparent */
+}
+
+/* Dragging state */
+.floating-chat-button.dragging {
+  opacity: 0.7;
+  cursor: grabbing !important;
+  transform: scale(1.05);
+}
+
+/* Button content styling */
+.button-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+.floating-icon-image {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  border-radius: 50%;
+  transform: scale(0.8);
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.floating-chat-button.hover .floating-icon-image {
+    transform: scale(1);
+}
+
+@keyframes swirl {
+    0% { transform: translate(-50%, -50%) rotate(0deg) scale(0.9); }
+    100% { transform: translate(-50%, -50%) rotate(360deg) scale(0.9); }
+}
+
+/* --- Chat Dialog Styles (Facebook-like) --- */
+.chat-dialog-enter {
+  opacity: 0;
+  transform: scale(0.95);
+}
+.chat-dialog-enter-active {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 300ms, transform 300ms;
+}
+.chat-dialog-exit {
+  opacity: 1;
+  transform: scale(1);
+}
+.chat-dialog-exit-active {
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.chat-dialog {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  width: 350px;
+  height: 500px;
+  background-color: #f0f2f5;
+  border-radius: 10px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  font-family: Arial, sans-serif;
+  overflow: hidden;
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e5e5;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.chat-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat-profile-pic {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  object-fit: cover;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #65676b;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 50%;
+}
+
+.chat-messages {
+  flex-grow: 1;
+  padding: 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  /* Removed the gap here as margin on children is more reliable for transition groups */
+  background-color: #e9ebee;
+}
+
+.message-bubble {
+  display: flex;
+  max-width: 80%;
+  align-items: flex-end;
+  margin-bottom: 15px; /* A larger, more reliable gap between messages */
+}
+
+.message-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  margin-right: 8px;
+  align-self: flex-end;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  object-fit: cover;
+}
+
+.message-content {
+  padding: 10px 10px;
+  border-radius: 10px;
+  position: relative;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* New CSS to style the markdown content */
+.message-content .markdown-content h2,
+.message-content .markdown-content h3 {
+    margin: 0;
+    margin-bottom: 12px; /* Increased margin-bottom */
+    font-weight: bold;
+    color: #1c1e21;
+}
+
+.message-content .markdown-content h2 {
+    font-size: 1.2em;
+}
+
+.message-content .markdown-content h3 {
+    font-size: 1.1em;
+}
+
+.message-content .markdown-content p {
+    margin: 0;
+    margin-bottom: 12px; /* Increased margin-bottom */
+    line-height: 1.4;
+}
+
+.message-content .markdown-content ul {
+    margin: 0;
+    padding-left: 15px;
+    margin-bottom: 12px; /* Increased margin-bottom */
+}
+
+.message-content .markdown-content li {
+    margin-bottom: 8px; /* Increased margin-bottom */
+}
+
+.message-content .markdown-content hr {
+    border: none;
+    height: 1px;
+    background-color: #e5e5e5;
+    margin: 10px 0; /* Increased margin */
+}
+
+.message-content .markdown-content strong {
+    font-weight: bold;
+}
+
+.user-message {
+  margin-left: auto;
+}
+
+.user-message .message-content {
+  background-color: #0084ff;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.ai-message .message-content {
+  background-color: #ffffff;
+  color: #1c1e21;
+  border-bottom-left-radius: 4px;
+}
+
+.ai-message {
+  margin-right: auto;
+}
+
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 15px;
+}
+
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  background-color: #65676b;
+  border-radius: 50%;
+  animation: pulse 1.4s infinite ease-in-out both;
+}
+
+.typing-indicator span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.5;
+  }
+}
+
+.chat-input-area {
+  display: flex;
+  padding: 8px;
+  background-color: #ffffff;
+  border-top: 1px solid #e5e5e5;
+  gap: 8px;
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+
+.chat-input {
+  flex-grow: 1;
+  border: 1px solid #e4e6eb;
+  border-radius: 15px;
+  padding: 8px 8px;
+  font-size: 12px;
+  background-color: #f0f2f5;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.chat-input:focus {
+  border-color: #0084ff;
+  background-color: #fff;
+}
+
+.send-btn {
+  background-color: #0084ff;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.send-btn:hover {
+  background-color: #006ddb;
+}
+
+@media (max-width: 768px) {
+  .floating-chat-button {
+    width: 65px;
+    height: 65px;
+  }
+  .floating-chat-button .button-content .floating-icon-image {
+    width: 45px;
+    height: 45px;
+  }
+
+  .chat-dialog {
+    width: 90%;
+    height: 80%;
+    bottom: 10px;
+    right: 5%;
+  }
+
+  .message-bubble {
+    max-width: 90%;
+  }
+}
+
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+}

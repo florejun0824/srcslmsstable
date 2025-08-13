@@ -40,8 +40,8 @@ const reactionIconsHomeView = {
     like: { outline: FaThumbsUp, solid: FaThumbsUp, color: 'text-blue-500' },
     heart: { outline: FaHeart, solid: FaHeart, color: 'text-red-600' },
     laugh: { outline: FaLaugh, solid: FaLaugh, color: 'text-yellow-500' },
-    wow: { outline: FaGrinStars, solid: FaGrinStars, color: 'text-purple-500' },
-    sad: { outline: FaFrown, solid: FaFrown, color: 'text-orange-500' },
+    wow: { outline: FaGrinStars, solid: FaGrinStars, color: 'text-purple-600' }, // Changed to grinStars for wow
+    sad: { outline: FaFrown, solid: FaFrown, color: 'text-gray-700' },
     angry: { outline: FaAngry, solid: FaAngry, color: 'text-red-700' }, // Added Angry reaction
     care: { outline: FaHandHoldingHeart, solid: FaHandHoldingHeart, color: 'text-pink-500' }, // Added Care reaction
 };
@@ -72,10 +72,11 @@ const getUserGradient = (userId) => {
 const ANNOUNCEMENT_TRUNCATE_LENGTH = 300; // Max characters before truncation for announcements
 
 const HomeView = ({
+    showToast,
     userProfile,
-    activeClasses,
     teacherAnnouncements, // This prop now needs to be observed for changes to update reactions
     handleCreateAnnouncement,
+    activeClasses,
     editingAnnId,
     editingAnnText,
     setEditingAnnText,
@@ -121,15 +122,15 @@ const HomeView = ({
 
 
     // Helper to fetch user names (re-used from AnnouncementModal logic)
-    const fetchUserNames = async (userIds, db, userProfile, currentUserName, setUserNamesMap) => {
+    const fetchUserNames = async (userIds, dbInstance, currentUserProfile, currentUserNameProp, setUserNamesMap) => {
         const names = {};
         if (userIds.length === 0) return;
 
         const uniqueUserIds = [...new Set(userIds)];
 
         // Include current user's name directly if available
-        if (userProfile?.id && currentUserName) {
-            names[userProfile.id] = currentUserName;
+        if (currentUserProfile?.id && currentUserNameProp) {
+            names[currentUserProfile.id] = currentUserNameProp;
         }
 
         const promises = uniqueUserIds.map(async (uid) => {
@@ -137,7 +138,7 @@ const HomeView = ({
             if (names[uid]) return;
 
             try {
-                const userDocRef = doc(db, 'users', uid); // Assuming a 'users' collection with user data
+                const userDocRef = doc(dbInstance, 'users', uid); // Assuming a 'users' collection with user data
                 const userDocSnap = await getDoc(userDocRef);
                 if (userDocSnap.exists()) {
                     const userData = userDocSnap.data();
@@ -171,29 +172,38 @@ const HomeView = ({
     // Effect to listen for reactions on announcements in HomeView
     useEffect(() => {
         const unsubscribeFunctions = [];
-        const allUserIds = new Set();
+        // Ensure teacherAnnouncements is an array before mapping
+        if (!Array.isArray(teacherAnnouncements)) {
+            console.warn("teacherAnnouncements prop is not an array:", teacherAnnouncements);
+            return () => {}; // Return empty cleanup if prop is not array
+        }
+
+        const allUserIdsInReactions = new Set(); // To collect all user IDs from reactions
 
         teacherAnnouncements.forEach(announcement => {
             if (announcement.id) {
-                // Add the teacher's ID from the announcement itself
+                // Add the announcement's teacherId to the set of user IDs to fetch names for
                 if (announcement.teacherId) {
-                    allUserIds.add(announcement.teacherId);
+                    allUserIdsInReactions.add(announcement.teacherId);
                 }
 
-                const postReactionsCollectionRef = collection(db, `teacherAnnouncements/${announcement.id}/reactions`);
-                const unsubscribe = onSnapshot(postReactionsCollectionRef, (snapshot) => {
+                // Listen to the reactions subcollection for each announcement
+                const reactionsQuery = collection(db, `teacherAnnouncements/${announcement.id}/reactions`);
+                const unsubscribe = onSnapshot(reactionsQuery, (snapshot) => {
                     const fetchedPostReactions = {};
                     snapshot.docs.forEach(doc => {
-                        fetchedPostReactions[doc.id] = doc.data().reactionType;
-                        allUserIds.add(doc.id); // Add reactor's ID
+                        const reactionData = doc.data();
+                        fetchedPostReactions[doc.id] = reactionData.reactionType; // doc.id is userId
+                        allUserIdsInReactions.add(doc.id); // Add user ID from reaction document
                     });
+
                     setHomeViewPostReactions(prev => ({
                         ...prev,
                         [announcement.id]: fetchedPostReactions
                     }));
 
-                    // Update user names map when reactions change
-                    fetchUserNames([...allUserIds], db, userProfile, currentUserName, setHomeViewUserNamesMap); // Corrected this line
+                    // Fetch names for all collected user IDs
+                    fetchUserNames(Array.from(allUserIdsInReactions), db, userProfile, currentUserName, setHomeViewUserNamesMap);
 
                 }, (error) => {
                     console.error(`Error fetching reactions for announcement ${announcement.id}:`, error);
@@ -205,7 +215,7 @@ const HomeView = ({
         return () => {
             unsubscribeFunctions.forEach(unsub => unsub());
         };
-    }, [teacherAnnouncements.length, db, userProfile, currentUserName]);
+    }, [teacherAnnouncements, db, userProfile, currentUserName]); // Depend on teacherAnnouncements array itself
 
 
     const handleAddScheduleActivity = async (newActivity) => {
@@ -331,20 +341,25 @@ const HomeView = ({
 
     // HomeView specific reaction handling
     const handleTogglePostReactionHomeView = async (announcementId, reactionType) => {
-        if (!currentUserId || !announcementId) return;
+        if (!currentUserId || !announcementId) {
+            showToast("User not logged in or announcement ID missing.", "error");
+            return;
+        }
 
-        const postReactionsCollectionRef = collection(db, `teacherAnnouncements/${announcementId}/reactions`);
-        const userReactionRef = doc(postReactionsCollectionRef, currentUserId);
+        const userReactionRef = doc(db, `teacherAnnouncements/${announcementId}/reactions`, currentUserId);
         const existingReactionType = homeViewPostReactions[announcementId]?.[currentUserId];
 
         try {
             if (existingReactionType === reactionType) {
                 await deleteDoc(userReactionRef);
+                showToast(`Your ${reactionType} reaction has been removed.`, "info");
             } else {
-                await setDoc(userReactionRef, { userId: currentUserId, reactionType: reactionType });
+                await setDoc(userReactionRef, { userId: currentUserId, reactionType: reactionType, timestamp: new Date() });
+                showToast(`You reacted with ${reactionType}!`, "success");
             }
         } catch (error) {
             console.error("Error toggling post reaction in HomeView:", error);
+            showToast("Failed to update reaction.", "error");
         }
     };
 
@@ -535,11 +550,13 @@ const HomeView = ({
                     {/* Recent Announcements Column - Facebook News Feed Style */}
                     <div className="lg:col-span-2 space-y-6"> {/* Increased space-y for separation */}
                         <h2 className="text-2xl font-bold text-gray-800 mb-2">Recent Announcements</h2>
-                        {teacherAnnouncements.length > 0 ? teacherAnnouncements.map(post => {
+                        {/* Now directly map over the teacherAnnouncements prop */}
+                        {teacherAnnouncements && teacherAnnouncements.length > 0 ? teacherAnnouncements.map(post => {
                             const canModify = userProfile?.role === 'admin' || userProfile?.id === post.teacherId;
-                            const postReactionsForThisPost = homeViewPostReactions[post.id] || {};
+                            // Ensure post.id is available before accessing homeViewPostReactions
+                            const postReactionsForThisPost = post.id ? (homeViewPostReactions[post.id] || {}) : {};
                             const currentUserReaction = postReactionsForThisPost[currentUserId];
-                            const isTruncated = post.content.length > ANNOUNCEMENT_TRUNCATE_LENGTH;
+                            const isTruncated = post.content && post.content.length > ANNOUNCEMENT_TRUNCATE_LENGTH;
                             const showFullAnnouncement = expandedAnnouncements[post.id];
 
                             return (

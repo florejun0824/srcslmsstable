@@ -5,12 +5,14 @@ import UserInitialsAvatar from '../common/UserInitialsAvatar'; // Assuming this 
 const EditProfileModal = ({ isOpen, onClose, userProfile, onUpdate }) => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
+    const [photoURL, setPhotoURL] = useState('');
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (userProfile) {
             setFirstName(userProfile.firstName || '');
             setLastName(userProfile.lastName || '');
+            setPhotoURL(userProfile.photoURL || '');
         }
     }, [userProfile, isOpen]);
 
@@ -25,7 +27,7 @@ const EditProfileModal = ({ isOpen, onClose, userProfile, onUpdate }) => {
             return;
         }
         setLoading(true);
-        await onUpdate({ firstName, lastName });
+        await onUpdate({ firstName, lastName, photoURL });
         setLoading(false);
     };
 
@@ -48,11 +50,17 @@ const EditProfileModal = ({ isOpen, onClose, userProfile, onUpdate }) => {
                 <div className="p-8">
                     <div className="flex flex-col items-center text-center mb-8">
                         {/* --- Larger Profile Avatar --- */}
-                        <UserInitialsAvatar
-                            firstName={userProfile?.firstName}
-                            lastName={userProfile?.lastName}
-                            size="xl" // Using a larger size for the avatar
-                        />
+                        <div className="relative w-16 h-16 rounded-full overflow-hidden shadow-lg border-2 border-white">
+                            {photoURL ? (
+                                <img src={photoURL} alt="Profile" className="w-full h-full object-cover" />
+                            ) : (
+                                <UserInitialsAvatar
+                                    firstName={userProfile?.firstName}
+                                    lastName={userProfile?.lastName}
+                                    size="xl" // Using a larger size for the avatar
+                                />
+                            )}
+                        </div>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
@@ -78,6 +86,18 @@ const EditProfileModal = ({ isOpen, onClose, userProfile, onUpdate }) => {
                                 onChange={(e) => setLastName(e.target.value)}
                                 className="w-full p-3 bg-white/80 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
                                 required
+                            />
+                        </div>
+                         {/* --- Photo URL Input --- */}
+                         <div>
+                            <label htmlFor="photoURL" className="block text-sm font-medium text-slate-700 mb-1">Profile Picture URL (Optional)</label>
+                            <input
+                                type="url"
+                                id="photoURL"
+                                value={photoURL}
+                                onChange={(e) => setPhotoURL(e.target.value)}
+                                className="w-full p-3 bg-white/80 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
+                                placeholder="https://example.com/your-image.jpg"
                             />
                         </div>
                         

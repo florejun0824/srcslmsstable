@@ -5,7 +5,7 @@ import { db } from '../services/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import Spinner from '../components/common/Spinner';
 import UserInitialsAvatar from '../components/common/UserInitialsAvatar';
-import { EnvelopeIcon, UserCircleIcon, IdentificationIcon } from '@heroicons/react/24/outline'; // Importing icons
+import { EnvelopeIcon, UserCircleIcon, IdentificationIcon, PhotoIcon } from '@heroicons/react/24/outline'; // Importing icons
 
 import { TextInput, Button } from '@tremor/react'; // Assuming you have Tremor components or similar
 
@@ -30,7 +30,7 @@ const FormField = ({ label, children, icon: Icon }) => (
 const ProfilePage = () => {
     const { user, userProfile, refreshUserProfile } = useAuth();
     const { showToast } = useToast();
-    const [profile, setProfile] = useState({ firstName: '', lastName: '', gender: '' });
+    const [profile, setProfile] = useState({ firstName: '', lastName: '', gender: '', photoURL: '' });
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -40,7 +40,8 @@ const ProfilePage = () => {
             setProfile({
                 firstName: userProfile.firstName || '',
                 lastName: userProfile.lastName || '',
-                gender: userProfile.gender || 'Not specified'
+                gender: userProfile.gender || 'Not specified',
+                photoURL: userProfile.photoURL || '',
             });
             setLoading(false);
         }
@@ -63,6 +64,7 @@ const ProfilePage = () => {
                 firstName: profile.firstName,
                 lastName: profile.lastName,
                 gender: profile.gender,
+                photoURL: profile.photoURL, // Update photoURL
                 displayName: `${profile.firstName} ${profile.lastName}`.trim(), // Update displayName
             });
 
@@ -103,7 +105,13 @@ const ProfilePage = () => {
             <div className="w-full max-w-3xl bg-white shadow-xl rounded-2xl overflow-hidden transform transition-all duration-300 hover:shadow-2xl">
                 {/* Profile Header Section */}
                 <div className="bg-gradient-to-r from-red-700 to-red-900 text-white p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-6 rounded-t-2xl">
-                    <UserInitialsAvatar user={userProfile} size="2xl" className="border-4 border-white shadow-lg" />
+                    <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg">
+                        {userProfile?.photoURL ? (
+                            <img src={userProfile.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                            <UserInitialsAvatar user={userProfile} size="2xl" />
+                        )}
+                    </div>
                     <div className="text-center sm:text-left">
                         <h2 className="text-3xl font-extrabold tracking-tight mb-1">
                             {userProfile?.displayName || 'Your Profile'}
@@ -142,6 +150,14 @@ const ProfilePage = () => {
                                         onValueChange={(val) => setProfile({ ...profile, lastName: val })}
                                         placeholder="Enter your last name"
                                         // Enhanced focus styling and padding for icon
+                                        className="pl-10 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
+                                    />
+                                </FormField>
+                                <FormField label="Profile Picture URL" icon={PhotoIcon}>
+                                    <TextInput
+                                        value={profile.photoURL}
+                                        onValueChange={(val) => setProfile({ ...profile, photoURL: val })}
+                                        placeholder="Paste image link here"
                                         className="pl-10 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
                                     />
                                 </FormField>

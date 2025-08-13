@@ -300,7 +300,7 @@ const TeacherDashboardLayout = (props) => {
                 {/* Logo and App Name */}
                 <div className="flex items-center gap-2">
                     <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="Logo" className="w-10 h-10 rounded-full shadow-lg" />
-                    <span className="hidden md:block font-bold text-xl text-gray-900 drop-shadow-sm">SRCS LMS</span>
+                    <span className="hidden md:block font-bold text-xl text-gray-900 drop-shadow-sm">SRCS Learning Portal</span>
                 </div>
                 
                 {/* Main Navigation - Middle */}
@@ -325,7 +325,13 @@ const TeacherDashboardLayout = (props) => {
                 {/* Right Side - User Actions */}
                 <div className="flex items-center gap-2">
                     <div onClick={() => handleViewChange('profile')} className="flex items-center gap-2 cursor-pointer transition-all duration-300 hover:text-primary-600 hover:scale-[1.02] active:scale-95" title="View Profile">
-                        <UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="sm" />
+                        <div className="relative w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-gray-200">
+                            {userProfile?.photoURL ? (
+                                <img src={userProfile.photoURL} alt="Profile" className="w-full h-full object-contain" />
+                            ) : (
+                                <UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="sm" />
+                            )}
+                        </div>
                         <span className="hidden lg:block font-medium text-gray-700">{userProfile?.firstName || 'Profile'}</span>
                     </div>
                     <button onClick={logout} className="p-2 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-700 transition-all duration-300 active:scale-95 shadow-sm" title="Logout">
@@ -353,7 +359,7 @@ const TeacherDashboardLayout = (props) => {
                              <div>
                                 <div className="flex items-center gap-2 mb-10 px-2">
                                     <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="Logo" className="w-12 h-12 rounded-full shadow-lg" />
-                                    <span className="font-bold text-2xl text-gray-900 drop-shadow-md tracking-wide">SRCS LMS</span>
+                                    <span className="font-bold text-2xl text-gray-900 drop-shadow-md tracking-wide">SRCS Learning Portal</span>
                                 </div>
                                 <nav className="space-y-3">
                                      {navItems.map(item => (
