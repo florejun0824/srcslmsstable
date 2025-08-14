@@ -220,7 +220,7 @@ const QuizListItem = ({ quiz, onClick }) => {
             </div>
             
             <div className="flex-1 min-w-0">
-                <h2 className="text-xl font-bold text-slate-900 leading-tight">{quiz.title}</h2>
+                <h2 className="text-base sm:text-lg font-semibold text-slate-900 leading-tight">{quiz.title}</h2> {/* MODIFIED: Reduced font size and changed to semibold */}
                 <p className="text-sm text-slate-600 font-medium mt-0.5">{quiz.context}</p>
             </div>
 

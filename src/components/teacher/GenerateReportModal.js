@@ -295,7 +295,7 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
         rowIndex++;
 
         // Row 9: Topics Header
-        const topicHeaders = ["Topic Name", "Course", "Average First Attempt Score Percentage", "Average Highest Score Percentage", "Question Count", "Highest Possible Score", "Students Completed"];
+        const topicHeaders = ["Quiz Name", "Course", "Average First Attempt Score Percentage", "Average Highest Score Percentage", "Question Count", "Highest Possible Score", "Students Completed"];
         addRowData(topicHeaders);
         for(let i=0; i<topicHeaders.length; i++) {
             addCell(rowIndex - 1, i, topicHeaders[i], topicTableHeaderStyle);

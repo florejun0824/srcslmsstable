@@ -20,10 +20,11 @@ import StudentClassesTab from '../components/student/StudentClassesTab';
 import StudentPerformanceTab from '../components/student/StudentPerformanceTab';
 import StudentClassDetailView from '../components/student/StudentClassDetailView';
 import StudentQuizzesTab from '../components/student/StudentQuizzesTab';
+import StudentLessonsTab from '../components/student/StudentLessonsTab'; // Import the new Lessons tab
 import UserInitialsAvatar from '../components/common/UserInitialsAvatar';
 import Spinner from '../components/common/Spinner';
-import SessionConflictModal from '../components/common/SessionConflictModal'; // NEW: Import the session conflict modal
-import { useAuth } from '../contexts/AuthContext'; // NEW: Import useAuth to access modal state
+import SessionConflictModal from '../components/common/SessionConflictModal';
+import { useAuth } from '../contexts/AuthContext';
 
 // Placeholder for an enhanced class card, for demonstration purposes.
 const EnhancedClassCardExample = ({ className, grade, teacher, onSelect }) => {
@@ -113,17 +114,17 @@ const SidebarContent = ({ view, handleViewChange, sidebarNavItems, userProfile, 
 const StudentDashboardUI = ({
     userProfile, logout, view, isSidebarOpen, setIsSidebarOpen, handleViewChange,
     setJoinClassModalOpen, selectedClass, setSelectedClass, myClasses, isFetchingContent,
-    authLoading // Added authLoading prop
+    authLoading, lessons, units, isFetchingUnits, setLessonToView // NEW: Receive units and isFetchingUnits
 }) => {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const profileMenuRef = useRef(null);
 
-    // NEW: Access session conflict modal state from AuthContext
     const { isSessionConflictModalOpen, sessionConflictMessage, setIsSessionConflictModalOpen, performLogout } = useAuth();
 
 
     const sidebarNavItems = [
         { view: 'classes', text: 'Dashboard', icon: UserGroupIcon },
+        { view: 'lessons', text: 'Lessons', icon: BookOpenIcon }, // Lessons Tab
         { view: 'quizzes', text: 'Quizzes', icon: ClipboardDocumentCheckIcon },
         { view: 'performance', text: 'Performance', icon: ChartBarIcon },
         { view: 'profile', text: 'Profile', icon: UserIcon },
@@ -159,15 +160,8 @@ const StudentDashboardUI = ({
     };
 
     const renderView = () => {
-        if (authLoading) {
-            return (
-                <div className="flex justify-center items-center py-24">
-                    <Spinner />
-                </div>
-            );
-        }
-
-        if (isFetchingContent && !selectedClass && view !== 'profile') {
+        // MODIFIED: Incorporate isFetchingUnits into loading checks for lessons tab
+        if (authLoading || (isFetchingContent && view !== 'profile') || (isFetchingUnits && view === 'lessons')) {
             return (
                 <div className="flex justify-center items-center py-24">
                     <Spinner />
@@ -196,6 +190,16 @@ const StudentDashboardUI = ({
                             </div>
                         </div>
                     </div>
+                );
+            case 'lessons': // Lessons Tab
+                return (
+                    <StudentLessonsTab
+                        lessons={lessons}
+                        units={units} // NEW: Pass units
+                        isFetchingUnits={isFetchingUnits} // NEW: Pass isFetchingUnits
+                        setLessonToView={setLessonToView}
+                        isFetchingContent={isFetchingContent}
+                    />
                 );
             case 'quizzes':
                 return <StudentQuizzesTab classes={myClasses} userProfile={userProfile} />;

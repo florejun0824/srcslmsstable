@@ -12,7 +12,6 @@ import Spinner from '../components/common/Spinner';
 
 const StudentDashboard = () => {
     const { userProfile, logout, loading: authLoading } = useAuth();
-    // --- FIX: Initialize view to 'classes' for default dashboard display ---
     const [view, setView] = useState('classes');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isJoinClassModalOpen, setJoinClassModalOpen] = useState(false);
@@ -21,6 +20,9 @@ const StudentDashboard = () => {
     const [selectedClass, setSelectedClass] = useState(null);
     const [quizzes, setQuizzes] = useState({ active: [], completed: [], overdue: [] });
     const [lessons, setLessons] = useState([]);
+    // REMOVED: courses state
+    const [units, setUnits] = useState([]); // NEW: State for units
+    const [isFetchingUnits, setIsFetchingUnits] = useState(true); // NEW: State for fetching units
     const [isFetchingContent, setIsFetchingContent] = useState(true);
     const [activeQuizTab, setActiveQuizTab] = useState('active');
     const [quizToTake, setQuizToTake] = useState(null);
@@ -47,11 +49,31 @@ const StudentDashboard = () => {
         return () => unsubscribe();
     }, [userProfile, authLoading]);
 
+    // NEW: Fetch all units once
+    useEffect(() => {
+        const fetchUnits = async () => {
+            try {
+                setIsFetchingUnits(true);
+                const q = query(collection(db, 'units'));
+                const querySnapshot = await getDocs(q);
+                const fetchedUnits = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setUnits(fetchedUnits);
+                console.log("Fetched Units:", fetchedUnits);
+            } catch (error) {
+                console.error("Error fetching units:", error);
+            } finally {
+                setIsFetchingUnits(false);
+            }
+        };
+        fetchUnits();
+    }, []);
+
+
     // Fetch lessons or quizzes based on the current view
     const fetchContent = useCallback(async (currentView) => {
         if (authLoading) return;
 
-        if (!userProfile?.id || myClasses.length === 0) {
+        if (!userProfile?.id) {
             setIsFetchingContent(false);
             return;
         }
@@ -61,8 +83,11 @@ const StudentDashboard = () => {
         setQuizzes({ active: [], completed: [], overdue: [] });
 
         try {
-            const allPostsPromises = myClasses.map(c => getDocs(query(collection(db, `classes/${c.id}/posts`))));
-            const allPostsSnapshots = await Promise.all(allPostsPromises);
+            let allPostsSnapshots = [];
+            if (myClasses.length > 0) {
+                const allPostsPromises = myClasses.map(c => getDocs(query(collection(db, `classes/${c.id}/posts`))));
+                allPostsSnapshots = await Promise.all(allPostsPromises);
+            }
 
             const latestPostByQuizId = new Map();
             const latestPostByLessonId = new Map();
@@ -74,7 +99,7 @@ const StudentDashboard = () => {
                     if (post.quizIds) {
                         post.quizIds.forEach(quizId => {
                             const existingPost = latestPostByQuizId.get(quizId);
-                            if (!existingPost || post.createdAt.toMillis() > existingPost.createdAt.toMillis()) {
+                            if (!existingPost || (post.createdAt && existingPost.createdAt && post.createdAt.toMillis() > existingPost.createdAt.toMillis())) {
                                 latestPostByQuizId.set(quizId, post);
                             }
                         });
@@ -82,7 +107,7 @@ const StudentDashboard = () => {
                     if (post.lessonIds) {
                         post.lessonIds.forEach(lessonId => {
                             const existingPost = latestPostByLessonId.get(lessonId);
-                            if (!existingPost || post.createdAt.toMillis() > existingPost.createdAt.toMillis()) {
+                            if (!existingPost || (post.createdAt && existingPost.createdAt && post.createdAt.toMillis() > existingPost.createdAt.toMillis())) {
                                 latestPostByLessonId.set(lessonId, post);
                             }
                         });
@@ -131,21 +156,21 @@ const StudentDashboard = () => {
                 }
             }
 
-            if (currentView === 'lessons') {
+            if (currentView === 'lessons' || view === 'classes') {
                 const uniqueLessonIds = Array.from(latestPostByLessonId.keys());
                 if (uniqueLessonIds.length > 0) {
                     const lessonsQuery = query(collection(db, 'lessons'), where(documentId(), 'in', uniqueLessonIds));
                     const lessonsSnapshot = await getDocs(lessonsQuery);
                     const lessonsDetails = new Map(lessonsSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() }]));
-                    const categorizedLessons = [];
+                    const allLessons = [];
                     for (const [lessonId, post] of latestPostByLessonId.entries()) {
                         const lessonDetail = lessonsDetails.get(lessonId);
                         if (lessonDetail) {
-                            categorizedLessons.push({ ...lessonDetail, className: post.className, postId: post.id });
+                            allLessons.push({ ...lessonDetail, className: post.className, classId: post.classId, postId: post.id });
                         }
                     }
 
-                    categorizedLessons.sort((a, b) => {
+                    allLessons.sort((a, b) => {
                         const orderA = a.order ?? Infinity;
                         const orderB = b.order ?? Infinity;
                         if (orderA !== orderB) {
@@ -157,7 +182,10 @@ const StudentDashboard = () => {
                         return numA - numB;
                     });
 
-                    setLessons(categorizedLessons);
+                    setLessons(allLessons);
+                    console.log("Fetched Lessons (with className for grouping):", allLessons);
+                } else {
+                    setLessons([]);
                 }
             }
         } catch (error) {
@@ -165,9 +193,9 @@ const StudentDashboard = () => {
         } finally {
             setIsFetchingContent(false);
         }
-    }, [userProfile, myClasses, authLoading]);
+    }, [userProfile, myClasses, authLoading, view]);
 
-    // Re-fetch content when the view changes
+    // Re-fetch content when the view changes or classes are fetched/updated
     useEffect(() => {
         if (!authLoading && !isFetchingClasses && myClasses.length >= 0) {
             fetchContent(view);
@@ -227,6 +255,8 @@ const StudentDashboard = () => {
                 myClasses={myClasses}
                 isFetchingContent={isFetchingContent || isFetchingClasses}
                 lessons={lessons}
+                units={units} // NEW: Pass units
+                isFetchingUnits={isFetchingUnits} // NEW: Pass isFetchingUnits
                 setLessonToView={setLessonToView}
                 quizzes={quizzes}
                 activeQuizTab={activeQuizTab}
