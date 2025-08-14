@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 // Import icons from react-icons library
 import {
     FaGraduationCap,
@@ -13,16 +13,9 @@ import {
     FaLaugh,
     FaGrinStars,
     FaFrown,
-    FaAngry, // Added FaAngry
-    FaHandHoldingHeart, // Added FaHandHoldingHeart for 'care'
+    FaAngry,
+    FaHandHoldingHeart,
 } from 'react-icons/fa';
-import {
-    MdThumbsUp,
-    MdFavorite,
-    MdSentimentSatisfiedAlt,
-    MdEmojiEmotions,
-    MdSentimentDissatisfied,
-} from 'react-icons/md';
 
 import CreateAnnouncement from '../widgets/CreateAnnouncement';
 import GradientStatCard from '../widgets/GradientStatCard';
@@ -31,7 +24,8 @@ import ClockWidget from '../widgets/ClockWidget';
 import ScheduleModal from '../widgets/ScheduleModal';
 import AnnouncementModal from '../widgets/AnnouncementModal';
 import ReactionsBreakdownModal from '../widgets/ReactionsBreakdownModal';
-import UserInitialsAvatar from '../../../../components/common/UserInitialsAvatar'; // Import the avatar component
+import UserInitialsAvatar from '../../../../components/common/UserInitialsAvatar';
+import AdminBannerEditModal from '../widgets/AdminBannerEditModal'; // New: Import the AdminBannerEditModal
 
 import { db } from '../../../../services/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, getDoc, setDoc } from 'firebase/firestore';
@@ -41,18 +35,18 @@ const reactionIconsHomeView = {
     like: { outline: FaThumbsUp, solid: FaThumbsUp, color: 'text-blue-500' },
     heart: { outline: FaHeart, solid: FaHeart, color: 'text-red-600' },
     laugh: { outline: FaLaugh, solid: FaLaugh, color: 'text-yellow-500' },
-    wow: { outline: FaGrinStars, solid: FaGrinStars, color: 'text-purple-600' }, // Changed to grinStars for wow
+    wow: { outline: FaGrinStars, solid: FaGrinStars, color: 'text-purple-600' },
     sad: { outline: FaFrown, solid: FaFrown, color: 'text-gray-700' },
-    angry: { outline: FaAngry, solid: FaAngry, color: 'text-red-700' }, // Added Angry reaction
-    care: { outline: FaHandHoldingHeart, solid: FaHandHoldingHeart, color: 'text-pink-500' }, // Added Care reaction
+    angry: { outline: FaAngry, solid: FaAngry, color: 'text-red-700' },
+    care: { outline: FaHandHoldingHeart, solid: FaHandHoldingHeart, color: 'text-pink-500' },
 };
 
-const ANNOUNCEMENT_TRUNCATE_LENGTH = 300; // Max characters before truncation for announcements
+const ANNOUNCEMENT_TRUNCATE_LENGTH = 300;
 
 const HomeView = ({
     showToast,
     userProfile,
-    teacherAnnouncements, // This prop now needs to be observed for changes to update reactions
+    teacherAnnouncements,
     handleCreateAnnouncement,
     activeClasses,
     editingAnnId,
@@ -61,7 +55,8 @@ const HomeView = ({
     handleStartEditAnn,
     handleUpdateTeacherAnn,
     setEditingAnnId,
-    handleDeleteTeacherAnn, // Ensure this prop is correctly passed from parent if used
+    handleDeleteTeacherAnn,
+    handleViewChange // <-- Make sure this prop is passed down
 }) => {
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [scheduleActivities, setScheduleActivities] = useState([]);
@@ -72,21 +67,24 @@ const HomeView = ({
     const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = useState(false);
     const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
 
-    // New states for HomeView reactions
-    const [homeViewPostReactions, setHomeViewPostReactions] = useState({}); // {announcementId: {userId: reactionType}}
-    const [homeViewUsersMap, setHomeViewUsersMap] = useState({}); // Renamed from userNamesMap to store full user objects
-    const [hoveredHomeViewReactionData, setHoveredHomeViewReactionData] = useState(null); // { type: 'post' | 'options', id: announcementId, users?: string[] }
+    const [homeViewPostReactions, setHomeViewPostReactions] = useState({});
+    const [homeViewUsersMap, setHomeViewUsersMap] = useState({});
+    const [hoveredHomeViewReactionData, setHoveredHomeViewReactionData] = useState(null);
     const homeViewTimeoutRef = useRef(null);
-    const hoverReactionOptionsRef = useRef(null); // Ref for the reaction options popup
+    const hoverReactionOptionsRef = useRef(null);
 
-    // States for ReactionsBreakdownModal
     const [isReactionsBreakdownModalOpen, setIsReactionsBreakdownModalOpen] = useState(false);
     const [reactionsForBreakdownModal, setReactionsForBreakdownModal] = useState(null);
 
-    // State for managing expanded announcements (See More/Show Less)
     const [expandedAnnouncements, setExpandedAnnouncements] = useState({});
 
-    // Function to toggle announcement expansion
+    // New State for Banner Management
+    const [bannerSettings, setBannerSettings] = useState({
+        imageUrl: 'https://i.ibb.co/FqJPnT1J/buwan-ng-wika.png', // Default image
+        endDate: null // Default end date (null means indefinite)
+    });
+    const [isBannerEditModalOpen, setIsBannerEditModalOpen] = useState(false);
+
     const toggleAnnouncementExpansion = (announcementId) => {
         setExpandedAnnouncements(prev => ({
             ...prev,
@@ -94,19 +92,14 @@ const HomeView = ({
         }));
     };
 
-
     const currentUserId = userProfile?.id;
-    const currentUserName = `${userProfile?.firstName} ${userProfile?.lastName}`;
 
-
-    // Helper to fetch user data (name and photoURL)
     const fetchUsersData = async (userIds, dbInstance, currentUserProfile, setUsersMap) => {
         const usersData = {};
         if (userIds.length === 0) return;
 
         const uniqueUserIds = [...new Set(userIds)];
 
-        // Include current user's data directly if available
         if (currentUserProfile?.id) {
             usersData[currentUserProfile.id] = {
                 ...currentUserProfile,
@@ -250,12 +243,18 @@ const HomeView = ({
     });
 
     const now = new Date();
-    const todayFormatted = now.toISOString().split('T')[0];
+    const todayFormatted = now.toISOString().split('T')[0]; // YYYY-MM-DD string
 
     const todayActivities = scheduleActivities.filter(activity => {
-        if (activity.startDate !== todayFormatted) {
+        const activityStartDate = activity.startDate; // YYYY-MM-DD string
+        const activityEndDate = activity.endDate;   // YYYY-MM-DD string
+
+        const isActivityActiveTodayByDate = todayFormatted >= activityStartDate && todayFormatted <= activityEndDate;
+
+        if (!isActivityActiveTodayByDate) {
             return false;
         }
+
         if (activity.time && activity.time !== 'N/A') {
             try {
                 let [timePart, ampm] = activity.time.split(' ');
@@ -275,15 +274,35 @@ const HomeView = ({
                     minutes
                 );
 
-                if (activityDateTime < now) {
-                    return false;
-                }
+                return activityDateTime >= now;
             } catch (e) {
-                console.error("Error parsing activity time, displaying by default:", activity.time, e);
+                console.error("Error parsing activity time, defaulting to showing it:", activity.time, e);
+                return true;
             }
         }
         return true;
+    }).sort((a, b) => {
+        if (a.time === 'N/A' || !a.time) return -1;
+        if (b.time === 'N/A' || !b.time) return 1;
+
+        const [aTimePart, aAmpm] = a.time.split(' ');
+        const [bTimePart, bAmpm] = b.time.split(' ');
+
+        let [aHours, aMinutes] = aTimePart.split(':').map(Number);
+        let [bHours, bMinutes] = bTimePart.split(':').map(Number);
+
+        if (aAmpm && aAmpm.toUpperCase() === 'PM' && aHours !== 12) aHours += 12;
+        else if (aAmpm && aAmpm.toUpperCase() === 'AM' && aHours === 12) aHours = 0;
+
+        if (bAmpm && bAmpm.toUpperCase() === 'PM' && bHours !== 12) bHours += 12;
+        else if (bAmpm && bAmpm.toUpperCase() === 'AM' && bHours === 12) bHours = 0;
+
+        const timeA = aHours * 60 + aMinutes;
+        const timeB = bHours * 60 + bMinutes;
+
+        return timeA - timeB;
     });
+
 
     useEffect(() => {
         if (todayActivities.length > 1) {
@@ -294,9 +313,10 @@ const HomeView = ({
             }, 5000);
             return () => clearInterval(interval);
         } else {
-            setCurrentActivityIndex(0);
+            setCurrentActivityIndex(0); // Reset index if activities become 0 or 1
         }
     }, [todayActivities.length]);
+
 
     const openAnnouncementModal = (announcement) => {
         setSelectedAnnouncement(announcement);
@@ -308,7 +328,6 @@ const HomeView = ({
         setSelectedAnnouncement(null);
     };
 
-    // Handler to open ReactionsBreakdownModal
     const openReactionsBreakdownModal = (reactions, usersMap) => {
         setReactionsForBreakdownModal(reactions);
         setIsReactionsBreakdownModalOpen(true);
@@ -320,7 +339,6 @@ const HomeView = ({
     };
 
 
-    // HomeView specific reaction handling
     const handleTogglePostReactionHomeView = async (announcementId, reactionType) => {
         if (!currentUserId || !announcementId) {
             showToast("User not logged in or announcement ID missing.", "error");
@@ -344,7 +362,6 @@ const HomeView = ({
         }
     };
 
-    // Formats reactions count for HomeView, including hover effect
     const formatReactionCountHomeView = (reactions, announcementId) => {
         const safeReactions = reactions || {};
         const counts = {};
@@ -424,7 +441,6 @@ const HomeView = ({
         );
     };
 
-    // Handle reaction options hover for HomeView
     const handleReactionOptionsMouseEnter = (e, announcementId) => {
         clearTimeout(homeViewTimeoutRef.current);
         setHoveredHomeViewReactionData({
@@ -444,10 +460,72 @@ const HomeView = ({
         setHoveredHomeViewReactionData(null);
     };
 
+    // Refactored special banner active logic
+    const fetchBannerSettings = useCallback(async () => {
+        const bannerDocRef = doc(db, "bannerSettings", "mainBanner");
+        try {
+            const docSnap = await getDoc(bannerDocRef);
+            if (docSnap.exists()) {
+                setBannerSettings(docSnap.data());
+            } else {
+                // If no settings exist, default to the original hardcoded image
+                setBannerSettings({
+                    imageUrl: 'https://i.ibb.co/FqJPnT1J/buwan-ng-wika.png',
+                    endDate: null
+                });
+            }
+        } catch (error) {
+            console.error("Error fetching banner settings:", error);
+            showToast("Failed to load banner settings.", "error");
+            // Fallback to default if there's an error
+            setBannerSettings({
+                imageUrl: 'https://i.ibb.co/FqJPnT1J/buwan-ng-wika.png',
+                endDate: null
+            });
+        }
+    }, [showToast]);
+
+    useEffect(() => {
+        fetchBannerSettings(); // Fetch once on mount
+
+        // Set up real-time listener for banner settings
+        const bannerDocRef = doc(db, "bannerSettings", "mainBanner");
+        const unsubscribe = onSnapshot(bannerDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setBannerSettings(docSnap.data());
+            } else {
+                setBannerSettings({
+                    imageUrl: 'https://i.ibb.co/FqJPnT1J/buwan-ng-wika.png',
+                    endDate: null
+                });
+            }
+        }, (error) => {
+            console.error("Error listening to banner settings:", error);
+            showToast("Real-time banner updates failed.", "error");
+        });
+
+        return () => unsubscribe(); // Cleanup listener
+    }, [fetchBannerSettings, showToast]);
+
+    const isSpecialBannerActive = useMemo(() => {
+        const now = new Date();
+        // Check if there's an imageUrl and if the endDate is in the future or not set
+        return bannerSettings.imageUrl && (!bannerSettings.endDate || bannerSettings.endDate.toDate() > now);
+    }, [bannerSettings]);
+
+    // Admin-specific banner click handler
+    const handleBannerImageClick = () => {
+        console.log("Banner image clicked. User role:", userProfile?.role); // For debugging
+        if (userProfile?.role === 'admin') {
+            setIsBannerEditModalOpen(true);
+        } else {
+            showToast("Only administrators can edit banner settings.", "info");
+        }
+    };
 
     return (
         <div className="relative min-h-screen p-4 md:p-8 bg-gray-100 text-gray-800 font-sans overflow-hidden rounded-3xl">
-            {/* Dynamic Background Elements */}
+            {/* Dynamic Background Elements - Retained for general aesthetic */}
             <div className="absolute top-0 left-0 w-full h-full z-0 pointer-events-none">
                 <div className="absolute -top-40 -left-40 w-96 h-96 bg-primary-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-spin-slow"></div>
                 <div className="absolute bottom-20 -right-40 w-96 h-96 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-spin-slow-reverse animation-delay-2000"></div>
@@ -455,42 +533,117 @@ const HomeView = ({
             </div>
 
             {/* Main Content Container with a modern, clean feel */}
-            <div className="relative z-10 space-y-12">
-                {/* Header with a subtle animated gradient */}
-                <div className="relative p-6 md:p-8 bg-white rounded-3xl shadow-2xl overflow-hidden animate-fade-in-down">
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary-600/10 via-transparent to-indigo-600/10 opacity-50 animate-pulse-light"></div>
-                    <div className="relative z-10 flex flex-col md:flex-row md::items-start md:justify-between">
-                        <div>
-                            <h1 className="text-4xl lg:text-5xl font-extrabold text-gray-800 drop-shadow-sm leading-tight">
-                                Hey there, {userProfile?.firstName}!
-                            </h1>
-                            <p className="text-lg text-gray-500 mt-2">SRCS LMS dashboard at a glance.</p>
-                        </div>
+            <div className="relative z-10 space-y-10">
+                {/* Header with a subtle animated gradient - Now with a fixed height and static, clean background */}
+                <div className={`relative px-5 py-0.5 md:px-8 md:py-0.5 bg-white rounded-3xl shadow-2xl overflow-hidden animate-fade-in-down default-banner-background h-48`}>
+                    {/* Conditional rendering for the main banner content */}
+                    {isSpecialBannerActive ? (
+                        <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-0 h-full items-center px-0.5">
+                            {/* Left Column: Greeting */}
+                            <div className="col-span-1 text-center md:text-left flex flex-col justify-center h-full">
+                                <h1 className="text-3xl font-extrabold text-gray-800 drop-shadow-sm leading-tight"> {/* Doubled h1 size to 3xl */}
+                                    Hey there, {userProfile?.firstName}!
+                                </h1>
+                                <p className="text-xs text-gray-500 mt-0">SRCS LMS dashboard at a glance.</p>
+                            </div>
 
-                        {/* Display Today's Activities Notice */}
-                        {todayActivities.length > 0 && (
-                            <div className="mt-6 md:mt-0 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-md shadow-inner max-w-md ml-auto">
-                                <p className="font-semibold text-lg flex items-center">
-                                    <FaCalendarAlt className="w-6 h-6 mr-2" />
-                                    Upcoming Today:
+                            {/* Center Column: Image Container (Clickable) */}
+                            <div
+                                className="col-span-1 flex items-center justify-center h-full w-full relative z-20" // Made this div the clickable target
+                                onClick={userProfile?.role === 'admin' ? handleBannerImageClick : undefined} // Conditional click handler
+                                style={{ cursor: userProfile?.role === 'admin' ? 'pointer' : 'default' }} // Explicit cursor style
+                            >
+                                <img
+                                    src={bannerSettings.imageUrl} // Dynamically load image from state
+                                    alt="Promotional Banner"
+                                    className="block h-[170px] w-auto object-contain p-2" // Set fixed height and auto width
+                                    onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/150x38/E0E7EE/888888?text=Image+Load+Error'; }} // Fallback
+                                />
+                            </div>
+
+                            {/* Right Column: Upcoming Today Card */}
+                            <div className="col-span-1 flex items-center justify-center h-full overflow-hidden">
+                                <div className="bg-gradient-to-br from-blue-50 to-indigo-100 text-gray-800 rounded-xl shadow-lg border border-indigo-200 w-full h-28 flex flex-col px-2 py-0.5">
+                                    {/* Subtle background pattern/effect */}
+                                    <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGwlM0QiMDAwMDAwIiUyMGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM2SDI0VjI0aDEyYzEuMTA0IDAgMiAuODk2IDIgMlYyMmMwIDEuMTA0LS44OTYgMi0yIDJ6TTQ0IDQ0SDMyVjMyaDEyYzEuMTA0IDAgMiAuODk2IDIgMlY0MmMwADEuMTA0LS44OTYgMi0yIDJ6Ii8+PC9nPjwvZ34KPC9zdmc+')] opacity-20 transform rotate-45 scale-150 transition-transform duration-500 group-hover:scale-100"></div>
+                                    
+                                    <p className="font-bold text-lg mb-0 flex items-center relative z-10">
+                                        <FaCalendarAlt className="w-3 h-3 mr-1 text-indigo-600" />
+                                        Today's Schedule(s)
+                                    </p>
+                                    <div className="relative z-10 flex-grow flex items-center justify-center">
+                                        {todayActivities.length > 0 && todayActivities[currentActivityIndex] ? (
+                                            <p
+                                                key={todayActivities[currentActivityIndex].id}
+                                                className="text-center activity-slide-in font-light block text-lg leading-tight"
+                                            >
+                                                <span className="font-bold block text-xs leading-tight">{todayActivities[currentActivityIndex].title}</span>
+                                                {todayActivities[currentActivityIndex].time && todayActivities[currentActivityIndex].time !== 'N/A' && (
+                                                    <span className="flex items-center text-lg justify-center mt-0 text-gray-700">
+                                                        <FaClock className="w-3 h-3 mr-0.5 opacity-70" /> {todayActivities[currentActivityIndex].time}
+                                                    </span>
+                                                )}
+                                                {todayActivities[currentActivityIndex].inCharge && (
+                                                    <span className="block text-xs opacity-80 text-gray-600">
+                                                        In-charge: {todayActivities[currentActivityIndex].inCharge}
+                                                    </span>
+                                                )}
+                                            </p>
+                                        ) : (
+                                            <p className="text-xs font-light text-gray-500 text-center">No activities scheduled for today.</p>
+                                        )}
+                                    </div>
+                                    <p className="text-xs mt-auto pt-0 pb-0 opacity-90 relative z-10 border-t border-indigo-200 text-gray-700">Stay on top of your schedule!</p>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        // Original content when special banner is not active (flex row for greeting and schedule)
+                        <div className="relative z-10 flex flex-col md:flex-row md:items-start md:justify-between h-full w-full">
+                            <div className="flex-1">
+                                <h1 className="text-4xl lg:text-5xl font-extrabold text-gray-800 drop-shadow-sm leading-tight">
+                                    Hey there, {userProfile?.firstName}!
+                                </h1>
+                                <p className="text-lg text-gray-500 mt-2">SRCS LMS Dashboard At a Glance.</p>
+                            </div>
+                            {/* Upcoming Today card (sibling to greeting) */}
+                            <div className="mt-6 md:mt-0 md:ml-6 px-5 py-2 bg-gradient-to-br from-blue-50 to-indigo-100 text-gray-800 rounded-xl shadow-lg border border-indigo-200 max-w-sm flex-shrink-0 relative overflow-hidden group h-28 flex flex-col">
+                                {/* Subtle background pattern/effect */}
+                                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGwlM0QiMDAwMDAwIiUyMGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM2SDI0VjI0aDEyYzEuMTA0IDAgMiAuODk2IDIgMlYyMmMwIDEuMTA0LS44OTYgMi0yIDJ6TTQ0IDQ0SDMyVjMyaDEyYzEuMTA0IDAgMiAuODk2IDIgMlY0MmMwIDEuMTA0LS44OTYgMi0yIDJ6Ii8+PC9nPjwvZ34KPC9zdmc+')] opacity-20 transform rotate-45 scale-150 transition-transform duration-500 group-hover:scale-100"></div>
+                                
+                                <p className="font-bold text-xl mb-1 flex items-center relative z-10">
+                                    <FaCalendarAlt className="w-7 h-7 mr-3 text-indigo-600" />
+                                    Today's Schedule(s)'
                                 </p>
-                                <div className="mt-2" style={{ minHeight: '2rem' }}> {/* minHeight to prevent layout shifts */}
-                                    {todayActivities[currentActivityIndex] && (
-                                        // Key forces re-render, transition-opacity provides the fade
-                                        <p key={todayActivities[currentActivityIndex].id} className="text-base transition-opacity duration-1000 ease-in-out opacity-100">
-                                            <span className="font-medium">{todayActivities[currentActivityIndex].title}</span>
-                                            {todayActivities[currentActivityIndex].time && todayActivities[currentActivityIndex].time !== 'N/A' && ` at ${todayActivities[currentActivityIndex].time}`}
-                                            {todayActivities[currentActivityIndex].inCharge && ` (In-charge: ${todayActivities[currentActivityIndex].inCharge})`}
+                                <div className="relative z-10 flex-grow flex items-center justify-center">
+                                    {todayActivities.length > 0 && todayActivities[currentActivityIndex] ? (
+                                        <p
+                                            key={todayActivities[currentActivityIndex].id}
+                                            className="text-center activity-slide-in font-light block text-sm"
+                                        >
+                                            <span className="font-bold block text-base leading-tight">{todayActivities[currentActivityIndex].title}</span>
+                                            {todayActivities[currentActivityIndex].time && todayActivities[currentActivityIndex].time !== 'N/A' && (
+                                                <span className="flex items-center text-sm mt-1 text-gray-700">
+                                                    <FaClock className="w-4 h-4 mr-1 opacity-70" /> {todayActivities[currentActivityIndex].time}
+                                                </span>
+                                            )}
+                                            {todayActivities[currentActivityIndex].inCharge && (
+                                                <span className="block text-xs opacity-80 text-gray-600">
+                                                    In-charge: {todayActivities[currentActivityIndex].inCharge}
+                                                </span>
+                                            )}
                                         </p>
+                                    ) : (
+                                        <p className="text-sm font-light text-gray-500 text-center">No activities scheduled for today.</p>
                                     )}
                                 </div>
-                                <p className="text-sm mt-3 text-yellow-700">Don't miss out on these important activities!</p>
+                                <p className="text-xs mt-auto pt-1 opacity-90 relative z-10 border-t border-indigo-200 text-gray-700">Stay on top of your schedule!</p>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
 
-                {/* Main Stat & Info Grid - REORDERED */}
+                {/* Main Stat & Info Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 md:gap-8">
                     {/* 1. Date and Time Card */}
                     <ClockWidget className="rounded-3xl shadow-xl transition transform hover:scale-105 duration-300 ease-in-out hover:shadow-2xl animate-fade-in animation-delay-600" />
@@ -501,21 +654,26 @@ const HomeView = ({
                     {/* 3. Schedule of Activities Card */}
                     <div
                         className="bg-white p-6 rounded-3xl shadow-xl flex items-center justify-center flex-col text-center cursor-pointer transition transform hover:scale-105 duration-300 ease-in-out animate-fade-in animation-delay-900"
-                        onClick={() => setIsScheduleModalOpen(true)} // Open the modal on click
+                        onClick={() => setIsScheduleModalOpen(true)}
                     >
                         <FaCalendarAlt className="h-10 w-10 text-rose-500 mb-2" />
                         <h3 className="font-bold text-gray-800 text-lg">Schedule of Activities</h3>
                         <p className="text-sm text-gray-500 mt-1">Check out what's due soon.</p>
                     </div>
 
-                    {/* 4. Active Classes Card */}
-                    <GradientStatCard
-                        title="Active Classes"
-                        value={activeClasses.length}
-                        icon={<FaGraduationCap />}
-                        gradient="from-green-500 to-emerald-600"
-                        className="rounded-3xl shadow-xl transition transform hover:scale-105 duration-300 ease-in-out hover:shadow-2xl animate-fade-in"
-                    />
+                    {/* 4. Active Classes Card - Now Clickable */}
+                    <div
+                        className="cursor-pointer transition transform hover:scale-105 duration-300 ease-in-out hover:shadow-2xl animate-fade-in"
+                        onClick={() => handleViewChange('classes')} // Click to navigate to Classes tab
+                    >
+                        <GradientStatCard
+                            title="Active Classes"
+                            value={activeClasses.length}
+                            icon={<FaGraduationCap />}
+                            gradient="from-green-500 to-emerald-600"
+                            className="rounded-3xl shadow-xl" // Apply shadow to the card itself
+                        />
+                    </div>
                 </div>
 
                 {/* Announcements Section - Redesigned with a split layout */}
@@ -700,22 +858,40 @@ const HomeView = ({
                 usersMap={homeViewUsersMap}
             />
 
+            {/* Admin Banner Edit Modal */}
+            <AdminBannerEditModal
+                isOpen={isBannerEditModalOpen}
+                onClose={() => setIsBannerEditModalOpen(false)}
+                currentImageUrl={bannerSettings.imageUrl}
+                currentEndDate={bannerSettings.endDate}
+                onSaveSuccess={fetchBannerSettings} // Re-fetch banner settings after successful save
+            />
+
             <style jsx>{`
-                .custom-scrollbar::-webkit-scrollbar {
-                    width: 8px;
+                /* Default Banner Background (replaces weather backgrounds) */
+                .default-banner-background {
+                    background: linear-gradient(135deg, #f0f4f8 0%, #e0e7ee 100%); /* A subtle, modern light grey/blue gradient */
                 }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: #e5e7eb;
-                    border-radius: 10px;
+
+                /* Animation for Activity Text Slide-In */
+                @keyframes activitySlideIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(10px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
                 }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background-color: #d1d5db;
-                    border-radius: 10px;
-                    border: 2px solid #e5e7eb;
+                .activity-slide-in {
+                    animation: activitySlideIn 0.5s ease-out forwards; /* 0.5 seconds duration, stay at end state */
                 }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background-color: #9ca3af;
-                }
+
+
+                /* Existing Styles */
+                /* Removed custom-scrollbar as it's no longer needed for fixed height with truncation */
+
 
                 .animate-fade-in {
                     animation: fadeIn 1s ease-out;
@@ -730,10 +906,10 @@ const HomeView = ({
                     animation-delay: 0.3s;
                 }
                 .animation-delay-600 {
-                    animation-delay: 0.6s;
+                    animation: fadeIn 1s ease-out 0.6s forwards; /* Example with forward fill-mode */
                 }
                 .animation-delay-900 {
-                    animation-delay: 0.9s;
+                    animation: fadeIn 1s ease-out 0.9s forwards; /* Example with forward fill-mode */
                 }
 
                 @keyframes fadeIn {
@@ -764,13 +940,11 @@ const HomeView = ({
                     to { transform: rotate(0deg); }
                 }
 
-                .animate-pulse-light {
-                    animation: pulseLight 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-                }
-                @keyframes pulseLight {
+                /* Removed .animate-pulse-light as it's no longer used for the main banner */
+                /* @keyframes pulseLight {
                     0%, 100% { opacity: 0.2; }
                     50% { opacity: 0.5; }
-                }
+                } */
 
                 .btn-primary-glow-light {
                     background-color: #f43f5e;
@@ -897,15 +1071,15 @@ const HomeView = ({
                 .reaction-pop-icon-angry { animation-delay: 0.25s; }
                 .reaction-pop-icon-care { animation-delay: 0.3s; }
                 
+                @keyframes popIn {
+                    0% { opacity: 0; transform: scale(0.5) translateY(10px); }
+                    100% { opacity: 1; transform: scale(1) translateY(0); }
+                }
+                
                 .reaction-pop-icon:hover {
                     transform: scale(1.3) translateY(-5px);
                     box-shadow: 0 8px 15px rgba(0,0,0,0.3);
                     z-index: 51;
-                }
-                
-                @keyframes popIn {
-                    0% { transform: scale(0.5) translateY(10px); opacity: 0; }
-                    100% { transform: scale(1) translateY(0); opacity: 1; }
                 }
                 
                 .reaction-options-popup button {
@@ -913,7 +1087,6 @@ const HomeView = ({
                     overflow: hidden;
                     background-color: transparent;
                 }
-
             `}</style>
         </div>
     );

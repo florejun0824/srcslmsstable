@@ -247,7 +247,7 @@ const TeacherDashboardLayout = (props) => {
 
         switch (activeView) {
             case 'home':
-                return <HomeView key={reloadKey} userProfile={userProfile} {...rest} />;
+                return <HomeView key={reloadKey} userProfile={userProfile} handleViewChange={handleViewChange} {...rest} />; {/* <-- Added handleViewChange here */}
             case 'classes':
                 return <ClassesView key={reloadKey} {...rest} />;
             case 'courses':
@@ -273,7 +273,7 @@ const TeacherDashboardLayout = (props) => {
             case 'admin':
                 return <div key={reloadKey} className="p-4 sm:p-6 rounded-3xl text-gray-800"><AdminDashboard /></div>;
             default:
-                return <HomeView key={reloadKey} userProfile={userProfile} {...rest} />;
+                return <HomeView key={reloadKey} userProfile={userProfile} handleViewChange={handleViewChange} {...rest} />; {/* <-- Also added here for default case */}
         }
     };
 
