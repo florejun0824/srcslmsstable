@@ -134,18 +134,20 @@ const HomeView = ({
         setUsersMap(prev => ({ ...prev, ...usersData }));
     };
 
-    // Effect to fetch initial schedules
+    // MODIFIED: Effect to listen for schedules in real-time
     useEffect(() => {
-        const getSchedules = async () => {
-            try {
-                const data = await getDocs(scheduleCollectionRef);
-                setScheduleActivities(data.docs.map((doc) => ({ ...doc.data(), id: doc.id })));
-            } catch (error) {
-                console.error("Error fetching schedules:", error);
-            }
-        };
-        getSchedules();
-    }, []);
+        const unsubscribe = onSnapshot(scheduleCollectionRef, (snapshot) => {
+            const fetchedSchedules = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            setScheduleActivities(fetchedSchedules);
+        }, (error) => {
+            console.error("Error listening to schedules:", error);
+            showToast("Failed to load schedules in real-time.", "error");
+        });
+
+        // Cleanup listener on component unmount
+        return () => unsubscribe();
+    }, [scheduleCollectionRef, showToast]);
+
 
     // Effect to listen for reactions on announcements in HomeView
     useEffect(() => {
@@ -460,35 +462,8 @@ const HomeView = ({
         setHoveredHomeViewReactionData(null);
     };
 
-    // Refactored special banner active logic
-    const fetchBannerSettings = useCallback(async () => {
-        const bannerDocRef = doc(db, "bannerSettings", "mainBanner");
-        try {
-            const docSnap = await getDoc(bannerDocRef);
-            if (docSnap.exists()) {
-                setBannerSettings(docSnap.data());
-            } else {
-                // If no settings exist, default to the original hardcoded image
-                setBannerSettings({
-                    imageUrl: 'https://i.ibb.co/FqJPnT1J/buwan-ng-wika.png',
-                    endDate: null
-                });
-            }
-        } catch (error) {
-            console.error("Error fetching banner settings:", error);
-            showToast("Failed to load banner settings.", "error");
-            // Fallback to default if there's an error
-            setBannerSettings({
-                imageUrl: 'https://i.ibb.co/FqJPnT1J/buwan-ng-wika.png',
-                endDate: null
-            });
-        }
-    }, [showToast]);
-
+    // MODIFIED: Simplified banner settings fetching to rely solely on onSnapshot
     useEffect(() => {
-        fetchBannerSettings(); // Fetch once on mount
-
-        // Set up real-time listener for banner settings
         const bannerDocRef = doc(db, "bannerSettings", "mainBanner");
         const unsubscribe = onSnapshot(bannerDocRef, (docSnap) => {
             if (docSnap.exists()) {
@@ -505,7 +480,7 @@ const HomeView = ({
         });
 
         return () => unsubscribe(); // Cleanup listener
-    }, [fetchBannerSettings, showToast]);
+    }, [showToast]);
 
     const isSpecialBannerActive = useMemo(() => {
         const now = new Date();
@@ -609,7 +584,7 @@ const HomeView = ({
                             {/* Upcoming Today card (sibling to greeting) */}
                             <div className="mt-6 md:mt-0 md:ml-6 px-5 py-2 bg-gradient-to-br from-blue-50 to-indigo-100 text-gray-800 rounded-xl shadow-lg border border-indigo-200 max-w-sm flex-shrink-0 relative overflow-hidden group h-28 flex flex-col">
                                 {/* Subtle background pattern/effect */}
-                                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGwlM0QiMDAwMDAwIiUyMGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM2SDI0VjI0aDEyYzEuMTA0IDAgMiAuODk2IDIgMlYyMmMwIDEuMTA0LS44OTYgMi0yIDJ6TTQ0IDQ0SDMyVjMyaDEyYzEuMTA0IDAgMiAuODk2IDIgMlY0MmMwIDEuMTA0LS44OTYgMi0yIDJ6Ii8+PC9nPjwvZ34KPC9zdmc+')] opacity-20 transform rotate-45 scale-150 transition-transform duration-500 group-hover:scale-100"></div>
+                                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGwlM0QiMDAwMDAwIiUyMGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM2SDI0VjI0aDEyYzEuMTA0IDAgMiAuODk2IDIgMlYyMmMwIDEuMTA0LS44OTYgMi0yIDJ6TTQ0IDQ0SDMyVjMyaDEyYzEuMTA0IDAgMiAuODk2IDIgMlY0MmMwADEuMTA0LS44OTYgMi0yIDJ6Ii8+PC9nPjwvZ34KPC9zdmc+')] opacity-20 transform rotate-45 scale-150 transition-transform duration-500 group-hover:scale-100"></div>
                                 
                                 <p className="font-bold text-xl mb-1 flex items-center relative z-10">
                                     <FaCalendarAlt className="w-7 h-7 mr-3 text-indigo-600" />
@@ -864,7 +839,7 @@ const HomeView = ({
                 onClose={() => setIsBannerEditModalOpen(false)}
                 currentImageUrl={bannerSettings.imageUrl}
                 currentEndDate={bannerSettings.endDate}
-                onSaveSuccess={fetchBannerSettings} // Re-fetch banner settings after successful save
+                onSaveSuccess={() => { /* onSnapshot will handle re-fetch */ }}
             />
 
             <style jsx>{`

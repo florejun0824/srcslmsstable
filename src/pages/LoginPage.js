@@ -1,26 +1,24 @@
 // src/pages/LoginPage.js
 
-import React, { useState, Suspense } from 'react'; // No new imports needed for this part
+import React, { useState, Suspense } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { ArrowLeft } from 'lucide-react';
+import { AcademicCapIcon, BriefcaseIcon } from '@heroicons/react/24/solid'; // RE-ADDED: Import icons
 
-// --- CHANGE 1: Import Capacitor ---
 import { Capacitor } from '@capacitor/core';
 
 const RoleCard = React.lazy(() => import('./RoleCard'));
 
+// REMOVED: SVG path data constants, as we're using icon components directly
+
+
 const LoginPage = () => {
-    // --- CHANGE 2: Check if running as a native mobile app ---
     const isMobileApp = Capacitor.isNativePlatform();
 
-    // --- CHANGE 3: Set initial state based on the platform ---
-    // If it's a mobile app, start at the 'loginForm' with the role pre-set to 'student'.
-    // Otherwise, start at 'roleSelection'.
     const [step, setStep] = useState(isMobileApp ? 'loginForm' : 'roleSelection');
     const [selectedRole, setSelectedRole] = useState(isMobileApp ? 'student' : null);
 
-    // No other changes are needed in this section of the component
     const [isLoading, setIsLoading] = useState(false);
     const { login } = useAuth();
     const { showToast } = useToast();
@@ -38,14 +36,12 @@ const LoginPage = () => {
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-100 text-gray-800 flex flex-col items-center justify-center p-4 overflow-hidden">
             <div className="w-full max-w-6xl mx-auto">
-                {/* This RoleSelection component will now ONLY be shown on the web version */}
                 {step === 'roleSelection' && (
                     <Suspense fallback={<div>Loading roles...</div>}>
                         <RoleSelection onSelect={handleRoleSelect} />
                     </Suspense>
                 )}
 
-                {/* This LoginForm will show on both web and mobile */}
                 {step === 'loginForm' && (
                     <LoginForm
                         role={selectedRole}
@@ -54,8 +50,6 @@ const LoginPage = () => {
                         showToast={showToast}
                         isLoading={isLoading}
                         setIsLoading={setIsLoading}
-                        // --- CHANGE 4: Prevent going "back" on the mobile app ---
-                        // We pass the isMobileApp flag to the LoginForm
                         isMobileApp={isMobileApp}
                     />
                 )}
@@ -66,9 +60,7 @@ const LoginPage = () => {
 };
 
 
-// --- No changes needed in RoleSelection component ---
 const RoleSelection = ({ onSelect }) => {
-    // ... same as your original file
     return (
         <div className="text-center">
             <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="SRCS Logo" className="w-24 h-24 mx-auto mb-4 rounded-full border-2 border-white shadow-lg" />
@@ -80,13 +72,17 @@ const RoleSelection = ({ onSelect }) => {
                 <RoleCard
                     role="student"
                     title="I'm a Student"
-                    imgSrc="https://i.ibb.co/5WbmXSq6/Google-Gemini-2.webp"
+                    Icon={AcademicCapIcon} // RE-ADDED: Icon component
+                    gradient="from-blue-500 to-purple-600" // Background circle gradient
+                    textColor="text-red-800" // RE-ADDED: Tailwind class for maroon-like color
                     onSelect={onSelect}
                 />
                 <RoleCard
                     role="teacher"
                     title="I'm a Teacher"
-                    imgSrc="https://i.ibb.co/5g3m8Ckg/Google-Gemini.webp"
+                    Icon={BriefcaseIcon} // RE-ADDED: Icon component
+                    gradient="from-green-500 to-teal-600" // Background circle gradient
+                    textColor="text-blue-600" // RE-ADDED: Tailwind class for blue color
                     onSelect={onSelect}
                 />
             </div>
@@ -95,7 +91,6 @@ const RoleSelection = ({ onSelect }) => {
 };
 
 
-// --- CHANGE 5: Small modification to LoginForm to hide the "Back" button on mobile ---
 const LoginForm = ({ role, onBack, login, showToast, isLoading, setIsLoading, isMobileApp }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -120,8 +115,6 @@ const LoginForm = ({ role, onBack, login, showToast, isLoading, setIsLoading, is
 
     return (
         <div className="w-full max-w-md mx-auto bg-white bg-opacity-60 backdrop-blur-md p-8 rounded-2xl shadow-lg border border-gray-200 animate-fade-in">
-            {/* --- CHANGE 6: Conditionally render the Back button --- */}
-            {/* Only show the back button if it's NOT the mobile app */}
             {!isMobileApp && (
                 <button onClick={onBack} className="flex items-center text-gray-500 hover:text-black mb-6 transition-colors">
                     <ArrowLeft size={20} className="mr-2" />
@@ -134,12 +127,9 @@ const LoginForm = ({ role, onBack, login, showToast, isLoading, setIsLoading, is
             </h2>
             <p className="text-center text-gray-600 mb-8">Welcome! Please sign in to continue.</p>
 
-            {/* The rest of the form remains the same */}
             {error && <p className="bg-red-100 text-red-700 p-3 rounded-lg mb-4 text-sm text-center">{error}</p>}
             <form onSubmit={handleSubmit} className="space-y-6">
-                {/* ... all your form inputs ... */}
-                {/* ... */}
-                 <div>
+                <div>
                     <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="username">Username</label>
                     <div className="flex items-center bg-white border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-400 transition-all">
                         <input

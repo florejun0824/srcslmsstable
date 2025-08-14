@@ -3,20 +3,20 @@ import { db } from '../../services/firebase';
 import { collection, query, getDocs, orderBy, where, documentId } from 'firebase/firestore';
 import Spinner from '../common/Spinner';
 import ViewLessonModal from '../student/ViewLessonModal';
-import ViewQuizModal from '../teacher/ViewQuizModal';
+import ViewQuizModal from '../teacher/ViewQuizModal'; // Keep import as it's used for the modal itself
 import AnnouncementViewModal from '../common/AnnouncementViewModal';
 import { useAuth } from '../../contexts/AuthContext';
-import { MegaphoneIcon, BookOpenIcon, AcademicCapIcon, ArrowLeftIcon, SparklesIcon, ArrowRightIcon, ClockIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'; // Added ClockIcon, ChevronDownIcon, ChevronUpIcon
+import { MegaphoneIcon, BookOpenIcon, AcademicCapIcon, ArrowLeftIcon, SparklesIcon, ArrowRightIcon, ClockIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'; // AcademicCapIcon for quizzes is no longer needed for tab, but keep for list item if used elsewhere
 
 const StudentClassDetailView = ({ selectedClass, onBack }) => {
     const { userProfile } = useAuth();
     const [activeTab, setActiveTab] = useState('announcements');
     const [announcements, setAnnouncements] = useState([]);
     const [lessonsByUnit, setLessonsByUnit] = useState({});
-    const [quizzesByUnit, setQuizzesByUnit] = useState({}); // New state for grouped quizzes
+    // const [quizzesByUnit, setQuizzesByUnit] = useState({}); // REMOVED: No longer needed for this view
     const [loading, setLoading] = useState(true);
     const [viewLessonData, setViewLessonData] = useState(null);
-    const [viewQuizData, setViewQuizData] = useState(null);
+    const [viewQuizData, setViewQuizData] = useState(null); // Keep for passing quiz data to modal
     const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
     const [collapsedUnits, setCollapsedUnits] = useState(new Set()); // State to manage collapsed units
 
@@ -48,20 +48,21 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
             const postsSnap = await getDocs(postsQuery);
 
             const lessonIdSet = new Set();
-            const quizIdSet = new Set();
-            const quizPostContexts = new Map(); // Store post context for quizzes to get availableUntil
+            // const quizIdSet = new Set(); // REMOVED
+            // const quizPostContexts = new Map(); // REMOVED
 
             postsSnap.forEach(doc => {
                 const post = { id: doc.id, ...doc.data() };
                 if (Array.isArray(post.lessonIds)) post.lessonIds.forEach(id => lessonIdSet.add(id));
-                if (Array.isArray(post.quizIds)) {
-                    post.quizIds.forEach(id => {
-                        quizIdSet.add(id);
-                        if (!quizPostContexts.has(id)) {
-                             quizPostContexts.set(id, { availableUntil: post.availableUntil });
-                        }
-                    });
-                }
+                // REMOVED quiz-related post parsing
+                // if (Array.isArray(post.quizIds)) {
+                //     post.quizIds.forEach(id => {
+                //         quizIdSet.add(id);
+                //         if (!quizPostContexts.has(id)) {
+                //              quizPostContexts.set(id, { availableUntil: post.availableUntil });
+                //         }
+                //     });
+                // }
             });
 
             // --- Fetch Lessons and Group by Unit ---
@@ -80,22 +81,22 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
                 });
             }
 
-            // --- Fetch Quizzes and Group by Unit ---
-            let fetchedQuizzes = [];
-            if (quizIdSet.size > 0) {
-                const quizzesQuery = query(collection(db, 'quizzes'), where(documentId(), 'in', Array.from(quizIdSet)));
-                const quizzesSnap = await getDocs(quizzesQuery);
-                fetchedQuizzes = quizzesSnap.docs.map(d => {
-                    const quizData = { id: d.id, ...d.data() };
-                    const postContext = quizPostContexts.get(quizData.id);
-                    return { ...quizData, availableUntil: postContext?.availableUntil };
-                });
-            }
+            // --- REMOVED: Fetch Quizzes and Group by Unit ---
+            // let fetchedQuizzes = [];
+            // if (quizIdSet.size > 0) {
+            //     const quizzesQuery = query(collection(db, 'quizzes'), where(documentId(), 'in', Array.from(quizIdSet)));
+            //     const quizzesSnap = await getDocs(quizzesQuery);
+            //     fetchedQuizzes = quizzesSnap.docs.map(d => {
+            //         const quizData = { id: d.id, ...d.data() };
+            //         const postContext = quizPostContexts.get(quizData.id);
+            //         return { ...quizData, availableUntil: postContext?.availableUntil };
+            //     });
+            // }
 
-            // Collect all unique unit IDs from both lessons and quizzes
+            // Collect all unique unit IDs from both lessons (and previously quizzes)
             const uniqueUnitIds = new Set([
                 ...fetchedLessons.map(lesson => lesson.unitId).filter(Boolean),
-                ...fetchedQuizzes.map(quiz => quiz.unitId).filter(Boolean)
+                // ...fetchedQuizzes.map(quiz => quiz.unitId).filter(Boolean) // REMOVED
             ]);
             
             const unitsMap = new Map();
@@ -115,18 +116,19 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
             });
             setLessonsByUnit(groupedLessons);
 
-            const groupedQuizzes = {};
-            fetchedQuizzes.forEach(quiz => {
-                const unitTitle = unitsMap.get(quiz.unitId) || 'Uncategorized'; // Assuming quizzes also have unitId
-                if (!groupedQuizzes[unitTitle]) {
-                    groupedQuizzes[unitTitle] = [];
-                }
-                groupedQuizzes[unitTitle].push(quiz);
-            });
-            setQuizzesByUnit(groupedQuizzes);
+            // REMOVED: Quiz grouping
+            // const groupedQuizzes = {};
+            // fetchedQuizzes.forEach(quiz => {
+            //     const unitTitle = unitsMap.get(quiz.unitId) || 'Uncategorized'; // Assuming quizzes also have unitId
+            //     if (!groupedQuizzes[unitTitle]) {
+            //         groupedQuizzes[unitTitle] = [];
+            //     }
+            //     groupedQuizzes[unitTitle].push(quiz);
+            // });
+            // setQuizzesByUnit(groupedQuizzes);
 
-            // Initialize all units as collapsed by default
-            const allUnitTitles = new Set([...Object.keys(groupedLessons), ...Object.keys(groupedQuizzes)]);
+            // Initialize all units as collapsed by default (only for lessons now)
+            const allUnitTitles = new Set(Object.keys(groupedLessons)); // Only lessons contribute to units here
             setCollapsedUnits(allUnitTitles);
 
         } catch (error) {
@@ -194,41 +196,6 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
                         color="sky"
                     />
                 );
-            case 'quizzes':
-                const quizUnitTitles = Object.keys(quizzesByUnit).sort(); // Sort unit titles
-                return quizUnitTitles.length > 0 ? (
-                    <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
-                        {quizUnitTitles.map(unitTitle => (
-                            <div key={unitTitle} className="bg-white rounded-xl shadow-sm border border-slate-100">
-                                <button 
-                                    className="flex items-center justify-between w-full p-4 font-bold text-lg text-slate-800 hover:bg-slate-50 rounded-t-xl transition-colors"
-                                    onClick={() => toggleUnitCollapse(unitTitle)}
-                                >
-                                    {unitTitle}
-                                    {collapsedUnits.has(unitTitle) ? (
-                                        <ChevronDownIcon className="h-6 w-6 text-slate-500" />
-                                    ) : (
-                                        <ChevronUpIcon className="h-6 w-6 text-slate-500" />
-                                    )}
-                                </button>
-                                {!collapsedUnits.has(unitTitle) && (
-                                    <div className="p-4 space-y-4 border-t border-slate-100">
-                                        {quizzesByUnit[unitTitle].map(quiz => (
-                                            <QuizListItemForStudent key={quiz.id} quiz={quiz} onClick={() => setViewQuizData(quiz)} />
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <EmptyState 
-                        icon={AcademicCapIcon}
-                        text="No quizzes are available yet."
-                        subtext="Check back later for quizzes."
-                        color="purple"
-                    />
-                );
             case 'announcements':
             default:
                 return announcements.length > 0 ? (
@@ -270,16 +237,19 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
                             <BookOpenIcon className="h-5 w-5" />
                             <span className="whitespace-nowrap">Lessons</span>
                         </button>
+                        {/* REMOVED: Quizzes Tab
                         <button onClick={() => setActiveTab('quizzes')} className={getTabClasses('quizzes')}>
                             <AcademicCapIcon className="h-5 w-5" />
                             <span className="whitespace-nowrap">Quizzes</span>
                         </button>
+                        */}
                     </nav>
                 </div>
                 <div className="py-4">{renderContent()}</div>
             </div>
 
             <ViewLessonModal isOpen={!!viewLessonData} onClose={() => setViewLessonData(null)} lesson={viewLessonData} />
+            {/* The ViewQuizModal component itself is still used, but triggered from StudentQuizzesTab directly now */}
             <ViewQuizModal isOpen={!!viewQuizData} onClose={() => setViewQuizData(null)} quiz={viewQuizData} userProfile={userProfile} classId={selectedClass.id} />
             <AnnouncementViewModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} />
         </>
@@ -302,6 +272,8 @@ const LessonListItemForStudent = ({ lesson, onClick }) => (
     </div>
 );
 
+// QuizListItemForStudent is no longer rendered by this component, but keeping it here for reference
+// in case it's used elsewhere or you decide to re-add quizzes in a different context.
 const QuizListItemForStudent = ({ quiz, onClick }) => {
     const formattedDueDate = quiz.availableUntil?.toDate ? quiz.availableUntil.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
     return (

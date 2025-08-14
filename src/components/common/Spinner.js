@@ -39,15 +39,6 @@ const Spinner = ({ isLoading = true, text = 'Loading...' }) => {
   return (
     <div className="spinner-overlay" role="status" aria-live="polite">
       <div className="spinner-container">
-        {/* Powered by Gemini branding with the provided image */}
-        <div className="powered-by-gemini flex items-center justify-center mb-2 gap-1">
-            <span className="text-gray-300 text-sm font-semibold">Powered by</span>
-            <img
-                src="https://i.ibb.co/0V2VpPf7/Google-Gemini-logo.png" // Gemini logo URL
-                alt="Gemini"
-                className="h-6 object-contain" // Adjust height as needed, maintain aspect ratio
-            />
-        </div>
 
         {/* Pulsar effect container with school logo inside */}
         <div className="pulsar-spinner relative flex items-center justify-center">

@@ -8,13 +8,15 @@ import {
     collection,
     query,
     where,
-    getDocs,
+    getDocs, // Keep for initial announcement fetch if not changing to onSnapshot
     orderBy,
     documentId,
     updateDoc,
     doc,
     deleteDoc,
-    Timestamp
+    Timestamp,
+    arrayRemove,
+    onSnapshot // NEW: Import onSnapshot
 } from 'firebase/firestore';
 import { Button } from '@tremor/react';
 import {
@@ -29,7 +31,7 @@ import {
     ChartBarIcon,
     ChevronDownIcon,
     ChevronUpIcon
-} from '@heroicons/react/24/solid'; // Changed to solid icons
+} from '@heroicons/react/24/solid';
 import CreateClassAnnouncementForm from './CreateClassAnnouncementForm';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -47,7 +49,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const [quizScores, setQuizScores] = useState([]);
     const [announcements, setAnnouncements] = useState([]);
     const [sharedContentPosts, setSharedContentPosts] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true); // Set to true initially for all data
     const [showAddForm, setShowAddForm] = useState(false);
     const [viewLessonData, setViewLessonData] = useState(null);
     const [viewQuizData, setViewQuizData] = useState(null);
@@ -61,7 +63,17 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const [selectedQuizForScores, setSelectedQuizForScores] = useState(null);
     const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
     const [units, setUnits] = useState({});
-    const [collapsedUnits, setCollapsedUnits] = useState(new Set());
+    const [collapsedUnits, setCollapsedUnits] = useState(new Set()); // FIXED: Use useState for collapsedUnits
+
+    // NEW: Loading flags for each data stream
+    const [isAnnouncementsLoaded, setIsAnnouncementsLoaded] = useState(false);
+    const [isUnitsLoaded, setIsUnitsLoaded] = useState(false);
+    const [isPostsLoaded, setIsPostsLoaded] = useState(false);
+    const [isLessonsLoaded, setIsLessonsLoaded] = useState(false);
+    const [isQuizzesLoaded, setIsQuizzesLoaded] = useState(false);
+    const [isScoresLoaded, setIsScoresLoaded] = useState(false);
+    const [isLocksLoaded, setIsLocksLoaded] = useState(false);
+
 
     const toggleUnitCollapse = (unitTitle) => {
         setCollapsedUnits(prev => {
@@ -79,117 +91,183 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         setEditContent(e.target.value);
     };
 
-    const fetchClassAnnouncements = useCallback(async () => {
+    // Use onSnapshot for announcements as well for real-time updates
+    const setupRealtimeAnnouncements = useCallback(() => {
         if (!classData?.id) {
-            console.warn("ClassOverviewModal: classData ID is missing, skipping announcement fetch.");
             setAnnouncements([]);
-            return;
+            setIsAnnouncementsLoaded(true); // Mark as loaded even if no ID
+            return () => {}; // Return empty unsubscribe
         }
-        setLoading(true);
-        try {
-            const announcementsQuery = query(
-                collection(db, "studentAnnouncements"),
-                where("classId", "==", classData.id),
-                orderBy("createdAt", "desc")
-            );
-
-            const announcementsSnap = await getDocs(announcementsQuery);
-            const fetchedAnnouncements = announcementsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const announcementsQuery = query(
+            collection(db, "studentAnnouncements"),
+            where("classId", "==", classData.id),
+            orderBy("createdAt", "desc")
+        );
+        const unsubscribe = onSnapshot(announcementsQuery, (snapshot) => {
+            const fetchedAnnouncements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setAnnouncements(fetchedAnnouncements);
-
-        } catch (error) {
-            console.error("ClassOverviewModal: Error fetching announcements:", error);
-            showToast("Failed to load announcements.", "error");
-            setAnnouncements([]);
-        } finally {
-            setLoading(false);
-        }
+            setIsAnnouncementsLoaded(true); // Mark as loaded after first snapshot
+        }, (error) => {
+            console.error("ClassOverviewModal: Error listening to announcements:", error);
+            showToast("Failed to load announcements in real-time.", "error");
+            setIsAnnouncementsLoaded(true); // Mark as loaded even on error to unblock overall loading
+        });
+        return unsubscribe;
     }, [classData, showToast]);
 
-    const fetchLessonsAndQuizzes = useCallback(async () => {
-        if (!classData?.id) return;
-        try {
-            const postsQuery = query(collection(db, `classes/${classData.id}/posts`), orderBy('createdAt', 'desc'));
-            const postsSnapshot = await getDocs(postsQuery);
 
-            const allPosts = postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Refactored to use onSnapshot for real-time updates
+    const setupRealtimeContentListeners = useCallback(() => {
+        if (!classData?.id) {
+            setSharedContentPosts([]);
+            setLessons([]);
+            setQuizzes([]);
+            setQuizScores([]);
+            setQuizLocks([]);
+            setUnits({});
+            setIsUnitsLoaded(true);
+            setIsPostsLoaded(true);
+            setIsLessonsLoaded(true);
+            setIsQuizzesLoaded(true);
+            setIsScoresLoaded(true);
+            setIsLocksLoaded(true);
+            return () => {}; // Return empty unsubscribe
+        }
+
+        const unsubscribes = [];
+        let currentFetchedUnits = {}; // Local variable for units
+
+        // 1. Listen for Units (needed for Lessons and Quizzes)
+        const unitsQuery = query(collection(db, 'units'));
+        unsubscribes.push(onSnapshot(unitsQuery, (snapshot) => {
+            const fetchedUnits = {};
+            snapshot.docs.forEach(doc => {
+                fetchedUnits[doc.id] = doc.data().title;
+            });
+            currentFetchedUnits = fetchedUnits; // Update local copy
+            setUnits(fetchedUnits);
+            setIsUnitsLoaded(true);
+        }, (error) => {
+            console.error("Error listening to units:", error);
+            showToast("Failed to load units in real-time.", "error");
+            setIsUnitsLoaded(true);
+        }));
+
+        // 2. Listen for Shared Content Posts
+        const postsQuery = query(collection(db, `classes/${classData.id}/posts`), orderBy('createdAt', 'desc'));
+        unsubscribes.push(onSnapshot(postsQuery, (snapshot) => {
+            const allPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setSharedContentPosts(allPosts);
+            setIsPostsLoaded(true);
 
-            const lessonIds = new Set();
-            const quizIds = new Set();
-            const unitIdsToFetch = new Set();
-
+            // Dynamically set up listeners for lessons/quizzes based on what's in posts
+            const lessonIdsInPosts = new Set();
+            const quizIdsInPosts = new Set();
             allPosts.forEach(post => {
-                post.lessonIds?.forEach(id => lessonIds.add(id));
-                post.quizIds?.forEach(id => quizIds.add(id));
+                post.lessonIds?.forEach(id => lessonIdsInPosts.add(id));
+                post.quizIds?.forEach(id => quizIdsInPosts.add(id));
             });
 
-            if (lessonIds.size > 0) {
-                const q = query(collection(db, 'lessons'), where(documentId(), 'in', Array.from(lessonIds)));
-                const snap = await getDocs(q);
-                const fetchedLessons = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setLessons(fetchedLessons);
-
-                fetchedLessons.forEach(lesson => {
-                    if (lesson.unitId) {
-                        unitIdsToFetch.add(lesson.unitId);
-                    }
-                });
+            // 3. Listen for Lessons
+            if (lessonIdsInPosts.size > 0) {
+                const lessonsQuery = query(collection(db, 'lessons'), where(documentId(), 'in', Array.from(lessonIdsInPosts)));
+                unsubscribes.push(onSnapshot(lessonsQuery, (lessonSnap) => {
+                    const fetchedLessons = lessonSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setLessons(fetchedLessons);
+                    setIsLessonsLoaded(true);
+                }, (error) => {
+                    console.error("Error listening to lessons:", error);
+                    showToast("Failed to load lessons in real-time.", "error");
+                    setIsLessonsLoaded(true);
+                }));
             } else {
                 setLessons([]);
+                setIsLessonsLoaded(true); // Mark as loaded if no lessons to fetch
             }
 
-            if (quizIds.size > 0) {
-                const q = query(collection(db, 'quizzes'), where(documentId(), 'in', Array.from(quizIds)));
-                const snap = await getDocs(q);
-                setQuizzes(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            // 4. Listen for Quizzes
+            if (quizIdsInPosts.size > 0) {
+                const quizzesQuery = query(collection(db, 'quizzes'), where(documentId(), 'in', Array.from(quizIdsInPosts)));
+                unsubscribes.push(onSnapshot(quizzesQuery, (quizSnap) => {
+                    const fetchedQuizzes = quizSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setQuizzes(fetchedQuizzes);
+                    setIsQuizzesLoaded(true);
+                }, (error) => {
+                    console.error("Error listening to quizzes:", error);
+                    showToast("Failed to load quizzes in real-time.", "error");
+                    setIsQuizzesLoaded(true);
+                }));
 
+                // 5. Listen for Quiz Submissions
                 const scoreQ = query(
                     collection(db, 'quizSubmissions'),
                     where("classId", "==", classData.id),
-                    where("quizId", "in", Array.from(quizIds))
+                    where("quizId", "in", Array.from(quizIdsInPosts))
                 );
-                const scoreSnap = await getDocs(scoreQ);
-                setQuizScores(scoreSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                unsubscribes.push(onSnapshot(scoreQ, (scoreSnap) => {
+                    setQuizScores(scoreSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    setIsScoresLoaded(true);
+                }, (error) => {
+                    console.error("Error listening to quiz submissions:", error);
+                    showToast("Failed to load quiz scores in real-time.", "error");
+                    setIsScoresLoaded(true);
+                }));
 
-                const locksQ = query(collection(db, 'quizLocks'), where("classId", "==", classData.id), where("quizId", "in", Array.from(quizIds)));
-                const locksSnap = await getDocs(locksQ);
-                setQuizLocks(locksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                // 6. Listen for Quiz Locks
+                const locksQ = query(collection(db, 'quizLocks'), where("classId", "==", classData.id), where("quizId", "in", Array.from(quizIdsInPosts)));
+                unsubscribes.push(onSnapshot(locksQ, (locksSnap) => {
+                    setQuizLocks(locksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    setIsLocksLoaded(true);
+                }, (error) => {
+                    console.error("Error listening to quiz locks:", error);
+                    showToast("Failed to load quiz locks in real-time.", "error");
+                    setIsLocksLoaded(true);
+                }));
 
             } else {
                 setQuizzes([]);
+                setIsQuizzesLoaded(true);
                 setQuizScores([]);
+                setIsScoresLoaded(true);
                 setQuizLocks([]);
+                setIsLocksLoaded(true);
             }
+        }, (error) => {
+            console.error("Error listening to shared content posts:", error);
+            showToast("Failed to load shared content in real-time.", "error");
+            setIsPostsLoaded(true); // Mark posts as loaded even on error
+            setIsLessonsLoaded(true); // Also mark children as loaded if posts failed
+            setIsQuizzesLoaded(true);
+            setIsScoresLoaded(true);
+            setIsLocksLoaded(true);
+        }));
 
-            if (unitIdsToFetch.size > 0) {
-                const unitsRef = collection(db, 'units');
-                const unitQuery = query(unitsRef, where(documentId(), 'in', Array.from(unitIdsToFetch)));
-                const unitSnap = await getDocs(unitQuery);
-                const fetchedUnits = {};
-                unitSnap.docs.forEach(doc => {
-                    fetchedUnits[doc.id] = doc.data().title;
-                });
-                setUnits(fetchedUnits);
-            } else {
-                setUnits({});
-            }
-
-        } catch (error) {
-            console.error("Error fetching lessons/quizzes/units:", error);
-            showToast("Failed to load class content.", "error");
-        }
+        return () => unsubscribes.forEach(unsub => unsub());
     }, [classData, showToast]);
 
+
+    // Effect to manage overall loading state
     useEffect(() => {
-        if (!isOpen || !classData?.id) return;
-        setLoading(true);
-        Promise.all([fetchClassAnnouncements(), fetchLessonsAndQuizzes()])
-            .finally(() => setLoading(false));
+        if (
+            isAnnouncementsLoaded &&
+            isUnitsLoaded &&
+            isPostsLoaded &&
+            isLessonsLoaded &&
+            isQuizzesLoaded &&
+            isScoresLoaded &&
+            isLocksLoaded
+        ) {
+            setLoading(false);
+            console.log("ClassOverviewModal: All data streams initialized.");
+        } else {
+            setLoading(true); // Keep loading if not all flags are true
+        }
+    }, [isAnnouncementsLoaded, isUnitsLoaded, isPostsLoaded, isLessonsLoaded, isQuizzesLoaded, isScoresLoaded, isLocksLoaded]);
 
-        setCollapsedUnits(new Set()); // Start clean on open/class change
-
-        return () => {
+    // Effect to setup listeners and cleanup
+    useEffect(() => {
+        if (!isOpen) { // Reset all states when modal closes
+            console.log("ClassOverviewModal is closed. Resetting all states.");
             setShowAddForm(false);
             setViewLessonData(null);
             setViewQuizData(null);
@@ -210,35 +288,77 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             setSelectedAnnouncement(null);
             setUnits({});
             setCollapsedUnits(new Set());
-        };
-    }, [isOpen, classData, fetchClassAnnouncements, fetchLessonsAndQuizzes]);
+            setLoading(true); // Reset loading for next open
+            
+            // Reset loading flags for next opening
+            setIsAnnouncementsLoaded(false);
+            setIsUnitsLoaded(false);
+            setIsPostsLoaded(false);
+            setIsLessonsLoaded(false);
+            setIsQuizzesLoaded(false);
+            setIsScoresLoaded(false);
+            setIsLocksLoaded(false);
+            return;
+        }
 
+        if (isOpen && classData?.id) {
+            // Set up real-time listeners and collect their unsubscribe functions
+            const unsubscribeAnnouncements = setupRealtimeAnnouncements();
+            const unsubscribeContent = setupRealtimeContentListeners();
+
+            // Cleanup function for when the modal closes or dependencies change
+            return () => {
+                console.log("ClassOverviewModal cleanup: Unsubscribing all listeners.");
+                unsubscribeAnnouncements();
+                unsubscribeContent();
+            };
+        }
+    }, [isOpen, classData, setupRealtimeAnnouncements, setupRealtimeContentListeners]);
+
+
+    // Effect to update collapsed units based on current data after data changes
     useEffect(() => {
-        if (isOpen && (activeTab === 'lessons' || activeTab === 'quizzes' || activeTab === 'scores') && sharedContentPosts.length > 0) {
+        if (isOpen && (activeTab === 'lessons' || activeTab === 'quizzes' || activeTab === 'scores')) {
             const allUnitTitles = new Set();
             sharedContentPosts.forEach(post => {
-                const lessonOrQuizIds = post.lessonIds || post.quizIds;
-                if (lessonOrQuizIds && lessonOrQuizIds.length > 0) {
-                    const lessonsForPost = lessons.filter(l => post.lessonIds?.includes(l.id));
-                    const quizzesForPost = quizzes.filter(q => post.quizIds?.includes(q.id));
-
-                    if (lessonsForPost.length > 0) {
-                        lessonsForPost.forEach(lesson => {
-                            if (lesson.unitId) {
-                                allUnitTitles.add(units[lesson.unitId] || 'Uncategorized');
+                // For lessons
+                post.lessonIds?.forEach(lessonId => {
+                    const lesson = lessons.find(l => l.id === lessonId);
+                    if (lesson && lesson.unitId) {
+                        allUnitTitles.add(units[lesson.unitId] || 'Uncategorized');
+                    }
+                });
+                // For quizzes
+                post.quizIds?.forEach(quizId => {
+                    const quiz = quizzes.find(q => q.id === quizId);
+                    if (quiz && quiz.unitId) { // Prioritize quiz's own unitId
+                        allUnitTitles.add(units[quiz.unitId] || 'Uncategorized');
+                    } else if (post.lessonIds && post.lessonIds.length > 0) {
+                        // Fallback to unit of lessons in the same post if quiz itself has no unitId
+                        const lessonUnitTitlesInPost = new Set();
+                        post.lessonIds.forEach(lessonId => {
+                            const lesson = lessons.find(l => l.id === lessonId);
+                            if (lesson && lesson.unitId && units[lesson.unitId]) {
+                                lessonUnitTitlesInPost.add(units[lesson.unitId]);
                             }
                         });
+                        if (lessonUnitTitlesInPost.size === 1) {
+                            allUnitTitles.add(Array.from(lessonUnitTitlesInPost)[0]);
+                        } else if (lessonUnitTitlesInPost.size > 1) {
+                            allUnitTitles.add('Uncategorized'); // If lessons in post are from multiple units
+                        }
+                    } else {
+                        allUnitTitles.add('Uncategorized'); // If no unitId on quiz and no lessons in post
                     }
-                    if (quizzesForPost.length > 0 && lessonsForPost.length === 0) {
-                         // Only add to Uncategorized if a quiz is shared alone
-                         allUnitTitles.add('Uncategorized');
-                    }
-                }
+                });
             });
-            // Set all units to be collapsed by default on tab change
-            setCollapsedUnits(allUnitTitles);
+            // Set all units to be collapsed by default on tab change, or when data updates
+            // Only update if there are actual units, otherwise leave as is.
+            if (allUnitTitles.size > 0) {
+                setCollapsedUnits(allUnitTitles);
+            }
         } else if (activeTab !== 'lessons' && activeTab !== 'quizzes' && activeTab !== 'scores') {
-            setCollapsedUnits(new Set());
+            setCollapsedUnits(new Set()); // Clear collapsed units for other tabs
         }
     }, [activeTab, lessons, quizzes, units, sharedContentPosts, isOpen]);
 
@@ -248,8 +368,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     };
 
     const handleUnlockQuiz = async (quizId, studentId) => {
-        // MODIFIED: Replaced window.confirm with a custom modal UI for consistency
-        // with the no-alert policy.
         if (!window.confirm("Are you sure you want to unlock this quiz? This will delete the student's lock and allow them to take the quiz again.")) {
             return;
         }
@@ -257,7 +375,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             const lockId = `${quizId}_${studentId}`;
             await deleteDoc(doc(db, 'quizLocks', lockId));
             showToast("Quiz unlocked for the student.", "success");
-            fetchLessonsAndQuizzes();
+            // onSnapshot will handle UI update
         } catch (error) {
             console.error("Error unlocking quiz:", error);
             showToast("Failed to unlock quiz.", "error");
@@ -269,30 +387,74 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         setIsEditModalOpen(true);
     };
 
-    const handleDeleteSharedContentPost = async (postId) => {
-        if (!classData?.id) return;
-        // MODIFIED: Replaced window.confirm with a custom modal UI for consistency
-        // with the no-alert policy.
-        if (!window.confirm("Are you sure you want to unshare this content? It will be removed from this class.")) return;
+    const handleDeleteContentFromPost = async (postId, contentIdToRemove, contentType) => {
+        if (!classData?.id) {
+            showToast("Class ID is missing.", "error");
+            return;
+        }
+
+        const postRef = doc(db, 'classes', classData.id, 'posts', postId);
+        
+        const currentPost = sharedContentPosts.find(p => p.id === postId);
+
+        if (!currentPost) {
+            showToast("Error: Post not found.", "error");
+            return;
+        }
+
+        let confirmationMessage = "";
+        let fieldToUpdate = "";
+        let remainingContentIds = [];
+
+        if (contentType === 'quiz') {
+            remainingContentIds = (currentPost.quizIds || []).filter(id => id !== contentIdToRemove);
+            fieldToUpdate = "quizIds";
+            confirmationMessage = "Are you sure you want to unshare this specific quiz from this post?";
+        } else if (contentType === 'lesson') {
+            remainingContentIds = (currentPost.lessonIds || []).filter(id => id !== contentIdToRemove);
+            fieldToUpdate = "lessonIds";
+            confirmationMessage = "Are you sure you want to unshare this specific lesson from this post?";
+        } else {
+            showToast("Invalid content type for deletion.", "error");
+            return;
+        }
+
+        const hasOtherQuizzes = (contentType === 'quiz' ? remainingContentIds.length > 0 : (currentPost.quizIds && currentPost.quizIds.length > 0));
+        const hasOtherLessons = (contentType === 'lesson' ? remainingContentIds.length > 0 : (currentPost.lessonIds && currentPost.lessonIds.length > 0));
+        
+        if (!hasOtherQuizzes && !hasOtherLessons) {
+            confirmationMessage += " This is the only content left in this post, so the post will be completely removed.";
+        } else {
+             confirmationMessage += " Other content in this post will remain shared.";
+        }
+
+        if (!window.confirm(confirmationMessage)) {
+            return;
+        }
 
         try {
-            await deleteDoc(doc(db, 'classes', classData.id, 'posts', postId));
-            showToast("Content successfully unshared.", "success");
-            fetchLessonsAndQuizzes();
+            if (!hasOtherQuizzes && !hasOtherLessons) {
+                await deleteDoc(postRef);
+                showToast(`${contentType.charAt(0).toUpperCase() + contentType.slice(1)} unshared and post removed.`, "success");
+            } else {
+                await updateDoc(postRef, {
+                    [fieldToUpdate]: arrayRemove(contentIdToRemove)
+                });
+                showToast(`${contentType.charAt(0).toUpperCase() + contentType.slice(1)} successfully unshared.`, "success");
+            }
+            // onSnapshot will handle UI update
         } catch (error) {
-            console.error("Error deleting shared content post:", error);
-            showToast("Failed to unshare content. Please try again.", "error");
+            console.error(`Error deleting ${contentType} from post:`, error);
+            showToast(`Failed to unshare ${contentType}. Please try again.`, "error");
         }
     };
 
     const handleDelete = async (id) => {
-        // MODIFIED: Replaced window.confirm with a custom modal UI for consistency
-        // with the no-alert policy.
         if (!window.confirm("Are you sure you want to delete this announcement?")) return;
         try {
             await deleteDoc(doc(db, 'studentAnnouncements', id));
             showToast("Announcement deleted.", "success");
-            fetchClassAnnouncements();
+            // onSnapshot will handle UI update
         } catch (error) {
             console.error("Error deleting announcement:", error);
             showToast("Failed to delete announcement.", "error");
@@ -310,7 +472,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             setEditingId(null);
             setEditContent('');
             showToast("Announcement updated.", "success");
-            fetchClassAnnouncements();
+            // onSnapshot will handle UI update
         } catch (error) {
             console.error("Error updating announcement:", error);
             showToast("Failed to update.", "error");
@@ -325,8 +487,9 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
     `;
 
+    // MODIFIED: Reduced default padding for a more compact card
     const baseCardClasses = `
-        relative p-5 rounded-2xl border transition-all duration-300 transform hover:scale-[1.01] hover:shadow-xl
+        relative p-3 rounded-xl border transition-all duration-300 transform hover:scale-[1.005] hover:shadow-md
         flex items-center justify-between
     `;
 
@@ -334,10 +497,10 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         if (loading) return <div className="text-center py-8 text-gray-500 text-lg">Loading class content...</div>;
 
         const EmptyState = ({ icon: Icon, text, subtext, color }) => (
-            <div className={`text-center py-12 px-6 bg-${color}-50 rounded-xl shadow-inner border border-${color}-200 animate-fadeIn`}>
-                <Icon className={`h-16 w-16 mb-4 text-${color}-400 mx-auto opacity-80`} />
-                <p className={`text-xl font-bold text-${color}-700`}>{text}</p>
-                <p className={`mt-2 text-md text-${color}-500`}>{subtext}</p>
+            <div className={`text-center py-8 px-4 bg-${color}-50 rounded-xl shadow-inner border border-${color}-200 animate-fadeIn text-sm`}> {/* Reduced padding, smaller text */}
+                <Icon className={`h-12 w-12 mb-3 text-${color}-400 mx-auto opacity-80`} /> {/* Smaller icon */}
+                <p className={`text-lg font-bold text-${color}-700`}>{text}</p> {/* Smaller text */}
+                <p className={`mt-1 text-sm text-${color}-500`}>{subtext}</p> {/* Smaller text */}
             </div>
         );
 
@@ -364,58 +527,57 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             const sortedUnitKeys = Object.keys(lessonsByUnit).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
             return (
-                <div className="space-y-6 pr-2 custom-scrollbar">
+                <div className="space-y-4 pr-2 custom-scrollbar"> {/* Reduced space-y */}
                     {Object.keys(lessonsByUnit).length > 0 ? (
                         sortedUnitKeys.map(unitDisplayName => (
-                            <div key={unitDisplayName} className="bg-white rounded-xl shadow-lg border border-gray-100 animate-slideInUp">
+                            <div key={unitDisplayName} className="bg-white rounded-lg shadow-md border border-gray-100 animate-slideInUp"> {/* Smaller rounded, shadow */}
                                 <button
-                                    className="flex items-center justify-between w-full p-4 font-bold text-xl text-gray-800 bg-gradient-to-r from-blue-50 to-white hover:from-blue-100 rounded-t-xl transition-all duration-200 border-b border-blue-100"
+                                    className="flex items-center justify-between w-full p-3 font-bold text-base text-gray-800 bg-gradient-to-r from-blue-50 to-white hover:from-blue-100 rounded-t-lg transition-all duration-200 border-b border-blue-100" // Reduced padding, smaller text
                                     onClick={() => toggleUnitCollapse(unitDisplayName)}
                                 >
                                     {unitDisplayName}
                                     {collapsedUnits.has(unitDisplayName) ? (
-                                        <ChevronDownIcon className="h-6 w-6 text-blue-500 transition-transform duration-200" />
+                                        <ChevronDownIcon className="h-5 w-5 text-blue-500 transition-transform duration-200" /> // Smaller icon
                                     ) : (
-                                        <ChevronUpIcon className="h-6 w-6 text-blue-500 transition-transform duration-200" />
+                                        <ChevronUpIcon className="h-5 w-5 text-blue-500 transition-transform duration-200" /> // Smaller icon
                                     )}
                                 </button>
                                 {!collapsedUnits.has(unitDisplayName) && (
-                                    <div className="p-4 space-y-4">
+                                    <div className="p-3 space-y-3"> {/* Reduced padding/spacing */}
                                         {/* Sort lessons within each unit alphabetically by title */}
                                         {lessonsByUnit[unitDisplayName]
                                             .sort((a, b) => a.lessonDetails.title.localeCompare(b.lessonDetails.title, undefined, { numeric: true }))
                                             .map(({ post, lessonDetails }) => (
-                                                <div key={`${post.id}-${lessonDetails.id}`} className={`${baseCardClasses} bg-gradient-to-br from-white to-sky-50 border-sky-100 shadow-md`}>
-                                                    <div>
+                                                <div key={`${post.id}-${lessonDetails.id}`} className={`${baseCardClasses} bg-gradient-to-br from-white to-sky-50 border-sky-100 shadow-sm`}> {/* Smaller shadow */}
+                                                    <div className="flex-1 min-w-0 pr-2"> {/* Added flex-1 and pr-2 */}
                                                         <p
-                                                            className="font-extrabold text-slate-800 text-lg cursor-pointer hover:text-blue-700 transition-colors"
+                                                            className="font-semibold text-slate-800 text-base cursor-pointer hover:text-blue-700 transition-colors truncate" // Reduced font size, semibold, truncate
                                                             onClick={() => setViewLessonData(lessonDetails)}
                                                         >
                                                             {lessonDetails.title}
                                                         </p>
-                                                        <div className="text-sm text-gray-600 mt-1 flex items-center gap-2">
-                                                            <CalendarDaysIcon className="h-4 w-4 text-sky-500" />
+                                                        <div className="text-xs text-gray-600 mt-1 flex items-center gap-1"> {/* Smaller text, reduced gap */}
+                                                            <CalendarDaysIcon className="h-3.5 w-3.5 text-sky-500" /> {/* Smaller icon */}
                                                             <span>
                                                                 {post.availableFrom?.toDate().toLocaleString()}
                                                                 {post.availableUntil ? ` to ${post.availableUntil.toDate().toLocaleString()}` : ''}
                                                             </span>
                                                         </div>
                                                     </div>
-                                                    <div className="flex space-x-2 flex-shrink-0">
-                                                        {/* MODIFIED: Changed to a rounded, icon-only button */}
+                                                    <div className="flex space-x-1 flex-shrink-0"> {/* Reduced space-x */}
                                                         <button
                                                             onClick={() => handleEditDatesClick(post)}
                                                             title="Edit Availability Dates"
-                                                            className="p-2 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                                                            className="p-1.5 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" // Reduced padding
                                                         >
-                                                            <PencilSquareIcon className="w-5 h-5" />
+                                                            <PencilSquareIcon className="w-4 h-4" /> {/* Smaller icon */}
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDeleteSharedContentPost(post.id)}
-                                                            className="p-2 rounded-full text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
+                                                            onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, lessonDetails.id, 'lesson'); }}
+                                                            className="p-1.5 rounded-full text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm" // Reduced padding
                                                             title="Unshare Lesson Post"
                                                         >
-                                                            <TrashIcon className="w-5 h-5" />
+                                                            <TrashIcon className="w-4 h-4" /> {/* Smaller icon */}
                                                         </button>
                                                     </div>
                                                 </div>
@@ -441,37 +603,41 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
             sharedContentPosts.forEach(post => {
                 const quizIds = post.quizIds || [];
-                const lessonIds = post.lessonIds || [];
-                const postUnits = new Set();
-
-                // Determine the unit(s) for the post based on associated lessons
-                if (lessonIds.length > 0) {
-                    lessonIds.forEach(lessonId => {
-                        const lesson = lessons.find(l => l.id === lessonId);
-                        if (lesson && lesson.unitId) {
-                            postUnits.add(units[lesson.unitId] || 'Uncategorized');
-                        }
-                    });
-                }
-
-                // If no units were found but there are quizzes, default to 'Uncategorized'
-                if (postUnits.size === 0 && quizIds.length > 0) {
-                    postUnits.add('Uncategorized');
-                }
-
-                // Assign each quiz in the post to its unit(s)
+                
                 quizIds.forEach(quizId => {
                     const quizDetails = quizzes.find(q => q.id === quizId);
                     if (quizDetails) {
-                        postUnits.forEach(unitName => {
-                            if (!quizzesByUnit[unitName]) {
-                                quizzesByUnit[unitName] = [];
+                        let unitDisplayName = 'Uncategorized'; // Default
+
+                        // PRIORITY 1: Use quiz's own unitId if available and mapped
+                        if (quizDetails.unitId && units[quizDetails.unitId]) {
+                            unitDisplayName = units[quizDetails.unitId];
+                        } else if (post.lessonIds && post.lessonIds.length > 0) {
+                            // PRIORITY 2: Fallback to unit of lessons in the same post
+                            const lessonUnitTitlesInPost = new Set();
+                            post.lessonIds.forEach(lessonId => {
+                                const lesson = lessons.find(l => l.id === lessonId);
+                                if (lesson && lesson.unitId && units[lesson.unitId]) {
+                                    lessonUnitTitlesInPost.add(units[lesson.unitId]);
+                                }
+                            });
+                            // If lessons in the post are all from one unit, use that
+                            if (lessonUnitTitlesInPost.size === 1) {
+                                unitDisplayName = Array.from(lessonUnitTitlesInPost)[0];
+                            } else if (lessonUnitTitlesInPost.size > 1) {
+                                // If lessons in the post are from multiple units, default to Uncategorized for clarity
+                                unitDisplayName = 'Uncategorized';
                             }
-                            // Check if quiz is already added to prevent duplicates from multi-unit posts
-                            if (!quizzesByUnit[unitName].some(q => q.id === quizDetails.id)) {
-                                quizzesByUnit[unitName].push({ post, quizDetails });
-                            }
-                        });
+                            // If no lesson units, it remains 'Uncategorized' by default
+                        }
+
+                        if (!quizzesByUnit[unitDisplayName]) {
+                            quizzesByUnit[unitDisplayName] = [];
+                        }
+                        // Ensure we don't add duplicates (especially if a quiz appears in multiple posts)
+                        if (!quizzesByUnit[unitDisplayName].some(item => item.quizDetails.id === quizDetails.id && item.post.id === post.id)) {
+                            quizzesByUnit[unitDisplayName].push({ post, quizDetails });
+                        }
                     }
                 });
             });
@@ -480,56 +646,56 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             const sortedUnitKeys = Object.keys(quizzesByUnit).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
             return (
-                <div className="space-y-6 pr-2 custom-scrollbar">
+                <div className="space-y-4 pr-2 custom-scrollbar"> {/* Reduced space-y */}
                     {sortedUnitKeys.length > 0 ? (
                         sortedUnitKeys.map(unitDisplayName => (
-                            <div key={unitDisplayName} className="bg-white rounded-xl shadow-lg border border-gray-100 animate-slideInUp">
+                            <div key={unitDisplayName} className="bg-white rounded-lg shadow-md border border-gray-100 animate-slideInUp"> {/* Smaller rounded, shadow */}
                                 <button
-                                    className="flex items-center justify-between w-full p-4 font-bold text-xl text-gray-800 bg-gradient-to-r from-purple-50 to-white hover:from-purple-100 rounded-t-xl transition-all duration-200 border-b border-purple-100"
+                                    className="flex items-center justify-between w-full p-3 font-bold text-base text-gray-800 bg-gradient-to-r from-purple-50 to-white hover:from-purple-100 rounded-t-lg transition-all duration-200 border-b border-purple-100" // Reduced padding, smaller text
                                     onClick={() => toggleUnitCollapse(unitDisplayName)}
                                 >
                                     {unitDisplayName}
                                     {collapsedUnits.has(unitDisplayName) ? (
-                                        <ChevronDownIcon className="h-6 w-6 text-purple-500 transition-transform duration-200" />
+                                        <ChevronDownIcon className="h-5 w-5 text-purple-500 transition-transform duration-200" />
                                     ) : (
-                                        <ChevronUpIcon className="h-6 w-6 text-purple-500 transition-transform duration-200" />
+                                        <ChevronUpIcon className="h-5 w-5 text-purple-500 transition-transform duration-200" />
                                     )}
                                 </button>
                                 {!collapsedUnits.has(unitDisplayName) && (
-                                    <div className="p-4 space-y-4">
+                                    <div className="p-3 space-y-3"> {/* Reduced padding/spacing */}
                                         {quizzesByUnit[unitDisplayName]
                                             .sort((a, b) => a.quizDetails.title.localeCompare(b.quizDetails.title, undefined, { numeric: true }))
                                             .map(({ post, quizDetails }) => (
-                                                <div key={`${post.id}-${quizDetails.id}`} className={`${baseCardClasses} bg-gradient-to-br from-white to-purple-50 border-purple-100 shadow-md`}>
-                                                    <div>
+                                                <div key={`${post.id}-${quizDetails.id}`} className={`${baseCardClasses} bg-gradient-to-br from-white to-purple-50 border-purple-100 shadow-sm`}> {/* Smaller shadow */}
+                                                    <div className="flex-1 min-w-0 pr-2"> {/* Added flex-1 and pr-2 */}
                                                         <p
-                                                            className="font-extrabold text-slate-800 text-lg cursor-pointer hover:text-purple-700 transition-colors"
+                                                            className="font-semibold text-slate-800 text-base cursor-pointer hover:text-purple-700 transition-colors truncate" // Reduced font size, semibold, truncate
                                                             onClick={() => setViewQuizData(quizDetails)}
                                                         >
                                                             {quizDetails.title}
                                                         </p>
-                                                        <div className="text-sm text-gray-600 mt-1 flex items-center gap-2">
-                                                            <CalendarDaysIcon className="h-4 w-4 text-purple-500" />
+                                                        <div className="text-xs text-gray-600 mt-1 flex items-center gap-1"> {/* Smaller text, reduced gap */}
+                                                            <CalendarDaysIcon className="h-3.5 w-3.5 text-purple-500" /> {/* Smaller icon */}
                                                             <span>
                                                                 {post.availableFrom?.toDate().toLocaleString()}
                                                                 {post.availableUntil ? ` to ${post.availableUntil.toDate().toLocaleString()}` : ''}
                                                             </span>
                                                         </div>
                                                     </div>
-                                                    <div className="flex space-x-2 flex-shrink-0">
+                                                    <div className="flex space-x-1 flex-shrink-0"> {/* Reduced space-x */}
                                                         <button
-                                                            onClick={() => handleEditDatesClick(post)}
+                                                            onClick={(e) => { e.stopPropagation(); handleEditDatesClick(post); }}
                                                             title="Edit Availability Dates"
-                                                            className="p-2 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                                                            className="p-1.5 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" // Reduced padding
                                                         >
-                                                            <PencilSquareIcon className="w-5 h-5" />
+                                                            <PencilSquareIcon className="w-4 h-4" /> {/* Smaller icon */}
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDeleteSharedContentPost(post.id)}
-                                                            className="p-2 rounded-full text-red-500 bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
-                                                            title="Unshare Quiz Post"
+                                                            onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, quizDetails.id, 'quiz'); }}
+                                                            className="p-1.5 rounded-full text-red-500 bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm" // Reduced padding
+                                                            title="Unshare Quiz"
                                                         >
-                                                            <TrashIcon className="w-5 h-5" />
+                                                            <TrashIcon className="w-4 h-4" /> {/* Smaller icon */}
                                                         </button>
                                                     </div>
                                                 </div>
@@ -560,37 +726,37 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
             sharedContentPosts.forEach(post => {
                 const quizIds = post.quizIds || [];
-                const lessonIds = post.lessonIds || [];
-                const postUnits = new Set();
-
-                // Determine the unit(s) for the post based on associated lessons
-                if (lessonIds.length > 0) {
-                    lessonIds.forEach(lessonId => {
-                        const lesson = lessons.find(l => l.id === lessonId);
-                        if (lesson && lesson.unitId) {
-                            postUnits.add(units[lesson.unitId] || 'Uncategorized');
-                        }
-                    });
-                }
-
-                // If no units were found but there are quizzes, default to 'Uncategorized'
-                if (postUnits.size === 0 && quizIds.length > 0) {
-                    postUnits.add('Uncategorized');
-                }
-
-                // Assign each quiz in the post to its unit(s)
+                
                 quizIds.forEach(quizId => {
                     const quizDetails = quizzes.find(q => q.id === quizId);
                     if (quizDetails) {
-                        postUnits.forEach(unitName => {
-                            if (!quizzesByUnit[unitName]) {
-                                quizzesByUnit[unitName] = [];
+                        let unitDisplayName = 'Uncategorized'; // Default
+
+                        // PRIORITY 1: Use quiz's own unitId if available and mapped
+                        if (quizDetails.unitId && units[quizDetails.unitId]) {
+                            unitDisplayName = units[quizDetails.unitId];
+                        } else if (post.lessonIds && post.lessonIds.length > 0) {
+                            // PRIORITY 2: Fallback to unit of lessons in the same post
+                            const lessonUnitTitlesInPost = new Set();
+                            post.lessonIds.forEach(lessonId => {
+                                const lesson = lessons.find(l => l.id === lessonId);
+                                if (lesson && lesson.unitId && units[lesson.unitId]) {
+                                    lessonUnitTitlesInPost.add(units[lesson.unitId]);
+                                }
+                            });
+                            if (lessonUnitTitlesInPost.size === 1) {
+                                unitDisplayName = Array.from(lessonUnitTitlesInPost)[0];
+                            } else if (lessonUnitTitlesInPost.size > 1) {
+                                unitDisplayName = 'Uncategorized';
                             }
-                            // Check if quiz is already added to prevent duplicates from multi-unit posts
-                            if (!quizzesByUnit[unitName].some(q => q.id === quizDetails.id)) {
-                                quizzesByUnit[unitName].push(quizDetails);
-                            }
-                        });
+                        }
+
+                        if (!quizzesByUnit[unitDisplayName]) {
+                            quizzesByUnit[unitDisplayName] = [];
+                        }
+                        if (!quizzesByUnit[unitDisplayName].some(q => q.id === quizDetails.id)) {
+                            quizzesByUnit[unitDisplayName].push(quizDetails);
+                        }
                     }
                 });
             });
@@ -599,48 +765,53 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
             return (
                 <div>
-                    <div className="flex justify-end mb-6">
+                    <div className="flex justify-end mb-4"> {/* Reduced mb */}
                         <button
                             onClick={() => setIsReportModalOpen(true)}
                             disabled={!quizzes.length}
                             title="Generate Report"
-                            className={`flex items-center gap-2 px-6 py-3 rounded-full font-semibold transition-all duration-300 shadow-lg transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-full font-semibold text-sm transition-all duration-300 shadow-md transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2
                                 ${!quizzes.length
                                 ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                                 : 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 focus:ring-green-500'
                                 }`}
                         >
-                            <ChartBarIcon className="w-6 h-6" />
+                            <ChartBarIcon className="w-5 h-5" /> {/* Smaller icon */}
                             <span>Generate Report</span>
                         </button>
                     </div>
-                    <div className="space-y-6 pr-2 custom-scrollbar">
+                    <div className="space-y-4 pr-2 custom-scrollbar"> {/* Reduced space-y */}
                         {sortedUnitKeys.length > 0 ? (
                             sortedUnitKeys.map(unitDisplayName => (
-                                <div key={unitDisplayName} className="bg-white rounded-xl shadow-lg border border-gray-100 animate-slideInUp">
+                                <div key={unitDisplayName} className="bg-white rounded-lg shadow-md border border-gray-100 animate-slideInUp"> {/* Smaller rounded, shadow */}
                                     <button
-                                        className="flex items-center justify-between w-full p-4 font-bold text-xl text-gray-800 bg-gradient-to-r from-teal-50 to-white hover:from-teal-100 rounded-t-xl transition-all duration-200 border-b border-teal-100"
+                                        className="flex items-center justify-between w-full p-3 font-bold text-base text-gray-800 bg-gradient-to-r from-teal-50 to-white hover:from-teal-100 rounded-t-lg transition-all duration-200 border-b border-teal-100" // Reduced padding, smaller text
                                         onClick={() => toggleUnitCollapse(unitDisplayName)}
                                     >
                                         {unitDisplayName}
                                         {collapsedUnits.has(unitDisplayName) ? (
-                                            <ChevronDownIcon className="h-6 w-6 text-teal-500 transition-transform duration-200" />
+                                            <ChevronDownIcon className="h-5 w-5 text-teal-500 transition-transform duration-200" />
                                         ) : (
-                                            <ChevronUpIcon className="h-6 w-6 text-teal-500 transition-transform duration-200" />
+                                            <ChevronUpIcon className="h-5 w-5 text-teal-500 transition-transform duration-200" />
                                         )}
                                     </button>
                                     {!collapsedUnits.has(unitDisplayName) && (
-                                        <div className="p-4 space-y-4">
+                                        <div className="p-3 space-y-3"> {/* Reduced padding/spacing */}
                                             {quizzesByUnit[unitDisplayName]
                                                 .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }))
                                                 .map(quiz => (
                                                     <div
                                                         key={quiz.id}
-                                                        className={`${baseCardClasses} bg-gradient-to-br from-white to-teal-50 border-teal-100 shadow-md cursor-pointer`}
+                                                        className={`${baseCardClasses} bg-gradient-to-br from-white to-teal-50 border-teal-100 shadow-sm cursor-pointer`} // Smaller shadow
                                                         onClick={() => handleViewQuizScores(quiz)}
                                                     >
-                                                        <p className="font-extrabold text-teal-700 text-lg">{quiz.title}</p>
-                                                        <p className="text-sm text-gray-600 mt-1">Click to view detailed scores</p>
+                                                        <div className="flex-1 min-w-0 pr-2"> {/* Added flex-1 and pr-2 */}
+                                                            <p className="font-semibold text-teal-700 text-base truncate">{quiz.title}</p> {/* Reduced font size, semibold, truncate */}
+                                                            <p className="text-xs text-gray-600 mt-0.5">Click to view detailed scores</p> {/* Smaller text, reduced mt */}
+                                                        </div>
+                                                        <div className="flex-shrink-0">
+                                                            <ChartBarIcon className="w-4 h-4 text-teal-500" /> {/* Smaller icon */}
+                                                        </div>
                                                     </div>
                                                 ))}
                                         </div>
@@ -662,25 +833,25 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
         if (activeTab === 'students') {
             return (
-                <div className="space-y-4 pr-2 custom-scrollbar">
+                <div className="space-y-3 pr-2 custom-scrollbar"> {/* Reduced space-y */}
                     {(classData?.students && classData.students.length > 0) ? (
                         classData.students.map(student => (
-                            <div key={student.id} className={`${baseCardClasses} bg-gradient-to-br from-white to-gray-50 border-gray-100 shadow-md`}>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-xl flex-shrink-0 border-2 border-blue-200">
+                            <div key={student.id} className={`${baseCardClasses} bg-gradient-to-br from-white to-gray-50 border-gray-100 shadow-sm`}> {/* Smaller shadow */}
+                                <div className="flex items-center gap-3"> {/* Reduced gap */}
+                                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-lg flex-shrink-0 border-2 border-blue-200"> {/* Smaller size, text */}
                                         {student.firstName ? student.firstName.charAt(0).toUpperCase() : ''}
                                     </div>
                                     <div>
-                                        <p className="font-bold text-gray-800 text-lg">{student.firstName} {student.lastName}</p>
-                                        <p className="text-sm text-gray-500">Student ID: {student.id}</p>
+                                        <p className="font-bold text-gray-800 text-base">{student.firstName} {student.lastName}</p> {/* Reduced font size */}
+                                        <p className="text-xs text-gray-500">Student ID: {student.id}</p> {/* Smaller text */}
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => onRemoveStudent(classData.id, student.id)}
-                                    className="p-2 rounded-full text-red-500 bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
+                                    className="p-1.5 rounded-full text-red-500 bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm" // Reduced padding
                                     title={`Remove ${student.firstName}`}
                                 >
-                                    <TrashIcon className="w-5 h-5" />
+                                    <TrashIcon className="w-4 h-4" /> {/* Smaller icon */}
                                 </button>
                             </div>
                         ))
@@ -699,28 +870,29 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         return (
             <div className="flex-1 flex flex-col">
                 {userProfile?.role === 'teacher' && (
-                    <div className="mb-6 text-right">
+                    <div className="mb-4 text-right"> {/* Reduced mb */}
                         <Button
                             onClick={() => setShowAddForm(prev => !prev)}
                             icon={PlusCircleIcon}
-                            className="bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all"
+                            className="bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all px-4 py-2 text-sm" // Reduced padding, smaller text
                         >
                             {showAddForm ? 'Cancel Announcement' : 'Add New Announcement'}
                         </Button>
                     </div>
                 )}
                 {showAddForm && (
-                    <div className="mb-6 p-5 bg-blue-50 border border-blue-200 rounded-xl shadow-inner animate-fadeIn">
+                    <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl shadow-inner animate-fadeIn"> {/* Reduced padding/mb */}
                         <CreateClassAnnouncementForm
                             classId={classData.id}
                             onAnnouncementPosted={async () => {
-                                await fetchClassAnnouncements();
+                                // No explicit call to setupRealtimeAnnouncements needed here,
+                                // the onSnapshot listener will handle the update
                                 setShowAddForm(false);
                             }}
                         />
                     </div>
                 )}
-                <div className="space-y-4 pr-2 custom-scrollbar">
+                <div className="space-y-3 pr-2 custom-scrollbar"> {/* Reduced space-y */}
                     {announcements.length > 0 ? (
                         announcements.map(post => (
                             <AnnouncementListItem
@@ -761,61 +933,62 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 title={classData?.name || 'Class Overview'}
                 size="6xl"
                 roundedClass="rounded-3xl"
+                className="max-h-[95vh]" // MODIFIED: Added max-h for increased vertical height
             >
                 <div className="flex flex-col md:flex-row bg-white overflow-hidden h-full animate-slideIn">
                     {/* Sidebar Navigation */}
-                    <nav className="flex-shrink-0 bg-blue-600 p-5 space-y-3 md:w-60 border-r border-blue-700 flex md:flex-col overflow-x-auto md:overflow-y-auto custom-scrollbar shadow-inner-strong">
-                        <h2 className="text-xl font-bold text-white mb-4 hidden md:block">Class Sections</h2>
+                    <nav className="flex-shrink-0 bg-blue-600 p-4 space-y-2 md:w-56 border-r border-blue-700 flex md:flex-col overflow-x-auto md:overflow-y-auto custom-scrollbar shadow-inner-strong"> {/* Reduced padding/width/spacing */}
+                        <h2 className="text-lg font-bold text-white mb-3 hidden md:block">Class Sections</h2> {/* Smaller text, reduced mb */}
                         <button onClick={() => handleTabChange('announcements')} className={`
-                            flex items-center gap-3 px-5 py-3 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out
+                            flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 ease-in-out
                             ${activeTab === 'announcements'
                                 ? 'bg-blue-700 text-white shadow-lg transform translate-x-1 border border-blue-800'
                                 : 'text-blue-200 hover:bg-blue-700 hover:text-white'
                             }
                         `}>
-                            <MegaphoneIcon className="h-6 w-6" /> Announcements
+                            <MegaphoneIcon className="h-5 w-5" /> Announcements
                         </button>
                         <button onClick={() => handleTabChange('lessons')} className={`
-                            flex items-center gap-3 px-5 py-3 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out
+                            flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 ease-in-out
                             ${activeTab === 'lessons'
                                 ? 'bg-blue-700 text-white shadow-lg transform translate-x-1 border border-blue-800'
                                 : 'text-blue-200 hover:bg-blue-700 hover:text-white'
                             }
                         `}>
-                            <BookOpenIcon className="h-6 w-6" /> Lessons
+                            <BookOpenIcon className="h-5 w-5" /> Lessons
                         </button>
                         <button onClick={() => handleTabChange('quizzes')} className={`
-                            flex items-center gap-3 px-5 py-3 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out
+                            flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 ease-in-out
                             ${activeTab === 'quizzes'
                                 ? 'bg-blue-700 text-white shadow-lg transform translate-x-1 border border-blue-800'
                                 : 'text-blue-200 hover:bg-blue-700 hover:text-white'
                             }
                         `}>
-                            <AcademicCapIcon className="h-6 w-6" /> Quizzes
+                            <AcademicCapIcon className="h-5 w-5" /> Quizzes
                         </button>
                         <button onClick={() => handleTabChange('scores')} className={`
-                            flex items-center gap-3 px-5 py-3 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out
+                            flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 ease-in-out
                             ${activeTab === 'scores'
                                 ? 'bg-blue-700 text-white shadow-lg transform translate-x-1 border border-blue-800'
                                 : 'text-blue-200 hover:bg-blue-700 hover:text-white'
                             }
                         `}>
-                            <ChartBarIcon className="h-6 w-6" /> Scores
+                            <ChartBarIcon className="h-5 w-5" /> Scores
                         </button>
                         <button onClick={() => handleTabChange('students')} className={`
-                            flex items-center gap-3 px-5 py-3 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out
+                            flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 ease-in-out
                             ${activeTab === 'students'
                                 ? 'bg-blue-700 text-white shadow-lg transform translate-x-1 border border-blue-800'
                                 : 'text-blue-200 hover:bg-blue-700 hover:text-white'
                             }
                         `}>
-                            <UsersIcon className="h-6 w-6" /> Students ({classData?.students?.length || 0})
+                            <UsersIcon className="h-5 w-5" /> Students ({classData?.students?.length || 0})
                         </button>
                     </nav>
 
                     {/* Main Content Area */}
-                    <div className="flex-1 p-6 sm:p-8 bg-gradient-to-br from-white to-gray-50 rounded-none flex flex-col overflow-y-auto">
-                        <h2 className="text-3xl font-extrabold text-gray-900 mb-6 pb-2 border-b-2 border-blue-200 flex-shrink-0">
+                    <div className="flex-1 p-5 sm:p-6 bg-gradient-to-br from-white to-gray-50 rounded-none flex flex-col overflow-y-auto"> {/* Reduced padding */}
+                        <h2 className="text-2xl font-extrabold text-gray-900 mb-5 pb-2 border-b-2 border-blue-200 flex-shrink-0"> {/* Smaller text, reduced mb */}
                             {classData?.name || 'Class Overview'} - {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                         </h2>
                         {renderContent()}
@@ -855,7 +1028,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 onClose={() => setIsEditModalOpen(false)}
                 post={postToEdit}
                 classId={classData?.id}
-                onUpdate={fetchLessonsAndQuizzes}
+                onUpdate={() => { /* Real-time listeners will handle update, no explicit fetch needed here */ }}
                 className="z-[120]"
             />
             {selectedQuizForScores && (
@@ -899,51 +1072,51 @@ const AnnouncementListItem = ({
 
     return (
         <div
-            className="group relative bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-2xl shadow-lg border border-blue-200
-                       transition-all duration-300 transform hover:scale-[1.005] hover:shadow-xl overflow-hidden cursor-pointer"
+            className="group relative bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl shadow-md border border-blue-200
+                       transition-all duration-300 transform hover:scale-[1.005] hover:shadow-lg overflow-hidden cursor-pointer" // Reduced padding, shadow
             onClick={!isEditing ? onClick : undefined}
         >
             {isEditing ? (
-                <div className="w-full flex flex-col gap-3">
+                <div className="w-full flex flex-col gap-2"> {/* Reduced gap */}
                     <textarea
-                        className="w-full border border-blue-300 p-3 rounded-lg text-base font-medium text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white/80 backdrop-blur-sm shadow-inner"
-                        rows={4}
+                        className="w-full border border-blue-300 p-2.5 rounded-lg text-sm font-medium text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white/80 backdrop-blur-sm shadow-inner" // Reduced padding/text size
+                        rows={3} // Reduced rows
                         value={editContent}
                         onChange={onChangeEdit}
                         placeholder="Edit your announcement here..."
                         onClick={(e) => e.stopPropagation()}
                     />
-                    <div className="flex justify-end gap-2">
-                        <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); onCancelEdit(); }} className="border-gray-300 text-gray-700 hover:bg-gray-200 shadow-md">Cancel</Button>
-                        <Button size="sm" onClick={(e) => { e.stopPropagation(); onSaveEdit(); }} className="bg-blue-600 hover:bg-blue-700 text-white shadow-md">Save</Button>
+                    <div className="flex justify-end gap-1.5"> {/* Reduced gap */}
+                        <Button size="xs" variant="secondary" onClick={(e) => { e.stopPropagation(); onCancelEdit(); }} className="border-gray-300 text-gray-700 hover:bg-gray-200 shadow-sm">Cancel</Button> {/* Smaller button */}
+                        <Button size="xs" onClick={(e) => { e.stopPropagation(); onSaveEdit(); }} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">Save</Button> {/* Smaller button */}
                     </div>
                 </div>
             ) : (
                 <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0 pr-4">
-                        <h3 className="font-extrabold text-gray-800 text-lg sm:text-xl leading-tight mb-1 truncate group-hover:text-blue-700 transition-colors">
-                            <MegaphoneIcon className="h-5 w-5 inline-block mr-2 text-blue-600" />
+                    <div className="flex-1 min-w-0 pr-3"> {/* Reduced pr */}
+                        <h3 className="font-semibold text-gray-800 text-base leading-tight mb-0.5 truncate group-hover:text-blue-700 transition-colors"> {/* Reduced font size, reduced mb, truncate */}
+                            <MegaphoneIcon className="h-4 w-4 inline-block mr-1.5 text-blue-600" /> {/* Smaller icon, reduced mr */}
                             {post.content}
                         </h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                            Posted by <span className="font-semibold">{post.teacherName || 'Unknown'}</span> on {formattedDate}
+                        <p className="text-xs text-gray-600"> {/* Smaller text */}
+                            Posted by <span className="font-medium">{post.teacherName || 'Unknown'}</span> on {formattedDate}
                         </p>
                     </div>
                     {isOwn && (
-                        <div className="flex space-x-2 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <div className="flex space-x-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"> {/* Reduced space-x */}
                             <button
                                 onClick={(e) => { e.stopPropagation(); onEdit(); }}
                                 title="Edit Announcement"
-                                className="p-2 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                                className="p-1 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" // Reduced padding
                             >
-                                <PencilSquareIcon className="w-5 h-5" />
+                                <PencilSquareIcon className="w-4 h-4" /> {/* Smaller icon */}
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
                                 title="Delete Announcement"
-                                className="p-2 rounded-full text-red-600 bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
+                                className="p-1 rounded-full text-red-600 bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm" // Reduced padding
                             >
-                                <TrashIcon className="w-5 h-5" />
+                                <TrashIcon className="w-4 h-4" /> {/* Smaller icon */}
                             </button>
                         </div>
                     )}
