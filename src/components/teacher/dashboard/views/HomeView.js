@@ -30,7 +30,8 @@ import InspirationCard from '../widgets/InspirationCard';
 import ClockWidget from '../widgets/ClockWidget';
 import ScheduleModal from '../widgets/ScheduleModal';
 import AnnouncementModal from '../widgets/AnnouncementModal';
-import ReactionsBreakdownModal from '../widgets/ReactionsBreakdownModal'; // Import the new modal
+import ReactionsBreakdownModal from '../widgets/ReactionsBreakdownModal';
+import UserInitialsAvatar from '../../../../components/common/UserInitialsAvatar'; // Import the avatar component
 
 import { db } from '../../../../services/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, getDoc, setDoc } from 'firebase/firestore';
@@ -44,29 +45,6 @@ const reactionIconsHomeView = {
     sad: { outline: FaFrown, solid: FaFrown, color: 'text-gray-700' },
     angry: { outline: FaAngry, solid: FaAngry, color: 'text-red-700' }, // Added Angry reaction
     care: { outline: FaHandHoldingHeart, solid: FaHandHoldingHeart, color: 'text-pink-500' }, // Added Care reaction
-};
-
-// Define a set of appealing gradient colors for profile pictures (consistent with AnnouncementModal)
-const gradientColors = [
-    'from-blue-400 to-indigo-500',
-    'from-green-400 to-teal-500',
-    'from-purple-400 to-pink-500',
-    'from-yellow-400 to-orange-500',
-    'from-red-400 to-rose-500',
-    'from-indigo-400 to-purple-500',
-    'from-teal-400 to-cyan-500',
-    'from-pink-400 to-red-500',
-];
-
-// Function to get a consistent gradient based on user ID (consistent with AnnouncementModal)
-const getUserGradient = (userId) => {
-    if (!userId) return gradientColors[0]; // Default if no userId
-    let hash = 0;
-    for (let i = 0; i < userId.length; i++) {
-        hash = userId.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const index = Math.abs(hash % gradientColors.length);
-    return gradientColors[index];
 };
 
 const ANNOUNCEMENT_TRUNCATE_LENGTH = 300; // Max characters before truncation for announcements
@@ -96,7 +74,7 @@ const HomeView = ({
 
     // New states for HomeView reactions
     const [homeViewPostReactions, setHomeViewPostReactions] = useState({}); // {announcementId: {userId: reactionType}}
-    const [homeViewUserNamesMap, setHomeViewUserNamesMap] = useState({}); // {userId: 'FirstName LastName'}
+    const [homeViewUsersMap, setHomeViewUsersMap] = useState({}); // Renamed from userNamesMap to store full user objects
     const [hoveredHomeViewReactionData, setHoveredHomeViewReactionData] = useState(null); // { type: 'post' | 'options', id: announcementId, users?: string[] }
     const homeViewTimeoutRef = useRef(null);
     const hoverReactionOptionsRef = useRef(null); // Ref for the reaction options popup
@@ -121,39 +99,46 @@ const HomeView = ({
     const currentUserName = `${userProfile?.firstName} ${userProfile?.lastName}`;
 
 
-    // Helper to fetch user names (re-used from AnnouncementModal logic)
-    const fetchUserNames = async (userIds, dbInstance, currentUserProfile, currentUserNameProp, setUserNamesMap) => {
-        const names = {};
+    // Helper to fetch user data (name and photoURL)
+    const fetchUsersData = async (userIds, dbInstance, currentUserProfile, setUsersMap) => {
+        const usersData = {};
         if (userIds.length === 0) return;
 
         const uniqueUserIds = [...new Set(userIds)];
 
-        // Include current user's name directly if available
-        if (currentUserProfile?.id && currentUserNameProp) {
-            names[currentUserProfile.id] = currentUserNameProp;
+        // Include current user's data directly if available
+        if (currentUserProfile?.id) {
+            usersData[currentUserProfile.id] = {
+                ...currentUserProfile,
+                id: currentUserProfile.id,
+            };
         }
 
         const promises = uniqueUserIds.map(async (uid) => {
-            // Skip fetching if already have the name (e.g., current user)
-            if (names[uid]) return;
+            if (usersData[uid]) return;
 
             try {
-                const userDocRef = doc(dbInstance, 'users', uid); // Assuming a 'users' collection with user data
+                const userDocRef = doc(dbInstance, 'users', uid);
                 const userDocSnap = await getDoc(userDocRef);
                 if (userDocSnap.exists()) {
                     const userData = userDocSnap.data();
-                    names[uid] = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || `User ID: ${uid}`;
+                    usersData[uid] = {
+                        firstName: userData.firstName || '',
+                        lastName: userData.lastName || '',
+                        photoURL: userData.photoURL || null,
+                        id: uid,
+                    };
                 } else {
-                    names[uid] = `Unknown User (${uid.substring(0, 5)}...)`;
+                    usersData[uid] = { firstName: 'Unknown', lastName: 'User', id: uid, photoURL: null };
                 }
             } catch (error) {
                 console.warn(`Could not fetch user data for ID ${uid}:`, error);
-                names[uid] = `Error User (${uid.substring(0, 5)}...)`;
+                usersData[uid] = { firstName: 'Error', lastName: 'User', id: uid, photoURL: null };
             }
         });
 
         await Promise.all(promises);
-        setUserNamesMap(prev => ({ ...prev, ...names }));
+        setUsersMap(prev => ({ ...prev, ...usersData }));
     };
 
     // Effect to fetch initial schedules
@@ -172,29 +157,26 @@ const HomeView = ({
     // Effect to listen for reactions on announcements in HomeView
     useEffect(() => {
         const unsubscribeFunctions = [];
-        // Ensure teacherAnnouncements is an array before mapping
         if (!Array.isArray(teacherAnnouncements)) {
             console.warn("teacherAnnouncements prop is not an array:", teacherAnnouncements);
-            return () => {}; // Return empty cleanup if prop is not array
+            return () => {};
         }
 
-        const allUserIdsInReactions = new Set(); // To collect all user IDs from reactions
+        const allUserIdsInReactions = new Set();
 
         teacherAnnouncements.forEach(announcement => {
             if (announcement.id) {
-                // Add the announcement's teacherId to the set of user IDs to fetch names for
                 if (announcement.teacherId) {
                     allUserIdsInReactions.add(announcement.teacherId);
                 }
 
-                // Listen to the reactions subcollection for each announcement
                 const reactionsQuery = collection(db, `teacherAnnouncements/${announcement.id}/reactions`);
                 const unsubscribe = onSnapshot(reactionsQuery, (snapshot) => {
                     const fetchedPostReactions = {};
                     snapshot.docs.forEach(doc => {
                         const reactionData = doc.data();
-                        fetchedPostReactions[doc.id] = reactionData.reactionType; // doc.id is userId
-                        allUserIdsInReactions.add(doc.id); // Add user ID from reaction document
+                        fetchedPostReactions[doc.id] = reactionData.reactionType;
+                        allUserIdsInReactions.add(doc.id);
                     });
 
                     setHomeViewPostReactions(prev => ({
@@ -202,8 +184,7 @@ const HomeView = ({
                         [announcement.id]: fetchedPostReactions
                     }));
 
-                    // Fetch names for all collected user IDs
-                    fetchUserNames(Array.from(allUserIdsInReactions), db, userProfile, currentUserName, setHomeViewUserNamesMap);
+                    fetchUsersData(Array.from(allUserIdsInReactions), db, userProfile, setHomeViewUsersMap);
 
                 }, (error) => {
                     console.error(`Error fetching reactions for announcement ${announcement.id}:`, error);
@@ -215,7 +196,7 @@ const HomeView = ({
         return () => {
             unsubscribeFunctions.forEach(unsub => unsub());
         };
-    }, [teacherAnnouncements, db, userProfile, currentUserName]); // Depend on teacherAnnouncements array itself
+    }, [teacherAnnouncements, db, userProfile]);
 
 
     const handleAddScheduleActivity = async (newActivity) => {
@@ -328,7 +309,7 @@ const HomeView = ({
     };
 
     // Handler to open ReactionsBreakdownModal
-    const openReactionsBreakdownModal = (reactions, userNames) => {
+    const openReactionsBreakdownModal = (reactions, usersMap) => {
         setReactionsForBreakdownModal(reactions);
         setIsReactionsBreakdownModalOpen(true);
     };
@@ -365,7 +346,6 @@ const HomeView = ({
 
     // Formats reactions count for HomeView, including hover effect
     const formatReactionCountHomeView = (reactions, announcementId) => {
-        // Ensure reactions is an object, even if undefined or null
         const safeReactions = reactions || {};
         const counts = {};
         Object.values(safeReactions).forEach(type => {
@@ -373,17 +353,19 @@ const HomeView = ({
         });
         const sortedReactions = Object.entries(counts).sort(([, a], [, b]) => b - a);
 
-        if (Object.keys(safeReactions).length === 0) return null; // Use safeReactions length here
+        if (Object.keys(safeReactions).length === 0) return null;
 
-        const allReactingUsers = Object.keys(safeReactions).map(userId => homeViewUserNamesMap[userId] || `User ID: ${userId.substring(0, 5)}...`);
+        const allReactingUsers = Object.keys(safeReactions).map(userId => {
+            const user = homeViewUsersMap[userId];
+            return user ? `${user.firstName} ${user.lastName}`.trim() : `User ID: ${userId.substring(0, 5)}...`;
+        });
 
         const handleMouseEnter = (e) => {
             clearTimeout(homeViewTimeoutRef.current);
-            // We now store only necessary data for the popup's state
             setHoveredHomeViewReactionData({
                 type: 'post',
                 id: announcementId,
-                users: allReactingUsers, // Pass users list directly here as well for popup rendering
+                users: allReactingUsers,
             });
         };
 
@@ -401,7 +383,6 @@ const HomeView = ({
             setHoveredHomeViewReactionData(null);
         };
 
-        // Determine visibility based on state and type
         const isVisible = hoveredHomeViewReactionData && hoveredHomeViewReactionData.id === announcementId && hoveredHomeViewReactionData.type === 'post';
 
         return (
@@ -410,22 +391,21 @@ const HomeView = ({
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
                 onClick={(e) => {
-                    e.stopPropagation(); // Prevent opening the announcement modal immediately
-                    openReactionsBreakdownModal(reactions, homeViewUserNamesMap);
+                    e.stopPropagation();
+                    openReactionsBreakdownModal(reactions, homeViewUsersMap);
                 }}
             >
                 {sortedReactions.map(([type]) => {
                     const Icon = reactionIconsHomeView[type]?.solid;
                     return Icon ? <Icon key={type} className={`h-4 w-4 ${reactionIconsHomeView[type]?.color}`} /> : null;
                 })}
-                <span className="text-xs text-gray-500 font-medium">{Object.keys(safeReactions).length}</span> {/* Use safeReactions here */}
+                <span className="text-xs text-gray-500 font-medium">{Object.keys(safeReactions).length}</span>
 
-                {/* Reaction Hover Popup for HomeView */}
                 <div
                     className="reaction-hover-popup-homeview bg-gray-800 text-white text-xs p-2 rounded-lg shadow-lg absolute z-50 transform -translate-x-1/2"
                     style={{
-                        bottom: 'calc(100% + 8px)', // Position 8px above the parent div
-                        left: '50%', // Center horizontally
+                        bottom: 'calc(100% + 8px)',
+                        left: '50%',
                         opacity: isVisible ? 1 : 0,
                         pointerEvents: isVisible ? 'auto' : 'none'
                     }}
@@ -446,10 +426,9 @@ const HomeView = ({
 
     // Handle reaction options hover for HomeView
     const handleReactionOptionsMouseEnter = (e, announcementId) => {
-        clearTimeout(homeViewTimeoutRef.current); // Clear timeout for hiding main popup
-        // Set hoveredHomeViewReactionData to show options popup
+        clearTimeout(homeViewTimeoutRef.current);
         setHoveredHomeViewReactionData({
-            type: 'options', // Differentiate this popup
+            type: 'options',
             id: announcementId,
         });
     };
@@ -462,7 +441,7 @@ const HomeView = ({
 
     const handleReactionOptionClick = (announcementId, reactionType) => {
         handleTogglePostReactionHomeView(announcementId, reactionType);
-        setHoveredHomeViewReactionData(null); // Hide options after selection
+        setHoveredHomeViewReactionData(null);
     };
 
 
@@ -548,28 +527,27 @@ const HomeView = ({
                     </div>
 
                     {/* Recent Announcements Column - Facebook News Feed Style */}
-                    <div className="lg:col-span-2 space-y-6"> {/* Increased space-y for separation */}
+                    <div className="lg:col-span-2 space-y-6">
                         <h2 className="text-2xl font-bold text-gray-800 mb-2">Recent Announcements</h2>
-                        {/* Now directly map over the teacherAnnouncements prop */}
                         {teacherAnnouncements && teacherAnnouncements.length > 0 ? teacherAnnouncements.map(post => {
                             const canModify = userProfile?.role === 'admin' || userProfile?.id === post.teacherId;
-                            // Ensure post.id is available before accessing homeViewPostReactions
                             const postReactionsForThisPost = post.id ? (homeViewPostReactions[post.id] || {}) : {};
                             const currentUserReaction = postReactionsForThisPost[currentUserId];
                             const isTruncated = post.content && post.content.length > ANNOUNCEMENT_TRUNCATE_LENGTH;
                             const showFullAnnouncement = expandedAnnouncements[post.id];
+                            const authorProfile = homeViewUsersMap[post.teacherId];
 
                             return (
                                 <div
                                     key={post.id}
-                                    className="bg-white rounded-3xl shadow-xl p-6 relative group transform transition-transform duration-200 hover:scale-[1.005]" // Subtle hover effect
+                                    className="bg-white rounded-3xl shadow-xl p-6 relative group transform transition-transform duration-200 hover:scale-[1.005]"
                                 >
                                     {/* Post Header (Profile Picture, Name, Timestamp, Options) */}
                                     <div className="flex items-center mb-4">
-                                        <div className={`w-10 h-10 bg-gradient-to-br ${getUserGradient(post.teacherId)} rounded-full flex items-center justify-center text-white font-bold text-lg mr-3 shadow-md`}>
-                                            {post.teacherName.charAt(0).toUpperCase()}
+                                        <div className="w-10 h-10 flex-shrink-0">
+                                            <UserInitialsAvatar user={authorProfile} size="w-10 h-10" />
                                         </div>
-                                        <div>
+                                        <div className="ml-3">
                                             <p className="font-semibold text-gray-800">{post.teacherName}</p>
                                             <p className="text-xs text-gray-500">{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString() : ''}</p>
                                         </div>
@@ -620,23 +598,21 @@ const HomeView = ({
                                     <div className="flex justify-between items-center text-sm text-gray-500 border-b border-gray-200 pb-3 mb-3">
                                         {formatReactionCountHomeView(postReactionsForThisPost, post.id)}
                                         <span className="cursor-pointer hover:underline" onClick={() => openAnnouncementModal(post)}>
-                                            {/* Assuming commentsCount property or derived */}
                                             {post.commentsCount || 0} comments
                                         </span>
                                     </div>
 
                                     {/* Action Buttons (Like/React, Comment) */}
                                     <div className="flex justify-around items-center pt-3">
-                                        {/* Like/React Button */}
                                         <div
-                                            className="relative reaction-button-group" // This div is the positioning context for the options popup
+                                            className="relative reaction-button-group"
                                             onMouseEnter={(e) => handleReactionOptionsMouseEnter(e, post.id)}
                                             onMouseLeave={handleReactionOptionsMouseLeave}
                                         >
                                             <button
                                                 className={`flex items-center space-x-2 py-2 px-4 rounded-full transition-colors duration-200
                                                 ${currentUserReaction ? `${reactionIconsHomeView[currentUserReaction]?.color} bg-blue-50/50` : 'text-gray-600 hover:bg-gray-100'}`}
-                                                onClick={() => handleTogglePostReactionHomeView(post.id, currentUserReaction || 'like')} // Default to 'like' if no reaction
+                                                onClick={() => handleTogglePostReactionHomeView(post.id, currentUserReaction || 'like')}
                                             >
                                                 {currentUserReaction ? (
                                                     <span className={`h-5 w-5 ${reactionIconsHomeView[currentUserReaction]?.color}`}>
@@ -650,19 +626,18 @@ const HomeView = ({
                                                 </span>
                                             </button>
 
-                                            {/* Reaction Options Popup (visible on hover) */}
                                             {hoveredHomeViewReactionData && hoveredHomeViewReactionData.type === 'options' && hoveredHomeViewReactionData.id === post.id && (
                                                 <div
                                                     ref={hoverReactionOptionsRef}
-                                                    className="reaction-options-popup bg-white rounded-full shadow-lg p-2 flex space-x-2 absolute z-50" // Changed to absolute
+                                                    className="reaction-options-popup bg-white rounded-full shadow-lg p-2 flex space-x-2 absolute z-50"
                                                     style={{
-                                                        bottom: 'calc(100% + 8px)', // Position 8px above the button
-                                                        left: '50%', // Center horizontally
-                                                        transform: 'translateX(-50%)', // Adjust for centering
-                                                        opacity: 1, // Explicitly set opacity
-                                                        pointerEvents: 'auto' // Explicitly set pointer events
+                                                        bottom: 'calc(100% + 8px)',
+                                                        left: '50%',
+                                                        transform: 'translateX(-50%)',
+                                                        opacity: 1,
+                                                        pointerEvents: 'auto'
                                                     }}
-                                                    onMouseEnter={() => clearTimeout(homeViewTimeoutRef.current)} // Keep popup open
+                                                    onMouseEnter={() => clearTimeout(homeViewTimeoutRef.current)}
                                                     onMouseLeave={handleReactionOptionsMouseLeave}
                                                 >
                                                     {Object.entries(reactionIconsHomeView).map(([type, { solid: SolidIcon, color }]) => (
@@ -679,7 +654,6 @@ const HomeView = ({
                                             )}
                                         </div>
 
-                                        {/* Comment Button */}
                                         <button
                                             className="flex items-center space-x-2 py-2 px-4 rounded-full text-gray-600 hover:bg-gray-100 transition-colors duration-200"
                                             onClick={() => openAnnouncementModal(post)}
@@ -701,7 +675,6 @@ const HomeView = ({
                 </div>
             </div>
 
-            {/* Schedule Modal */}
             <ScheduleModal
                 isOpen={isScheduleModalOpen}
                 onClose={() => setIsScheduleModalOpen(false)}
@@ -712,7 +685,6 @@ const HomeView = ({
                 onDeleteActivity={handleDeleteScheduleActivity}
             />
 
-            {/* Announcement Details Modal */}
             <AnnouncementModal
                 isOpen={isAnnouncementModalOpen}
                 onClose={closeAnnouncementModal}
@@ -721,15 +693,13 @@ const HomeView = ({
                 db={db}
             />
 
-            {/* Reactions Breakdown Modal */}
             <ReactionsBreakdownModal
                 isOpen={isReactionsBreakdownModalOpen}
                 onClose={closeReactionsBreakdownModal}
                 reactionsData={reactionsForBreakdownModal}
-                userNamesMap={homeViewUserNamesMap}
+                usersMap={homeViewUsersMap}
             />
 
-            {/* Custom CSS for the light theme and animations */}
             <style jsx>{`
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 8px;
@@ -828,7 +798,6 @@ const HomeView = ({
                     background-color: #d1d5db;
                 }
 
-                /* Semi-3D Effect for Reaction Buttons - HomeView & Modal */
                 .reaction-icon-btn {
                     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
                     position: relative;
@@ -857,24 +826,21 @@ const HomeView = ({
                     opacity: 1;
                 }
 
-                /* Reaction Hover Popup Styling - HomeView & Modal */
                 .reaction-hover-popup, .reaction-hover-popup-homeview {
-                    position: absolute; /* Changed to absolute to be relative to its parent */
+                    position: absolute;
                     background-color: rgba(0, 0, 0, 0.8);
                     color: white;
                     padding: 8px 12px;
                     border-radius: 8px;
                     font-size: 0.75rem;
                     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-                    /* opacity and pointer-events are now controlled by inline styles */
                     transition: opacity 0.2s ease, transform 0.2s ease;
-                    transform: translateX(-50%); /* Only translate X for centering */
+                    transform: translateX(-50%);
                     white-space: nowrap;
                 }
 
-                /* Reaction Options Popup Styling for HomeView - NOW ABSOLUTE */
                 .reaction-options-popup {
-                    position: absolute; /* Changed to absolute for reliable positioning */
+                    position: absolute;
                     background-color: white;
                     border-radius: 9999px;
                     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
@@ -882,19 +848,13 @@ const HomeView = ({
                     display: flex;
                     gap: 8px;
                     align-items: center;
-                    /* Opacity and pointer-events are now controlled via inline style */
                     transition: opacity 0.2s ease, transform 0.2s ease;
-                    /* Transform is now applied differently for absolute positioning */
                 }
 
-                /* --- NEW STYLES FOR FACEBOOK-LIKE ANIMATIONS --- */
-
-                /* Main Reaction Button Container */
                 .reaction-button-group {
                     position: relative;
                 }
 
-                /* Reaction Options Popup */
                 .reaction-options-popup {
                     display: flex;
                     justify-content: center;
@@ -902,11 +862,11 @@ const HomeView = ({
                     position: absolute;
                     bottom: 100%;
                     left: 50%;
-                    transform: translate(-50%, 10px); /* Start position below the button */
+                    transform: translate(-50%, 10px);
                     opacity: 0;
                     pointer-events: none;
                     transition: transform 0.2s ease-out, opacity 0.2s ease-out;
-                    padding: 4px 8px; /* Adjusted padding */
+                    padding: 4px 8px;
                     border-radius: 50px;
                     background-color: white;
                     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
@@ -916,47 +876,42 @@ const HomeView = ({
                 .reaction-button-group:hover .reaction-options-popup {
                     opacity: 1;
                     pointer-events: auto;
-                    transform: translate(-50%, -10px); /* End position above the button */
+                    transform: translate(-50%, -10px);
                 }
 
-                /* Individual reaction icons in the popup - NOW WITH COLOR AND 3D-LIKE EFFECT */
                 .reaction-pop-icon {
-                    transform: scale(1) translateY(0); /* Start scale at 1, no translateY */
+                    transform: scale(1) translateY(0);
                     transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease-out;
                     will-change: transform, box-shadow;
                     animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.2); /* Add initial subtle shadow */
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
                     border-radius: 9999px;
-                    background-color: white; /* Ensure background is white for shadow to stand out */
+                    background-color: white;
                 }
 
-                /* Custom delays for the cascading effect */
                 .reaction-pop-icon-like { animation-delay: 0s; }
                 .reaction-pop-icon-heart { animation-delay: 0.05s; }
                 .reaction-pop-icon-laugh { animation-delay: 0.1s; }
                 .reaction-pop-icon-wow { animation-delay: 0.15s; }
                 .reaction-pop-icon-sad { animation-delay: 0.2s; }
-                .reaction-pop-icon-angry { animation-delay: 0.25s; } /* Added delay for angry */
-                .reaction-pop-icon-care { animation-delay: 0.3s; } /* Added delay for care */
+                .reaction-pop-icon-angry { animation-delay: 0.25s; }
+                .reaction-pop-icon-care { animation-delay: 0.3s; }
                 
-                /* Icon hover effect inside the popup - More pronounced 3D effect */
                 .reaction-pop-icon:hover {
                     transform: scale(1.3) translateY(-5px);
-                    box-shadow: 0 8px 15px rgba(0,0,0,0.3); /* Stronger shadow on hover */
-                    z-index: 51; /* Bring hovered icon to front */
+                    box-shadow: 0 8px 15px rgba(0,0,0,0.3);
+                    z-index: 51;
                 }
                 
-                /* Animation for popping in */
                 @keyframes popIn {
                     0% { transform: scale(0.5) translateY(10px); opacity: 0; }
                     100% { transform: scale(1) translateY(0); opacity: 1; }
                 }
                 
-                /* Remove previous inline-style override to allow CSS to work */
                 .reaction-options-popup button {
-                    position: relative; /* Add position for pseudo-element */
+                    position: relative;
                     overflow: hidden;
-                    background-color: transparent; /* Ensure button background is transparent */
+                    background-color: transparent;
                 }
 
             `}</style>

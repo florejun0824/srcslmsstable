@@ -1,15 +1,26 @@
-/* Spinner.css */
+/* Spinner.css - Redesigned for branded loading experience */
 
 :root {
   /* --- Customize your spinner here --- */
-  --spinner-size: 60px;
-  --spinner-color-start: #6A82FB;
-  --spinner-color-end: #FC5C7D;
-  --spinner-speed: 1.5s;
-  --text-color: #f0f0f0;
-  --overlay-bg: rgba(22, 22, 22, 0.3);
+  --spinner-size: 100px; /* Base size for the main circling element */
+  --spinner-rotation-speed: 10s; /* Faster rotation for dynamic feel */
+  --color-pulse-speed: 1.5s; /* Speed for the color pulsation */
+
+  /* Vibrant, modern color palette for the main circling gradient (RGB values, no pinks/purples) */
+  --color-1: rgb(0, 179, 255);   /* Blue */
+  --color-2: rgb(0, 255, 170);   /* Aqua/Turquoise */
+  --color-3: rgb(128, 255, 0);   /* Lime Green */
+  --color-4: rgb(255, 255, 0);   /* Yellow */
+  --color-5: rgb(255, 128, 0);   /* Orange */
+  --color-6: rgb(255, 0, 0);     /* Red */
+  --color-7: rgb(0, 179, 255);   /* Repeat start color for smooth loop */
+
+
+  --text-color: rgb(240, 240, 240); /* Light gray for main text */
+  --overlay-bg: rgba(10, 10, 15, 0.7); /* Darker, more prominent overlay */
 }
 
+/* Full-screen overlay */
 .spinner-overlay {
   position: fixed;
   top: 0;
@@ -20,224 +31,146 @@
   justify-content: center;
   align-items: center;
   background-color: var(--overlay-bg);
-  backdrop-filter: blur(10px) saturate(120%);
-  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  backdrop-filter: blur(15px) saturate(150%);
+  -webkit-backdrop-filter: blur(15px) saturate(150%);
   z-index: 9999;
+  font-family: 'Inter', sans-serif; /* Assuming Inter font is available or fallbacks */
 }
 
+/* Container for all spinner elements */
 .spinner-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
-}
-
-.spinner-svg {
-  width: var(--spinner-size);
-  height: var(--spinner-size);
-  animation: rotate var(--spinner-speed) linear infinite;
-}
-
-.spinner-path {
-  stroke: url(#spinner-gradient);
-  stroke-linecap: round;
-  animation: dash calc(var(--spinner-speed) * 1.2) ease-in-out infinite;
-}
-
-.spinner-text {
-  color: var(--text-color);
-  font-size: 1.1em;
-  font-weight: 500;
-  animation: fadeInOut 2s ease-in-out infinite;
-  text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-}
-
-/* Keyframe Animations */
-@keyframes rotate {
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes dash {
-  0% {
-    stroke-dasharray: 1, 150;
-    stroke-dashoffset: 0;
-  }
-  50% {
-    stroke-dasharray: 90, 150;
-    stroke-dashoffset: -35;
-  }
-  100% {
-    stroke-dasharray: 90, 150;
-    stroke-dashoffset: -124;
-  }
-}
-
-@keyframes fadeInOut {
-  0%, 100% {
-    opacity: 0.7;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-/* Conic Gradient Definition - needs to be in an SVG in the HTML or dynamically injected */
-/* For simplicity, we add it directly in the main App or index.html body */
-/* Or, we can keep the gradient simple if not wanting to edit HTML */
-.spinner-path {
-    /* Fallback for browsers that don't support conic-gradient in stroke */
-    stroke: var(--spinner-color-start);
-    /* For modern browsers, we will use a gradient defined in the SVG */
-}
-
-/* To use a gradient, you would add this SVG definition to your main index.html file */
-/* <svg width="0" height="0" style="position:absolute">
-  <defs>
-    <linearGradient id="spinner-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="var(--spinner-color-start)" />
-      <stop offset="100%" stop-color="var(--spinner-color-end)" />
-    </linearGradient>
-  </defs>
-</svg>
-*/
-
-/* A simpler cross-browser approach is to use a linear gradient like this */
-.spinner-svg {
-    background: conic-gradient(from 90deg at 50% 50%, var(--spinner-color-start), var(--spinner-color-end));
-    border-radius: 50%;
-}
-.spinner-path {
-    stroke: #ffffff; /* Or your overlay's background color to create the 'cut-out' effect */
-    stroke-width: 6; /* Make it slightly wider than the original stroke-width */
-}
-/* --- Add these new styles to your Spinner.css --- */
-
-/* Container for the text and cursor */
-.spinner-text-container {
-  color: var(--text-color);
-  font-size: 1.1em;
-  font-weight: 500;
-  text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-  height: 1.5em; /* Reserve space to prevent layout shift */
-  font-family: monospace; /* Monospace font looks best for typewriter effect */
-}
-
-/* Blinking cursor style */
-.typing-cursor {
-  display: inline-block;
-  width: 2px;
-  height: 1.1em;
-  background-color: var(--text-color);
-  margin-left: 4px;
-  animation: blink 1s step-end infinite;
-  vertical-align: bottom;
-}
-
-
-/* --- You can remove or replace the old .spinner-text animation --- */
-/* REMOVE THIS:
-.spinner-text {
-  ...
-  animation: fadeInOut 2s ease-in-out infinite;
-}
-*/
-
-/* --- Add this new Keyframe animation for the cursor --- */
-@keyframes blink {
-  from, to {
-    background-color: transparent;
-  }
-  50% {
-    background-color: var(--text-color);
-  }
-}
-/* Spinner.css for the Pulsar Spinner */
-
-:root {
-  /* --- Customize your spinner here --- */
-  --spinner-size: 70px;
-  --spinner-pulse-speed: 1.8s;
-  --spinner-rotation-speed: 15s;
-
-  /* Vibrant, modern color palette for the gradient */
-  --color-1: #00c6ff;
-  --color-2: #9c4bff;
-  --color-3: #ff6ec4;
-
-  --text-color: #e0e0e0;
-  --overlay-bg: rgba(10, 10, 15, 0.4);
-}
-
-.spinner-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: var(--overlay-bg);
-  backdrop-filter: blur(12px) saturate(150%);
-  -webkit-backdrop-filter: blur(12px) saturate(150%);
-  z-index: 9999;
-}
-
-.spinner-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.5rem;
+  gap: 1.5rem; /* Increased spacing between elements */
+  text-align: center;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
 
 /*
- * The Pulsar Spinner
- * This is where the magic happens.
- * It's a container that clips a blurred, rotating gradient.
+ * The Circling Gradient Effect (outer ring)
+ * This div acts as the container for the revolving gradient.
+ * The school logo will be positioned on top of this.
 */
 .pulsar-spinner {
   position: relative;
   width: var(--spinner-size);
   height: var(--spinner-size);
   border-radius: 50%;
-  animation: pulse var(--spinner-pulse-speed) cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  overflow: hidden; /* Crucial to contain the revolving pseudo-element */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.5); /* Subtle shadow for the central element */
 }
 
 /*
- * The pseudo-element holds the rotating gradient.
- * It's larger than its parent and heavily blurred, creating the soft, fluid look.
+ * The pseudo-element holds the revolving gradient.
+ * This creates the "circling varied gradient colors" effect, now with pulsation.
 */
 .pulsar-spinner::before {
   content: '';
   position: absolute;
-  /* Make it larger to allow for a soft blurred edge */
-  top: -15%;
-  left: -15%;
-  width: 130%;
-  height: 130%;
+  top: -10%;
+  left: -10%;
+  width: 120%;
+  height: 120%;
   background: conic-gradient(
-    from 90deg,
-    var(--color-1),
-    var(--color-2),
-    var(--color-3),
-    var(--color-1)
+    from 0deg,
+    var(--color-1) 0%,
+    var(--color-2) 16.6%,
+    var(--color-3) 33.3%,
+    var(--color-4) 50%,
+    var(--color-5) 66.6%,
+    var(--color-6) 83.3%,
+    var(--color-7) 100%
   );
-  filter: blur(calc(var(--spinner-size) / 3));
-  animation: rotate var(--spinner-rotation-speed) linear infinite;
+  filter: blur(8px); /* Reduced blur for distinct colors */
+  animation: rotate var(--spinner-rotation-speed) linear infinite,
+             pulseColorOpacity var(--color-pulse-speed) ease-in-out infinite alternate; /* Added pulse animation */
+  z-index: 0; /* Ensure it's behind the logo */
+}
+
+/* Style for the school logo */
+.school-logo {
+  position: relative;
+  z-index: 1;
+  background-color: rgba(139, 0, 0, 0.3); /* Translucent maroon/dark red */
+  padding: 5px;
+  box-sizing: border-box;
+  border-radius: 50%; /* Ensure it's perfectly round */
+}
+
+/* --- Keyframe Animations --- */
+
+/* Rotates the gradient for the fluid color-shifting effect */
+@keyframes rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* New animation for pulsating colors (opacity) */
+@keyframes pulseColorOpacity {
+  0% { opacity: 0.8; } /* Start slightly transparent */
+  50% { opacity: 1; } /* Fully opaque at peak */
+  100% { opacity: 0.8; } /* Back to slightly transparent */
+}
+
+/* Blinking animation for the typewriter cursor */
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* --- Text Styles --- */
+
+/* "Powered by Gemini" container */
+.powered-by-gemini {
+    color: rgb(160, 160, 160); /* RGB value for #a0a0a0 */
+    font-weight: 500;
+    text-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+    font-size: 0.9em;
+    display: flex;
+    align-items: center; /* Ensures vertical centering of its contents */
+    justify-content: center; /* Ensures horizontal centering of its contents */
+    gap: 0.25rem; /* Standard spacing between items */
+    line-height: 1; /* Normalize line-height for better centering */
+}
+
+.powered-by-gemini span {
+    /* --- IMPORTANT CHANGE: Adjusted transform for more precise vertical/horizontal alignment --- */
+    transform: translateY(3px) translateX(-2px); /* Move "Powered by" text slightly more down and a little to the left */
+    display: inline-block; /* Essential for transform to work */
+    line-height: inherit;
+}
+
+.powered-by-gemini img {
+    vertical-align: middle; /* Helps with optical alignment if needed */
 }
 
 
-/* --- Typewriter Text Styles --- */
+/* "SRCS LEARNING PORTAL" text (Branding text) */
+.branding-text {
+  color: rgb(255, 255, 255); /* Pure white (RGB) */
+  font-weight: 700;
+  text-shadow: 0 0 15px rgba(0, 0, 0, 0.6);
+  letter-spacing: 0.1em;
+}
 
+/* Typewriter Text Styles */
 .spinner-text-container {
   color: var(--text-color);
   font-size: 1.1em;
   font-weight: 500;
-  height: 1.5em; /* Reserve space to prevent layout shift */
+  height: 1.5em;
   font-family: 'SF Mono', 'Fira Code', 'IBM Plex Mono', monospace;
   text-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+  margin-top: 1rem;
 }
 
 .typing-cursor {
@@ -249,29 +182,4 @@
   margin-left: 4px;
   animation: blink 1s step-end infinite;
   vertical-align: bottom;
-}
-
-
-/* --- Keyframe Animations --- */
-
-/* Rotates the gradient for the fluid color-shifting effect */
-@keyframes rotate {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Creates the gentle "breathing" or pulsing effect */
-@keyframes pulse {
-  50% {
-    transform: scale(0.92);
-    opacity: 0.85;
-  }
-}
-
-/* Blinking animation for the typewriter cursor */
-@keyframes blink {
-  50% {
-    opacity: 0;
-  }
 }

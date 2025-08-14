@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, HandThumbUpIcon, HeartIcon, FaceSmileIcon, SparklesIcon, FaceFrownIcon } from '@heroicons/react/24/outline';
 import { HandThumbUpIcon as SolidHandThumbUpIcon, HeartIcon as SolidHeartIcon, FaceSmileIcon as SolidFaceSmileIcon, SparklesIcon as SolidSparklesIcon, FaceFrownIcon as SolidFaceFrownIcon } from '@heroicons/react/24/solid';
-import { FaAngry, FaHandHoldingHeart } from 'react-icons/fa'; // Import new icons from react-icons/fa
-
+import { FaAngry, FaHandHoldingHeart } from 'react-icons/fa';
+import UserInitialsAvatar from '../../../common/UserInitialsAvatar'; // Import the avatar component
 
 const reactionIcons = {
     all: { outline: null, solid: null, color: 'text-gray-600', label: 'All' },
@@ -11,37 +11,16 @@ const reactionIcons = {
     laugh: { outline: FaceSmileIcon, solid: SolidFaceSmileIcon, color: 'text-yellow-500', label: 'Haha' },
     wow: { outline: SparklesIcon, solid: SolidSparklesIcon, color: 'text-purple-500', label: 'Wow' },
     sad: { outline: FaceFrownIcon, solid: SolidFaceFrownIcon, color: 'text-gray-700', label: 'Sad' },
-    angry: { outline: FaAngry, solid: FaAngry, color: 'text-red-700', label: 'Angry' }, // Added Angry reaction
-    care: { outline: FaHandHoldingHeart, solid: FaHandHoldingHeart, color: 'text-pink-500', label: 'Care' }, // Added Care reaction
+    angry: { outline: FaAngry, solid: FaAngry, color: 'text-red-700', label: 'Angry' },
+    care: { outline: FaHandHoldingHeart, solid: FaHandHoldingHeart, color: 'text-pink-500', label: 'Care' },
 };
 
-// Gradient classes for profile pictures
-const gradientClasses = [
-    'bg-gradient-to-br from-purple-400 to-blue-500',
-    'bg-gradient-to-br from-pink-500 to-rose-500',
-    'bg-gradient-to-br from-yellow-400 to-orange-500',
-    'bg-gradient-to-br from-green-400 to-emerald-500',
-    'bg-gradient-to-br from-cyan-400 to-blue-500',
-    'bg-gradient-to-br from-fuchsia-500 to-purple-600',
-];
-
-// Simple hash function to get a consistent gradient for each user
-const getGradientForUser = (userName) => {
-    let hash = 0;
-    for (let i = 0; i < userName.length; i++) {
-        hash = userName.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const index = Math.abs(hash) % gradientClasses.length;
-    return gradientClasses[index];
-};
-
-
-const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, userNamesMap }) => {
+const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, usersMap }) => {
     const [activeTab, setActiveTab] = useState('all');
     const [groupedReactions, setGroupedReactions] = useState({});
 
     useEffect(() => {
-        if (!reactionsData) {
+        if (!reactionsData || !usersMap) {
             setGroupedReactions({});
             return;
         }
@@ -54,26 +33,24 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, userNamesMap 
         });
 
         Object.entries(reactionsData).forEach(([userId, reactionType]) => {
-            const userName = userNamesMap[userId] || `User ID: ${userId.substring(0, 5)}...`;
-            newGroupedReactions.all.push({ userId, userName, reactionType });
+            const user = usersMap[userId];
+            const userName = user ? `${user.firstName} ${user.lastName}`.trim() : `User ID: ${userId.substring(0, 5)}...`;
+            const reactionEntry = { userId, userName, reactionType, userProfile: user };
+
+            newGroupedReactions.all.push(reactionEntry);
             if (newGroupedReactions[reactionType]) {
-                newGroupedReactions[reactionType].push({ userId, userName, reactionType });
+                newGroupedReactions[reactionType].push(reactionEntry);
             }
         });
 
-        // Sort 'all' reactions alphabetically by user name
-        newGroupedReactions.all.sort((a, b) => a.userName.localeCompare(b.userName));
-
-        // Sort other reaction types alphabetically by user name as well
-        Object.keys(reactionIcons).forEach(type => {
-            if (type !== 'all' && newGroupedReactions[type]) {
-                newGroupedReactions[type].sort((a, b) => a.userName.localeCompare(b.userName));
-            }
+        // Sort reactions alphabetically by user name
+        Object.keys(newGroupedReactions).forEach(type => {
+            newGroupedReactions[type].sort((a, b) => a.userName.localeCompare(b.userName));
         });
 
         setGroupedReactions(newGroupedReactions);
         setActiveTab('all');
-    }, [reactionsData, userNamesMap]);
+    }, [reactionsData, usersMap]);
 
     if (!isOpen) {
         return null;
@@ -101,17 +78,11 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, userNamesMap 
                         const isActive = activeTab === type;
                         const buttonClasses = `
                             flex items-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-200 ease-in-out
-                            ${isActive
-                                ? `text-indigo-600 border-b-2 border-indigo-600`
-                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}
+                            ${isActive ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}
                         `;
 
                         return (
-                            <button
-                                key={type}
-                                onClick={() => setActiveTab(type)}
-                                className={buttonClasses}
-                            >
+                            <button key={type} onClick={() => setActiveTab(type)} className={buttonClasses}>
                                 {Icon && <Icon className={`h-5 w-5 ${color}`} />}
                                 <span>{label} ({count})</span>
                             </button>
@@ -124,10 +95,10 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, userNamesMap 
                     {groupedReactions[activeTab] && groupedReactions[activeTab].length > 0 ? (
                         groupedReactions[activeTab].map((reaction, index) => (
                             <div key={index} className="flex items-center p-3 bg-white rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md hover:scale-[1.01]">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm mr-4 flex-shrink-0 ${getGradientForUser(reaction.userName)}`}> {/* Reduced w/h and text size */}
-                                    {reaction.userName.charAt(0).toUpperCase()}
+                                <div className="w-8 h-8 mr-4 flex-shrink-0">
+                                    <UserInitialsAvatar user={reaction.userProfile} size="w-8 h-8" />
                                 </div>
-                                <div className="flex-grow text-gray-800 text-xs font-normal"> {/* Reduced text size */}
+                                <div className="flex-grow text-gray-800 text-xs font-normal">
                                     <span className="block">{reaction.userName}</span>
                                 </div>
                                 {reaction.reactionType && reactionIcons[reaction.reactionType]?.solid && (

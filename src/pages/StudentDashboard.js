@@ -12,7 +12,8 @@ import Spinner from '../components/common/Spinner';
 
 const StudentDashboard = () => {
     const { userProfile, logout, loading: authLoading } = useAuth();
-    const [view, setView] = useState('lessons'); 
+    // --- FIX: Initialize view to 'classes' for default dashboard display ---
+    const [view, setView] = useState('classes');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isJoinClassModalOpen, setJoinClassModalOpen] = useState(false);
     const [myClasses, setMyClasses] = useState([]);
@@ -27,6 +28,8 @@ const StudentDashboard = () => {
 
     // Fetch the classes the student is enrolled in
     useEffect(() => {
+        if (authLoading) return;
+
         if (!userProfile?.id) {
             setIsFetchingClasses(false);
             return;
@@ -42,10 +45,12 @@ const StudentDashboard = () => {
             setIsFetchingClasses(false);
         });
         return () => unsubscribe();
-    }, [userProfile]);
+    }, [userProfile, authLoading]);
 
     // Fetch lessons or quizzes based on the current view
     const fetchContent = useCallback(async (currentView) => {
+        if (authLoading) return;
+
         if (!userProfile?.id || myClasses.length === 0) {
             setIsFetchingContent(false);
             return;
@@ -139,7 +144,7 @@ const StudentDashboard = () => {
 			                            categorizedLessons.push({ ...lessonDetail, className: post.className, postId: post.id });
 			                        }
 			                    }
-                    
+
 			                    categorizedLessons.sort((a, b) => {
 			                        const orderA = a.order ?? Infinity;
 			                        const orderB = b.order ?? Infinity;
@@ -160,37 +165,43 @@ const StudentDashboard = () => {
         } finally {
             setIsFetchingContent(false);
         }
-    }, [userProfile, myClasses]);
-    
+    }, [userProfile, myClasses, authLoading]);
+
     // Re-fetch content when the view changes
     useEffect(() => {
-        if (!isFetchingClasses && myClasses.length >= 0) {
-            fetchContent(view); 
+        if (!authLoading && !isFetchingClasses && myClasses.length >= 0) {
+            fetchContent(view);
         }
-    }, [myClasses, isFetchingClasses, fetchContent, view]);
+    }, [myClasses, isFetchingClasses, fetchContent, view, authLoading]);
 
     useEffect(() => {
         if (view !== 'classes') {
             setSelectedClass(null);
         }
     }, [view]);
-    
+
     const handleViewChange = (newView) => {
         setView(newView);
         setIsSidebarOpen(false);
     };
 
     const handleTakeQuizClick = (quiz) => {
-        if (activeQuizTab === 'overdue') {
-            const proceed = window.confirm("Late submission will be reflected on your teacher's end. Do you want to continue?");
-            if (proceed) {
-                setQuizToTake(quiz);
+        const showConfirmModal = (message, onConfirm) => {
+            console.log(message);
+            if (window.confirm(message)) {
+                onConfirm();
             }
+        };
+
+        if (activeQuizTab === 'overdue') {
+            showConfirmModal("Late submission will be reflected on your teacher's end. Do you want to continue?", () => {
+                setQuizToTake(quiz);
+            });
         } else {
             setQuizToTake(quiz);
         }
     };
-    
+
     if (authLoading) {
         return (
             <div className="flex h-screen items-center justify-center">
@@ -219,11 +230,12 @@ const StudentDashboard = () => {
                 activeQuizTab={activeQuizTab}
                 setActiveQuizTab={setActiveQuizTab}
                 handleTakeQuizClick={handleTakeQuizClick}
+                authLoading={authLoading}
             />
-            
+
             {/* Modals */}
             <JoinClassModal isOpen={isJoinClassModalOpen} onClose={() => setJoinClassModalOpen(false)} />
-            
+
             <ViewQuizModal
                 isOpen={!!quizToTake}
                 onClose={() => {

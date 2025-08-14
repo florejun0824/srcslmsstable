@@ -1,35 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import './Spinner.css';
+import './Spinner.css'; // Ensure this path is correct
 
 /**
- * A refined, modern spinner with an interactive typewriter text effect.
- * Renders a full-screen overlay with a rotating SVG spinner.
- * The loading text appears character by character for a dynamic feel.
+ * A modern, branded spinner with a custom logo, vibrant revolving gradient,
+ * the official "Gemini" logo, and a typewriter effect for the main loading message.
+ * Renders a full-screen overlay.
  *
  * @param {object} props - The component props.
  * @param {boolean} [props.isLoading=true] - Set to false to hide the spinner.
- * @param {string} [props.text='Loading...'] - The text to be displayed with a typewriter effect.
+ * @param {string} [props.text='Loading...'] - The main text to be displayed with a typewriter effect.
  */
 const Spinner = ({ isLoading = true, text = 'Loading...' }) => {
   const [displayedText, setDisplayedText] = useState('');
 
   useEffect(() => {
-    // Only run the effect if the spinner is active
     if (isLoading) {
       const timer = setInterval(() => {
-        // Use the length of the currently displayed text to get the next character
         setDisplayedText(currentText => {
-          // If we've typed out the whole string, stop the interval
           if (currentText.length === text.length) {
             clearInterval(timer);
             return currentText;
           }
-          // Otherwise, add the next character from the full text
           return text.substring(0, currentText.length + 1);
         });
       }, 150); // Adjust speed of typing here (in milliseconds)
 
-      // Cleanup function to clear the interval and reset the text
       return () => {
         clearInterval(timer);
         setDisplayedText('');
@@ -44,16 +39,33 @@ const Spinner = ({ isLoading = true, text = 'Loading...' }) => {
   return (
     <div className="spinner-overlay" role="status" aria-live="polite">
       <div className="spinner-container">
-        <svg className="spinner-svg" viewBox="0 0 50 50">
-          <circle
-            className="spinner-path"
-            cx="25"
-            cy="25"
-            r="20"
-            fill="none"
-            strokeWidth="5"
-          ></circle>
-        </svg>
+        {/* Powered by Gemini branding with the provided image */}
+        <div className="powered-by-gemini flex items-center justify-center mb-2 gap-1">
+            <span className="text-gray-300 text-sm font-semibold">Powered by</span>
+            <img
+                src="https://i.ibb.co/0V2VpPf7/Google-Gemini-logo.png" // Gemini logo URL
+                alt="Gemini"
+                className="h-6 object-contain" // Adjust height as needed, maintain aspect ratio
+            />
+        </div>
+
+        {/* Pulsar effect container with school logo inside */}
+        <div className="pulsar-spinner relative flex items-center justify-center">
+          {/* School Logo */}
+          <img
+            src="https://i.ibb.co/XfJ8scGX/1.png"
+            alt="School Logo"
+            className="school-logo w-[85%] h-[85%] rounded-full object-cover z-10" // Increased size
+            onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/100x100/CCCCCC/000000?text=Logo"; }}
+          />
+        </div>
+
+        {/* SRCS LEARNING PORTAL text */}
+        <div className="branding-text text-xl text-white font-bold tracking-wider mt-4">
+            SRCS LEARNING PORTAL
+        </div>
+
+        {/* Typewriter Text */}
         <div className="spinner-text-container">
           {displayedText}
           <span className="typing-cursor"></span>
