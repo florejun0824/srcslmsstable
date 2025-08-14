@@ -22,6 +22,8 @@ import StudentClassDetailView from '../components/student/StudentClassDetailView
 import StudentQuizzesTab from '../components/student/StudentQuizzesTab';
 import UserInitialsAvatar from '../components/common/UserInitialsAvatar';
 import Spinner from '../components/common/Spinner';
+import SessionConflictModal from '../components/common/SessionConflictModal'; // NEW: Import the session conflict modal
+import { useAuth } from '../contexts/AuthContext'; // NEW: Import useAuth to access modal state
 
 // Placeholder for an enhanced class card, for demonstration purposes.
 const EnhancedClassCardExample = ({ className, grade, teacher, onSelect }) => {
@@ -111,10 +113,14 @@ const SidebarContent = ({ view, handleViewChange, sidebarNavItems, userProfile, 
 const StudentDashboardUI = ({
     userProfile, logout, view, isSidebarOpen, setIsSidebarOpen, handleViewChange,
     setJoinClassModalOpen, selectedClass, setSelectedClass, myClasses, isFetchingContent,
-    authLoading
+    authLoading // Added authLoading prop
 }) => {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const profileMenuRef = useRef(null);
+
+    // NEW: Access session conflict modal state from AuthContext
+    const { isSessionConflictModalOpen, sessionConflictMessage, setIsSessionConflictModalOpen, performLogout } = useAuth();
+
 
     const sidebarNavItems = [
         { view: 'classes', text: 'Dashboard', icon: UserGroupIcon },
@@ -300,6 +306,13 @@ const StudentDashboardUI = ({
                     )
                 })}
             </footer>
+
+            {/* NEW: Session Conflict Warning Modal */}
+            <SessionConflictModal
+                isOpen={isSessionConflictModalOpen}
+                message={sessionConflictMessage}
+                onClose={performLogout} // Acknowledge and logout
+            />
         </div>
     );
 };

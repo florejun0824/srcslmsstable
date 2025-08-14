@@ -131,35 +131,35 @@ const StudentDashboard = () => {
                 }
             }
 
-			if (currentView === 'lessons') {
-			                const uniqueLessonIds = Array.from(latestPostByLessonId.keys());
-			                if (uniqueLessonIds.length > 0) {
-			                    const lessonsQuery = query(collection(db, 'lessons'), where(documentId(), 'in', uniqueLessonIds));
-			                    const lessonsSnapshot = await getDocs(lessonsQuery);
-			                    const lessonsDetails = new Map(lessonsSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() }]));
-			                    const categorizedLessons = [];
-			                    for (const [lessonId, post] of latestPostByLessonId.entries()) {
-			                        const lessonDetail = lessonsDetails.get(lessonId);
-			                        if (lessonDetail) {
-			                            categorizedLessons.push({ ...lessonDetail, className: post.className, postId: post.id });
-			                        }
-			                    }
+            if (currentView === 'lessons') {
+                const uniqueLessonIds = Array.from(latestPostByLessonId.keys());
+                if (uniqueLessonIds.length > 0) {
+                    const lessonsQuery = query(collection(db, 'lessons'), where(documentId(), 'in', uniqueLessonIds));
+                    const lessonsSnapshot = await getDocs(lessonsQuery);
+                    const lessonsDetails = new Map(lessonsSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() }]));
+                    const categorizedLessons = [];
+                    for (const [lessonId, post] of latestPostByLessonId.entries()) {
+                        const lessonDetail = lessonsDetails.get(lessonId);
+                        if (lessonDetail) {
+                            categorizedLessons.push({ ...lessonDetail, className: post.className, postId: post.id });
+                        }
+                    }
 
-			                    categorizedLessons.sort((a, b) => {
-			                        const orderA = a.order ?? Infinity;
-			                        const orderB = b.order ?? Infinity;
-			                        if (orderA !== orderB) {
-			                            return orderA - orderB;
-			                        }
+                    categorizedLessons.sort((a, b) => {
+                        const orderA = a.order ?? Infinity;
+                        const orderB = b.order ?? Infinity;
+                        if (orderA !== orderB) {
+                            return orderA - orderB;
+                        }
 
-			                        const numA = parseInt(a.title.match(/\d+/)?.[0] || 0, 10);
-			                        const numB = parseInt(b.title.match(/\d+/)?.[0] || 0, 10);
-			                        return numA - numB;
-			                    });
+                        const numA = parseInt(a.title.match(/\d+/)?.[0] || 0, 10);
+                        const numB = parseInt(b.title.match(/\d+/)?.[0] || 0, 10);
+                        return numA - numB;
+                    });
 
-			                    setLessons(categorizedLessons);
-			                }
-			            }
+                    setLessons(categorizedLessons);
+                }
+            }
         } catch (error) {
             console.error("Error fetching content:", error);
         } finally {
@@ -188,7 +188,9 @@ const StudentDashboard = () => {
     const handleTakeQuizClick = (quiz) => {
         const showConfirmModal = (message, onConfirm) => {
             console.log(message);
-            if (window.confirm(message)) {
+            // Replace window.confirm with a custom modal for better UI/UX
+            const userConfirmed = window.confirm(message); // Temporary: replace with custom modal
+            if (userConfirmed) {
                 onConfirm();
             }
         };
