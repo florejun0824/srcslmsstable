@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Modal from '../common/Modal';
 import AnnouncementViewModal from '../common/AnnouncementViewModal';
 import QuizScoresModal from './QuizScoresModal';
+import ScoresTab from './ScoresTab'; // IMPORT THE NEW COMPONENT
 import { db } from '../../services/firebase';
 import {
     collection,
@@ -487,20 +488,21 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
     `;
 
-    // MODIFIED: Reduced default padding for a more compact card
+    // REFINED: Standardized card styles for a cleaner look
     const baseCardClasses = `
-        relative p-3 rounded-xl border transition-all duration-300 transform hover:scale-[1.005] hover:shadow-md
-        flex items-center justify-between
+        relative p-4 rounded-xl border transition-all duration-300 transform hover:scale-[1.005] hover:shadow-lg
+        flex items-center justify-between gap-4
     `;
 
     const renderContent = () => {
         if (loading) return <div className="text-center py-8 text-gray-500 text-lg">Loading class content...</div>;
 
+        // REFINED: Reusable EmptyState component with better styling
         const EmptyState = ({ icon: Icon, text, subtext, color }) => (
-            <div className={`text-center py-8 px-4 bg-${color}-50 rounded-xl shadow-inner border border-${color}-200 animate-fadeIn text-sm`}> {/* Reduced padding, smaller text */}
-                <Icon className={`h-12 w-12 mb-3 text-${color}-400 mx-auto opacity-80`} /> {/* Smaller icon */}
-                <p className={`text-lg font-bold text-${color}-700`}>{text}</p> {/* Smaller text */}
-                <p className={`mt-1 text-sm text-${color}-500`}>{subtext}</p> {/* Smaller text */}
+            <div className={`text-center p-8 bg-${color}-50 rounded-2xl shadow-inner border border-${color}-200 animate-fadeIn`}>
+                <Icon className={`h-16 w-16 mb-4 text-${color}-400 mx-auto opacity-80`} />
+                <p className={`text-xl font-bold text-${color}-700`}>{text}</p>
+                <p className={`mt-2 text-sm text-${color}-500`}>{subtext}</p>
             </div>
         );
 
@@ -527,57 +529,57 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             const sortedUnitKeys = Object.keys(lessonsByUnit).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
             return (
-                <div className="space-y-4 pr-2 custom-scrollbar"> {/* Reduced space-y */}
+                <div className="space-y-6 pr-2 custom-scrollbar">
                     {Object.keys(lessonsByUnit).length > 0 ? (
                         sortedUnitKeys.map(unitDisplayName => (
-                            <div key={unitDisplayName} className="bg-white rounded-lg shadow-md border border-gray-100 animate-slideInUp"> {/* Smaller rounded, shadow */}
+                            <div key={unitDisplayName} className="bg-white rounded-xl shadow-lg border border-gray-100 animate-slideInUp">
                                 <button
-                                    className="flex items-center justify-between w-full p-3 font-bold text-base text-gray-800 bg-gradient-to-r from-blue-50 to-white hover:from-blue-100 rounded-t-lg transition-all duration-200 border-b border-blue-100" // Reduced padding, smaller text
+                                    className="flex items-center justify-between w-full p-4 font-bold text-lg text-gray-800 bg-gradient-to-r from-blue-50 to-white hover:from-blue-100 rounded-t-xl transition-all duration-200 border-b border-blue-100"
                                     onClick={() => toggleUnitCollapse(unitDisplayName)}
                                 >
                                     {unitDisplayName}
                                     {collapsedUnits.has(unitDisplayName) ? (
-                                        <ChevronDownIcon className="h-5 w-5 text-blue-500 transition-transform duration-200" /> // Smaller icon
+                                        <ChevronDownIcon className="h-6 w-6 text-blue-500 transition-transform duration-200" />
                                     ) : (
-                                        <ChevronUpIcon className="h-5 w-5 text-blue-500 transition-transform duration-200" /> // Smaller icon
+                                        <ChevronUpIcon className="h-6 w-6 text-blue-500 transition-transform duration-200" />
                                     )}
                                 </button>
                                 {!collapsedUnits.has(unitDisplayName) && (
-                                    <div className="p-3 space-y-3"> {/* Reduced padding/spacing */}
+                                    <div className="p-4 space-y-4">
                                         {/* Sort lessons within each unit alphabetically by title */}
                                         {lessonsByUnit[unitDisplayName]
                                             .sort((a, b) => a.lessonDetails.title.localeCompare(b.lessonDetails.title, undefined, { numeric: true }))
                                             .map(({ post, lessonDetails }) => (
-                                                <div key={`${post.id}-${lessonDetails.id}`} className={`${baseCardClasses} bg-gradient-to-br from-white to-sky-50 border-sky-100 shadow-sm`}> {/* Smaller shadow */}
-                                                    <div className="flex-1 min-w-0 pr-2"> {/* Added flex-1 and pr-2 */}
+                                                <div key={`${post.id}-${lessonDetails.id}`} className={`${baseCardClasses} bg-gradient-to-br from-white to-sky-50 border-sky-100`}>
+                                                    <div className="flex-1 min-w-0">
                                                         <p
-                                                            className="font-semibold text-slate-800 text-base cursor-pointer hover:text-blue-700 transition-colors truncate" // Reduced font size, semibold, truncate
+                                                            className="font-bold text-slate-800 text-lg cursor-pointer hover:text-blue-700 transition-colors truncate"
                                                             onClick={() => setViewLessonData(lessonDetails)}
                                                         >
                                                             {lessonDetails.title}
                                                         </p>
-                                                        <div className="text-xs text-gray-600 mt-1 flex items-center gap-1"> {/* Smaller text, reduced gap */}
-                                                            <CalendarDaysIcon className="h-3.5 w-3.5 text-sky-500" /> {/* Smaller icon */}
+                                                        <div className="text-sm text-gray-600 mt-1 flex items-center gap-2">
+                                                            <CalendarDaysIcon className="h-4 w-4 text-sky-500" />
                                                             <span>
                                                                 {post.availableFrom?.toDate().toLocaleString()}
                                                                 {post.availableUntil ? ` to ${post.availableUntil.toDate().toLocaleString()}` : ''}
                                                             </span>
                                                         </div>
                                                     </div>
-                                                    <div className="flex space-x-1 flex-shrink-0"> {/* Reduced space-x */}
+                                                    <div className="flex space-x-2 flex-shrink-0">
                                                         <button
                                                             onClick={() => handleEditDatesClick(post)}
                                                             title="Edit Availability Dates"
-                                                            className="p-1.5 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" // Reduced padding
+                                                            className="p-2 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                                                         >
-                                                            <PencilSquareIcon className="w-4 h-4" /> {/* Smaller icon */}
+                                                            <PencilSquareIcon className="w-5 h-5" />
                                                         </button>
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, lessonDetails.id, 'lesson'); }}
-                                                            className="p-1.5 rounded-full text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm" // Reduced padding
+                                                            className="p-2 rounded-full text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
                                                             title="Unshare Lesson Post"
                                                         >
-                                                            <TrashIcon className="w-4 h-4" /> {/* Smaller icon */}
+                                                            <TrashIcon className="w-5 h-5" />
                                                         </button>
                                                     </div>
                                                 </div>
@@ -646,56 +648,56 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             const sortedUnitKeys = Object.keys(quizzesByUnit).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
             return (
-                <div className="space-y-4 pr-2 custom-scrollbar"> {/* Reduced space-y */}
+                <div className="space-y-6 pr-2 custom-scrollbar">
                     {sortedUnitKeys.length > 0 ? (
                         sortedUnitKeys.map(unitDisplayName => (
-                            <div key={unitDisplayName} className="bg-white rounded-lg shadow-md border border-gray-100 animate-slideInUp"> {/* Smaller rounded, shadow */}
+                            <div key={unitDisplayName} className="bg-white rounded-xl shadow-lg border border-gray-100 animate-slideInUp">
                                 <button
-                                    className="flex items-center justify-between w-full p-3 font-bold text-base text-gray-800 bg-gradient-to-r from-purple-50 to-white hover:from-purple-100 rounded-t-lg transition-all duration-200 border-b border-purple-100" // Reduced padding, smaller text
+                                    className="flex items-center justify-between w-full p-4 font-bold text-lg text-gray-800 bg-gradient-to-r from-purple-50 to-white hover:from-purple-100 rounded-t-xl transition-all duration-200 border-b border-purple-100"
                                     onClick={() => toggleUnitCollapse(unitDisplayName)}
                                 >
                                     {unitDisplayName}
                                     {collapsedUnits.has(unitDisplayName) ? (
-                                        <ChevronDownIcon className="h-5 w-5 text-purple-500 transition-transform duration-200" />
+                                        <ChevronDownIcon className="h-6 w-6 text-purple-500 transition-transform duration-200" />
                                     ) : (
-                                        <ChevronUpIcon className="h-5 w-5 text-purple-500 transition-transform duration-200" />
+                                        <ChevronUpIcon className="h-6 w-6 text-purple-500 transition-transform duration-200" />
                                     )}
                                 </button>
                                 {!collapsedUnits.has(unitDisplayName) && (
-                                    <div className="p-3 space-y-3"> {/* Reduced padding/spacing */}
+                                    <div className="p-4 space-y-4">
                                         {quizzesByUnit[unitDisplayName]
                                             .sort((a, b) => a.quizDetails.title.localeCompare(b.quizDetails.title, undefined, { numeric: true }))
                                             .map(({ post, quizDetails }) => (
-                                                <div key={`${post.id}-${quizDetails.id}`} className={`${baseCardClasses} bg-gradient-to-br from-white to-purple-50 border-purple-100 shadow-sm`}> {/* Smaller shadow */}
-                                                    <div className="flex-1 min-w-0 pr-2"> {/* Added flex-1 and pr-2 */}
+                                                <div key={`${post.id}-${quizDetails.id}`} className={`${baseCardClasses} bg-gradient-to-br from-white to-purple-50 border-purple-100`}>
+                                                    <div className="flex-1 min-w-0">
                                                         <p
-                                                            className="font-semibold text-slate-800 text-base cursor-pointer hover:text-purple-700 transition-colors truncate" // Reduced font size, semibold, truncate
+                                                            className="font-bold text-slate-800 text-lg cursor-pointer hover:text-purple-700 transition-colors truncate"
                                                             onClick={() => setViewQuizData(quizDetails)}
                                                         >
                                                             {quizDetails.title}
                                                         </p>
-                                                        <div className="text-xs text-gray-600 mt-1 flex items-center gap-1"> {/* Smaller text, reduced gap */}
-                                                            <CalendarDaysIcon className="h-3.5 w-3.5 text-purple-500" /> {/* Smaller icon */}
+                                                        <div className="text-sm text-gray-600 mt-1 flex items-center gap-2">
+                                                            <CalendarDaysIcon className="h-4 w-4 text-purple-500" />
                                                             <span>
                                                                 {post.availableFrom?.toDate().toLocaleString()}
                                                                 {post.availableUntil ? ` to ${post.availableUntil.toDate().toLocaleString()}` : ''}
                                                             </span>
                                                         </div>
                                                     </div>
-                                                    <div className="flex space-x-1 flex-shrink-0"> {/* Reduced space-x */}
+                                                    <div className="flex space-x-2 flex-shrink-0">
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleEditDatesClick(post); }}
                                                             title="Edit Availability Dates"
-                                                            className="p-1.5 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" // Reduced padding
+                                                            className="p-2 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                                                         >
-                                                            <PencilSquareIcon className="w-4 h-4" /> {/* Smaller icon */}
+                                                            <PencilSquareIcon className="w-5 h-5" />
                                                         </button>
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, quizDetails.id, 'quiz'); }}
-                                                            className="p-1.5 rounded-full text-red-500 bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm" // Reduced padding
+                                                            className="p-2 rounded-full text-red-500 bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
                                                             title="Unshare Quiz"
                                                         >
-                                                            <TrashIcon className="w-4 h-4" /> {/* Smaller icon */}
+                                                            <TrashIcon className="w-5 h-5" />
                                                         </button>
                                                     </div>
                                                 </div>
@@ -717,141 +719,43 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
 
         if (activeTab === 'scores') {
-            const handleViewQuizScores = (quiz) => {
-                setSelectedQuizForScores(quiz);
-                setScoresDetailModalOpen(true);
-            };
-
-            const quizzesByUnit = {};
-
-            sharedContentPosts.forEach(post => {
-                const quizIds = post.quizIds || [];
-                
-                quizIds.forEach(quizId => {
-                    const quizDetails = quizzes.find(q => q.id === quizId);
-                    if (quizDetails) {
-                        let unitDisplayName = 'Uncategorized'; // Default
-
-                        // PRIORITY 1: Use quiz's own unitId if available and mapped
-                        if (quizDetails.unitId && units[quizDetails.unitId]) {
-                            unitDisplayName = units[quizDetails.unitId];
-                        } else if (post.lessonIds && post.lessonIds.length > 0) {
-                            // PRIORITY 2: Fallback to unit of lessons in the same post
-                            const lessonUnitTitlesInPost = new Set();
-                            post.lessonIds.forEach(lessonId => {
-                                const lesson = lessons.find(l => l.id === lessonId);
-                                if (lesson && lesson.unitId && units[lesson.unitId]) {
-                                    lessonUnitTitlesInPost.add(units[lesson.unitId]);
-                                }
-                            });
-                            if (lessonUnitTitlesInPost.size === 1) {
-                                unitDisplayName = Array.from(lessonUnitTitlesInPost)[0];
-                            } else if (lessonUnitTitlesInPost.size > 1) {
-                                unitDisplayName = 'Uncategorized';
-                            }
-                        }
-
-                        if (!quizzesByUnit[unitDisplayName]) {
-                            quizzesByUnit[unitDisplayName] = [];
-                        }
-                        if (!quizzesByUnit[unitDisplayName].some(q => q.id === quizDetails.id)) {
-                            quizzesByUnit[unitDisplayName].push(quizDetails);
-                        }
-                    }
-                });
-            });
-
-            const sortedUnitKeys = Object.keys(quizzesByUnit).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-
+            // RENDER THE NEW SCORES TAB COMPONENT
             return (
-                <div>
-                    <div className="flex justify-end mb-4"> {/* Reduced mb */}
-                        <button
-                            onClick={() => setIsReportModalOpen(true)}
-                            disabled={!quizzes.length}
-                            title="Generate Report"
-                            className={`flex items-center gap-1.5 px-4 py-2 rounded-full font-semibold text-sm transition-all duration-300 shadow-md transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2
-                                ${!quizzes.length
-                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                : 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 focus:ring-green-500'
-                                }`}
-                        >
-                            <ChartBarIcon className="w-5 h-5" /> {/* Smaller icon */}
-                            <span>Generate Report</span>
-                        </button>
-                    </div>
-                    <div className="space-y-4 pr-2 custom-scrollbar"> {/* Reduced space-y */}
-                        {sortedUnitKeys.length > 0 ? (
-                            sortedUnitKeys.map(unitDisplayName => (
-                                <div key={unitDisplayName} className="bg-white rounded-lg shadow-md border border-gray-100 animate-slideInUp"> {/* Smaller rounded, shadow */}
-                                    <button
-                                        className="flex items-center justify-between w-full p-3 font-bold text-base text-gray-800 bg-gradient-to-r from-teal-50 to-white hover:from-teal-100 rounded-t-lg transition-all duration-200 border-b border-teal-100" // Reduced padding, smaller text
-                                        onClick={() => toggleUnitCollapse(unitDisplayName)}
-                                    >
-                                        {unitDisplayName}
-                                        {collapsedUnits.has(unitDisplayName) ? (
-                                            <ChevronDownIcon className="h-5 w-5 text-teal-500 transition-transform duration-200" />
-                                        ) : (
-                                            <ChevronUpIcon className="h-5 w-5 text-teal-500 transition-transform duration-200" />
-                                        )}
-                                    </button>
-                                    {!collapsedUnits.has(unitDisplayName) && (
-                                        <div className="p-3 space-y-3"> {/* Reduced padding/spacing */}
-                                            {quizzesByUnit[unitDisplayName]
-                                                .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }))
-                                                .map(quiz => (
-                                                    <div
-                                                        key={quiz.id}
-                                                        className={`${baseCardClasses} bg-gradient-to-br from-white to-teal-50 border-teal-100 shadow-sm cursor-pointer`} // Smaller shadow
-                                                        onClick={() => handleViewQuizScores(quiz)}
-                                                    >
-                                                        <div className="flex-1 min-w-0 pr-2"> {/* Added flex-1 and pr-2 */}
-                                                            <p className="font-semibold text-teal-700 text-base truncate">{quiz.title}</p> {/* Reduced font size, semibold, truncate */}
-                                                            <p className="text-xs text-gray-600 mt-0.5">Click to view detailed scores</p> {/* Smaller text, reduced mt */}
-                                                        </div>
-                                                        <div className="flex-shrink-0">
-                                                            <ChartBarIcon className="w-4 h-4 text-teal-500" /> {/* Smaller icon */}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                        </div>
-                                    )}
-                                </div>
-                            ))
-                        ) : (
-                            <EmptyState
-                                icon={ChartBarIcon}
-                                text="No quiz scores available."
-                                subtext="Share quizzes and students need to complete them to see scores here."
-                                color="teal"
-                            />
-                        )}
-                    </div>
-                </div>
+                <ScoresTab
+                    quizzes={quizzes}
+                    units={units}
+                    sharedContentPosts={sharedContentPosts}
+                    lessons={lessons}
+                    setIsReportModalOpen={setIsReportModalOpen}
+                    setSelectedQuizForScores={setSelectedQuizForScores}
+                    setScoresDetailModalOpen={setScoresDetailModalOpen}
+                    collapsedUnits={collapsedUnits}
+                    toggleUnitCollapse={toggleUnitCollapse}
+                />
             );
         }
 
         if (activeTab === 'students') {
             return (
-                <div className="space-y-3 pr-2 custom-scrollbar"> {/* Reduced space-y */}
+                <div className="space-y-4 pr-2 custom-scrollbar">
                     {(classData?.students && classData.students.length > 0) ? (
                         classData.students.map(student => (
-                            <div key={student.id} className={`${baseCardClasses} bg-gradient-to-br from-white to-gray-50 border-gray-100 shadow-sm`}> {/* Smaller shadow */}
-                                <div className="flex items-center gap-3"> {/* Reduced gap */}
-                                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-lg flex-shrink-0 border-2 border-blue-200"> {/* Smaller size, text */}
+                            <div key={student.id} className={`${baseCardClasses} bg-gradient-to-br from-white to-gray-50 border-gray-100`}>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-xl flex-shrink-0 border-2 border-blue-200">
                                         {student.firstName ? student.firstName.charAt(0).toUpperCase() : ''}
                                     </div>
                                     <div>
-                                        <p className="font-bold text-gray-800 text-base">{student.firstName} {student.lastName}</p> {/* Reduced font size */}
-                                        <p className="text-xs text-gray-500">Student ID: {student.id}</p> {/* Smaller text */}
+                                        <p className="font-bold text-gray-800 text-lg">{student.firstName} {student.lastName}</p>
+                                        <p className="text-sm text-gray-500">Student ID: {student.id}</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => onRemoveStudent(classData.id, student.id)}
-                                    className="p-1.5 rounded-full text-red-500 bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm" // Reduced padding
+                                    className="p-2 rounded-full text-red-500 bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
                                     title={`Remove ${student.firstName}`}
                                 >
-                                    <TrashIcon className="w-4 h-4" /> {/* Smaller icon */}
+                                    <TrashIcon className="w-5 h-5" />
                                 </button>
                             </div>
                         ))
@@ -870,18 +774,18 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         return (
             <div className="flex-1 flex flex-col">
                 {userProfile?.role === 'teacher' && (
-                    <div className="mb-4 text-right"> {/* Reduced mb */}
+                    <div className="mb-6 text-right">
                         <Button
                             onClick={() => setShowAddForm(prev => !prev)}
                             icon={PlusCircleIcon}
-                            className="bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all px-4 py-2 text-sm" // Reduced padding, smaller text
+                            className="bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all px-5 py-2.5 text-base"
                         >
                             {showAddForm ? 'Cancel Announcement' : 'Add New Announcement'}
                         </Button>
                     </div>
                 )}
                 {showAddForm && (
-                    <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl shadow-inner animate-fadeIn"> {/* Reduced padding/mb */}
+                    <div className="mb-6 p-5 bg-blue-50 border border-blue-200 rounded-xl shadow-inner animate-fadeIn">
                         <CreateClassAnnouncementForm
                             classId={classData.id}
                             onAnnouncementPosted={async () => {
@@ -892,7 +796,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         />
                     </div>
                 )}
-                <div className="space-y-3 pr-2 custom-scrollbar"> {/* Reduced space-y */}
+                <div className="space-y-4 pr-2 custom-scrollbar">
                     {announcements.length > 0 ? (
                         announcements.map(post => (
                             <AnnouncementListItem
@@ -931,64 +835,64 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 isOpen={isOpen}
                 onClose={onClose}
                 title={classData?.name || 'Class Overview'}
-                size="6xl"
-                roundedClass="rounded-3xl"
-                className="max-h-[95vh]" // MODIFIED: Added max-h for increased vertical height
+                size="screen"
+                roundedClass="rounded-2xl"
+                containerClassName="h-[95vh]"
             >
                 <div className="flex flex-col md:flex-row bg-white overflow-hidden h-full animate-slideIn">
                     {/* Sidebar Navigation */}
-                    <nav className="flex-shrink-0 bg-blue-600 p-4 space-y-2 md:w-56 border-r border-blue-700 flex md:flex-col overflow-x-auto md:overflow-y-auto custom-scrollbar shadow-inner-strong"> {/* Reduced padding/width/spacing */}
-                        <h2 className="text-lg font-bold text-white mb-3 hidden md:block">Class Sections</h2> {/* Smaller text, reduced mb */}
+                    <nav className="flex-shrink-0 bg-blue-600 p-6 space-y-3 md:w-64 border-r border-blue-700 flex md:flex-col overflow-x-auto md:overflow-y-auto custom-scrollbar shadow-inner-strong">
+                        <h2 className="text-xl font-bold text-white mb-4 hidden md:block">Class Sections</h2>
                         <button onClick={() => handleTabChange('announcements')} className={`
-                            flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 ease-in-out
+                            flex items-center gap-3 px-5 py-3 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out
                             ${activeTab === 'announcements'
                                 ? 'bg-blue-700 text-white shadow-lg transform translate-x-1 border border-blue-800'
                                 : 'text-blue-200 hover:bg-blue-700 hover:text-white'
                             }
                         `}>
-                            <MegaphoneIcon className="h-5 w-5" /> Announcements
+                            <MegaphoneIcon className="h-6 w-6" /> Announcements
                         </button>
                         <button onClick={() => handleTabChange('lessons')} className={`
-                            flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 ease-in-out
+                            flex items-center gap-3 px-5 py-3 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out
                             ${activeTab === 'lessons'
                                 ? 'bg-blue-700 text-white shadow-lg transform translate-x-1 border border-blue-800'
                                 : 'text-blue-200 hover:bg-blue-700 hover:text-white'
                             }
                         `}>
-                            <BookOpenIcon className="h-5 w-5" /> Lessons
+                            <BookOpenIcon className="h-6 w-6" /> Lessons
                         </button>
                         <button onClick={() => handleTabChange('quizzes')} className={`
-                            flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 ease-in-out
+                            flex items-center gap-3 px-5 py-3 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out
                             ${activeTab === 'quizzes'
                                 ? 'bg-blue-700 text-white shadow-lg transform translate-x-1 border border-blue-800'
                                 : 'text-blue-200 hover:bg-blue-700 hover:text-white'
                             }
                         `}>
-                            <AcademicCapIcon className="h-5 w-5" /> Quizzes
+                            <AcademicCapIcon className="h-6 w-6" /> Quizzes
                         </button>
                         <button onClick={() => handleTabChange('scores')} className={`
-                            flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 ease-in-out
+                            flex items-center gap-3 px-5 py-3 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out
                             ${activeTab === 'scores'
                                 ? 'bg-blue-700 text-white shadow-lg transform translate-x-1 border border-blue-800'
                                 : 'text-blue-200 hover:bg-blue-700 hover:text-white'
                             }
                         `}>
-                            <ChartBarIcon className="h-5 w-5" /> Scores
+                            <ChartBarIcon className="h-6 w-6" /> Scores
                         </button>
                         <button onClick={() => handleTabChange('students')} className={`
-                            flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 ease-in-out
+                            flex items-center gap-3 px-5 py-3 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out
                             ${activeTab === 'students'
                                 ? 'bg-blue-700 text-white shadow-lg transform translate-x-1 border border-blue-800'
                                 : 'text-blue-200 hover:bg-blue-700 hover:text-white'
                             }
                         `}>
-                            <UsersIcon className="h-5 w-5" /> Students ({classData?.students?.length || 0})
+                            <UsersIcon className="h-6 w-6" /> Students ({classData?.students?.length || 0})
                         </button>
                     </nav>
 
                     {/* Main Content Area */}
-                    <div className="flex-1 p-5 sm:p-6 bg-gradient-to-br from-white to-gray-50 rounded-none flex flex-col overflow-y-auto"> {/* Reduced padding */}
-                        <h2 className="text-2xl font-extrabold text-gray-900 mb-5 pb-2 border-b-2 border-blue-200 flex-shrink-0"> {/* Smaller text, reduced mb */}
+                    <div className="flex-1 p-6 sm:p-8 bg-gradient-to-br from-white to-gray-50 rounded-none flex flex-col overflow-y-auto">
+                        <h2 className="text-3xl font-extrabold text-gray-900 mb-6 pb-3 border-b-2 border-blue-200 flex-shrink-0">
                             {classData?.name || 'Class Overview'} - {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                         </h2>
                         {renderContent()}
@@ -1020,7 +924,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 quiz={viewQuizData}
                 userProfile={userProfile}
                 classId={classData?.id}
-				isTeacherView={userProfile.role === 'teacher'}
+				isTeacherView={userProfile.role === 'teacher' || userProfile.role === 'admin'}
                 className="z-[120]"
             />
             <EditAvailabilityModal
@@ -1072,51 +976,51 @@ const AnnouncementListItem = ({
 
     return (
         <div
-            className="group relative bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl shadow-md border border-blue-200
-                       transition-all duration-300 transform hover:scale-[1.005] hover:shadow-lg overflow-hidden cursor-pointer" // Reduced padding, shadow
+            className="group relative bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-xl shadow-md border border-blue-200
+                       transition-all duration-300 transform hover:scale-[1.005] hover:shadow-lg overflow-hidden cursor-pointer"
             onClick={!isEditing ? onClick : undefined}
         >
             {isEditing ? (
-                <div className="w-full flex flex-col gap-2"> {/* Reduced gap */}
+                <div className="w-full flex flex-col gap-3">
                     <textarea
-                        className="w-full border border-blue-300 p-2.5 rounded-lg text-sm font-medium text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white/80 backdrop-blur-sm shadow-inner" // Reduced padding/text size
-                        rows={3} // Reduced rows
+                        className="w-full border border-blue-300 p-3 rounded-lg text-base font-medium text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white/80 backdrop-blur-sm shadow-inner"
+                        rows={3}
                         value={editContent}
                         onChange={onChangeEdit}
                         placeholder="Edit your announcement here..."
                         onClick={(e) => e.stopPropagation()}
                     />
-                    <div className="flex justify-end gap-1.5"> {/* Reduced gap */}
-                        <Button size="xs" variant="secondary" onClick={(e) => { e.stopPropagation(); onCancelEdit(); }} className="border-gray-300 text-gray-700 hover:bg-gray-200 shadow-sm">Cancel</Button> {/* Smaller button */}
-                        <Button size="xs" onClick={(e) => { e.stopPropagation(); onSaveEdit(); }} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">Save</Button> {/* Smaller button */}
+                    <div className="flex justify-end gap-2">
+                        <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); onCancelEdit(); }} className="border-gray-300 text-gray-700 hover:bg-gray-200 shadow-sm">Cancel</Button>
+                        <Button size="sm" onClick={(e) => { e.stopPropagation(); onSaveEdit(); }} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">Save</Button>
                     </div>
                 </div>
             ) : (
                 <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0 pr-3"> {/* Reduced pr */}
-                        <h3 className="font-semibold text-gray-800 text-base leading-tight mb-0.5 truncate group-hover:text-blue-700 transition-colors"> {/* Reduced font size, reduced mb, truncate */}
-                            <MegaphoneIcon className="h-4 w-4 inline-block mr-1.5 text-blue-600" /> {/* Smaller icon, reduced mr */}
+                    <div className="flex-1 min-w-0 pr-4">
+                        <h3 className="font-bold text-gray-800 text-lg leading-tight mb-1 truncate group-hover:text-blue-700 transition-colors">
+                            <MegaphoneIcon className="h-5 w-5 inline-block mr-2 text-blue-600" />
                             {post.content}
                         </h3>
-                        <p className="text-xs text-gray-600"> {/* Smaller text */}
-                            Posted by <span className="font-medium">{post.teacherName || 'Unknown'}</span> on {formattedDate}
+                        <p className="text-sm text-gray-600">
+                            Posted by <span className="font-semibold">{post.teacherName || 'Unknown'}</span> on {formattedDate}
                         </p>
                     </div>
                     {isOwn && (
-                        <div className="flex space-x-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"> {/* Reduced space-x */}
+                        <div className="flex space-x-2 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                             <button
                                 onClick={(e) => { e.stopPropagation(); onEdit(); }}
                                 title="Edit Announcement"
-                                className="p-1 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" // Reduced padding
+                                className="p-2 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                             >
-                                <PencilSquareIcon className="w-4 h-4" /> {/* Smaller icon */}
+                                <PencilSquareIcon className="w-5 h-5" />
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
                                 title="Delete Announcement"
-                                className="p-1 rounded-full text-red-600 bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm" // Reduced padding
+                                className="p-2 rounded-full text-red-600 bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
                             >
-                                <TrashIcon className="w-4 h-4" /> {/* Smaller icon */}
+                                <TrashIcon className="w-5 h-5" />
                             </button>
                         </div>
                     )}
