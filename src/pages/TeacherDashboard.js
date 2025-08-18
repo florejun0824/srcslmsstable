@@ -125,10 +125,21 @@ const TeacherDashboard = () => {
         }
     }, [activeView, showToast]);
 
-    const handleCreateAnnouncement = async ({ content, audience, classId, className }) => {
-        if (!content.trim()) { showToast("Announcement content cannot be empty.", "error"); return; }
+    const handleCreateAnnouncement = async ({ content, audience, classId, className, photoURL, caption }) => {
+        if (!content.trim() && !photoURL?.trim()) { 
+            showToast("Announcement must have content or a photo.", "error"); 
+            return; 
+        }
         const collectionName = audience === 'teachers' ? 'teacherAnnouncements' : 'studentAnnouncements';
-        const announcementData = { content, teacherId: userProfile?.id, teacherName: `${userProfile?.firstName} ${userProfile?.lastName}`, createdAt: serverTimestamp() };
+        const announcementData = { 
+            content, 
+            teacherId: userProfile?.id, 
+            teacherName: `${userProfile?.firstName} ${userProfile?.lastName}`, 
+            createdAt: serverTimestamp(),
+            photoURL: photoURL || null,
+            caption: caption || null,
+            isPinned: false,
+        };
         if (audience === 'students') {
             if (!classId) { showToast("Please select a class for the student announcement.", "error"); return; }
             announcementData.classId = classId;
@@ -459,6 +470,21 @@ const TeacherDashboard = () => {
         }
     };
 
+    const handleTogglePinAnnouncement = async (announcementId, currentStatus) => {
+        if (userProfile?.role !== 'admin') {
+            showToast("You don't have permission to perform this action.", "error");
+            return;
+        }
+        try {
+            const announcementRef = doc(db, 'teacherAnnouncements', announcementId);
+            await updateDoc(announcementRef, { isPinned: !currentStatus });
+            showToast(`Announcement ${!currentStatus ? 'pinned' : 'unpinned'} successfully.`, "success");
+        } catch (error) {
+            console.error("Error toggling pin status:", error);
+            showToast("Failed to update pin status.", "error");
+        }
+    };
+
     const handleToggleStudentForImport = (studentId) => {
         setStudentsToImport(prev => {
             const newSet = new Set(prev);
@@ -554,6 +580,7 @@ const TeacherDashboard = () => {
                 handleUpdateTeacherAnn={handleUpdateTeacherAnn}
                 setEditingAnnId={setEditingAnnId}
                 handleDeleteTeacherAnn={handleDeleteTeacherAnn}
+                handleTogglePinAnnouncement={handleTogglePinAnnouncement}
                 importClassSearchTerm={importClassSearchTerm}
                 setImportClassSearchTerm={setImportClassSearchTerm}
                 allLmsClasses={allLmsClasses}

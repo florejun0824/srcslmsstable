@@ -30,6 +30,7 @@ const CreateClassAnnouncementForm = ({ classId, onAnnouncementPosted }) => {
                 classId: classId, // Store classId as a string field
                 teacherId: userProfile.id,
                 teacherName: userProfile.displayName,
+                teacherPhotoURL: userProfile.photoURL || null, // FIX: Save the user's profile picture URL
                 content,
                 createdAt: serverTimestamp(),
             });

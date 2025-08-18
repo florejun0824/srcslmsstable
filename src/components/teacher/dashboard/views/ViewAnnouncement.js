@@ -2,25 +2,31 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../../../../services/firebase';
 import { doc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
 import { ArrowLeftIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+// NEW: Import solid-style icons from Phosphor Icons for reactions
 import {
-    HandThumbUpIcon, HeartIcon, RocketLaunchIcon,
-    FaceSmileIcon, FaceFrownIcon, ExclamationTriangleIcon,
-    ChatBubbleLeftRightIcon
-} from '@heroicons/react/24/solid';
+    PiThumbsUpFill,
+    PiHeartFill,
+    PiSmileyStickerFill,
+    PiStarFill,
+    PiSmileySadFill,
+    PiAngryFill,
+    PiHeartbeatFill,
+    PiChatCircleDotsFill
+} from 'react-icons/pi';
 
-// Helper function to format Firestore Timestamp or Date objects
+
+// OPTIMIZATION: In-memory cache for user profiles to speed up loading across different announcement views.
+const userProfileCache = new Map();
+
+
 const formatTimestamp = (timestamp) => {
     if (!timestamp) return 'N/A';
-
     let date;
-    
-    // Explicitly check for Firestore Timestamp, JavaScript Date, and then other valid types
     if (typeof timestamp.toDate === 'function') {
         date = timestamp.toDate();
     } else if (timestamp instanceof Date) {
         date = timestamp;
     } else if (typeof timestamp === 'number' || typeof timestamp === 'string') {
-        // Attempt to create a Date object from number or string, but be cautious
         try {
             date = new Date(timestamp);
         } catch (error) {
@@ -28,32 +34,23 @@ const formatTimestamp = (timestamp) => {
             return 'Invalid Date';
         }
     } else {
-        // Fallback for any other unexpected data types
         console.warn("Unexpected timestamp format:", timestamp);
         return 'Invalid Date';
     }
-
-    // Double-check if the date object is valid
     if (isNaN(date.getTime())) {
         return 'Invalid Date';
     }
-
     return date.toLocaleString();
 };
 
 const avatarGradients = [
-    'bg-gradient-to-br from-purple-500 to-indigo-500',
-    'bg-gradient-to-br from-green-500 to-emerald-500',
-    'bg-gradient-to-br from-rose-500 to-pink-500',
-    'bg-gradient-to-br from-yellow-500 to-orange-500',
-    'bg-gradient-to-br from-cyan-500 to-blue-500',
-    'bg-gradient-to-br from-fuchsia-500 to-violet-500',
-    'bg-gradient-to-br from-sky-500 to-indigo-500',
-    'bg-gradient-to-br from-lime-500 to-green-500',
+    'bg-gradient-to-br from-purple-500 to-indigo-500', 'bg-gradient-to-br from-green-500 to-emerald-500',
+    'bg-gradient-to-br from-rose-500 to-pink-500', 'bg-gradient-to-br from-yellow-500 to-orange-500',
+    'bg-gradient-to-br from-cyan-500 to-blue-500', 'bg-gradient-to-br from-fuchsia-500 to-violet-500',
+    'bg-gradient-to-br from-sky-500 to-indigo-500', 'bg-gradient-to-br from-lime-500 to-green-500',
 ];
 
 const TeacherAvatar = ({ name, userId }) => {
-    // A failsafe check for the name prop before splitting it
     const initials = name && typeof name === 'string'
         ? name.split(' ').map(n => n[0]).join('').toUpperCase()
         : '?';
@@ -67,18 +64,19 @@ const TeacherAvatar = ({ name, userId }) => {
     );
 };
 
+// UPDATED: Define available reaction icons with the new Phosphor Icons set
 const reactionIcons = {
-    like: { icon: HandThumbUpIcon, color: 'text-blue-500', name: 'Like' },
-    love: { icon: HeartIcon, color: 'text-rose-500', name: 'Love' },
-    haha: { icon: FaceSmileIcon, color: 'text-yellow-500', name: 'Haha' },
-    wow: { icon: RocketLaunchIcon, color: 'text-orange-500', name: 'Wow' },
-    sad: { icon: FaceFrownIcon, color: 'text-purple-500', name: 'Sad' },
-    angry: { icon: ExclamationTriangleIcon, color: 'text-red-500', name: 'Angry' },
+    like: { icon: PiThumbsUpFill, color: 'text-blue-500', name: 'Like' },
+    heart: { icon: PiHeartFill, color: 'text-red-500', name: 'Love' },
+    laugh: { icon: PiSmileyStickerFill, color: 'text-yellow-500', name: 'Haha' },
+    wow: { icon: PiStarFill, color: 'text-purple-500', name: 'Wow' },
+    sad: { icon: PiSmileySadFill, color: 'text-gray-700', name: 'Sad' },
+    angry: { icon: PiAngryFill, color: 'text-red-700', name: 'Angry' },
+    care: { icon: PiHeartbeatFill, color: 'text-pink-500', name: 'Care' },
 };
 
 const getReactionUsersTitle = (reactionType, reactionUsers) => {
     const users = reactionUsers[reactionType] || [];
-    // Add a filter to ensure all user IDs are valid strings before joining
     const validUsers = users.filter(user => typeof user === 'string' && user.trim() !== '');
     if (validUsers.length === 0) return '';
     if (validUsers.length === 1) return `${reactionIcons[reactionType].name} by ${validUsers[0]}`;
@@ -91,12 +89,11 @@ const ReactionButtons = ({ currentReaction, handleReaction }) => {
 
     const handleButtonClick = (reactionType) => {
         handleReaction(reactionType);
-        setIsMenuOpen(false); // Close menu after a reaction is chosen
+        setIsMenuOpen(false);
     };
 
     const handleMainButtonClick = (e) => {
         e.preventDefault();
-        // If the menu is open, and a reaction exists, clicking again will remove the reaction
         if (isMenuOpen) {
             setIsMenuOpen(false);
         } else if (currentReaction) {
@@ -112,15 +109,11 @@ const ReactionButtons = ({ currentReaction, handleReaction }) => {
                 setIsMenuOpen(false);
             }
         };
-
         document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [menuRef]);
 
-    // Determine the icon and color based on the user's current reaction
-    const ReactionIcon = currentReaction ? reactionIcons[currentReaction].icon : HandThumbUpIcon;
+    const ReactionIcon = currentReaction ? reactionIcons[currentReaction].icon : PiThumbsUpFill;
     const iconColor = currentReaction ? reactionIcons[currentReaction].color : 'text-gray-500';
     const reactionName = currentReaction ? reactionIcons[currentReaction].name : 'Like';
 
@@ -143,7 +136,6 @@ const ReactionButtons = ({ currentReaction, handleReaction }) => {
                     {Object.keys(reactionIcons).map((key) => {
                         const Icon = reactionIcons[key].icon;
                         const isSelected = currentReaction === key;
-                        
                         return (
                             <button
                                 key={key}
@@ -174,12 +166,11 @@ const CommentReactionButtons = ({ comment, userProfile, handleCommentReaction, c
 
     const handleButtonClick = (reactionType) => {
         handleCommentReaction(commentIndex, reactionType);
-        setIsMenuOpen(false); // Close menu after a reaction is chosen
+        setIsMenuOpen(false);
     };
 
     const handleMainButtonClick = (e) => {
         e.preventDefault();
-        // If the menu is open, and a reaction exists, clicking again will remove the reaction
         if (isMenuOpen) {
             setIsMenuOpen(false);
         } else if (userCurrentReaction) {
@@ -195,16 +186,12 @@ const CommentReactionButtons = ({ comment, userProfile, handleCommentReaction, c
                 setIsMenuOpen(false);
             }
         };
-
         document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [menuRef]);
 
-    // Determine the icon and color based on the user's current reaction
     const reactionCount = userCurrentReaction ? comment.reactions?.[userCurrentReaction] || 0 : 0;
-    const ReactionIcon = userCurrentReaction ? reactionIcons[userCurrentReaction].icon : HandThumbUpIcon;
+    const ReactionIcon = userCurrentReaction ? reactionIcons[userCurrentReaction].icon : PiThumbsUpFill;
     const iconColor = userCurrentReaction ? reactionIcons[userCurrentReaction].color : 'text-gray-500';
     const reactionName = userCurrentReaction ? reactionIcons[userCurrentReaction].name : 'Like';
 
@@ -227,7 +214,6 @@ const CommentReactionButtons = ({ comment, userProfile, handleCommentReaction, c
                     {Object.keys(reactionIcons).map((key) => {
                         const Icon = reactionIcons[key].icon;
                         const isSelected = userCurrentReaction === key;
-                        
                         return (
                             <button
                                 key={key}
@@ -265,40 +251,46 @@ const ViewAnnouncement = ({ announcementId, userProfile, onBack }) => {
             if (docSnap.exists()) {
                 const data = { id: docSnap.id, ...docSnap.data() };
 
-                // Get all unique commenter IDs
                 let uniqueUserIds = new Set(data.comments?.map(c => c.userId) || []);
-                
-                // Add all unique user IDs from reactions (both on announcement and comments)
                 Object.values(data.reactionUsers || {}).forEach(ids => ids.forEach(id => uniqueUserIds.add(id)));
                 data.comments?.forEach(comment => {
                     Object.values(comment.reactionUsers || {}).forEach(ids => ids.forEach(id => uniqueUserIds.add(id)));
                 });
-                
-                // Filter out any invalid (falsy) user IDs before fetching
-                const profilesToFetch = Array.from(uniqueUserIds).filter(Boolean);
 
-                // Fetch all profiles in parallel
-                const fetchedProfiles = await Promise.all(
-                    profilesToFetch.map(async (userId) => {
-                        const userDoc = await getDoc(doc(db, 'users', userId));
-                        if (userDoc.exists()) {
-                            const userData = userDoc.data();
-                            return {
-                                userId,
-                                name: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Unknown User'
-                            };
+                // OPTIMIZATION: Check cache first. Only fetch user IDs that are not in the cache.
+                const profileMap = {};
+                const idsToFetch = [];
+                for (const userId of uniqueUserIds) {
+                    if (userId) {
+                        if (userProfileCache.has(userId)) {
+                            profileMap[userId] = userProfileCache.get(userId);
+                        } else {
+                            idsToFetch.push(userId);
                         }
-                        return { userId, name: 'Unknown User' };
-                    })
-                );
+                    }
+                }
 
-                // Create a map from the fetched profiles
-                const profileMap = fetchedProfiles.reduce((acc, profile) => {
-                    acc[profile.userId] = profile.name;
-                    return acc;
-                }, {});
-                
-                // Add the commenterName to each comment object before setting state
+                if (idsToFetch.length > 0) {
+                    const fetchedProfiles = await Promise.all(
+                        idsToFetch.map(async (userId) => {
+                            const userDoc = await getDoc(doc(db, 'users', userId));
+                            if (userDoc.exists()) {
+                                const userData = userDoc.data();
+                                const name = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Unknown User';
+                                // OPTIMIZATION: Store fetched profile in cache.
+                                userProfileCache.set(userId, name);
+                                return { userId, name };
+                            }
+                            userProfileCache.set(userId, 'Unknown User'); // Cache misses too
+                            return { userId, name: 'Unknown User' };
+                        })
+                    );
+
+                    fetchedProfiles.forEach(profile => {
+                        profileMap[profile.userId] = profile.name;
+                    });
+                }
+
                 const commentsWithNames = data.comments?.map(comment => ({
                     ...comment,
                     commenterName: profileMap[comment.userId] || 'Unknown User'
@@ -311,7 +303,6 @@ const ViewAnnouncement = ({ announcementId, userProfile, onBack }) => {
 
                 setAnnouncement(updatedAnnouncement);
                 
-                // Determine the user's current reaction on the main post
                 const foundReaction = Object.keys(reactionIcons).find(reactionType =>
                     data.reactionUsers?.[reactionType]?.includes(userProfile?.id)
                 );
@@ -353,7 +344,7 @@ const ViewAnnouncement = ({ announcementId, userProfile, onBack }) => {
             await updateDoc(announcementDocRef, batchUpdates);
         } catch (error) {
             console.error("Error updating reaction:", error);
-            setUserReaction(userReaction); // Revert state on error
+            setUserReaction(userReaction);
         }
     };
     
@@ -372,17 +363,13 @@ const ViewAnnouncement = ({ announcementId, userProfile, onBack }) => {
         );
 
         if (userCurrentReaction === reactionType) {
-            // User is removing their reaction
             comment.reactions[reactionType] = (comment.reactions[reactionType] || 0) - 1;
             comment.reactionUsers[reactionType] = comment.reactionUsers[reactionType].filter(id => id !== userProfile.id);
         } else {
-            // User is changing or adding a reaction
             if (userCurrentReaction) {
-                // Remove old reaction
                 comment.reactions[userCurrentReaction] = (comment.reactions[userCurrentReaction] || 0) - 1;
                 comment.reactionUsers[userCurrentReaction] = comment.reactionUsers[userCurrentReaction].filter(id => id !== userProfile.id);
             }
-            // Add new reaction
             comment.reactions[reactionType] = (comment.reactions[reactionType] || 0) + 1;
             comment.reactionUsers[reactionType] = [...(comment.reactionUsers[reactionType] || []), userProfile.id];
         }
@@ -394,13 +381,8 @@ const ViewAnnouncement = ({ announcementId, userProfile, onBack }) => {
         }
     };
     
-    const handleEditAnn = () => {
-        // Implement edit logic here
-    };
-    
-    const handleDeleteAnn = () => {
-        // Implement delete logic here
-    };
+    const handleEditAnn = () => {};
+    const handleDeleteAnn = () => {};
 
     const handleAddComment = async (e) => {
         e.preventDefault();
@@ -529,12 +511,11 @@ const ViewAnnouncement = ({ announcementId, userProfile, onBack }) => {
                                 )}
                             </div>
                             <div className="flex items-center gap-1 font-medium">
-                                <ChatBubbleLeftRightIcon className="w-5 h-5" />
+                                <PiChatCircleDotsFill className="w-5 h-5" />
                                 {announcement.comments?.length || 0} Comments
                             </div>
                         </div>
 
-                        {/* Reaction buttons for main announcement */}
                         <div className="flex items-center gap-4 mt-4 p-4 border rounded-2xl bg-gray-50 animate-fade-in-up">
                             <ReactionButtons 
                                 currentReaction={userReaction}
@@ -582,7 +563,6 @@ const ViewAnnouncement = ({ announcementId, userProfile, onBack }) => {
                 </div>
             </div>
             
-            {/* Sticky Comment Box */}
             <div className="fixed bottom-0 left-0 right-0 z-20 bg-white shadow-2xl p-4 md:p-6 border-t border-gray-200">
                 <div className="max-w-4xl mx-auto flex items-start gap-4">
                     <TeacherAvatar name={`${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim()} userId={userProfile.id} />
@@ -605,43 +585,15 @@ const ViewAnnouncement = ({ announcementId, userProfile, onBack }) => {
             </div>
 
             <style jsx>{`
-                .btn-primary-glow-light {
-                    background-color: #f43f5e;
-                    color: white;
-                    padding: 8px 16px;
-                    border-radius: 9999px;
-                    font-weight: 600;
-                    transition: all 0.3s ease;
-                    box-shadow: 0 0px 10px rgba(244, 63, 94, 0.3);
-                }
-                .animate-fade-in-down {
-                    animation: fadeInDown 0.8s ease-out;
-                }
-                .animate-fade-in-up {
-                    animation: fadeInUp 0.8s ease-out;
-                }
-                .animate-spin-slow {
-                    animation: spin 30s linear infinite;
-                }
-                .animate-spin-slow-reverse {
-                    animation: spin-reverse 30s linear infinite;
-                }
-                @keyframes fadeInDown {
-                    from { opacity: 0; transform: translateY(-20px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-                @keyframes fadeInUp {
-                    from { opacity: 0; transform: translateY(20px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                }
-                @keyframes spin-reverse {
-                    from { transform: rotate(360deg); }
-                    to { transform: rotate(0deg); }
-                }
+                .btn-primary-glow-light { background-color: #f43f5e; color: white; padding: 8px 16px; border-radius: 9999px; font-weight: 600; transition: all 0.3s ease; box-shadow: 0 0px 10px rgba(244, 63, 94, 0.3); }
+                .animate-fade-in-down { animation: fadeInDown 0.8s ease-out; }
+                .animate-fade-in-up { animation: fadeInUp 0.8s ease-out; }
+                .animate-spin-slow { animation: spin 30s linear infinite; }
+                .animate-spin-slow-reverse { animation: spin-reverse 30s linear infinite; }
+                @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+                @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                @keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
             `}</style>
         </div>
     );

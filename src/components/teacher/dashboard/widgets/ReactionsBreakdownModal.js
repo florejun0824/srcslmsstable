@@ -1,18 +1,52 @@
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon, HandThumbUpIcon, HeartIcon, FaceSmileIcon, SparklesIcon, FaceFrownIcon } from '@heroicons/react/24/outline';
-import { HandThumbUpIcon as SolidHandThumbUpIcon, HeartIcon as SolidHeartIcon, FaceSmileIcon as SolidFaceSmileIcon, SparklesIcon as SolidSparklesIcon, FaceFrownIcon as SolidFaceFrownIcon } from '@heroicons/react/24/solid';
-import { FaAngry, FaHandHoldingHeart } from 'react-icons/fa';
-import UserInitialsAvatar from '../../../common/UserInitialsAvatar'; // Import the avatar component
+import { XMarkIcon } from '@heroicons/react/24/outline';
+import UserInitialsAvatar from '../../../common/UserInitialsAvatar';
 
+// NEW: Lightweight inline emoji components (no external deps)
+const FacebookEmoji = ({ type = 'like', size = 18, className = '' }) => {
+    const map = {
+        like: '👍',
+        heart: '❤️',
+        haha: '😆',
+        wow: '😮',
+        sad: '😢',
+        angry: '😡',
+        care: '🤗',
+    };
+    const labelMap = {
+        like: 'Like',
+        heart: 'Love',
+        haha: 'Haha',
+        wow: 'Wow',
+        sad: 'Sad',
+        angry: 'Angry',
+        care: 'Care',
+    };
+    const emoji = map[type] || map.like;
+    const label = labelMap[type] || 'Like';
+    return (
+        <span
+            role="img"
+            aria-label={label}
+            title={label}
+            className={className}
+            style={{ fontSize: size, lineHeight: 1, display: 'inline-block' }}
+        >
+            {emoji}
+        </span>
+    );
+};
+
+// UPDATED: Define available reaction icons with the new FacebookEmoji component
 const reactionIcons = {
-    all: { outline: null, solid: null, color: 'text-gray-600', label: 'All' },
-    like: { outline: HandThumbUpIcon, solid: SolidHandThumbUpIcon, color: 'text-blue-500', label: 'Like' },
-    heart: { outline: HeartIcon, solid: SolidHeartIcon, color: 'text-red-500', label: 'Love' },
-    laugh: { outline: FaceSmileIcon, solid: SolidFaceSmileIcon, color: 'text-yellow-500', label: 'Haha' },
-    wow: { outline: SparklesIcon, solid: SolidSparklesIcon, color: 'text-purple-500', label: 'Wow' },
-    sad: { outline: FaceFrownIcon, solid: SolidFaceFrownIcon, color: 'text-gray-700', label: 'Sad' },
-    angry: { outline: FaAngry, solid: FaAngry, color: 'text-red-700', label: 'Angry' },
-    care: { outline: FaHandHoldingHeart, solid: FaHandHoldingHeart, color: 'text-pink-500', label: 'Care' },
+    all: { solid: null, color: 'text-gray-600', label: 'All', component: null },
+    like: { solid: null, color: 'text-blue-500', label: 'Like', component: (props) => <FacebookEmoji type="like" {...props} /> },
+    heart: { solid: null, color: 'text-red-500', label: 'Love', component: (props) => <FacebookEmoji type="heart" {...props} /> },
+    haha: { solid: null, color: 'text-yellow-500', label: 'Haha', component: (props) => <FacebookEmoji type="haha" {...props} /> },
+    wow: { solid: null, color: 'text-purple-500', label: 'Wow', component: (props) => <FacebookEmoji type="wow" {...props} /> },
+    sad: { solid: null, color: 'text-gray-700', label: 'Sad', component: (props) => <FacebookEmoji type="sad" {...props} /> },
+    angry: { solid: null, color: 'text-red-700', label: 'Angry', component: (props) => <FacebookEmoji type="angry" {...props} /> },
+    care: { solid: null, color: 'text-pink-500', label: 'Care', component: (props) => <FacebookEmoji type="care" {...props} /> },
 };
 
 const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, usersMap }) => {
@@ -43,7 +77,6 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, usersMap }) =
             }
         });
 
-        // Sort reactions alphabetically by user name
         Object.keys(newGroupedReactions).forEach(type => {
             newGroupedReactions[type].sort((a, b) => a.userName.localeCompare(b.userName));
         });
@@ -61,7 +94,6 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, usersMap }) =
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-3xl w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100 opacity-100">
-                {/* Modal Header */}
                 <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gray-50">
                     <h2 className="text-xl font-bold text-gray-900">Reactions ({totalReactionsCount})</h2>
                     <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 transition-colors">
@@ -69,9 +101,8 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, usersMap }) =
                     </button>
                 </div>
 
-                {/* Tabs for Reaction Categories */}
                 <div className="sticky top-0 z-10 flex justify-start border-b border-gray-200 px-5 pt-3 bg-white overflow-x-auto custom-scrollbar-horizontal">
-                    {Object.entries(reactionIcons).map(([type, { solid: Icon, color, label }]) => {
+                    {Object.entries(reactionIcons).map(([type, { component: Icon, color, label }]) => {
                         const count = groupedReactions[type] ? groupedReactions[type].length : 0;
                         if (count === 0 && type !== 'all') return null;
 
@@ -90,7 +121,6 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, usersMap }) =
                     })}
                 </div>
 
-                {/* Reaction List */}
                 <div className="flex-grow overflow-y-auto p-5 space-y-3 custom-scrollbar">
                     {groupedReactions[activeTab] && groupedReactions[activeTab].length > 0 ? (
                         groupedReactions[activeTab].map((reaction, index) => (
@@ -101,9 +131,9 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, usersMap }) =
                                 <div className="flex-grow text-gray-800 text-xs font-normal">
                                     <span className="block">{reaction.userName}</span>
                                 </div>
-                                {reaction.reactionType && reactionIcons[reaction.reactionType]?.solid && (
+                                {reaction.reactionType && reactionIcons[reaction.reactionType]?.component && (
                                     <div className="flex-shrink-0">
-                                        {React.createElement(reactionIcons[reaction.reactionType].solid, {
+                                        {React.createElement(reactionIcons[reaction.reactionType].component, {
                                             className: `h-5 w-5 ${reactionIcons[reaction.reactionType].color}`
                                         })}
                                     </div>
