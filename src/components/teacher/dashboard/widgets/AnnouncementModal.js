@@ -1,24 +1,46 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-    FaTimes, FaPaperPlane, FaThumbsUp, FaHeart, FaLaugh, FaStar, FaReply, FaFrown, FaEdit, FaTrash, FaComment, FaAngry, FaHandHoldingHeart
+    FaTimes, FaPaperPlane, FaReply, FaEdit, FaTrash, FaComment,
 } from 'react-icons/fa';
 
 import { collection, addDoc, onSnapshot, query, orderBy, doc, setDoc, deleteDoc, getDoc, updateDoc } from 'firebase/firestore';
 import ReactionsBreakdownModal from './ReactionsBreakdownModal';
 import UserInitialsAvatar from '../../../common/UserInitialsAvatar'; // Import the unified avatar component
 
-// Define available reaction icons and their properties (consistent with HomeView)
-const reactionIcons = {
-    like: { solid: FaThumbsUp, color: 'text-blue-500', label: 'Like' },
-    heart: { solid: FaHeart, color: 'text-red-500', label: 'Love' },
-    laugh: { solid: FaLaugh, color: 'text-yellow-500', label: 'Haha' },
-    wow: { solid: FaStar, color: 'text-purple-500', label: 'Wow' },
-    sad: { solid: FaFrown, color: 'text-gray-700', label: 'Sad' },
-    angry: { solid: FaAngry, color: 'text-red-700', label: 'Angry' },
-    care: { solid: FaHandHoldingHeart, color: 'text-pink-500', label: 'Care' },
-};
-
 const COMMENT_TRUNCATE_LENGTH = 150; // Max characters before truncation
+const reactionTypes = ["like", "love", "haha", "wow", "sad", "angry", "care"]; // Define available reaction types
+
+// Lightweight inline emoji component from HomeView.js
+const FacebookEmoji = ({ type = 'like', size = 18, className = '' }) => {
+    const map = {
+        like: '👍',
+        love: '❤️',
+        haha: '😆',
+        wow: '😮',
+        sad: '😢',
+        angry: '😡',
+        care: '🤗',
+    };
+    const labelMap = {
+        like: 'Like',
+        love: 'Love',
+        haha: 'Haha',
+        wow: 'Wow',
+        sad: 'Sad',
+        angry: 'Angry',
+        care: 'Care',
+    };
+    return (
+        <span
+            className={className}
+            role="img"
+            aria-label={labelMap[type]}
+            style={{ fontSize: size }}
+        >
+            {map[type]}
+        </span>
+    );
+};
 
 const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) => {
     const [comments, setComments] = useState([]);
@@ -107,8 +129,10 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) =
         setUsersMap(prev => ({ ...prev, ...usersData }));
     };
 
+    // Combined useEffect to manage all listeners and data fetching
     useEffect(() => {
-        if (!isOpen || !announcement?.id || !commentsCollectionRef || !postReactionsCollectionRef) {
+        if (!isOpen || !announcement?.id) {
+            // Clean up all state when the modal is closed
             setComments([]);
             setPostReactions({});
             setCommentReactions({});
@@ -119,22 +143,27 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) =
             return;
         }
 
+        const unsubscribes = [];
+        const allUserIds = new Set();
+        allUserIds.add(announcement.teacherId);
+        if (userProfile?.id) {
+            allUserIds.add(userProfile.id);
+        }
+
+        // 1. Listener for Comments
         const commentsQuery = query(commentsCollectionRef, orderBy('createdAt', 'asc'));
-        const unsubscribeComments = onSnapshot(commentsQuery, (snapshot) => {
+        unsubscribes.push(onSnapshot(commentsQuery, (snapshot) => {
             const fetchedComments = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data(),
                 createdAt: convertTimestampToDate(doc.data().createdAt)
             }));
             setComments(fetchedComments);
+            fetchedComments.forEach(comment => allUserIds.add(comment.userId));
 
-            const allUserIds = new Set();
-            allUserIds.add(announcement.teacherId);
-            fetchedComments.forEach(comment => {
-                allUserIds.add(comment.userId);
-            });
-
+            // Set up comment reaction listeners
             const commentReactionUnsubs = [];
+            const newCommentReactions = {};
             fetchedComments.forEach(comment => {
                 const commentReactionsRef = collection(db, `teacherAnnouncements/${announcement.id}/comments/${comment.id}/reactions`);
                 const unsubscribeCommentReactions = onSnapshot(commentReactionsRef, (reactionSnap) => {
@@ -143,6 +172,7 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) =
                         reactionsForThisComment[rDoc.id] = rDoc.data().reactionType;
                         allUserIds.add(rDoc.id);
                     });
+                    newCommentReactions[comment.id] = reactionsForThisComment;
                     setCommentReactions(prev => ({
                         ...prev,
                         [comment.id]: reactionsForThisComment
@@ -152,8 +182,17 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) =
                 });
                 commentReactionUnsubs.push(unsubscribeCommentReactions);
             });
+            // Return a cleanup function for the comment reaction listeners
+            unsubscribes.push(() => commentReactionUnsubs.forEach(unsub => unsub()));
 
-            const unsubscribePostReactions = onSnapshot(postReactionsCollectionRef, (snapshot) => {
+            fetchUsersData([...allUserIds], db, userProfile, setUsersMap);
+        }, (error) => {
+            console.error("Error fetching comments:", error);
+        }));
+
+        // 2. Listener for Post Reactions
+        if (postReactionsCollectionRef) {
+            unsubscribes.push(onSnapshot(postReactionsCollectionRef, (snapshot) => {
                 const fetchedPostReactions = {};
                 snapshot.docs.forEach(doc => {
                     fetchedPostReactions[doc.id] = doc.data().reactionType;
@@ -163,18 +202,14 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) =
                 fetchUsersData([...allUserIds], db, userProfile, setUsersMap);
             }, (error) => {
                 console.error("Error fetching post reactions:", error);
-            });
+            }));
+        }
 
-            return () => {
-                unsubscribeComments();
-                unsubscribePostReactions();
-                commentReactionUnsubs.forEach(unsub => unsub());
-            };
-        }, (error) => {
-            console.error("Error fetching comments:", error);
-        });
+        // Cleanup function for when the modal closes or dependencies change
+        return () => unsubscribes.forEach(unsub => unsub());
 
-    }, [isOpen, announcement?.id, db, userProfile]);
+    }, [isOpen, announcement?.id, db, userProfile, commentsCollectionRef, postReactionsCollectionRef]);
+
 
     const handlePostComment = async () => {
         if (!newCommentText.trim() || !commentsCollectionRef) return;
@@ -205,10 +240,22 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) =
         const userReactionRef = doc(postReactionsCollectionRef, currentUserId);
         const existingReactionType = postReactions[currentUserId];
         try {
-            if (existingReactionType === reactionType) await deleteDoc(userReactionRef);
-            else await setDoc(userReactionRef, { userId: currentUserId, reactionType: reactionType });
+            // Update UI state immediately to prevent flicker
+            const newPostReactions = { ...postReactions };
+            if (existingReactionType === reactionType) {
+                // Remove reaction
+                delete newPostReactions[currentUserId];
+                await deleteDoc(userReactionRef);
+            } else {
+                // Add or change reaction
+                newPostReactions[currentUserId] = reactionType;
+                await setDoc(userReactionRef, { userId: currentUserId, reactionType: reactionType });
+            }
+            setPostReactions(newPostReactions); // Update local state
         } catch (error) {
             console.error("Error toggling post reaction:", error);
+            // Revert local state if the Firestore operation fails
+            setPostReactions(postReactions);
         }
     };
 
@@ -217,11 +264,26 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) =
         const commentReactionsRef = collection(db, `teacherAnnouncements/${announcement.id}/comments/${commentId}/reactions`);
         const userCommentReactionRef = doc(commentReactionsRef, currentUserId);
         const existingCommentReactionType = commentReactions[commentId]?.[currentUserId];
+
+        // Optimistically update the local state to prevent flicker
+        const updatedCommentReactions = { ...commentReactions };
+        if (!updatedCommentReactions[commentId]) {
+            updatedCommentReactions[commentId] = {};
+        }
+
         try {
-            if (existingCommentReactionType === reactionType) await deleteDoc(userCommentReactionRef);
-            else await setDoc(userCommentReactionRef, { userId: currentUserId, reactionType: reactionType });
+            if (existingCommentReactionType === reactionType) {
+                delete updatedCommentReactions[commentId][currentUserId];
+                await deleteDoc(userCommentReactionRef);
+            } else {
+                updatedCommentReactions[commentId][currentUserId] = reactionType;
+                await setDoc(userCommentReactionRef, { userId: currentUserId, reactionType: reactionType });
+            }
+            setCommentReactions(updatedCommentReactions);
         } catch (error) {
             console.error("Error toggling comment reaction:", error);
+            // Revert the local state if the Firestore operation fails
+            setCommentReactions(commentReactions);
         }
     };
 
@@ -278,247 +340,317 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) =
     const formatReactionCount = (reactions, entityId, type) => {
         const safeReactions = reactions || {};
         const counts = {};
-        Object.values(safeReactions).forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+        Object.values(safeReactions).forEach(t => {
+            counts[t] = (counts[t] || 0) + 1;
+        });
+
         const sortedReactions = Object.entries(counts).sort(([, a], [, b]) => b - a);
+
         if (Object.keys(safeReactions).length === 0) return null;
 
         const allReactingUsers = Object.keys(safeReactions).map(userId => {
             const user = usersMap[userId];
-            return user ? `${user.firstName} ${user.lastName}`.trim() : `User ID: ${userId.substring(0, 5)}...`;
-        });
+            return user ? `${user.firstName} ${user.lastName}`.trim() : `User ID: ${userId.substring(0, 8)}...`;
+        }).join(', ');
 
-        const handleMouseEnter = () => {
-            clearTimeout(timeoutRef.current);
-            setHoveredReactionData({ type, id: entityId, users: allReactingUsers });
+
+        // Logic to get the current user's reaction
+        const currentUserReaction = safeReactions[currentUserId];
+
+        const getEmojiForType = (reactionType) => {
+            const map = {
+                like: '👍',
+                love: '❤️',
+                haha: '😆',
+                wow: '😮',
+                sad: '😢',
+                angry: '😡',
+                care: '🤗',
+            };
+            return map[reactionType] || '';
         };
-        const handleMouseLeave = () => { timeoutRef.current = setTimeout(() => { setHoveredReactionData(null); }, 300); };
-        const handlePopupMouseEnter = () => { clearTimeout(timeoutRef.current); };
-        const handlePopupMouseLeave = () => { setHoveredReactionData(null); };
-        const isVisible = hoveredReactionData && hoveredReactionData.id === entityId && hoveredReactionData.type === type;
+
+        const topEmojis = sortedReactions.slice(0, 3).map(([type]) => getEmojiForType(type));
+
+        // Prepare the display string, including the current user's reaction if present
+        const count = Object.keys(safeReactions).length;
+        let reactionText;
+        if (currentUserReaction && sortedReactions.length > 1) {
+            const otherReactorsCount = count - 1;
+            reactionText = `You and ${otherReactorsCount} others`;
+        } else if (currentUserReaction && sortedReactions.length === 1) {
+            reactionText = `You`;
+        } else {
+            reactionText = `${count}`;
+        }
+
+        const handleMouseEnter = (e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            clearTimeout(timeoutRef.current);
+            setHoveredReactionData({
+                top: rect.top,
+                left: rect.left,
+                users: allReactingUsers,
+            });
+        };
+
+        const handleMouseLeave = () => {
+            timeoutRef.current = setTimeout(() => {
+                setHoveredReactionData(null);
+            }, 300);
+        };
 
         return (
-            <div className="flex items-center space-x-1 cursor-pointer relative" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} onClick={(e) => { e.stopPropagation(); openReactionsBreakdownModal(reactions); }}>
-                {sortedReactions.map(([t]) => {
-                    const Icon = reactionIcons[t]?.solid;
-                    return Icon ? <Icon key={t} className={`h-4 w-4 ${reactionIcons[t]?.color}`} /> : null;
-                })}
-                <span className="text-xs text-gray-500 font-medium">{Object.keys(safeReactions).length}</span>
-                <div className="reaction-hover-popup bg-gray-800 text-white text-xs p-2 rounded-lg shadow-lg absolute z-50 transform -translate-x-1/2" style={{ bottom: 'calc(100% + 8px)', left: '50%', opacity: isVisible ? 1 : 0, pointerEvents: isVisible ? 'auto' : 'none' }} onMouseEnter={handlePopupMouseEnter} onMouseLeave={handlePopupMouseLeave}>
-                    {(hoveredReactionData?.users || []).map((name, index) => (<div key={index}>{name}</div>))}
+            <div
+                className="flex items-center space-x-1 cursor-pointer relative"
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+                onClick={() => openReactionsBreakdownModal(safeReactions)}
+            >
+                <div className="flex -space-x-1">
+                    {topEmojis.map((emoji, index) => (
+                        <span key={index} className="text-sm z-10">{emoji}</span>
+                    ))}
+                </div>
+                <span className="text-xs font-semibold text-gray-500 hover:underline">
+                    {reactionText}
+                </span>
+            </div>
+        );
+    };
+
+    const renderComment = (comment) => {
+        const commentAuthor = usersMap[comment.userId];
+        const isAuthor = comment.userId === currentUserId;
+        const isEditing = editingCommentId === comment.id;
+        const commentReactionsForThisComment = commentReactions[comment.id] || {};
+        const ownReaction = commentReactionsForThisComment[currentUserId];
+        const hasReactions = Object.keys(commentReactionsForThisComment).length > 0;
+        const replies = getReplies(comment.id);
+        const isExpanded = expandedComments[comment.id];
+        const hasParent = !!comment.parentId;
+
+        const handleMouseOver = () => {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+            // Show reaction options on hover
+            if (hoverReactionOptionsRef.current) {
+                hoverReactionOptionsRef.current.style.display = 'flex';
+            }
+        };
+
+        const handleMouseOut = () => {
+            timeoutRef.current = setTimeout(() => {
+                if (hoverReactionOptionsRef.current) {
+                    hoverReactionOptionsRef.current.style.display = 'none';
+                }
+            }, 300);
+        };
+
+
+        return (
+            <div key={comment.id} className={`flex ${hasParent ? 'ml-8' : ''}`}>
+                <div className="flex-shrink-0 mr-3">
+                    <UserInitialsAvatar name={commentAuthor?.firstName} size={9} />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-start">
+                        <div className="bg-gray-100 p-3 rounded-xl flex-1 relative group"
+                             onMouseEnter={handleMouseOver}
+                             onMouseLeave={handleMouseOut}>
+                            <div className="absolute -top-3 right-0 hidden group-hover:block z-10">
+                                <div className="flex space-x-1 bg-white border border-gray-200 rounded-full px-2 py-1 shadow-md">
+                                    {reactionTypes.map(type => (
+                                        <button key={type} onClick={() => handleToggleCommentReaction(comment.id, type)} className="hover:scale-125 transition-transform">
+                                            <FacebookEmoji type={type} size={16} />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-sm font-semibold text-gray-800 truncate">{commentAuthor?.firstName} {commentAuthor?.lastName}</span>
+                                <span className="text-xs text-gray-400 ml-2">{formatRelativeTime(comment.createdAt)}</span>
+                            </div>
+                            {isEditing ? (
+                                <div className="w-full">
+                                    <textarea
+                                        value={editingCommentText}
+                                        onChange={(e) => setEditingCommentText(e.target.value)}
+                                        className="w-full text-sm p-1 border rounded"
+                                        rows="3"
+                                    />
+                                    <div className="flex space-x-2 mt-2">
+                                        <button onClick={() => handleSaveEditComment(comment.id)} className="text-blue-500 text-sm">Save</button>
+                                        <button onClick={handleCancelEditComment} className="text-gray-500 text-sm">Cancel</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-700 break-words whitespace-pre-wrap">
+                                    {isExpanded || comment.commentText.length <= COMMENT_TRUNCATE_LENGTH
+                                        ? comment.commentText
+                                        : `${comment.commentText.substring(0, COMMENT_TRUNCATE_LENGTH)}...`}
+                                    {comment.commentText.length > COMMENT_TRUNCATE_LENGTH && (
+                                        <button onClick={() => toggleCommentExpansion(comment.id)} className="text-blue-500 text-sm ml-1">
+                                            {isExpanded ? 'Show less' : 'Show more'}
+                                        </button>
+                                    )}
+                                </p>
+                            )}
+
+                        </div>
+                        {hasReactions && (
+                            <div className="absolute bottom-1 right-2 translate-y-full -mb-3 z-10">
+                                {formatReactionCount(commentReactionsForThisComment, comment.id, 'comment')}
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex items-center space-x-4 mt-1 px-2">
+                        <div className="relative">
+                            <button
+                                className={`text-xs font-semibold ${ownReaction ? 'text-indigo-500' : 'text-gray-500 hover:text-indigo-500'}`}
+                                onClick={() => handleToggleCommentReaction(comment.id, ownReaction || 'like')}
+                                onMouseEnter={(e) => {
+                                    clearTimeout(timeoutRef.current);
+                                    if (hoverReactionOptionsRef.current) {
+                                        hoverReactionOptionsRef.current.style.display = 'flex';
+                                    }
+                                }}
+                                onMouseLeave={(e) => {
+                                    timeoutRef.current = setTimeout(() => {
+                                        if (hoverReactionOptionsRef.current) {
+                                            hoverReactionOptionsRef.current.style.display = 'none';
+                                        }
+                                    }, 300);
+                                }}
+                            >
+                                {ownReaction ? <span className="flex items-center"><FacebookEmoji type={ownReaction} size={12} className="mr-1"/>{ownReaction.charAt(0).toUpperCase() + ownReaction.slice(1)}</span> : 'Like'}
+                            </button>
+                            <div ref={hoverReactionOptionsRef} className="absolute bottom-full mb-2 -left-2 hidden">
+                                <div className="flex space-x-1 bg-white border border-gray-200 rounded-full px-2 py-1 shadow-md">
+                                    {reactionTypes.map(type => (
+                                        <button key={type} onClick={() => handleToggleCommentReaction(comment.id, type)} className="hover:scale-125 transition-transform">
+                                            <FacebookEmoji type={type} size={16} />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <button onClick={() => handleReplyClick(comment.id, commentAuthor?.firstName)} className="text-xs text-gray-500 font-semibold hover:underline">Reply</button>
+                        {(isAuthor || isAdmin) && (
+                            <>
+                                <button onClick={() => handleStartEditComment(comment)} className="text-xs text-gray-500 font-semibold hover:underline">Edit</button>
+                                <button onClick={() => handleDeleteComment(comment.id)} className="text-xs text-red-500 font-semibold hover:underline">Delete</button>
+                            </>
+                        )}
+                    </div>
+                    {replies.length > 0 && (
+                        <div className="mt-2 space-y-2">
+                            {replies.map(renderComment)}
+                        </div>
+                    )}
                 </div>
             </div>
         );
     };
 
-    const handleReactionOptionsMouseEnter = (entityId, type) => {
-        clearTimeout(timeoutRef.current);
-        setHoveredReactionData({ type, id: entityId });
-    };
-    const handleReactionOptionsMouseLeave = () => { timeoutRef.current = setTimeout(() => { setHoveredReactionData(null); }, 300); };
+    if (!isOpen) return null;
 
-    const currentUserPostReaction = postReactions[currentUserId];
-    const announcementDate = announcement?.createdAt ? convertTimestampToDate(announcement.createdAt) : null;
-    const formattedAnnouncementDate = announcementDate ? announcementDate.toLocaleString() : 'Invalid Date';
-
-    if (!isOpen || !announcement) return null;
+    const teacher = usersMap[announcement?.teacherId];
+    const isTeacher = userProfile?.id === announcement?.teacherId;
+    const postReactionCount = Object.keys(postReactions).length;
+    const ownPostReaction = postReactions[currentUserId];
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-            <div className="bg-white rounded-3xl shadow-xl w-full max-w-3xl max-h-[95vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100 opacity-100">
-                <div className="flex items-center justify-between p-5 border-b border-gray-200">
-                    <h2 className="text-2xl font-bold text-gray-800">Announcement Details</h2>
-                    <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                        <FaTimes className="w-6 h-6 text-gray-500" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity" onClick={onClose}></div>
+            <div className="bg-white rounded-xl shadow-2xl overflow-hidden transform transition-all sm:max-w-xl sm:w-full max-h-[90vh] flex flex-col relative z-50">
+                {/* Header */}
+                <div className="flex-shrink-0 bg-gray-50 p-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 className="text-xl font-semibold text-gray-900">Announcement Details</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+                        <FaTimes size={24} />
                     </button>
                 </div>
-                <div className="p-6 overflow-y-auto flex-grow custom-scrollbar">
-                    <div className="flex items-center mb-4">
-                        <div className="w-10 h-10 mr-3 flex-shrink-0">
-                           <UserInitialsAvatar user={usersMap[announcement.teacherId]} size="w-10 h-10" />
+
+                {/* Main Content */}
+                <div className="p-6 flex-1 overflow-y-auto custom-scrollbar">
+                    {/* Announcement Card */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4 shadow-sm">
+                        <div className="flex items-center mb-3">
+                            <UserInitialsAvatar name={teacher?.firstName} size={12} />
+                            <div className="ml-3">
+                                <p className="text-sm font-semibold text-gray-800">{teacher?.firstName} {teacher?.lastName}</p>
+                                <p className="text-xs text-gray-500">{convertTimestampToDate(announcement.createdAt)?.toLocaleString()}</p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="font-semibold text-gray-800">{announcement.teacherName}</p>
-                            <p className="text-xs text-gray-500">{formattedAnnouncementDate}</p>
-                        </div>
+                        <p className="text-gray-700 whitespace-pre-wrap">{announcement.content}</p>
                     </div>
-                    <div className="mb-6 pb-4 border-b border-gray-200">
-                        <p className="text-gray-700 text-lg leading-relaxed whitespace-pre-wrap">{announcement.content}</p>
-                    </div>
-                    <div className="flex justify-between items-center text-sm text-gray-500 border-b border-gray-200 pb-3 mb-3">
-                        {formatReactionCount(postReactions, announcement.id, 'postReactionCount')}
-                    </div>
-                    <div className="flex justify-around items-center pt-3 mb-6">
-                        <div className="relative" onMouseEnter={() => handleReactionOptionsMouseEnter(announcement.id, 'postReactionOptions')} onMouseLeave={handleReactionOptionsMouseLeave}>
-                            <button className={`flex items-center space-x-2 py-2 px-4 rounded-full transition-colors duration-200 ${currentUserPostReaction ? `${reactionIcons[currentUserPostReaction]?.color} bg-blue-50/50` : 'text-gray-600 hover:bg-gray-100'}`} onClick={() => handleTogglePostReaction(currentUserPostReaction || 'like')}>
-                                {currentUserPostReaction ? React.createElement(reactionIcons[currentUserPostReaction].solid, { className: `h-5 w-5 ${reactionIcons[currentUserPostReaction].color}` }) : <FaThumbsUp className="h-5 w-5 text-gray-600" />}
-                                <span className="font-semibold capitalize">{currentUserPostReaction || 'Like'}</span>
+
+                    {/* Reactions Section */}
+                    <div className="flex items-center space-x-4 mb-4">
+                        <div className="relative group">
+                            <button
+                                onClick={() => handleTogglePostReaction(ownPostReaction || 'like')}
+                                className={`flex items-center px-4 py-2 rounded-full transition-colors ${ownPostReaction ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600 hover:bg-indigo-100 hover:text-indigo-700'}`}
+                            >
+                                <FacebookEmoji type={ownPostReaction || 'like'} size={18} className="mr-2" />
+                                <span className="font-semibold">{ownPostReaction ? ownPostReaction.charAt(0).toUpperCase() + ownPostReaction.slice(1) : 'Like'}</span>
                             </button>
-                            {hoveredReactionData?.type === 'postReactionOptions' && hoveredReactionData?.id === announcement.id && (
-                                <div ref={hoverReactionOptionsRef} className="reaction-options-popup bg-white rounded-full shadow-lg p-2 flex space-x-2 absolute z-50" style={{ bottom: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)', opacity: 1, pointerEvents: 'auto' }} onMouseEnter={() => clearTimeout(timeoutRef.current)} onMouseLeave={handleReactionOptionsMouseLeave}>
-                                    {Object.entries(reactionIcons).map(([type, { solid: SolidIcon, color }]) => (
-                                        <button key={type} className={`p-2 rounded-full hover:scale-125 transition-transform duration-150 ${color}`} onClick={() => { handleReactionOptionsMouseLeave(); handleTogglePostReaction(type); }} title={type.charAt(0).toUpperCase() + type.slice(1)}>
-                                            <SolidIcon className="h-6 w-6" />
+                            {/* Reaction options on hover */}
+                            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-20">
+                                <div className="flex space-x-1 bg-white border border-gray-200 rounded-full px-2 py-1 shadow-md">
+                                    {reactionTypes.map(type => (
+                                        <button key={type} onClick={() => handleTogglePostReaction(type)} className="hover:scale-125 transition-transform">
+                                            <FacebookEmoji type={type} size={20} />
                                         </button>
                                     ))}
                                 </div>
-                            )}
+                            </div>
                         </div>
-                        <button className="flex items-center space-x-2 py-2 px-4 rounded-full text-gray-600 hover:bg-gray-100 transition-colors duration-200">
-                            <FaComment className="h-5 w-5" />
-                            <span className="font-semibold">Comment</span>
-                        </button>
+                        {postReactionCount > 0 && (
+                            <div className="flex-1 text-right">
+                                {formatReactionCount(postReactions, 'post', 'post')}
+                            </div>
+                        )}
                     </div>
+
+                    {/* Comment Section */}
                     <div className="space-y-4">
-                        <h3 className="text-xl font-bold text-gray-800 mb-4">Comments ({comments.length})</h3>
-                        {topLevelComments.length === 0 && <p className="text-gray-500 text-center py-4">No comments yet. Be the first to comment!</p>}
-                        {topLevelComments.map(comment => {
-                            const isCurrentUserComment = comment.userId === currentUserId;
-                            const isBeingEdited = editingCommentId === comment.id;
-                            const currentUserCommentReaction = commentReactions[comment.id]?.[currentUserId];
-                            const isTruncated = comment.commentText.length > COMMENT_TRUNCATE_LENGTH;
-                            const showFullComment = expandedComments[comment.id];
-                            return (
-                                <div key={comment.id} className="relative mb-4">
-                                    <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200 group">
-                                        <div className="flex items-start mb-2">
-                                            <div className="flex-shrink-0 w-8 h-8 mr-3">
-                                                <UserInitialsAvatar user={usersMap[comment.userId]} size="w-8 h-8" />
-                                            </div>
-                                            <div className="flex-1">
-                                                {isBeingEdited ? (
-                                                    <>
-                                                        <textarea className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-gray-100 text-gray-800 resize-none" rows="3" value={editingCommentText} onChange={(e) => setEditingCommentText(e.target.value)} />
-                                                        <div className="flex justify-end gap-2 mt-3">
-                                                            <button className="btn-secondary-light" onClick={handleCancelEditComment}>Cancel</button>
-                                                            <button className="btn-primary-glow-light" onClick={() => handleSaveEditComment(comment.id)}>Save</button>
-                                                        </div>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <p className="text-sm font-medium text-gray-800 leading-tight">{comment.userName}</p>
-                                                        <p className="text-xs text-gray-700 whitespace-pre-wrap mt-2">
-                                                            {isTruncated && !showFullComment ? `${comment.commentText.substring(0, COMMENT_TRUNCATE_LENGTH)}...` : comment.commentText}
-                                                            {isTruncated && <button onClick={() => toggleCommentExpansion(comment.id)} className="text-blue-500 hover:underline ml-1">{showFullComment ? 'Show Less' : 'See More...'}</button>}
-                                                        </p>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {isCurrentUserComment && (
-                                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                                <button onClick={() => handleStartEditComment(comment)} className="p-1 rounded-full hover:bg-gray-200/50 transition" title="Edit Comment"><FaEdit className="w-4 h-4 text-gray-500" /></button>
-                                                <button onClick={() => handleDeleteComment(comment.id)} className="p-1 rounded-full hover:bg-gray-200/50 transition" title="Delete Comment"><FaTrash className="w-4 h-4 text-rose-500" /></button>
-                                            </div>
-                                        )}
-                                    </div>
-                                    {!isBeingEdited && (
-                                        <div className="flex items-center text-xs text-gray-500 mt-1 pl-14 pr-4 space-x-2">
-                                            <span className="text-gray-500">{formatRelativeTime(comment.createdAt)}</span>
-                                            {(Object.keys(commentReactions[comment.id] || {}).length > 0 || currentUserId) && <span className="text-gray-400">•</span>}
-                                            {formatReactionCount(commentReactions[comment.id] || {}, comment.id, 'commentReactionCount')}
-                                            <div className="relative" onMouseEnter={() => handleReactionOptionsMouseEnter(comment.id, 'commentReactionOptions')} onMouseLeave={handleReactionOptionsMouseLeave}>
-                                                <button className="font-semibold capitalize px-1 py-0.5 rounded-md text-gray-600 hover:bg-gray-100" onClick={() => handleToggleCommentReaction(comment.id, currentUserCommentReaction || 'like')}>Like</button>
-                                                {hoveredReactionData?.type === 'commentReactionOptions' && hoveredReactionData?.id === comment.id && (
-                                                    <div className="reaction-options-popup bg-white rounded-full shadow-lg p-0.5 flex space-x-0.5 absolute z-50" style={{ bottom: 'calc(100% + 1px)', left: '50%', transform: 'translateX(-50%)', opacity: 1, pointerEvents: 'auto' }} onMouseEnter={() => clearTimeout(timeoutRef.current)} onMouseLeave={handleReactionOptionsMouseLeave}>
-                                                        {Object.entries(reactionIcons).map(([type, { solid: SolidIcon, color }]) => (
-                                                            <button key={type} className={`p-0.5 rounded-full hover:scale-125 transition-transform duration-150 ${color}`} onClick={() => { handleReactionOptionsMouseLeave(); handleToggleCommentReaction(comment.id, type); }} title={type.charAt(0).toUpperCase() + type.slice(1)}><SolidIcon className="h-4 w-4" /></button>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <button onClick={() => handleReplyClick(comment.id, comment.userName)} className="text-blue-500 hover:underline flex items-center px-1 py-0.5">Reply</button>
-                                        </div>
-                                    )}
-                                    <div className="ml-12 mt-3 space-y-3 border-l pl-4 border-gray-200">
-                                        {getReplies(comment.id).map(reply => {
-                                            const isCurrentUserReply = reply.userId === currentUserId;
-                                            const isReplyBeingEdited = editingCommentId === reply.id;
-                                            const currentUserReplyReaction = commentReactions[reply.id]?.[currentUserId];
-                                            const isReplyTruncated = reply.commentText.length > COMMENT_TRUNCATE_LENGTH;
-                                            const showFullReply = expandedComments[reply.id];
-                                            return (
-                                                <div key={reply.id} className="relative mb-2">
-                                                    <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-100 group">
-                                                        <div className="flex items-start mb-1">
-                                                            <div className="flex-shrink-0 w-7 h-7 mr-2">
-                                                                <UserInitialsAvatar user={usersMap[reply.userId]} size="w-7 h-7" />
-                                                            </div>
-                                                            <div className="flex-1">
-                                                                {isReplyBeingEdited ? (
-                                                                    <>
-                                                                        <textarea className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-gray-100 text-gray-800 resize-none" rows="2" value={editingCommentText} onChange={(e) => setEditingCommentText(e.target.value)} />
-                                                                        <div className="flex justify-end gap-2 mt-3"><button className="btn-secondary-light" onClick={handleCancelEditComment}>Cancel</button><button className="btn-primary-glow-light" onClick={() => handleSaveEditComment(reply.id)}>Save</button></div>
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <p className="text-sm font-medium text-gray-800 leading-tight">{reply.userName}</p>
-                                                                        <p className="text-gray-700 text-xs whitespace-pre-wrap mt-2">
-                                                                            {isReplyTruncated && !showFullReply ? `${reply.commentText.substring(0, COMMENT_TRUNCATE_LENGTH)}...` : reply.commentText}
-                                                                            {isReplyTruncated && <button onClick={() => toggleCommentExpansion(reply.id)} className="text-blue-500 hover:underline ml-1">{showFullReply ? 'Show Less' : 'See More...'}</button>}
-                                                                        </p>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        {isCurrentUserReply && (
-                                                            <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                                                <button onClick={() => handleStartEditComment(reply)} className="p-1 rounded-full hover:bg-gray-200/50 transition" title="Edit Reply"><FaEdit className="w-3 h-3 mr-1" /></button>
-                                                                <button onClick={() => handleDeleteComment(reply.id)} className="p-1 rounded-full hover:bg-gray-200/50 transition" title="Delete Reply"><FaTrash className="w-3 h-3 mr-1" /></button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    {!isReplyBeingEdited && (
-                                                        <div className="flex items-center text-xs text-gray-500 mt-1 pl-9 pr-2 space-x-2">
-                                                            <span className="text-gray-500">{formatRelativeTime(reply.createdAt)}</span>
-                                                            {(Object.keys(commentReactions[reply.id] || {}).length > 0 || currentUserId) && <span className="text-gray-400">•</span>}
-                                                            {formatReactionCount(commentReactions[reply.id] || {}, reply.id, 'commentReactionCount')}
-                                                            <div className="relative" onMouseEnter={() => handleReactionOptionsMouseEnter(reply.id, 'commentReactionOptions')} onMouseLeave={handleReactionOptionsMouseLeave}>
-                                                                <button className="font-semibold capitalize px-1 py-0.5 rounded-md text-gray-600 hover:bg-gray-100" onClick={() => handleToggleCommentReaction(reply.id, currentUserReplyReaction || 'like')}>Like</button>
-                                                                {hoveredReactionData?.type === 'commentReactionOptions' && hoveredReactionData?.id === reply.id && (
-                                                                    <div className="reaction-options-popup bg-white rounded-full shadow-lg p-0.5 flex space-x-0.5 absolute z-50" style={{ bottom: 'calc(100% + 1px)', left: '50%', transform: 'translateX(-50%)', opacity: 1, pointerEvents: 'auto' }} onMouseEnter={() => clearTimeout(timeoutRef.current)} onMouseLeave={handleReactionOptionsMouseLeave}>
-                                                                        {Object.entries(reactionIcons).map(([type, { solid: SolidIcon, color }]) => (
-                                                                            <button key={type} className={`p-0.5 rounded-full hover:scale-125 transition-transform duration-150 ${color}`} onClick={() => { handleReactionOptionsMouseLeave(); handleToggleCommentReaction(reply.id, type); }} title={type.charAt(0).toUpperCase() + type.slice(1)}><SolidIcon className="h-4 w-4" /></button>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                        {topLevelComments.map(renderComment)}
                     </div>
                 </div>
-                <div className="p-5 border-t border-gray-200 bg-gray-50">
-                    {replyToCommentId && (
-                        <div className="mb-2 text-sm text-gray-600 flex items-center justify-between p-2 bg-blue-50 rounded-lg">
-                            Replying to <span className="font-semibold ml-1">{replyToUserName}</span>
-                            <button onClick={() => { setReplyToCommentId(null); setNewCommentText(''); setReplyToUserName(''); }} className="text-red-500 hover:text-red-700 ml-2"><FaTimes className="w-4 h-4" /></button>
-                        </div>
-                    )}
+
+                {/* Comment Input */}
+                <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-gray-50">
                     <div className="flex items-center space-x-3">
-                        <textarea className="flex-grow p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 bg-white text-gray-800 resize-none custom-scrollbar" rows="2" placeholder="Write a comment..." value={newCommentText} onChange={(e) => setNewCommentText(e.target.value)} />
-                        <button onClick={handlePostComment} className="btn-primary-glow-light p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300" disabled={!newCommentText.trim()}><FaPaperPlane className="w-6 h-6" /></button>
+                        <input
+                            type="text"
+                            value={newCommentText}
+                            onChange={(e) => setNewCommentText(e.target.value)}
+                            placeholder={replyToCommentId ? `Replying to ${replyToUserName}...` : "Write a comment..."}
+                            className="flex-1 p-3 rounded-full bg-white border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    handlePostComment();
+                                }
+                            }}
+                        />
+                        <button
+                            onClick={handlePostComment}
+                            className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
+                        >
+                            <FaPaperPlane />
+                        </button>
                     </div>
                 </div>
             </div>
-            <ReactionsBreakdownModal isOpen={isReactionsBreakdownModalOpen} onClose={closeReactionsBreakdownModal} reactionsData={reactionsForBreakdownModal} usersMap={usersMap} />
-            <style jsx>{`
-                .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-                .custom-scrollbar::-webkit-scrollbar-track { background: #e5e7eb; border-radius: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 10px; border: 2px solid #e5e7eb; }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #9ca3af; }
-                .btn-primary-glow-light { background-color: #f43f5e; color: white; padding: 8px 16px; border-radius: 9999px; font-weight: 600; transition: all 0.3s ease; box-shadow: 0 0px 10px rgba(244, 63, 94, 0.3); }
-                .btn-primary-glow-light:hover { background-color: #e11d48; box-shadow: 0 0px 15px rgba(244, 63, 94, 0.6); }
-                .btn-secondary-light { background-color: #e5e7eb; color: #4b5563; padding: 8px 16px; border-radius: 9999px; font-weight: 600; transition: all 0.3s ease; }
-                .btn-secondary-light:hover { background-color: #d1d5db; }
-                .reaction-hover-popup { position: absolute; background-color: rgba(0, 0, 0, 0.8); color: white; padding: 8px 12px; border-radius: 8px; font-size: 0.75rem; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); transition: opacity 0.2s ease, transform 0.2s ease; transform: translateX(-50%); white-space: nowrap; }
-                .reaction-options-popup { position: absolute; background-color: white; border-radius: 9999px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); padding: 4px; display: flex; gap: 8px; align-items: center; transition: opacity 0.2s ease, transform 0.2s ease; }
-            `}</style>
+            {isReactionsBreakdownModalOpen && (
+                <ReactionsBreakdownModal
+                    isOpen={isReactionsBreakdownModalOpen}
+                    onClose={closeReactionsBreakdownModal}
+                    reactions={reactionsForBreakdownModal}
+                    usersMap={usersMap}
+                />
+            )}
         </div>
     );
 };

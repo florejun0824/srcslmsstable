@@ -1,90 +1,111 @@
 import React, { useState } from 'react';
-import { MegaphoneIcon, UsersIcon } from '@heroicons/react/24/outline';
+import { FaImage, FaTimes } from 'react-icons/fa';
 
 const CreateAnnouncement = ({ classes, onPost }) => {
     const [content, setContent] = useState('');
     const [audience, setAudience] = useState('teachers');
-    const [selectedClass, setSelectedClass] = useState('');
+    const [classId, setClassId] = useState('');
+    const [photoURL, setPhotoURL] = useState('');
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        const selectedClassData = classes.find(c => c.id === selectedClass);
-        onPost({
-            content,
-            audience,
-            classId: selectedClass,
-            className: selectedClassData ? selectedClassData.name : null
-        });
+        if (!content.trim() && !photoURL.trim()) {
+            alert('Please add some content or a photo to your announcement.');
+            return;
+        }
+
+        const selectedClass = classes.find(c => c.id === classId);
+        const className = selectedClass ? selectedClass.name : '';
+
+        onPost({ content, audience, classId, className, photoURL, caption: '' });
+        
+        // Clear form after posting
         setContent('');
+        setPhotoURL('');
+        setClassId('');
+        setAudience('teachers');
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="p-4 bg-white rounded-xl shadow-lg space-y-4">
+            
+            {/* Main content textarea */}
             <div>
-                <h3 className="text-lg font-bold text-gray-800 mb-2">Announcement Audience</h3>
-                <div className="flex items-center gap-4 bg-gray-100 rounded-full p-1 shadow-inner">
-                    <button
-                        type="button"
-                        onClick={() => setAudience('teachers')}
-                        className={`flex-1 p-3 text-sm font-semibold flex items-center justify-center gap-2 rounded-full transition-all duration-300
-                            ${audience === 'teachers' ? 'bg-white text-blue-600 shadow-md transform scale-105' : 'text-gray-500 hover:bg-gray-200'}
-                        `}
-                    >
-                        <MegaphoneIcon className="w-5 h-5" /> For Teachers
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setAudience('students')}
-                        className={`flex-1 p-3 text-sm font-semibold flex items-center justify-center gap-2 rounded-full transition-all duration-300
-                            ${audience === 'students' ? 'bg-white text-blue-600 shadow-md transform scale-105' : 'text-gray-500 hover:bg-gray-200'}
-                        `}
-                    >
-                        <UsersIcon className="w-5 h-5" /> For Students
-                    </button>
-                </div>
-            </div>
-            {audience === 'students' && (
-                <div>
-                    <label htmlFor="classSelect" className="block text-sm font-bold text-gray-700 mb-2">Select a Class</label>
-                    <div className="relative">
-                        <select
-                            id="classSelect"
-                            value={selectedClass}
-                            onChange={(e) => setSelectedClass(e.target.value)}
-                            className="w-full p-4 pl-6 pr-12 border-2 border-gray-300 rounded-xl bg-white shadow-lg text-gray-700 font-medium appearance-none focus:ring-4 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 cursor-pointer"
-                            required
-                        >
-                            <option value="" disabled>-- Choose a class --</option>
-                            {classes.map((cls) => (<option key={cls.id} value={cls.id}>{cls.name} - {cls.section}</option>))}
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
-                            <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-            )}
-            <div>
-                <label htmlFor="announcementContent" className="block text-sm font-bold text-gray-700 mb-2">Your Announcement</label>
                 <textarea
-                    id="announcementContent"
+                    className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 text-gray-800 resize-none transition placeholder-gray-400"
+                    rows="4"
+                    placeholder="Share a new announcement..."
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    className="w-full p-4 border border-gray-300 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
-                    rows="6"
-                    placeholder="What's on your mind? Share an update, a reminder, or an important message with your students or fellow teachers."
-                    required
                 />
             </div>
-            <div className="flex justify-end pt-2">
-                <button
-                    type="submit"
-                    className="py-3 px-8 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 active:scale-95"
-                >
-                    Post Announcement
-                </button>
+
+            {/* Photo URL Input & Preview - Conditionally rendered */}
+            {audience === 'teachers' && (
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-gray-600">
+                        <FaImage className="text-lg text-blue-500" />
+                        <label htmlFor="photoURL" className="font-semibold text-sm">Add a Photo</label>
+                    </div>
+                    <input
+                        id="photoURL"
+                        type="text"
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 text-sm placeholder-gray-400"
+                        placeholder="Paste image URL here..."
+                        value={photoURL}
+                        onChange={(e) => setPhotoURL(e.target.value)}
+                    />
+                    {photoURL && (
+                         <div className="relative mt-2">
+                            <img src={photoURL} alt="Preview" className="rounded-lg max-h-48 w-full object-cover border border-gray-200" onError={(e) => e.target.style.display = 'none'}/>
+                            <button type="button" onClick={() => setPhotoURL('')} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition">
+                                <FaTimes />
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+            
+            <hr className="border-gray-200" />
+
+            {/* Audience and Class Selection */}
+            <div className="flex flex-col sm:flex-row gap-4 items-center">
+                <div className="w-full sm:w-1/2">
+                    <label htmlFor="audience" className="block text-sm font-medium text-gray-700 mb-1">Audience</label>
+                    <select
+                        id="audience"
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                        value={audience}
+                        onChange={(e) => setAudience(e.target.value)}
+                    >
+                        <option value="teachers">All Teachers</option>
+                        <option value="students">Students</option>
+                    </select>
+                </div>
+
+                {audience === 'students' && (
+                    <div className="w-full sm:w-1/2">
+                         <label htmlFor="class" className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+                        <select
+                            id="class"
+                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                            value={classId}
+                            onChange={(e) => setClassId(e.target.value)}
+                            required
+                        >
+                            <option value="">Select a class</option>
+                            {classes.map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
+
+            {/* Submit Button */}
+            <button type="submit" className="w-full bg-blue-500 text-white font-semibold py-2 px-3 rounded-lg shadow-md hover:bg-blue-600 transition">
+                Post Announcement
+            </button>
         </form>
     );
 };
