@@ -183,6 +183,32 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
             }
             return null;
         };
+        
+        // START: CORRECTED CODE
+        const formatNotesToString = (notesObject) => {
+            if (!notesObject || typeof notesObject !== 'object') {
+                return typeof notesObject === 'string' ? notesObject : 'No speaker notes available.';
+            }
+
+            const { talkingPoints, interactiveElement, slideTiming, "Essential Questions:": essentialQuestions } = notesObject;
+            let formattedString = '';
+
+            if (essentialQuestions) {
+                 formattedString += `Essential Questions:\n${essentialQuestions}\n\n`;
+            }
+            if (talkingPoints) {
+                formattedString += `Talking Points:\n${talkingPoints}\n\n`;
+            }
+            if (interactiveElement) {
+                formattedString += `Interactive Element:\n${interactiveElement}\n\n`;
+            }
+            if (slideTiming) {
+                formattedString += `Suggested Timing: ${slideTiming}`;
+            }
+
+            return formattedString.trim();
+        };
+        // END: CORRECTED CODE
 
         allSlides.forEach((slide, index) => {
             const data = slideData[index];
@@ -235,10 +261,13 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                 });
             }
 
+            // START: CORRECTED CODE
             if (notesShape && data.notes) {
                 populateRequests.push({ deleteText: { objectId: notesShape.objectId, textRange: { type: 'ALL' } } });
-                populateRequests.push({ insertText: { objectId: notesShape.objectId, text: cleanText(data.notes) } });
+                const formattedNotes = formatNotesToString(data.notes);
+                populateRequests.push({ insertText: { objectId: notesShape.objectId, text: cleanText(formattedNotes) } });
             }
+            // END: CORRECTED CODE
         });
 
         if (populateRequests.length > 0) {

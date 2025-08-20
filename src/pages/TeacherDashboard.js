@@ -277,23 +277,22 @@ const TeacherDashboard = () => {
                 throw new Error("Selected lessons contain no usable content to generate slides.");
             }
 
+            // START: CORRECTED CODE
             const presentationPrompt = `You are a master educator and curriculum designer. Your goal is to transform the provided lesson text into a masterfully structured and highly effective educational presentation.
 
             **CRITICAL INSTRUCTIONS:**
             1.  **JSON Output:** Your response MUST be a single, valid JSON object with a key "slides" which is an array of objects.
-            2.  **Slide Object Structure:** Each slide object MUST have three string keys: "title", "body", and "notes".
-            3.  **Language Match:** Your response MUST be in the same language as the provided 'LESSON CONTENT TO PROCESS'. If the lesson is in Filipino, the output must be in Filipino. If it is in English, the output must be in English.
-            4.  **One Idea Per Slide:** This is the most important rule.
-                - Be extremely aggressive in splitting content. A single paragraph from the source may need to become 2-3 slides.
-                - If you see a concept and an example for it, they MUST be on separate slides.
-                - Never put more than one key concept, definition, or major point on a single slide. Avoid slides with titles like "Concept (Part 2)".
-            5.  **Body Formatting Rules:**
-                - Use well-written paragraphs by default for all explanations and discussions.
-                - ONLY use bullet points when the source text provides an explicit list (e.g., components, steps, features, pros/cons).
-                - When using bullet points, start each item with "- ".
-                - Never mix paragraphs and bullet points in the same slide body.
-            6.  **No Markdown:** The output text in "title", "body", and "notes" fields MUST be plain text. Do NOT include any markdown like ** or *.
-            7.  **Speaker Notes:** The "notes" field for each slide MUST include a section labeled "Essential Questions:" containing 1-2 thought-provoking questions for the teacher to ask students. This section should also match the language of the lesson.
+            2.  **Slide Object Structure:** Each slide object MUST have a "title" (string), a "body" (string), and a "notes" (object).
+            3.  **Language Match:** Your response MUST be in the same language as the provided 'LESSON CONTENT TO PROCESS'.
+            4.  **One Idea Per Slide:** Be aggressive in splitting content. A single paragraph may become 2-3 slides. A concept and an example for it MUST be on separate slides.
+            5.  **Body Formatting:** Use paragraphs by default. ONLY use bullet points (starting with "- ") for explicit lists from the source text.
+            6.  **No Markdown:** All text fields must be plain text. Do not include markdown like ** or *.
+            7.  **Speaker Notes Object:** The "notes" field for each slide MUST be a JSON object with these exact string keys:
+                - "essentialQuestions": "1-2 thought-provoking questions for the teacher to ask."
+                - "talkingPoints": "A brief summary of the key points for the teacher to elaborate on."
+                - "interactiveElement": "A simple idea for student interaction, like 'Ask students to share an example' or 'Conduct a quick poll'."
+                - "slideTiming": "A suggested duration, like '2 minutes' or '5 minutes'."
+                *All values in the notes object must match the language of the lesson.*
             8.  **Specific Slides:**
                 - The first slide's title should be the overall presentation title.
                 - The second slide's title must be "Learning Objectives", with the body containing a bulleted list of 3-5 objectives.
@@ -301,6 +300,7 @@ const TeacherDashboard = () => {
             **LESSON CONTENT TO PROCESS:**
             ---
             ${allLessonContent}`;
+            // END: CORRECTED CODE
 
             const aiResponseText = await callGeminiWithLimitCheck(presentationPrompt);
 
@@ -353,7 +353,7 @@ const TeacherDashboard = () => {
                     .split('\n')
                     .map(line => line.trim())
                     .join('\n'),
-                notes: slide.notes?.trim() || ''
+                notes: slide.notes || {} // Ensure notes is an object
             }));
 
             const presentationUrl = await createPresentationFromData(

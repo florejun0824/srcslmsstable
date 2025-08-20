@@ -241,20 +241,23 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 	    `;
 	};
 		
-    const generateSingleLesson = async (lessonNumber, totalLessons, previousLessonSummary) => {
+    const generateSingleLesson = async (lessonNumber, totalLessons, previousLessonsContext) => {
         let lastError = null;
         let lastResponseText = null;
         const masterInstructions = getMasterInstructions();
 
         let continuityInstruction = '';
-        if (lessonNumber > 1 && previousLessonSummary) {
+        if (lessonNumber > 1 && previousLessonsContext) {
             continuityInstruction = `
-                **CRITICAL CONTINUITY INSTRUCTION:** You are generating Lesson ${lessonNumber}. The previous lesson (Lesson ${lessonNumber - 1}) covered the following topics:
+                **CRITICAL CONTINUITY & COHERENCE INSTRUCTION (NON-NEGOTIABLE):** You are generating Lesson ${lessonNumber} of a larger series. The following lessons have already been created. You MUST carefully review their titles and summaries to understand the narrative arc.
                 ---
-                **Summary of Previous Lesson:**
-                ${previousLessonSummary}
+                **PREVIOUSLY GENERATED LESSONS:**
+                ${previousLessonsContext}
                 ---
-                You MUST ensure this new lesson logically follows the previous one. Do not repeat the content from the summary. Begin with a brief recap or transition, and then introduce the new topics for this current lesson.
+                **YOUR TASK:**
+                1.  **ENSURE LOGICAL PROGRESSION:** This new lesson MUST be a logical continuation of the previous ones. It should build upon the concepts already introduced.
+                2.  **STRICTLY AVOID REDUNDANCY:** You are FORBIDDEN from repeating the content and topics covered in the lessons listed above. Introduce entirely new material that advances the overall learning guide.
+                3.  **CREATE A SMOOTH TRANSITION:** Begin with a brief sentence that connects back to the last lesson, creating a seamless transition for the student.
             `;
         }
 
@@ -272,6 +275,9 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                     **Core Content:** Subject: "${subjectName}", Grade: ${formData.gradeLevel}, Topic: "${formData.content}"
                     **Learning Competencies:** "${formData.learningCompetencies}"
                     **CRITICAL OBJECTIVES INSTRUCTION:** Generate 'learningObjectives' array with 3-5 objectives.
+                    **CRITICAL INSTRUCTION FOR LESSON TITLES (NON-NEGOTIABLE):** The "lessonTitle" MUST be academic, formal, and descriptive. It must clearly state the core topic of the lesson.
+                        - **GOOD Example:** "Lesson 1: The Principles of Newtonian Mechanics"
+                        - **BAD Example:** "Lesson 1: Fun with Physics!"
                     **Lesson Details:** You are generating **Lesson ${lessonNumber} of ${totalLessons}**. The "lessonTitle" MUST be unique and start with "Lesson ${lessonNumber}: ".
                     ${continuityInstruction}
                     **PAGE COUNT/DEPTH:** Minimum of **30 pages for this single lesson**. Achieve this with deep narrative richness.
@@ -305,9 +311,9 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         const lessonSummaryLabel = formData.language === 'Filipino' ? 'Buod ng Aralin' : "Lesson Summary";
 
         const findSummaryContent = (lesson) => {
-            if (!lesson || !lesson.pages) return "";
+            if (!lesson || !lesson.pages) return "No summary available.";
             const summaryPage = lesson.pages.find(p => p.title === lessonSummaryLabel);
-            return summaryPage ? summaryPage.content : "";
+            return summaryPage ? summaryPage.content : "Summary page not found.";
         };
 
         try {
@@ -319,10 +325,11 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                 setLessonProgress({ current: i, total: formData.lessonCount });
                 showToast(`Generating Lesson ${i} of ${formData.lessonCount}...`, "info", 10000);
                 
-                const lastSuccessfulLesson = currentLessons.length > 0 ? currentLessons[currentLessons.length - 1] : null;
-                const previousLessonSummary = lastSuccessfulLesson ? findSummaryContent(lastSuccessfulLesson) : "";
+                const previousLessonsContext = currentLessons
+                    .map((lesson, index) => `Lesson ${index + 1}: "${lesson.lessonTitle}"\nSummary: ${findSummaryContent(lesson)}`)
+                    .join('\n---\n');
 
-                const singleLessonData = await generateSingleLesson(i, formData.lessonCount, previousLessonSummary);
+                const singleLessonData = await generateSingleLesson(i, formData.lessonCount, previousLessonsContext);
                 
                 if (singleLessonData && singleLessonData.generated_lessons && singleLessonData.generated_lessons.length > 0) {
                     currentLessons.push(...singleLessonData.generated_lessons);
