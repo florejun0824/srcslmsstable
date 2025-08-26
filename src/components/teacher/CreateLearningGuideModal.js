@@ -36,7 +36,29 @@ const tryParseJson = (jsonString) => {
     }
 };
 
+/**
+ * Defines the initial, empty state for the form.
+ * This constant is used to initialize and reset the form data.
+ */
+const initialFormData = {
+    content: '',
+    lessonCount: 1,
+    learningCompetencies: '',
+    contentStandard: '',
+    performanceStandard: '',
+    language: 'English',
+    gradeLevel: '7',
+};
 
+/**
+ * A modal component for generating multi-lesson learning guides using an AI service.
+ * It handles user input, communicates with the AI, displays a preview, and saves the final content to Firestore.
+ * @param {object} props - Component props.
+ * @param {boolean} props.isOpen - Controls if the modal is visible.
+ * @param {Function} props.onClose - Function to call when the modal should be closed.
+ * @param {string} [props.unitId] - The ID of the parent unit, if specified.
+ * @param {string} props.subjectId - The ID of the parent subject.
+ */
 export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subjectId }) {
     const { showToast } = useToast();
     const [isGenerating, setIsGenerating] = useState(false);
@@ -52,31 +74,38 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
     const [failedLessonNumber, setFailedLessonNumber] = useState(null);
     const [lessonProgress, setLessonProgress] = useState({ current: 0, total: 0 });
 
-    const [formData, setFormData] = useState({
-        content: '',
-        lessonCount: 1,
-        learningCompetencies: '',
-        contentStandard: '',
-        performanceStandard: '',
-        language: 'English',
-        gradeLevel: '7',
-    });
+    const [formData, setFormData] = useState(initialFormData);
+
+    // --- State Reset and Close Handling ---
+
+    const resetState = () => {
+        setFormData(initialFormData);
+        setPreviewData(null);
+        setIsGenerating(false);
+        setIsSaving(false);
+        setExtraInstruction('');
+        setFailedLessonNumber(null);
+        setLessonProgress({ current: 0, total: 0 });
+    };
+
+    const handleClose = () => {
+        resetState();
+        onClose();
+    };
+
+
+    // --- Data Fetching Effects ---
 
     useEffect(() => {
         if (subjectId) {
             const fetchSubjectName = async () => {
                 const subjectRef = doc(db, 'subjects', subjectId);
                 const subjectSnap = await getDoc(subjectRef);
-                if (subjectSnap.exists()) {
-                    setSubjectName(subjectSnap.data().title);
-                } else {
-                    setSubjectName('');
-                }
+                setSubjectName(subjectSnap.exists() ? subjectSnap.data().title : '');
             };
             fetchSubjectName();
         }
     }, [subjectId]);
-
 
     useEffect(() => {
         if (unitId) {
@@ -90,15 +119,15 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             const unsubscribe = onSnapshot(unitsQuery, (snapshot) => {
                 const unitsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setAvailableUnits(unitsData);
-                if (unitsData.length > 0) {
+                if (unitsData.length > 0 && !selectedUnitId) {
                     setSelectedUnitId(unitsData[0].id);
-                } else {
+                } else if (unitsData.length === 0) {
                     setSelectedUnitId('');
                 }
             });
             return () => unsubscribe();
         }
-    }, [isOpen, unitId, subjectId]);
+    }, [isOpen, unitId, subjectId, selectedUnitId]);
 
     useEffect(() => {
         const unitToQuery = unitId || selectedUnitId;
@@ -111,10 +140,30 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         }
     }, [isOpen, unitId, selectedUnitId]);
 
+
+    // --- Form & Action Handlers ---
+
     const handleChange = (e) => {
         const { name, value } = e.target;
-        const finalValue = name === 'lessonCount' ? Number(value) : value;
+        const finalValue = name === 'lessonCount' ? Math.max(1, Number(value)) : value;
         setFormData(prev => ({ ...prev, [name]: finalValue }));
+    };
+
+    const handleBackToEdit = () => {
+        setPreviewData(null);
+        setFailedLessonNumber(null);
+        setLessonProgress({ current: 0, total: 0 });
+    };
+
+    const handleInitialGenerate = () => {
+        setPreviewData(null);
+        runGenerationLoop(1);
+    };
+
+    const handleContinueGenerate = () => {
+        if (failedLessonNumber) {
+            runGenerationLoop(failedLessonNumber);
+        }
     };
 
 	const getMasterInstructions = () => {
@@ -354,27 +403,6 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             setIsGenerating(false);
         }
     };
-    
-    const handleInitialGenerate = async () => {
-        setPreviewData(null);
-        runGenerationLoop(1);
-    };
-
-    const handleContinueGenerate = () => {
-        if (failedLessonNumber) {
-            runGenerationLoop(failedLessonNumber);
-        }
-    };
-
-    const handleBackToEdit = () => {
-        setPreviewData(null);
-        setFailedLessonNumber(null);
-        setLessonProgress({ current: 0, total: 0 });
-    };
-    
-    const handleRegenerate = async (regenerationNote) => {
-        showToast("To regenerate, please go back to edit and start a new generation.", "warning");
-    };
 
     const handleSave = async () => {
         const finalUnitId = unitId || selectedUnitId;
@@ -405,7 +433,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             });
             await batch.commit();
             showToast(`${previewData.generated_lessons.length} lesson(s) saved successfully!`, "success");
-            onClose();
+            handleClose(); // Use handleClose to reset state and close
         } catch (err) {
             console.error("Save error:", err);
             showToast("Failed to save lessons.", "error");
@@ -414,16 +442,28 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         }
     };
 
+
+    // --- Render Logic ---
+
     const isValidPreview = previewData && !previewData.error && Array.isArray(previewData.generated_lessons);
     const currentObjectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
     const objectivesIntro = formData.language === 'Filipino' 
         ? 'Sa pagtatapos ng araling ito, magagawa ng mga mag-aaral na:' 
         : 'By the end of this lesson, students will be able to:';
+        
+    // --- UI Style Constants ---
+    const inputStyles = "block w-full px-3 py-2 bg-gray-100 border border-transparent rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-shadow duration-200";
+    const buttonBaseStyles = "px-5 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2";
+    const primaryButtonStyles = `${buttonBaseStyles} bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md hover:-translate-y-0.5 focus:ring-indigo-500 disabled:bg-indigo-300 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none`;
+    const secondaryButtonStyles = `${buttonBaseStyles} bg-gray-200 text-gray-700 hover:bg-gray-300 hover:shadow-md hover:-translate-y-0.5 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:transform-none disabled:shadow-none`;
+
 
     return (
-        <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4">
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
-            <Dialog.Panel className="relative bg-slate-50 p-4 sm:p-6 rounded-2xl shadow-2xl w-full max-w-md lg:max-w-5xl max-h-[90vh] flex flex-col">
+        <Dialog open={isOpen} onClose={handleClose} className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4">
+            {/* FIX: Replaced deprecated Dialog.Backdrop with a standard div */}
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" />
+            
+            <Dialog.Panel className="relative bg-gray-50 p-4 sm:p-6 rounded-2xl shadow-xl border border-gray-200 w-full max-w-md lg:max-w-5xl max-h-[90vh] flex flex-col transition-all duration-300 ease-in-out">
                 {(isGenerating || isSaving) && (
                     <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl">
                         <InteractiveLoadingScreen 
@@ -433,127 +473,124 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                         />
                     </div>
                 )}
-                <div className="flex justify-between items-start mb-4 sm:mb-6">
+                
+                <header className="flex justify-between items-start pb-4 border-b border-gray-200">
                     <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2 sm:p-3 rounded-xl text-white shadow-lg flex-shrink-0">
-                            <AcademicCapIcon className="h-6 w-6 sm:h-8 sm:h-8" />
+                        <div className="bg-gradient-to-br from-indigo-500 to-blue-500 p-3 rounded-xl text-white shadow-lg flex-shrink-0">
+                            <AcademicCapIcon className="h-7 w-7" />
                         </div>
                         <div>
-                            <Dialog.Title className="text-base sm:text-2xl font-bold text-slate-800">AI Learning Guide Generator</Dialog.Title>
-                            <p className="text-xs sm:text-sm text-slate-500">Create new student-facing lessons from scratch.</p>
+                            <Dialog.Title className="text-lg sm:text-2xl font-bold text-gray-800">AI Learning Guide Generator</Dialog.Title>
+                            <p className="text-xs sm:text-sm text-gray-500">Create new student-facing lessons from scratch.</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 rounded-full text-slate-400 hover:bg-slate-200"><XMarkIcon className="h-6 w-6" /></button>
-                </div>
-                <div className="flex-1 overflow-y-auto -mr-2 pr-2 sm:-mr-4 sm:pr-4">
+                    <button onClick={handleClose} className="p-2 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-colors">
+                        <XMarkIcon className="h-6 w-6" />
+                    </button>
+                </header>
+
+                <main className="flex-1 overflow-y-auto py-5 -mr-2 pr-2 sm:-mr-4 sm:pr-4">
                     {!previewData ? (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md space-y-4">
-                                <h3 className="font-bold text-base sm:text-lg text-slate-700 border-b pb-2">Core Content</h3>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                             {/* --- Column 1: Core Content --- */}
+                            <div className="bg-white p-5 rounded-xl border border-gray-200 space-y-4 shadow-sm">
+                                <h3 className="font-bold text-lg text-gray-700 border-b border-gray-200 pb-2">Core Content</h3>
                                 {availableUnits.length > 0 && !unitId && (
                                     <div>
-                                        <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Destination Unit</label>
-                                        <select value={selectedUnitId} onChange={(e) => setSelectedUnitId(e.target.value)} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white">
+                                        <label className="block text-sm font-medium text-gray-600 mb-2">Destination Unit</label>
+                                        <select value={selectedUnitId} onChange={(e) => setSelectedUnitId(e.target.value)} className={inputStyles}>
                                             {availableUnits.map(unit => (<option key={unit.id} value={unit.id}>{unit.title}</option>))}
                                         </select>
                                     </div>
                                 )}
                                 <div>
-                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Main Content / Topic</label>
-                                    <textarea placeholder="e.g., The Photosynthesis Process" name="content" value={formData.content} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" rows={3} />
+                                    <label className="block text-sm font-medium text-gray-600 mb-2">Main Content / Topic</label>
+                                    <textarea placeholder="e.g., The Photosynthesis Process" name="content" value={formData.content} onChange={handleChange} className={inputStyles} rows={3} />
                                 </div>
                                 <div>
-                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Learning Competencies</label>
-                                    <textarea placeholder="e.g., Describe the process of photosynthesis..." name="learningCompetencies" value={formData.learningCompetencies} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" rows={4} />
+                                    <label className="block text-sm font-medium text-gray-600 mb-2">Learning Competencies</label>
+                                    <textarea placeholder="e.g., Describe the process of photosynthesis..." name="learningCompetencies" value={formData.learningCompetencies} onChange={handleChange} className={inputStyles} rows={4} />
                                 </div>
                                 <div>
-                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Content Standard (Optional)</label>
-                                    <textarea name="contentStandard" value={formData.contentStandard} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" rows={2} />
+                                    <label className="block text-sm font-medium text-gray-600 mb-2">Content Standard <span className="text-gray-400">(Optional)</span></label>
+                                    <textarea name="contentStandard" value={formData.contentStandard} onChange={handleChange} className={inputStyles} rows={2} />
                                 </div>
                                 <div>
-                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Performance Standard (Optional)</label>
-                                    <textarea name="performanceStandard" value={formData.performanceStandard} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" rows={2} />
+                                    <label className="block text-sm font-medium text-gray-600 mb-2">Performance Standard <span className="text-gray-400">(Optional)</span></label>
+                                    <textarea name="performanceStandard" value={formData.performanceStandard} onChange={handleChange} className={inputStyles} rows={2} />
                                 </div>
                             </div>
-                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md space-y-4">
-                               <h3 className="font-bold text-base sm:text-lg text-slate-700 border-b pb-2">Settings</h3>
+                             {/* --- Column 2: Settings --- */}
+                            <div className="bg-white p-5 rounded-xl border border-gray-200 space-y-4 shadow-sm">
+                               <h3 className="font-bold text-lg text-gray-700 border-b border-gray-200 pb-2">Settings</h3>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Language</label>
-                                        <select name="language" value={formData.language} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                        <label className="block text-sm font-medium text-gray-600 mb-2">Language</label>
+                                        <select name="language" value={formData.language} onChange={handleChange} className={inputStyles}>
                                             <option value="English">English</option>
                                             <option value="Filipino">Filipino</option>
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Grade Level</label>
-                                        <select name="gradeLevel" value={formData.gradeLevel} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                                            <option value="7">Grade 7</option>
-                                            <option value="8">Grade 8</option>
-                                            <option value="9">Grade 9</option>
-                                            <option value="10">Grade 10</option>
-                                            <option value="11">Grade 11</option>
-                                            <option value="12">Grade 12</option>
+                                        <label className="block text-sm font-medium text-gray-600 mb-2">Grade Level</label>
+                                        <select name="gradeLevel" value={formData.gradeLevel} onChange={handleChange} className={inputStyles}>
+                                            {[7, 8, 9, 10, 11, 12].map(grade => <option key={grade} value={grade}>Grade {grade}</option>)}
                                         </select>
                                     </div>
                                 </div>
-
                                 <div>
-                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Number of Lessons</label>
-                                    <input type="number" name="lessonCount" min="1" max="10" value={formData.lessonCount} onChange={handleChange} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" />
+                                    <label className="block text-sm font-medium text-gray-600 mb-2">Number of Lessons</label>
+                                    <input type="number" name="lessonCount" min="1" max="10" value={formData.lessonCount} onChange={handleChange} className={inputStyles} />
                                 </div>
                             </div>
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <h2 className="text-lg sm:text-xl font-bold text-slate-700">Preview Content</h2>
-                            <div className="space-y-2 max-h-[60vh] overflow-y-auto border rounded-lg p-2 sm:p-4 bg-slate-100">
+                            <h2 className="text-xl font-bold text-gray-800">Preview Content</h2>
+                            <div className="space-y-4 max-h-[60vh] overflow-y-auto border border-gray-200 rounded-lg p-4 bg-white shadow-inner">
                                 {isValidPreview ? previewData.generated_lessons.map((lesson, index) => (
-                                    <div key={index}>
-                                        <h3 className="font-bold text-base sm:text-xl sticky top-0 bg-slate-100 py-2 z-10">{lesson.lessonTitle}</h3>
+                                    <div key={index} className="border-b border-gray-200 pb-4 last:border-b-0">
+                                        <h3 className="font-bold text-xl sticky top-0 bg-white/80 backdrop-blur-sm py-2 z-10 text-gray-900">{lesson.lessonTitle}</h3>
                                         {lesson.learningObjectives && lesson.learningObjectives.length > 0 && (
-                                            <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-200 text-blue-800 rounded-r-lg text-sm">
+                                            <div className="my-4 p-4 bg-indigo-50 border-l-4 border-indigo-300 text-indigo-900 rounded-r-lg">
                                                 <p className="font-semibold mb-2">{currentObjectivesLabel}</p>
-                                                <p className="mb-2">{objectivesIntro}</p>
-                                                <ul className="list-disc list-inside pl-4">
-                                                    {lesson.learningObjectives.map((objective, objIndex) => (
-                                                        <li key={objIndex} className="mb-1">{objective}</li>
-                                                    ))}
+                                                <p className="text-sm mb-2">{objectivesIntro}</p>
+                                                <ul className="list-disc list-inside space-y-1 text-sm">
+                                                    {lesson.learningObjectives.map((objective, objIndex) => <li key={objIndex}>{objective}</li>)}
                                                 </ul>
                                             </div>
                                         )}
                                         {lesson.pages.map((page, pageIndex) => <LessonPage key={`${index}-${pageIndex}`} page={page} />)}
                                     </div>
-                                )) : <p className="text-red-600">Could not generate a valid preview.</p>}
+                                )) : <p className="text-red-600 font-medium">Could not generate a valid preview. Please try again.</p>}
                             </div>
-                            <textarea value={extraInstruction} onChange={(e) => setExtraInstruction(e.target.value)} placeholder="Make changes to the entire set of lessons..." className="w-full border p-2 rounded-lg text-sm" rows={2} />
                         </div>
                     )}
-                </div>
-                <div className="pt-4 sm:pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-slate-200 mt-4 sm:mt-6">
+                </main>
+
+                <footer className="pt-4 mt-2 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-gray-200">
                     {previewData ? (
                          <>
-                         <button onClick={handleBackToEdit} disabled={isSaving || isGenerating} className="btn-secondary w-full sm:w-auto text-sm">Back to Edit</button>
+                         <button onClick={handleBackToEdit} disabled={isSaving || isGenerating} className={secondaryButtonStyles}>Back to Edit</button>
                          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                            {failedLessonNumber ? (
-                                 <button onClick={handleContinueGenerate} disabled={isGenerating} className="btn-primary w-full sm:w-auto text-sm flex items-center justify-center gap-2">
+                            {/* FIX: Simplified logic to only show Continue button on failure */}
+                            {failedLessonNumber && (
+                                 <button onClick={handleContinueGenerate} disabled={isGenerating} className={`${primaryButtonStyles} flex items-center justify-center gap-2`}>
                                      <ArrowPathIcon className="h-5 w-5" />
                                      Continue from Lesson {failedLessonNumber}
                                  </button>
-                            ) : (
-                                 <button onClick={() => handleRegenerate(extraInstruction)} disabled={isGenerating} className="btn-secondary w-full sm:w-auto text-sm">Regenerate</button>
                             )}
-                             <button onClick={handleSave} className="btn-primary w-full sm:w-auto text-sm" disabled={!isValidPreview || isSaving || failedLessonNumber}>
-                                 {isSaving ? 'Saving...' : 'Accept & Save'}
+                             <button onClick={handleSave} className={primaryButtonStyles} disabled={!isValidPreview || isSaving || isGenerating || failedLessonNumber}>
+                                 {isSaving ? 'Saving...' : `Accept & Save ${previewData?.generated_lessons?.length || 0} Lesson(s)`}
                              </button>
                          </div>
                      </>
                     ) : (
-                        <button onClick={handleInitialGenerate} disabled={isGenerating} className="btn-primary ml-auto w-full sm:w-auto text-sm">
+                        <button onClick={handleInitialGenerate} disabled={isGenerating || !formData.content || !formData.learningCompetencies} className={`${primaryButtonStyles} ml-auto w-full sm:w-auto`}>
                             {isGenerating ? 'Generating...' : 'Generate Document'}
                         </button>
                     )}
-                </div>
+                </footer>
             </Dialog.Panel>
         </Dialog>
     );
