@@ -474,11 +474,11 @@ const HomeView = ({
                     openReactionsBreakdownModal(reactions, homeViewUsersMap);
                 }}
             >
-                {sortedReactions.map(([type]) => {
+                {sortedReactions.slice(0, 3).map(([type]) => {
                     const IconComponent = reactionIconsHomeView[type]?.component;
                     return IconComponent ? <IconComponent key={type} /> : null;
                 })}
-                <span className="text-xs text-gray-500 font-medium">{Object.keys(safeReactions).length}</span>
+                <span className="text-xs text-zinc-600 font-medium">{Object.keys(safeReactions).length}</span>
                 <AnimatePresence>
                     {isVisible && (
                         <motion.div
@@ -486,11 +486,7 @@ const HomeView = ({
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 10 }}
                             transition={{ duration: 0.2 }}
-                            className="reaction-hover-popup-homeview bg-gray-800 text-white text-xs p-2 rounded-lg shadow-lg absolute z-50 transform -translate-x-1/2"
-                            style={{
-                                bottom: 'calc(100% + 8px)',
-                                left: '50%',
-                            }}
+                            className="absolute z-50 bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 whitespace-nowrap bg-zinc-800 text-white text-xs p-2 rounded-lg shadow-lg"
                             onMouseEnter={handlePopupMouseEnter}
                             onMouseLeave={handlePopupMouseLeave}
                         >
@@ -595,37 +591,37 @@ const HomeView = ({
     };
 
     return (
-        <div className="relative min-h-screen p-4 md:p-8 bg-gray-100 text-gray-800 font-sans overflow-hidden rounded-3xl">
+        <div className="relative min-h-screen p-4 md:p-8 bg-zinc-50 text-zinc-800 font-sans overflow-hidden rounded-3xl">
             <div className="absolute top-0 left-0 w-full h-full z-0 pointer-events-none">
                 <motion.div
-                    className="absolute -top-40 -left-40 w-96 h-96 bg-primary-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30"
+                    className="absolute -top-40 -left-40 w-96 h-96 bg-rose-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 30, ease: "linear", repeat: Infinity }}
+                    transition={{ duration: 40, ease: "linear", repeat: Infinity }}
                 />
                 <motion.div
-                    className="absolute bottom-20 -right-40 w-96 h-96 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30"
+                    className="absolute bottom-20 -right-40 w-96 h-96 bg-sky-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
                     animate={{ rotate: -360 }}
-                    transition={{ duration: 30, ease: "linear", repeat: Infinity, delay: 2 }}
+                    transition={{ duration: 40, ease: "linear", repeat: Infinity, delay: 2 }}
                 />
                 <motion.div
-                    className="absolute top-1/2 left-1/4 w-80 h-80 bg-rose-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
+                    className="absolute top-1/2 left-1/4 w-80 h-80 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl opacity-10"
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 30, ease: "linear", repeat: Infinity, delay: 4 }}
+                    transition={{ duration: 40, ease: "linear", repeat: Infinity, delay: 4 }}
                 />
             </div>
 
-            <div className="relative z-10 space-y-10">
+            <div className="relative z-10 space-y-8">
                 <motion.div
                     {...fadeProps}
-                    className={`relative px-5 py-0.5 md:px-8 md:py-0.5 bg-white rounded-3xl shadow-2xl overflow-hidden default-banner-background h-48`}
+                    className="relative px-5 py-0.5 md:px-8 md:py-0.5 bg-white/70 backdrop-blur-md rounded-[2rem] shadow-lg border border-zinc-200/80 overflow-hidden h-48"
                 >
                     {isSpecialBannerActive ? (
                         <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-0 h-full items-center px-0.5">
                             <div className="col-span-1 text-center md:text-left flex flex-col justify-center h-full">
-                                <h1 className="text-3xl font-extrabold text-gray-800 drop-shadow-sm leading-tight">
-                                    Hey there, {userProfile?.firstName}!
+                                <h1 className="text-3xl font-bold text-zinc-800 drop-shadow-sm leading-tight">
+                                    Welcome, Teacher {userProfile?.firstName}!
                                 </h1>
-                                <p className="text-xs text-gray-500 mt-0">SRCS LMS dashboard at a glance.</p>
+                                <p className="text-sm text-zinc-500 mt-1">Your dashboard at a glance.</p>
                             </div>
 
                             <div
@@ -645,9 +641,7 @@ const HomeView = ({
                             </div>
 
                             <div className="col-span-1 flex items-center justify-center h-full overflow-hidden">
-                                <div className="bg-gradient-to-br from-indigo-50 to-blue-100 text-gray-800 rounded-2xl shadow-lg border border-indigo-200/50 w-full h-full p-4 flex flex-col justify-between">
-                                    <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGwlM0QiMDAwMDAwIiUyMGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM2SDI4VjI0aDEyYzEuMTA0IDAgMiAuODk2IDIgMlYyMmMwIDEuMTA0LS44OTYgMi0yIDJ6TTQ0IDQ0SDMyVjMyaDEyYzEuMTA0IDAgMiAuODk2IDIgMlY0MmMwIDEuMTA0LS44OTYgMi0yIDJ6Ii8+PC9nPjwvZ34KPC9zdmc+')] opacity-10 transform rotate-45 scale-150 transition-transform duration-500 group-hover:scale-100"></div>
-                                    
+                                <div className="bg-gradient-to-br from-indigo-50 to-blue-100 text-zinc-800 rounded-2xl shadow-md border border-indigo-200/50 w-full h-full p-4 flex flex-col justify-between">
                                     <div className="relative z-10">
                                         <p className="font-bold text-indigo-700 flex items-center gap-2">
                                             <FaCalendarAlt className="w-5 h-5" />
@@ -668,7 +662,7 @@ const HomeView = ({
                                                 >
                                                     <span className="font-bold text-2xl text-indigo-900 leading-tight block">{todayActivities[currentActivityIndex].title}</span>
                                                     {todayActivities[currentActivityIndex].time && todayActivities[currentActivityIndex].time !== 'N/A' && (
-                                                        <span className="flex items-center text-xl justify-center mt-1 text-gray-700 font-light">
+                                                        <span className="flex items-center text-xl justify-center mt-1 text-zinc-700 font-light">
                                                             <FaClock className="w-4 h-4 mr-2 opacity-70" /> {todayActivities[currentActivityIndex].time}
                                                         </span>
                                                     )}
@@ -687,30 +681,28 @@ const HomeView = ({
                                                     exit={{ opacity: 0, y: -10 }}
                                                     transition={{ duration: 0.5 }}
                                                 >
-                                                   <p className="text-lg font-semibold text-gray-500">All Clear!</p>
-                                                   <p className="text-sm text-gray-400">No activities scheduled for today.</p>
+                                                   <p className="text-lg font-semibold text-zinc-500">All Clear!</p>
+                                                   <p className="text-sm text-zinc-400">No activities scheduled for today.</p>
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
                                     </div>
 
                                     <div className="relative z-10">
-                                        <p className="text-xs text-center pt-2 opacity-90 border-t border-indigo-200/80 text-gray-700">Stay on top of your schedule!</p>
+                                        <p className="text-xs text-center pt-2 opacity-90 border-t border-indigo-200/80 text-zinc-700">Stay on top of your schedule!</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     ) : (
-                        <div className="relative z-10 flex flex-col md:flex-row md:items-start md:justify-between h-full w-full">
+                        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between h-full w-full py-4">
                             <div className="flex-1">
-                                <h1 className="text-4xl lg:text-5xl font-extrabold text-gray-800 drop-shadow-sm leading-tight">
-                                    Hey there, {userProfile?.firstName}!
+                                <h1 className="text-4xl lg:text-5xl font-bold text-zinc-800 drop-shadow-sm leading-tight">
+                                     Welcome, Teacher {userProfile?.firstName}!
                                 </h1>
-                                <p className="text-lg text-gray-500 mt-2">SRCS LMS Dashboard At a Glance.</p>
+                                <p className="text-lg text-zinc-500 mt-2">Your dashboard at a glance.</p>
                             </div>
-                            <div className="mt-6 md:mt-0 md:ml-6 p-4 bg-gradient-to-br from-indigo-50 to-blue-100 text-gray-800 rounded-2xl shadow-lg border border-indigo-200/50 max-w-sm flex-shrink-0 relative overflow-hidden group flex flex-col justify-between">
-                                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGwlM0QiMDAwMDAwIiUyMGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM2SDI0VjI0aDEyYzEuMTA0IDAgMiAuODk2IDIgMlYyMmMwIDEuMTA0LS44OTYgMi0yIDJ6TTQ0IDQ0SDMyVjMyaDEyYzEuMTA0IDAgMiAuODk2IDIgMlY0MmMwIDEuMTA0LS44OTYgMi0yIDJ6Ii8+PC9nPjwvZ34KPC9zdmc+')] opacity-10 transform rotate-45 scale-150 transition-transform duration-500 group-hover:scale-100"></div>
-                                
+                            <div className="mt-6 md:mt-0 md:ml-6 p-4 bg-gradient-to-br from-indigo-50 to-blue-100 text-zinc-800 rounded-2xl shadow-lg border border-indigo-200/50 max-w-sm flex-shrink-0 relative group flex flex-col justify-between">
                                 <div className="relative z-10">
                                     <p className="font-bold text-indigo-700 flex items-center gap-2">
                                         <FaCalendarAlt className="w-5 h-5" />
@@ -731,7 +723,7 @@ const HomeView = ({
                                             >
                                                 <span className="font-bold text-2xl text-indigo-900 leading-tight block">{todayActivities[currentActivityIndex].title}</span>
                                                 {todayActivities[currentActivityIndex].time && todayActivities[currentActivityIndex].time !== 'N/A' && (
-                                                    <span className="flex items-center text-xl justify-center mt-1 text-gray-700 font-light">
+                                                    <span className="flex items-center text-xl justify-center mt-1 text-zinc-700 font-light">
                                                         <FaClock className="w-4 h-4 mr-2 opacity-70" /> {todayActivities[currentActivityIndex].time}
                                                     </span>
                                                 )}
@@ -750,42 +742,42 @@ const HomeView = ({
                                                 exit={{ opacity: 0, y: -10 }}
                                                 transition={{ duration: 0.5 }}
                                             >
-                                               <p className="text-lg font-semibold text-gray-500">All Clear!</p>
-                                               <p className="text-sm text-gray-400">No activities scheduled for today.</p>
+                                               <p className="text-lg font-semibold text-zinc-500">All Clear!</p>
+                                               <p className="text-sm text-zinc-400">No activities scheduled for today.</p>
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
                                 </div>
 
                                 <div className="relative z-10">
-                                    <p className="text-xs text-center pt-2 opacity-90 border-t border-indigo-200/80 text-gray-700">Stay on top of your schedule!</p>
+                                    <p className="text-xs text-center pt-2 opacity-90 border-t border-indigo-200/80 text-zinc-700">Stay on top of your schedule!</p>
                                 </div>
                             </div>
                         </div>
                     )}
                 </motion.div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 md:gap-8">
-                    <motion.div {...fadeProps} transition={{ duration: 0.5, delay: 0.3 }}>
-                        <ClockWidget className="rounded-3xl shadow-xl transition transform hover:scale-105 duration-300 ease-in-out hover:shadow-2xl" />
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                    <motion.div {...fadeProps} transition={{ duration: 0.5, delay: 0.2 }}>
+                        <ClockWidget className="rounded-[2rem] shadow-lg transition transform hover:scale-105 duration-300 ease-in-out hover:shadow-xl border border-zinc-200/80" />
                     </motion.div>
-                    <motion.div {...fadeProps} transition={{ duration: 0.5, delay: 0.6 }}>
-                        <InspirationCard className="rounded-3xl shadow-xl transition transform hover:scale-105 duration-300 ease-in-out hover:shadow-2xl" />
+                    <motion.div {...fadeProps} transition={{ duration: 0.5, delay: 0.4 }}>
+                        <InspirationCard className="rounded-[2rem] shadow-lg transition transform hover:scale-105 duration-300 ease-in-out hover:shadow-xl border border-zinc-200/80" />
                     </motion.div>
                     <motion.div
                         {...fadeProps}
-                        transition={{ duration: 0.5, delay: 0.9 }}
-                        className="bg-white p-6 rounded-3xl shadow-xl flex items-center justify-center flex-col text-center cursor-pointer transition transform hover:scale-105 duration-300 ease-in-out"
+                        transition={{ duration: 0.5, delay: 0.6 }}
+                        className="bg-white/70 backdrop-blur-md p-6 rounded-[2rem] shadow-lg flex items-center justify-center flex-col text-center cursor-pointer transition transform hover:scale-105 duration-300 ease-in-out border border-zinc-200/80"
                         onClick={() => setIsScheduleModalOpen(true)}
                     >
                         <FaCalendarAlt className="h-10 w-10 text-rose-500 mb-2" />
-                        <h3 className="font-bold text-gray-800 text-lg">Schedule of Activities</h3>
-                        <p className="text-sm text-gray-500 mt-1">Check out what's due soon.</p>
+                        <h3 className="font-bold text-zinc-800 text-lg">Schedule of Activities</h3>
+                        <p className="text-sm text-zinc-500 mt-1">Click to view what's coming up.</p>
                     </motion.div>
                     <motion.div
                         {...fadeProps}
-                        transition={{ duration: 0.5, delay: 1.2 }}
-                        className="cursor-pointer transition transform hover:scale-105 duration-300 ease-in-out hover:shadow-2xl"
+                        transition={{ duration: 0.5, delay: 0.8 }}
+                        className="cursor-pointer transition transform hover:scale-105 duration-300 ease-in-out hover:shadow-xl"
                         onClick={() => handleViewChange('classes')}
                     >
                         <GradientStatCard
@@ -793,7 +785,7 @@ const HomeView = ({
                             value={activeClasses.length}
                             icon={<FaGraduationCap />}
                             gradient="from-green-500 to-emerald-600"
-                            className="rounded-3xl shadow-xl"
+                            className="rounded-[2rem] shadow-lg"
                         />
                     </motion.div>
                 </div>
@@ -802,14 +794,14 @@ const HomeView = ({
                     <motion.div
                         {...fadeProps}
                         transition={{ duration: 0.5 }}
-                        className="lg:col-span-1 p-6 bg-gradient-to-br from-white to-gray-50 rounded-3xl shadow-xl hover:shadow-2xl transition-shadow duration-300"
+                        className="lg:col-span-1 p-6 bg-white/70 backdrop-blur-md rounded-[2rem] shadow-lg hover:shadow-xl transition-shadow duration-300 border border-zinc-200/80"
                     >
                         <div className="flex items-center gap-4 mb-6">
                             <div className="bg-rose-100 p-3 rounded-2xl">
                                 <FaBullhorn className="w-6 h-6 text-rose-500" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-gray-800">Create Announcement</h2>
+                                <h2 className="text-xl font-bold text-zinc-800">Create Announcement</h2>
                             </div>
                         </div>
                         <CreateAnnouncement classes={activeClasses} onPost={handleCreateAnnouncement} />
@@ -817,8 +809,7 @@ const HomeView = ({
 
                     <div className="lg:col-span-2 space-y-6">
                         <div className="flex items-center gap-3 mb-4">
-            
-                            <h2 className="text-2xl font-bold text-gray-800">Activity Feed</h2>
+                            <h2 className="text-2xl font-bold text-zinc-800">Activity Feed</h2>
                         </div>
                         <AnimatePresence>
                             {sortedAnnouncements && sortedAnnouncements.length > 0 ? sortedAnnouncements.map(post => {
@@ -835,10 +826,10 @@ const HomeView = ({
                                     <motion.div
                                         key={post.id}
                                         {...fadeProps}
-                                        className={`bg-white rounded-3xl shadow-xl p-6 relative group transform transition-transform duration-200 hover:scale-[1.005] border ${post.isPinned ? 'border-yellow-400' : 'border-transparent hover:border-blue-200'} transition-colors`}
+                                        className={`bg-white/70 backdrop-blur-md rounded-[2rem] shadow-lg p-6 relative group transform transition-all duration-300 hover:shadow-xl border ${post.isPinned ? 'border-amber-400' : 'border-zinc-200/80'}`}
                                     >
                                         {post.isPinned && (
-                                            <div className="absolute top-4 left-4 flex items-center gap-2 text-yellow-600 bg-yellow-100 px-3 py-1 rounded-full text-xs font-semibold z-10">
+                                            <div className="absolute top-4 left-4 flex items-center gap-2 text-amber-700 bg-amber-100 px-3 py-1 rounded-full text-xs font-semibold z-10">
                                                 <FaThumbtack className="w-3 h-3" />
                                                 <span>Pinned</span>
                                             </div>
@@ -848,20 +839,20 @@ const HomeView = ({
                                                 <UserInitialsAvatar user={authorProfile} size="w-10 h-10" />
                                             </div>
                                             <div className="ml-3">
-                                                <p className="font-bold text-gray-800">{post.teacherName}</p>
-                                                <p className="text-xs text-gray-500">{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString() : ''}</p>
+                                                <p className="font-bold text-zinc-800">{post.teacherName}</p>
+                                                <p className="text-xs text-zinc-500">{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString() : ''}</p>
                                             </div>
                                             {canModify && (
-                                                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                                <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-white/50 backdrop-blur-sm rounded-full">
                                                      {userProfile?.role === 'admin' && (
-                                                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); handleTogglePinAnnouncement(post.id, post.isPinned); }} className={`p-2 rounded-full hover:bg-gray-100 transition ${post.isPinned ? 'text-yellow-500' : 'text-gray-500'}`} title={post.isPinned ? "Unpin Announcement" : "Pin Announcement"}>
+                                                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); handleTogglePinAnnouncement(post.id, post.isPinned); }} className={`p-2 rounded-full hover:bg-zinc-100 transition ${post.isPinned ? 'text-amber-500' : 'text-zinc-500'}`} title={post.isPinned ? "Unpin Announcement" : "Pin Announcement"}>
                                                             <FaThumbtack className="w-5 h-5" />
                                                         </motion.button>
                                                     )}
-                                                    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); handleStartEditAnn(post); }} className="p-2 rounded-full hover:bg-gray-100 transition" title="Edit Announcement">
-                                                        <FaPencilAlt className="w-5 h-5 text-gray-500" />
+                                                    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); handleStartEditAnn(post); }} className="p-2 rounded-full hover:bg-zinc-100 transition" title="Edit Announcement">
+                                                        <FaPencilAlt className="w-5 h-5 text-zinc-500" />
                                                     </motion.button>
-                                                    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); handleDeleteTeacherAnn(post.id); }} className="p-2 rounded-full hover:bg-gray-100 transition" title="Delete Announcement">
+                                                    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); handleDeleteTeacherAnn(post.id); }} className="p-2 rounded-full hover:bg-zinc-100 transition" title="Delete Announcement">
                                                         <FaTrash className="w-5 h-5 text-rose-500" />
                                                     </motion.button>
                                                 </div>
@@ -871,20 +862,20 @@ const HomeView = ({
                                         {editingAnnId === post.id ? (
                                             <>
                                                 <textarea
-                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-gray-100 text-gray-800 resize-none mb-4"
+                                                    className="w-full p-3 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-rose-500 bg-zinc-50 text-zinc-800 resize-none mb-4"
                                                     rows="5"
                                                     value={editingAnnText}
                                                     onChange={(e) => setEditingAnnText(e.target.value)}
                                                     onClick={(e) => e.stopPropagation()}
                                                 />
                                                 <div className="flex justify-end gap-2">
-                                                    <button className="btn-secondary-light" onClick={(e) => { e.stopPropagation(); setEditingAnnId(null); }}>Cancel</button>
-                                                    <button className="btn-primary-glow-light" onClick={(e) => { e.stopPropagation(); handleUpdateTeacherAnn(); }}>Save</button>
+                                                    <button className="px-4 py-2 rounded-full font-semibold bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors" onClick={(e) => { e.stopPropagation(); setEditingAnnId(null); }}>Cancel</button>
+                                                    <button className="px-4 py-2 rounded-full font-semibold text-white bg-rose-500 hover:bg-rose-600 transition-all duration-300 shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/20" onClick={(e) => { e.stopPropagation(); handleUpdateTeacherAnn(); }}>Save</button>
                                                 </div>
                                             </>
                                         ) : (
                                             post.content && (
-                                                <p className="text-gray-700 text-lg leading-relaxed whitespace-pre-wrap">
+                                                <p className="text-zinc-700 text-lg leading-relaxed whitespace-pre-wrap">
                                                     {isTruncated && !showFullAnnouncement
                                                         ? post.content.substring(0, ANNOUNCEMENT_TRUNCATE_LENGTH) + '...'
                                                         : post.content}
@@ -895,7 +886,7 @@ const HomeView = ({
                                                             onClick={() => toggleAnnouncementExpansion(post.id)}
                                                             className="text-blue-500 hover:underline ml-1"
                                                         >
-                                                            {showFullAnnouncement ? 'Show Less' : 'See More...'}
+                                                            {showFullAnnouncement ? 'Show Less' : 'See More'}
                                                         </motion.button>
                                                     )}
                                                 </p>
@@ -907,17 +898,17 @@ const HomeView = ({
                                                 <img 
                                                     src={post.photoURL} 
                                                     alt="Announcement" 
-                                                    className="rounded-lg max-h-96 w-full object-contain bg-gray-100"
+                                                    className="rounded-lg max-h-96 w-full object-contain bg-zinc-100"
                                                     onError={(e) => { e.target.style.display = 'none'; }}
                                                 />
                                                 {post.caption && (
-                                                    <p className="text-sm text-gray-600 mt-2 text-center italic">{post.caption}</p>
+                                                    <p className="text-sm text-zinc-600 mt-2 text-center italic">{post.caption}</p>
                                                 )}
                                             </div>
                                         )}
 
                                         {(Object.keys(postReactionsForThisPost).length > 0 || (post.commentsCount || 0) > 0) && (
-                                            <div className="flex justify-between items-center text-sm text-gray-500 mt-4">
+                                            <div className="flex justify-between items-center text-sm text-zinc-500 mt-4">
                                                 {formatReactionCountHomeView(postReactionsForThisPost, post.id)}
                                                 <span className="cursor-pointer hover:underline" onClick={() => openAnnouncementModal(post)}>
                                                     {post.commentsCount || 0} comments
@@ -925,9 +916,9 @@ const HomeView = ({
                                             </div>
                                         )}
 
-                                        <div className="flex justify-around items-center pt-2 mt-2 border-t border-gray-100">
+                                        <div className="flex justify-around items-center pt-2 mt-2 border-t border-zinc-200/80">
                                             <div
-                                                className="relative reaction-button-group"
+                                                className="relative"
                                                 onMouseEnter={(e) => handleReactionOptionsMouseEnter(e, post.id)}
                                                 onMouseLeave={handleReactionOptionsMouseLeave}
                                                 onTouchStart={(e) => handleTouchStart(e, post.id)}
@@ -937,8 +928,8 @@ const HomeView = ({
                                                 <motion.button
                                                     whileHover={{ scale: 1.05 }}
                                                     whileTap={{ scale: 0.95 }}
-                                                    className={`flex items-center space-x-2 py-1 px-3 rounded-full transition-colors duration-200
-                                                    ${currentUserReaction ? `${reactionIconsHomeView[currentUserReaction]?.color} bg-blue-50/50` : 'text-gray-600 hover:bg-gray-100'}`}
+                                                    className={`flex items-center space-x-2 py-2 px-4 rounded-full transition-colors duration-200
+                                                    ${currentUserReaction ? `${reactionIconsHomeView[currentUserReaction]?.color} bg-blue-100/60` : 'text-zinc-600 hover:bg-zinc-100'}`}
                                                     onClick={() => handleTogglePostReactionHomeView(post.id, currentUserReaction || 'like')}
                                                 >
                                                     <motion.span
@@ -963,7 +954,7 @@ const HomeView = ({
                                                             animate={{ opacity: 1, y: -10, scale: 1 }}
                                                             exit={{ opacity: 0, y: 10, scale: 0.8 }}
                                                             transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                                                            className="reaction-options-popup bg-white rounded-full shadow-lg p-2 flex space-x-2 absolute z-50"
+                                                            className="absolute bottom-full mb-2 bg-white/80 backdrop-blur-md rounded-full shadow-xl p-1 flex space-x-1 z-50 border border-zinc-200/50"
                                                         >
                                                             {Object.entries(reactionIconsHomeView).map(([type, { component: IconComponent }]) => (
                                                                 <motion.button
@@ -971,11 +962,11 @@ const HomeView = ({
                                                                     whileHover={{ scale: 1.3, y: -5 }}
                                                                     whileTap={{ scale: 0.9 }}
                                                                     transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                                                                    className="p-2 rounded-full"
+                                                                    className="p-1 rounded-full"
                                                                     onClick={() => handleReactionOptionClick(post.id, type)}
                                                                     title={type.charAt(0).toUpperCase() + type.slice(1)}
                                                                 >
-                                                                    <IconComponent className="h-6 w-6" />
+                                                                    <IconComponent className="h-7 w-7" />
                                                                 </motion.button>
                                                             ))}
                                                         </motion.div>
@@ -984,7 +975,7 @@ const HomeView = ({
                                             </div>
 
                                             <button
-                                                className="flex items-center space-x-2 py-1 px-3 rounded-full text-gray-600 hover:bg-gray-100 transition-colors duration-200"
+                                                className="flex items-center space-x-2 py-2 px-4 rounded-full text-zinc-600 hover:bg-zinc-100 transition-colors duration-200"
                                                 onClick={() => openAnnouncementModal(post)}
                                             >
                                                 <FaRegCommentDots className="h-5 w-5" />
@@ -997,9 +988,9 @@ const HomeView = ({
                                 <motion.div
                                     key="no-announcements"
                                     {...fadeProps}
-                                    className="text-center text-gray-400 py-8 border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50"
+                                    className="text-center text-zinc-400 py-8 border-2 border-dashed border-zinc-300 rounded-2xl bg-zinc-100/50"
                                 >
-                                    <FaBullhorn className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                                    <FaBullhorn className="w-12 h-12 mx-auto text-zinc-300 mb-4" />
                                     <p className="text-lg font-semibold">No new announcements for teachers.</p>
                                     <p className="text-sm">Be the first to post an update!</p>
                                 </motion.div>
@@ -1042,19 +1033,6 @@ const HomeView = ({
                 currentEndDate={bannerSettings.endDate}
                 onSaveSuccess={() => { /* onSnapshot will handle re-fetch */ }}
             />
-
-            <style jsx>{`
-                .default-banner-background {
-                    background: linear-gradient(135deg, #f0f4f8 0%, #e0e7ee 100%);
-                }
-                .btn-primary-glow-light { background-color: #f43f5e; color: white; padding: 8px 16px; border-radius: 9999px; font-weight: 600; transition: all 0.3s ease; box-shadow: 0 0px 10px rgba(244, 63, 94, 0.3); }
-                .btn-primary-glow-light:hover { background-color: #e11d48; box-shadow: 0 0px 15px rgba(244, 63, 94, 0.6); }
-                .btn-secondary-light { background-color: #e5e7eb; color: #4b5563; padding: 8px 16px; border-radius: 9999px; font-weight: 600; transition: all 0.3s ease; }
-                .btn-secondary-light:hover { background-color: #d1d5db; }
-                .reaction-hover-popup, .reaction-hover-popup-homeview { position: absolute; background-color: rgba(0, 0, 0, 0.8); color: white; padding: 8px 12px; border-radius: 8px; font-size: 0.75rem; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); transition: opacity 0.2s ease, transform 0.2s ease; transform: translateX(-50%); white-space: nowrap; }
-                .reaction-options-popup { position: absolute; background-color: white; border-radius: 9999px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); padding: 4px; display: flex; gap: 8px; align-items: center; transition: opacity 0.2s ease, transform 0.2s ease; }
-                .reaction-button-group { position: relative; }
-            `}</style>
         </div>
     );
 };

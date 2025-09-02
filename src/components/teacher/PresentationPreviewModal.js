@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dialog } from '@headlessui/react';
+import { Dialog, Transition, TransitionChild, DialogPanel } from '@headlessui/react';
 import { XMarkIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { ArrowPathIcon } from '@heroicons/react/20/solid';
 
@@ -29,60 +29,86 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
     const slides = previewData?.slides || [];
 
     return (
-        <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" />
+        <Transition show={isOpen} as={React.Fragment}>
+            <Dialog as="div" className="relative z-[9999] font-sans" onClose={onClose}>
+                {/* Backdrop - iOS-style frosted glass effect */}
+                <TransitionChild
+                    as={React.Fragment}
+                    enter="ease-out duration-300"
+                    enterFrom="opacity-0"
+                    enterTo="opacity-100"
+                    leave="ease-in duration-200"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
+                >
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-xl transition-opacity" />
+                </TransitionChild>
 
-            <Dialog.Panel className="relative bg-slate-100 p-6 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-                <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-300">
-                    <Dialog.Title className="text-xl font-bold text-slate-800">
-                        Presentation Preview ({slides.length} Slides)
-                    </Dialog.Title>
-                    <button onClick={onClose} className="p-2 rounded-full text-slate-400 hover:bg-slate-200">
-                        <XMarkIcon className="w-6 h-6" />
-                    </button>
-                </div>
-
-                <div className="flex-grow overflow-y-auto -mr-3 pr-3 space-y-6">
-                    {slides.length > 0 ? (
-                        slides.map((slide, index) => (
-                            <div key={index} className="bg-white p-4 rounded-lg shadow border border-slate-200">
-                                <p className="text-xs font-semibold text-slate-400 mb-2">SLIDE {index + 1}</p>
-                                <h3 className="font-bold text-slate-800 mb-2">{slide.title}</h3>
-                                <div className="text-sm text-slate-700 bg-slate-50 p-3 rounded border">
-                                    <pre className="whitespace-pre-wrap font-sans">{slide.body}</pre>
+                <div className="fixed inset-0 z-[9999] w-screen overflow-y-auto">
+                    <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+                        <TransitionChild
+                            as={React.Fragment}
+                            enter="ease-out duration-300"
+                            enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                            enterTo="opacity-100 translate-y-0 sm:scale-100"
+                            leave="ease-in duration-200"
+                            leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                            leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                        >
+                            <Dialog.Panel className="relative transform overflow-hidden rounded-[28px] bg-white/90 dark:bg-zinc-800/90 backdrop-blur-3xl shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-4xl max-h-[90vh] flex flex-col p-7">
+                                <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200/50 dark:border-zinc-700/50">
+                                    <Dialog.Title className="text-xl font-semibold text-zinc-800 dark:text-white">
+                                        Presentation Preview ({slides.length} Slides)
+                                    </Dialog.Title>
+                                    <button onClick={onClose} className="p-2 rounded-full text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                                        <XMarkIcon className="w-6 h-6" />
+                                    </button>
                                 </div>
-                                <h4 className="font-bold text-xs text-slate-500 mt-4 mb-2">SPEAKER NOTES</h4>
-                                <div className="text-xs text-slate-600 bg-amber-50 p-3 rounded border border-amber-200">
-                                    {/* ✅ FIXED: Apply the formatting function here */}
-                                    <pre className="whitespace-pre-wrap font-sans">{formatNotesToString(slide.notes)}</pre>
-                                </div>
-                            </div>
-                        ))
-                    ) : (
-                        <p className="text-center text-slate-500 py-10">No slide data to display.</p>
-                    )}
-                </div>
 
-                <div className="pt-6 mt-4 border-t border-slate-300 flex justify-end">
-                    <button
-                        onClick={onConfirm}
-                        disabled={isSaving}
-                        className="btn-primary inline-flex items-center gap-2"
-                    >
-                        {isSaving ? (
-                            <>
-                                <ArrowPathIcon className="h-5 w-5 animate-spin" />
-                                Creating...
-                            </>
-                        ) : (
-                            <>
-                                <CheckCircleIcon className="h-5 w-5" />
-                                Create Presentation
-                            </>
-                        )}
-                    </button>
+                                <div className="flex-grow overflow-y-auto -mr-3 pr-3 space-y-6">
+                                    {slides.length > 0 ? (
+                                        slides.map((slide, index) => (
+                                            <div key={index} className="bg-white/50 dark:bg-zinc-900/50 p-4 rounded-xl shadow-sm border border-gray-200/50 dark:border-zinc-700/50">
+                                                <p className="text-xs font-medium text-zinc-400 mb-2">SLIDE {index + 1}</p>
+                                                <h3 className="font-semibold text-zinc-800 dark:text-white mb-2">{slide.title}</h3>
+                                                <div className="text-sm text-zinc-700 dark:text-zinc-300 bg-zinc-100/50 dark:bg-zinc-800/50 p-3 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50">
+                                                    <pre className="whitespace-pre-wrap font-sans">{slide.body}</pre>
+                                                </div>
+                                                <h4 className="font-semibold text-xs text-zinc-500 dark:text-zinc-500 mt-4 mb-2">SPEAKER NOTES</h4>
+                                                <div className="text-xs text-zinc-700 dark:text-zinc-300 bg-sky-50/70 dark:bg-sky-900/50 p-3 rounded-lg border border-sky-200/70 dark:border-sky-800/70">
+                                                    <pre className="whitespace-pre-wrap font-sans">{formatNotesToString(slide.notes)}</pre>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-center text-zinc-500 py-10">No slide data to display.</p>
+                                    )}
+                                </div>
+
+                                <div className="pt-6 mt-4 border-t border-gray-200/50 dark:border-zinc-700/50 flex justify-end">
+                                    <button
+                                        onClick={onConfirm}
+                                        disabled={isSaving}
+                                        className="inline-flex items-center gap-2 rounded-2xl border border-transparent bg-blue-500/90 px-5 py-3 text-base font-medium text-white shadow-md transition-colors duration-200 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
+                                    >
+                                        {isSaving ? (
+                                            <>
+                                                <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                                                Creating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CheckCircleIcon className="h-5 w-5" />
+                                                Create Presentation
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </Dialog.Panel>
+                        </TransitionChild>
+                    </div>
                 </div>
-            </Dialog.Panel>
-        </Dialog>
+            </Dialog>
+        </Transition>
     );
 }

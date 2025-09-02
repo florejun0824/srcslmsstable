@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import UserInitialsAvatar from '../../../common/UserInitialsAvatar';
 
-// NEW: Lightweight inline emoji components (no external deps)
-const FacebookEmoji = ({ type = 'like', size = 18, className = '' }) => {
+// NEW: iOS-inspired emoji component for a more vibrant, modern feel.
+const IOSEmoji = ({ type = 'like', size = 20, className = '' }) => {
     const map = {
         like: '👍',
         heart: '❤️',
-        haha: '😆',
+        haha: '😂', // Using a slightly different 'haha' for variety
         wow: '😮',
         sad: '😢',
         angry: '😡',
@@ -37,16 +38,16 @@ const FacebookEmoji = ({ type = 'like', size = 18, className = '' }) => {
     );
 };
 
-// UPDATED: Define available reaction icons with the new FacebookEmoji component
+// UPDATED: Reaction icons now use the new IOSEmoji component.
 const reactionIcons = {
-    all: { solid: null, color: 'text-gray-600', label: 'All', component: null },
-    like: { solid: null, color: 'text-blue-500', label: 'Like', component: (props) => <FacebookEmoji type="like" {...props} /> },
-    heart: { solid: null, color: 'text-red-500', label: 'Love', component: (props) => <FacebookEmoji type="heart" {...props} /> },
-    haha: { solid: null, color: 'text-yellow-500', label: 'Haha', component: (props) => <FacebookEmoji type="haha" {...props} /> },
-    wow: { solid: null, color: 'text-purple-500', label: 'Wow', component: (props) => <FacebookEmoji type="wow" {...props} /> },
-    sad: { solid: null, color: 'text-gray-700', label: 'Sad', component: (props) => <FacebookEmoji type="sad" {...props} /> },
-    angry: { solid: null, color: 'text-red-700', label: 'Angry', component: (props) => <FacebookEmoji type="angry" {...props} /> },
-    care: { solid: null, color: 'text-pink-500', label: 'Care', component: (props) => <FacebookEmoji type="care" {...props} /> },
+    all: { color: 'text-zinc-600', label: 'All', component: null },
+    like: { color: 'text-blue-500', label: 'Like', component: (props) => <IOSEmoji type="like" {...props} /> },
+    heart: { color: 'text-red-500', label: 'Love', component: (props) => <IOSEmoji type="heart" {...props} /> },
+    haha: { color: 'text-yellow-500', label: 'Haha', component: (props) => <IOSEmoji type="haha" {...props} /> },
+    wow: { color: 'text-purple-500', label: 'Wow', component: (props) => <IOSEmoji type="wow" {...props} /> },
+    sad: { color: 'text-zinc-700', label: 'Sad', component: (props) => <IOSEmoji type="sad" {...props} /> },
+    angry: { color: 'text-red-700', label: 'Angry', component: (props) => <IOSEmoji type="angry" {...props} /> },
+    care: { color: 'text-pink-500', label: 'Care', component: (props) => <IOSEmoji type="care" {...props} /> },
 };
 
 const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, usersMap }) => {
@@ -54,6 +55,8 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, usersMap }) =
     const [groupedReactions, setGroupedReactions] = useState({});
 
     useEffect(() => {
+        if (!isOpen) return; // Reset tab to 'all' when modal opens
+
         if (!reactionsData || !usersMap) {
             setGroupedReactions({});
             return;
@@ -61,9 +64,7 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, usersMap }) =
 
         const newGroupedReactions = { all: [] };
         Object.keys(reactionIcons).forEach(type => {
-            if (type !== 'all') {
-                newGroupedReactions[type] = [];
-            }
+            if (type !== 'all') newGroupedReactions[type] = [];
         });
 
         Object.entries(reactionsData).forEach(([userId, reactionType]) => {
@@ -83,94 +84,118 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, usersMap }) =
 
         setGroupedReactions(newGroupedReactions);
         setActiveTab('all');
-    }, [reactionsData, usersMap]);
-
-    if (!isOpen) {
-        return null;
-    }
+    }, [isOpen, reactionsData, usersMap]);
 
     const totalReactionsCount = reactionsData ? Object.keys(reactionsData).length : 0;
+    
+    const modalVariants = {
+        hidden: { opacity: 0, scale: 0.95, y: 20 },
+        visible: { opacity: 1, scale: 1, y: 0, transition: { type: 'spring', damping: 25, stiffness: 300 } },
+        exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } }
+    };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-3xl w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100 opacity-100">
-                <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gray-50">
-                    <h2 className="text-xl font-bold text-gray-900">Reactions ({totalReactionsCount})</h2>
-                    <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 transition-colors">
-                        <XMarkIcon className="w-6 h-6 text-gray-500" />
-                    </button>
-                </div>
-
-                <div className="sticky top-0 z-10 flex justify-start border-b border-gray-200 px-5 pt-3 bg-white overflow-x-auto custom-scrollbar-horizontal">
-                    {Object.entries(reactionIcons).map(([type, { component: Icon, color, label }]) => {
-                        const count = groupedReactions[type] ? groupedReactions[type].length : 0;
-                        if (count === 0 && type !== 'all') return null;
-
-                        const isActive = activeTab === type;
-                        const buttonClasses = `
-                            flex items-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-200 ease-in-out
-                            ${isActive ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}
-                        `;
-
-                        return (
-                            <button key={type} onClick={() => setActiveTab(type)} className={buttonClasses}>
-                                {Icon && <Icon className={`h-5 w-5 ${color}`} />}
-                                <span>{label} ({count})</span>
+        <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+                    <motion.div
+                        variants={modalVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        className="bg-zinc-50/95 rounded-3xl shadow-xl w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col border border-zinc-200/80"
+                    >
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between p-4 flex-shrink-0">
+                            <h2 className="text-lg font-semibold text-zinc-900 ml-2">Reactions ({totalReactionsCount})</h2>
+                            <button onClick={onClose} className="p-2 rounded-full hover:bg-zinc-200/80 active:scale-95 transition-colors">
+                                <XMarkIcon className="w-6 h-6 text-zinc-500" />
                             </button>
-                        );
-                    })}
-                </div>
+                        </div>
 
-                <div className="flex-grow overflow-y-auto p-5 space-y-3 custom-scrollbar">
-                    {groupedReactions[activeTab] && groupedReactions[activeTab].length > 0 ? (
-                        groupedReactions[activeTab].map((reaction, index) => (
-                            <div key={index} className="flex items-center p-3 bg-white rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md hover:scale-[1.01]">
-                                <div className="w-8 h-8 mr-4 flex-shrink-0">
-                                    <UserInitialsAvatar user={reaction.userProfile} size="w-8 h-8" />
-                                </div>
-                                <div className="flex-grow text-gray-800 text-xs font-normal">
-                                    <span className="block">{reaction.userName}</span>
-                                </div>
-                                {reaction.reactionType && reactionIcons[reaction.reactionType]?.component && (
-                                    <div className="flex-shrink-0">
-                                        {React.createElement(reactionIcons[reaction.reactionType].component, {
-                                            className: `h-5 w-5 ${reactionIcons[reaction.reactionType].color}`
-                                        })}
-                                    </div>
-                                )}
+                        {/* iOS-Style Segmented Control Tabs */}
+                        <div className="flex-shrink-0 border-b border-zinc-200/80 px-4 pb-2">
+                            <div className="p-1 bg-zinc-200/70 rounded-xl flex items-center overflow-x-auto custom-scrollbar-horizontal space-x-1">
+                                {Object.entries(reactionIcons).map(([type, { component: Icon, color, label }]) => {
+                                    const count = groupedReactions[type] ? groupedReactions[type].length : 0;
+                                    if (count === 0 && type !== 'all') return null;
+
+                                    const isActive = activeTab === type;
+                                    return (
+                                        <button 
+                                            key={type} 
+                                            onClick={() => setActiveTab(type)} 
+                                            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg transition-colors duration-300 whitespace-nowrap ${
+                                                isActive ? 'bg-white text-zinc-800 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+                                            }`}
+                                        >
+                                            {Icon && <Icon className="h-5 w-5" />}
+                                            <span className="capitalize">{label}</span>
+                                            <span className={`text-xs font-medium px-1.5 py-0.5 rounded-md ${
+                                                isActive ? 'bg-zinc-200 text-zinc-600' : 'bg-zinc-300/70 text-zinc-500'
+                                            }`}>{count}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
-                        ))
-                    ) : (
-                        <p className="text-center text-gray-500 py-4">No {reactionIcons[activeTab]?.label || activeTab} reactions yet.</p>
-                    )}
+                        </div>
+
+
+                        {/* User List */}
+                        <div className="flex-grow overflow-y-auto p-4 space-y-2 custom-scrollbar">
+                            {groupedReactions[activeTab] && groupedReactions[activeTab].length > 0 ? (
+                                groupedReactions[activeTab].map((reaction, index) => (
+                                    <div key={index} className="flex items-center p-2 rounded-xl transition-colors duration-200 hover:bg-zinc-200/60">
+                                        <div className="w-9 h-9 mr-3 flex-shrink-0">
+                                            <UserInitialsAvatar user={reaction.userProfile} size="w-9 h-9" />
+                                        </div>
+                                        <div className="flex-grow text-zinc-800 text-sm font-medium">
+                                            {reaction.userName}
+                                        </div>
+                                        {reaction.reactionType && reactionIcons[reaction.reactionType]?.component && (
+                                            <div className="flex-shrink-0">
+                                                {React.createElement(reactionIcons[reaction.reactionType].component)}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-center text-zinc-500 pt-10 text-sm">No {reactionIcons[activeTab]?.label || activeTab} reactions yet.</p>
+                            )}
+                        </div>
+                    </motion.div>
+                    <style jsx>{`
+                        .custom-scrollbar::-webkit-scrollbar {
+                            width: 6px;
+                            height: 6px;
+                        }
+                        .custom-scrollbar::-webkit-scrollbar-track {
+                            background: transparent;
+                        }
+                        .custom-scrollbar::-webkit-scrollbar-thumb {
+                            background-color: #a1a1aa; /* zinc-400 */
+                            border-radius: 10px;
+                        }
+                        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                            background-color: #71717a; /* zinc-500 */
+                        }
+                        .custom-scrollbar-horizontal {
+                            scrollbar-width: thin;
+                            scrollbar-color: #a1a1aa transparent;
+                        }
+                        .custom-scrollbar-horizontal::-webkit-scrollbar {
+                            height: 4px;
+                        }
+                        .custom-scrollbar-horizontal::-webkit-scrollbar-thumb {
+                            background-color: transparent;
+                        }
+                        .custom-scrollbar-horizontal:hover::-webkit-scrollbar-thumb {
+                            background-color: #d4d4d8; /* zinc-300 */
+                        }
+                    `}</style>
                 </div>
-            </div>
-            <style jsx>{`
-                .custom-scrollbar::-webkit-scrollbar {
-                    width: 8px;
-                    height: 8px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: #f1f5f9;
-                    border-radius: 10px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background-color: #cbd5e1;
-                    border-radius: 10px;
-                    border: 2px solid #f1f5f9;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background-color: #94a3b8;
-                }
-                .custom-scrollbar-horizontal {
-                    overflow-x: auto;
-                    white-space: nowrap;
-                }
-                .custom-scrollbar-horizontal::-webkit-scrollbar {
-                    height: 8px;
-                }
-            `}</style>
-        </div>
+            )}
+        </AnimatePresence>
     );
 };
 

@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import Modal from '../common/Modal';
 import { useToast } from '../../contexts/ToastContext';
 import { db } from '../../services/firebase';
-// ✅ MODIFIED: Added serverTimestamp for consistency
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { PlusIcon } from '@heroicons/react/24/solid';
 
-// ✅ MODIFIED: The modal now accepts a teacherId and doesn't need onCategoryCreated
 const CreateCategoryModal = ({ isOpen, onClose, teacherId }) => {
     const [categoryName, setCategoryName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
@@ -21,51 +20,66 @@ const CreateCategoryModal = ({ isOpen, onClose, teacherId }) => {
             showToast("Cannot create category without a user context.", "error");
             return;
         }
-
         setIsCreating(true);
-
         try {
-            // ✅ MODIFIED: Instead of adding to a separate collection, we now create a
-            // placeholder subject in the 'courses' collection with the new category name.
             await addDoc(collection(db, "courses"), {
-                title: `(New Subject in ${categoryName.trim()})`, // A placeholder title
+                title: `(New Subject in ${categoryName.trim()})`,
                 category: categoryName.trim(),
-                teacherId: teacherId, // Associate with the current user
+                teacherId: teacherId,
                 createdAt: serverTimestamp(),
-                units: [] // Start with no units
+                units: []
             });
-
             showToast("Category created successfully!", "success");
-            onClose(); // Close the modal
+            handleClose();
         } catch (error) {
-            console.error("Error creating category via placeholder subject:", error);
+            console.error("Error creating category:", error);
             showToast("Failed to create category.", "error");
         } finally {
             setIsCreating(false);
-            setCategoryName(''); // Reset field after submission
         }
     };
 
+    const handleClose = () => {
+        setCategoryName('');
+        setIsCreating(false);
+        onClose();
+    };
+
+    const inputClasses = "w-full p-4 mt-2 bg-gray-500/10 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-800 placeholder:text-gray-400";
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Create New Subject Category">
-            <form onSubmit={handleSubmit}>
-                <label className="block text-sm font-medium text-gray-700 mb-1">New Category Name</label>
-                <input
-                    type="text"
-                    value={categoryName}
-                    onChange={(e) => setCategoryName(e.target.value)}
-                    placeholder="e.g., General Mathematics"
-                    className="w-full p-3 border border-gray-300 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                    disabled={isCreating}
-                />
-                <button 
-                    type="submit" 
-                    className="w-full bg-blue-600 text-white p-3 rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-400"
-                    disabled={isCreating}
-                >
-                    {isCreating ? 'Creating...' : 'Create Category'}
-                </button>
+        <Modal 
+            isOpen={isOpen} 
+            onClose={handleClose} 
+            title="Create New Category"
+            description="Group related subjects under a new category."
+        >
+            <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                    <label htmlFor="category-name" className="block text-sm font-semibold text-gray-600">Category Name</label>
+                    <input
+                        id="category-name"
+                        type="text"
+                        value={categoryName}
+                        onChange={(e) => setCategoryName(e.target.value)}
+                        placeholder="e.g., Grade 10 Science"
+                        className={inputClasses}
+                        required
+                        disabled={isCreating}
+                    />
+                </div>
+                <div className="pt-4 flex justify-end gap-3">
+                    <button type="button" onClick={handleClose} className="px-5 py-3 text-base font-medium text-slate-700 bg-slate-200/70 rounded-xl hover:bg-slate-300 transition-all disabled:opacity-50" disabled={isCreating}>
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        className="flex items-center justify-center gap-2 px-5 py-3 text-base font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:transform-none"
+                        disabled={isCreating || !categoryName.trim()}
+                    >
+                        {isCreating ? 'Creating...' : 'Create Category'}
+                    </button>
+                </div>
             </form>
         </Modal>
     );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../../services/firebase';
 import { collection, query, where, onSnapshot, writeBatch, doc } from 'firebase/firestore';
@@ -11,19 +11,15 @@ import {
     ClipboardDocumentListIcon,
     EyeIcon,
     Bars3Icon,
-    ArrowPathIcon,
     BookOpenIcon,
     RectangleStackIcon,
     QueueListIcon,
     ArrowUturnLeftIcon,
-    BookmarkIcon,
-    BookmarkSlashIcon,
     ArrowsUpDownIcon,
     EllipsisVerticalIcon,
-    DocumentMagnifyingGlassIcon,
     CheckCircleIcon,
-    MinusCircleIcon,
-    CloudArrowUpIcon
+    CloudArrowUpIcon,
+    ChevronDownIcon,
 } from '@heroicons/react/24/solid';
 import {
     DndContext,
@@ -65,14 +61,7 @@ const convertSvgStringToPngDataUrl = (svgString) => {
         if (!correctedSvgString.includes('xmlns=')) {
             correctedSvgString = correctedSvgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
         }
-        const defaultStyles = `
-            <style>
-                .center-node { fill: #cce5ff; stroke: #007bff; stroke-width: 2; }
-                .node { fill: #e7f5ff; stroke: #007bff; stroke-width: 1.5; }
-                text, .label, .center-node text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; font-size: 14px; text-anchor: middle; fill: #333; }
-                .arrow { stroke: #555; stroke-width: 2px; marker-end: url(#arrowhead); }
-            </style>
-        `;
+        const defaultStyles = `<style>.center-node { fill: #cce5ff; stroke: #007bff; stroke-width: 2; } .node { fill: #e7f5ff; stroke: #007bff; stroke-width: 1.5; } text, .label, .center-node text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; font-size: 14px; text-anchor: middle; fill: #333; } .arrow { stroke: #555; stroke-width: 2px; marker-end: url(#arrowhead); }</style>`;
         if (correctedSvgString.includes('</defs>')) {
              correctedSvgString = correctedSvgString.replace('</defs>', `</defs>${defaultStyles}`);
         } else {
@@ -97,10 +86,7 @@ const convertSvgStringToPngDataUrl = (svgString) => {
                     }
                 }
             }
-            if (!width || !height) {
-                width = fallbackWidth;
-                height = 450;
-            }
+            if (!width || !height) { width = fallbackWidth; height = 450; }
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
@@ -112,9 +98,7 @@ const convertSvgStringToPngDataUrl = (svgString) => {
                 resolve({ dataUrl, width, height });
             }
         };
-        img.onerror = () => {
-            reject(new Error("Failed to load the SVG string into an image. It might be malformed."));
-        };
+        img.onerror = () => reject(new Error("Failed to load the SVG string into an image. It might be malformed."));
         img.src = dataUri;
     });
 };
@@ -149,7 +133,7 @@ const ActionMenu = ({ children }) => {
     };
     return (
         <>
-            <div role="button" tabIndex={0} ref={iconRef} onClick={handleToggle} onPointerDown={(e) => e.stopPropagation()} className="p-1.5 text-gray-500 hover:text-gray-900 rounded-full cursor-pointer hover:bg-gray-100">
+            <div role="button" tabIndex={0} ref={iconRef} onClick={handleToggle} onPointerDown={(e) => e.stopPropagation()} className="p-2 text-gray-500 hover:text-gray-900 rounded-full cursor-pointer hover:bg-gray-200/60">
                 <EllipsisVerticalIcon className="h-5 w-5" />
             </div>
             {isOpen && <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>{children}</MenuPortal>}
@@ -163,128 +147,113 @@ const MenuItem = ({ icon: Icon, text, onClick, disabled = false, loading = false
         <span>{text}</span>
     </button>
 );
-const ColumnHeader = ({ title, icon: Icon, onAdd }) => (
-    <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-2">
-            <Icon className="w-5 h-5 text-gray-500" />
-            <h3 className="font-semibold text-gray-800">{title}</h3>
-        </div>
-        <button onClick={onAdd} className="flex items-center justify-center w-7 h-7 bg-gray-200 text-gray-600 rounded-full hover:bg-blue-500 hover:text-white transition-all" title={`Add New ${title.slice(0, -1)}`}>
-            <PlusIcon className="w-4 h-4" />
-        </button>
-    </div>
-);
 
-function SortableQuizItem({ quiz, unitId, onEdit, onDelete, onView }) {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-    } = useSortable({
-        id: quiz.id,
-        data: { type: 'quiz', unitId: unitId }
-    });
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-    };
-
+const AddContentDropdown = ({ onAddLesson, onAddQuiz }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+    useEffect(() => {
+        const handleClickOutside = (event) => { if (dropdownRef.current && !dropdownRef.current.contains(event.target)) setIsOpen(false); };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
     return (
-        <div
-            ref={setNodeRef}
-            style={style}
-            {...attributes}
-            className="p-4 rounded-2xl border-2 bg-white border-gray-200 hover:border-purple-300 hover:shadow-md transition-all duration-200 flex flex-col group touch-none"
-        >
-            <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-full bg-purple-100 text-purple-700">
-                        <ClipboardDocumentListIcon className="w-5 h-5" />
-                    </div>
-                    <h4 className="text-lg font-medium text-gray-800">
-                        {quiz.title}
-                    </h4>
+        <div className="relative" ref={dropdownRef}>
+            <button onClick={() => setIsOpen(!isOpen)} className="flex items-center justify-center bg-indigo-600 text-white font-semibold px-4 py-2 rounded-lg shadow-sm hover:bg-indigo-700 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <PlusIcon className="w-5 h-5 mr-2" />
+                Add New
+                <ChevronDownIcon className={`w-5 h-5 ml-2 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {isOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 border py-1">
+                    <button onClick={() => { onAddLesson(); setIsOpen(false); }} className="flex items-center w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"><DocumentTextIcon className="w-5 h-5 mr-3 text-blue-500" />Lesson</button>
+                    <button onClick={() => { onAddQuiz(); setIsOpen(false); }} className="flex items-center w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"><ClipboardDocumentListIcon className="w-5 h-5 mr-3 text-purple-500" />Quiz</button>
                 </div>
-                <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button {...listeners} className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Drag to reorder">
-                        <ArrowsUpDownIcon className="w-5 h-5" />
-                    </button>
-                    <button onClick={onView} className="p-1.5 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-100 transition-colors" title="View Quiz">
-                        <EyeIcon className="w-5 h-5" />
-                    </button>
-                    <ActionMenu>
-                        <MenuItem icon={PencilIcon} text="Edit Quiz" onClick={() => onEdit(quiz)} />
-                        <MenuItem icon={TrashIcon} text="Delete Quiz" onClick={onDelete} />
-                    </ActionMenu>
-                </div>
-            </div>
+            )}
         </div>
     );
-}
+};
 
-function SortableLessonItem({ lesson, unitId, exportingLessonId, onExport, onExportUlpPdf, onExportAtgPdf, selectedLessons, onLessonSelect, ...props }) {
-    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: lesson.id, data: { type: 'lesson', unitId: unitId } });
-    const style = { transform: CSS.Transform.toString(transform), transition };
-    const isExporting = exportingLessonId === lesson.id;
+/**
+ * NEW: iOS 18 inspired "pill" component for lessons and quizzes.
+ * Each item is a distinct, floating card with enhanced styling and interactivity.
+ */
+function SortableContentItem({ item, exportingLessonId, selectedLessons, onLessonSelect, isAiGenerating, ...props }) {
+    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+        id: item.id,
+        data: { type: item.type, unitId: item.unitId }
+    });
+    const style = { transform: CSS.Transform.toString(transform), transition: transition || 'transform 250ms ease' };
     
-    const title = lesson.lessonTitle || lesson.title || '';
-    const isUlp = title.includes('Unit Learning Plan');
-    const isAtg = title.includes('Adaptive Teaching Guide');
-    const isSelected = selectedLessons.has(lesson.id);
+    const isLesson = item.type === 'lesson';
+    const isSelected = isLesson && selectedLessons.has(item.id);
+    const isExporting = isLesson && exportingLessonId === item.id;
+    const title = item.lessonTitle || item.title || 'Untitled';
+    const isUlp = isLesson && title.includes('Unit Learning Plan');
+    const isAtg = isLesson && title.includes('Adaptive Teaching Guide');
 
-    return ( 
-        <div 
-            ref={setNodeRef} 
-            style={style} 
-            {...attributes} 
-            className={`
-                p-4 rounded-2xl border-2 transition-all duration-200 flex flex-col group touch-none
-                ${isSelected ? 'bg-indigo-50 border-indigo-500 shadow-lg' : 'bg-white border-gray-200 hover:border-indigo-300 hover:shadow-md'}
-            `}
-        >
-            <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${isSelected ? 'bg-indigo-200 text-indigo-700' : 'bg-gray-100 text-gray-500'}`}>
-                        <DocumentTextIcon className="w-5 h-5" />
-                    </div>
-                    <h4 className={`text-lg font-medium ${isSelected ? 'text-indigo-800' : 'text-gray-800'}`}>
-                        {title}
-                    </h4>
+    const Icon = isLesson ? DocumentTextIcon : ClipboardDocumentListIcon;
+    const itemTypeLabel = isLesson ? "Lesson" : "Quiz";
+    const iconGradient = isLesson 
+        ? 'from-blue-500 to-cyan-400' 
+        : 'from-purple-500 to-violet-500';
+    const selectionRingColor = isLesson ? 'ring-blue-500' : 'ring-purple-500';
+
+    const itemClasses = `
+        w-full group flex items-center p-4 bg-white/60 backdrop-blur-sm
+        rounded-2xl shadow-lg ring-1 ring-black/5
+        transition-all duration-300 touch-none relative
+        hover:scale-[1.02] active:scale-[0.98]
+        ${isSelected ? `ring-2 ${selectionRingColor}` : 'shadow-md'}
+    `;
+
+    return (
+        <div ref={setNodeRef} style={style} {...attributes} className="mb-3"> {/* Added margin-bottom for separation */}
+            <div className={itemClasses}>
+                {/* Drag Handle */}
+                <button {...listeners} className="p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-200/70 cursor-grab flex-shrink-0" title="Drag to reorder">
+                    <Bars3Icon className="w-5 h-5" />
+                </button>
+
+                {/* Gradient Icon */}
+                <div className={`ml-3 mr-4 p-3 rounded-xl flex-shrink-0 bg-gradient-to-br text-white shadow-lg ${iconGradient} shadow-${isLesson ? 'cyan' : 'violet'}-500/30`}>
+                    <Icon className="h-6 w-6" />
                 </div>
-                <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button {...listeners} className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Drag to reorder">
-                        <ArrowsUpDownIcon className="w-5 h-5" />
-                    </button>
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onLessonSelect(lesson.id);
-                        }}
-                        className={`p-1.5 rounded-full transition-colors duration-200 z-10
-                            ${isSelected ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}
-                        `}
-                        title={isSelected ? "Deselect Lesson" : "Select Lesson"}
-                    >
-                        {isSelected ? <CheckCircleIcon className="w-5 h-5" /> : <MinusCircleIcon className="w-5 h-5" />}
-                    </button>
-                    <button onClick={props.onView} className="p-1.5 rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-100 transition-colors" title="View Lesson">
-                        <DocumentMagnifyingGlassIcon className="h-5 w-5" />
-                    </button>
-                    <ActionMenu>
-                        <MenuItem icon={PencilIcon} text="Edit Lesson" onClick={props.onEdit} />
-                        {isUlp ? (
-                            <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => onExportUlpPdf(lesson)} loading={isExporting} />
-                        ) : isAtg ? (
-                            <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => onExportAtgPdf(lesson)} loading={isExporting} />
-                        ) : (
-                            <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as .docx"} onClick={() => onExport(lesson)} loading={isExporting} />
-                        )}
-                        <MenuItem icon={SparklesIcon} text="AI Generate Quiz" onClick={props.onGenerateQuiz} disabled={props.isAiGenerating} />
-                        <MenuItem icon={TrashIcon} text="Delete Lesson" onClick={props.onDelete} />
-                    </ActionMenu>
+                
+                {/* Title and Type */}
+                <div className="flex-grow">
+                    <h4 className="font-semibold text-slate-800 leading-tight">{title}</h4>
+                    <p className="text-sm text-slate-500">{itemTypeLabel}</p>
+                </div>
+                
+                {/* Actions */}
+                <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                    {isLesson && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onLessonSelect(item.id); }}
+                            className={`w-8 h-8 flex items-center justify-center rounded-full z-10 transition-all duration-200 ${isSelected ? `${selectionRingColor} bg-opacity-100 text-white` : 'bg-slate-200 text-slate-500 hover:bg-slate-300'} ${isSelected ? 'bg-blue-500' : ''}`}
+                            title={isSelected ? "Deselect Lesson" : "Select Lesson"}
+                        >
+                            <CheckCircleIcon className="w-5 h-5" />
+                        </button>
+                    )}
+                    
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={props.onView} className="p-2 rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-100/70" title={isLesson ? "View Lesson" : "View Quiz"}>
+                            <EyeIcon className="w-5 h-5" />
+                        </button>
+                        <ActionMenu>
+                            <MenuItem icon={PencilIcon} text={isLesson ? "Edit Lesson" : "Edit Quiz"} onClick={props.onEdit} />
+                            {isLesson && ( isUlp ? (
+                                <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => props.onExportUlpPdf(item)} loading={isExporting} />
+                            ) : isAtg ? (
+                                <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => props.onExportAtgPdf(item)} loading={isExporting} />
+                            ) : (
+                                <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as .docx"} onClick={() => props.onExport(item)} loading={isExporting} />
+                            ))}
+                            {isLesson && <MenuItem icon={SparklesIcon} text="AI Generate Quiz" onClick={props.onGenerateQuiz} disabled={isAiGenerating} />}
+                            <MenuItem icon={TrashIcon} text={isLesson ? "Delete Lesson" : "Delete Quiz"} onClick={props.onDelete} />
+                        </ActionMenu>
+                    </div>
                 </div>
             </div>
         </div>
@@ -321,11 +290,11 @@ function SortableUnitCard(props) {
 const customSort = (a, b) => {
     const orderA = a.order;
     const orderB = b.order;
-    if (orderA !== undefined && orderB === undefined) return -1;
-    if (orderA === undefined && orderB !== undefined) return 1;
     if (orderA !== undefined && orderB !== undefined) {
         if (orderA !== orderB) return orderA - orderB;
     }
+    if (orderA !== undefined && orderB === undefined) return -1;
+    if (orderA === undefined && orderB !== undefined) return 1;
     const timeA = a.createdAt?.toMillis() || 0;
     const timeB = b.createdAt?.toMillis() || 0;
     return timeA - timeB;
@@ -356,13 +325,8 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     const isExportingRef = useRef(false);
 
     useEffect(() => {
-        if (!subject?.id) { 
-            setUnits([]); 
-            return; 
-        }
-        if (onSetActiveUnit) {
-            onSetActiveUnit(null);
-        }
+        if (!subject?.id) { setUnits([]); return; }
+        if (onSetActiveUnit) { onSetActiveUnit(null); }
         const q = query(collection(db, 'units'), where('subjectId', '==', subject.id));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedUnits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -383,7 +347,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                 setLessons(prev => ({ ...prev, [unit.id]: fetchedLessons }));
             });
             unsubscribers.push(unsubLessons);
-            
             const quizQuery = query(collection(db, 'quizzes'), where('unitId', '==', unit.id));
             const unsubQuizzes = onSnapshot(quizQuery, snapshot => {
                 const fetchedQuizzes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -404,11 +367,10 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 
 	async function handleDragEnd(event) {
 	    const { active, over } = event;
-	    if (!over) return;
+	    if (!over || active.id === over.id) return;
 	    const activeType = active.data.current?.type;
 	    const overType = over.data.current?.type;
-
-	    if (activeType === 'unit' && overType === 'unit' && active.id !== over.id) {
+	    if (activeType === 'unit' && overType === 'unit') {
 	        const oldIndex = units.findIndex(u => u.id === active.id);
 	        const newIndex = units.findIndex(u => u.id === over.id);
 	        if (oldIndex !== -1 && newIndex !== -1) {
@@ -423,67 +385,28 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        }
 	        return;
 	    }
-
-	    if (activeType === 'lesson') {
-	        const sourceUnitId = active.data.current.unitId;
-	        let destinationUnitId = over.data.current?.unitId;
-	        if(overType === 'unit') {
-	            destinationUnitId = over.id;
-	        }
-	        if (!destinationUnitId) return;
-	        if (sourceUnitId === destinationUnitId) {
-	            const currentLessons = lessons[sourceUnitId];
-	            const oldIndex = currentLessons.findIndex(l => l.id === active.id);
-	            const newIndex = currentLessons.findIndex(l => l.id === over.id);
-	            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-	                const reorderedLessons = arrayMove(currentLessons, oldIndex, newIndex);
-	                setLessons(prev => ({ ...prev, [sourceUnitId]: reorderedLessons }));
-	                const batch = writeBatch(db);
-	                reorderedLessons.forEach((lesson, index) => {
-	                    const lessonRef = doc(db, 'lessons', lesson.id);
-	                    batch.update(lessonRef, { order: index });
-	                });
-	                await batch.commit();
-	            }
-	        } else {
-	            const sourceLessons = [...lessons[sourceUnitId]];
-	            const destinationLessons = lessons[destinationUnitId] ? [...lessons[destinationUnitId]] : [];
-	            const activeIndex = sourceLessons.findIndex(l => l.id === active.id);
-	            const [movedLesson] = sourceLessons.splice(activeIndex, 1);
-	            const overIndex = destinationLessons.findIndex(l => l.id === over.id);
-	            const newIndexInDest = overIndex >= 0 ? overIndex : destinationLessons.length;
-	            destinationLessons.splice(newIndexInDest, 0, movedLesson);
-	            setLessons(prev => ({ ...prev, [sourceUnitId]: sourceLessons, [destinationUnitId]: destinationLessons }));
-	            const batch = writeBatch(db);
-	            const movedLessonRef = doc(db, 'lessons', active.id);
-	            batch.update(movedLessonRef, { unitId: destinationUnitId, order: newIndexInDest });
-	            destinationLessons.forEach((lesson, index) => {
-	                if (lesson.order !== index) { const lessonRef = doc(db, "lessons", lesson.id); batch.update(lessonRef, { order: index }); }
-	            });
-	            sourceLessons.forEach((lesson, index) => {
-	                if (lesson.order !== index) { const lessonRef = doc(db, "lessons", lesson.id); batch.update(lessonRef, { order: index }); }
-	            });
-	            await batch.commit();
-	        }
-	    }
-        
-        if (activeType === 'quiz') {
-            const sourceUnitId = active.data.current.unitId;
-            const destinationUnitId = over.data.current?.unitId;
-            if (sourceUnitId === destinationUnitId) {
-                const currentQuizzes = quizzes[sourceUnitId];
-                const oldIndex = currentQuizzes.findIndex(q => q.id === active.id);
-                const newIndex = currentQuizzes.findIndex(q => q.id === over.id);
-                if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-                    const reorderedQuizzes = arrayMove(currentQuizzes, oldIndex, newIndex);
-                    setQuizzes(prev => ({ ...prev, [sourceUnitId]: reorderedQuizzes }));
-                    const batch = writeBatch(db);
-                    reorderedQuizzes.forEach((quiz, index) => {
-                        const quizRef = doc(db, 'quizzes', quiz.id);
-                        batch.update(quizRef, { order: index });
-                    });
-                    await batch.commit();
-                }
+        if ((activeType === 'lesson' || activeType === 'quiz') && (overType === 'lesson' || overType === 'quiz')) {
+            const unitId = active.data.current.unitId;
+            if (unitId !== over.data.current.unitId) {
+                console.warn("Cross-unit dragging is not supported.");
+                return;
+            }
+            const lessonsForUnit = (lessons[unitId] || []).map(item => ({...item, type: 'lesson'}));
+            const quizzesForUnit = (quizzes[unitId] || []).map(item => ({...item, type: 'quiz'}));
+            const unifiedContent = [...lessonsForUnit, ...quizzesForUnit].sort(customSort);
+            const oldIndex = unifiedContent.findIndex(item => item.id === active.id);
+            const newIndex = unifiedContent.findIndex(item => item.id === over.id);
+            if (oldIndex !== -1 && newIndex !== -1) {
+                const reorderedContent = arrayMove(unifiedContent, oldIndex, newIndex);
+                setLessons(prev => ({ ...prev, [unitId]: reorderedContent.filter(i => i.type === 'lesson')}));
+                setQuizzes(prev => ({ ...prev, [unitId]: reorderedContent.filter(i => i.type === 'quiz')}));
+                const batch = writeBatch(db);
+                reorderedContent.forEach((item, index) => {
+                    const collectionName = item.type === 'lesson' ? 'lessons' : 'quizzes';
+                    const itemRef = doc(db, collectionName, item.id);
+                    batch.update(itemRef, { order: index });
+                });
+                await batch.commit();
             }
         }
 	}
@@ -545,134 +468,38 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	    if (exportingLessonId) return;
 	    setExportingLessonId(lesson.id);
 	    showToast("Preparing PDF for printing...", "info");
-
 	    const htmlContent = lesson.pages[0]?.content || '<h1>No Content</h1>';
 	    const title = lesson.lessonTitle || lesson.title;
 	    const printWindow = window.open('', '_blank');
-
 	    if (!printWindow) {
 	        showToast("Could not open a new window. Please disable your pop-up blocker.", "error");
 	        setExportingLessonId(null);
 	        return;
 	    }
-
-	    printWindow.document.write(`
-	        <html>
-	            <head>
-	                <title>${title}</title>
-	                <style>
-	                    @media print {
-	                        @page {
-	                            size: 8.5in 13in;
-	                            margin: 1in;
-	                        }
-	                        body {
-	                            margin: 0;
-	                            font-family: sans-serif;
-	                            -webkit-print-color-adjust: exact;
-	                            print-color-adjust: exact;
-	                        }
-	                        table {
-	                            width: 100%;
-	                            border-collapse: collapse;
-	                            page-break-inside: auto; /* Allow table to break across pages */
-	                        }
-	                        tr {
-	                            page-break-inside: avoid; /* Avoid breaking inside a row */
-	                            page-break-after: auto;
-	                        }
-	                        thead {
-	                            display: table-header-group; /* Repeat table header on each page */
-	                        }
-	                        td, th {
-	                            border: 1px solid #ccc;
-	                            padding: 8px; /* Increased padding slightly for readability */
-	                            text-align: left;
-	                        }
-	                        /* Ensure nested tables also have borders and good layout */
-	                        table table {
-	                            margin-top: 5px;
-	                            border: 1px solid #ccc;
-	                        }
-	                    }
-	                </style>
-	            </head>
-	            <body>
-	                ${htmlContent}
-	            </body>
-	        </html>`);
-
+	    printWindow.document.write(`<html><head><title>${title}</title><style>@media print { @page { size: 8.5in 13in; margin: 1in; } body { margin: 0; font-family: sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; } table { width: 100%; border-collapse: collapse; page-break-inside: auto; } tr { page-break-inside: avoid; page-break-after: auto; } thead { display: table-header-group; } td, th { border: 1px solid #ccc; padding: 8px; text-align: left; } table table { margin-top: 5px; border: 1px solid #ccc; } }</style></head><body>${htmlContent}</body></html>`);
 	    printWindow.document.close();
-	    setTimeout(() => {
-	        printWindow.focus();
-	        printWindow.print();
-	        setExportingLessonId(null);
-	    }, 500);
+	    setTimeout(() => { printWindow.focus(); printWindow.print(); setExportingLessonId(null); }, 500);
 	};
     
 	const handleExportAtgPdf = (lesson) => {
 	    if (exportingLessonId) return;
 	    setExportingLessonId(lesson.id);
 	    showToast("Preparing PDF for printing...", "info");
-
 	    let finalHtml = `<h1>${lesson.lessonTitle || lesson.title}</h1>`;
 	    for (const page of lesson.pages) {
 	        const cleanTitle = page.title.replace(/^page\s*\d+\s*[:-]?\s*/i, '');
 	        const rawHtml = marked.parse(page.content || '');
 	        finalHtml += `<h2>${cleanTitle}</h2>` + rawHtml;
 	    }
-    
 	    const printWindow = window.open('', '_blank');
-    
 	    if (!printWindow) {
 	        showToast("Could not open a new window. Please disable your pop-up blocker.", "error");
 	        setExportingLessonId(null);
 	        return;
 	    }
-    
-	    printWindow.document.write(`
-	        <html>
-	            <head>
-	                <title>${lesson.lessonTitle || lesson.title}</title>
-	                <style>
-	                    @media print {
-	                        @page {
-	                            size: 8.5in 13in; /* Retained original page size */
-	                            margin: 1in;
-	                        }
-	                        body {
-	                            margin: 0;
-	                            font-family: sans-serif;
-	                        }
-	                        h1, h2, h3 {
-	                            page-break-after: avoid; /* Prevents breaking right after a header */
-	                        }
-	                        ul, p {
-	                            page-break-inside: avoid; /* Tries to keep paragraphs together */
-	                        }
-	                        /* Ensures any tables in the ATG are also closed */
-	                        table {
-	                           width: 100%;
-	                           border-collapse: collapse;
-	                        }
-	                        td, th {
-	                           border: 1px solid #ccc;
-	                           padding: 6px;
-	                        }
-	                    }
-	                </style>
-	            </head>
-	            <body>
-	                ${finalHtml}
-	            </body>
-	        </html>`);
-
+	    printWindow.document.write(`<html><head><title>${lesson.lessonTitle || lesson.title}</title><style>@media print { @page { size: 8.5in 13in; margin: 1in; } body { margin: 0; font-family: sans-serif; } h1, h2, h3 { page-break-after: avoid; } ul, p { page-break-inside: avoid; } table { width: 100%; border-collapse: collapse; } td, th { border: 1px solid #ccc; padding: 6px; } }</style></head><body>${finalHtml}</body></html>`);
 	    printWindow.document.close();
-	    setTimeout(() => {
-	        printWindow.focus();
-	        printWindow.print();
-	        setExportingLessonId(null);
-	    }, 500);
+	    setTimeout(() => { printWindow.focus(); printWindow.print(); setExportingLessonId(null); }, 500);
 	};
 
     const unitVisuals = [
@@ -680,76 +507,59 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         { icon: BookOpenIcon, color: 'from-green-500 to-emerald-500' },
         { icon: QueueListIcon, color: 'from-purple-500 to-violet-500' },
     ];
+    
+    const unifiedContent = useMemo(() => {
+        if (!activeUnit) return [];
+        const lessonsForUnit = (lessons[activeUnit.id] || []).map(item => ({ ...item, type: 'lesson' }));
+        const quizzesForUnit = (quizzes[activeUnit.id] || []).map(item => ({ ...item, type: 'quiz' }));
+        return [...lessonsForUnit, ...quizzesForUnit].sort(customSort);
+    }, [activeUnit, lessons, quizzes]);
 
     return (
         <>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 {activeUnit ? (
                     (() => {
-                        const lessonsForActiveUnit = lessons[activeUnit.id];
-                        const quizzesForActiveUnit = quizzes[activeUnit.id];
-                        if (!lessonsForActiveUnit || !quizzesForActiveUnit) {
-                            return <div className="w-full flex justify-center items-center p-20"><Spinner /></div>;
-                        }
+                        const isLoading = !lessons[activeUnit.id] || !quizzes[activeUnit.id];
                         return (
                             <div>
-                                <button onClick={() => onSetActiveUnit(null)} className="flex items-center gap-2 mb-4 font-semibold text-gray-600 hover:text-gray-900">
-                                    <ArrowUturnLeftIcon className="w-4 h-4" />Back to All Units
+                                <button onClick={() => onSetActiveUnit(null)} className="flex items-center gap-2 mb-6 font-semibold text-gray-600 hover:text-gray-900 transition-colors">
+                                    <ArrowUturnLeftIcon className="w-5 h-5" />
+                                    <span>Back to All Units</span>
                                 </button>
-                                <div className="bg-slate-50 p-4 md:p-6 rounded-xl border">
-                                    <div className="grid md:grid-cols-2 gap-6">
-                                        <div>
-                                            <ColumnHeader title="Lessons" icon={DocumentTextIcon} onAdd={() => handleOpenUnitModal(setAddLessonModalOpen, activeUnit)} />
-                                            <SortableContext items={lessonsForActiveUnit.map(l => l.id)} strategy={verticalListSortingStrategy}>
-                                                <div className="grid grid-cols-1 gap-4">
-                                                    {lessonsForActiveUnit.length > 0 ? (
-                                                        lessonsForActiveUnit.map(lesson => 
-                                                            <SortableLessonItem 
-                                                                key={lesson.id} 
-                                                                lesson={lesson} 
-                                                                unitId={activeUnit.id} 
-                                                                onView={() => handleOpenLessonModal(setViewLessonModalOpen, lesson)} 
-                                                                onEdit={() => handleOpenLessonModal(setEditLessonModalOpen, lesson)} 
-                                                                onDelete={() => onInitiateDelete('lesson', lesson.id)} 
-                                                                onGenerateQuiz={() => handleOpenAiQuizModal(lesson)} 
-                                                                isAiGenerating={isAiGenerating} 
-                                                                onExport={handleExportDocx} 
-                                                                onExportUlpPdf={handleExportUlpAsPdf} 
-                                                                onExportAtgPdf={handleExportAtgPdf} 
-                                                                exportingLessonId={exportingLessonId}
-                                                                selectedLessons={selectedLessons}
-                                                                onLessonSelect={onLessonSelect}
-                                                            />
-                                                        )
-                                                    ) : (
-                                                        <p className="text-sm text-center text-gray-500 p-4">No lessons yet.</p>
-                                                    )}
-                                                </div>
-                                            </SortableContext>
-                                        </div>
-                                        <div>
-                                            <ColumnHeader title="Quizzes" icon={ClipboardDocumentListIcon} onAdd={() => handleOpenUnitModal(setAddQuizModalOpen, activeUnit)} />
-                                            <SortableContext items={quizzesForActiveUnit.map(q => q.id)} strategy={verticalListSortingStrategy}>
-                                                <div className="grid grid-cols-1 gap-4">
-                                                    {quizzesForActiveUnit.length > 0 ? (
-                                                        quizzesForActiveUnit.map(quiz => 
-                                                            <SortableQuizItem
-                                                                key={quiz.id}
-                                                                quiz={quiz}
-                                                                unitId={activeUnit.id}
-                                                                onEdit={() => handleEditQuiz(quiz)}
-                                                                onDelete={() => onInitiateDelete('quiz', quiz.id, quiz.lessonId)}
-                                                                onView={() => handleOpenQuizModal(setViewQuizModalOpen, quiz)}
-                                                            />
-                                                        )
-                                                    ) : (
-                                                        <p className="text-sm text-center text-gray-500 p-4">No quizzes yet.</p>
-                                                    )}
-                                                </div>
-                                            </SortableContext>
-                                        </div>
+                                <div className="flex justify-between items-start mb-8">
+                                    <div>
+                                        <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">{activeUnit.title}</h2>
+                                        <p className="mt-1 text-md text-gray-600">Structure the learning path for this unit.</p>
                                     </div>
+                                    <AddContentDropdown onAddLesson={() => handleOpenUnitModal(setAddLessonModalOpen, activeUnit)} onAddQuiz={() => handleOpenUnitModal(setAddQuizModalOpen, activeUnit)} />
                                 </div>
+                                {isLoading ? (
+                                    <div className="w-full flex justify-center items-center p-20"><Spinner /></div>
+                                ) : unifiedContent.length > 0 ? (
+                                    // NEW: Textured background container for the pills
+                                    <div className="bg-slate-100 p-4 rounded-2xl shadow-inner" style={{backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.1'%3E%3Cpath d='M0 38.59l2.83-2.83 1.41 1.41L1.41 40H0v-1.41zM0 1.4l2.83 2.83 1.41-1.41L1.41 0H0v1.41zM38.59 40l-2.83-2.83 1.41-1.41L40 38.59V40h-1.41zM40 1.41l-2.83 2.83-1.41-1.41L38.59 0H40v1.41zM20 18.6l2.83-2.83 1.41 1.41L21.41 20l2.83 2.83-1.41 1.41L20 21.41l-2.83 2.83-1.41-1.41L18.59 20l-2.83-2.83 1.41-1.41L20 18.59z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")"}}>
+                                        <SortableContext items={unifiedContent.map(item => item.id)} strategy={verticalListSortingStrategy}>
+                                            {unifiedContent.map(item => (
+                                                <SortableContentItem
+                                                    key={item.id} item={item}
+                                                    onView={() => item.type === 'lesson' ? handleOpenLessonModal(setViewLessonModalOpen, item) : handleOpenQuizModal(setViewQuizModalOpen, item)}
+                                                    onEdit={() => item.type === 'lesson' ? handleOpenLessonModal(setEditLessonModalOpen, item) : handleEditQuiz(item)}
+                                                    onDelete={() => onInitiateDelete(item.type, item.id)}
+                                                    onGenerateQuiz={() => handleOpenAiQuizModal(item)}
+                                                    onExport={handleExportDocx} onExportUlpPdf={handleExportUlpAsPdf} onExportAtgPdf={handleExportAtgPdf}
+                                                    exportingLessonId={exportingLessonId} selectedLessons={selectedLessons} onLessonSelect={onLessonSelect} isAiGenerating={isAiGenerating}
+                                                />
+                                            ))}
+                                        </SortableContext>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-16 bg-white/70 backdrop-blur-sm rounded-2xl border border-dashed ring-1 ring-black/5 shadow-lg">
+                                        <RectangleStackIcon className="mx-auto h-12 w-12 text-gray-400" />
+                                        <h3 className="mt-2 text-lg font-semibold text-gray-800">This unit is empty</h3>
+                                        <p className="mt-1 text-sm text-gray-500">Add a lesson or a quiz to get started.</p>
+                                    </div>
+                                )}
                             </div>
                         );
                     })()
@@ -757,22 +567,10 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                     units.length > 0 ? (
                         <SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {units.map((unit, index) => (
-                                    <SortableUnitCard 
-                                        key={unit.id} 
-                                        unit={unit} 
-                                        onSelect={onSetActiveUnit} 
-                                        onEdit={(unitToEdit) => handleOpenUnitModal(setEditUnitModalOpen, unitToEdit)} 
-                                        onDelete={(unitToDelete) => handleOpenUnitModal(setDeleteUnitModalOpen, unitToDelete)} 
-                                        onOpenAiHub={handleOpenAiHub} 
-                                        visuals={unitVisuals[index % unitVisuals.length]} 
-                                    />
-                                ))}
+                                {units.map((unit, index) => (<SortableUnitCard key={unit.id} unit={unit} onSelect={onSetActiveUnit} onEdit={(unitToEdit) => handleOpenUnitModal(setEditUnitModalOpen, unitToEdit)} onDelete={(unitToDelete) => handleOpenUnitModal(setDeleteUnitModalOpen, unitToDelete)} onOpenAiHub={handleOpenAiHub} visuals={unitVisuals[index % unitVisuals.length]} />))}
                             </div>
                         </SortableContext>
-                    ) : (
-                        <p className="text-center text-gray-500 py-10">No units in this subject yet. Add one to get started!</p>
-                    )
+                    ) : (<p className="text-center text-gray-500 py-10">No units in this subject yet. Add one to get started!</p>)
                 )}
             </DndContext>
 

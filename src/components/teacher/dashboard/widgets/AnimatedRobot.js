@@ -1,17 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import './AnimatedRobot.css';
-import { CSSTransition } from 'react-transition-group';
+import './AnimatedRobot.css'; // Import the dedicated CSS file
 
 const AnimatedRobot = ({ onClick }) => {
-    const [animationState, setAnimationState] = useState('idle');
     const buttonRef = useRef(null);
     const [isDragging, setIsDragging] = useState(false);
     const [position, setPosition] = useState({ top: 0, left: 0 });
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const dragStartedAt = useRef({ x: 0, y: 0 });
-    const [isHovered, setIsHovered] = useState(false);
 
-    // Define dimensions for the button
+    // --- DIMENSIONS ---
     const BUTTON_WIDTH_DESKTOP = 80;
     const BUTTON_HEIGHT_DESKTOP = 80;
     const BUTTON_WIDTH_MOBILE = 65;
@@ -21,157 +18,122 @@ const AnimatedRobot = ({ onClick }) => {
         return window.innerWidth <= 768
             ? { width: BUTTON_WIDTH_MOBILE, height: BUTTON_HEIGHT_MOBILE }
             : { width: BUTTON_WIDTH_DESKTOP, height: BUTTON_HEIGHT_DESKTOP };
-    }, [BUTTON_WIDTH_DESKTOP, BUTTON_HEIGHT_DESKTOP, BUTTON_WIDTH_MOBILE, BUTTON_HEIGHT_MOBILE]);
+    }, []);
 
     const getInitialPosition = useCallback(() => {
         const { width, height } = getCurrentButtonDimensions();
+        const margin = window.innerWidth <= 768 ? 20 : 40; // Smaller margin on mobile
         return {
-            top: window.innerHeight - height - 40,
-            left: window.innerWidth - width - 40,
+            top: window.innerHeight - height - margin,
+            left: window.innerWidth - width - margin,
         };
     }, [getCurrentButtonDimensions]);
-
+    
+    // --- POSITIONING & DRAG LOGIC ---
     useEffect(() => {
         setPosition(getInitialPosition());
     }, [getInitialPosition]);
 
-    const handleMouseUp = useCallback(() => {
+    const handleInteractionEnd = useCallback(() => {
         if (isDragging) {
             setIsDragging(false);
-            if (buttonRef.current) {
-                const { left, top } = buttonRef.current.getBoundingClientRect();
-                setPosition({ left, top });
-            }
         }
     }, [isDragging]);
 
-    const handleTouchEnd = useCallback(() => {
-        if (isDragging) {
-            setIsDragging(false);
-            if (buttonRef.current) {
-                const { left, top } = buttonRef.current.getBoundingClientRect();
-                setPosition({ left, top });
-            }
-        }
-    }, [isDragging]);
-
-    const handleMouseMove = useCallback((e) => {
+    const handleInteractionMove = useCallback((clientX, clientY) => {
         if (!isDragging || !buttonRef.current) return;
-        e.preventDefault();
         const { width, height } = getCurrentButtonDimensions();
-        const newLeft = e.clientX - offset.x;
-        const newTop = e.clientY - offset.y;
+        const newLeft = clientX - offset.x;
+        const newTop = clientY - offset.y;
+        
         const boundedLeft = Math.min(Math.max(0, newLeft), window.innerWidth - width);
         const boundedTop = Math.min(Math.max(0, newTop), window.innerHeight - height);
         setPosition({ top: boundedTop, left: boundedLeft });
     }, [isDragging, offset, getCurrentButtonDimensions]);
 
-    const handleTouchMove = useCallback((e) => {
-        if (!isDragging || !buttonRef.current || e.touches.length === 0) return;
-        e.preventDefault();
-        const touch = e.touches[0];
-        const { width, height } = getCurrentButtonDimensions();
-        const newLeft = touch.clientX - offset.x;
-        const newTop = touch.clientY - offset.y;
-        const boundedLeft = Math.min(Math.max(0, newLeft), window.innerWidth - width);
-        const boundedTop = Math.min(Math.max(0, newTop), window.innerHeight - height);
-        setPosition({ top: boundedTop, left: boundedLeft });
-    }, [isDragging, offset, getCurrentButtonDimensions]);
-
-    const handleMouseDown = useCallback((e) => {
+    const handleInteractionStart = useCallback((clientX, clientY) => {
         if (buttonRef.current) {
             setIsDragging(true);
-            dragStartedAt.current = { x: e.clientX, y: e.clientY };
+            dragStartedAt.current = { x: clientX, y: clientY };
             const rect = buttonRef.current.getBoundingClientRect();
-            setOffset({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-        }
-    }, []);
-
-    const handleTouchStart = useCallback((e) => {
-        if (buttonRef.current && e.touches.length > 0) {
-            const touch = e.touches[0];
-            setIsDragging(true);
-            dragStartedAt.current = { x: touch.clientX, y: touch.clientY };
-            const rect = buttonRef.current.getBoundingClientRect();
-            setOffset({ x: touch.clientX - rect.left, y: touch.clientY - rect.top });
+            setOffset({ x: clientX - rect.left, y: clientY - rect.top });
         }
     }, []);
 
     const handleClick = useCallback((e) => {
-        if (isDragging) {
-            e.stopPropagation();
-            return;
-        }
+        const currentX = e.clientX || dragStartedAt.current.x;
+        const currentY = e.clientY || dragStartedAt.current.y;
+        
+        const dx = Math.abs(currentX - dragStartedAt.current.x);
+        const dy = Math.abs(currentY - dragStartedAt.current.y);
 
-        const dx = Math.abs(e.clientX - dragStartedAt.current.x);
-        const dy = Math.abs(e.clientY - dragStartedAt.current.y);
-
+        // Only trigger click if it wasn't a significant drag
         if (dx < 5 && dy < 5) {
-            onClick(e);
-            setAnimationState('click');
-            setTimeout(() => setAnimationState('idle'), 500); // Reset animation state
+            onClick(e); // This now correctly calls the function from the parent
         }
-    }, [isDragging, onClick]);
+    }, [onClick]);
+
+    // --- EVENT HANDLERS ---
+    const handleMouseDown = (e) => handleInteractionStart(e.clientX, e.clientY);
+    const handleTouchStart = (e) => {
+        if (e.touches.length > 0) handleInteractionStart(e.touches[0].clientX, e.touches[0].clientY);
+    };
+    const handleMouseMove = (e) => { e.preventDefault(); handleInteractionMove(e.clientX, e.clientY); };
+    const handleTouchMove = (e) => { e.preventDefault(); if (e.touches.length > 0) handleInteractionMove(e.touches[0].clientX, e.touches[0].clientY); };
 
     useEffect(() => {
         if (isDragging) {
             window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
+            window.addEventListener('mouseup', handleInteractionEnd);
             window.addEventListener('touchmove', handleTouchMove, { passive: false });
-            window.addEventListener('touchend', handleTouchEnd);
+            window.addEventListener('touchend', handleInteractionEnd);
         } else {
             window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('mouseup', handleInteractionEnd);
             window.removeEventListener('touchmove', handleTouchMove);
-            window.removeEventListener('touchend', handleTouchEnd);
+            window.removeEventListener('touchend', handleInteractionEnd);
         }
         return () => {
             window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('mouseup', handleInteractionEnd);
             window.removeEventListener('touchmove', handleTouchMove);
-            window.removeEventListener('touchend', handleTouchEnd);
+            window.removeEventListener('touchend', handleInteractionEnd);
         };
-    }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
+    }, [isDragging, handleMouseMove, handleInteractionEnd, handleTouchMove]);
 
-    // Handle initial position on window resize
     useEffect(() => {
-        const handleResize = () => {
-            setPosition(getInitialPosition());
-        };
+        const handleResize = () => setPosition(getInitialPosition());
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, [getInitialPosition]);
 
-    const handleMouseEnter = () => {
-        setIsHovered(true);
-        setAnimationState('hover');
-    };
+    const buttonClasses = `floating-chat-button ${isDragging ? 'dragging' : ''}`;
 
-    const handleMouseLeave = () => {
-        setIsHovered(false);
-        setAnimationState('idle');
+    const buttonStyle = {
+        position: 'fixed',
+        width: `${window.innerWidth <= 768 ? BUTTON_WIDTH_MOBILE : BUTTON_WIDTH_DESKTOP}px`,
+        height: `${window.innerWidth <= 768 ? BUTTON_HEIGHT_MOBILE : BUTTON_HEIGHT_DESKTOP}px`,
+        top: `${position.top}px`,
+        left: `${position.left}px`,
+        transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease',
     };
 
     return (
         <button
             ref={buttonRef}
-            className={`floating-chat-button ${animationState} ${isHovered ? 'hover' : ''} ${isDragging ? 'dragging' : ''}`}
+            className={buttonClasses}
             onClick={handleClick}
             onMouseDown={handleMouseDown}
             onTouchStart={handleTouchStart}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-            style={{
-                position: 'fixed',
-                top: `${position.top}px`,
-                left: `${position.left}px`,
-                transform: isDragging ? 'none' : 'translate(0, 0)',
-                cursor: isDragging ? 'grabbing' : 'pointer',
-                transition: isDragging ? 'none' : 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
-            }}
+            style={buttonStyle}
         >
+            <div className="aurora-background" />
             <div className="button-content">
-                <img src="https://i.ibb.co/x8PrqMXN/chatbot-2.png" alt="Chatbot" className="floating-icon-image" />
+                <img
+                    src="https://i.ibb.co/x8PrqMXN/chatbot-2.png"
+                    alt="Chatbot"
+                    className="floating-icon-image"
+                />
             </div>
         </button>
     );

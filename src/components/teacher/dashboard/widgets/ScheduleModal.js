@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon, PlusCircleIcon, PencilSquareIcon, TrashIcon, CalendarDaysIcon, ListBulletIcon, DocumentPlusIcon } from '@heroicons/react/24/outline'; // Added ListBulletIcon, DocumentPlusIcon
+import { XMarkIcon, PlusCircleIcon, PencilSquareIcon, TrashIcon, CalendarDaysIcon, ListBulletIcon, DocumentPlusIcon } from '@heroicons/react/24/outline';
 
 const ScheduleModal = ({ isOpen, onClose, userRole, scheduleActivities, onAddActivity, onUpdateActivity, onDeleteActivity }) => {
+    // ... (state declarations remain the same)
     const [title, setTitle] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -9,23 +10,17 @@ const ScheduleModal = ({ isOpen, onClose, userRole, scheduleActivities, onAddAct
     const [description, setDescription] = useState('');
     const [inCharge, setInCharge] = useState('');
     const [editingActivity, setEditingActivity] = useState(null);
-
-    // New state for tab management
-    const [activeTab, setActiveTab] = useState('view'); // 'view' or 'add'
+    const [activeTab, setActiveTab] = useState('view');
 
     const isAdmin = userRole === 'admin';
+    const inputStyle = "w-full p-3 border border-slate-200 bg-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800 transition placeholder-gray-500";
 
-    // Reset form and tab when modal closes
+    // ... (useEffect and handler functions remain the same)
     useEffect(() => {
         if (!isOpen) {
-            setTitle('');
-            setStartDate('');
-            setEndDate('');
-            setTime('');
-            setDescription('');
-            setInCharge('');
-            setEditingActivity(null);
-            setActiveTab('view'); // Reset to view tab when modal closes
+            setTitle(''); setStartDate(''); setEndDate(''); setTime('');
+            setDescription(''); setInCharge(''); setEditingActivity(null);
+            setActiveTab('view');
         }
     }, [isOpen]);
 
@@ -35,297 +30,121 @@ const ScheduleModal = ({ isOpen, onClose, userRole, scheduleActivities, onAddAct
             alert('Please fill in all required fields: Title, Start Date, End Date, and In-charge.');
             return;
         }
-
-        const activityData = {
-            title,
-            startDate,
-            endDate,
-            time: time || 'N/A', // Store 'N/A' if time is not provided
-            description,
-            inCharge,
-        };
-
-        if (editingActivity) {
-            onUpdateActivity({ ...editingActivity, ...activityData });
-        } else {
-            onAddActivity(activityData);
-        }
-        // After successful add/update, switch back to view tab and reset form
+        const activityData = { title, startDate, endDate, time: time || 'N/A', description, inCharge };
+        if (editingActivity) onUpdateActivity({ ...editingActivity, ...activityData });
+        else onAddActivity(activityData);
         setActiveTab('view');
-        setTitle('');
-        setStartDate('');
-        setEndDate('');
-        setTime('');
-        setDescription('');
-        setInCharge('');
-        setEditingActivity(null);
+        setTitle(''); setStartDate(''); setEndDate(''); setTime('');
+        setDescription(''); setInCharge(''); setEditingActivity(null);
     };
 
     const handleEditClick = (activity) => {
         setEditingActivity(activity);
-        setTitle(activity.title);
-        setStartDate(activity.startDate);
-        setEndDate(activity.endDate);
-        setTime(activity.time === 'N/A' ? '' : activity.time); // Convert 'N/A' back to empty string for input field
-        setDescription(activity.description);
-        setInCharge(activity.inCharge);
-        setActiveTab('add'); // Switch to the add/edit tab when editing
+        setTitle(activity.title); setStartDate(activity.startDate); setEndDate(activity.endDate);
+        setTime(activity.time === 'N/A' ? '' : activity.time);
+        setDescription(activity.description); setInCharge(activity.inCharge);
+        setActiveTab('add');
     };
 
     const handleCancelEdit = () => {
         setEditingActivity(null);
-        setTitle('');
-        setStartDate('');
-        setEndDate('');
-        setTime('');
-        setDescription('');
-        setInCharge('');
-        setActiveTab('view'); // Switch back to view tab after canceling edit
+        setTitle(''); setStartDate(''); setEndDate(''); setTime('');
+        setDescription(''); setInCharge(''); setActiveTab('view');
     };
-
+    
     if (!isOpen) return null;
 
-    // Create a copy of the array to sort, so we don't mutate the prop directly
-    const sortedActivities = [...scheduleActivities].sort((a, b) => {
-        // Sort by startDate first
-        const dateA = new Date(a.startDate);
-        const dateB = new Date(b.startDate);
-
-        if (dateA.getTime() !== dateB.getTime()) {
-            return dateA.getTime() - dateB.getTime();
-        }
-
-        // If start dates are the same, sort by time
-        const timeA = a.time === 'N/A' || !a.time ? '00:00' : a.time; // Treat 'N/A' or empty as start of day
-        const timeB = b.time === 'N/A' || !b.time ? '00:00' : b.time;
-
-        // Use localeCompare for string comparison of times
-        return timeA.localeCompare(timeB);
-    });
+    const sortedActivities = [...scheduleActivities].sort((a, b) => new Date(a.startDate) - new Date(b.startDate) || a.time.localeCompare(b.time));
 
     return (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex justify-center items-start z-50 p-4 overflow-y-auto">
-            <div className="bg-white rounded-3xl shadow-xl p-8 w-full max-w-3xl transform transition-all duration-300 ease-out scale-95 opacity-0 animate-scale-in mt-10 mb-8">
-                <div className="flex justify-between items-center border-b pb-4 mb-6">
-                    <h2 className="text-3xl font-bold text-gray-800">School Schedule</h2>
-                    <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition">
-                        <XMarkIcon className="w-7 h-7 text-gray-500" />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-start z-50 p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8 w-full max-w-3xl transform transition-all duration-300 ease-out scale-95 opacity-0 animate-scale-in mt-10 mb-8">
+                {/* Modal Header */}
+                <div className="flex justify-between items-center pb-4 mb-6">
+                    <h2 className="text-3xl font-bold text-gray-900">School Schedule</h2>
+                    {/* iOS style close button */}
+                    <button onClick={onClose} className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition">
+                        <XMarkIcon className="w-6 h-6 text-gray-600" />
                     </button>
                 </div>
 
-                {/* Tab Navigation (Admin Only) */}
+                {/* iOS style Segmented Control (Tabs) */}
                 {isAdmin && (
-                    <div className="flex border-b border-gray-200 mb-6">
+                    <div className="w-full bg-gray-200/70 rounded-xl p-1 flex gap-1 mb-6">
                         <button
-                            className={`flex-1 py-3 px-4 text-center font-medium text-lg rounded-t-lg transition-colors duration-200
-                                ${activeTab === 'view' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 bg-gray-100 hover:bg-gray-200'}`}
+                            className={`flex-1 py-2 px-4 text-center font-semibold text-sm rounded-lg transition-all duration-300 ${activeTab === 'view' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-300/50'}`}
                             onClick={() => setActiveTab('view')}
                         >
-                            <ListBulletIcon className="w-6 h-6 inline-block mr-2 -mt-1" /> View Activities
+                            <ListBulletIcon className="w-5 h-5 inline-block mr-2 -mt-1" /> View Activities
                         </button>
                         <button
-                            className={`flex-1 py-3 px-4 text-center font-medium text-lg rounded-t-lg transition-colors duration-200
-                                ${activeTab === 'add' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 bg-gray-100 hover:bg-gray-200'}`}
-                            onClick={() => setActiveTab('add')}
+                            className={`flex-1 py-2 px-4 text-center font-semibold text-sm rounded-lg transition-all duration-300 ${activeTab === 'add' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-300/50'}`}
+                            onClick={() => { setActiveTab('add'); if(editingActivity) handleCancelEdit(); }}
                         >
-                            <DocumentPlusIcon className="w-6 h-6 inline-block mr-2 -mt-1" /> Add/Edit Activity
+                           <DocumentPlusIcon className="w-5 h-5 inline-block mr-2 -mt-1" /> {editingActivity ? 'Edit Activity' : 'Add Activity'}
                         </button>
                     </div>
                 )}
 
-                {/* Conditional Content based on activeTab */}
-                {/* Add/Edit Activity Form (Admin Only & 'add' tab) */}
+                {/* Add/Edit Form */}
                 {isAdmin && activeTab === 'add' && (
-                    <div className="mb-8 p-6 bg-blue-50 rounded-2xl border border-blue-200">
-                        <h3 className="text-xl font-semibold text-blue-700 mb-5 flex items-center">
-                            <PlusCircleIcon className="w-6 h-6 mr-2" /> {editingActivity ? 'Edit Activity' : 'Add New Activity'}
+                    <div className="mb-8 p-6 bg-slate-50 rounded-2xl">
+                        <h3 className="text-xl font-semibold text-gray-800 mb-5 flex items-center">
+                            <PlusCircleIcon className="w-6 h-6 mr-2 text-blue-500" /> {editingActivity ? 'Edit Activity Details' : 'Add New Activity'}
                         </h3>
-                        <form onSubmit={handleSubmit} className="space-y-5">
-                            <div>
-                                <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                                <input
-                                    type="text"
-                                    id="title"
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                    required
-                                />
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <input type="text" id="title" value={title} onChange={(e) => setTitle(e.target.value)} className={inputStyle} placeholder="Activity Title" required />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input type="date" id="startDate" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputStyle} required />
+                                <input type="date" id="endDate" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={inputStyle} required />
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div>
-                                    <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                                    <input
-                                        type="date"
-                                        id="startDate"
-                                        value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                                    <input
-                                        type="date"
-                                        id="endDate"
-                                        value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                        required
-                                    />
-                                </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input type="time" id="time" value={time} onChange={(e) => setTime(e.target.value)} className={inputStyle} />
+                                <input type="text" id="inCharge" value={inCharge} onChange={(e) => setInCharge(e.target.value)} className={inputStyle} placeholder="Person In-charge" required />
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div>
-                                    <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-1">Time (Optional)</label>
-                                    <input
-                                        type="time"
-                                        id="time"
-                                        value={time}
-                                        onChange={(e) => setTime(e.target.value)}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="inCharge" className="block text-sm font-medium text-gray-700 mb-1">In-charge</label>
-                                    <input
-                                        type="text"
-                                        id="inCharge"
-                                        value={inCharge}
-                                        onChange={(e) => setInCharge(e.target.value)}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                        required
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
-                                <textarea
-                                    id="description"
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    rows="3"
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                ></textarea>
-                            </div>
+                            <textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows="3" className={inputStyle} placeholder="Description (Optional)"></textarea>
                             <div className="flex justify-end gap-3 pt-2">
-                                {editingActivity && (
-                                    <button
-                                        type="button"
-                                        onClick={handleCancelEdit}
-                                        className="btn-secondary-light px-5 py-2"
-                                    >
-                                        Cancel Edit
-                                    </button>
-                                )}
-                                <button type="submit" className="btn-primary-glow-light px-5 py-2">
-                                    {editingActivity ? 'Update Activity' : 'Add Activity'}
-                                </button>
+                                {editingActivity && <button type="button" onClick={handleCancelEdit} className="px-5 py-2 bg-gray-200 text-gray-700 font-bold rounded-full hover:bg-gray-300 transition">Cancel</button>}
+                                <button type="submit" className="px-5 py-2 bg-blue-500 text-white font-bold rounded-full hover:bg-blue-600 transition">{editingActivity ? 'Update Activity' : 'Add Activity'}</button>
                             </div>
                         </form>
                     </div>
                 )}
 
-                {/* List of Activities (Visible for all users, or on 'view' tab for admin) */}
+                {/* iOS style Table View List */}
                 {activeTab === 'view' && (
                     <div>
-                        <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-3">All Activities</h3>
                         {sortedActivities.length > 0 ? (
-                            <div className="space-y-4 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+                            <div className="space-y-1 rounded-xl bg-slate-100 p-2 max-h-[50vh] overflow-y-auto">
                                 {sortedActivities.map(activity => (
-                                    <div key={activity.id} className="p-5 border border-gray-200 rounded-2xl bg-gray-50 flex justify-between items-start group hover:shadow-md transition-shadow relative">
+                                    <div key={activity.id} className="p-4 bg-white rounded-lg flex justify-between items-start group hover:bg-slate-50 transition-colors relative">
                                         <div>
-                                            <h4 className="font-bold text-lg text-gray-800">{activity.title}</h4>
-                                            <p className="text-sm text-gray-600 mt-1">
-                                                <span className="font-medium">From: {activity.startDate}</span> to <span className="font-medium">{activity.endDate}</span>
-                                                {activity.time !== 'N/A' && ` at ${activity.time}`}
-                                            </p>
-                                            {activity.inCharge && <p className="text-sm text-gray-600 mt-1">In-charge: <span className="font-medium">{activity.inCharge}</span></p>}
+                                            <h4 className="font-semibold text-lg text-gray-900">{activity.title}</h4>
+                                            <p className="text-sm text-gray-600 mt-1">{activity.startDate} to {activity.endDate} {activity.time !== 'N/A' && ` at ${activity.time}`}</p>
+                                            <p className="text-sm text-gray-600">In-charge: <span className="font-medium">{activity.inCharge}</span></p>
                                             {activity.description && <p className="text-sm text-gray-500 mt-2">{activity.description}</p>}
                                         </div>
                                         {isAdmin && (
                                             <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button
-                                                    onClick={() => handleEditClick(activity)}
-                                                    className="p-1 rounded-full hover:bg-gray-200/50 transition"
-                                                    title="Edit"
-                                                >
-                                                    <PencilSquareIcon className="w-5 h-5 text-gray-500" />
-                                                </button>
-                                                <button
-                                                    onClick={() => onDeleteActivity(activity.id)}
-                                                    className="p-1 rounded-full hover:bg-gray-200/50 transition"
-                                                    title="Delete"
-                                                >
-                                                    <TrashIcon className="w-5 h-5 text-rose-500" />
-                                                </button>
+                                                <button onClick={() => handleEditClick(activity)} className="p-2 rounded-full hover:bg-gray-200 transition" title="Edit"><PencilSquareIcon className="w-5 h-5 text-gray-500" /></button>
+                                                <button onClick={() => onDeleteActivity(activity.id)} className="p-2 rounded-full hover:bg-gray-200 transition" title="Delete"><TrashIcon className="w-5 h-5 text-rose-500" /></button>
                                             </div>
                                         )}
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <div className="text-center text-gray-400 py-8 border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50">
-                                <CalendarDaysIcon className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-                                <p className="text-lg font-semibold">No scheduled activities yet.</p>
-                                {isAdmin && activeTab === 'view' && <p className="text-sm mt-1">Switch to "Add/Edit Activity" tab to add new activities.</p>}
+                            <div className="text-center text-gray-400 py-12 bg-slate-50 rounded-2xl">
+                                <CalendarDaysIcon className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                                <p className="text-lg font-semibold">No scheduled activities</p>
                             </div>
                         )}
                     </div>
                 )}
             </div>
-            {/* Custom CSS for modal animations and scrollbar */}
             <style jsx>{`
-                @keyframes scale-in {
-                    from { transform: scale(0.95); opacity: 0; }
-                    to { transform: scale(1); opacity: 1; }
-                }
-                .animate-scale-in {
-                    animation: scale-in 0.3s ease-out forwards;
-                }
-
-                .btn-primary-glow-light {
-                    background-color: #f43f5e;
-                    color: white;
-                    padding: 8px 16px;
-                    border-radius: 9999px;
-                    font-weight: 600;
-                    transition: all 0.3s ease;
-                    box-shadow: 0 0px 10px rgba(244, 63, 94, 0.3);
-                }
-                .btn-primary-glow-light:hover {
-                    background-color: #e11d48;
-                    box-shadow: 0 0px 15px rgba(244, 63, 94, 0.6);
-                }
-
-                .btn-secondary-light {
-                    background-color: #e5e7eb;
-                    color: #4b5563;
-                    padding: 8px 16px;
-                    border-radius: 9999px;
-                    font-weight: 600;
-                    transition: all 0.3s ease;
-                }
-                .btn-secondary-light:hover {
-                    background-color: #d1d5db;
-                }
-
-                .custom-scrollbar::-webkit-scrollbar {
-                    width: 8px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: #e5e7eb; /* Lighter gray for the track */
-                    border-radius: 10px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background-color: #d1d5db; /* Slightly darker gray for the thumb */
-                    border-radius: 10px;
-                    border: 2px solid #e5e7eb;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background-color: #9ca3af;
-                }
+                @keyframes scale-in { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+                .animate-scale-in { animation: scale-in 0.3s ease-out forwards; }
             `}</style>
         </div>
     );

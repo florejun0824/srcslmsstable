@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FaImage, FaTimes } from 'react-icons/fa';
+import { PhotoIcon, XMarkIcon } from '@heroicons/react/24/solid';
 
 const CreateAnnouncement = ({ classes, onPost }) => {
     const [content, setContent] = useState('');
@@ -10,6 +10,7 @@ const CreateAnnouncement = ({ classes, onPost }) => {
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!content.trim() && !photoURL.trim()) {
+            // Using a more modern alert or a toast notification would be ideal in a full app
             alert('Please add some content or a photo to your announcement.');
             return;
         }
@@ -26,74 +27,79 @@ const CreateAnnouncement = ({ classes, onPost }) => {
         setAudience('teachers');
     };
 
+    // Refined input style for a clean, modern iOS feel
+    const inputStyle = "w-full p-3 border border-zinc-200/90 bg-zinc-100/70 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-zinc-800 transition placeholder-zinc-500";
+
     return (
-        <form onSubmit={handleSubmit} className="p-4 bg-white rounded-xl shadow-lg space-y-4">
+        // The form now has a transparent background to blend into its parent container from HomeView.js
+        <form onSubmit={handleSubmit} className="space-y-4">
             
             {/* Main content textarea */}
-            <div>
-                <textarea
-                    className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 text-gray-800 resize-none transition placeholder-gray-400"
-                    rows="4"
-                    placeholder="Share a new announcement..."
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                />
-            </div>
+            <textarea
+                className={`${inputStyle} resize-none`}
+                rows="5"
+                placeholder="Share a new announcement..."
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+            />
 
-            {/* Photo URL Input & Preview - Conditionally rendered */}
+            {/* Photo URL Input & Preview */}
             {audience === 'teachers' && (
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-gray-600">
-                        <FaImage className="text-lg text-blue-500" />
-                        <label htmlFor="photoURL" className="font-semibold text-sm">Add a Photo</label>
+                <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                         <PhotoIcon className="w-6 h-6 text-zinc-400 flex-shrink-0" />
+                        <input
+                            id="photoURL"
+                            type="text"
+                            className={`${inputStyle} py-2 text-sm`}
+                            placeholder="Optional: Paste an image URL..."
+                            value={photoURL}
+                            onChange={(e) => setPhotoURL(e.target.value)}
+                        />
                     </div>
-                    <input
-                        id="photoURL"
-                        type="text"
-                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 text-sm placeholder-gray-400"
-                        placeholder="Paste image URL here..."
-                        value={photoURL}
-                        onChange={(e) => setPhotoURL(e.target.value)}
-                    />
                     {photoURL && (
-                         <div className="relative mt-2">
-                            <img src={photoURL} alt="Preview" className="rounded-lg max-h-48 w-full object-cover border border-gray-200" onError={(e) => e.target.style.display = 'none'}/>
-                            <button type="button" onClick={() => setPhotoURL('')} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition">
-                                <FaTimes />
+                         <div className="relative group">
+                            <img 
+                                src={photoURL} 
+                                alt="Preview" 
+                                className="rounded-xl max-h-52 w-full object-cover border border-zinc-200" 
+                                // Enhanced error handling to clear the input if the URL is invalid
+                                onError={(e) => { 
+                                    e.target.onerror = null; 
+                                    e.target.style.display='none'; 
+                                    setPhotoURL(''); 
+                                    // Optionally, show a toast message here
+                                }}
+                            />
+                            {/* iOS-style remove button: semi-transparent circle */}
+                            <button 
+                                type="button" 
+                                onClick={() => setPhotoURL('')} 
+                                className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 shadow-md hover:bg-black/80 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                aria-label="Remove photo"
+                            >
+                                <XMarkIcon className="w-4 h-4" />
                             </button>
                         </div>
                     )}
                 </div>
             )}
             
-            <hr className="border-gray-200" />
-
             {/* Audience and Class Selection */}
-            <div className="flex flex-col sm:flex-row gap-4 items-center">
-                <div className="w-full sm:w-1/2">
-                    <label htmlFor="audience" className="block text-sm font-medium text-gray-700 mb-1">Audience</label>
-                    <select
-                        id="audience"
-                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-sm"
-                        value={audience}
-                        onChange={(e) => setAudience(e.target.value)}
-                    >
+            <div className="flex flex-col sm:flex-row gap-4 items-center pt-3 border-t border-zinc-200/80">
+                <div className="w-full">
+                    <label htmlFor="audience" className="block text-sm font-semibold text-zinc-700 mb-1.5">Audience</label>
+                    <select id="audience" className={inputStyle} value={audience} onChange={(e) => setAudience(e.target.value)}>
                         <option value="teachers">All Teachers</option>
-                        <option value="students">Students</option>
+                        <option value="students">Students in a Class</option>
                     </select>
                 </div>
 
                 {audience === 'students' && (
-                    <div className="w-full sm:w-1/2">
-                         <label htmlFor="class" className="block text-sm font-medium text-gray-700 mb-1">Class</label>
-                        <select
-                            id="class"
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-sm"
-                            value={classId}
-                            onChange={(e) => setClassId(e.target.value)}
-                            required
-                        >
-                            <option value="">Select a class</option>
+                    <div className="w-full">
+                         <label htmlFor="class" className="block text-sm font-semibold text-zinc-700 mb-1.5">Class</label>
+                        <select id="class" className={inputStyle} value={classId} onChange={(e) => setClassId(e.target.value)} required>
+                            <option value="" disabled>Select a class...</option>
                             {classes.map(c => (
                                 <option key={c.id} value={c.id}>{c.name}</option>
                             ))}
@@ -102,8 +108,12 @@ const CreateAnnouncement = ({ classes, onPost }) => {
                 )}
             </div>
 
-            {/* Submit Button */}
-            <button type="submit" className="w-full bg-blue-500 text-white font-semibold py-2 px-3 rounded-lg shadow-md hover:bg-blue-600 transition">
+            {/* Refined iOS-style primary submit button with a subtle glow effect */}
+            <button 
+                type="submit" 
+                className="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-blue-600/30 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/20 active:scale-[0.98] transition-all duration-200 disabled:bg-blue-400 disabled:shadow-none"
+                disabled={!content.trim() && !photoURL.trim()}
+            >
                 Post Announcement
             </button>
         </form>

@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     PlusCircleIcon, AcademicCapIcon, UserGroupIcon, ClipboardDocumentListIcon, ShieldCheckIcon,
-    ClipboardIcon, PencilSquareIcon, ArchiveBoxIcon, TrashIcon
+    ClipboardIcon, PencilSquareIcon, ArchiveBoxIcon, TrashIcon, SquaresPlusIcon
 } from '@heroicons/react/24/outline';
 
 const ClassesView = ({
@@ -17,42 +17,47 @@ const ClassesView = ({
     setCreateClassModalOpen,
 }) => {
     const classVisuals = [
-        { icon: AcademicCapIcon, color: 'bg-gradient-to-br from-purple-500 to-indigo-600', iconColor: 'text-purple-300' },
-        { icon: UserGroupIcon, color: 'bg-gradient-to-br from-teal-500 to-emerald-500', iconColor: 'text-teal-300' },
-        { icon: ClipboardDocumentListIcon, color: 'bg-gradient-to-br from-yellow-500 to-orange-500', iconColor: 'text-yellow-300' },
-        { icon: ShieldCheckIcon, color: 'bg-gradient-to-br from-rose-500 to-pink-500', iconColor: 'text-rose-300' },
+        // Refined gradients for a slightly softer, more modern look
+        { icon: AcademicCapIcon, color: 'from-blue-500 to-indigo-600', iconColor: 'text-blue-300' },
+        { icon: UserGroupIcon, color: 'from-green-500 to-teal-600', iconColor: 'text-green-300' },
+        { icon: ClipboardDocumentListIcon, color: 'from-amber-500 to-orange-600', iconColor: 'text-amber-300' },
+        { icon: ShieldCheckIcon, color: 'from-red-500 to-rose-600', iconColor: 'text-red-300' },
     ];
 
-    // Sort activeClasses by gradeLevel
+    // Core logic remains unchanged
     const sortedClasses = [...activeClasses].sort((a, b) => {
-        // Assuming gradeLevel is a string like 'Grade 1', 'Grade 10', etc.
-        // This regex extracts the number for numerical comparison.
         const gradeA = parseInt(a.gradeLevel.match(/\d+/));
         const gradeB = parseInt(b.gradeLevel.match(/\d+/));
-
-        if (gradeA < gradeB) {
-            return -1;
-        }
-        if (gradeA > gradeB) {
-            return 1;
-        }
+        if (gradeA < gradeB) return -1;
+        if (gradeA > gradeB) return 1;
         return 0;
     });
 
     return (
-        <div className="bg-gray-100 min-h-screen text-gray-900 font-sans p-6 sm:p-10">
+        // iOS-style background: lighter gray for a cleaner, airier feel
+        <div className="bg-gray-50 min-h-screen text-gray-900 font-sans p-6 sm:p-8">
             <div className="max-w-7xl mx-auto">
-                <div className="mb-12 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                {/* Header: Refined typography and button styling */}
+                <div className="mb-12 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
                     <div>
-                        <h1 className="text-5xl font-extrabold text-gray-900 tracking-tight leading-tight">Class Dashboard</h1>
-                        <p className="text-gray-500 mt-3 text-lg font-light">Explore, manage, and create your classes with ease.</p>
+                        {/* Typography: slightly less aggressive font weight, more in line with Apple's HIG */}
+                        <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 tracking-tight">Class Dashboard</h1>
+                        <p className="text-gray-600 mt-2 text-lg">Manage your active classes below.</p>
                     </div>
+                    {/* Buttons: Styled to look like modern, floating iOS controls */}
                     <div className="flex flex-shrink-0 gap-3">
-                        <button onClick={() => setIsArchivedModalOpen(true)} className="flex items-center px-6 py-3 bg-white text-gray-700 rounded-xl shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors duration-200 text-base font-semibold">
-                            View Archived
+                        <button 
+                            onClick={() => setIsArchivedModalOpen(true)} 
+                            className="flex items-center px-5 py-2.5 bg-white/60 backdrop-blur-md text-gray-700 rounded-xl shadow-sm border border-gray-200 hover:bg-gray-200/50 transition-all duration-300 active:scale-95 text-sm font-semibold"
+                        >
+                            <ArchiveBoxIcon className="w-5 h-5 mr-2 text-gray-500" />
+                            Archived
                         </button>
-                        <button onClick={() => setCreateClassModalOpen(true)} className="flex items-center px-6 py-3 bg-indigo-600 text-white rounded-xl shadow-lg hover:bg-indigo-500 transition-colors duration-200 text-base font-semibold">
-                            <PlusCircleIcon className="w-6 h-6 mr-3" />
+                        <button 
+                            onClick={() => setCreateClassModalOpen(true)} 
+                            className="flex items-center px-5 py-2.5 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 transition-all duration-300 active:scale-95 text-sm font-semibold"
+                        >
+                            <PlusCircleIcon className="w-5 h-5 mr-2" />
                             Create Class
                         </button>
                     </div>
@@ -64,70 +69,71 @@ const ClassesView = ({
                         return (
                             <div
                                 key={c.id}
-                                className={`group relative ${color} text-white p-8 rounded-3xl shadow-xl overflow-hidden transition-all duration-500 transform hover:scale-105 hover:rotate-1`}
+                                // Card Style: Softer shadow, subtle border, and a less dramatic hover effect for a more premium feel.
+                                className={`group relative bg-gradient-to-br ${color} text-white p-7 rounded-3xl shadow-lg shadow-gray-900/10 overflow-hidden transition-all duration-300 ease-in-out hover:scale-[1.03] border border-white/10`}
                             >
-                                {/* Floating Icon in the background */}
-                                <div className={`absolute -top-12 -right-12 opacity-15 transform rotate-12 transition-all duration-700 group-hover:rotate-0 group-hover:scale-125`}>
+                                {/* Background Icon: Made animation smoother and more pronounced */}
+                                <div className={`absolute -top-10 -right-10 opacity-15 transform rotate-12 transition-all duration-500 ease-in-out group-hover:rotate-0 group-hover:scale-125 group-hover:-translate-x-2 group-hover:-translate-y-2`}>
                                     <Icon className={`w-32 h-32 ${iconColor}`} />
                                 </div>
 
                                 <div
-                                    onClick={() => {
-                                        if (!isHoveringActions) {
-                                            setClassOverviewModal({ isOpen: true, data: c });
-                                        }
-                                    }}
+                                    onClick={() => !isHoveringActions && setClassOverviewModal({ isOpen: true, data: c })}
                                     className="cursor-pointer flex flex-col h-full relative z-10"
+                                    style={{ minHeight: '220px' }} // Set a min-height for consistency
                                 >
-                                    <div className="mb-8">
-                                        <h2 className="text-3xl font-extrabold tracking-tight mb-2 leading-snug">{c.name}</h2>
-                                        <p className="text-gray-200 text-lg font-light">{c.gradeLevel} - {c.section}</p>
+                                    <div className="mb-6">
+                                        {/* Card Text: Refined for clarity */}
+                                        <h2 className="text-2xl font-bold tracking-tight leading-tight">{c.name}</h2>
+                                        <p className="text-white/70 text-base font-light mt-1">{c.gradeLevel} &bull; {c.section}</p>
                                     </div>
+                                    
                                     {c.classCode && (
-                                        <div className="mt-auto pt-6 border-t border-white/20">
-                                            <p className="text-sm font-medium text-white/70 mb-2">Class Code</p>
-                                            <div className="flex items-center justify-between gap-2 bg-white/10 px-4 py-3 rounded-xl border border-white/20 backdrop-blur-md">
-                                                <p className="font-mono text-xl tracking-widest">{c.classCode}</p>
+                                        <div className="mt-auto">
+                                            {/* Class Code pill: Enhanced glassmorphism effect */}
+                                            <div className="flex items-center justify-between gap-2 bg-black/10 backdrop-blur-lg px-4 py-2.5 rounded-xl border border-white/20">
+                                                <p className="font-mono text-lg tracking-wider">{c.classCode}</p>
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         navigator.clipboard.writeText(c.classCode);
                                                         showToast("Class code copied!", "success");
                                                     }}
-                                                    className="p-2 rounded-lg text-white/70 hover:bg-white/30 transition-colors duration-500"
+                                                    className="p-1.5 rounded-md text-white/70 hover:bg-white/20 transition-colors duration-200"
                                                     title="Copy code"
                                                 >
-                                                    <ClipboardIcon className="w-6 h-6" />
+                                                    <ClipboardIcon className="w-5 h-5" />
                                                 </button>
                                             </div>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Actions Menu with a more forgiving hover area */}
+                                {/* Actions Menu: Re-styled as a floating "pill" like in iOS Control Center */}
                                 <div
-                                    className="absolute top-0 right-0 h-24 w-24 p-4 z-20 flex items-start justify-end"
+                                    className="absolute top-4 right-4 z-20"
                                     onMouseEnter={() => setIsHoveringActions(true)}
                                     onMouseLeave={() => setIsHoveringActions(false)}
                                 >
-                                    <div className="p-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-white/20 backdrop-blur-md rounded-full shadow-lg">
+                                    {/* Animation: Pill now subtly scales and fades in instead of just appearing */}
+                                    <div className="flex gap-1 p-1 bg-black/20 backdrop-blur-lg border border-white/20 rounded-full shadow-xl transition-all duration-300 ease-in-out opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100">
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleOpenEditClassModal(c); }}
-                                            className="p-2 rounded-full text-white hover:bg-white/30 transition-colors duration-500"
+                                            className="p-2 rounded-full text-white/80 hover:bg-white/20 hover:text-white transition-colors"
                                             title="Edit"
                                         >
                                             <PencilSquareIcon className="w-5 h-5" />
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleArchiveClass(c.id); }}
-                                            className="p-2 rounded-full text-white hover:bg-white/30 transition-colors duration-500"
+                                            className="p-2 rounded-full text-white/80 hover:bg-white/20 hover:text-white transition-colors"
                                             title="Archive"
                                         >
                                             <ArchiveBoxIcon className="w-5 h-5" />
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleDeleteClass(c.id); }}
-                                            className="p-2 rounded-full text-white hover:bg-white/30 transition-colors duration-500"
+                                            className="p-2 rounded-full text-red-300/80 hover:bg-red-500/40 hover:text-white transition-colors"
                                             title="Delete"
                                         >
                                             <TrashIcon className="w-5 h-5" />
@@ -137,10 +143,11 @@ const ClassesView = ({
                             </div>
                         );
                     }) : (
-                        <div className="col-span-full text-center text-gray-500 py-20 flex flex-col items-center justify-center bg-white rounded-2xl shadow-xl border border-gray-200">
-                            <AcademicCapIcon className="w-20 h-20 text-gray-300 mb-6" />
-                            <p className="text-2xl font-bold">No active classes created yet.</p>
-                            <p className="mt-3 text-lg text-gray-400">Click "Create Class" to get started with your first class!</p>
+                        // Empty State: Redesigned to be softer and more encouraging
+                        <div className="col-span-full text-center py-24 px-6 flex flex-col items-center justify-center bg-gray-100/50 rounded-3xl border border-gray-200/80">
+                            <SquaresPlusIcon className="w-16 h-16 text-gray-300 mb-5" />
+                            <p className="text-xl font-semibold text-gray-700">Your dashboard is empty</p>
+                            <p className="mt-2 max-w-sm text-base text-gray-500">Get started by creating your first class. All your active classes will appear here.</p>
                         </div>
                     )}
                 </div>

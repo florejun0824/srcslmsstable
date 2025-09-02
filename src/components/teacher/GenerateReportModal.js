@@ -14,50 +14,68 @@ import {
 
 import * as XLSX from 'sheetjs-style';
 
-// --- Animation variants for a smooth modal appearance ---
+// Animation variants for a smooth modal appearance
 const dropIn = {
-    hidden: {
-        y: "-100vh",
-        opacity: 0,
-        scale: 0.9,
-    },
+    hidden: { y: "-50px", opacity: 0, scale: 0.95 },
     visible: {
         y: "0",
         opacity: 1,
         scale: 1,
-        transition: {
-            duration: 0.2,
-            type: "spring",
-            damping: 25,
-            stiffness: 500,
-        },
+        transition: { duration: 0.3, type: "spring", damping: 25, stiffness: 400 },
     },
-    exit: {
-        y: "100vh",
-        opacity: 0,
-        scale: 0.9,
-        transition: {
-            duration: 0.2,
-        },
-    },
+    exit: { y: "50px", opacity: 0, scale: 0.95, transition: { duration: 0.2 } },
 };
 
-export default function GenerateReportModal({ isOpen, onClose, classData, availableQuizzes, quizScores, lessons, units, sharedContentPosts }) {
+export default function GenerateReportModal({ isOpen, onClose, classData, availableQuizzes, quizScores, lessons, units, sharedContentPosts, className }) {
     const { showToast } = useToast();
     const [selectedQuizIds, setSelectedQuizIds] = useState([]);
     const [sortOption, setSortOption] = useState('gender-lastName');
     const [collapsedUnits, setCollapsedUnits] = useState(new Set());
 
+    // --- MODIFICATION START ---
+    // This useEffect now correctly sets all units to be collapsed by default when the modal opens.
     useEffect(() => {
-        if (isOpen && Object.keys(units).length > 0 && availableQuizzes.length > 0) {
-            const allUnitKeys = Object.keys(units);
-            const initialCollapsed = new Set(allUnitKeys);
-            if (availableQuizzes.some(q => !q.unitId || !units[q.unitId])) {
-                 initialCollapsed.add('Uncategorized');
+        if (isOpen) {
+            // We use the same logic that builds the list to determine all possible unit titles.
+            const quizzesByUnit = {};
+            if (availableQuizzes && units) { 
+                availableQuizzes.forEach(quizDetails => {
+                    let unitDisplayName = 'Uncategorized';
+                    if (quizDetails.unitId && units[quizDetails.unitId]) {
+                        unitDisplayName = units[quizDetails.unitId];
+                    } else {
+                        const associatedPosts = sharedContentPosts.filter(post => 
+                            (post.quizIds || []).includes(quizDetails.id)
+                        );
+                        const lessonUnitTitlesInAssociatedPosts = new Set();
+                        associatedPosts.forEach(post => {
+                            (post.lessonIds || []).forEach(lessonId => {
+                                const lesson = lessons.find(l => l.id === lessonId);
+                                if (lesson && lesson.unitId && units[lesson.unitId]) {
+                                    lessonUnitTitlesInAssociatedPosts.add(units[lesson.unitId]);
+                                }
+                            });
+                        });
+                        if (lessonUnitTitlesInAssociatedPosts.size === 1) {
+                            unitDisplayName = Array.from(lessonUnitTitlesInAssociatedPosts)[0];
+                        } else if (lessonUnitTitlesInAssociatedPosts.size > 1) {
+                            unitDisplayName = 'Uncategorized';
+                        }
+                    }
+                    if (!quizzesByUnit[unitDisplayName]) {
+                        quizzesByUnit[unitDisplayName] = [];
+                    }
+                    if (!quizzesByUnit[unitDisplayName].some(q => q.id === quizDetails.id)) {
+                        quizzesByUnit[unitDisplayName].push(quizDetails);
+                    }
+                });
             }
-            setCollapsedUnits(initialCollapsed);
+            // Create a new Set containing all the unit titles that will be displayed.
+            const allDisplayedUnitKeys = Object.keys(quizzesByUnit);
+            setCollapsedUnits(new Set(allDisplayedUnitKeys));
         }
-    }, [isOpen, units, availableQuizzes]);
+    }, [isOpen, units, availableQuizzes, lessons, sharedContentPosts]);
+    // --- MODIFICATION END ---
 
     const toggleUnitCollapse = (unitTitle) => {
         setCollapsedUnits(prev => {
@@ -319,32 +337,27 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
         
         let headerRow1_start = rowIndex;
 
-        // Vertically merge Learner's Name and Status
         addMergedCellStyled(headerRow1_start, 0, headerRow1_start + 1, 0, "Learner's Name", studentTableHeaderStyle);
         addMergedCellStyled(headerRow1_start, 1, headerRow1_start + 1, 1, "Status", studentTableHeaderStyle);
 
-        // Add quiz headers
         let currentHeaderCol = 2;
         selectedQuizzes.forEach(quiz => {
             addMergedCellStyled(headerRow1_start, currentHeaderCol, headerRow1_start, currentHeaderCol + 3, quiz.title, studentTableHeaderStyle);
             currentHeaderCol += 4;
         });
 
-        // Vertically merge total score headers
         addMergedCellStyled(headerRow1_start, currentHeaderCol, headerRow1_start + 1, currentHeaderCol, "Total First Attempt Raw Score", studentTableHeaderStyle);
         addMergedCellStyled(headerRow1_start, currentHeaderCol + 1, headerRow1_start + 1, currentHeaderCol + 1, "Total Highest Raw Score", studentTableHeaderStyle);
         
-        // This is the second header row for the sub-headers
         rowIndex++;
-        let subHeaderRowData = ["", ""]; // Placeholders for the merged cells
+        let subHeaderRowData = ["", ""];
         selectedQuizzes.forEach(() => {
             subHeaderRowData.push("First Attempt Raw Score", "First Attempt Score Percentage", "Highest Raw Score", "Highest Score Percentage");
         });
-        subHeaderRowData.push("", ""); // Placeholders for the merged cells
+        subHeaderRowData.push("", "");
 
-        // Set the height of this row
         worksheet['!rows'] = worksheet['!rows'] || [];
-        worksheet['!rows'][rowIndex - 1] = { hpt: 30 }; // Double the row height
+        worksheet['!rows'][rowIndex - 1] = { hpt: 30 };
 
         addRowData(subHeaderRowData);
         for(let i=0; i<subHeaderRowData.length; i++) {
@@ -354,7 +367,6 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
         }
         
         rowIndex++;
-
         let lastGender = null;
 
         sortedStudents.forEach(student => {
@@ -429,6 +441,7 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
         onClose();
     };
 
+
     const handleClose = () => {
         setSelectedQuizIds([]);
         setSortOption('gender-lastName');
@@ -473,96 +486,75 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
     const sortedUnitKeys = Object.keys(quizzesByUnit).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
     return (
-        <Dialog open={isOpen} onClose={handleClose} static={true} className="z-[100]">
-            <DialogPanel className="w-full max-w-4xl rounded-2xl bg-white p-0 shadow-2xl overflow-hidden transition-all transform backdrop-filter backdrop-blur-md bg-opacity-90 ring-1 ring-gray-200">
-                <motion.div
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-full h-full flex flex-col"
+        <Dialog open={isOpen} onClose={handleClose} static={true} className={className}>
+            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" aria-hidden="true" />
+            
+            <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
+                <DialogPanel as={motion.div}
                     variants={dropIn}
                     initial="hidden"
                     animate="visible"
                     exit="exit"
+                    className="w-full max-w-2xl rounded-2xl bg-slate-50/80 backdrop-blur-2xl flex flex-col overflow-hidden ring-1 ring-black/10 shadow-2xl"
+                    style={{ maxHeight: '90vh' }}
                 >
-                    <div className="flex items-center justify-between p-5 bg-gradient-to-br from-blue-600 to-purple-700 text-white shadow-md">
-                        <div className="flex items-center">
-                            <div className="p-2 rounded-full bg-white bg-opacity-20 mr-3">
-                                <DocumentChartBarIcon className="h-7 w-7 text-white" />
-                            </div>
-                            <h3 className="text-2xl font-extrabold text-white leading-tight">
+                    <header className="flex items-center justify-between p-5 border-b border-black/10 flex-shrink-0">
+                        <div className="flex items-center gap-3">
+                            <DocumentChartBarIcon className="h-6 w-6 text-indigo-600" />
+                            <h3 className="text-xl font-bold text-gray-900">
                                 Generate Score Report
                             </h3>
                         </div>
-                        <button onClick={handleClose} className="text-white hover:text-gray-200 transition-colors">
-                            <XMarkIcon className="h-6 w-6" />
+                        <button onClick={handleClose} className="p-1 rounded-full text-gray-500 hover:bg-black/10 transition-colors">
+                            <XMarkIcon className="h-5 w-5" />
                         </button>
-                    </div>
+                    </header>
 
-                    <div className="flex-grow p-6 overflow-y-auto custom-scrollbar space-y-5">
-                        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-inner">
-                            <label className="flex items-center text-base font-bold text-gray-800 mb-3">
-                                <ClipboardDocumentCheckIcon className="h-5 w-5 mr-2 text-blue-600" />
-                                1. Select Quizzes to Include
+                    <div className="flex-grow p-6 overflow-y-auto custom-scrollbar space-y-6">
+                        <div className="bg-white p-5 rounded-xl border border-black/10 shadow-sm">
+                            <label className="flex items-center text-lg font-bold text-gray-800 mb-4">
+                                <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center mr-3">1</span>
+                                Select Quizzes
                             </label>
                             {availableQuizzes.length === 0 ? (
-                                <p className="text-gray-500 italic text-sm">
-                                    No quizzes available to generate a report.
-                                </p>
-                            ) : (!lessons && Object.keys(units).length === 0) ? (
-                                <p className="text-gray-500 italic text-sm">
-                                    Loading quiz data...
-                                </p>
+                                <p className="text-gray-500 text-sm px-2 py-4 text-center">No quizzes have been shared with this class yet.</p>
                             ) : (
-                                <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
+                                <div className="space-y-2 max-h-72 overflow-y-auto custom-scrollbar -mr-2 pr-2">
                                     {sortedUnitKeys.map(unitDisplayName => {
                                         const quizzesInThisUnit = quizzesByUnit[unitDisplayName] || [];
-                                        const quizIdsInThisUnit = quizzesInThisUnit.map(quiz => quiz.id);
-                                        const allQuizzesSelected = quizIdsInThisUnit.length > 0 && quizIdsInThisUnit.every(quizId => selectedQuizIds.includes(quizId));
-                                        const someQuizzesSelected = quizIdsInThisUnit.some(quizId => selectedQuizIds.includes(quizId)) && !allQuizzesSelected;
+                                        const quizIdsInThisUnit = quizzesInThisUnit.map(q => q.id);
+                                        const allSelected = quizIdsInThisUnit.length > 0 && quizIdsInThisUnit.every(id => selectedQuizIds.includes(id));
+                                        const someSelected = quizIdsInThisUnit.some(id => selectedQuizIds.includes(id)) && !allSelected;
 
                                         return (
-                                            <div key={unitDisplayName} className="bg-white rounded-lg shadow-sm border border-gray-100">
-                                                <button
-                                                    className="flex items-center justify-between w-full p-2.5 font-bold text-sm text-gray-800 bg-gray-50 hover:bg-gray-100 rounded-t-lg transition-colors border-b border-gray-100"
-                                                    onClick={() => toggleUnitCollapse(unitDisplayName)}
-                                                >
+                                            <div key={unitDisplayName} className="bg-slate-50 rounded-lg border border-slate-200/80">
+                                                <button className="flex items-center justify-between w-full p-3 font-semibold text-sm text-gray-700 hover:bg-slate-100 transition-colors" onClick={() => toggleUnitCollapse(unitDisplayName)}>
                                                     <div className="flex items-center">
                                                         <input
                                                             type="checkbox"
-                                                            checked={allQuizzesSelected}
+                                                            checked={allSelected}
                                                             onChange={() => handleUnitSelectionToggle(unitDisplayName)}
-                                                            ref={el => el && (el.indeterminate = someQuizzesSelected)}
+                                                            ref={el => el && (el.indeterminate = someSelected)}
                                                             onClick={(e) => e.stopPropagation()}
-                                                            className="h-4 w-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500 mr-2"
+                                                            className="h-4 w-4 rounded text-indigo-600 border-gray-300 focus:ring-indigo-500 mr-3"
                                                         />
                                                         {unitDisplayName}
                                                     </div>
-                                                    {collapsedUnits.has(unitDisplayName) ? (
-                                                        <ChevronDownIcon className="h-4 w-4 text-gray-500 transition-transform duration-200" />
-                                                    ) : (
-                                                        <ChevronUpIcon className="h-4 w-4 text-gray-500 transition-transform duration-200" />
-                                                    )}
+                                                    {collapsedUnits.has(unitDisplayName) ? <ChevronDownIcon className="h-5 w-5 text-gray-400" /> : <ChevronUpIcon className="h-5 w-5 text-gray-400" />}
                                                 </button>
                                                 {!collapsedUnits.has(unitDisplayName) && (
-                                                    <div className="p-2 space-y-1">
-                                                        {quizzesInThisUnit
-                                                            .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }))
-                                                            .map(quiz => (
-                                                                <div
-                                                                    key={quiz.id}
-                                                                    className={`flex items-center p-1.5 rounded-lg cursor-pointer transition-colors text-sm
-                                                                    ${selectedQuizIds.includes(quiz.id) ? 'bg-blue-100' : 'hover:bg-gray-50'}`}
-                                                                    onClick={() => handleQuizSelection(quiz.id)}
-                                                                >
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={selectedQuizIds.includes(quiz.id)}
-                                                                        onChange={() => handleQuizSelection(quiz.id)}
-                                                                        className="h-4 w-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500 mr-2"
-                                                                    />
-                                                                    <span className="font-normal text-gray-700">{quiz.title}</span>
-                                                                </div>
-                                                            ))
-                                                        }
+                                                    <div className="p-2 border-t border-slate-200/80">
+                                                        {quizzesInThisUnit.sort((a,b) => a.title.localeCompare(b.title)).map(quiz => (
+                                                            <label key={quiz.id} className={`flex items-center p-2 rounded-md cursor-pointer transition-colors text-sm ${selectedQuizIds.includes(quiz.id) ? 'bg-indigo-100/60' : 'hover:bg-slate-100/80'}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selectedQuizIds.includes(quiz.id)}
+                                                                    onChange={() => handleQuizSelection(quiz.id)}
+                                                                    className="h-4 w-4 rounded text-indigo-600 border-gray-300 focus:ring-indigo-500 mr-3"
+                                                                />
+                                                                <span className="text-gray-800">{quiz.title}</span>
+                                                            </label>
+                                                        ))}
                                                     </div>
                                                 )}
                                             </div>
@@ -571,62 +563,42 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
                                 </div>
                             )}
                         </div>
-                    </div>
-
-                    <div className="flex-shrink-0 p-5 border-t border-gray-200 bg-white bg-opacity-70">
-                        <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-inner mb-3">
-                            <label className="flex items-center text-sm font-bold text-gray-800 mb-2">
-                                <UsersIcon className="h-4 w-4 mr-1 text-purple-600" />
-                                2. Sort Students By
+                        
+                        <div className="bg-white p-5 rounded-xl border border-black/10 shadow-sm">
+                             <label className="flex items-center text-lg font-bold text-gray-800 mb-4">
+                                <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center mr-3">2</span>
+                                Sort Students By
                             </label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <label className={`flex-1 flex items-center justify-center gap-1 cursor-pointer p-1.5 rounded-full font-semibold text-xs transition-colors
-                                    ${sortOption === 'gender-lastName' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                                    <input
-                                        type="radio"
-                                        name="sortOption"
-                                        value="gender-lastName"
-                                        checked={sortOption === 'gender-lastName'}
-                                        onChange={(e) => setSortOption(e.target.value)}
-                                        className="hidden"
-                                    />
-                                    Gender then Last Name
+                            <div className="p-1 bg-slate-100 rounded-full flex gap-1">
+                                <label className={`w-full text-center cursor-pointer py-2 px-3 rounded-full font-semibold text-sm transition-all ${sortOption === 'gender-lastName' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-white/50'}`}>
+                                    <input type="radio" name="sortOption" value="gender-lastName" checked={sortOption === 'gender-lastName'} onChange={e => setSortOption(e.target.value)} className="hidden" />
+                                    Gender, then Last Name
                                 </label>
-                                <label className={`flex-1 flex items-center justify-center gap-1 cursor-pointer p-1.5 rounded-full font-semibold text-xs transition-colors
-                                    ${sortOption === 'gender-firstName' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                                    <input
-                                        type="radio"
-                                        name="sortOption"
-                                        value="gender-firstName"
-                                        checked={sortOption === 'gender-firstName'}
-                                        onChange={(e) => setSortOption(e.target.value)}
-                                        className="hidden"
-                                    />
-                                    Gender then First Name
+                                <label className={`w-full text-center cursor-pointer py-2 px-3 rounded-full font-semibold text-sm transition-all ${sortOption === 'gender-firstName' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-white/50'}`}>
+                                    <input type="radio" name="sortOption" value="gender-firstName" checked={sortOption === 'gender-firstName'} onChange={e => setSortOption(e.target.value)} className="hidden" />
+                                    Gender, then First Name
                                 </label>
                             </div>
                         </div>
-                        <div className="flex justify-end gap-2">
-                            <button
-                                onClick={handleClose}
-                                className="px-5 py-2.5 bg-gray-200 text-gray-800 rounded-lg font-semibold text-sm hover:bg-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-md"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleGenerate}
-                                disabled={selectedQuizIds.length === 0}
-                                className={`px-5 py-2.5 text-white rounded-lg font-semibold text-sm transition-colors focus:outline-none focus:ring-2 shadow-lg
-                                    ${selectedQuizIds.length === 0
-                                        ? 'bg-gray-300 cursor-not-allowed'
-                                        : 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 focus:ring-blue-500'}`}
-                            >
-                                Generate Report
-                            </button>
-                        </div>
                     </div>
-                </motion.div>
-            </DialogPanel>
+
+                    <footer className="flex justify-end gap-3 p-4 bg-slate-50/50 border-t border-black/10 flex-shrink-0">
+                        <button onClick={handleClose} className="px-5 py-2.5 bg-white text-gray-800 rounded-lg font-semibold text-sm hover:bg-slate-200 transition-colors ring-1 ring-inset ring-slate-300 shadow-sm">
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleGenerate}
+                            disabled={selectedQuizIds.length === 0}
+                            className={`px-5 py-2.5 text-white rounded-lg font-semibold text-sm transition-all shadow-md active:scale-95
+                                ${selectedQuizIds.length === 0
+                                    ? 'bg-gray-300 cursor-not-allowed'
+                                    : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                        >
+                            Generate Report
+                        </button>
+                    </footer>
+                </DialogPanel>
+            </div>
         </Dialog>
     );
 }

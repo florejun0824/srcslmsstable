@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog } from '@headlessui/react';
-import { collection, query, where, onSnapshot, writeBatch, doc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, writeBatch, doc, serverTimestamp, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 import InteractiveLoadingScreen from '../common/InteractiveLoadingScreen';
-import { XMarkIcon, AcademicCapIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, AcademicCapIcon, ArrowPathIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import LessonPage from './LessonPage';
 
-// Helper functions (extractJson, tryParseJson)
+// Helper functions
 const extractJson = (text) => {
     let match = text.match(/```json\s*([\s\S]*?)\s*```/);
     if (!match) match = text.match(/```([\s\S]*?)```/);
@@ -21,7 +21,6 @@ const extractJson = (text) => {
 
 const tryParseJson = (jsonString) => {
     try {
-        // This pre-processes the string to fix bad escape characters before parsing.
         const sanitizedString = jsonString.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\');
         return JSON.parse(sanitizedString);
     } catch (e) {
@@ -36,10 +35,6 @@ const tryParseJson = (jsonString) => {
     }
 };
 
-/**
- * Defines the initial, empty state for the form.
- * This constant is used to initialize and reset the form data.
- */
 const initialFormData = {
     content: '',
     lessonCount: 1,
@@ -50,42 +45,32 @@ const initialFormData = {
     gradeLevel: '7',
 };
 
-/**
- * A modal component for generating multi-lesson learning guides using an AI service.
- * It handles user input, communicates with the AI, displays a preview, and saves the final content to Firestore.
- * @param {object} props - Component props.
- * @param {boolean} props.isOpen - Controls if the modal is visible.
- * @param {Function} props.onClose - Function to call when the modal should be closed.
- * @param {string} [props.unitId] - The ID of the parent unit, if specified.
- * @param {string} props.subjectId - The ID of the parent subject.
- */
 export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subjectId }) {
     const { showToast } = useToast();
     const [isGenerating, setIsGenerating] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [previewData, setPreviewData] = useState(null);
-    const [extraInstruction, setExtraInstruction] = useState('');
-    const [existingLessonCount, setExistingLessonCount] = useState(0);
-
-    const [availableUnits, setAvailableUnits] = useState([]);
-    const [selectedUnitId, setSelectedUnitId] = useState('');
-    const [subjectName, setSubjectName] = useState('');
-
     const [failedLessonNumber, setFailedLessonNumber] = useState(null);
     const [lessonProgress, setLessonProgress] = useState({ current: 0, total: 0 });
-
     const [formData, setFormData] = useState(initialFormData);
-
-    // --- State Reset and Close Handling ---
+    const [availableUnits, setAvailableUnits] = useState([]);
+    const [selectedUnitId, setSelectedUnitId] = useState('');
+    const [existingLessonCount, setExistingLessonCount] = useState(0);
+    const [subjectName, setSubjectName] = useState('');
+    const [subjectContext, setSubjectContext] = useState(null);
+    const [scaffoldLessonIds, setScaffoldLessonIds] = useState(new Set());
+    const [expandedScaffoldUnits, setExpandedScaffoldUnits] = useState(new Set());
 
     const resetState = () => {
         setFormData(initialFormData);
         setPreviewData(null);
         setIsGenerating(false);
         setIsSaving(false);
-        setExtraInstruction('');
         setFailedLessonNumber(null);
         setLessonProgress({ current: 0, total: 0 });
+        setSubjectContext(null);
+        setScaffoldLessonIds(new Set());
+        setExpandedScaffoldUnits(new Set());
     };
 
     const handleClose = () => {
@@ -93,19 +78,29 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         onClose();
     };
 
-
     // --- Data Fetching Effects ---
-
     useEffect(() => {
-        if (subjectId) {
-            const fetchSubjectName = async () => {
-                const subjectRef = doc(db, 'subjects', subjectId);
-                const subjectSnap = await getDoc(subjectRef);
-                setSubjectName(subjectSnap.exists() ? subjectSnap.data().title : '');
+        if (isOpen && subjectId) {
+            const fetchFullSubjectContext = async () => {
+                try {
+                    const subjectRef = doc(db, 'courses', subjectId);
+                    const subjectSnap = await getDoc(subjectRef);
+                    setSubjectName(subjectSnap.exists() ? subjectSnap.data().title : 'this subject');
+                    const unitsQuery = query(collection(db, 'units'), where('subjectId', '==', subjectId));
+                    const unitsSnapshot = await getDocs(unitsQuery);
+                    const unitsData = unitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const lessonsQuery = query(collection(db, 'lessons'), where('subjectId', '==', subjectId));
+                    const lessonsSnapshot = await getDocs(lessonsQuery);
+                    const lessonsData = lessonsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setSubjectContext({ units: unitsData, lessons: lessonsData });
+                } catch (error) {
+                    console.error("Error fetching subject context:", error);
+                    showToast("Could not scan existing subject content.", "error");
+                }
             };
-            fetchSubjectName();
+            fetchFullSubjectContext();
         }
-    }, [subjectId]);
+    }, [isOpen, subjectId, showToast]);
 
     useEffect(() => {
         if (unitId) {
@@ -113,7 +108,6 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             setAvailableUnits([]);
             return;
         }
-
         if (isOpen && !unitId && subjectId) {
             const unitsQuery = query(collection(db, 'units'), where('subjectId', '==', subjectId));
             const unsubscribe = onSnapshot(unitsQuery, (snapshot) => {
@@ -139,34 +133,44 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             return () => unsubscribe();
         }
     }, [isOpen, unitId, selectedUnitId]);
-
-
-    // --- Form & Action Handlers ---
-
+    
+    // --- Handlers & Memos ---
     const handleChange = (e) => {
         const { name, value } = e.target;
         const finalValue = name === 'lessonCount' ? Math.max(1, Number(value)) : value;
         setFormData(prev => ({ ...prev, [name]: finalValue }));
     };
 
-    const handleBackToEdit = () => {
-        setPreviewData(null);
-        setFailedLessonNumber(null);
-        setLessonProgress({ current: 0, total: 0 });
+    const scaffoldInfo = useMemo(() => {
+        if (scaffoldLessonIds.size === 0 || !subjectContext) return { summary: '' };
+        const relevantScaffoldLessons = subjectContext.lessons.filter(lesson => scaffoldLessonIds.has(lesson.id));
+        const summary = relevantScaffoldLessons.map(lesson => {
+            const pageContentSample = lesson.pages.map(p => p.content).join(' ').substring(0, 200);
+            return `- Lesson Title: "${lesson.title}"\n  - Key Concepts/Activities Summary: ${pageContentSample}...`;
+        }).join('\n');
+        return { summary };
+    }, [scaffoldLessonIds, subjectContext]);
+
+    const handleToggleUnitExpansion = (unitId) => {
+        const newSet = new Set(expandedScaffoldUnits);
+        if (newSet.has(unitId)) newSet.delete(unitId);
+        else newSet.add(unitId);
+        setExpandedScaffoldUnits(newSet);
     };
 
-    const handleInitialGenerate = () => {
-        setPreviewData(null);
-        runGenerationLoop(1);
-    };
-
-    const handleContinueGenerate = () => {
-        if (failedLessonNumber) {
-            runGenerationLoop(failedLessonNumber);
+    const handleUnitCheckboxChange = (lessonsInUnit) => {
+        const lessonIdsInUnit = lessonsInUnit.map(l => l.id);
+        const currentlySelectedInUnit = lessonIdsInUnit.filter(id => scaffoldLessonIds.has(id));
+        const newSet = new Set(scaffoldLessonIds);
+        if (currentlySelectedInUnit.length === lessonIdsInUnit.length) {
+            lessonIdsInUnit.forEach(id => newSet.delete(id));
+        } else {
+            lessonIdsInUnit.forEach(id => newSet.add(id));
         }
+        setScaffoldLessonIds(newSet);
     };
 
-	const getMasterInstructions = () => {
+    const getMasterInstructions = () => {
 	    const objectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
 	    const letsGetStartedLabel = formData.language === 'Filipino' ? 'Simulan Natin!' : "Let's Get Started!";
 	    const checkUnderstandingLabel = formData.language === 'Filipino' ? 'Suriin ang Pag-unawa' : "Check for Understanding";
@@ -225,88 +229,58 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 	            9. **Answer Key ("${answerKeyLabel}"):** A page with the answers. The 'title' MUST be exactly "${answerKeyLabel}".
 	            10. **References ("${referencesLabel}"):** The absolute last page must ONLY contain references. The 'title' MUST be exactly "${referencesLabel}".
 
-	            **ABSOLUTE RULE FOR DIAGRAMS (NON-NEGOTIABLE):**
-	            When a diagram is necessary, you MUST generate a clean, modern, SVG diagram. The page 'type' MUST be "diagram-data". The 'content' MUST contain the full SVG code. 
-            
-	            **CRITICAL GOAL FOR REALISM:** Your primary goal is to create a diagram that is a **faithful and structurally accurate representation of the real-world object**. You must act as a technical illustrator drawing from observation. Do not oversimplify or abstract the object into basic geometric shapes.
-            
-	            **CRITICAL RULE FOR DIAGRAM LOGIC (NON-NEGOTIABLE):**
-	            - The diagram MUST respect real-world physics and conventions.
-	            - **For measuring tools (beakers, graduated cylinders):** Volume markers MUST be in the correct order. The smallest value (e.g., 50ml) MUST be at the bottom, and the values MUST increase going up to the largest value (e.g., 200ml) at the top. This is a strict requirement.
-            
-	            **Layout and Font Rules:**
-	            - **ViewBox is Mandatory:** The SVG MUST have a \`viewBox\` attribute for proper scaling.
-	            - **STRICT FONT SIZE RULE:** You MUST use a **font-size between "4px" and "6px"**.
-	            - **STRICT FONT WEIGHT RULE:** You MUST set \`font-weight="normal"\` on all text elements to prevent bolding.
-	            - **Text Anchoring:** Use the \`text-anchor\` attribute (e.g., "middle", "start", "end") to align text.
-	            - **NO LATEX IN SVG:** Use Unicode characters for symbols (e.g., 'δ', '→', '⁺').
-            
-	            - **Intelligent Label Placement with Leader Lines:** This is CRITICAL. Every label must be unambiguously connected to the component it describes. You MUST **draw a thin, straight <line> or simple dashed <path> from the text label directly to its corresponding feature** on the diagram. This removes all confusion.
-            
-	            **Visual Style & Detail Guide:**
-	            - **Anatomical Accuracy:** The shape, proportions, and key components of the object MUST be true-to-life. For example, a laboratory beaker must have its **pouring spout and rolled rim**. A microscope must have its eyepiece, objective lenses, and stage in the correct arrangement. You must draw the object's specific, defining contours.
-	            - **Use Gradients for Depth:** For container objects, use a \`<linearGradient>\` in the \`<defs>\` section to create a subtle 3D or glassy effect.
-	            - **Add Highlights:** For glassy or shiny surfaces, add a small, white path or shape with partial opacity to simulate a reflection.
-	            - **Use Professional Colors:** Avoid overly bright, saturated "cartoon" colors. Use a more muted, professional color palette.
-
-	            **Advanced Example (Follow this style for a realistic, clearly-labeled beaker):**
-	            \`<svg viewBox="0 0 160 180" font-family="sans-serif" font-weight="normal">
-	              <defs>
-	                <linearGradient id="glassyLook" x1="0%" y1="0%" x2="100%" y2="0%">
-	                  <stop offset="0%" style="stop-color:#FFFFFF; stop-opacity:0.5" />
-	                  <stop offset="50%" style="stop-color:#E0F7FA; stop-opacity:0.7" />
-	                  <stop offset="100%" style="stop-color:#B2EBF2; stop-opacity:0.9" />
-	                </linearGradient>
-	              </defs>
-              
-	              {/* Structurally accurate beaker path with rolled rim and pouring spout */}
-	              <path d="M25 15 C 20 15, 20 25, 25 25 V 170 H 125 V 25 C 130 25, 130 15, 125 15 H 90 C 85 5, 65 5, 60 15 H 25 Z" fill="url(#glassyLook)" stroke="#004D40" stroke-width="1.5"/>
-              
-	              {/* Liquid inside the beaker */}
-	              <rect x="27" y="100" width="96" height="68" fill="#4DD0E1" opacity="0.75" rx="2"/>
-              
-	              {/* Glass highlight on the side */}
-	              <path d="M 40 30 C 32 60, 32 120, 40 150" fill="white" opacity="0.6" stroke="none" />
-
-	              {/* --- Labels with Leader Lines --- */}
-	              <g font-size="6px" fill="#004D40" stroke="#37474F" font-weight="normal">
-	                {/* Label for Pouring Spout */}
-	                <text x="75" y="4" text-anchor="middle">Pouring Spout</text>
-	                <path d="M75 7 L75 12" stroke-width="1"/>
-
-	                {/* Label for Liquid */}
-	                <text x="130" y="140" text-anchor="start">H₂O Solution</text>
-	                <path d="M100 138 L128 138" stroke-width="1"/>
-
-	                {/* Logically correct measurement marks */}
-	                <text x="5" y="150" text-anchor="start">50ml</text>
-	                <path d="M25 148 L15 148" stroke-width="1" />
-	                <text x="5" y="103" text-anchor="start">100ml</text>
-	                <path d="M25 101.5 L15 101.5" stroke-width="1" />
-	              </g>
-	            </svg>\`
+	            **ABSOLUTE RULE FOR IMAGES (NON-NEGOTIABLE):**
+	            When a visual aid, diagram, or illustration is necessary to explain a concept, you MUST generate a detailed, descriptive prompt for a text-to-image AI model (like Google Imagen) instead of generating SVG code.
+	            - The page 'type' MUST be **"image-prompt"**.
+	            - The 'content' MUST be a string containing the detailed prompt.
+	            
+	            **CRITICAL PROMPT WRITING INSTRUCTIONS:**
+	            1.  **Style:** The prompt MUST begin by describing a specific visual style. Use phrases like "Clean, modern, educational textbook illustration...", "Minimalist schematic diagram...", or "Infographic explaining...". The style should always be on a **clean white background** for consistency.
+	            2.  **Detail & Composition:** Be highly descriptive. Mention the main subject, its key parts, any required labels with leader lines, the perspective (e.g., "cross-section", "isometric view", "exploded view"), and the overall composition.
+	            3.  **Clarity over Artistry:** The primary goal is educational clarity, not a photorealistic or artistic masterpiece. The prompt must reflect this. Avoid subjective artistic terms like "beautiful" or "stunning".
+	            
+	            **EXAMPLE of a good image prompt:**
+	            - "Educational textbook illustration of a laboratory beaker made of clear glass, showing a cross-section. The beaker contains a blue liquid filled to the 100ml mark. Clear, legible labels with leader lines point to the 'Pouring Spout', the 'Rolled Rim', and the '100ml mark'. Clean, minimalist style on a white background."
 
 	            **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
 	    `;
 	};
 		
-    const generateSingleLesson = async (lessonNumber, totalLessons, previousLessonsContext) => {
+	const generateSingleLesson = async (lessonNumber, totalLessons, previousLessonsContext, existingSubjectContext) => {
         let lastError = null;
         let lastResponseText = null;
         const masterInstructions = getMasterInstructions();
 
         let continuityInstruction = '';
-        if (lessonNumber > 1 && previousLessonsContext) {
-            continuityInstruction = `
-                **CRITICAL CONTINUITY & COHERENCE INSTRUCTION (NON-NEGOTIABLE):** You are generating Lesson ${lessonNumber} of a larger series. The following lessons have already been created. You MUST carefully review their titles and summaries to understand the narrative arc.
+        if (previousLessonsContext) {
+            continuityInstruction += `
+                **CRITICAL CONTINUITY (This Session):** You are generating Lesson ${lessonNumber} of a larger series. The following lessons have already been created in this session. You MUST carefully review them to understand the narrative arc.
                 ---
                 **PREVIOUSLY GENERATED LESSONS:**
                 ${previousLessonsContext}
                 ---
-                **YOUR TASK:**
-                1.  **ENSURE LOGICAL PROGRESSION:** This new lesson MUST be a logical continuation of the previous ones. It should build upon the concepts already introduced.
-                2.  **STRICTLY AVOID REDUNDANCY:** You are FORBIDDEN from repeating the content and topics covered in the lessons listed above. Introduce entirely new material that advances the overall learning guide.
-                3.  **CREATE A SMOOTH TRANSITION:** Begin with a brief sentence that connects back to the last lesson, creating a seamless transition for the student.
+            `;
+        }
+        
+        if (scaffoldInfo.summary || existingSubjectContext) {
+            continuityInstruction += `
+                **CRITICAL CONTEXT & AVOIDANCE OF REDUNDANCY (NON-NEGOTIABLE):** This subject has existing content. You MUST review it to ensure your new lesson is unique and progresses logically.
+
+                **1. USER-SELECTED SCAFFOLDING LESSONS (HIGHEST PRIORITY):**
+                The user has explicitly selected these lessons as prerequisites. You MUST build directly upon their concepts and AVOID repeating their activities.
+                ---
+                ${scaffoldInfo.summary || "No specific lessons were selected as scaffolds."}
+                ---
+
+                **2. GENERAL SUBJECT CONTEXT:**
+                Here is an overview of all content in the subject for broader context.
+                ---
+                ${existingSubjectContext}
+                ---
+
+                **YOUR PRIMARY TASK:**
+                1.  **AVOID REDUNDANCY:** You are STRICTLY FORBIDDEN from creating a lesson on a topic that is already present, especially those highlighted in the user-selected scaffolds.
+                2.  **ENSURE LOGICAL PROGRESSION:** Your new lesson must logically follow the existing content, particularly building upon the user-selected scaffolds.
             `;
         }
 
@@ -355,7 +329,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
     const runGenerationLoop = async (startLessonNumber) => {
         setIsGenerating(true);
         setFailedLessonNumber(null);
-        
+    
         let currentLessons = previewData ? previewData.generated_lessons : [];
         const lessonSummaryLabel = formData.language === 'Filipino' ? 'Buod ng Aralin' : "Lesson Summary";
 
@@ -365,6 +339,20 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             return summaryPage ? summaryPage.content : "Summary page not found.";
         };
 
+        let existingSubjectContextString = "No existing content found.";
+        if (subjectContext && subjectContext.units.length > 0) {
+            existingSubjectContextString = subjectContext.units
+                .sort((a, b) => (a.order || 0) - (b.order || 0))
+                .map(unit => {
+                    const lessonsInUnit = subjectContext.lessons
+                        .filter(lesson => lesson.unitId === unit.id)
+                        .sort((a, b) => (a.order || 0) - (b.order || 0))
+                        .map(lesson => `  - Lesson: ${lesson.title}`)
+                        .join('\n');
+                    return `Unit: ${unit.title}\n${lessonsInUnit}`;
+                }).join('\n\n');
+        }
+
         try {
             if (!formData.content || !formData.learningCompetencies) {
                 throw new Error("Please provide the Main Content/Topic and Learning Competencies.");
@@ -373,13 +361,18 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             for (let i = startLessonNumber; i <= formData.lessonCount; i++) {
                 setLessonProgress({ current: i, total: formData.lessonCount });
                 showToast(`Generating Lesson ${i} of ${formData.lessonCount}...`, "info", 10000);
-                
+            
                 const previousLessonsContext = currentLessons
                     .map((lesson, index) => `Lesson ${index + 1}: "${lesson.lessonTitle}"\nSummary: ${findSummaryContent(lesson)}`)
                     .join('\n---\n');
 
-                const singleLessonData = await generateSingleLesson(i, formData.lessonCount, previousLessonsContext);
-                
+                const singleLessonData = await generateSingleLesson(
+                    i, 
+                    formData.lessonCount, 
+                    previousLessonsContext,
+                    existingSubjectContextString
+                );
+            
                 if (singleLessonData && singleLessonData.generated_lessons && singleLessonData.generated_lessons.length > 0) {
                     currentLessons.push(...singleLessonData.generated_lessons);
                     setPreviewData({ generated_lessons: [...currentLessons] });
@@ -387,7 +380,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                     throw new Error(`Received invalid or empty data for lesson ${i}.`);
                 }
             }
-            
+        
             setPreviewData({ generated_lessons: currentLessons });
             setLessonProgress({ current: 0, total: 0 });
             showToast("All lessons generated successfully!", "success");
@@ -433,7 +426,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             });
             await batch.commit();
             showToast(`${previewData.generated_lessons.length} lesson(s) saved successfully!`, "success");
-            handleClose(); // Use handleClose to reset state and close
+            handleClose();
         } catch (err) {
             console.error("Save error:", err);
             showToast("Failed to save lessons.", "error");
@@ -442,156 +435,219 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         }
     };
 
+    const handleBackToEdit = () => {
+        setPreviewData(null);
+        setFailedLessonNumber(null);
+        setLessonProgress({ current: 0, total: 0 });
+    };
 
-    // --- Render Logic ---
+    const handleInitialGenerate = () => {
+        setPreviewData(null);
+        runGenerationLoop(1);
+    };
+
+    const handleContinueGenerate = () => {
+        if (failedLessonNumber) {
+            runGenerationLoop(failedLessonNumber);
+        }
+    };
 
     const isValidPreview = previewData && !previewData.error && Array.isArray(previewData.generated_lessons);
     const currentObjectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
     const objectivesIntro = formData.language === 'Filipino' 
         ? 'Sa pagtatapos ng araling ito, magagawa ng mga mag-aaral na:' 
         : 'By the end of this lesson, students will be able to:';
-        
-    // --- UI Style Constants ---
-    const inputStyles = "block w-full px-3 py-2 bg-gray-100 border border-transparent rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-shadow duration-200";
-    const buttonBaseStyles = "px-5 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2";
-    const primaryButtonStyles = `${buttonBaseStyles} bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md hover:-translate-y-0.5 focus:ring-indigo-500 disabled:bg-indigo-300 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none`;
-    const secondaryButtonStyles = `${buttonBaseStyles} bg-gray-200 text-gray-700 hover:bg-gray-300 hover:shadow-md hover:-translate-y-0.5 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:transform-none disabled:shadow-none`;
-
 
     return (
-        <Dialog open={isOpen} onClose={handleClose} className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4">
-            {/* FIX: Replaced deprecated Dialog.Backdrop with a standard div */}
+        <Dialog open={isOpen} onClose={handleClose} className="relative z-[110]">
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" />
-            
-            <Dialog.Panel className="relative bg-gray-50 p-4 sm:p-6 rounded-2xl shadow-xl border border-gray-200 w-full max-w-md lg:max-w-5xl max-h-[90vh] flex flex-col transition-all duration-300 ease-in-out">
-                {(isGenerating || isSaving) && (
-                    <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl">
-                        <InteractiveLoadingScreen 
-                            topic={formData.content || "new ideas"} 
-                            isSaving={isSaving} 
-                            lessonProgress={lessonProgress}
-                        />
-                    </div>
-                )}
-                
-                <header className="flex justify-between items-start pb-4 border-b border-gray-200">
-                    <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="bg-gradient-to-br from-indigo-500 to-blue-500 p-3 rounded-xl text-white shadow-lg flex-shrink-0">
-                            <AcademicCapIcon className="h-7 w-7" />
-                        </div>
-                        <div>
-                            <Dialog.Title className="text-lg sm:text-2xl font-bold text-gray-800">AI Learning Guide Generator</Dialog.Title>
-                            <p className="text-xs sm:text-sm text-gray-500">Create new student-facing lessons from scratch.</p>
-                        </div>
-                    </div>
-                    <button onClick={handleClose} className="p-2 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-colors">
-                        <XMarkIcon className="h-6 w-6" />
-                    </button>
-                </header>
-
-                <main className="flex-1 overflow-y-auto py-5 -mr-2 pr-2 sm:-mr-4 sm:pr-4">
-                    {!previewData ? (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                             {/* --- Column 1: Core Content --- */}
-                            <div className="bg-white p-5 rounded-xl border border-gray-200 space-y-4 shadow-sm">
-                                <h3 className="font-bold text-lg text-gray-700 border-b border-gray-200 pb-2">Core Content</h3>
-                                {availableUnits.length > 0 && !unitId && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-600 mb-2">Destination Unit</label>
-                                        <select value={selectedUnitId} onChange={(e) => setSelectedUnitId(e.target.value)} className={inputStyles}>
-                                            {availableUnits.map(unit => (<option key={unit.id} value={unit.id}>{unit.title}</option>))}
-                                        </select>
-                                    </div>
-                                )}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-2">Main Content / Topic</label>
-                                    <textarea placeholder="e.g., The Photosynthesis Process" name="content" value={formData.content} onChange={handleChange} className={inputStyles} rows={3} />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-2">Learning Competencies</label>
-                                    <textarea placeholder="e.g., Describe the process of photosynthesis..." name="learningCompetencies" value={formData.learningCompetencies} onChange={handleChange} className={inputStyles} rows={4} />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-2">Content Standard <span className="text-gray-400">(Optional)</span></label>
-                                    <textarea name="contentStandard" value={formData.contentStandard} onChange={handleChange} className={inputStyles} rows={2} />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-2">Performance Standard <span className="text-gray-400">(Optional)</span></label>
-                                    <textarea name="performanceStandard" value={formData.performanceStandard} onChange={handleChange} className={inputStyles} rows={2} />
-                                </div>
-                            </div>
-                             {/* --- Column 2: Settings --- */}
-                            <div className="bg-white p-5 rounded-xl border border-gray-200 space-y-4 shadow-sm">
-                               <h3 className="font-bold text-lg text-gray-700 border-b border-gray-200 pb-2">Settings</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-600 mb-2">Language</label>
-                                        <select name="language" value={formData.language} onChange={handleChange} className={inputStyles}>
-                                            <option value="English">English</option>
-                                            <option value="Filipino">Filipino</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-600 mb-2">Grade Level</label>
-                                        <select name="gradeLevel" value={formData.gradeLevel} onChange={handleChange} className={inputStyles}>
-                                            {[7, 8, 9, 10, 11, 12].map(grade => <option key={grade} value={grade}>Grade {grade}</option>)}
-                                        </select>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-2">Number of Lessons</label>
-                                    <input type="number" name="lessonCount" min="1" max="10" value={formData.lessonCount} onChange={handleChange} className={inputStyles} />
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            <h2 className="text-xl font-bold text-gray-800">Preview Content</h2>
-                            <div className="space-y-4 max-h-[60vh] overflow-y-auto border border-gray-200 rounded-lg p-4 bg-white shadow-inner">
-                                {isValidPreview ? previewData.generated_lessons.map((lesson, index) => (
-                                    <div key={index} className="border-b border-gray-200 pb-4 last:border-b-0">
-                                        <h3 className="font-bold text-xl sticky top-0 bg-white/80 backdrop-blur-sm py-2 z-10 text-gray-900">{lesson.lessonTitle}</h3>
-                                        {lesson.learningObjectives && lesson.learningObjectives.length > 0 && (
-                                            <div className="my-4 p-4 bg-indigo-50 border-l-4 border-indigo-300 text-indigo-900 rounded-r-lg">
-                                                <p className="font-semibold mb-2">{currentObjectivesLabel}</p>
-                                                <p className="text-sm mb-2">{objectivesIntro}</p>
-                                                <ul className="list-disc list-inside space-y-1 text-sm">
-                                                    {lesson.learningObjectives.map((objective, objIndex) => <li key={objIndex}>{objective}</li>)}
-                                                </ul>
-                                            </div>
-                                        )}
-                                        {lesson.pages.map((page, pageIndex) => <LessonPage key={`${index}-${pageIndex}`} page={page} />)}
-                                    </div>
-                                )) : <p className="text-red-600 font-medium">Could not generate a valid preview. Please try again.</p>}
-                            </div>
+            <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
+                <Dialog.Panel className="relative bg-zinc-50/90 backdrop-blur-2xl border border-white/20 p-6 rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+                    {(isGenerating || isSaving) && (
+                        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl">
+                            <InteractiveLoadingScreen 
+                                topic={formData.content || "new ideas"} 
+                                isSaving={isSaving} 
+                                lessonProgress={lessonProgress}
+                            />
                         </div>
                     )}
-                </main>
-
-                <footer className="pt-4 mt-2 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-gray-200">
-                    {previewData ? (
-                         <>
-                         <button onClick={handleBackToEdit} disabled={isSaving || isGenerating} className={secondaryButtonStyles}>Back to Edit</button>
-                         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                            {/* FIX: Simplified logic to only show Continue button on failure */}
-                            {failedLessonNumber && (
-                                 <button onClick={handleContinueGenerate} disabled={isGenerating} className={`${primaryButtonStyles} flex items-center justify-center gap-2`}>
-                                     <ArrowPathIcon className="h-5 w-5" />
-                                     Continue from Lesson {failedLessonNumber}
-                                 </button>
-                            )}
-                             <button onClick={handleSave} className={primaryButtonStyles} disabled={!isValidPreview || isSaving || isGenerating || failedLessonNumber}>
-                                 {isSaving ? 'Saving...' : `Accept & Save ${previewData?.generated_lessons?.length || 0} Lesson(s)`}
-                             </button>
-                         </div>
-                     </>
-                    ) : (
-                        <button onClick={handleInitialGenerate} disabled={isGenerating || !formData.content || !formData.learningCompetencies} className={`${primaryButtonStyles} ml-auto w-full sm:w-auto`}>
-                            {isGenerating ? 'Generating...' : 'Generate Document'}
+                    <header className="flex justify-between items-start pb-4 border-b border-zinc-200/80">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-gradient-to-br from-indigo-500 to-blue-500 p-3 rounded-xl text-white shadow-lg flex-shrink-0">
+                                <AcademicCapIcon className="h-7 w-7" />
+                            </div>
+                            <div>
+                                <Dialog.Title className="text-xl sm:text-2xl font-bold text-zinc-900">AI Learning Guide Generator</Dialog.Title>
+                                <p className="text-sm text-zinc-500">Create new student-facing lessons from scratch.</p>
+                            </div>
+                        </div>
+                        <button onClick={handleClose} className="p-1.5 rounded-full text-zinc-500 bg-zinc-200/80 hover:bg-zinc-300/80 flex-shrink-0">
+                            <XMarkIcon className="h-5 w-5" />
                         </button>
-                    )}
-                </footer>
-            </Dialog.Panel>
+                    </header>
+                    <main className="flex-1 overflow-y-auto py-5 -mr-3 pr-3">
+                        {!previewData ? (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <h3 className="font-bold text-lg text-zinc-700 border-b border-zinc-200 pb-2">Core Content</h3>
+                                    {availableUnits.length > 0 && !unitId && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-zinc-600 mb-1.5">Destination Unit</label>
+                                            <select value={selectedUnitId} onChange={(e) => setSelectedUnitId(e.target.value)} className="form-input-ios">
+                                                {availableUnits.map(unit => (<option key={unit.id} value={unit.id}>{unit.title}</option>))}
+                                            </select>
+                                        </div>
+                                    )}
+                                    <div>
+                                        <label className="block text-sm font-medium text-zinc-600 mb-1.5">Main Content / Topic</label>
+                                        <textarea placeholder="e.g., The Photosynthesis Process" name="content" value={formData.content} onChange={handleChange} className="form-input-ios" rows={3} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-zinc-600 mb-1.5">Learning Competencies</label>
+                                        <textarea placeholder="e.g., Describe the process of photosynthesis..." name="learningCompetencies" value={formData.learningCompetencies} onChange={handleChange} className="form-input-ios" rows={4} />
+                                    </div>
+                                    {/* --- RESTORED FIELDS --- */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-zinc-600 mb-1.5">Content Standard <span className="text-zinc-400">(Optional)</span></label>
+                                        <textarea name="contentStandard" value={formData.contentStandard} onChange={handleChange} className="form-input-ios" rows={2} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-zinc-600 mb-1.5">Performance Standard <span className="text-zinc-400">(Optional)</span></label>
+                                        <textarea name="performanceStandard" value={formData.performanceStandard} onChange={handleChange} className="form-input-ios" rows={2} />
+                                    </div>
+                                    <h3 className="font-bold text-lg text-zinc-700 border-b border-zinc-200 pt-2 pb-2">Settings</h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-zinc-600 mb-1.5">Language</label>
+                                            <select name="language" value={formData.language} onChange={handleChange} className="form-input-ios">
+                                                <option>English</option><option>Filipino</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-zinc-600 mb-1.5">Grade Level</label>
+                                            <select name="gradeLevel" value={formData.gradeLevel} onChange={handleChange} className="form-input-ios">
+                                                {[7, 8, 9, 10, 11, 12].map(grade => <option key={grade} value={grade}>Grade {grade}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-zinc-600 mb-1.5">Number of Lessons</label>
+                                        <input type="number" name="lessonCount" min="1" max="10" value={formData.lessonCount} onChange={handleChange} className="form-input-ios" />
+                                    </div>
+                                </div>
+                                <div className="space-y-4">
+                                    <h3 className="font-bold text-lg text-zinc-700 border-b border-zinc-200 pb-2">Scaffolding (Optional)</h3>
+                                    <div className="bg-white/50 p-4 rounded-xl max-h-[26rem] overflow-y-auto">
+                                        <p className="text-xs text-zinc-500 mb-3">Explicitly select lessons for the AI to build upon.</p>
+                                        {subjectContext && subjectContext.units.length > 0 ? (
+                                            subjectContext.units.map(unit => {
+                                                const lessonsInUnit = subjectContext.lessons.filter(lesson => lesson.unitId === unit.id);
+                                                if (lessonsInUnit.length === 0) return null;
+
+                                                const selectedCount = lessonsInUnit.filter(l => scaffoldLessonIds.has(l.id)).length;
+                                                const isAllSelected = selectedCount > 0 && selectedCount === lessonsInUnit.length;
+                                                const isPartiallySelected = selectedCount > 0 && selectedCount < lessonsInUnit.length;
+                                                const isExpanded = expandedScaffoldUnits.has(unit.id);
+
+                                                return (
+                                                    <div key={unit.id} className="pt-2 first:pt-0">
+                                                        <div className="flex items-center bg-zinc-100 p-2 rounded-md">
+                                                            <button onClick={() => handleToggleUnitExpansion(unit.id)} className="p-1">
+                                                                <ChevronRightIcon className={`h-4 w-4 text-zinc-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                                                            </button>
+                                                            <input
+                                                                type="checkbox"
+                                                                id={`scaffold-unit-${unit.id}`}
+                                                                checked={isAllSelected}
+                                                                ref={el => { if(el) el.indeterminate = isPartiallySelected; }}
+                                                                onChange={() => handleUnitCheckboxChange(lessonsInUnit)}
+                                                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ml-2"
+                                                            />
+                                                            <label htmlFor={`scaffold-unit-${unit.id}`} className="ml-2 flex-1 text-sm font-semibold text-zinc-700 cursor-pointer">
+                                                                {unit.title}
+                                                            </label>
+                                                        </div>
+
+                                                        {isExpanded && (
+                                                            <div className="pl-6 pt-2 space-y-2">
+                                                                {lessonsInUnit.map(lesson => (
+                                                                    <div key={lesson.id} className="flex items-center">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            id={`scaffold-lesson-${lesson.id}`}
+                                                                            checked={scaffoldLessonIds.has(lesson.id)}
+                                                                            onChange={() => {
+                                                                                const newSet = new Set(scaffoldLessonIds);
+                                                                                if (newSet.has(lesson.id)) newSet.delete(lesson.id);
+                                                                                else newSet.add(lesson.id);
+                                                                                setScaffoldLessonIds(newSet);
+                                                                            }}
+                                                                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                                        />
+                                                                        <label htmlFor={`scaffold-lesson-${lesson.id}`} className="ml-2 block text-sm text-zinc-800">
+                                                                            {lesson.title}
+                                                                        </label>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })
+                                        ) : (
+                                            <p className="text-sm text-zinc-400">Scanning subject content...</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <h2 className="text-xl font-bold text-zinc-800">Preview Content</h2>
+                                <div className="space-y-4 max-h-[60vh] overflow-y-auto border border-zinc-200 rounded-lg p-4 bg-white shadow-inner">
+                                    {isValidPreview ? previewData.generated_lessons.map((lesson, index) => (
+                                        <div key={index} className="border-b border-zinc-200 pb-4 last:border-b-0">
+                                            <h3 className="font-bold text-xl sticky top-0 bg-white/80 backdrop-blur-sm py-2 z-10 text-zinc-900">{lesson.lessonTitle}</h3>
+                                            {lesson.learningObjectives && lesson.learningObjectives.length > 0 && (
+                                                <div className="my-4 p-4 bg-indigo-50 border-l-4 border-indigo-300 text-indigo-900 rounded-r-lg">
+                                                    <p className="font-semibold mb-2">{currentObjectivesLabel}</p>
+                                                    <p className="text-sm mb-2">{objectivesIntro}</p>
+                                                    <ul className="list-disc list-inside space-y-1 text-sm">
+                                                        {lesson.learningObjectives.map((objective, objIndex) => <li key={objIndex}>{objective}</li>)}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                            {lesson.pages.map((page, pageIndex) => <LessonPage key={`${index}-${pageIndex}`} page={page} />)}
+                                        </div>
+                                    )) : <p className="text-red-600 font-medium">Could not generate a valid preview. Please try again.</p>}
+                                </div>
+                            </div>
+                        )}
+                    </main>
+                    <footer className="pt-4 mt-2 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-zinc-200/80">
+                        {previewData ? (
+                            <>
+                                <button onClick={handleBackToEdit} disabled={isSaving || isGenerating} className="btn-secondary-ios">Back to Edit</button>
+                                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                                    {failedLessonNumber && (
+                                        <button onClick={handleContinueGenerate} disabled={isGenerating} className="btn-primary-ios flex items-center justify-center gap-2">
+                                            <ArrowPathIcon className="h-5 w-5" />
+                                            Continue from Lesson {failedLessonNumber}
+                                        </button>
+                                    )}
+                                    <button onClick={handleSave} className="btn-primary-ios" disabled={!isValidPreview || isSaving || isGenerating || failedLessonNumber}>
+                                        {isSaving ? 'Saving...' : `Accept & Save ${previewData?.generated_lessons?.length || 0} Lesson(s)`}
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <button onClick={handleInitialGenerate} disabled={isGenerating || !formData.content || !formData.learningObjectives} className="btn-primary-ios ml-auto w-full sm:w-auto">
+                                {isGenerating ? 'Generating...' : 'Generate Document'}
+                            </button>
+                        )}
+                    </footer>
+                </Dialog.Panel>
+            </div>
         </Dialog>
-    );
+	);
 }

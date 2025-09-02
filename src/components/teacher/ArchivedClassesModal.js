@@ -1,44 +1,53 @@
-// src/components/teacher/ArchivedClassesModal.js
-
 import React from 'react';
-import { ArchiveBoxXMarkIcon, ArrowUturnLeftIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import Modal from '../common/Modal'; // Using the updated Modal component
+import { ArchiveBoxXMarkIcon, ArrowUturnLeftIcon, InboxIcon } from '@heroicons/react/24/outline';
 
 const ArchivedClassesModal = ({ isOpen, onClose, archivedClasses, onUnarchive, onDelete }) => {
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl m-4">
-                <div className="flex justify-between items-center mb-4 border-b pb-3">
-                    <h2 className="text-xl font-semibold text-gray-800">Archived Classes</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                        <XMarkIcon className="w-6 h-6" />
-                    </button>
-                </div>
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {archivedClasses.length > 0 ? (
-                        archivedClasses.map(c => (
-                            <div key={c.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                <div>
-                                    <p className="font-semibold text-gray-700">{c.name}</p>
-                                    <p className="text-sm text-gray-500">{c.gradeLevel} - {c.section}</p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => onUnarchive(c.id)} className="btn-secondary p-2" title="Unarchive">
-                                        <ArrowUturnLeftIcon className="w-5 h-5" />
-                                    </button>
-                                    <button onClick={() => onDelete(c.id)} className="btn-danger p-2" title="Delete Permanently">
-                                        <ArchiveBoxXMarkIcon className="w-5 h-5" />
-                                    </button>
-                                </div>
+        // Replaced the old container with our new, animated Modal component
+        <Modal isOpen={isOpen} onClose={onClose} title="Archived Classes" size="2xl">
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto p-1">
+                {archivedClasses && archivedClasses.length > 0 ? (
+                    archivedClasses.map(c => (
+                        // NEW: iOS-style "pill" for each list item
+                        <div 
+                            key={c.id} 
+                            className="flex justify-between items-center p-4 bg-white/70 rounded-2xl shadow-md ring-1 ring-black/5"
+                        >
+                            <div>
+                                <p className="font-semibold text-slate-800">{c.name}</p>
+                                <p className="text-sm text-slate-500">{c.gradeLevel} - {c.section}</p>
                             </div>
-                        ))
-                    ) : (
-                        <p className="text-center text-gray-500 py-8">You have no archived classes.</p>
-                    )}
-                </div>
+                            <div className="flex gap-2">
+                                {/* NEW: Restyled "Unarchive" button */}
+                                <button 
+                                    onClick={() => onUnarchive(c.id)} 
+                                    className="p-2 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors" 
+                                    title="Unarchive"
+                                >
+                                    <ArrowUturnLeftIcon className="w-5 h-5" />
+                                </button>
+                                {/* NEW: Restyled "Delete" button */}
+                                <button 
+                                    onClick={() => onDelete(c.id)} 
+                                    className="p-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors" 
+                                    title="Delete Permanently"
+                                >
+                                    <ArchiveBoxXMarkIcon className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    // NEW: Enhanced empty state for a cleaner look
+                    <div className="text-center py-16">
+                        <InboxIcon className="mx-auto h-12 w-12 text-gray-400" />
+                        <h3 className="mt-2 text-lg font-semibold text-gray-800">No Archived Classes</h3>
+                        <p className="mt-1 text-sm text-gray-500">Your archive is currently empty.</p>
+                    </div>
+                )}
             </div>
-        </div>
+        </Modal>
     );
 };
 

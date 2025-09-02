@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { addDoc, serverTimestamp, collection, query, where, onSnapshot, orderBy, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, getDocs } from 'firebase/firestore';
+import { addDoc, serverTimestamp, collection, query, where, onSnapshot, orderBy, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { callGeminiWithLimitCheck } from '../services/aiService';
 import { createPresentationFromData } from '../services/googleSlidesService';
@@ -16,17 +16,13 @@ const TeacherDashboard = () => {
     const [courses, setCourses] = useState([]);
     const [courseCategories, setCourseCategories] = useState([]);
     const [teacherAnnouncements, setTeacherAnnouncements] = useState([]);
-    const [allUnits, setAllUnits] = useState([]);
-    const [allLessons, setAllLessons] = useState([]);
-
+    
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeView, setActiveView] = useState('home');
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [activeSubject, setActiveSubject] = useState(null);
-
     const [activeUnit, setActiveUnit] = useState(null);
-
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [categoryToEdit, setCategoryToEdit] = useState(null);
     const [classToEdit, setClassToEdit] = useState(null);
@@ -70,21 +66,16 @@ const TeacherDashboard = () => {
     const [isAiThinking, setIsAiThinking] = useState(false);
     const [isAiHubOpen, setIsAiHubOpen] = useState(false);
     const [aiConversationStarted, setAiConversationStarted] = useState(false);
-
     const [presentationPreviewData, setPresentationPreviewData] = useState(null);
     const [isPresentationPreviewModalOpen, setPresentationPreviewModalOpen] = useState(false);
     const [isSavingPresentation, setIsSavingPresentation] = useState(false);
-
     const [isBetaWarningModalOpen, setIsBetaWarningModalOpen] = useState(false);
     const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState([]);
-
     const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
         if (userProfile && messages.length === 0) {
-            setMessages([
-                { sender: 'ai', text: `Hello, ${userProfile?.firstName}! I'm your AI assistant. How can I help you today?` }
-            ]);
+            setMessages([ { sender: 'ai', text: `Hello, ${userProfile?.firstName}! I'm your AI assistant. How can I help you today?` } ]);
         }
     }, [userProfile, messages.length]);
 
@@ -98,8 +89,6 @@ const TeacherDashboard = () => {
             { query: query(collection(db, "classes"), where("teacherId", "==", teacherId)), setter: setClasses },
             { query: query(collection(db, "courses")), setter: setCourses },
             { query: query(collection(db, "teacherAnnouncements"), orderBy("createdAt", "desc")), setter: setTeacherAnnouncements },
-            { query: query(collection(db, "units"), orderBy("createdAt")), setter: setAllUnits },
-            { query: query(collection(db, "lessons"), orderBy("createdAt")), setter: setAllLessons },
         ];
         const unsubscribers = queries.map(({ query, setter }) =>
             onSnapshot(query, (snapshot) => {
@@ -131,15 +120,7 @@ const TeacherDashboard = () => {
             return; 
         }
         const collectionName = audience === 'teachers' ? 'teacherAnnouncements' : 'studentAnnouncements';
-        const announcementData = { 
-            content, 
-            teacherId: userProfile?.id, 
-            teacherName: `${userProfile?.firstName} ${userProfile?.lastName}`, 
-            createdAt: serverTimestamp(),
-            photoURL: photoURL || null,
-            caption: caption || null,
-            isPinned: false,
-        };
+        const announcementData = { content, teacherId: userProfile?.id, teacherName: `${userProfile?.firstName} ${userProfile?.lastName}`, createdAt: serverTimestamp(), photoURL: photoURL || null, caption: caption || null, isPinned: false, };
         if (audience === 'students') {
             if (!classId) { showToast("Please select a class for the student announcement.", "error"); return; }
             announcementData.classId = classId;
@@ -155,37 +136,13 @@ const TeacherDashboard = () => {
         setMessages(newMessages);
         setIsAiThinking(true);
         const conversationHistory = newMessages.map(msg => `${msg.sender === 'user' ? 'user' : 'model'}: ${msg.text}`).join('\n');
-
-        const lmsKnowledge = `
-            You are an AI assistant for a Learning Management System (LMS) used by teachers.
-            When a user asks about the LMS, you should refer to this knowledge base.
-            If a question is not about the LMS, answer it as a general helpful AI.
-            
-            LMS Knowledge Base:
-            - The LMS is a platform for teachers to manage their teaching resources.
-			- **Name**: SRCS Learning Portal.
-            - **Dashboard**: This is the main hub for teachers.
-            - **Classes**: Teachers can create, edit, archive, unarchive, and permanently delete classes.
-            - **Courses and Subjects**: Content is organized into \`subjectCategories\` (courses) and \`courses\` (subjects). Teachers can create, edit, and delete them.
-            - **Units and Lessons**: Teachers can create, view, edit, and delete units and lessons.
-            - **AI-Generated Quizzes**: Teachers can use an AI assistant to generate quizzes for any lesson.
-			**AI-Generated Lessons**: Teachers can also use an AI assistant to generate lessons on their specific subject.
-            - **AI-Generated Presentations**: Teachers can generate a Google Slides presentation from one or more lessons. The AI will create a structured presentation with a title slide, learning objectives, and content slides with speaker notes.
-            - **Announcements**: Teachers can post announcements for their students in a specific class or for all other teachers. They can also edit and delete their announcements.
-            - **Student Management**: Teachers can manage the students in their classes, including removing them. They can also import students from other existing LMS classes.
-            - **User Profile**: Teachers have a user profile which they can edit. They can also change their account password.
-			- **Developer**: Florejun Flores.
-        `;
-        
+        const lmsKnowledge = `You are an AI assistant for a Learning Management System (LMS) named SRCS Learning Portal, used by teachers. The developer is Florejun Flores. When asked about the LMS, refer to this knowledge. Otherwise, act as a general helpful AI. Knowledge Base: Teachers can manage classes (create, edit, archive, delete), organize content into courses/subjects and then units/lessons, generate quizzes, lessons, and Google Slides presentations with AI, post announcements to students or other teachers, manage students in classes (including importing from other classes), and edit their own profile/password.`;
         const prompt = `${lmsKnowledge}\n\n${conversationHistory}`;
-
         try {
             const aiResponseText = await callGeminiWithLimitCheck(prompt);
-            const newAiMessage = { sender: 'ai', text: aiResponseText };
-            setMessages(prev => [...prev, newAiMessage]);
+            setMessages(prev => [...prev, { sender: 'ai', text: aiResponseText }]);
         } catch (error) {
-            const errorMessage = { sender: 'ai', text: "I seem to be having trouble connecting. My apologies. Please try again in a moment." };
-            setMessages(prev => [...prev, errorMessage]);
+            setMessages(prev => [...prev, { sender: 'ai', text: "I seem to be having trouble connecting. My apologies. Please try again in a moment." }]);
             if (error.message === 'LIMIT_REACHED') { showToast("The AI Assistant has reached its monthly usage limit.", "info"); }
             else { showToast("The AI Assistant could not respond. Please try again.", "error"); console.error("AI Chat Error:", error); }
         } finally { setIsAiThinking(false); }
@@ -221,172 +178,131 @@ const TeacherDashboard = () => {
         } finally { setIsAiGenerating(false); }
     };
 
-    const handleInitiatePresentationGeneration = (lessonIds) => {
-        if (!lessonIds || lessonIds.length === 0) {
-            showToast("Please select one or more lessons to include in the presentation.", "warning");
-            return;
-        }
-        setLessonsToProcessForPPT(lessonIds);
-        setIsBetaWarningModalOpen(true);
+    const handleInitiatePresentationGeneration = (lessonIds, lessonsData, unitsData) => {
+        if (!lessonIds || lessonIds.length === 0) { showToast("Please select one or more lessons to include in the presentation.", "warning"); return; }
+        const hideWarning = localStorage.getItem('hidePresentationBetaWarning');
+        setLessonsToProcessForPPT({ ids: lessonIds, data: lessonsData, units: unitsData });
+        if (hideWarning === 'true') { handleGeneratePresentationPreview(lessonIds, lessonsData, unitsData); }
+        else { setIsBetaWarningModalOpen(true); }
     };
 
-    const handleGeneratePresentationPreview = async () => {
-        const lessonIds = lessonsToProcessForPPT;
+    const handleConfirmBetaWarning = (neverShowAgain) => {
+        if (neverShowAgain) { localStorage.setItem('hidePresentationBetaWarning', 'true'); }
+        setIsBetaWarningModalOpen(false);
+        const { ids, data, units } = lessonsToProcessForPPT;
+        handleGeneratePresentationPreview(ids, data, units);
+    };
 
-        if (!activeSubject) {
-            showToast("No active subject selected. This is required for folder creation.", "warning");
-            return;
-        }
-
+    const handleGeneratePresentationPreview = async (lessonIds, lessonsData, unitsData) => {
+        if (!activeSubject) { showToast("No active subject selected. This is required for folder creation.", "warning"); return; }
         setIsAiGenerating(true);
         showToast("Gathering content and generating preview...", "info");
-
         try {
-            const selectedLessonsData = allLessons.filter(l => lessonIds.includes(l.id));
-
-            if (selectedLessonsData.length === 0) {
-                throw new Error("No lesson data found for the selected IDs.");
-            }
-
-            const allLessonContent = selectedLessonsData
-                .map(lesson => {
-                    if (!lesson.pages || lesson.pages.length === 0) {
-                        console.warn(`[SKIPPED] Lesson "${lesson.title}" has no pages.`);
-                        return '';
-                    }
-
-                    const validPages = lesson.pages.filter(
-                        page => page.content && page.content.trim() !== ''
-                    );
-
-                    if (validPages.length === 0) {
-                        console.warn(`[SKIPPED] Lesson "${lesson.title}" has no valid content.`);
-                        return '';
-                    }
-
-                    const pageText = validPages
-                        .map(page => `Page Title: ${page.title}\n${page.content.trim()}`)
-                        .join('\n\n');
-
-                    return `Lesson: ${lesson.title}\n${pageText}`;
-                })
-                .filter(entry => entry.trim() !== '')
-                .join('\n\n---\n\n');
-
-            if (!allLessonContent || allLessonContent.trim().length === 0) {
-                throw new Error("Selected lessons contain no usable content to generate slides.");
-            }
-
-            // START: CORRECTED CODE
-            const presentationPrompt = `You are a master educator and curriculum designer. Your goal is to transform the provided lesson text into a masterfully structured and highly effective educational presentation.
-
-            **CRITICAL INSTRUCTIONS:**
-            1.  **JSON Output:** Your response MUST be a single, valid JSON object with a key "slides" which is an array of objects.
-            2.  **Slide Object Structure:** Each slide object MUST have a "title" (string), a "body" (string), and a "notes" (object).
-            3.  **Language Match:** Your response MUST be in the same language as the provided 'LESSON CONTENT TO PROCESS'.
-            4.  **One Idea Per Slide:** Be aggressive in splitting content. A single paragraph may become 2-3 slides. A concept and an example for it MUST be on separate slides.
-            5.  **Body Formatting:** Use paragraphs by default. ONLY use bullet points (starting with "- ") for explicit lists from the source text.
-            6.  **No Markdown:** All text fields must be plain text. Do not include markdown like ** or *.
-            7.  **Speaker Notes Object:** The "notes" field for each slide MUST be a JSON object with these exact string keys:
-                - "essentialQuestions": "1-2 thought-provoking questions for the teacher to ask."
-                - "talkingPoints": "A brief summary of the key points for the teacher to elaborate on."
-                - "interactiveElement": "A simple idea for student interaction, like 'Ask students to share an example' or 'Conduct a quick poll'."
-                - "slideTiming": "A suggested duration, like '2 minutes' or '5 minutes'."
-                *All values in the notes object must match the language of the lesson.*
-            8.  **Specific Slides:**
-                - The first slide's title should be the overall presentation title.
-                - The second slide's title must be "Learning Objectives", with the body containing a bulleted list of 3-5 objectives.
-
-            **LESSON CONTENT TO PROCESS:**
-            ---
-            ${allLessonContent}`;
-            // END: CORRECTED CODE
-
+            const selectedLessonsData = lessonsData.filter(l => lessonIds.includes(l.id));
+            if (selectedLessonsData.length === 0) { throw new Error("No lesson data found for the selected IDs."); }
+            const allLessonContent = selectedLessonsData.map(lesson => { if (!lesson.pages || lesson.pages.length === 0) { return ''; } const validPages = lesson.pages.filter(page => page.content && page.content.trim() !== ''); if (validPages.length === 0) { return ''; } const pageText = validPages.map(page => `Page Title: ${page.title}\n${page.content.trim()}`).join('\n\n'); return `Lesson: ${lesson.title}\n${pageText}`; }).filter(entry => entry.trim() !== '').join('\n\n---\n\n');
+            if (!allLessonContent || allLessonContent.trim().length === 0) { throw new Error("Selected lessons contain no usable content to generate slides."); }
+            const presentationPrompt = `You are a master educator. Transform the provided lesson text into a structured educational presentation. CRITICAL INSTRUCTIONS: 1. JSON Output: Your response MUST be a single, valid JSON object with a key "slides" which is an array of objects. 2. Slide Object Structure: Each slide object MUST have a "title" (string), a "body" (string), and a "notes" (object). 3. Language Match: Your response MUST be in the same language as the provided 'LESSON CONTENT TO PROCESS'. 4. One Idea Per Slide: Be aggressive in splitting content. A concept and an example for it MUST be on separate slides. 5. Body Formatting: Use paragraphs by default. ONLY use bullet points (starting with "- ") for explicit lists. 6. No Markdown: All text must be plain text. 7. Speaker Notes Object: The "notes" field MUST be a JSON object with these exact string keys: "essentialQuestions", "talkingPoints", "interactiveElement", "slideTiming". All values must match the lesson's language. 8. Specific Slides: The first slide's title is the overall presentation title. The second slide's title must be "Learning Objectives", with a bulleted list of 3-5 objectives. LESSON CONTENT TO PROCESS: --- ${allLessonContent}`;
             const aiResponseText = await callGeminiWithLimitCheck(presentationPrompt);
-
             const jsonText = aiResponseText.match(/```json\s*([\s\S]*?)\s*```/)?.[1] || aiResponseText;
             const parsedData = JSON.parse(jsonText);
-
-            if (!parsedData.slides || !Array.isArray(parsedData.slides)) {
-                throw new Error("AI response did not contain a valid 'slides' array.");
-            }
-
-            setPresentationPreviewData({ ...parsedData, lessonIds });
+            if (!parsedData.slides || !Array.isArray(parsedData.slides)) { throw new Error("AI response did not contain a valid 'slides' array."); }
+            setPresentationPreviewData({ ...parsedData, lessonIds, lessonsData, unitsData });
             setPresentationPreviewModalOpen(true);
-
-        } catch (error) {
-            console.error("Presentation Preview Generation Error:", error);
-            showToast(`Preview Error: ${error.message}`, "error");
-        } finally {
-            setIsAiGenerating(false);
-        }
+        } catch (error) { console.error("Presentation Preview Generation Error:", error); showToast(`Preview Error: ${error.message}`, "error"); }
+        finally { setIsAiGenerating(false); }
     };
 
     const handleCreatePresentation = async () => {
-        if (!presentationPreviewData) {
-            showToast("No preview data available to create a presentation.", "error");
+        if (!presentationPreviewData) { showToast("No preview data available to create a presentation.", "error"); return; }
+        setIsSavingPresentation(true);
+        try {
+            const { slides, lessonIds, lessonsData, unitsData } = presentationPreviewData;
+            const firstLesson = lessonsData.find(l => l.id === lessonIds[0]); if (!firstLesson) throw new Error("First lesson not found.");
+            const unit = unitsData.find(u => u.id === firstLesson.unitId); if (!unit) throw new Error("Associated unit not found.");
+            const subjectName = activeSubject?.title || "Untitled Subject";
+            const unitName = unit.name || "Untitled Unit";
+            const sourceTitle = lessonIds.length > 1 ? `${unitName} Summary` : firstLesson.title;
+            const presentationTitle = `Presentation for: ${sourceTitle}`;
+            const cleanedSlides = slides.map(slide => ({ ...slide, body: slide.body.split('\n').map(line => line.trim()).join('\n'), notes: slide.notes || {} }));
+            const presentationUrl = await createPresentationFromData(cleanedSlides, presentationTitle, subjectName, unitName);
+            window.open(presentationUrl, '_blank');
+            showToast("Presentation created! You can now copy the notes.", "success");
+        } catch (error) { console.error("Presentation Creation Error:", error); showToast(`Creation Error: ${error.message}`, "error"); }
+        finally { setIsSavingPresentation(false); }
+    };
+
+    const handleInitiateDelete = (type, id, name) => {
+        setDeleteTarget({ type, id, name });
+        setIsDeleteModalOpen(true);
+    };
+
+    // ✅ FIXED: This function no longer checks for confirmation text. The modal does it now.
+    const handleConfirmDelete = async () => {
+        if (!deleteTarget) {
+            showToast("An error occurred. No item selected for deletion.", "error");
             return;
         }
 
-        setIsSavingPresentation(true);
+        const { type, id, name } = deleteTarget;
+        setIsAiGenerating(true); 
+
         try {
-            const { slides, lessonIds } = presentationPreviewData;
+            const batch = writeBatch(db);
 
-            const firstLesson = allLessons.find(l => l.id === lessonIds[0]);
-            if (!firstLesson) throw new Error("First lesson not found.");
+            const deleteSubjectContent = async (subjectId) => {
+                const unitsQuery = query(collection(db, 'units'), where('subjectId', '==', subjectId));
+                const unitsSnapshot = await getDocs(unitsQuery);
 
-            const unit = allUnits.find(u => u.id === firstLesson.unitId);
-            if (!unit) throw new Error("Associated unit not found.");
+                for (const unitDoc of unitsSnapshot.docs) {
+                    const lessonsQuery = query(collection(db, 'lessons'), where('unitId', '==', unitDoc.id));
+                    const lessonsSnapshot = await getDocs(lessonsQuery);
+                    lessonsSnapshot.forEach(lessonDoc => batch.delete(doc(db, 'lessons', lessonDoc.id)));
 
-            const subjectName = activeSubject?.title || "Untitled Subject";
-            const unitName = unit.name || "Untitled Unit";
+                    const quizzesQuery = query(collection(db, 'quizzes'), where('unitId', '==', unitDoc.id));
+                    const quizzesSnapshot = await getDocs(quizzesQuery);
+                    quizzesSnapshot.forEach(quizDoc => batch.delete(doc(db, 'quizzes', quizDoc.id)));
+                    
+                    batch.delete(doc(db, 'units', unitDoc.id));
+                }
+            };
+            
+            if (type === 'category') {
+                const coursesInCategoryQuery = query(collection(db, 'courses'), where('category', '==', name));
+                const coursesSnapshot = await getDocs(coursesInCategoryQuery);
 
-            const sourceTitle = lessonIds.length > 1
-                ? `${unitName} Summary`
-                : firstLesson.title;
+                for (const courseDoc of coursesSnapshot.docs) {
+                    await deleteSubjectContent(courseDoc.id);
+                    batch.delete(doc(db, 'courses', courseDoc.id));
+                }
+                
+                showToast(`Successfully deleted category "${name}" and all its content.`, "success");
 
-            const presentationTitle = `Presentation for: ${sourceTitle}`;
+            } else if (type === 'subject') {
+                await deleteSubjectContent(id);
+                batch.delete(doc(db, 'courses', id));
+                showToast(`Successfully deleted subject "${name}" and all its content.`, "success");
+                setActiveSubject(null);
 
-            const cleanedSlides = slides.map(slide => ({
-                ...slide,
-                body: slide.body
-                    .split('\n')
-                    .map(line => line.trim())
-                    .join('\n'),
-                notes: slide.notes || {} // Ensure notes is an object
-            }));
+            } else if (type === 'lesson' || type === 'quiz') {
+                const collectionName = type === 'lesson' ? 'lessons' : 'quizzes';
+                batch.delete(doc(db, collectionName, id));
+                showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully.`, "success");
 
-            const presentationUrl = await createPresentationFromData(
-                cleanedSlides,
-                presentationTitle,
-                subjectName,
-                unitName
-            );
+            } else {
+                 showToast(`Deletion for type "${type}" is not implemented.`, "warning");
+            }
+            
+            await batch.commit();
 
-            window.open(presentationUrl, '_blank');
-
-            showToast("Presentation created! You can now copy the notes.", "success");
-
-        } catch (error) {
-            console.error("Presentation Creation Error:", error);
-            showToast(`Creation Error: ${error.message}`, "error");
-        } finally {
-            setIsSavingPresentation(false);
+        } catch (error) { 
+            console.error(`Error deleting ${type}:`, error); 
+            showToast(`An error occurred. Could not delete the ${type}. Please check permissions or try again.`, "error"); 
+        } finally { 
+            setIsDeleteModalOpen(false); 
+            setDeleteTarget(null); 
+            setIsAiGenerating(false);
         }
-    };
-
-    const handleInitiateDelete = (type, id, unitId, subjectId) => { setDeleteTarget({ type, id, unitId, subjectId }); setIsDeleteModalOpen(true); };
-    const handleConfirmDelete = async (confirmationText) => {
-        if (confirmationText !== 'srcsadmin') { showToast("Incorrect confirmation text entered.", "error"); return; }
-        if (!deleteTarget) { showToast("An error occurred. Please try again.", "error"); return; }
-        try {
-            const { type, id } = deleteTarget;
-            const collectionName = type === 'lesson' ? 'lessons' : 'quizzes';
-            const itemRef = doc(db, collectionName, id);
-            await deleteDoc(itemRef);
-            showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully.`, "success");
-        } catch (error) { console.error("Error during deletion:", error); showToast("An error occurred. Could not delete the item.", "error"); }
-        finally { setIsDeleteModalOpen(false); setDeleteTarget(null); }
     };
 
     const filteredLmsClasses = useMemo(() => {
@@ -396,15 +312,10 @@ const TeacherDashboard = () => {
 
     const activeClasses = classes.filter(c => !c.isArchived);
     const archivedClasses = classes.filter(c => c.isArchived);
-
+    
     const handleViewChange = (view) => {
-        if (activeView === view) {
-            setReloadKey(prevKey => prevKey + 1);
-        } else {
-            setActiveView(view);
-            setSelectedCategory(null);
-            setIsSidebarOpen(false);
-        }
+        if (activeView === view) { setReloadKey(prevKey => prevKey + 1); }
+        else { setActiveView(view); setSelectedCategory(null); setIsSidebarOpen(false); }
     };
 
     const handleCategoryClick = (categoryName) => { setSelectedCategory(categoryName); };
@@ -414,8 +325,7 @@ const TeacherDashboard = () => {
 
     const handleUpdateProfile = async (newData) => {
         try {
-            const userId = user.uid || user.id;
-            await firestoreService.updateUserProfile(userId, newData);
+            await firestoreService.updateUserProfile(user.uid || user.id, newData);
             await refreshUserProfile();
             showToast('Profile updated successfully!', 'success');
             setEditProfileModalOpen(false);
@@ -424,251 +334,87 @@ const TeacherDashboard = () => {
 
     const handleChangePassword = async (newPassword) => {
         try {
-            const userId = user.uid || user.id;
-            await firestoreService.updateUserPassword(userId, newPassword);
+            await firestoreService.updateUserPassword(user.uid || user.id, newPassword);
             showToast('Password changed successfully!', 'success');
             setChangePasswordModalOpen(false);
         } catch (err) { showToast('Failed to change password.', 'error'); console.error(err); }
     };
 
     const handleArchiveClass = async (classId) => {
-        if (window.confirm("Are you sure you want to archive this class? It will be hidden from the main view.")) {
-            try { await firestoreService.updateClassArchiveStatus(classId, true); showToast("Class archived successfully.", "success"); }
+        if (window.confirm("Are you sure you want to archive this class?")) {
+            try { await firestoreService.updateClassArchiveStatus(classId, true); showToast("Class archived.", "success"); }
             catch (error) { showToast("Failed to archive class.", "error"); }
         }
     };
 
     const handleUnarchiveClass = async (classId) => {
-        try { await firestoreService.updateClassArchiveStatus(classId, false); showToast("Class restored successfully.", "success"); }
+        try { await firestoreService.updateClassArchiveStatus(classId, false); showToast("Class restored.", "success"); }
         catch (error) { showToast("Failed to restore class.", "error"); }
     };
 
     const handleDeleteClass = async (classId, isArchivedView = false) => {
-        if (window.confirm("Are you sure you want to permanently delete this class? This action cannot be undone.")) {
-            try {
-                await firestoreService.deleteClass(classId);
-                showToast("Class permanently deleted.", "success");
-                if (isArchivedView) setIsArchivedModalOpen(false);
-            } catch (error) { showToast("Failed to delete class.", "error"); }
+        if (window.confirm("PERMANENTLY DELETE? This cannot be undone.")) {
+            try { await firestoreService.deleteClass(classId); showToast("Class permanently deleted.", "success"); if (isArchivedView) setIsArchivedModalOpen(false); }
+            catch (error) { showToast("Failed to delete class.", "error"); }
         }
     };
 
     const handleStartEditAnn = (post) => { setEditingAnnId(post.id); setEditingAnnText(post.content); };
     const handleUpdateTeacherAnn = async () => {
         if (!editingAnnText.trim()) return showToast("Announcement cannot be empty.", "error");
-        try {
-            await updateDoc(doc(db, 'teacherAnnouncements', editingAnnId), { content: editingAnnText });
-            showToast("Announcement updated.", "success");
-            setEditingAnnId(null);
-        } catch (error) { showToast("Failed to update announcement.", "error"); }
+        try { await updateDoc(doc(db, 'teacherAnnouncements', editingAnnId), { content: editingAnnText }); showToast("Announcement updated.", "success"); setEditingAnnId(null); }
+        catch (error) { showToast("Failed to update announcement.", "error"); }
     };
 
     const handleDeleteTeacherAnn = async (id) => {
-        if (window.confirm("Are you sure you want to delete this announcement?")) {
+        if (window.confirm("Delete this announcement?")) {
             await deleteDoc(doc(db, 'teacherAnnouncements', id));
             showToast("Announcement deleted.", "success");
         }
     };
 
     const handleTogglePinAnnouncement = async (announcementId, currentStatus) => {
-        if (userProfile?.role !== 'admin') {
-            showToast("You don't have permission to perform this action.", "error");
-            return;
-        }
-        try {
-            const announcementRef = doc(db, 'teacherAnnouncements', announcementId);
-            await updateDoc(announcementRef, { isPinned: !currentStatus });
-            showToast(`Announcement ${!currentStatus ? 'pinned' : 'unpinned'} successfully.`, "success");
-        } catch (error) {
-            console.error("Error toggling pin status:", error);
-            showToast("Failed to update pin status.", "error");
-        }
+        if (userProfile?.role !== 'admin') { showToast("Permission denied.", "error"); return; }
+        try { await updateDoc(doc(db, 'teacherAnnouncements', announcementId), { isPinned: !currentStatus }); showToast(`Announcement ${!currentStatus ? 'pinned' : 'unpinned'}.`, "success"); }
+        catch (error) { console.error("Error toggling pin:", error); showToast("Failed to update pin status.", "error"); }
     };
 
     const handleToggleStudentForImport = (studentId) => {
-        setStudentsToImport(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(studentId)) { newSet.delete(studentId); }
-            else { newSet.add(studentId); }
-            return newSet;
-        });
+        setStudentsToImport(prev => { const newSet = new Set(prev); if (newSet.has(studentId)) { newSet.delete(studentId); } else { newSet.add(studentId); } return newSet; });
     };
 
     const handleSelectAllStudents = () => {
         if (!selectedClassForImport?.students) return;
         const studentIdsInSelectedClass = selectedClassForImport.students.map(s => s.id);
-        const allCurrentlySelected = studentIdsInSelectedClass.length > 0 && studentIdsInSelectedClass.every(id => studentsToImport.has(id));
-        if (allCurrentlySelected) { setStudentsToImport(new Set()); }
+        if (studentIdsInSelectedClass.length > 0 && studentIdsInSelectedClass.every(id => studentsToImport.has(id))) { setStudentsToImport(new Set()); }
         else { setStudentsToImport(new Set(studentIdsInSelectedClass)); }
     };
 
     const handleImportStudents = async () => {
-        if (!importTargetClassId) return showToast("Please select a class to import students into.", "error");
-        if (studentsToImport.size === 0) return showToast("Please select at least one student to import.", "error");
+        if (!importTargetClassId) return showToast("Please select a target class.", "error");
+        if (studentsToImport.size === 0) return showToast("Please select students to import.", "error");
         setIsImporting(true);
         try {
             const studentsToAdd = selectedClassForImport.students.filter(s => studentsToImport.has(s.id));
             await updateDoc(doc(db, "classes", importTargetClassId), { students: arrayUnion(...studentsToAdd) });
             showToast(`${studentsToImport.size} student(s) imported successfully!`, 'success');
-            setStudentsToImport(new Set());
-            setSelectedClassForImport(null);
-            setImportClassSearchTerm('');
-            setImportTargetClassId('');
-        } catch (err) { console.error("Error importing students:", err); showToast("An error occurred during the import.", "error"); }
+            setStudentsToImport(new Set()); setSelectedClassForImport(null); setImportClassSearchTerm(''); setImportTargetClassId('');
+        } catch (err) { console.error("Error importing students:", err); showToast("An error occurred during import.", "error"); }
         finally { setIsImporting(false); }
     };
 
     const handleBackToClassSelection = () => { setSelectedClassForImport(null); setStudentsToImport(new Set()); setImportTargetClassId(''); };
     const handleOpenEditSubject = (subject) => { setSubjectToActOn(subject); setEditSubjectModalOpen(true); };
     const handleOpenDeleteSubject = (subject) => { setSubjectToActOn(subject); setDeleteSubjectModalOpen(true); };
-    const handleAskAiWrapper = (message) => {
-        handleAskAi(message);
-        if (!aiConversationStarted) {
-            setAiConversationStarted(true);
-        }
-    };
+    const handleAskAiWrapper = (message) => { handleAskAi(message); if (!aiConversationStarted) setAiConversationStarted(true); };
 
     return (
         <>
             <TeacherDashboardLayout
-                user={user}
-                userProfile={userProfile}
-                loading={loading}
-                error={error}
-                activeView={activeView}
-                handleViewChange={handleViewChange}
-                isSidebarOpen={isSidebarOpen}
-                setIsSidebarOpen={setIsSidebarOpen}
-                logout={logout}
-                showToast={showToast}
-                activeClasses={activeClasses}
-                archivedClasses={archivedClasses}
-                courses={courses}
-                courseCategories={courseCategories}
-                teacherAnnouncements={teacherAnnouncements}
-                selectedCategory={selectedCategory}
-                handleCategoryClick={handleCategoryClick}
-                handleBackToCategoryList={handleBackToCategoryList}
-                activeSubject={activeSubject}
-                setActiveSubject={setActiveSubject}
-                activeUnit={activeUnit}
-                onSetActiveUnit={setActiveUnit}
-                handleOpenEditClassModal={handleOpenEditClassModal}
-                handleArchiveClass={handleArchiveClass}
-                handleDeleteClass={handleDeleteClass}
-                isHoveringActions={isHoveringActions}
-                setIsHoveringActions={setIsHoveringActions}
-                setClassOverviewModal={setClassOverviewModal}
-                setIsArchivedModalOpen={setIsArchivedModalOpen}
-                setCreateClassModalOpen={setCreateClassModalOpen}
-                setCreateCategoryModalOpen={setCreateCategoryModalOpen}
-                setCreateCourseModalOpen={setCreateCourseModalOpen}
-                handleEditCategory={handleEditCategory}
-                handleOpenEditSubject={handleOpenEditSubject}
-                handleOpenDeleteSubject={handleOpenDeleteSubject}
-                setShareContentModalOpen={setShareContentModalOpen}
-                handleInitiateDelete={handleInitiateDelete}
-                handleGenerateQuizForLesson={handleGenerateQuizForLesson}
-                onGeneratePresentationPreview={handleInitiatePresentationGeneration}
-                isAiGenerating={isAiGenerating}
-                setEditProfileModalOpen={setEditProfileModalOpen}
-                setChangePasswordModalOpen={setChangePasswordModalOpen}
-                editingAnnId={editingAnnId}
-                editingAnnText={editingAnnText}
-                setEditingAnnText={setEditingAnnText}
-                handleStartEditAnn={handleStartEditAnn}
-                handleUpdateTeacherAnn={handleUpdateTeacherAnn}
-                setEditingAnnId={setEditingAnnId}
-                handleDeleteTeacherAnn={handleDeleteTeacherAnn}
-                handleTogglePinAnnouncement={handleTogglePinAnnouncement}
-                importClassSearchTerm={importClassSearchTerm}
-                setImportClassSearchTerm={setImportClassSearchTerm}
-                allLmsClasses={allLmsClasses}
-                filteredLmsClasses={filteredLmsClasses}
-                isImportViewLoading={isImportViewLoading}
-                selectedClassForImport={selectedClassForImport}
-                setSelectedClassForImport={setSelectedClassForImport}
-                handleBackToClassSelection={handleBackToClassSelection}
-                importTargetClassId={importTargetClassId}
-                setImportTargetClassId={setImportTargetClassId}
-                handleImportStudents={handleImportStudents}
-                isImporting={isImporting}
-                studentsToImport={studentsToImport}
-                handleToggleStudentForImport={handleToggleStudentForImport}
-                handleSelectAllStudents={handleSelectAllStudents}
-                isArchivedModalOpen={isArchivedModalOpen}
-                handleUnarchiveClass={handleUnarchiveClass}
-                isEditProfileModalOpen={isEditProfileModalOpen}
-                handleUpdateProfile={handleUpdateProfile}
-                isChangePasswordModalOpen={isChangePasswordModalOpen}
-                handleChangePassword={handleChangePassword}
-                isCreateCategoryModalOpen={isCreateCategoryModalOpen}
-                isEditCategoryModalOpen={isEditCategoryModalOpen}
-                setEditCategoryModalOpen={setEditCategoryModalOpen}
-                categoryToEdit={categoryToEdit}
-                isCreateClassModalOpen={isCreateClassModalOpen}
-                isCreateCourseModalOpen={isCreateCourseModalOpen}
-                classOverviewModal={classOverviewModal}
-                isEditClassModalOpen={isEditClassModalOpen}
-                setEditClassModalOpen={setEditClassModalOpen}
-                classToEdit={classToEdit}
-                isAddUnitModalOpen={isAddUnitModalOpen}
-                setAddUnitModalOpen={setAddUnitModalOpen}
-                editUnitModalOpen={editUnitModalOpen}
-                setEditUnitModalOpen={setEditUnitModalOpen}
-                selectedUnit={selectedUnit}
-                addLessonModalOpen={addLessonModalOpen}
-                setAddLessonModalOpen={setAddLessonModalOpen}
-                addQuizModalOpen={addQuizModalOpen}
-                setAddQuizModalOpen={setAddQuizModalOpen}
-                deleteUnitModalOpen={deleteUnitModalOpen}
-                setDeleteUnitModalOpen={setDeleteUnitModalOpen}
-                editLessonModalOpen={editLessonModalOpen}
-                setEditLessonModalOpen={setEditLessonModalOpen}
-                selectedLesson={selectedLesson}
-                viewLessonModalOpen={viewLessonModalOpen}
-                setViewLessonModalOpen={setViewLessonModalOpen}
-                isShareContentModalOpen={isShareContentModalOpen}
-                isDeleteModalOpen={isDeleteModalOpen}
-                setIsDeleteModalOpen={setIsDeleteModalOpen}
-                handleConfirmDelete={handleConfirmDelete}
-                deleteTarget={deleteTarget}
-                isEditSubjectModalOpen={isEditSubjectModalOpen}
-                setEditSubjectModalOpen={setEditSubjectModalOpen}
-                subjectToActOn={subjectToActOn}
-                isDeleteSubjectModalOpen={isDeleteSubjectModalOpen}
-                setDeleteSubjectModalOpen={setDeleteSubjectModalOpen}
-                handleCreateAnnouncement={handleCreateAnnouncement}
-                isChatOpen={isChatOpen}
-                setIsChatOpen={setIsChatOpen}
-                messages={messages}
-                isAiThinking={isAiThinking}
-                handleAskAi={handleAskAi}
-                handleAskAiWrapper={handleAskAiWrapper}
-                aiConversationStarted={aiConversationStarted}
-                setAiConversationStarted={setAiConversationStarted}
-                handleRemoveStudentFromClass={handleRemoveStudentFromClass}
-                setIsAiGenerating={setIsAiGenerating}
-                isAiHubOpen={isAiHubOpen}
-                setIsAiHubOpen={setIsAiHubOpen}
-                reloadKey={reloadKey}
+                user={user} userProfile={userProfile} loading={loading} error={error} activeView={activeView} handleViewChange={handleViewChange} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} logout={logout} showToast={showToast} activeClasses={activeClasses} archivedClasses={archivedClasses} courses={courses} courseCategories={courseCategories} teacherAnnouncements={teacherAnnouncements} selectedCategory={selectedCategory} handleCategoryClick={handleCategoryClick} handleBackToCategoryList={handleBackToCategoryList} activeSubject={activeSubject} setActiveSubject={setActiveSubject} activeUnit={activeUnit} onSetActiveUnit={setActiveUnit} handleOpenEditClassModal={handleOpenEditClassModal} handleArchiveClass={handleArchiveClass} handleDeleteClass={handleDeleteClass} isHoveringActions={isHoveringActions} setIsHoveringActions={setIsHoveringActions} setClassOverviewModal={setClassOverviewModal} setIsArchivedModalOpen={setIsArchivedModalOpen} setCreateClassModalOpen={setCreateClassModalOpen} setCreateCategoryModalOpen={setCreateCategoryModalOpen} setCreateCourseModalOpen={setCreateCourseModalOpen} handleEditCategory={handleEditCategory} handleOpenEditSubject={handleOpenEditSubject} handleOpenDeleteSubject={handleOpenDeleteSubject} setShareContentModalOpen={setShareContentModalOpen} handleInitiateDelete={handleInitiateDelete} handleGenerateQuizForLesson={handleGenerateQuizForLesson} onGeneratePresentationPreview={handleInitiatePresentationGeneration} isAiGenerating={isAiGenerating} setEditProfileModalOpen={setEditProfileModalOpen} setChangePasswordModalOpen={setChangePasswordModalOpen} editingAnnId={editingAnnId} editingAnnText={editingAnnText} setEditingAnnText={setEditingAnnText} handleStartEditAnn={handleStartEditAnn} handleUpdateTeacherAnn={handleUpdateTeacherAnn} setEditingAnnId={setEditingAnnId} handleDeleteTeacherAnn={handleDeleteTeacherAnn} handleTogglePinAnnouncement={handleTogglePinAnnouncement} importClassSearchTerm={importClassSearchTerm} setImportClassSearchTerm={setImportClassSearchTerm} allLmsClasses={allLmsClasses} filteredLmsClasses={filteredLmsClasses} isImportViewLoading={isImportViewLoading} selectedClassForImport={selectedClassForImport} setSelectedClassForImport={setSelectedClassForImport} handleBackToClassSelection={handleBackToClassSelection} importTargetClassId={importTargetClassId} setImportTargetClassId={setImportTargetClassId} handleImportStudents={handleImportStudents} isImporting={isImporting} studentsToImport={studentsToImport} handleToggleStudentForImport={handleToggleStudentForImport} handleSelectAllStudents={handleSelectAllStudents} isArchivedModalOpen={isArchivedModalOpen} handleUnarchiveClass={handleUnarchiveClass} isEditProfileModalOpen={isEditProfileModalOpen} handleUpdateProfile={handleUpdateProfile} isChangePasswordModalOpen={isChangePasswordModalOpen} handleChangePassword={handleChangePassword} isCreateCategoryModalOpen={isCreateCategoryModalOpen} isEditCategoryModalOpen={isEditCategoryModalOpen} setEditCategoryModalOpen={setEditCategoryModalOpen} categoryToEdit={categoryToEdit} isCreateClassModalOpen={isCreateClassModalOpen} isCreateCourseModalOpen={isCreateCourseModalOpen} classOverviewModal={classOverviewModal} isEditClassModalOpen={isEditClassModalOpen} setEditClassModalOpen={setEditClassModalOpen} classToEdit={classToEdit} isAddUnitModalOpen={isAddUnitModalOpen} setAddUnitModalOpen={setAddUnitModalOpen} editUnitModalOpen={editUnitModalOpen} setEditUnitModalOpen={setEditUnitModalOpen} selectedUnit={selectedUnit} addLessonModalOpen={addLessonModalOpen} setAddLessonModalOpen={setAddLessonModalOpen} addQuizModalOpen={addQuizModalOpen} setAddQuizModalOpen={setAddQuizModalOpen} deleteUnitModalOpen={deleteUnitModalOpen} setDeleteUnitModalOpen={setDeleteUnitModalOpen} editLessonModalOpen={editLessonModalOpen} setEditLessonModalOpen={setEditLessonModalOpen} selectedLesson={selectedLesson} viewLessonModalOpen={viewLessonModalOpen} setViewLessonModalOpen={setViewLessonModalOpen} isShareContentModalOpen={isShareContentModalOpen} isDeleteModalOpen={isDeleteModalOpen} setIsDeleteModalOpen={setIsDeleteModalOpen} handleConfirmDelete={handleConfirmDelete} deleteTarget={deleteTarget} isEditSubjectModalOpen={isEditSubjectModalOpen} setEditSubjectModalOpen={setEditSubjectModalOpen} subjectToActOn={subjectToActOn} isDeleteSubjectModalOpen={isDeleteSubjectModalOpen} setDeleteSubjectModalOpen={setDeleteSubjectModalOpen} handleCreateAnnouncement={handleCreateAnnouncement} isChatOpen={isChatOpen} setIsChatOpen={setIsChatOpen} messages={messages} isAiThinking={isAiThinking} handleAskAi={handleAskAi} handleAskAiWrapper={handleAskAiWrapper} aiConversationStarted={aiConversationStarted} setAiConversationStarted={setAiConversationStarted} handleRemoveStudentFromClass={handleRemoveStudentFromClass} setIsAiGenerating={setIsAiGenerating} isAiHubOpen={isAiHubOpen} setIsAiHubOpen={setIsAiHubOpen} reloadKey={reloadKey}
             />
-
-            <BetaWarningModal
-                isOpen={isBetaWarningModalOpen}
-                onClose={() => setIsBetaWarningModalOpen(false)}
-                onConfirm={() => {
-                    setIsBetaWarningModalOpen(false);
-                    handleGeneratePresentationPreview();
-                }}
-            />
-            <PresentationPreviewModal
-                isOpen={isPresentationPreviewModalOpen}
-                onClose={() => setPresentationPreviewModalOpen(false)}
-                previewData={presentationPreviewData}
-                onConfirm={handleCreatePresentation}
-                isSaving={isSavingPresentation}
-            />
+            <BetaWarningModal isOpen={isBetaWarningModalOpen} onClose={() => setIsBetaWarningModalOpen(false)} onConfirm={handleConfirmBetaWarning} title="AI Presentation Generator" />
+            <PresentationPreviewModal isOpen={isPresentationPreviewModalOpen} onClose={() => setPresentationPreviewModalOpen(false)} previewData={presentationPreviewData} onConfirm={handleCreatePresentation} isSaving={isSavingPresentation} />
         </>
     );
 };

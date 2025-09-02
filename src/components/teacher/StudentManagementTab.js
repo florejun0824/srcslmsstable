@@ -4,7 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { db } from '../../services/firebase';
 import { collection, query, getDocs, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import Spinner from '../common/Spinner';
-import { Users, UploadCloud, ChevronDown, ChevronRight } from 'lucide-react';
+import { UploadCloud, ChevronDown, ChevronRight } from 'lucide-react';
 
 const StudentManagementTab = () => {
     const { showToast } = useToast();
@@ -16,30 +16,27 @@ const StudentManagementTab = () => {
     const [openRosters, setOpenRosters] = useState({});
     const { user } = useAuth();
 
+    // --- All data fetching and logic are unchanged ---
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                // 1. Fetch all users (students and teachers) at once for efficiency
                 const usersSnap = await getDocs(collection(db, "users"));
                 const usersMap = new Map(usersSnap.docs.map(d => [d.id, d.data()]));
 
-                // 2. Fetch all classes
                 const classesSnap = await getDocs(collection(db, "classes"));
                 const allClasses = classesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-                // 3. Separate the current teacher's classes for the "import to" dropdown
                 const myClasses = allClasses.filter(c => c.teacherId === user.id);
                 setTeacherClasses(myClasses);
 
-                // 4. Create detailed rosters for all *other* teachers' classes
                 const otherTeachersRosters = allClasses
-                    .filter(c => c.teacherId !== user.id) // Filter for classes that are NOT the current teacher's
+                    .filter(c => c.teacherId !== user.id)
                     .map(c => {
                         const teacherInfo = usersMap.get(c.teacherId);
-                        const studentInfo = c.students
+                        const studentInfo = (c.students || [])
                             .map(studentId => ({ id: studentId, ...usersMap.get(studentId) }))
-                            .filter(student => student.firstName); // Filter out any undefined students
+                            .filter(student => student.firstName && student.lastName);
 
                         return {
                             ...c,
@@ -94,10 +91,20 @@ const StudentManagementTab = () => {
 
         try {
             const classRef = doc(db, "classes", targetClassId);
+            const targetClass = teacherClasses.find(c => c.id === targetClassId);
+            const existingStudentIds = new Set((targetClass.students || []));
+            const newStudents = Array.from(selectedStudents).filter(id => !existingStudentIds.has(id));
+
+            if (newStudents.length === 0) {
+                showToast("All selected students are already in the target class.", "info");
+                setSelectedStudents(new Set());
+                return;
+            }
+
             await updateDoc(classRef, {
-                students: arrayUnion(...Array.from(selectedStudents))
+                students: arrayUnion(...newStudents)
             });
-            showToast(`Successfully imported ${selectedStudents.size} students!`, "success");
+            showToast(`Successfully imported ${newStudents.length} new students!`, "success");
             setSelectedStudents(new Set());
         } catch (error) {
             console.error("Error importing students:", error);
@@ -112,14 +119,15 @@ const StudentManagementTab = () => {
     if (loading) return <Spinner />;
 
     return (
-        <div>
-            <div className="bg-white/60 backdrop-blur-md p-4 rounded-lg shadow-md mb-6 sticky top-0 z-10 border">
-                <h2 className="text-xl font-bold text-gray-800 mb-2">Import Students to Your Class</h2>
-                <div className="flex flex-col sm:flex-row gap-4">
+        <div className="p-4">
+            {/* iOS Vibe: A cleaner, more defined control panel at the top */}
+            <div className="bg-zinc-100/80 backdrop-blur-md p-5 rounded-2xl shadow-sm mb-8 sticky top-4 z-10 border border-zinc-200/50">
+                <h2 className="text-xl font-bold text-zinc-900 mb-4">Import Students to Your Class</h2>
+                <div className="flex flex-col sm:flex-row gap-3 items-center">
                     <select
                         value={targetClassId}
                         onChange={(e) => setTargetClassId(e.target.value)}
-                        className="w-full sm:w-1/2 p-2 border border-gray-300 rounded-md bg-white"
+                        className="form-input-ios w-full sm:flex-1" // Uses global CSS class for iOS style
                     >
                         <option value="">-- Select your class --</option>
                         {teacherClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -127,55 +135,58 @@ const StudentManagementTab = () => {
                     <button
                         onClick={handleImportStudents}
                         disabled={!targetClassId || selectedStudents.size === 0}
-                        className="w-full sm:w-auto flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+                        className="btn-primary-ios w-full sm:w-auto flex items-center justify-center gap-2" // Uses global CSS class for iOS style
                     >
-                        <UploadCloud size={18} className="mr-2" />
-                        Import {selectedStudents.size} Selected
+                        <UploadCloud size={18} />
+                        Import {selectedStudents.size > 0 ? `(${selectedStudents.size})` : ''} Selected
                     </button>
                 </div>
             </div>
 
             <div className="space-y-4">
-                <h3 className="text-xl font-semibold text-gray-700">Browse Other Classes</h3>
+                <h3 className="text-xl font-semibold text-zinc-800 px-2">Browse Other Classes</h3>
                 {classRosters.map(roster => {
                     const allInClassSelected = roster.studentDetails.length > 0 && roster.studentDetails.every(s => selectedStudents.has(s.id));
                     return (
-                        <div key={roster.id} className="bg-white/60 backdrop-blur-md rounded-lg shadow-md border overflow-hidden">
-                            <div className="flex justify-between items-center p-3 cursor-pointer hover:bg-gray-50/50" onClick={() => toggleRoster(roster.id)}>
+                        // iOS Vibe: Inset, grouped list style for each class roster
+                        <div key={roster.id} className="bg-white/70 backdrop-blur-md rounded-2xl border border-zinc-200/50">
+                            <div className="flex justify-between items-center p-4 cursor-pointer hover:bg-zinc-50/50 rounded-t-2xl" onClick={() => toggleRoster(roster.id)}>
                                 <div>
-                                    <h4 className="font-semibold text-gray-800">{roster.name}</h4>
-                                    <p className="text-sm text-gray-500">Teacher: {roster.teacherName}</p>
+                                    <h4 className="font-semibold text-zinc-900">{roster.name}</h4>
+                                    <p className="text-sm text-zinc-500">Teacher: {roster.teacherName}</p>
                                 </div>
-                                {openRosters[roster.id] ? <ChevronDown /> : <ChevronRight />}
+                                {openRosters[roster.id] ? <ChevronDown className="text-zinc-500" /> : <ChevronRight className="text-zinc-500" />}
                             </div>
                             
                             {openRosters[roster.id] && (
-                                <div className="p-3 border-t">
-                                    <div className="flex justify-end items-center mb-2">
-                                        <label className="flex items-center text-sm cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                className="h-4 w-4 rounded mr-2"
-                                                checked={allInClassSelected}
-                                                onChange={(e) => handleSelectAllInClass(roster.studentDetails, e.target.checked)}
-                                            />
-                                            Select All in this Class
-                                        </label>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                                        {roster.studentDetails.map(student => (
-                                            <label key={student.id} className="flex items-center p-2 rounded-md hover:bg-blue-50 cursor-pointer">
+                                <div className="border-t border-zinc-200/80">
+                                    <div className="bg-zinc-50/70 p-4">
+                                        <div className="flex justify-end items-center mb-3">
+                                            <label className="flex items-center text-sm font-medium text-zinc-600 cursor-pointer">
                                                 <input
                                                     type="checkbox"
-                                                    className="h-4 w-4 rounded mr-3"
-                                                    checked={selectedStudents.has(student.id)}
-                                                    onChange={() => handleStudentSelect(student.id)}
+                                                    className="h-4 w-4 rounded-sm mr-2 border-zinc-300 text-blue-600 focus:ring-blue-500"
+                                                    checked={allInClassSelected}
+                                                    onChange={(e) => handleSelectAllInClass(roster.studentDetails, e.target.checked)}
                                                 />
-                                                <span>{student.lastName}, {student.firstName}</span>
+                                                Select All Students
                                             </label>
-                                        ))}
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                            {roster.studentDetails.map(student => (
+                                                <label key={student.id} className={`flex items-center p-2.5 rounded-lg cursor-pointer transition-colors ${selectedStudents.has(student.id) ? 'bg-blue-100/60' : 'hover:bg-zinc-200/40'}`}>
+                                                    <input
+                                                        type="checkbox"
+                                                        className="h-4 w-4 rounded-sm mr-3 border-zinc-300 text-blue-600 focus:ring-blue-500"
+                                                        checked={selectedStudents.has(student.id)}
+                                                        onChange={() => handleStudentSelect(student.id)}
+                                                    />
+                                                    <span className="text-zinc-800">{student.lastName}, {student.firstName}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                        {roster.studentDetails.length === 0 && <p className="text-sm text-zinc-500 italic text-center py-4">This class has no students.</p>}
                                     </div>
-                                    {roster.studentDetails.length === 0 && <p className="text-sm text-gray-500 italic text-center py-2">This class has no students.</p>}
                                 </div>
                             )}
                         </div>

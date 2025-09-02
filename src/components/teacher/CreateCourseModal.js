@@ -1,41 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { db } from '../../services/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import Modal from '../common/Modal';
+import { PlusIcon, ChevronUpDownIcon } from '@heroicons/react/24/solid';
 
-// Added preselectedCategory prop
 const CreateCourseModal = ({ isOpen, onClose, teacherId, courseCategories = [], preselectedCategory = null }) => {
     const [courseTitle, setCourseTitle] = useState('');
-    const [category, setCategory] = useState(''); // This state will hold the selected or preselected category
+    const [category, setCategory] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { showToast } = useToast();
 
-    // This hook ensures the category defaults to the first item or preselected category when the modal opens.
     useEffect(() => {
         if (isOpen) {
             if (preselectedCategory) {
-                setCategory(preselectedCategory); // Prioritize preselected category
+                setCategory(preselectedCategory);
             } else if (courseCategories.length > 0) {
-                setCategory(courseCategories[0].name); // Fallback to first available category
+                setCategory(courseCategories[0]?.name || '');
             } else {
-                setCategory(''); // No categories available or preselected
+                setCategory('');
             }
         }
-        // Reset form when modal is closed
-        if (!isOpen) {
-            setCourseTitle('');
-            setCategory(''); // Clear category state too
-        }
-    }, [isOpen, courseCategories, preselectedCategory]); // Added preselectedCategory to dependency array
+    }, [isOpen, courseCategories, preselectedCategory]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        // Use the category that's either preselected or chosen from dropdown
         const finalCategory = preselectedCategory || category;
 
-        if (!courseTitle.trim() || !finalCategory) { // Validate title and finalCategory
+        if (!courseTitle.trim() || !finalCategory) {
             showToast("Please provide a title and select a category.", "error");
             return;
         }
@@ -43,12 +35,13 @@ const CreateCourseModal = ({ isOpen, onClose, teacherId, courseCategories = [], 
         try {
             await addDoc(collection(db, "courses"), {
                 title: courseTitle,
-                category: finalCategory, // Use finalCategory
+                category: finalCategory,
                 teacherId,
+                createdAt: serverTimestamp(),
                 units: []
             });
             showToast(`Subject "${courseTitle}" created successfully!`, 'success');
-            onClose();
+            handleClose();
         } catch (error) {
             showToast("Failed to create subject.", 'error');
             console.error("Error creating course:", error);
@@ -56,56 +49,62 @@ const CreateCourseModal = ({ isOpen, onClose, teacherId, courseCategories = [], 
             setIsSubmitting(false);
         }
     };
+    
+    const handleClose = () => {
+        setCourseTitle('');
+        setCategory('');
+        setIsSubmitting(false);
+        onClose();
+    };
+
+    const inputClasses = "w-full p-4 mt-2 bg-gray-500/10 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-800 placeholder:text-gray-400";
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Create a New Subject">
-            <form onSubmit={handleSubmit} className="space-y-4">
+        <Modal 
+            isOpen={isOpen} 
+            onClose={handleClose} 
+            title="Create a New Subject"
+            description="Add a subject to your chosen category."
+        >
+            <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
-                    <label htmlFor="courseTitle" className="block text-sm font-medium text-gray-700">Subject Title</label>
+                    <label htmlFor="courseTitle" className="block text-sm font-semibold text-gray-600">Subject Title</label>
                     <input
                         type="text"
                         id="courseTitle"
                         value={courseTitle}
                         onChange={(e) => setCourseTitle(e.target.value)}
-                        placeholder="e.g., General Mathematics"
-                        className="mt-1 w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., Introduction to Algebra"
+                        className={inputClasses}
                         required
                     />
                 </div>
-                <div>
-                    <label htmlFor="category" className="block text-sm font-medium text-gray-700">Category</label>
-                    {preselectedCategory ? (
-                        // Display preselected category as disabled text
-                        <input
-                            type="text"
-                            id="category"
-                            value={preselectedCategory}
-                            className="mt-1 w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-600 cursor-not-allowed"
-                            disabled
-                        />
-                    ) : (
-                        // Display dropdown if no preselected category
-                        <select
-                            id="category"
-                            value={category}
-                            onChange={e => setCategory(e.target.value)}
-                            className="mt-1 w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                            disabled={courseCategories.length === 0}
-                        >
-                            <option value="" disabled>
-                                {courseCategories.length > 0 ? "Select a category..." : "No categories available"}
-                            </option>
-                            {courseCategories.map(cat => (
-                                <option key={cat.id} value={cat.name}>
-                                    {cat.name}
-                                </option>
-                            ))}
-                        </select>
-                    )}
+                <div className="relative">
+                    <label htmlFor="category" className="block text-sm font-semibold text-gray-600">Category</label>
+                    <select
+                        id="category"
+                        value={category}
+                        onChange={e => setCategory(e.target.value)}
+                        className={`${inputClasses} appearance-none pr-10`}
+                        required
+                        disabled={preselectedCategory || courseCategories.length === 0}
+                    >
+                        <option value="" disabled>
+                            {courseCategories.length > 0 ? "Select a category..." : "No categories available"}
+                        </option>
+                        {courseCategories.map(cat => (
+                            <option key={cat.id} value={cat.name}>{cat.name}</option>
+                        ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 top-6 flex items-center px-4">
+                        <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
+                    </div>
                 </div>
-                <div className="pt-4 flex justify-end">
-                    <button type="submit" disabled={isSubmitting} className="btn-primary w-full">
+                <div className="pt-4 flex justify-end gap-3">
+                    <button type="button" onClick={handleClose} className="px-5 py-3 text-base font-medium text-slate-700 bg-slate-200/70 rounded-xl hover:bg-slate-300 transition-all disabled:opacity-50" disabled={isSubmitting}>
+                        Cancel
+                    </button>
+                    <button type="submit" disabled={isSubmitting || !courseTitle.trim() || !category} className="flex items-center justify-center gap-2 px-5 py-3 text-base font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:transform-none">
                         {isSubmitting ? 'Creating...' : 'Create Subject'}
                     </button>
                 </div>
