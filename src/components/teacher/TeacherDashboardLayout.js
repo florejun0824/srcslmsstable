@@ -185,7 +185,7 @@ const TeacherDashboardLayout = (props) => {
             <div className="absolute bottom-1/4 right-1/3 w-80 h-80 bg-blue-200/50 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
             <div className="absolute top-1/4 right-0 w-72 h-72 bg-purple-200/50 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
 
-            <header className="sticky top-0 z-50 p-3 md:p-4 bg-white/60 backdrop-blur-2xl rounded-b-3xl shadow-2xl flex items-center justify-between mb-6">
+           <header className="sticky top-0 z-50 p-3 md:p-4 bg-white/60 backdrop-blur-2xl rounded-b-3xl shadow-2xl flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                     <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="Logo" className="w-10 h-10 rounded-full shadow-lg" />
                     <span className="hidden md:block font-bold text-xl text-gray-900 drop-shadow-sm">SRCS Learning Portal</span>
@@ -267,7 +267,7 @@ const TeacherDashboardLayout = (props) => {
                     </div>
                 </CSSTransition>
 
-                <main className="flex-1 w-full overflow-y-auto rounded-3xl shadow-2xl p-4 md:p-6 lg:p-8 bg-white/60 backdrop-blur-2xl">
+                <main className="flex-1 w-full overflow-y-auto rounded-3xl shadow-2xl px-4 pt-2 md:px-6 md:pt-4 lg:px-8 lg:pt-6 bg-white/60 backdrop-blur-2xl">
                     <SwitchTransition mode="out-in">
                         <CSSTransition
                             key={activeView}
