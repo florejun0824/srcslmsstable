@@ -170,7 +170,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         setScaffoldLessonIds(newSet);
     };
 
-    const getMasterInstructions = () => {
+	const getMasterInstructions = () => {
 	    const objectivesLabel = formData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
 	    const letsGetStartedLabel = formData.language === 'Filipino' ? 'Simulan Natin!' : "Let's Get Started!";
 	    const checkUnderstandingLabel = formData.language === 'Filipino' ? 'Suriin ang Pag-unawa' : "Check for Understanding";
@@ -183,148 +183,140 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 	    let perspectiveInstruction = '';
 	    if (catholicSubjects.includes(subjectName)) {
 	        perspectiveInstruction = `
-	            **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. This is non-negotiable. All explanations, examples, and interpretations must align with Catholic teachings, doctrines, and values. You must integrate principles from the Catechism of the Catholic Church, relevant encyclicals, and Sacred Scripture where appropriate.
+	                **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. This is non-negotiable. All explanations, examples, and interpretations must align with Catholic teachings, doctrines, and values. You must integrate principles from the Catechism of the Catholic Church, relevant encyclicals, and Sacred Scripture where appropriate.
 	        `;
 	    }
 
 	    return `
-	            **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter.
-	            **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${formData.gradeLevel}**. Your writing must be clear, accessible, and tailored to the cognitive and developmental level of this grade. The complexity of vocabulary, sentence structure, and conceptual depth should be appropriate for a ${formData.gradeLevel}th grader.
-	            ${perspectiveInstruction}
-	            **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the science or the concept. Introduce key figures, explore historical context, and delve into fascinating real-world applications. Use vivid analogies and metaphors to illuminate complex ideas. The content should flow logically and build on itself, like a well-structured story.
-            
-	            **CRITICAL FORMATTING RULE (NON-NEGOTIABLE):** You MUST NOT use Markdown code block formatting (like indenting with four spaces or using triple backticks \`\`\`) for regular content like bulleted lists or standard paragraphs. Code block formatting is reserved ONLY for actual programming code snippets.
-            
-	            **CRITICAL JSON STRING RULE (NON-NEGOTIABLE):** When writing text content inside the JSON, do NOT escape standard quotation marks.
-	            - **Correct:** \`"title": "The Art of \\"How Much?\\""\`
-	            - **Incorrect:** \`"title": "The Art of \\\\\\"How Much?\\\\\\""\`
+	                **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter. Do not explicitly state your role or persona.
+	                **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${formData.gradeLevel}**. Your writing must be clear, accessible, and tailored to the cognitive and developmental level of this grade. The complexity of vocabulary, sentence structure, and conceptual depth should be appropriate for a ${formData.gradeLevel}th grader.
+	                ${perspectiveInstruction}
+	                **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the science or the concept. Introduce key figures, explore historical context, and delve into fascinating real-world applications. Use vivid analogies and metaphors to illuminate complex ideas. The content should flow logically and build on itself, like a well-structured story.
+                
+	                **CRITICAL FORMATTING RULE (NON-NEGOTIABLE):** You MUST NOT use Markdown code block formatting (like indenting with four spaces or using triple backticks \\\`\\\`\\\`) for regular content like bulleted lists or standard paragraphs. Code block formatting is reserved ONLY for actual programming code snippets.
+                
+	                **CRITICAL JSON STRING RULE (NON-NEGOTIABLE):** When writing text content inside the JSON, do NOT escape standard quotation marks.
+	                - **Correct:** \\\`"title": "The Art of \\"How Much?\\""\\\`
+	                - **Incorrect:** \\\`"title": "The Art of \\\\\\"How Much?\\\\\\""\\\`
         
-	            **CRITICAL TEXT FORMATTING RULE (NON-NEGOTIABLE):**
-	            - To make text bold, you MUST use Markdown's double asterisks (**).
-	            - You are STRICTLY FORBIDDEN from using LaTeX commands like \\textbf{} or \\textit{} for text formatting.
-	            - **✅ NEW (ABSOLUTE RULE):** You are **STRICTLY FORBIDDEN** from bolding the introductory phrase or "title" of a bullet point. Bolding should only be used for genuine emphasis on specific words within a sentence.
-	                - **Correct:** \`* Handle with Care: Carry glassware with two hands if it's large.\`
-	                - **INCORRECT:** \`* **Handle with Care**: Carry glassware with two hands if it's large.\`
+	                **CRITICAL TEXT FORMATTING RULE (NON-NEGOTIABLE):**
+	                - To make text bold, you MUST use Markdown's double asterisks (**).
+	                - You are STRICTLY FORBIDDEN from using LaTeX commands like \\textbf{} or \\textit{} for text formatting.
+	                - **✅ NEW (ABSOLUTE RULE):** You are **STRICTLY FORBIDDEN** from bolding the introductory phrase or "title" of a bullet point. Bolding should only be used for genuine emphasis on specific words within a sentence.
+	                    - **Correct:** \`* Handle with Care: Carry glassware with two hands if it's large.\`
+	                    - **INCORRECT:** \`* **Handle with Care**: Carry glassware with two hands if it's large.\`
 
-	            **CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
-	            You MUST use LaTeX for all mathematical equations, variables, and chemical formulas.
-	            - **For INLINE formulas** (within a sentence), you MUST use single dollar signs. Correct: The formula for water is $H_2O$.
-	            - **For BLOCK formulas** (on their own line), you MUST use double dollar signs. This is for larger, centered formulas.
-	            - **CRITICAL LATEX ESCAPING IN JSON:** To prevent the JSON from breaking, every single backslash \`\\\` in your LaTeX code MUST be escaped with a second backslash. So, \`\\\` becomes \`\\\\\`.
-	            - **CORRECT EXAMPLE:** To write the LaTeX formula \`$$% \\text{ by Mass} = \\frac{\\text{Mass of Solute}}{\\text{Mass of Solution}} \\times 100\\%%$$\`, you MUST write it in the JSON string like this:
-	              \`"content": "$$% \\\\text{ by Mass} = \\\\frac{\\\\text{Mass of Solute}}{\\\\text{Mass of Solution}} \\\\times 100\\%%$$"\`
-	            - **INCORRECT (This will break):** \`"content": "$$% \\text{ by Mass} ..."\`
+	                **CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
+	                You MUST use LaTeX for all mathematical equations, variables, and chemical formulas.
+	                - **For INLINE formulas** (within a sentence), you MUST use single dollar signs. Correct: The formula for water is $H_2O$.
+	                - **For BLOCK formulas** (on their own line), you MUST use double dollar signs. This is for larger, centered formulas.
+	                - **CRITICAL LATEX ESCAPING IN JSON:** To prevent the JSON from breaking, every single backslash \`\\\` in your LaTeX code MUST be escaped with a second backslash. So, \`\\\` becomes \`\\\\\`.
+	                - **CORRECT EXAMPLE:** To write the LaTeX formula \`$$% \\text{ by Mass} = \\frac{\\text{Mass of Solute}}{\\text{Mass of Solution}} \\times 100\\%%$$\`, you MUST write it in the JSON string like this:
+	                \\\`- "content": "$$% \\\\text{ by Mass} = \\\\frac{\\\\text{Mass of Solute}}{\\\\text{Mass of Solution}} \\\\times 100\\%%$$"\\\`
+	                \\\`- **INCORRECT (This will break):** "content": "$$% \\\\text{ by Mass} ..."\\\`
+                
+	                **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, a heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \\\`"title": ""\\\`.
 
-	            **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, a heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \`"title": ""\`.
+	                **Textbook Chapter Structure (NON-NEGOTIABLE):** You MUST generate the lesson pages in this exact sequence. The 'title' field for each special section MUST be exactly as specified.
+	                1. **${objectivesLabel}:** The lesson MUST begin with the learning objectives (in the "learningObjectives" array).
+	                2. **Engaging Introduction:** The first page of the 'pages' array must be a captivating opening.
+	                3. **Introductory Activity ("${letsGetStartedLabel}"):** A single page with a short warm-up activity. The 'title' MUST be exactly "${letsGetStartedLabel}".
+	                4. **Core Content Sections:** The main narrative content across multiple pages. This should be a continuous, well-structured story that is rich with detail and flows logically from one page to the next. Do not use page numbers in the content or titles.
+	                5. **Check for Understanding ("${checkUnderstandingLabel}"):** A page with a thoughtful activity. The 'title' MUST be exactly "${checkUnderstandingLabel}".
+	                6. **Summary ("${lessonSummaryLabel}"):** A page with a concise summary.
+	                7. **Conclusion ("${wrapUpLabel}"):** A page with a powerful concluding statement.
+	                8. **Assessment ("${endOfLessonAssessmentLabel}"):** A multi-page assessment section. The first page's 'title' MUST be "${endOfLessonAssessmentLabel}". It must contain 8-10 questions.
+	                9. **Answer Key ("${answerKeyLabel}"):** A page with the answers. The 'title' MUST be exactly "${answerKeyLabel}".
+	                10. **References ("${referencesLabel}"):** The absolute last page must ONLY contain references. The 'title' MUST be exactly "${referencesLabel}".
 
-	            **Textbook Chapter Structure (NON-NEGOTIABLE):** You MUST generate the lesson pages in this exact sequence. The 'title' field for each special section MUST be exactly as specified.
-	            1. **${objectivesLabel}:** The lesson MUST begin with the learning objectives (in the "learningObjectives" array).
-	            2. **Engaging Introduction:** The first page of the 'pages' array must be a captivating opening.
-	            3. **Introductory Activity ("${letsGetStartedLabel}"):** A single page with a short warm-up activity. The 'title' MUST be exactly "${letsGetStartedLabel}".
-	            4. **Core Content Sections:** The main narrative content across multiple pages.
-	            5. **Check for Understanding ("${checkUnderstandingLabel}"):** A page with a thoughtful activity. The 'title' MUST be exactly "${checkUnderstandingLabel}".
-	            6. **Summary ("${lessonSummaryLabel}"):** A page with a concise summary.
-	            7. **Conclusion ("${wrapUpLabel}"):** A page with a powerful concluding statement.
-	            8. **Assessment ("${endOfLessonAssessmentLabel}"):** A multi-page assessment section. The first page's 'title' MUST be "${endOfLessonAssessmentLabel}". It must contain 8-10 questions.
-	            9. **Answer Key ("${answerKeyLabel}"):** A page with the answers. The 'title' MUST be exactly "${answerKeyLabel}".
-	            10. **References ("${referencesLabel}"):** The absolute last page must ONLY contain references. The 'title' MUST be exactly "${referencesLabel}".
+	                **ABSOLUTE RULE FOR IMAGES (NON-NEGOTIABLE):**
+	                When a visual aid, diagram, or illustration is necessary to explain a concept, you MUST generate a detailed, descriptive prompt for a text-to-image AI model (like Google Imagen) instead of generating SVG code.
+	                - The page 'type' MUST be **"image-prompt"**.
+	                - The 'content' MUST be a string containing the detailed prompt.
+                
+	                **CRITICAL PROMPT WRITING INSTRUCTIONS:**
+	                1.  **Style:** The prompt MUST begin by describing a specific visual style. Use phrases like "Clean, modern, educational textbook illustration...", "Minimalist schematic diagram...", or "Infographic explaining...". The style should always be on a **clean white background** for consistency.
+	                2.  **Detail & Composition:** Be highly descriptive. Mention the main subject, its key parts, any required labels with leader lines, the perspective (e.g., "cross-section", "isometric view", "exploded view"), and the overall composition.
+	                3.  **Clarity over Artistry:** The primary goal is educational clarity, not a photorealistic or artistic masterpiece. The prompt must reflect this. Avoid subjective artistic terms like "beautiful" or "stunning".
+                
+	                **EXAMPLE of a good image prompt:**
+	                - "Educational textbook illustration of a laboratory beaker made of clear glass, showing a cross-section. The beaker contains a blue liquid filled to the 100ml mark. Clear, legible labels with leader lines point to the 'Pouring Spout', the 'Rolled Rim', and the '100ml mark'. Clean, minimalist style on a white background."
 
-	            **ABSOLUTE RULE FOR IMAGES (NON-NEGOTIABLE):**
-	            When a visual aid, diagram, or illustration is necessary to explain a concept, you MUST generate a detailed, descriptive prompt for a text-to-image AI model (like Google Imagen) instead of generating SVG code.
-	            - The page 'type' MUST be **"image-prompt"**.
-	            - The 'content' MUST be a string containing the detailed prompt.
-	            
-	            **CRITICAL PROMPT WRITING INSTRUCTIONS:**
-	            1.  **Style:** The prompt MUST begin by describing a specific visual style. Use phrases like "Clean, modern, educational textbook illustration...", "Minimalist schematic diagram...", or "Infographic explaining...". The style should always be on a **clean white background** for consistency.
-	            2.  **Detail & Composition:** Be highly descriptive. Mention the main subject, its key parts, any required labels with leader lines, the perspective (e.g., "cross-section", "isometric view", "exploded view"), and the overall composition.
-	            3.  **Clarity over Artistry:** The primary goal is educational clarity, not a photorealistic or artistic masterpiece. The prompt must reflect this. Avoid subjective artistic terms like "beautiful" or "stunning".
-	            
-	            **EXAMPLE of a good image prompt:**
-	            - "Educational textbook illustration of a laboratory beaker made of clear glass, showing a cross-section. The beaker contains a blue liquid filled to the 100ml mark. Clear, legible labels with leader lines point to the 'Pouring Spout', the 'Rolled Rim', and the '100ml mark'. Clean, minimalist style on a white background."
-
-	            **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
-	    `;
+	                **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${formData.language}.**
+	            `;
 	};
 		
 	const generateSingleLesson = async (lessonNumber, totalLessons, previousLessonsContext, existingSubjectContext) => {
-        let lastError = null;
-        let lastResponseText = null;
-        const masterInstructions = getMasterInstructions();
+	    let lastError = null;
+	    let lastResponseText = null;
+	    const masterInstructions = getMasterInstructions();
 
-        let continuityInstruction = '';
-        if (previousLessonsContext) {
-            continuityInstruction += `
-                **CRITICAL CONTINUITY (This Session):** You are generating Lesson ${lessonNumber} of a larger series. The following lessons have already been created in this session. You MUST carefully review them to understand the narrative arc.
-                ---
-                **PREVIOUSLY GENERATED LESSONS:**
-                ${previousLessonsContext}
-                ---
-            `;
-        }
-        
-        if (scaffoldInfo.summary || existingSubjectContext) {
-            continuityInstruction += `
-                **CRITICAL CONTEXT & AVOIDANCE OF REDUNDANCY (NON-NEGOTIABLE):** This subject has existing content. You MUST review it to ensure your new lesson is unique and progresses logically.
+	    // The most important instructions are now at the top of the prompt to ensure the AI prioritizes them.
+	const scaffoldingInstruction = `
+	    **PRIMARY ANALYSIS TASK (NON-NEGOTIABLE):** Before generating anything, you MUST act as a curriculum continuity expert. Your most critical task is to meticulously analyze all the provided context below to prevent any topical repetition.
 
-                **1. USER-SELECTED SCAFFOLDING LESSONS (HIGHEST PRIORITY):**
-                The user has explicitly selected these lessons as prerequisites. You MUST build directly upon their concepts and AVOID repeating their activities.
-                ---
-                ${scaffoldInfo.summary || "No specific lessons were selected as scaffolds."}
-                ---
+	    ---
+	    ### CONTEXT: PREVIOUSLY COVERED MATERIAL
+	    This section contains all topics, objectives, and keywords from lessons that have already been created. You are strictly forbidden from re-teaching these specific concepts.
 
-                **2. GENERAL SUBJECT CONTEXT:**
-                Here is an overview of all content in the subject for broader context.
-                ---
-                ${existingSubjectContext}
-                ---
+	    **1. User-Selected Prerequisite Lessons:**
+	    ${scaffoldInfo.summary || "No specific prerequisite lessons were selected."}
 
-                **YOUR PRIMARY TASK:**
-                1.  **AVOID REDUNDANCY:** You are STRICTLY FORBIDDEN from creating a lesson on a topic that is already present, especially those highlighted in the user-selected scaffolds.
-                2.  **ENSURE LOGICAL PROGRESSION:** Your new lesson must logically follow the existing content, particularly building upon the user-selected scaffolds.
-            `;
-        }
+	    **2. Other Lessons Existing in this Subject:**
+	    ${existingSubjectContext || "No other lessons exist yet."}
 
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            let prompt;
-            if (attempt === 1) {
-                prompt = `You are an expert instructional designer.
-                    **ABSOLUTE PRIMARY RULE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
-                    **JSON SYNTAX RULES (NON-NEGOTIABLE):** 1. All keys in quotes. 2. Colon after every key. 3. Backslashes escaped (\\\\). 4. No trailing commas.
-                    **CRITICAL PRE-FLIGHT CHECK:** Before outputting, verify: 1. No missing colons? 2. No missing commas? 3. Brackets/braces matched? 4. Backslashes escaped?
-                    **OUTPUT JSON STRUCTURE:** {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": [...], "pages": [...]}]}
-                    ---
-                    **GENERATION TASK DETAILS**
-                    ---
-                    **Core Content:** Subject: "${subjectName}", Grade: ${formData.gradeLevel}, Topic: "${formData.content}"
-                    **Learning Competencies:** "${formData.learningCompetencies}"
-                    **CRITICAL OBJECTIVES INSTRUCTION:** Generate 'learningObjectives' array with 3-5 objectives.
-                    **CRITICAL INSTRUCTION FOR LESSON TITLES (NON-NEGOTIABLE):** The "lessonTitle" MUST be academic, formal, and descriptive. It must clearly state the core topic of the lesson.
-                        - **GOOD Example:** "Lesson 1: The Principles of Newtonian Mechanics"
-                        - **BAD Example:** "Lesson 1: Fun with Physics!"
-                    **Lesson Details:** You are generating **Lesson ${lessonNumber} of ${totalLessons}**. The "lessonTitle" MUST be unique and start with "Lesson ${lessonNumber}: ".
-                    ${continuityInstruction}
-                    **PAGE COUNT/DEPTH:** Minimum of **30 pages for this single lesson**. Achieve this with deep narrative richness.
-                    ---
-                    **MASTER INSTRUCTION SET:**
-                    ---
-                    ${masterInstructions}`;
-            } else {
-                showToast(`AI response was invalid. Retrying Lesson ${lessonNumber} (Attempt ${attempt})...`, "warning");
-                prompt = `The following text is not valid JSON and produced this error: "${lastError.message}". Correct the syntax and return ONLY the valid JSON object. BROKEN JSON: ${lastResponseText}`;
-            }
+	    **3. Lessons Just Generated in this Session:**
+	    ${previousLessonsContext || "No other lessons have been generated in this session."}
+	    ---
 
-            try {
-                const aiResponse = await callGeminiWithLimitCheck(prompt);
-                lastResponseText = extractJson(aiResponse);
-                const parsedResponse = tryParseJson(lastResponseText);
-                return parsedResponse; 
-            } catch (error) {
-                console.error(`Attempt ${attempt} for Lesson ${lessonNumber} failed:`, error);
-                lastError = error;
-            }
-        }
-        throw lastError;
-    };
+	    ### YOUR GENERATION RULES (ABSOLUTE)
+	    1.  **DO NOT REPEAT:** You are strictly forbidden from creating a lesson, activity, or assessment question that covers the same learning objectives or keywords mentioned in the context above.
+	    2.  **IDENTIFY THE GAP:** Your new lesson must address a logical "next step" or a knowledge gap that is not covered by the existing material.
+	    3.  **BUILD A BRIDGE:** If appropriate, your introduction should briefly reference a concept from a prerequisite lesson to create a smooth transition, but it must immediately move into new material.
+
+	    **YOUR TASK:** Based on your analysis of the context above, generate a new, unique lesson about **"${formData.content}"**.
+	`;
+    
+	    for (let attempt = 1; attempt <= 3; attempt++) {
+	        let prompt;
+	        if (attempt === 1) {
+	            prompt = `You are an expert instructional designer.
+	                **ABSOLUTE PRIMARY RULE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
+	                **JSON SYNTAX RULES (NON-NEGOTIABLE):** 1. All keys in quotes. 2. Colon after every key. 3. Backslashes escaped (\\\\). 4. No trailing commas.
+	                **CRITICAL PRE-FLIGHT CHECK:** Before outputting, verify: 1. No missing colons? 2. No missing commas? 3. Brackets/braces matched? 4. Backslashes escaped?
+	                **OUTPUT JSON STRUCTURE:** {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": [...], "pages": [...]}]}
+	                ---
+	                **GENERATION TASK DETAILS**
+	                ---
+	                **Core Content:** Subject: "${subjectName}", Grade: ${formData.gradeLevel}, Topic: "${formData.content}"
+	                **Learning Competencies:** "${formData.learningCompetencies}"
+	                **CRITICAL OBJECTIVES INSTRUCTION:** Generate 'learningObjectives' array with 3-5 objectives.
+	                **CRITICAL INSTRUCTION FOR LESSON TITLES (NON-NEGOTIABLE):** The "lessonTitle" MUST be academic, formal, and descriptive. It must clearly state the core topic of the lesson.
+	                    - **GOOD Example:** "Lesson 1: The Principles of Newtonian Mechanics"
+	                    - **BAD Example:** "Lesson 1: Fun with Physics!"
+	                **Lesson Details:** You are generating **Lesson ${lessonNumber} of ${totalLessons}**. The "lessonTitle" MUST be unique and start with "Lesson ${lessonNumber}: ".
+	                ${scaffoldingInstruction}
+	                ---
+	                **MASTER INSTRUCTION SET:**
+	                ---
+	                ${masterInstructions}`;
+	        } else {
+	            showToast(`AI response was invalid. Retrying Lesson ${lessonNumber} (Attempt ${attempt})...`, "warning");
+	            prompt = `The following text is not valid JSON and produced this error: "${lastError.message}". Correct the syntax and return ONLY the valid JSON object. BROKEN JSON: ${lastResponseText}`;
+	        }
+
+	        try {
+	            const aiResponse = await callGeminiWithLimitCheck(prompt);
+	            lastResponseText = extractJson(aiResponse);
+	            const parsedResponse = tryParseJson(lastResponseText);
+	            return parsedResponse;
+	        } catch (error) {
+	            console.error(`Attempt ${attempt} for Lesson ${lessonNumber} failed:`, error);
+	            lastError = error;
+	        }
+	    }
+	    throw lastError;
+	};
 
     const runGenerationLoop = async (startLessonNumber) => {
         setIsGenerating(true);
@@ -542,10 +534,8 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                                         <p className="text-xs text-zinc-500 mb-3">Explicitly select lessons for the AI to build upon.</p>
                                         {subjectContext && subjectContext.units.length > 0 ? (
                                             subjectContext.units
-                                                .slice() // Create a shallow copy before sorting to avoid mutating the state directly
+                                                .slice()
                                                 .sort((a, b) => {
-                                                    // Extracts the first number from the unit title for sorting.
-                                                    // This handles cases like "Unit 1", "Unit 10" correctly.
                                                     const getUnitNumber = (title) => {
                                                         if (!title) return Infinity;
                                                         const match = title.match(/\d+/);
@@ -555,7 +545,6 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                                                     const numA = getUnitNumber(a.title);
                                                     const numB = getUnitNumber(b.title);
 
-                                                    // If numbers are the same or not found, fall back to alphabetical sort.
                                                     if (numA === numB) {
                                                         return a.title.localeCompare(b.title);
                                                     }
@@ -662,9 +651,9 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                                 </div>
                             </>
                         ) : (
-                            <button onClick={handleInitialGenerate} disabled={isGenerating || !formData.content || !formData.learningObjectives} className="btn-primary-ios ml-auto w-full sm:w-auto">
-                                {isGenerating ? 'Generating...' : 'Generate Document'}
-                            </button>
+						<button onClick={handleInitialGenerate} className="btn-primary-ios ml-auto w-full sm:w-auto">
+						    {isGenerating ? 'Generating...' : 'Generate Document'}
+						</button>
                         )}
                     </footer>
                 </Dialog.Panel>

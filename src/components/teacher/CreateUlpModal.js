@@ -5,7 +5,7 @@ import { db } from '../../services/firebase';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 import Spinner from '../common/Spinner';
-import { XMarkIcon, DocumentChartBarIcon, LanguageIcon, ChevronRightIcon } from '@heroicons/react/24/outline'; // Added ChevronRightIcon
+import { XMarkIcon, DocumentChartBarIcon, LanguageIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import LessonPage from './LessonPage';
 import ProgressIndicator from '../common/ProgressIndicator';
 import SourceContentSelector from '../../hooks/SourceContentSelector';
@@ -30,12 +30,13 @@ const tryParseJson = (jsonString) => {
         return JSON.parse(jsonString);
     } catch (error) {
         console.warn("Standard JSON.parse failed. Attempting to fix.", error);
+        // Attempt to fix common issues like trailing commas
         let sanitizedString = jsonString.replace(/,\s*([}\]])/g, '$1');
         try {
             return JSON.parse(sanitizedString);
         } catch (finalError) {
             console.error("Failed to parse JSON even after sanitization.", finalError);
-            throw error;
+            throw new Error("Invalid JSON format received from AI.");
         }
     }
 };
@@ -43,12 +44,12 @@ const tryParseJson = (jsonString) => {
 export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId, subjectId }) {
     const { showToast } = useToast();
 
+    // --- All state declarations remain the same ---
     const [inputs, setInputs] = useState({
         contentStandard: '',
         performanceStandard: '',
         learningCompetencies: '',
     });
-
     const [generationTarget, setGenerationTarget] = useState('teacherGuide');
     const [allSubjects, setAllSubjects] = useState([]);
     const [unitsForSubject, setUnitsForSubject] = useState([]);
@@ -57,7 +58,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
     const [selectedSubjectId, setSelectedSubjectId] = useState(subjectId || '');
     const [selectedUnitIds, setSelectedUnitIds] = useState(new Set(initialUnitId ? [initialUnitId] : []));
     const [scaffoldLessonIds, setScaffoldLessonIds] = useState(new Set());
-    const [expandedScaffoldUnits, setExpandedScaffoldUnits] = useState(new Set()); // <-- NEW: State for collapsible sections
+    const [expandedScaffoldUnits, setExpandedScaffoldUnits] = useState(new Set());
     const [isGenerating, setIsGenerating] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [previewData, setPreviewData] = useState(null);
@@ -66,7 +67,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
     const [progressLabel, setProgressLabel] = useState('');
     const [isLoadingSubjects, setIsLoadingSubjects] = useState(true);
 
-    // --- Data Fetching Hooks (Unchanged) ---
+    // --- All data fetching hooks and memos remain unchanged ---
     useEffect(() => {
         if (!isOpen) return;
         setIsLoadingSubjects(true);
@@ -114,7 +115,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         }
     }, [isOpen, initialUnitId]);
 
-    // --- Handlers and Memos (with additions) ---
     const handleInputChange = useCallback((e) => {
         const { name, value } = e.target;
         setInputs(prev => ({ ...prev, [name]: value }));
@@ -148,143 +148,405 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         return { summary, error: null };
     }, [scaffoldLessonIds, lessonsForUnit]);
 
-    // NEW: Handler to toggle unit expansion in scaffold selector
     const handleToggleUnitExpansion = (unitId) => {
         const newSet = new Set(expandedScaffoldUnits);
-        if (newSet.has(unitId)) {
-            newSet.delete(unitId);
-        } else {
-            newSet.add(unitId);
-        }
+        if (newSet.has(unitId)) newSet.delete(unitId); else newSet.add(unitId);
         setExpandedScaffoldUnits(newSet);
     };
     
-    // NEW: Handler for the "select all" unit checkbox
     const handleUnitCheckboxChange = (lessonsInUnit) => {
         const lessonIdsInUnit = lessonsInUnit.map(l => l.id);
         const currentlySelectedInUnit = lessonIdsInUnit.filter(id => scaffoldLessonIds.has(id));
-        
         const newSet = new Set(scaffoldLessonIds);
-
         if (currentlySelectedInUnit.length === lessonIdsInUnit.length) {
-            // All are selected, so deselect all
             lessonIdsInUnit.forEach(id => newSet.delete(id));
         } else {
-            // Some or none are selected, so select all
             lessonIdsInUnit.forEach(id => newSet.add(id));
         }
         setScaffoldLessonIds(newSet);
     };
 
-    // --- Core Logic (handleGenerate, handleSave) remains unchanged ---
+    // --- REFACTORED: Helper function to generate individual ULP sections with error handling and retries ---
+    const generateUlpSection = async (type, context, maxRetries = 3) => {
+        let prompt;
+        const iCan = context.language === 'Filipino' ? 'Kaya kong...' : 'I can...';
+        const commonRules = `
+          **Authoritative Inputs:**
+          - Content Standard: ${context.contentStandard}
+          - Performance Standard: ${context.performanceStandard}
+          - Source Lesson Titles: ${context.sourceLessonTitles}
+          - Language: ${context.language}
+          
+          **Rules:**
+          1. Generate ONLY a valid JSON object. Do not include any other text or markdown.
+          2. All generated text content inside the JSON MUST be in ${context.language}.
+          3. Create NEW and ORIGINAL activities. DO NOT directly reference the source content.
+        `;
+
+        switch (type) {
+            case 'explore':
+                prompt = `
+                    ${commonRules}
+                    Design the "Explore Stage" of a ULP.
+                    
+                    **JSON Output Structure:**
+                    {
+                      "type": "explore",
+                      "lessonsList": "A bulleted or numbered list of the exact source lesson titles provided.",
+                      "unitOverview": "An engaging and catchy overview of the unit's purpose.",
+                      "hookedActivities": "Detailed instructions for 1-2 engaging activities to capture student interest.",
+                      "mapOfConceptualChange": "Detailed instructions for an activity for students to map their knowledge (e.g., K-W-L chart).",
+                      "essentialQuestions": ["An array of 2-5 thought-provoking Essential Questions."]
+                    }
+                `;
+                break;
+            case 'firmUp':
+                prompt = `
+                    ${commonRules}
+                    Design a "Firm-Up (Acquisition)" section for the competency: "${context.competency}" (Code: ${context.code}).
+                    
+                    **JSON Output Structure:**
+                    {
+                      "type": "firmUp",
+                      "code": "${context.code}",
+                      "competency": "${context.competency}",
+                      "learningTargets": ["A '${iCan}' statement.", "Another '${iCan}' statement."],
+                      "successIndicators": ["A specific, observable indicator.", "Another indicator."],
+                      "inPersonActivity": { "instructions": "Detailed instructions...", "materials": "List of materials..." },
+                      "onlineActivity": { "instructions": "Detailed instructions...", "materials": "List of materials..." },
+                      "supportDiscussion": "Questions to check for understanding and an in-depth discussion to support the activity.",
+                      "assessment": { "type": "Multiple Choice | Fill in the blank | Matching Type | Enumeration | Alternative Response | Hands-on operation | Labeling", "content": "The full assessment content..." },
+                      "templates": "Provide full content for any templates/cards mentioned in materials. If none, use an empty string."
+                    }
+                `;
+                break;
+            case 'deepen':
+                prompt = `
+                    ${commonRules}
+                    Design a "Deepen (Meaning-Making)" section for the competency: "${context.competency}" (Code: ${context.code}). At least one activity MUST be a C-E-R task.
+                    
+                    **JSON Output Structure:**
+                    {
+                      "type": "deepen",
+                      "code": "${context.code}",
+                      "competency": "${context.competency}",
+                      "learningTargets": ["A '${iCan}' statement.", "Another '${iCan}' statement."],
+                      "successIndicators": ["A specific, observable indicator.", "Another indicator."],
+                      "inPersonActivity": { "instructions": "Detailed instructions for a meaning-making activity...", "materials": "List of materials..." },
+                      "onlineActivity": { "instructions": "Detailed instructions for an online alternative...", "materials": "List of materials..." },
+                      "supportDiscussion": "A detailed summarization of key concepts, plus in-depth elaboration and probing questions.",
+                      "assessment": { "type": "Short Paragraph | Essay | Critique Writing | Concept Mapping | Journal Writing", "content": "The full assessment content..." },
+                      "templates": "Provide full content for any templates/cards mentioned in materials. If none, use an empty string."
+                    }
+                `;
+                break;
+            case 'transfer':
+                 prompt = `
+                    ${commonRules}
+                    Design a "Transfer" section for the competency: "${context.competency}" (Code: ${context.code}). Focus on applying knowledge to new, real-world situations.
+                    
+                    **JSON Output Structure:**
+                    {
+                      "type": "transfer",
+                      "code": "${context.code}",
+                      "competency": "${context.competency}",
+                      "learningTargets": ["A '${iCan}' statement.", "Another '${iCan}' statement."],
+                      "successIndicators": ["A specific, observable indicator.", "Another indicator."],
+                      "inPersonActivity": { "instructions": "Detailed instructions for a transfer activity...", "materials": "List of materials..." },
+                      "onlineActivity": { "instructions": "Detailed instructions for an online alternative...", "materials": "List of materials..." }
+                    }
+                `;
+                break;
+            case 'synthesis':
+                prompt = `
+                    ${commonRules}
+                    Write a "Final Synthesis" for a ULP. It should be a summary that connects key points across lessons and prepares students for the Performance Task.
+                    
+                    **JSON Output Structure:**
+                    {
+                      "type": "synthesis",
+                      "summary": "The full text of the synthesis."
+                    }
+                `;
+                break;
+            case 'performanceTask':
+                prompt = `
+                    ${commonRules}
+                    Design a detailed GRASPS "Unit Performance Task" based on the overall unit Performance Standard. Include a comprehensive scoring rubric worth 50 Points.
+                    
+                    **JSON Output Structure:**
+                    {
+                      "type": "performanceTask",
+                      "graspsTask": {
+                        "goal": "...", "role": "...", "audience": "...", "situation": "...", "product": "...", "standards": "..."
+                      },
+                      "rubric": [
+                        { "criteria": "Criteria 1 name...", "description": "Description of the criteria...", "points": "Point value (e.g., 10)"},
+                        { "criteria": "Criteria 2 name...", "description": "Description of the criteria...", "points": "Point value (e.g., 15)"}
+                      ]
+                    }
+                `;
+                break;
+             case 'values':
+                prompt = `
+                    ${commonRules}
+                    Analyze the provided standards and infer 2-4 key values (e.g., integrity, stewardship, critical thinking) that can be cultivated.
+                    
+                    **JSON Output Structure:**
+                    {
+                      "type": "values",
+                      "values": [
+                         { "name": "Value Name 1", "description": "A short, engaging overview in ${context.language} explaining how it is reflected in the unit." },
+                         { "name": "Value Name 2", "description": "Another short overview..." }
+                      ]
+                    }
+                `;
+                break;
+            default:
+                return Promise.resolve(null);
+        }
+
+        let retries = 0;
+        while (retries < maxRetries) {
+            try {
+                const jsonString = await callGeminiWithLimitCheck(prompt, { maxOutputTokens: 4096 });
+                const parsedJson = tryParseJson(extractJson(jsonString));
+                if (!parsedJson) throw new Error(`Failed to generate valid JSON for section: ${type}`);
+                return parsedJson;
+            } catch (error) {
+                console.error(`Attempt ${retries + 1} for '${type}' failed.`, error);
+                retries++;
+                const backoffDelay = Math.pow(2, retries) * 1000 + (Math.random() * 500); // Exponential backoff + jitter
+                await new Promise(res => setTimeout(res, backoffDelay));
+            }
+        }
+        throw new Error(`Failed to generate section '${type}' after ${maxRetries} retries.`);
+    };
+
+    // --- NEW: Helper function to assemble the final HTML from components ---
+    const assembleUlpFromComponents = (components) => {
+        let tbody = '';
+        const esc = (text) => text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const nl2br = (text) => esc(text || '').replace(/\n/g, '<br/>');
+
+        const explore = components.find(c => c.type === 'explore');
+        if (explore) {
+            tbody += `<tr><td colspan='2' style='background-color: #374151; color: white; font-weight: bold; padding: 10px;'>EXPLORE STAGE</td></tr>`;
+            tbody += `<tr><td colspan='2' style='padding: 10px; border: 1px solid #E2E8F0;'>
+                <h4>Lessons List</h4><div>${nl2br(explore.lessonsList)}</div>
+                <h4>Unit Overview</h4><p>${nl2br(explore.unitOverview)}</p>
+                <h4>Hooked Activities</h4><div>${nl2br(explore.hookedActivities)}</div>
+                <h4>Map of Conceptual Change</h4><div>${nl2br(explore.mapOfConceptualChange)}</div>
+                <h4>Essential Questions</h4><ul>${(explore.essentialQuestions || []).map(q => `<li>${esc(q)}</li>`).join('')}</ul>
+            </td></tr>`;
+        }
+
+        const renderCompetencyRow = (item) => {
+            const learningFocus = `
+                <p><b>${esc(item.code)}:</b> ${esc(item.competency)}</p>
+                <b>Learning Targets:</b><ul>${(item.learningTargets || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+                <b>Success Indicators:</b><ul>${(item.successIndicators || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
+            
+            const learningProcess = `
+                <b>In-Person Activity:</b><p>${nl2br(item.inPersonActivity?.instructions)}</p><em>Materials: ${esc(item.inPersonActivity?.materials)}</em>
+                <br/><br/>
+                <b>Online Activity:</b><p>${nl2br(item.onlineActivity?.instructions)}</p><em>Materials: ${esc(item.onlineActivity?.materials)}</em>
+                ${item.supportDiscussion ? `<br/><br/><b>Support Discussion:</b><p>${nl2br(item.supportDiscussion)}</p>` : ''}
+                ${item.assessment ? `<br/><br/><b>End-of-Lesson Assessment (${esc(item.assessment.type)}):</b><p>${nl2br(item.assessment.content)}</p>`: ''}
+                ${item.templates ? `<br/><br/><b>Activity Materials & Templates:</b><div style="white-space: pre-wrap; background-color: #f3f4f6; padding: 8px; border-radius: 4px;">${esc(item.templates)}</div>` : ''}`;
+
+            return `<tr>
+                <td style='padding: 10px; border-bottom: 1px solid #E2E8F0; vertical-align: top;'>${learningFocus}</td>
+                <td style='padding: 10px; border-bottom: 1px solid #E2E8F0; vertical-align: top;'>${learningProcess}</td>
+            </tr>`;
+        }
+
+        const firmUpItems = components.filter(c => c.type === 'firmUp').sort((a,b) => a.code.localeCompare(b.code));
+        if (firmUpItems.length > 0) {
+            tbody += `<tr><td colspan='2' style='background: linear-gradient(to right, #6366f1, #8b5cf6); color: white; padding: 10px; font-weight: bold;'>FIRM-UP (ACQUISITION)</td></tr>`;
+            firmUpItems.forEach(item => tbody += renderCompetencyRow(item));
+        }
+
+        const deepenItems = components.filter(c => c.type === 'deepen').sort((a,b) => a.code.localeCompare(b.code));
+        if (deepenItems.length > 0) {
+            tbody += `<tr><td colspan='2' style='background: linear-gradient(to right, #10b981, #2dd4bf); color: white; padding: 10px; font-weight: bold;'>DEEPEN (MEANING-MAKING)</td></tr>`;
+            deepenItems.forEach(item => tbody += renderCompetencyRow(item));
+        }
+
+        const synthesis = components.find(c => c.type === 'synthesis');
+        if (synthesis) {
+            tbody += `<tr><td colspan='2' style='background: #4B5563; color: white; padding: 10px; font-weight: bold;'>FINAL SYNTHESIS</td></tr>`;
+            tbody += `<tr><td colspan='2' style='padding: 10px; border-bottom: 1px solid #E2E8F0;'>${nl2br(synthesis.summary)}</td></tr>`;
+        }
+        
+        const transferItems = components.filter(c => c.type === 'transfer').sort((a,b) => a.code.localeCompare(b.code));
+        if (transferItems.length > 0) {
+            tbody += `<tr><td colspan="2" style="background: linear-gradient(to right, #f97316, #fbbf24); color: white; padding: 10px; font-weight: bold;">TRANSFER</td></tr>`;
+            transferItems.forEach(item => tbody += renderCompetencyRow(item));
+        }
+        
+        const performanceTask = components.find(c => c.type === 'performanceTask');
+        if (performanceTask) {
+            const { graspsTask, rubric } = performanceTask;
+            const graspsHtml = graspsTask ? `
+                <p><strong>Goal:</strong> ${esc(graspsTask.goal)}</p>
+                <p><strong>Role:</strong> ${esc(graspsTask.role)}</p>
+                <p><strong>Audience:</strong> ${esc(graspsTask.audience)}</p>
+                <p><strong>Situation:</strong> ${esc(graspsTask.situation)}</p>
+                <p><strong>Product:</strong> ${esc(graspsTask.product)}</p>
+                <p><strong>Standards:</strong> ${esc(graspsTask.standards)}</p>
+            ` : '';
+            const rubricHtml = rubric ? `
+                <h4 style="margin-top: 16px;">Scoring Rubric (50 Points)</h4>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
+                    <thead style="background-color: #f3f4f6;"><tr>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Criteria</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Description</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Points</th>
+                    </tr></thead>
+                    <tbody>${rubric.map(r => `<tr>
+                        <td style="border: 1px solid #ddd; padding: 8px;">${esc(r.criteria)}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">${esc(r.description)}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">${esc(String(r.points))}</td>
+                    </tr>`).join('')}</tbody>
+                </table>
+            ` : '';
+            tbody += `<tr><td colspan="2" style="background-color: #111827; color: white; font-weight: bold; padding: 10px; text-align: center;">UNIT PERFORMANCE TASK</td></tr>`;
+            tbody += `<tr><td colspan="2" style="padding: 10px; border-bottom: 1px solid #E2E8F0;">${graspsHtml}${rubricHtml}</td></tr>`;
+        }
+
+        const values = components.find(c => c.type === 'values');
+        if (values && values.values) {
+            const valuesHtml = values.values.map(v => `<h4>${esc(v.name)}</h4><p>${nl2br(v.description)}</p>`).join('');
+            tbody += `<tr><td colspan="2" style="background-color: #dbeafe; color: #1e40af; font-weight: bold; padding: 10px;">VALUES INTEGRATION</td></tr>`;
+            tbody += `<tr><td colspan="2" style="padding: 10px;">${valuesHtml}</td></tr>`;
+        }
+
+        return `<table style='width: 100%; border-collapse: collapse;'>
+            <thead><tr>
+                <th style='background-color: #4A5568; color: white; padding: 12px; text-align: left;'>Learning Focus</th>
+                <th style='background-color: #4A5568; color: white; padding: 12px; text-align: left;'>Learning Process</th>
+            </tr></thead>
+            <tbody>${tbody}</tbody>
+        </table>`;
+    };
+
+    // --- REFACTORED: The main `handleGenerate` function ---
     const handleGenerate = async () => {
         if (generationTarget === 'teacherGuide') {
             if (!inputs.contentStandard || !inputs.performanceStandard || !inputs.learningCompetencies) {
                 showToast("Please fill in all standard and competency fields.", "error"); return;
-            } if (sourceInfo.error) { showToast(sourceInfo.error, "error"); return; }
+            }
+            if (sourceInfo.error) { showToast(sourceInfo.error, "error"); return; }
             if (!sourceInfo.content) { showToast("No source content found for the selected scope.", "error"); return; }
         }
-        setIsGenerating(true); setPreviewData(null); setProgress(0);
-        try {
-            setProgress(10); setProgressLabel('Analyzing requirements...');
-const ulpAnalysisPrompt = `
-                You are an expert instructional designer. Your task is to generate a detailed analysis for a Unit Learning Plan (ULP) based on the provided standards and content.
+        setIsGenerating(true);
+        setPreviewData(null);
 
-                **Authoritative Inputs (Non-Negotiable):**
+        try {
+            // --- STAGE 1: Generate the ULP Outline ---
+            setProgress(10);
+            setProgressLabel('Step 1/3: Creating ULP outline...');
+
+            const outlinePrompt = `
+                You are an instructional design assistant. Your task is to analyze the following learning competencies and classify them into Firm-Up (Acquisition), Deepen (Meaning-Making), and Transfer).
+                
                 - **Content Standard:** ${inputs.contentStandard}
                 - **Performance Standard:** ${inputs.performanceStandard}
                 - **Learning Competencies:**
                     ${inputs.learningCompetencies}
-                - **Lesson Titles from Source:** ${sourceInfo.lessonTitles.join('\n')}
-                - **Source Content:** [Content is provided for context. Do NOT quote directly in the output.]
-                - **Language Requirement:** You MUST generate the entire response exclusively in the following language: ${selectedLanguage}.
-
-                **CRITICAL OVERARCHING RULES:**
-                1.  **NO DIRECT QUOTING:** Under NO circumstances should you directly quote, reference, or instruct the user to "post" or "read from" the 'Source Content' in your generated activities. You must create NEW and ORIGINAL activities inspired by the competencies and themes.
-                2.  **STRICT ADHERENCE:** You MUST follow the structure and formatting instructions below precisely and in order.
-                3.  **SCAFFOLDING REQUIREMENT:** This is a non-negotiable rule. The activities you design from the Firm-Up to Transfer sections MUST directly and intentionally build the specific skills and knowledge students will need to successfully complete the final Performance Task. Each activity should be a clear step towards that final goal.
-
-                **ULP STRUCTURE AND CONTENT (IN ORDER):**
-                1.  **Explore Stage:** You MUST structure this stage in the following exact order:
-                    * **Lessons List:** Start by listing the exact lesson titles provided in the 'Lesson Titles from Source' input. Do not invent or change them. Note: If multiple units are selected, the list will include unit headers.
-                    * **Unit Overview:** Provide an engaging and catchy overview of the unit's purpose.
-                    * **Hooked Activities:** Design engaging activities to capture student interest.
-                    * **Map of Conceptual Change:** Create an activity for students to map their prior or new knowledge (e.g., a K-W-L chart).
-                2.  **Essential Questions:** Formulate 2-5 thought-provoking Essential Questions that align directly with the provided Content and Performance Standards.
-                3.  **Learning Plan Breakdown (Firm-Up, Deepen, Transfer):** Using ONLY the competencies from the 'Learning Competencies' input, classify each one and assign a unique code (A1, M1, T1, etc.).
-                    * **Firm-Up (Acquisition, Code A#):** Foundational knowledge.
-                    * **Deepen (Meaning-Making, Code M#):** Understanding the 'why' and 'how'.
-                    * **Transfer (Code T#):** Applying knowledge to a new, real-world situation.
-                    For each competency, you MUST provide all of the following:
-                    * **Learning Target:** At least two "${selectedLanguage === 'Filipino' ? 'Kaya kong...' : 'I can...'}" statements.
-                    * **Success Indicators:** 2-3 specific, observable indicators.
-                    * **In-Person & Online Activities:** Design a scaffolded activity and its online alternative. Provide the detailed instructions for each activity and the Materials needed.
-                    * **C-E-R Requirement:** At least one "Deepen (M)" activity MUST be a C-E-R task.
-            		* **Support Discussion:** For Firm-Up (A), provide questions to check for understanding and an in-depth discussion for the lesson that will be a support to the activity so that students will better understand important concepts and ideas. For Deepen (M), provide a **detailed summarization** of key concepts in addition to in-depth elaboration and probing questions.
-                    * **End-of-Lesson Assessment:** Design a specific, aligned end-of-lesson assessment for this competency.
-                        * **For Acquisition (A) competencies, choose ONLY one of the following types:** Multiple Choice, Fill in the blank, Matching Type, Enumeration, Alternative Response, Hands-on operation, or Labeling.
-                        * **For Meaning-Making (M) competencies, choose ONLY one of the following types:** Short Paragraph, Essay, Critique Writing, Concept Mapping, or Journal Writing.
-                        * **Exception:** Omit this for Transfer (T#) competencies.
-                    * **Activity Materials & Templates:** For any activity that lists materials like "scenario cards" or "templates", you MUST provide the complete content for those materials directly below the activity instructions. For example, if you list "5 scenario cards" as a material, you must then provide the content for those 5 cards.
-                4.  **Final Synthesis:** A summary and wrap up that connects key points across lessons that would prepare students for the Performance Task.
-                5.  **Unit Performance Task (Transfer):** Design a detailed GRASPS Performance Task based on the overall unit **Performance Standard**. Include a comprehensive scoring rubric in a tabular format.
-                6.  **Values Integration (Automatic):** As the very last section, analyze all the content you have generated for this ULP. Based on the topics, activities, and performance task, identify 2-4 key values (e.g., integrity, stewardship, critical thinking, collaboration) that are naturally embedded or can be cultivated. For each identified value, provide a short enagaging and interactive overview in the ${selectedLanguage} explaining how it is reflected in the unit and can be fostered in students.
-					`;
-            const analysisText = await callGeminiWithLimitCheck(ulpAnalysisPrompt, { maxOutputTokens: 8192 });
-            if (!analysisText || analysisText.toLowerCase().includes("i cannot")) throw new Error("AI failed to generate ULP analysis.");
-            setProgress(50); setProgressLabel('Formatting content...');
-const finalPrompt = `
-                Your sole task is to convert the provided ULP analysis into a single, valid JSON object.
-                **Source ULP Analysis:**
-                ---
-                ${analysisText}
-                ---
-                **CRITICAL JSON & HTML Formatting Rules:**
-                1.  **Single JSON Object:** The entire response MUST be a single, valid JSON object.
-                2.  **HTML Table:** The 'content' value must be a single string containing a complete '<table style='width: 100%; border-collapse: collapse;'>...</table>'.
-                3.  **Main Column Headers:** The table MUST begin with a '<thead>' section. Inside it, create the main headers: '<thead><tr><th style='background-color: #4A5568; color: white; padding: 12px; text-align: left;'>Learning Focus</th><th style='background-color: #4A5568; color: white; padding: 12px; text-align: left;'>Learning Process</th></tr></thead>'.
-                4.  **Explore Stage Generation:**
-                    * Immediately after the '<thead>', start the '<tbody>'. The first rows in the body MUST be for the Explore stage.
-                    * First, create a title row: '<tr><td colspan='2' style='background-color: #374151; color: white; font-weight: bold; padding: 10px;'>EXPLORE STAGE</td></tr>'.
-                    * Next, create the content row. This row will have a single cell that spans both columns: '<td colspan='2' style='padding: 10px; border: 1px solid #E2E8F0;'>'.
-                    * Inside this single '<td>', place the "Lessons List", "Unit Overview", "Hooked Activities", "Essential Questions", and "Map of Conceptual Change", in that order.
-                5.  **Competency Section Generation:** After the Explore stage rows, continue adding rows to the SAME '<tbody>' for the following sections in this exact order: Firm-Up, Deepen, and Transfer. For each section, first output the main title row, then output the content rows for each competency belonging to that section.
-                    * **A. Firm-Up (Acquisition) Section:**
-                        * **Title Row:** Create a title row: '<tr><td colspan='2' style='background: linear-gradient(to right, #6366f1, #8b5cf6); color: white; padding: 10px; font-weight: bold;'>FIRM-UP (ACQUISITION)</td></tr>'.
-                        * **Content Rows:** For each Acquisition (A#) competency, create one '<tr>' with two '<td>' cells styled with 'style='padding: 10px; border-bottom: 1px solid #E2E8F0; vertical-align: top;''.
-                            * **First Cell ('Learning Focus'):** Must contain the competency code and text, the Learning Targets, and the Success Indicators.
-                            * **Second Cell ('Learning Process'):** Must contain the Activities (In-person and Online with detailed instructions and materials), Support Discussion, End-of-Lesson Assessment, and any required templates/cards.
-                    * **B. Deepen (Meaning-Making) Section:**
-                        * **Title Row:** Create a title row: '<tr><td colspan='2' style='background: linear-gradient(to right, #10b981, #2dd4bf); color: white; padding: 10px; font-weight: bold;'>DEEPEN (MEANING-MAKING)</td></tr>'.
-                        * **Content Rows:** For each Meaning-Making (M#) competency, create one '<tr>' with two '<td>' cells, following the same column content rules as above.
-                    * **C. Final Synthesis Section:**
-                        * **Title Row:** Create a title row: '<tr><td colspan='2' style='background: #4B5563; color: white; padding: 10px; font-weight: bold;'>FINAL SYNTHESIS</td></tr>'.
-                        * **Content Row:** Create a single row after the title: '<tr><td colspan='2' style='padding: 10px; border-bottom: 1px solid #E2E8F0;'>'. This cell must contain the full summary.
-                    * **D. Transfer Section:**
-                        * **Title Row:** '<tr><td colspan="2" style="background: linear-gradient(to right, #f97316, #fbbf24); color: white; padding: 10px; font-weight: bold;">TRANSFER</td></tr>'.
-                        * **Content Rows:** For each Transfer (T#) competency, create one '<tr>' with two '<td>' cells. The 'Learning Process' cell contains only activities and a summary.
-                6.  **Unit Performance Task Section:** After all other sections, add this part.
-                    * **Title Row:** '<tr><td colspan="2" style="background-color: #111827; color: white; font-weight: bold; padding: 10px; text-align: center;">UNIT PERFORMANCE TASK</td></tr>'.
-                    * **Content Row:** Create one '<tr><td colspan="2" style="padding: 10px; border-bottom: 1px solid #E2E8F0;">' containing the full GRASPS Task and its scoring rubric worth 50 Points, which MUST be an HTML '<table>'.
-                7.  **Values Integration Section:** As the final part of the table, add the Values Integration content.
-                    * **Title Row:** '<tr><td colspan="2" style="background-color: #dbeafe; color: #1e40af; font-weight: bold; padding: 10px;">VALUES INTEGRATION</td></tr>'.
-                    * **Content Row:** Create one '<tr><td colspan="2" style="padding: 10px;">' containing the full text generated for the automatically-detected Values Integration.
-                **Final JSON Output Structure:**
-                {"generated_lessons": [{"lessonTitle": "Unit Learning Plan: ${sourceInfo.title}", "learningObjectives": [], "pages": [{"title": "PEAC Unit Learning Plan", "content": "..."}]}]}
+                
+                Based on the competencies, generate a JSON object with the following structure. Do NOT include any other text or markdown.
+                
+                {
+                  "firmUp": [
+                    {"code": "A1", "competency": "Full text of the first acquisition competency..."},
+                    {"code": "A2", "competency": "Full text of the second acquisition competency..."}
+                  ],
+                  "deepen": [
+                    {"code": "M1", "competency": "Full text of the first meaning-making competency..."}
+                  ],
+                  "transfer": [
+                    {"code": "T1", "competency": "Full text of the first transfer competency..."}
+                  ]
+                }
             `;
-            const aiText = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 8192 });
-            setProgress(90); setProgressLabel('Finalizing...');
-            const jsonText = extractJson(aiText);
-            if (!jsonText) throw new Error("AI response did not contain a valid JSON object.");
-            const parsedResponse = tryParseJson(jsonText);
-            setPreviewData(parsedResponse); setProgress(100);
+            const outlineJsonText = await callGeminiWithLimitCheck(outlinePrompt, { maxOutputTokens: 2048 });
+            const outline = tryParseJson(extractJson(outlineJsonText));
+            if (!outline || !outline.firmUp || !outline.deepen || !outline.transfer) {
+                throw new Error("AI failed to generate a valid ULP outline.");
+            }
+
+            // --- STAGE 2: Generate All ULP Components in a controlled, batched parallel process ---
+            setProgress(30);
+            setProgressLabel('Step 2/3: Generating ULP sections...');
+
+            const sharedContext = {
+                contentStandard: inputs.contentStandard,
+                performanceStandard: inputs.performanceStandard,
+                sourceLessonTitles: sourceInfo.lessonTitles.join('\n'),
+                language: selectedLanguage,
+            };
+
+            const sectionsToGenerate = [
+                { type: 'explore' },
+                ...outline.firmUp.map(item => ({ type: 'firmUp', ...item })),
+                ...outline.deepen.map(item => ({ type: 'deepen', ...item })),
+                ...outline.transfer.map(item => ({ type: 'transfer', ...item })),
+                { type: 'synthesis' },
+                { type: 'performanceTask' },
+                { type: 'values' },
+            ];
+
+            const componentResults = [];
+            const BATCH_SIZE = 3; // Number of parallel requests at a time
+            const DELAY_MS = 1500; // Delay between batches in milliseconds
+
+            for (let i = 0; i < sectionsToGenerate.length; i += BATCH_SIZE) {
+                const batch = sectionsToGenerate.slice(i, i + BATCH_SIZE);
+                const promises = batch.map(section => 
+                    generateUlpSection(section.type, { ...sharedContext, ...section })
+                );
+
+                const results = await Promise.all(promises);
+                componentResults.push(...results.filter(Boolean));
+
+                // Wait before starting the next batch
+                if (i + BATCH_SIZE < sectionsToGenerate.length) {
+                    await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+                }
+            }
+
+            // --- STAGE 3: Assemble the Final Document ---
+            setProgress(90);
+            setProgressLabel('Step 3/3: Assembling final document...');
+
+            const finalHtml = assembleUlpFromComponents(componentResults);
+
+            const finalJsonObject = {
+                generated_lessons: [{
+                    lessonTitle: `Unit Learning Plan: ${sourceInfo.title}`,
+                    learningObjectives: [],
+                    pages: [{
+                        title: "PEAC Unit Learning Plan",
+                        content: finalHtml
+                    }]
+                }]
+            };
+            setPreviewData(finalJsonObject);
+            setProgress(100);
+
         } catch (err) {
-            console.error("Error generating content:", err);
-            showToast(err.message || "An unknown error occurred.", "error");
+            console.error("Error during parallel generation:", err);
+            showToast(err.message || "An unknown error occurred during generation.", "error");
         } finally {
-            setIsGenerating(false); setProgress(0); setProgressLabel('');
+            setIsGenerating(false);
+            setProgress(0);
+            setProgressLabel('');
         }
     };
+
+    // --- handleSave function remains unchanged ---
     const handleSave = async () => {
         if (!previewData || !Array.isArray(previewData.generated_lessons)) { showToast("Cannot save: Invalid lesson data.", "error"); return; }
         if (!initialUnitId || !subjectId) { showToast("Could not save: Destination unit or subject is missing.", "error"); return; }
@@ -307,6 +569,7 @@ const finalPrompt = `
         } finally { setIsSaving(false); }
     };
     
+    // --- The entire JSX return block remains unchanged ---
     return (
         <Dialog open={isOpen} onClose={!isSaving && !isGenerating ? onClose : () => {}} className="relative z-[110]">
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" />
