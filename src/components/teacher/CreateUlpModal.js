@@ -187,11 +187,91 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         setIsGenerating(true); setPreviewData(null); setProgress(0);
         try {
             setProgress(10); setProgressLabel('Analyzing requirements...');
-            const ulpAnalysisPrompt = `...`; // Unchanged prompt logic
+const ulpAnalysisPrompt = `
+                You are an expert instructional designer. Your task is to generate a detailed analysis for a Unit Learning Plan (ULP) based on the provided standards and content.
+
+                **Authoritative Inputs (Non-Negotiable):**
+                - **Content Standard:** ${inputs.contentStandard}
+                - **Performance Standard:** ${inputs.performanceStandard}
+                - **Learning Competencies:**
+                    ${inputs.learningCompetencies}
+                - **Lesson Titles from Source:** ${sourceInfo.lessonTitles.join('\n')}
+                - **Source Content:** [Content is provided for context. Do NOT quote directly in the output.]
+                - **Language Requirement:** You MUST generate the entire response exclusively in the following language: ${selectedLanguage}.
+
+                **CRITICAL OVERARCHING RULES:**
+                1.  **NO DIRECT QUOTING:** Under NO circumstances should you directly quote, reference, or instruct the user to "post" or "read from" the 'Source Content' in your generated activities. You must create NEW and ORIGINAL activities inspired by the competencies and themes.
+                2.  **STRICT ADHERENCE:** You MUST follow the structure and formatting instructions below precisely and in order.
+                3.  **SCAFFOLDING REQUIREMENT:** This is a non-negotiable rule. The activities you design from the Firm-Up to Transfer sections MUST directly and intentionally build the specific skills and knowledge students will need to successfully complete the final Performance Task. Each activity should be a clear step towards that final goal.
+
+                **ULP STRUCTURE AND CONTENT (IN ORDER):**
+                1.  **Explore Stage:** You MUST structure this stage in the following exact order:
+                    * **Lessons List:** Start by listing the exact lesson titles provided in the 'Lesson Titles from Source' input. Do not invent or change them. Note: If multiple units are selected, the list will include unit headers.
+                    * **Unit Overview:** Provide an engaging and catchy overview of the unit's purpose.
+                    * **Hooked Activities:** Design engaging activities to capture student interest.
+                    * **Map of Conceptual Change:** Create an activity for students to map their prior or new knowledge (e.g., a K-W-L chart).
+                2.  **Essential Questions:** Formulate 2-5 thought-provoking Essential Questions that align directly with the provided Content and Performance Standards.
+                3.  **Learning Plan Breakdown (Firm-Up, Deepen, Transfer):** Using ONLY the competencies from the 'Learning Competencies' input, classify each one and assign a unique code (A1, M1, T1, etc.).
+                    * **Firm-Up (Acquisition, Code A#):** Foundational knowledge.
+                    * **Deepen (Meaning-Making, Code M#):** Understanding the 'why' and 'how'.
+                    * **Transfer (Code T#):** Applying knowledge to a new, real-world situation.
+                    For each competency, you MUST provide all of the following:
+                    * **Learning Target:** At least two "${selectedLanguage === 'Filipino' ? 'Kaya kong...' : 'I can...'}" statements.
+                    * **Success Indicators:** 2-3 specific, observable indicators.
+                    * **In-Person & Online Activities:** Design a scaffolded activity and its online alternative. Provide the detailed instructions for each activity and the Materials needed.
+                    * **C-E-R Requirement:** At least one "Deepen (M)" activity MUST be a C-E-R task.
+            		* **Support Discussion:** For Firm-Up (A), provide questions to check for understanding and an in-depth discussion for the lesson that will be a support to the activity so that students will better understand important concepts and ideas. For Deepen (M), provide a **detailed summarization** of key concepts in addition to in-depth elaboration and probing questions.
+                    * **End-of-Lesson Assessment:** Design a specific, aligned end-of-lesson assessment for this competency.
+                        * **For Acquisition (A) competencies, choose ONLY one of the following types:** Multiple Choice, Fill in the blank, Matching Type, Enumeration, Alternative Response, Hands-on operation, or Labeling.
+                        * **For Meaning-Making (M) competencies, choose ONLY one of the following types:** Short Paragraph, Essay, Critique Writing, Concept Mapping, or Journal Writing.
+                        * **Exception:** Omit this for Transfer (T#) competencies.
+                    * **Activity Materials & Templates:** For any activity that lists materials like "scenario cards" or "templates", you MUST provide the complete content for those materials directly below the activity instructions. For example, if you list "5 scenario cards" as a material, you must then provide the content for those 5 cards.
+                4.  **Final Synthesis:** A summary and wrap up that connects key points across lessons that would prepare students for the Performance Task.
+                5.  **Unit Performance Task (Transfer):** Design a detailed GRASPS Performance Task based on the overall unit **Performance Standard**. Include a comprehensive scoring rubric in a tabular format.
+                6.  **Values Integration (Automatic):** As the very last section, analyze all the content you have generated for this ULP. Based on the topics, activities, and performance task, identify 2-4 key values (e.g., integrity, stewardship, critical thinking, collaboration) that are naturally embedded or can be cultivated. For each identified value, provide a short enagaging and interactive overview in the ${selectedLanguage} explaining how it is reflected in the unit and can be fostered in students.
+					`;
             const analysisText = await callGeminiWithLimitCheck(ulpAnalysisPrompt, { maxOutputTokens: 8192 });
             if (!analysisText || analysisText.toLowerCase().includes("i cannot")) throw new Error("AI failed to generate ULP analysis.");
             setProgress(50); setProgressLabel('Formatting content...');
-            const finalPrompt = `...`; // Unchanged prompt logic
+const finalPrompt = `
+                Your sole task is to convert the provided ULP analysis into a single, valid JSON object.
+                **Source ULP Analysis:**
+                ---
+                ${analysisText}
+                ---
+                **CRITICAL JSON & HTML Formatting Rules:**
+                1.  **Single JSON Object:** The entire response MUST be a single, valid JSON object.
+                2.  **HTML Table:** The 'content' value must be a single string containing a complete '<table style='width: 100%; border-collapse: collapse;'>...</table>'.
+                3.  **Main Column Headers:** The table MUST begin with a '<thead>' section. Inside it, create the main headers: '<thead><tr><th style='background-color: #4A5568; color: white; padding: 12px; text-align: left;'>Learning Focus</th><th style='background-color: #4A5568; color: white; padding: 12px; text-align: left;'>Learning Process</th></tr></thead>'.
+                4.  **Explore Stage Generation:**
+                    * Immediately after the '<thead>', start the '<tbody>'. The first rows in the body MUST be for the Explore stage.
+                    * First, create a title row: '<tr><td colspan='2' style='background-color: #374151; color: white; font-weight: bold; padding: 10px;'>EXPLORE STAGE</td></tr>'.
+                    * Next, create the content row. This row will have a single cell that spans both columns: '<td colspan='2' style='padding: 10px; border: 1px solid #E2E8F0;'>'.
+                    * Inside this single '<td>', place the "Lessons List", "Unit Overview", "Hooked Activities", "Essential Questions", and "Map of Conceptual Change", in that order.
+                5.  **Competency Section Generation:** After the Explore stage rows, continue adding rows to the SAME '<tbody>' for the following sections in this exact order: Firm-Up, Deepen, and Transfer. For each section, first output the main title row, then output the content rows for each competency belonging to that section.
+                    * **A. Firm-Up (Acquisition) Section:**
+                        * **Title Row:** Create a title row: '<tr><td colspan='2' style='background: linear-gradient(to right, #6366f1, #8b5cf6); color: white; padding: 10px; font-weight: bold;'>FIRM-UP (ACQUISITION)</td></tr>'.
+                        * **Content Rows:** For each Acquisition (A#) competency, create one '<tr>' with two '<td>' cells styled with 'style='padding: 10px; border-bottom: 1px solid #E2E8F0; vertical-align: top;''.
+                            * **First Cell ('Learning Focus'):** Must contain the competency code and text, the Learning Targets, and the Success Indicators.
+                            * **Second Cell ('Learning Process'):** Must contain the Activities (In-person and Online with detailed instructions and materials), Support Discussion, End-of-Lesson Assessment, and any required templates/cards.
+                    * **B. Deepen (Meaning-Making) Section:**
+                        * **Title Row:** Create a title row: '<tr><td colspan='2' style='background: linear-gradient(to right, #10b981, #2dd4bf); color: white; padding: 10px; font-weight: bold;'>DEEPEN (MEANING-MAKING)</td></tr>'.
+                        * **Content Rows:** For each Meaning-Making (M#) competency, create one '<tr>' with two '<td>' cells, following the same column content rules as above.
+                    * **C. Final Synthesis Section:**
+                        * **Title Row:** Create a title row: '<tr><td colspan='2' style='background: #4B5563; color: white; padding: 10px; font-weight: bold;'>FINAL SYNTHESIS</td></tr>'.
+                        * **Content Row:** Create a single row after the title: '<tr><td colspan='2' style='padding: 10px; border-bottom: 1px solid #E2E8F0;'>'. This cell must contain the full summary.
+                    * **D. Transfer Section:**
+                        * **Title Row:** '<tr><td colspan="2" style="background: linear-gradient(to right, #f97316, #fbbf24); color: white; padding: 10px; font-weight: bold;">TRANSFER</td></tr>'.
+                        * **Content Rows:** For each Transfer (T#) competency, create one '<tr>' with two '<td>' cells. The 'Learning Process' cell contains only activities and a summary.
+                6.  **Unit Performance Task Section:** After all other sections, add this part.
+                    * **Title Row:** '<tr><td colspan="2" style="background-color: #111827; color: white; font-weight: bold; padding: 10px; text-align: center;">UNIT PERFORMANCE TASK</td></tr>'.
+                    * **Content Row:** Create one '<tr><td colspan="2" style="padding: 10px; border-bottom: 1px solid #E2E8F0;">' containing the full GRASPS Task and its scoring rubric worth 50 Points, which MUST be an HTML '<table>'.
+                7.  **Values Integration Section:** As the final part of the table, add the Values Integration content.
+                    * **Title Row:** '<tr><td colspan="2" style="background-color: #dbeafe; color: #1e40af; font-weight: bold; padding: 10px;">VALUES INTEGRATION</td></tr>'.
+                    * **Content Row:** Create one '<tr><td colspan="2" style="padding: 10px;">' containing the full text generated for the automatically-detected Values Integration.
+                **Final JSON Output Structure:**
+                {"generated_lessons": [{"lessonTitle": "Unit Learning Plan: ${sourceInfo.title}", "learningObjectives": [], "pages": [{"title": "PEAC Unit Learning Plan", "content": "..."}]}]}
+            `;
             const aiText = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 8192 });
             setProgress(90); setProgressLabel('Finalizing...');
             const jsonText = extractJson(aiText);

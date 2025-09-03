@@ -541,7 +541,28 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                                     <div className="bg-white/50 p-4 rounded-xl max-h-[26rem] overflow-y-auto">
                                         <p className="text-xs text-zinc-500 mb-3">Explicitly select lessons for the AI to build upon.</p>
                                         {subjectContext && subjectContext.units.length > 0 ? (
-                                            subjectContext.units.map(unit => {
+                                            subjectContext.units
+                                                .slice() // Create a shallow copy before sorting to avoid mutating the state directly
+                                                .sort((a, b) => {
+                                                    // Extracts the first number from the unit title for sorting.
+                                                    // This handles cases like "Unit 1", "Unit 10" correctly.
+                                                    const getUnitNumber = (title) => {
+                                                        if (!title) return Infinity;
+                                                        const match = title.match(/\d+/);
+                                                        return match ? parseInt(match[0], 10) : Infinity;
+                                                    };
+                                                    
+                                                    const numA = getUnitNumber(a.title);
+                                                    const numB = getUnitNumber(b.title);
+
+                                                    // If numbers are the same or not found, fall back to alphabetical sort.
+                                                    if (numA === numB) {
+                                                        return a.title.localeCompare(b.title);
+                                                    }
+                                                    
+                                                    return numA - numB;
+                                                })
+                                                .map(unit => {
                                                 const lessonsInUnit = subjectContext.lessons.filter(lesson => lesson.unitId === unit.id);
                                                 if (lessonsInUnit.length === 0) return null;
 
