@@ -20,9 +20,9 @@ const JoinClassModal = ({ isOpen, onClose, onClassJoined }) => {
         try {
             const result = await firestoreService.joinClassWithCode(classCode.toUpperCase(), userProfile);
             showToast(`Successfully joined class: ${result.className}!`, 'success');
-            onClose(); // Close the modal
+            onClose(); 
             if (onClassJoined) {
-                onClassJoined(); // This can be used to trigger a data refresh
+                onClassJoined();
             }
         } catch (error) {
             showToast(error.message, 'error');
@@ -34,14 +34,14 @@ const JoinClassModal = ({ isOpen, onClose, onClassJoined }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold text-gray-800 flex items-center">
-                        <DocumentPlusIcon className="w-6 h-6 mr-3 text-blue-600"/>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex justify-center items-center z-50 p-4 font-sans">
+            <div className="relative bg-gray-200/60 backdrop-blur-xl rounded-2xl shadow-lg p-6 w-full max-w-md border border-white/20">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                        <DocumentPlusIcon className="w-6 h-6 mr-3 text-red-600"/>
                         Join a New Class
                     </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                    <button onClick={onClose} className="p-1.5 rounded-full text-gray-500 hover:bg-gray-500/10 hover:text-gray-800 transition-colors">
                         <XMarkIcon className="w-6 h-6" />
                     </button>
                 </div>
@@ -49,14 +49,25 @@ const JoinClassModal = ({ isOpen, onClose, onClassJoined }) => {
                     <input 
                         type="text"
                         value={classCode}
-                        onChange={(e) => setClassCode(e.target.value)}
+                        onChange={(e) => setClassCode(e.target.value.toUpperCase())}
                         placeholder="Enter 6-Digit Class Code"
-                        className="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full p-3 bg-white/50 border border-gray-400/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-center font-mono text-lg tracking-widest"
                         maxLength="6"
+                        autoFocus
                     />
                     <div className="flex justify-end gap-3 pt-2">
-                        <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-                        <button type="submit" disabled={isSubmitting} className="btn-primary">
+                        <button 
+                            type="button" 
+                            onClick={onClose} 
+                            className="px-5 py-2.5 rounded-xl bg-gray-500/10 text-gray-800 font-semibold hover:bg-gray-500/20 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            type="submit" 
+                            disabled={isSubmitting} 
+                            className="px-5 py-2.5 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 shadow-md shadow-red-600/30 transition-all disabled:bg-gray-400 disabled:shadow-none"
+                        >
                             {isSubmitting ? 'Joining...' : 'Join Class'}
                         </button>
                     </div>

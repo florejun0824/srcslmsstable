@@ -1,50 +1,31 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { BookOpenIcon, ChevronDownIcon, ChevronUpIcon, SparklesIcon, ArrowRightIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'; // Added ArrowLeftIcon
+import React, { useState, useEffect } from 'react';
+import { BookOpenIcon, ArrowRightIcon, Squares2X2Icon } from '@heroicons/react/24/solid'; // Updated to solid icons for consistency
 import Spinner from '../common/Spinner';
-import ViewLessonModal from './ViewLessonModal'; // Assuming correct path to ViewLessonModal
-import LessonsByUnitView from './LessonsByUnitView'; // NEW: Import the new LessonsByUnitView component
+import LessonsByUnitView from './LessonsByUnitView';
 
-// Helper component for Empty State (can be reused from StudentLessonsTab if desired)
-const EmptyState = ({ icon: Icon, text, subtext, color }) => (
-    <div className={`text-center py-12 px-4 bg-${color}-50/50 rounded-xl shadow-inner border border-${color}-200`}>
-        <Icon className={`h-16 w-16 mb-4 text-${color}-300 mx-auto`} />
-        <p className={`text-xl font-semibold text-${color}-600`}>{text}</p>
-        <p className={`mt-2 text-md text-${color}-400`}>{subtext}</p>
+// --- iOS 26 Revamped Empty State ---
+const EmptyState = ({ icon: Icon, text, subtext }) => (
+    // iOS Vibe: Glassmorphism effect with a floating shadow
+    <div className="text-center py-16 px-6 bg-white/50 backdrop-blur-2xl rounded-3xl shadow-lg-floating-sm border border-slate-200/80">
+        <Icon className="h-16 w-16 mb-4 text-slate-400 mx-auto" />
+        <p className="text-xl font-semibold text-slate-700">{text}</p>
+        <p className="mt-2 text-md text-slate-500">{subtext}</p>
     </div>
 );
 
-// Helper component for Lesson List Item (reused from StudentClassDetailView)
-const LessonListItemForStudent = ({ lesson, onClick }) => (
-    <div className="group relative p-4 sm:p-5 rounded-2xl bg-white hover:bg-sky-50 shadow-md border border-sky-200 transition-all duration-300 cursor-pointer flex items-center space-x-4 sm:space-x-5 hover:shadow-lg hover:scale-[1.005]" onClick={onClick}>
-        <div className="flex-shrink-0 p-2.5 sm:p-3 rounded-full bg-sky-100 group-hover:bg-sky-200 transition-colors">
-            <SparklesIcon className="h-6 w-6 text-sky-600" />
-        </div>
-        <div className="flex-1 min-w-0">
-            <h3 className="text-base font-semibold text-slate-800 group-hover:text-blue-700 transition-colors line-clamp-2">{lesson.title}</h3> {/* MODIFIED: text-base font-semibold */}
-            {lesson.description && <p className="text-sm text-slate-500 mt-1 line-clamp-2">{lesson.description}</p>} {/* MODIFIED: text-sm */}
-            {lesson.className && <p className="text-xs text-slate-400 mt-1">Class: {lesson.className}</p>} {/* KEPT: Class info for main list view */}
-        </div>
-        <div className="flex-shrink-0 text-slate-400 group-hover:text-blue-500 transition-colors">
-            <ArrowRightIcon className="h-5 w-5" />
-        </div>
-    </div>
-);
-
-
-// MODIFIED: Simplified props - removed 'courses' and 'isFetchingCourses'
+// --- StudentLessonsTab Component ---
 const StudentLessonsTab = ({ lessons = [], units = [], isFetchingUnits, setLessonToView, isFetchingContent }) => {
     const [lessonsByClass, setLessonsByClass] = useState({});
-    const [selectedClassForLessons, setSelectedClassForLessons] = useState(null); // NEW: State to store the selected class for detailed view
+    const [selectedClassForLessons, setSelectedClassForLessons] = useState(null);
 
     useEffect(() => {
-        console.log("Lessons received in StudentLessonsTab:", lessons);
         // This effect runs whenever 'lessons' changes, re-grouping them by class.
         if (lessons.length > 0) {
             const groupedLessons = lessons.reduce((acc, lesson) => {
-                const className = lesson.className || 'Uncategorized Class'; // Group by className
+                const className = lesson.className || 'Uncategorized Class';
                 if (!acc[className]) {
                     acc[className] = {
-                        id: lesson.classId, // Store classId for navigation
+                        id: lesson.classId,
                         name: className,
                         lessons: []
                     };
@@ -67,7 +48,7 @@ const StudentLessonsTab = ({ lessons = [], units = [], isFetchingUnits, setLesso
         } else {
             setLessonsByClass({});
         }
-    }, [lessons]); // Dependency on 'lessons' only
+    }, [lessons]);
 
     const handleClassCardClick = (classData) => {
         setSelectedClassForLessons(classData);
@@ -78,7 +59,7 @@ const StudentLessonsTab = ({ lessons = [], units = [], isFetchingUnits, setLesso
     };
 
 
-    if (isFetchingContent || isFetchingUnits) { // Show spinner if content or units are fetching
+    if (isFetchingContent || isFetchingUnits) {
         return (
             <div className="flex justify-center items-center py-24">
                 <Spinner />
@@ -86,8 +67,8 @@ const StudentLessonsTab = ({ lessons = [], units = [], isFetchingUnits, setLesso
         );
     }
 
+    // View for showing lessons grouped by unit for a selected class
     if (selectedClassForLessons) {
-        // Filter lessons for the selected class before passing them
         const lessonsForSelectedClass = lessons.filter(lesson => lesson.classId === selectedClassForLessons.id);
         return (
             <LessonsByUnitView
@@ -100,31 +81,48 @@ const StudentLessonsTab = ({ lessons = [], units = [], isFetchingUnits, setLesso
         );
     }
 
+    // Main view showing list of classes that have lessons
     const sortedClassNames = Object.keys(lessonsByClass).sort();
 
     return (
         <div className="min-h-[60vh]">
-            <h2 className="text-3xl font-extrabold text-slate-900 mb-6">All Lessons</h2>
-            <p className="text-lg text-slate-600 mb-8">Select a class to view its lessons grouped by unit.</p>
+            <h1 className="text-5xl font-bold text-slate-900 tracking-tight">Lessons</h1>
+            <p className="mt-3 text-lg text-slate-500 max-w-2xl mb-10">Select a class to view its lessons, neatly organized by unit.</p>
 
             {sortedClassNames.length > 0 ? (
-                <div className="space-y-4"> {/* Reduced space-y from 6 to 4 for compactness */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {sortedClassNames.map(className => {
                         const classData = lessonsByClass[className];
                         return (
+                             // --- iOS 26 Floating Class Card ---
                             <div
-                                key={classData.id || className} // Use classData.id if available, otherwise className
-                                className="group relative p-4 rounded-2xl bg-white shadow-md border border-gray-100
-                                           hover:bg-blue-50 hover:shadow-lg hover:scale-[1.005] transition-all duration-300 cursor-pointer flex flex-col items-start"
-                                onClick={() => handleClassCardClick(classData)} // Make the whole card clickable
+                                key={classData.id || className}
+                                className="group relative p-6 rounded-3xl bg-white/60 backdrop-blur-3xl border border-slate-200/50
+                                           shadow-lg-floating-md hover:shadow-xl-floating-lg transition-all duration-300 cursor-pointer
+                                           transform hover:-translate-y-1 flex flex-col items-start"
+                                onClick={() => handleClassCardClick(classData)}
                             >
-                                <div className="flex items-center justify-between w-full mb-3">
-                                    <h3 className="text-lg font-semibold text-slate-800 group-hover:text-blue-700 transition-colors"> {/* MODIFIED: text-lg font-semibold */}
-                                        {classData.name} ({classData.lessons.length} lessons)
-                                    </h3>
-                                    <ArrowRightIcon className="h-6 w-6 text-slate-400 group-hover:text-blue-500 transition-colors transform group-hover:translate-x-1" />
+                                <div className="flex items-center justify-between w-full">
+                                    <div className="p-3 bg-red-100 rounded-xl mb-4">
+                                        <Squares2X2Icon className="h-7 w-7 text-red-600" />
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-xs font-semibold px-3 py-1 rounded-full bg-red-100 text-red-700">
+                                            {classData.lessons.length} Lessons
+                                        </span>
+                                    </div>
                                 </div>
-                                <p className="text-sm text-slate-500">Click to see lessons in this class.</p> {/* MODIFIED: text-sm */}
+
+                                <h3 className="text-xl font-bold text-slate-800 group-hover:text-red-700 transition-colors flex-grow">
+                                    {classData.name}
+                                </h3>
+
+                                <div className="border-t border-slate-200/80 my-4 w-full"></div>
+
+                                <div className="flex items-center justify-between w-full text-red-600 group-hover:text-red-700 font-semibold">
+                                    <span>View Lessons</span>
+                                    <ArrowRightIcon className="h-5 w-5 transition-transform duration-300 transform group-hover:translate-x-1" />
+                                </div>
                             </div>
                         );
                     })}
@@ -132,12 +130,10 @@ const StudentLessonsTab = ({ lessons = [], units = [], isFetchingUnits, setLesso
             ) : (
                 <EmptyState
                     icon={BookOpenIcon}
-                    text="No lessons found across your classes."
-                    subtext="Lessons will appear here once your teachers share them."
-                    color="sky"
+                    text="No Lessons Available Yet"
+                    subtext="When your teacher assigns lessons, they will appear here."
                 />
             )}
-            {/* View Lesson Modal will be rendered by LessonsByUnitView */}
         </div>
     );
 };

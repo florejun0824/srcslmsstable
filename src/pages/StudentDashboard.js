@@ -20,36 +20,73 @@ const StudentDashboard = () => {
     const [selectedClass, setSelectedClass] = useState(null);
     const [quizzes, setQuizzes] = useState({ active: [], completed: [], overdue: [] });
     const [lessons, setLessons] = useState([]);
-    // REMOVED: courses state
-    const [units, setUnits] = useState([]); // NEW: State for units
-    const [isFetchingUnits, setIsFetchingUnits] = useState(true); // NEW: State for fetching units
+    const [units, setUnits] = useState([]);
+    const [isFetchingUnits, setIsFetchingUnits] = useState(true);
     const [isFetchingContent, setIsFetchingContent] = useState(true);
     const [activeQuizTab, setActiveQuizTab] = useState('active');
     const [quizToTake, setQuizToTake] = useState(null);
     const [lessonToView, setLessonToView] = useState(null);
 
-    // Fetch the classes the student is enrolled in
+    // MODIFIED: This hook now fetches classes and augments them with teacher names.
     useEffect(() => {
-        if (authLoading) return;
-
-        if (!userProfile?.id) {
+        if (authLoading || !userProfile?.id) {
             setIsFetchingClasses(false);
             return;
         }
+
         setIsFetchingClasses(true);
         const classesQuery = query(collection(db, "classes"), where("studentIds", "array-contains", userProfile.id));
-        const unsubscribe = onSnapshot(classesQuery, (snapshot) => {
+        
+        const unsubscribe = onSnapshot(classesQuery, async (snapshot) => {
             const classesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setMyClasses(classesData);
+
+            if (classesData.length > 0) {
+                // Get unique teacher IDs from the classes
+                const teacherIds = [...new Set(classesData.map(c => c.teacherId).filter(id => id))];
+
+                if (teacherIds.length > 0) {
+                    try {
+                        // Fetch the user documents for all teachers at once
+                        const teachersQuery = query(collection(db, "users"), where(documentId(), "in", teacherIds));
+                        const teachersSnapshot = await getDocs(teachersQuery);
+                        
+                        // Create a map of teacherId -> teacherName for easy lookup
+                        const teacherNamesMap = {};
+                        teachersSnapshot.forEach(doc => {
+                            const teacherData = doc.data();
+                            teacherNamesMap[doc.id] = `${teacherData.firstName} ${teacherData.lastName}`;
+                        });
+
+                        // Add the teacherName to each class object
+                        const augmentedClasses = classesData.map(c => ({
+                            ...c,
+                            teacherName: teacherNamesMap[c.teacherId] || 'N/A'
+                        }));
+                        
+                        setMyClasses(augmentedClasses);
+
+                    } catch (error) {
+                        console.error("Error fetching teacher names:", error);
+                        // Fallback to classes without teacher names on error
+                        setMyClasses(classesData);
+                    }
+                } else {
+                    // No teacher IDs found, just set the class data
+                    setMyClasses(classesData);
+                }
+            } else {
+                setMyClasses([]);
+            }
             setIsFetchingClasses(false);
         }, (error) => {
             console.error("Error fetching student classes:", error);
             setIsFetchingClasses(false);
         });
+
         return () => unsubscribe();
     }, [userProfile, authLoading]);
 
-    // NEW: Fetch all units once
+    // Fetch all units once
     useEffect(() => {
         const fetchUnits = async () => {
             try {
@@ -58,7 +95,6 @@ const StudentDashboard = () => {
                 const querySnapshot = await getDocs(q);
                 const fetchedUnits = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setUnits(fetchedUnits);
-                console.log("Fetched Units:", fetchedUnits);
             } catch (error) {
                 console.error("Error fetching units:", error);
             } finally {
@@ -71,9 +107,7 @@ const StudentDashboard = () => {
 
     // Fetch lessons or quizzes based on the current view
     const fetchContent = useCallback(async (currentView) => {
-        if (authLoading) return;
-
-        if (!userProfile?.id) {
+        if (authLoading || !userProfile?.id) {
             setIsFetchingContent(false);
             return;
         }
@@ -183,7 +217,6 @@ const StudentDashboard = () => {
                     });
 
                     setLessons(allLessons);
-                    console.log("Fetched Lessons (with className for grouping):", allLessons);
                 } else {
                     setLessons([]);
                 }
@@ -214,27 +247,15 @@ const StudentDashboard = () => {
     };
 
     const handleTakeQuizClick = (quiz) => {
-        const showConfirmModal = (message, onConfirm) => {
-            console.log(message);
-            // Replace window.confirm with a custom modal for better UI/UX
-            const userConfirmed = window.confirm(message); // Temporary: replace with custom modal
-            if (userConfirmed) {
-                onConfirm();
-            }
-        };
-
-        if (activeQuizTab === 'overdue') {
-            showConfirmModal("Late submission will be reflected on your teacher's end. Do you want to continue?", () => {
-                setQuizToTake(quiz);
-            });
-        } else {
-            setQuizToTake(quiz);
+        if (activeQuizTab === 'overdue' && !window.confirm("This is a late submission and your teacher will be notified. Continue?")) {
+            return;
         }
+        setQuizToTake(quiz);
     };
 
     if (authLoading) {
         return (
-            <div className="flex h-screen items-center justify-center">
+            <div className="flex h-screen items-center justify-center bg-slate-50">
                 <Spinner />
             </div>
         );
@@ -255,17 +276,14 @@ const StudentDashboard = () => {
                 myClasses={myClasses}
                 isFetchingContent={isFetchingContent || isFetchingClasses}
                 lessons={lessons}
-                units={units} // NEW: Pass units
-                isFetchingUnits={isFetchingUnits} // NEW: Pass isFetchingUnits
+                units={units}
+                isFetchingUnits={isFetchingUnits}
                 setLessonToView={setLessonToView}
                 quizzes={quizzes}
-                activeQuizTab={activeQuizTab}
-                setActiveQuizTab={setActiveQuizTab}
                 handleTakeQuizClick={handleTakeQuizClick}
                 authLoading={authLoading}
             />
 
-            {/* Modals */}
             <JoinClassModal isOpen={isJoinClassModalOpen} onClose={() => setJoinClassModalOpen(false)} />
 
             <ViewQuizModal

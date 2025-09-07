@@ -1,185 +1,218 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../../../services/firebase'; // Adjust path as necessary
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { TextInput, Button } from '@tremor/react';
-import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
-import { PhotoIcon, ExclamationTriangleIcon, CalendarDaysIcon } from '@heroicons/react/24/outline'; // Updated icons for better fit
+import { doc, setDoc } from 'firebase/firestore';
+import { Dialog } from '@headlessui/react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { PhotoIcon, ExclamationTriangleIcon, CalendarDaysIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useToast } from '../../../../contexts/ToastContext'; // Adjust path as necessary
 
-const AdminBannerEditModal = ({ isOpen, onClose, currentImageUrl, currentEndDate, onSaveSuccess }) => {
+const AdminBannerEditModal = ({ isOpen, onClose, currentImageUrl, currentStartDate, currentEndDate, onSaveSuccess }) => {
     const { showToast } = useToast();
-    const [imageUrl, setImageUrl] = useState(currentImageUrl || '');
-    const [endDate, setEndDate] = useState(currentEndDate ? new Date(currentEndDate.seconds * 1000).toISOString().slice(0, 16) : ''); // Format for datetime-local
+    const [imageUrl, setImageUrl] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState('');
+    const [imgLoadError, setImgLoadError] = useState(false);
 
     useEffect(() => {
-        setImageUrl(currentImageUrl || '');
-        // Convert Firestore Timestamp to JS Date, then to YYYY-MM-DDTHH:MM format
-        setEndDate(currentEndDate && currentEndDate.seconds ? new Date(currentEndDate.seconds * 1000).toISOString().slice(0, 16) : '');
-    }, [currentImageUrl, currentEndDate, isOpen]); // Reset state when modal opens or props change
+        if (isOpen) {
+            setImageUrl(currentImageUrl || '');
+            setStartDate(currentStartDate?.seconds ? new Date(currentStartDate.seconds * 1000).toISOString().slice(0, 16) : '');
+            setEndDate(currentEndDate?.seconds ? new Date(currentEndDate.seconds * 1000).toISOString().slice(0, 16) : '');
+            setError('');
+            setImgLoadError(false);
+        }
+    }, [isOpen, currentImageUrl, currentStartDate, currentEndDate]);
 
     const handleSave = async () => {
         setError('');
+        if (!imageUrl) {
+            setError("The Image URL cannot be empty.");
+            return;
+        }
+
         setIsSaving(true);
         try {
-            if (!imageUrl) {
-                setError("Image URL cannot be empty.");
-                showToast("Image URL cannot be empty.", "error");
+            const bannerDocRef = doc(db, "bannerSettings", "mainBanner");
+            const startDateObj = startDate ? new Date(startDate) : null;
+            const endDateObj = endDate ? new Date(endDate) : null;
+
+            if (startDate && isNaN(startDateObj.getTime())) {
+                setError("The start date format is invalid.");
+                setIsSaving(false);
+                return;
+            }
+            if (endDate && isNaN(endDateObj.getTime())) {
+                setError("The end date format is invalid.");
+                setIsSaving(false);
+                return;
+            }
+            if (startDateObj && endDateObj && startDateObj >= endDateObj) {
+                setError("The start date must be before the end date.");
+                setIsSaving(false);
                 return;
             }
 
-            const bannerDocRef = doc(db, "bannerSettings", "mainBanner");
-            let parsedEndDate = null;
-            if (endDate) {
-                const dateObj = new Date(endDate);
-                if (isNaN(dateObj.getTime())) {
-                    setError("Invalid end date and time. Please use a valid date format.");
-                    showToast("Invalid end date and time.", "error");
-                    return;
-                }
-                parsedEndDate = dateObj;
-            }
-
             await setDoc(bannerDocRef, {
-                imageUrl: imageUrl,
-                endDate: parsedEndDate // Firestore will automatically convert Date objects to Timestamps
-            }, { merge: true }); // Merge to update specific fields without overwriting others
+                imageUrl,
+                startDate: startDateObj,
+                endDate: endDateObj,
+            }, { merge: true });
 
-            showToast("Banner settings saved successfully!", "success");
-            onSaveSuccess(); // Callback to notify parent
+            showToast("Banner updated successfully!", "success");
+            onSaveSuccess();
             onClose();
         } catch (e) {
             console.error("Error saving banner settings:", e);
-            setError("Failed to save banner settings. Please try again.");
+            setError("A server error occurred. Please try again.");
             showToast("Failed to save banner settings.", "error");
         } finally {
             setIsSaving(false);
         }
     };
 
+    const modalVariants = {
+        hidden: { opacity: 0, scale: 0.95, y: 20 },
+        visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", damping: 20, stiffness: 250 } },
+        exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } }
+    };
+
     return (
-        <Transition show={isOpen}>
-            <Dialog as="div" className="relative z-50 font-sans" onClose={onClose}>
-                <TransitionChild
-                    as={React.Fragment}
-                    enter="ease-out duration-300"
-                    enterFrom="opacity-0"
-                    enterTo="opacity-100"
-                    leave="ease-in duration-200"
-                    leaveFrom="opacity-100"
-                    leaveTo="opacity-0"
-                >
-                    <div className="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity backdrop-blur-sm" />
-                </TransitionChild>
+        <AnimatePresence>
+            {isOpen && (
+                <Dialog static as="div" className="relative z-50 font-sans" open={isOpen} onClose={onClose}>
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 backdrop-blur-md"
+                    />
 
-                <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
-                    <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
-                        <TransitionChild
-                            as={React.Fragment}
-                            enter="ease-out duration-300"
-                            enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                            enterTo="opacity-100 translate-y-0 sm:scale-100"
-                            leave="ease-in duration-200"
-                            leaveFrom="opacity-100 translate-y-0 sm:scale-100"
-                            leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                        >
-                            <DialogPanel className="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-md p-6 sm:p-8 border border-gray-200">
-                                {/* Modal Header */}
-                                <div className="flex items-center pb-4 border-b border-gray-200 mb-6">
-                                    <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 sm:mx-0 sm:h-10 sm:w-10 shadow-lg">
-                                        <PhotoIcon className="h-6 w-6 text-white" aria-hidden="true" />
-                                    </div>
-                                    <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left flex-grow">
-                                        <DialogTitle as="h3" className="text-xl font-bold leading-6 text-gray-900">
-                                            Edit Banner Settings
-                                        </DialogTitle>
-                                        <p className="text-sm text-gray-500 mt-1">Update the promotional banner for your dashboard.</p>
-                                    </div>
+                    <div className="fixed inset-0 w-screen overflow-y-auto">
+                        <div className="flex min-h-full items-center justify-center p-4">
+                            <motion.div
+                                variants={modalVariants}
+                                initial="hidden"
+                                animate="visible"
+                                exit="exit"
+                                as={Dialog.Panel}
+                                className="relative w-full max-w-md transform overflow-hidden rounded-3xl bg-white/70 p-6 text-left align-middle shadow-2xl ring-1 ring-black/5 backdrop-blur-2xl transition-all dark:bg-zinc-800/70 dark:ring-white/10"
+                            >
+                                <div className="absolute top-0 left-1/2 -translate-x-1/2 p-4">
+                                    <div className="w-10 h-1.5 rounded-full bg-gray-400 dark:bg-zinc-600" />
                                 </div>
+                                <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 dark:hover:text-white transition-colors">
+                                    <XMarkIcon className="h-6 w-6" />
+                                </button>
+                                
+                                <Dialog.Title as="h3" className="pt-6 text-2xl font-semibold text-center text-gray-900 dark:text-white">
+                                    Edit Banner
+                                </Dialog.Title>
+                                <p className="text-center text-sm text-gray-600 dark:text-zinc-400 mt-1 mb-6">Update the primary promotional banner.</p>
 
-                                <div className="space-y-6">
-                                    {/* Image URL Input */}
-                                    <div>
-                                        <label htmlFor="imageUrl" className="block text-sm font-medium leading-6 text-gray-800 mb-2 flex items-center">
-                                            <PhotoIcon className="h-4 w-4 mr-1 text-gray-500" /> Image URL
-                                        </label>
-                                        <TextInput
-                                            id="imageUrl"
-                                            name="imageUrl"
-                                            placeholder="e.g., https://example.com/banner.png"
-                                            value={imageUrl}
-                                            onChange={(e) => setImageUrl(e.target.value)}
-                                            className="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm"
-                                        />
-                                        {imageUrl && (
-                                            <div className="mt-4 p-2 bg-gray-50 rounded-lg border border-gray-200 flex justify-center items-center h-24 overflow-hidden">
-                                                <img 
-                                                    src={imageUrl} 
-                                                    alt="Banner Preview" 
-                                                    className="max-h-full max-w-full object-contain rounded-md" 
-                                                    onError={(e) => { 
-                                                        e.target.onerror = null; 
-                                                        e.target.src = 'https://placehold.co/100x50/F0F4F8/6B7280?text=Image+Load+Error';
-                                                    }}
-                                                />
+                                <div className="space-y-4">
+                                    <div className="w-full aspect-video bg-gray-500/10 rounded-xl flex items-center justify-center overflow-hidden ring-1 ring-inset ring-black/5">
+                                        {imageUrl && !imgLoadError ? (
+                                            <img
+                                                src={imageUrl}
+                                                alt="Banner Preview"
+                                                className="w-full h-full object-cover"
+                                                onError={() => setImgLoadError(true)}
+                                            />
+                                        ) : (
+                                            <div className="flex flex-col items-center text-gray-400 dark:text-zinc-500">
+                                                <PhotoIcon className="h-10 w-10" />
+                                                <span className="text-xs mt-2 font-medium">{imgLoadError ? "Image Failed to Load" : "Preview"}</span>
                                             </div>
                                         )}
                                     </div>
-
-                                    {/* End Date Input */}
+                                    
                                     <div>
-                                        <label htmlFor="endDate" className="block text-sm font-medium leading-6 text-gray-800 mb-2 flex items-center">
-                                            <CalendarDaysIcon className="h-4 w-4 mr-1 text-gray-500" /> Display Until (Optional)
+                                        <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1.5">
+                                            Image URL
                                         </label>
-                                        <input
-                                            type="datetime-local"
-                                            id="endDate"
-                                            name="endDate"
-                                            value={endDate}
-                                            onChange={(e) => setEndDate(e.target.value)}
-                                            className="block w-full rounded-lg border-gray-300 py-2 px-3 text-gray-900 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out sm:text-sm"
-                                        />
-                                        <p className="mt-2 text-xs text-gray-500">
-                                            Leave blank for indefinite display. The banner will automatically hide after this date.
-                                        </p>
+                                        <div className="relative">
+                                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                                                <PhotoIcon className="h-5 w-5 text-gray-400 dark:text-zinc-500" />
+                                            </div>
+                                            <input
+                                                id="imageUrl"
+                                                type="url"
+                                                value={imageUrl}
+                                                onChange={(e) => { setImageUrl(e.target.value); setImgLoadError(false); }}
+                                                className="w-full rounded-xl border-0 bg-gray-500/10 py-3 pl-10 pr-4 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 transition"
+                                            />
+                                        </div>
                                     </div>
 
-                                    {/* Error Message */}
+                                    {/* Date Inputs */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1.5">
+                                                Display From (Optional)
+                                            </label>
+                                            <div className="relative">
+                                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                                                    <CalendarDaysIcon className="h-5 w-5 text-gray-400 dark:text-zinc-500" />
+                                                </div>
+                                                <input
+                                                    id="startDate"
+                                                    type="datetime-local"
+                                                    value={startDate}
+                                                    onChange={(e) => setStartDate(e.target.value)}
+                                                    className="w-full rounded-xl border-0 bg-gray-500/10 py-3 pl-10 pr-2 text-gray-900 dark:text-white dark:placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 transition"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1.5">
+                                                Display Until (Optional)
+                                            </label>
+                                            <div className="relative">
+                                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                                                    <CalendarDaysIcon className="h-5 w-5 text-gray-400 dark:text-zinc-500" />
+                                                </div>
+                                                <input
+                                                    id="endDate"
+                                                    type="datetime-local"
+                                                    value={endDate}
+                                                    onChange={(e) => setEndDate(e.target.value)}
+                                                    className="w-full rounded-xl border-0 bg-gray-500/10 py-3 pl-10 pr-2 text-gray-900 dark:text-white dark:placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 transition"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
                                     {error && (
-                                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center space-x-2 shadow-sm">
-                                            <ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+                                        <div className="flex items-center space-x-2 text-red-500 dark:text-red-400 bg-red-500/10 p-3 rounded-xl ring-1 ring-inset ring-red-500/20">
+                                            <ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
                                             <p className="text-sm font-medium">{error}</p>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Action Buttons */}
-                                <div className="mt-8 flex flex-col sm:flex-row-reverse sm:justify-start gap-3">
-                                    <Button
-                                        type="button"
+                                <div className="mt-8 space-y-3">
+                                    <button
                                         onClick={handleSave}
-                                        loading={isSaving}
                                         disabled={isSaving}
-                                        className="w-full sm:w-auto inline-flex justify-center rounded-xl border border-transparent bg-gradient-to-r from-indigo-600 to-purple-700 px-6 py-3 text-base font-semibold text-white shadow-lg hover:from-indigo-700 hover:to-purple-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.01]"
+                                        className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-base font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white/80 dark:focus:ring-offset-zinc-800/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-[0.98]"
                                     >
-                                        {isSaving ? 'Saving Changes...' : 'Save Changes'}
-                                    </Button>
-                                    <Button
-                                        type="button"
+                                        {isSaving ? 'Saving...' : 'Save Changes'}
+                                    </button>
+                                    <button
                                         onClick={onClose}
-                                        disabled={isSaving}
-                                        className="w-full sm:w-auto inline-flex justify-center rounded-xl border border-gray-300 bg-white px-6 py-3 text-base font-semibold text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.01]"
+                                        className="w-full rounded-xl bg-transparent px-4 py-3 text-base font-semibold text-gray-800 dark:text-zinc-200 hover:bg-gray-500/10 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-white/80 dark:focus:ring-offset-zinc-800/80 transition-all duration-200 active:scale-[0.98]"
                                     >
                                         Cancel
-                                    </Button>
+                                    </button>
                                 </div>
-                            </DialogPanel>
-                        </TransitionChild>
+                            </motion.div>
+                        </div>
                     </div>
-                </div>
-            </Dialog>
-        </Transition>
+                </Dialog>
+            )}
+        </AnimatePresence>
     );
 };
 

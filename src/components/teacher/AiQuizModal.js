@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, Title, Button, NumberInput, Textarea, Subtitle } from '@tremor/react';
-import { SparklesIcon, ArrowUturnLeftIcon, CheckCircleIcon, LanguageIcon, ListBulletIcon, HashtagIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/solid';
+import { SparklesIcon, ArrowUturnLeftIcon, CheckCircleIcon, LanguageIcon, ListBulletIcon, HashtagIcon, ClipboardDocumentListIcon, XMarkIcon } from '@heroicons/react/24/solid'; // Added XMarkIcon
 import { db } from '../../services/firebase';
 import { doc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
@@ -8,14 +8,15 @@ import { useToast } from '../../contexts/ToastContext';
 import QuizLoadingScreen from './QuizLoadingScreen';
 import ContentRenderer from './ContentRenderer';
 
-// Helper for dynamic button classes
-const getButtonClasses = (isActive) => {
-    const baseClasses = "flex-1 rounded-md p-2 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500";
+// Helper for futuristic segmented control buttons
+const getSegmentedButtonClasses = (isActive) => {
+    const baseClasses = "flex-1 rounded-xl py-2.5 px-3 text-sm font-semibold transition-all duration-300 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black/10";
     if (isActive) {
-        return `${baseClasses} bg-indigo-600 text-white shadow-sm hover:bg-indigo-700`;
+        return `${baseClasses} bg-white/90 text-blue-600 shadow-lg scale-105`;
     }
-    return `${baseClasses} bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50`;
+    return `${baseClasses} bg-transparent text-gray-700 hover:bg-white/50`;
 };
+
 
 export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson }) {
     const { showToast } = useToast();
@@ -129,8 +130,8 @@ You MUST order the choices in the "options" array according to the following log
 - **root**: { "title": string, "questions": array }
 - **question object**: { "text": string, "type": string, "difficulty": string ('easy' or 'comprehension'), "explanation": string, ...other properties based on type }
 - For **multiple-choice**: "options": array of { "text": string, "isCorrect": boolean }, and "correctAnswerIndex": number
-- For **true-false**: "correctAnswer": boolean
-- For **identification**: "correctAnswer": string
+- for **true-false**: "correctAnswer": boolean
+- for **identification**: "correctAnswer": string
 ---
 `;
         return prompt;
@@ -200,7 +201,6 @@ You MUST order the choices in the "options" array according to the following log
                 ...generatedQuiz,
                 title: newQuizTitle,
                 language: language,
-                // ✨ FIX: Prioritize the unitId from the lesson object for reliability.
                 unitId: lesson.unitId || unitId, 
                 subjectId,
                 lessonId: lesson.id,
@@ -223,70 +223,74 @@ You MUST order the choices in the "options" array according to the following log
             { id: 'multiple-choice', name: 'Multiple Choice' },
             { id: 'true-false', name: 'True/False' },
             { id: 'identification', name: 'Identification' },
-            { id: 'mixed', name: 'Mixed Types' },
+            { id: 'mixed', name: 'Mixed' },
         ];
 
         switch (step) {
             case 1:
                 const totalDistributed = Object.values(distribution).reduce((sum, val) => sum + val, 0);
                 return (
-                    <div className="space-y-6">
+                    <div className="space-y-8">
                         <div className="text-center">
-                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
-                                <ClipboardDocumentListIcon className="h-7 w-7 text-indigo-600" aria-hidden="true" />
+                            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white/80 shadow-lg">
+                                <ClipboardDocumentListIcon className="h-9 w-9 text-blue-500" aria-hidden="true" />
                             </div>
-                            <Title className="mt-4">AI Quiz Generator</Title>
-                            <Subtitle>Customize the quiz for: <span className="font-semibold text-gray-700">{lesson?.title}</span></Subtitle>
+                            <Title className="mt-5 text-3xl font-bold text-gray-900">AI Quiz Generator</Title>
+                            <p className="mt-2 text-base text-gray-600">
+                                For: <span className="font-semibold text-gray-800">{lesson?.title}</span>
+                            </p>
                         </div>
-                        <div className="space-y-5 rounded-lg bg-slate-50 p-4 border">
-                            <div>
-                                <label className="text-sm font-semibold text-gray-900 flex items-center mb-2">
-                                    <LanguageIcon className="h-5 w-5 mr-2 text-indigo-600" /> Language
-                                </label>
-                                <div className="flex space-x-2">
-                                    <button type="button" onClick={() => setLanguage('English')} className={getButtonClasses(language === 'English')}>English</button>
-                                    <button type="button" onClick={() => setLanguage('Filipino')} className={getButtonClasses(language === 'Filipino')}>Filipino</button>
-                                </div>
+                        
+                        <div className="space-y-4">
+                            {/* --- Settings Groups --- */}
+                            <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/30 shadow-lg p-5 space-y-5">
+                               <div>
+                                    <label className="text-sm font-medium text-gray-600 flex items-center mb-3">
+                                        <LanguageIcon className="h-5 w-5 mr-2" /> Language
+                                    </label>
+                                    <div className="flex space-x-2 bg-black/5 p-1 rounded-xl">
+                                        <button type="button" onClick={() => setLanguage('English')} className={getSegmentedButtonClasses(language === 'English')}>English</button>
+                                        <button type="button" onClick={() => setLanguage('Filipino')} className={getSegmentedButtonClasses(language === 'Filipino')}>Filipino</button>
+                                    </div>
+                               </div>
+                               <div className="flex items-center justify-between">
+                                    <label htmlFor="item-count" className="text-sm font-medium text-gray-600 flex items-center">
+                                        <HashtagIcon className="h-5 w-5 mr-2" /> Number of Items
+                                    </label>
+                                    <NumberInput id="item-count" value={itemCount} onValueChange={setItemCount} min={1} max={50} className="max-w-[100px]" />
+                               </div>
                             </div>
-                            <div>
-                                <label htmlFor="item-count" className="text-sm font-semibold text-gray-900 flex items-center mb-2">
-                                    <HashtagIcon className="h-5 w-5 mr-2 text-indigo-600" /> Number of Items
+                            <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/30 shadow-lg p-5">
+                                <label className="text-sm font-medium text-gray-600 flex items-center mb-3">
+                                    <ListBulletIcon className="h-5 w-5 mr-2" /> Question Type
                                 </label>
-                                <NumberInput id="item-count" value={itemCount} onValueChange={setItemCount} min={1} max={50} />
-                            </div>
-                            <div>
-                                <label className="text-sm font-semibold text-gray-900 flex items-center mb-2">
-                                    <ListBulletIcon className="h-5 w-5 mr-2 text-indigo-600" /> Question Type
-                                </label>
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 gap-2 bg-black/5 p-1 rounded-xl">
                                     {questionTypes.map((type) => (
-                                        <button key={type.id} type="button" onClick={() => setQuizType(type.id)} className={getButtonClasses(quizType === type.id)}>
+                                        <button key={type.id} type="button" onClick={() => setQuizType(type.id)} className={getSegmentedButtonClasses(quizType === type.id)}>
                                             {type.name}
                                         </button>
                                     ))}
                                 </div>
                             </div>
                         </div>
+
                         {quizType === 'mixed' && (
-                            <div className="space-y-4 pt-5 border-t border-dashed">
+                             <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/30 shadow-lg p-5 space-y-4">
                                 <h3 className="text-base font-semibold text-gray-800">Item Distribution</h3>
-                                <p className="text-sm text-gray-600">Assign the number of items for each type. The total must be {itemCount}.</p>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-700">Multiple Choice</label>
-                                        <NumberInput value={distribution['multiple-choice']} onValueChange={v => handleDistributionChange('multiple-choice', v)} min={0} />
-                                    </div>
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-700">True/False</label>
-                                        <NumberInput value={distribution['true-false']} onValueChange={v => handleDistributionChange('true-false', v)} min={0} />
-                                    </div>
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-700">Identification</label>
-                                        <NumberInput value={distribution['identification']} onValueChange={v => handleDistributionChange('identification', v)} min={0} />
-                                    </div>
+                                <p className="text-sm text-gray-600">Total must equal {itemCount}.</p>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {['Multiple Choice', 'True/False', 'Identification'].map(type => {
+                                        const typeKey = type.toLowerCase().replace(' ', '-');
+                                        return (
+                                            <div key={typeKey}>
+                                                <label className="text-xs font-medium text-gray-500">{type}</label>
+                                                <NumberInput value={distribution[typeKey]} onValueChange={v => handleDistributionChange(typeKey, v)} min={0} className="mt-1.5"/>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                                 {(totalDistributed !== itemCount) && (
-                                    <p className="text-sm font-medium text-center text-amber-700 bg-amber-100 p-2 rounded-md">Current total: {totalDistributed} of {itemCount}</p>
+                                    <p className="text-sm font-medium text-center text-amber-800 bg-amber-300/50 p-2.5 rounded-lg">Current total: {totalDistributed} of {itemCount}</p>
                                 )}
                             </div>
                         )}
@@ -296,53 +300,55 @@ You MUST order the choices in the "options" array according to the following log
             case 3:
                 return (
                     <div className="flex flex-col h-full">
-                        <Title>Step 3: Preview & Revise</Title>
-                        <Subtitle>Review the generated quiz and request changes if needed.</Subtitle>
-                        <div className="mt-4 p-4 border rounded-lg overflow-y-auto flex-grow bg-gray-50">
-                            <h3 className="font-bold text-lg mb-2 text-gray-800">{generatedQuiz?.title}</h3>
-                            {generatedQuiz?.questions.map((q, i) => (
-                                <div key={i} className="mb-4 text-sm p-3 bg-white rounded-md shadow-sm">
-                                    <div className="font-semibold text-gray-800 flex items-start">
-                                        <span className="mr-2">{i + 1}.</span>
-                                        <ContentRenderer text={q.text} />
+                        <Title className="text-3xl font-bold">Preview & Revise</Title>
+                        <Subtitle className="mt-1">Review the generated quiz below.</Subtitle>
+                        <div className="mt-4 p-2 -mx-4 overflow-y-auto flex-grow">
+                             <h3 className="font-bold text-xl mb-3 text-gray-800 px-2">{generatedQuiz?.title}</h3>
+                             <div className="space-y-3">
+                                {generatedQuiz?.questions.map((q, i) => (
+                                    <div key={i} className="text-sm p-4 bg-white/60 backdrop-blur-lg rounded-xl border border-white/30 shadow-md">
+                                        <div className="font-semibold text-gray-900 flex items-start">
+                                            <span className="mr-2.5 text-gray-500">{i + 1}.</span>
+                                            <ContentRenderer text={q.text} />
+                                        </div>
+                                        <div className="mt-3 flex items-center space-x-2">
+                                            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-800">{q.type}</span>
+                                            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-800">{q.difficulty}</span>
+                                        </div>
+                                        
+                                        <div className="mt-4 pl-6">
+                                            {q.type === 'multiple-choice' && q.options && (
+                                                <ul className="list-disc list-outside space-y-1.5 text-gray-700">
+                                                    {q.options.map((option) => (
+                                                        <li key={option.text} className={option.isCorrect ? 'font-semibold text-green-700' : ''}>
+                                                            <ContentRenderer text={option.text} />
+                                                            {option.isCorrect && <span className="text-green-500 ml-1.5">✓</span>}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                            {(q.type === 'true-false' || q.type === 'identification') && (
+                                                <p className="text-gray-700">
+                                                    Answer: <span className="font-semibold text-green-700"><ContentRenderer text={String(q.correctAnswer)}/></span>
+                                                </p>
+                                            )}
+                                            {q.explanation && (
+                                                <div className="mt-4 p-3 bg-sky-500/10 border-l-4 border-sky-300 text-sky-900 rounded-r-lg">
+                                                    <p className="font-bold text-xs tracking-wider uppercase">Explanation</p>
+                                                    <p className="text-sm italic mt-1"><ContentRenderer text={q.explanation} /></p>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="mt-2">
-                                        <span className="text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">{q.type}</span>
-                                        <span className="text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">{q.difficulty}</span>
-                                    </div>
-                                    
-                                    <div className="mt-3 pl-4">
-                                        {q.type === 'multiple-choice' && q.options && (
-                                            <ul className="list-disc list-inside space-y-1 text-gray-700">
-                                                {q.options.map((option, index) => (
-                                                    <li key={index} className={option.isCorrect ? 'font-bold text-green-600' : ''}>
-                                                        <ContentRenderer text={option.text} />
-                                                        {option.isCorrect && <span className="text-green-500 ml-2">✓</span>}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        )}
-                                        {(q.type === 'true-false' || q.type === 'identification') && (
-                                            <p className="text-gray-700 mt-2">
-                                                Correct Answer: <span className="font-bold text-green-600"><ContentRenderer text={String(q.correctAnswer)}/></span>
-                                            </p>
-                                        )}
-                                        {q.explanation && (
-                                            <div className="mt-3 p-2 bg-sky-50 border-l-4 border-sky-200 text-sky-900">
-                                                <p className="font-bold text-xs">EXPLANATION</p>
-                                                <p className="text-sm italic"><ContentRenderer text={q.explanation} /></p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
+                                ))}
+                             </div>
                         </div>
-                        <div className="mt-6 space-y-2">
+                        <div className="mt-6 space-y-2 flex-shrink-0">
                             <label className="text-sm font-medium text-gray-700">Request Changes (Optional)</label>
-                            <Textarea placeholder="e.g., Make the questions harder, focus more on X topic..." value={revisionPrompt} onChange={e => setRevisionPrompt(e.target.value)} />
-                            <div className="flex justify-end">
-                                <Button icon={ArrowUturnLeftIcon} variant="secondary" onClick={() => handleGenerate(true)} disabled={isGenerating}>
-                                    Regenerate with Changes
+                            <Textarea placeholder="e.g., Make question 3 harder..." value={revisionPrompt} onChange={e => setRevisionPrompt(e.target.value)} />
+                            <div className="flex justify-end pt-1">
+                                <Button icon={ArrowUturnLeftIcon} variant="light" onClick={() => handleGenerate(true)} disabled={isGenerating}>
+                                    Regenerate
                                 </Button>
                             </div>
                         </div>
@@ -350,10 +356,10 @@ You MUST order the choices in the "options" array according to the following log
                 );
             case 4:
                 return (
-                    <div className="text-center p-8">
-                        <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                        <Title className="text-xl">Quiz Saved!</Title>
-                        <p className="text-gray-600 mt-2">The AI-generated quiz has been successfully saved to your library.</p>
+                    <div className="text-center p-8 flex flex-col items-center justify-center h-full">
+                        <CheckCircleIcon className="h-24 w-24 text-green-500 mx-auto mb-6" />
+                        <Title className="text-3xl font-bold">Quiz Saved!</Title>
+                        <p className="text-gray-600 mt-2 max-w-xs">The quiz is now available in your content library.</p>
                     </div>
                 );
             default:
@@ -362,24 +368,29 @@ You MUST order the choices in the "options" array according to the following log
     };
 
     const renderButtons = () => {
+        const baseButtonClasses = "w-full h-14 text-base font-semibold border-none rounded-2xl transition-transform duration-200 ease-in-out hover:scale-[1.03] active:scale-[0.98]";
+        
         if (step === 4) {
-            return <Button onClick={onClose} className="w-full bg-slate-600 hover:bg-slate-700 border-none">Close</Button>;
+            return <Button onClick={onClose} className={`${baseButtonClasses} bg-gray-800 hover:bg-gray-900 text-white`}>Close</Button>;
         }
         if (step === 3) {
             return (
-                <div className="flex justify-between items-center">
-                    <Button variant="light" onClick={() => setStep(1)}>Back to Config</Button>
-                    <Button icon={CheckCircleIcon} onClick={handleSaveQuiz} disabled={isGenerating}>Looks Good, Save Quiz</Button>
+                <div className="flex items-center space-x-3">
+                    <Button variant="secondary" onClick={() => setStep(1)} className="w-1/3 h-14 text-base rounded-2xl">Back</Button>
+                    <Button icon={CheckCircleIcon} onClick={handleSaveQuiz} disabled={isGenerating} className={`${baseButtonClasses} w-2/3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white`}>Save Quiz</Button>
                 </div>
             );
         }
         if (step === 1) {
+            const totalDistributed = Object.values(distribution).reduce((sum, val) => sum + val, 0);
+            const isConfigInvalid = quizType === 'mixed' && totalDistributed !== itemCount;
             return (
                 <Button 
                     icon={SparklesIcon} 
                     onClick={() => handleGenerate(false)} 
                     loading={isGenerating}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 border-none text-white focus:ring-indigo-500"
+                    disabled={isConfigInvalid}
+                    className={`${baseButtonClasses} bg-gradient-to-r from-blue-500 to-indigo-600 text-white focus-visible:ring-indigo-400 disabled:bg-gray-300 disabled:bg-none`}
                 >
                     Generate Quiz
                 </Button>
@@ -396,9 +407,20 @@ You MUST order the choices in the "options" array according to the following log
                 {`.tremor-dropdown-menu { z-index: 9999 !important; }`}
             </style>
             <Dialog open={isOpen} onClose={onClose} className="relative z-50">
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" />
+                <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
                 <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-                    <DialogPanel className="max-w-md w-full bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh] transition-all">
+                    <DialogPanel className="max-w-lg w-full bg-gray-200/50 backdrop-blur-2xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] transition-all border border-white/20 relative"> {/* Added relative positioning */}
+                        
+                        {/* Close Button */}
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/60 backdrop-blur-md text-gray-700 hover:bg-white/90 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-100"
+                        >
+                            <XMarkIcon className="h-6 w-6" aria-hidden="true" />
+                            <span className="sr-only">Close</span>
+                        </button>
+
                         <div className="flex-1 overflow-y-auto p-6">
                             {isGenerating ? (
                                 <QuizLoadingScreen />
@@ -406,11 +428,11 @@ You MUST order the choices in the "options" array according to the following log
                                 renderStepContent()
                             )}
                             {error && !isGenerating && (
-                                <p className="text-sm text-red-500 mt-4 text-center">{error}</p>
+                                <p className="text-sm text-red-800 mt-4 text-center bg-red-300/50 p-3 rounded-lg">{error}</p>
                             )}
                         </div>
                         {!isGenerating && (
-                            <div className="flex-shrink-0 px-6 py-4 border-t">
+                            <div className="flex-shrink-0 px-6 py-5 bg-black/5">
                                 {renderButtons()}
                             </div>
                         )}

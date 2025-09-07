@@ -9,11 +9,11 @@ import InteractiveLoadingScreen from '../common/InteractiveLoadingScreen';
 import CourseSelector from './CourseSelector';
 import LessonSelector from './LessonSelector';
 
-// A reusable input field component for this form
+// A reusable input field component for this form (iOS Style)
 const FormInput = ({ label, id, ...props }) => (
     <div>
-        {label && <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
-        <input id={id} {...props} className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+        {label && <label htmlFor={id} className="block text-sm font-medium text-gray-600 mb-1.5">{label}</label>}
+        <input id={id} {...props} className="block w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
     </div>
 );
 
@@ -245,48 +245,47 @@ const generateExplanationsMarkdown = (questions) => {
     return markdown;
 };
 
+// Redesigned TOS Preview Table for iOS UI
 const TOSPreviewTable = ({ tos }) => (
     <div className="overflow-x-auto text-sm">
-        <div className="bg-white p-4 rounded-lg shadow-sm mb-4">
-            <h3 className="text-lg font-bold text-gray-800 text-center mb-1">{tos?.header?.examTitle}</h3>
-            <p className="text-center text-gray-600">{tos?.header?.subject}</p>
-            <p className="text-center text-gray-600">{tos?.header?.gradeLevel}</p>
-            <h4 className="font-semibold text-gray-800 text-center text-xl mb-4">TABLE OF SPECIFICATIONS (TOS)</h4>
+        <div className="bg-gray-100 p-4 rounded-xl mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 text-center">{tos?.header?.examTitle}</h3>
+            <p className="text-center text-sm text-gray-600">{tos?.header?.subject}</p>
+            <p className="text-center text-sm text-gray-600">{tos?.header?.gradeLevel}</p>
+            <h4 className="font-medium text-gray-800 text-center mt-2">TABLE OF SPECIFICATIONS (TOS)</h4>
         </div>
-        <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
-            <thead className="bg-gray-50">
+        <table className="min-w-full">
+            <thead className="border-b border-gray-200">
                 <tr>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Objectives/Learning Competencies</th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">No. of hours spent</th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Weight percentage</th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">No. of Items</th>
-                    <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Easy<br/>(Knowledge) Nos.</th>
-                    <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Average<br/>(Comprehension) Nos.</th>
-                    <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Difficult<br/>(Application) Nos.</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Competencies</th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Hours</th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Weight</th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Items</th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Easy Nos.</th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Average Nos.</th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Difficult Nos.</th>
                 </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody>
                 {tos?.competencyBreakdown?.map((row, index) => (
-                    <tr key={index}>
-                        <td className="px-2 py-4 whitespace-nowrap text-gray-700 border-r border-gray-200">{row.competency}</td>
-                        <td className="px-2 py-4 whitespace-nowrap text-gray-700 border-r border-gray-200 text-center">{row.noOfHours}</td>
-                        <td className="px-2 py-4 whitespace-nowrap text-gray-700 border-r border-gray-200 text-center">{row.weightPercentage}</td>
-                        <td className="px-2 py-4 whitespace-nowrap text-gray-700 border-r border-gray-200 text-center">{row.noOfItems}</td>
-                        <td className="px-2 py-4 whitespace-nowrap text-gray-700 border-r border-gray-200 text-center">{row.easyItems.itemNumbers}</td>
-                        <td className="px-2 py-4 whitespace-nowrap text-gray-700 border-r border-gray-200 text-center">{row.averageItems.itemNumbers}</td>
-                        <td className="px-2 py-4 whitespace-nowrap text-gray-700 text-center">{row.difficultItems.itemNumbers}</td>
+                    <tr key={index} className="border-b border-gray-200">
+                        <td className="px-3 py-4 whitespace-nowrap text-gray-800">{row.competency}</td>
+                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 text-center">{row.noOfHours}</td>
+                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 text-center">{row.weightPercentage}</td>
+                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 text-center">{row.noOfItems}</td>
+                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 text-center">{row.easyItems.itemNumbers}</td>
+                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 text-center">{row.averageItems.itemNumbers}</td>
+                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 text-center">{row.difficultItems.itemNumbers}</td>
                     </tr>
                 ))}
             </tbody>
-            <tfoot className="bg-gray-100 font-bold">
+            <tfoot className="font-bold">
                 <tr>
-                    <td className="px-2 py-3 whitespace-nowrap text-gray-800 border-r border-gray-200">TOTAL</td>
-                    <td className="px-2 py-3 whitespace-nowrap text-gray-800 border-r border-gray-200 text-center">{tos?.totalRow?.hours}</td>
-                    <td className="px-2 py-3 whitespace-nowrap text-gray-800 border-r border-gray-200 text-center">{tos?.totalRow?.weightPercentage}</td>
-                    <td className="px-2 py-3 whitespace-nowrap text-gray-800 border-r border-gray-200 text-center">{tos?.totalRow?.noOfItems}</td>
-                    <td className="px-2 py-3 whitespace-nowrap text-gray-800 border-r border-gray-200 text-center"></td>
-                    <td className="px-2 py-3 whitespace-nowrap text-gray-800 border-r border-gray-200 text-center"></td>
-                    <td className="px-2 py-3 whitespace-nowrap text-gray-800 text-center"></td>
+                    <td className="px-3 py-3 whitespace-nowrap text-gray-900">TOTAL</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-gray-900 text-center">{tos?.totalRow?.hours}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-gray-900 text-center">{tos?.totalRow?.weightPercentage}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-gray-900 text-center">{tos?.totalRow?.noOfItems}</td>
+                    <td colSpan="3"></td>
                 </tr>
             </tfoot>
         </table>
@@ -330,23 +329,23 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
     const isValidPreview = previewData?.tos?.header && previewData?.examQuestions?.length > 0;
 
     const handleGenerate = async () => {
-	        if (!selectedCourse || selectedLessons.length === 0 || learningCompetencies.trim() === '') {
-	            showToast("Please select a source subject, at least one lesson, and provide learning competencies.", "error");
-	            return;
-	        }
-	        setIsGenerating(true);
-	        setPreviewData(null);
-	        showToast("Generating exam and TOS...", "info", 10000);
+        if (!selectedCourse || selectedLessons.length === 0 || learningCompetencies.trim() === '') {
+            showToast("Please select a source subject, at least one lesson, and provide learning competencies.", "error");
+            return;
+        }
+        setIsGenerating(true);
+        setPreviewData(null);
+        showToast("Generating exam and TOS...", "info", 10000);
 
-	        const combinedContent = selectedLessons.flatMap(lesson => lesson.pages?.map(page => page.content) || []).join('\n\n');
-	        const combinedLessonTitles = selectedLessons.map(lesson => lesson.title).join(', ');
-	        const formattedTestStructure = testTypes.map(tt => `${tt.type}: ${tt.numItems} items (from range(s) ${tt.range})`).join('; ');
-        
-	        const alternativeResponseInstruction = language === 'Filipino'
-	            ? 'Panuto: Basahin at unawain ang bawat pahayag. Isulat ang "Tama" kung ito ay totoo at "Mali" kung hindi.'
-	            : 'Instructions: Read and understand each statement. Write "True" if the statement is correct and "False" if it is incorrect.';
+        const combinedContent = selectedLessons.flatMap(lesson => lesson.pages?.map(page => page.content) || []).join('\n\n');
+        const combinedLessonTitles = selectedLessons.map(lesson => lesson.title).join(', ');
+        const formattedTestStructure = testTypes.map(tt => `${tt.type}: ${tt.numItems} items (from range(s) ${tt.range})`).join('; ');
+    
+        const alternativeResponseInstruction = language === 'Filipino'
+            ? 'Panuto: Basahin at unawain ang bawat pahayag. Isulat ang "Tama" kung ito ay totoo at "Mali" kung hindi.'
+            : 'Instructions: Read and understand each statement. Write "True" if the statement is correct and "False" if it is incorrect.';
 
-	        const prompt = `You are an expert educational assessment creator. Your task is to generate a comprehensive exam and a detailed Table of Specifications (TOS) in a single JSON object based on the provided data.
+        const prompt = `You are an expert educational assessment creator. Your task is to generate a comprehensive exam and a detailed Table of Specifications (TOS) in a single JSON object based on the provided data.
 
 	**PRIMARY DIRECTIVE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT. NO OTHER TEXT SHOULD BE PRESENT.**
 	---
@@ -390,7 +389,7 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 	    
 	    If the calculation results in a non-whole number, you must round down. Any remaining items must be added to the 'Easy' category to ensure the total number of items matches 'Total Items'.
 	
-	3. **MULTIPLE-CHOICE & ANALOGY OPTION ORDERING (MANDATORY):** For ALL 'multiple_choice' and 'analogy' questions, you MUST order the strings within the "options" array based on the following logic. This is a strict requirement.
+	3. *OPTION ORDERING (MANDATORY):** For ALL 'multiple_choice', 'analogy', and 'interpretive' questions, you MUST order the strings within the "options" array based on the following logic. This is a strict requirement.
 	    * **Pyramid Style (Shortest to Longest):** If choices are sentences or phrases, you MUST order them from SHORTEST to LONGEST based on character count. This rule **overrides** all other ordering.
 	    * **Alphabetical:** Apply ONLY if choices are single words.
 	    * **Numerical:** Apply ONLY if choices are numbers.
@@ -409,22 +408,23 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 	    * For the single Essay question, assign its entire point value and number range (e.g., '31-35') to the 'difficultItems' column for the single most relevant competency.
 	
 	7. **CONTENT ADHERENCE:** All questions must be strictly based on the provided **Lesson Content**. Do not use external knowledge. Avoid phrases like "According to the lesson...".
+	8. **ALTERNATIVE RESPONSE:** All questions MUST be ordered from the SHORTEST to LONGEST based on the character count.
 	
 	**Final Check:** Review your generated JSON for syntax errors (commas, quotes, brackets) before outputting.
 	`;
-	        try {
-	            const aiResponse = await callGeminiWithLimitCheck(prompt);
-	            const jsonText = extractJson(aiResponse);
-	            const parsedData = tryParseJson(jsonText);
-	            setPreviewData(parsedData);
-	            showToast("Exam and TOS generated successfully!", "success");
-	        } catch (err) {
-	            console.error("Generation error:", err);
-	            showToast(`Failed to generate exam: ${err.message}`, "error", 15000);
-	        } finally {
-	            setIsGenerating(false);
-	        }
-	    };
+        try {
+            const aiResponse = await callGeminiWithLimitCheck(prompt);
+            const jsonText = extractJson(aiResponse);
+            const parsedData = tryParseJson(jsonText);
+            setPreviewData(parsedData);
+            showToast("Exam and TOS generated successfully!", "success");
+        } catch (err) {
+            console.error("Generation error:", err);
+            showToast(`Failed to generate exam: ${err.message}`, "error", 15000);
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
     const handleSave = async () => {
         if (!previewData) {
@@ -478,14 +478,14 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 
 
     return (
-        <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[110] flex items-start justify-center p-4">
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+        <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/30 backdrop-blur-lg" />
             <Dialog.Panel
-                className="relative bg-gray-50 mt-10 p-6 sm:p-8 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh]"
+                className="relative bg-gray-50/80 backdrop-blur-xl border border-white/20 p-6 sm:p-8 rounded-3xl w-full max-w-5xl flex flex-col max-h-[90vh]"
                 onClick={(e) => e.stopPropagation()}
             >
                 {(isGenerating || isSaving) && (
-                    <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl">
+                    <div className="absolute inset-0 bg-white/80 backdrop-blur-md flex flex-col justify-center items-center z-50 rounded-3xl">
                         <InteractiveLoadingScreen
                             topic={selectedLessons.length > 0 ? selectedLessons.map(l => l.title).join(', ') : "new ideas"}
                             isSaving={isSaving}
@@ -493,67 +493,53 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                         />
                     </div>
                 )}
-                <div className="flex justify-between items-start pb-4 border-b border-gray-200 flex-shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="bg-gradient-to-br from-purple-500 to-indigo-600 p-2 rounded-xl text-white shadow-lg flex-shrink-0">
-                            <ClipboardDocumentListIcon className="h-6 w-6" />
+                <div className="flex justify-between items-start pb-5 border-b border-gray-900/10 flex-shrink-0">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-blue-600 p-2.5 rounded-2xl text-white shadow-lg flex-shrink-0">
+                            <ClipboardDocumentListIcon className="h-7 w-7" />
                         </div>
                         <div>
-                            <Dialog.Title className="text-xl sm:text-2xl font-bold text-gray-800">Exam & TOS Generator</Dialog.Title>
-                            <p className="text-sm text-gray-500">Create a comprehensive exam and its Table of Specifications.</p>
+                            <Dialog.Title className="text-2xl font-semibold text-gray-900">Exam & TOS Generator</Dialog.Title>
+                            <p className="text-sm text-gray-600">Create a comprehensive exam and its Table of Specifications.</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 rounded-full text-gray-400 hover:bg-gray-200">
+                    <button onClick={onClose} className="p-2 rounded-full text-gray-500 bg-gray-200/50 hover:bg-gray-200">
                         <XMarkIcon className="w-6 h-6" />
                     </button>
                 </div>
 
-                <div className="py-6 space-y-6 flex-1 overflow-y-auto">
+                <div className="py-6 space-y-6 flex-1 overflow-y-auto -mr-3 pr-3">
                     {!previewData ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <div className="space-y-6">
-                                <div className="p-4 border border-gray-200 rounded-lg bg-white">
+                                <div className="p-5 bg-white/70 rounded-2xl">
                                     <h3 className="text-lg font-semibold text-gray-800 mb-4">Exam Configuration</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="md:col-span-2">
-                                            <label htmlFor="totalItemsDisplay" className="block text-sm font-medium text-gray-700">Total Number of Items</label>
-                                            <div id="totalItemsDisplay" className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700 sm:text-sm">
+                                            <label htmlFor="totalItemsDisplay" className="block text-sm font-medium text-gray-600">Total Number of Items</label>
+                                            <div id="totalItemsDisplay" className="mt-1.5 block w-full px-4 py-2.5 bg-gray-100 border-gray-200 rounded-xl text-gray-800 font-medium sm:text-sm">
                                                 {totalConfiguredItems}
                                             </div>
                                         </div>
                                         <div className="md:col-span-1">
-                                            <label htmlFor="totalHours" className="block text-sm font-medium text-gray-700">Total Hours Spent</label>
-                                            <input
-                                                id="totalHours"
-                                                type="number"
-                                                value={totalHours}
-                                                onChange={(e) => setTotalHours(e.target.value)}
-                                                className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                                placeholder="e.g., 10"
-                                            />
+                                            <label htmlFor="totalHours" className="block text-sm font-medium text-gray-600">Total Hours Spent</label>
+                                            <input id="totalHours" type="number" value={totalHours} onChange={(e) => setTotalHours(e.target.value)} className="mt-1.5 block w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="e.g., 10" />
                                         </div>
                                         <div className="md:col-span-1">
-                                            <label htmlFor="language" className="block text-sm font-medium text-gray-700">Language</label>
-                                            <select id="language" value={language} onChange={e => setLanguage(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                            <label htmlFor="language" className="block text-sm font-medium text-gray-600">Language</label>
+                                            <select id="language" value={language} onChange={e => setLanguage(e.target.value)} className="mt-1.5 block w-full pl-4 pr-10 py-2.5 text-base bg-gray-100 border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-xl">
                                                 <option>English</option>
                                                 <option>Filipino</option>
                                             </select>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="p-4 border border-gray-200 rounded-lg bg-white">
+                                <div className="p-5 bg-white/70 rounded-2xl">
                                     <h3 className="text-lg font-semibold text-gray-800 mb-4">Source Content Selection</h3>
                                     <div className="space-y-4">
                                         <div>
-                                            <label htmlFor="learningCompetencies" className="block text-sm font-medium text-gray-700 mb-1">Learning Competencies</label>
-                                            <textarea
-                                                id="learningCompetencies"
-                                                rows="4"
-                                                value={learningCompetencies}
-                                                onChange={(e) => setLearningCompetencies(e.target.value)}
-                                                className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                                placeholder="Enter learning competencies, one per line."
-                                            ></textarea>
+                                            <label htmlFor="learningCompetencies" className="block text-sm font-medium text-gray-600 mb-1.5">Learning Competencies</label>
+                                            <textarea id="learningCompetencies" rows="4" value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className="block w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Enter learning competencies, one per line." ></textarea>
                                         </div>
                                         <CourseSelector onCourseSelect={setSelectedCourse} />
                                         {selectedCourse && (
@@ -563,66 +549,60 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                 </div>
                             </div>
                             <div className="space-y-6">
-                                <div className="p-4 border border-gray-200 rounded-lg bg-white h-full">
+                                <div className="p-5 bg-white/70 rounded-2xl h-full flex flex-col">
                                     <div className="flex justify-between items-center mb-4">
                                         <div>
                                             <h3 className="text-lg font-semibold text-gray-800">Test Structure</h3>
-                                            <p className="text-sm text-gray-500">Define the types of tests to include in the exam.</p>
+                                            <p className="text-sm text-gray-500">Define the types of tests for the exam.</p>
                                         </div>
-                                        <button onClick={addTestType} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                        <button onClick={addTestType} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                                             <PlusIcon className="w-5 h-5"/>
-                                            <span>Add Type</span>
+                                            <span>Add</span>
                                         </button>
                                     </div>
-                                    <div className="space-y-3">
-                                        {testTypes.map((test, index) => {
-                                            return (
-                                                <div key={index} className="grid grid-cols-12 gap-2 items-center p-2 rounded-md bg-gray-50 border">
-                                                    <div className="col-span-12 md:col-span-5">
-                                                        <select value={test.type} onChange={e => handleTestTypeChange(index, 'type', e.target.value)} className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                                            <option>Multiple Choice</option>
-                                                            <option>Simple Recall</option>
-                                                            <option>Matching Type</option>
-                                                            <option>Alternative Response</option>
-                                                            <option>Identification</option>
-                                                            <option>Solving</option>
-                                                            <option>Essay</option>
-                                                            <option>Analogy</option>
-                                                            <option>Interpretive</option>
-                                                        </select>
-                                                    </div>
-                                                    <div className="col-span-12 md:col-span-6">
-                                                        <FormInput id={`range-${index}`} type="text" value={test.range} onChange={e => handleTestTypeChange(index, 'range', e.target.value)} placeholder="Number Range (e.g., 1-10)" />
-                                                    </div>
-                                                    <div className="col-span-12 md-col-span-1 flex justify-end">
-                                                        <button onClick={() => removeTestType(index)} className="text-red-500 hover:text-red-700 p-1">
-                                                            <TrashIcon className="w-5 h-5" />
-                                                        </button>
-                                                    </div>
+                                    <div className="space-y-3 flex-1">
+                                        {testTypes.map((test, index) => (
+                                            <div key={index} className="flex items-center gap-2 p-2 rounded-xl bg-gray-100">
+                                                <div className="flex-1">
+                                                    <select value={test.type} onChange={e => handleTestTypeChange(index, 'type', e.target.value)} className="w-full text-sm bg-white/0 border-none rounded-md focus:ring-0">
+                                                        <option>Multiple Choice</option>
+                                                        <option>Simple Recall</option>
+                                                        <option>Matching Type</option>
+                                                        <option>Alternative Response</option>
+                                                        <option>Identification</option>
+                                                        <option>Solving</option>
+                                                        <option>Essay</option>
+                                                        <option>Analogy</option>
+                                                        <option>Interpretive</option>
+                                                    </select>
                                                 </div>
-                                            );
-                                        })}
+                                                <div className="flex-1">
+                                                    <input id={`range-${index}`} type="text" value={test.range} onChange={e => handleTestTypeChange(index, 'range', e.target.value)} placeholder="Number Range (e.g., 1-10)" className="w-full px-3 py-1.5 text-sm bg-white rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500"/>
+                                                </div>
+                                                <button onClick={() => removeTestType(index)} className="text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-red-100 transition-colors">
+                                                    <TrashIcon className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        ))}
                                     </div>
                                     {totalConfiguredItems === 0 && (
-                                        <p className="text-red-600 text-sm mt-3">Warning: Total number of items is currently 0.</p>
+                                        <p className="text-red-600 text-sm mt-3 font-medium">Warning: Total items is 0.</p>
                                     )}
                                 </div>
                             </div>
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <h2 className="text-lg sm:text-xl font-bold text-slate-700">Preview: {previewData?.examTitle || 'Generated Exam'}</h2>
-                            <div className="space-y-6 max-h-[60vh] overflow-y-auto border rounded-lg p-2 sm:p-4 bg-slate-100">
+                            <h2 className="text-2xl font-semibold text-gray-800">Preview: {previewData?.examTitle || 'Generated Exam'}</h2>
+                            <div className="space-y-6 max-h-[60vh] overflow-y-auto border border-gray-900/10 rounded-2xl p-2 sm:p-5 bg-gray-100/50">
                                 {isValidPreview ? (
                                     <>
-                                        {/* Page 1 Preview */}
-                                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                                            <h3 className="text-lg font-bold mb-2">Page 1: Table of Specifications (TOS)</h3>
+                                        <div className="bg-white p-5 rounded-2xl shadow-sm">
+                                            <h3 className="text-lg font-bold mb-3">Page 1: Table of Specifications (TOS)</h3>
                                             <TOSPreviewTable tos={previewData.tos} />
                                         </div>
 
-                                        {/* Page 2 Preview */}
-                                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                                        <div className="bg-white p-5 rounded-2xl shadow-sm">
                                             <h3 className="text-lg font-bold mb-2">Page 2: Exam Questions</h3>
                                             {(() => {
                                                 const groupedQuestions = {};
@@ -641,72 +621,70 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                                     return (
                                                         <div key={type} className="mt-6">
                                                             <h4 className="text-md font-bold">{romanNumerals[typeIndex]}. {typeHeader}</h4>
-                                                            {data.instruction && <p className="text-sm font-semibold italic text-gray-600 my-2">{data.instruction}</p>}
-                                                            {data.passage && <p className="text-sm text-gray-800 italic my-2 p-3 bg-gray-100 rounded-md border border-gray-200">{data.passage}</p>}
-                                                            <ol className="list-inside space-y-4">
+                                                            {data.instruction && <p className="text-sm font-medium italic text-gray-600 my-2">{data.instruction}</p>}
+                                                            {data.passage && <p className="text-sm text-gray-800 my-2 p-3 bg-gray-100 rounded-xl border border-gray-200">{data.passage}</p>}
+                                                            <div className="space-y-5 mt-4">
                                                                 {data.questions.map((q, index) => (
-                                                                    <li key={index} className="pl-2">
-                                                                        <p className="font-medium mt-1">{q.questionNumber}. {q.question}</p>
+                                                                    <div key={index} className="pl-2">
+                                                                        <p className="font-medium text-gray-800">{q.questionNumber}. {q.question}</p>
                                                                         {q.options && (
-                                                                            <ul className="list-none mt-1 ml-8 text-sm space-y-1">
+                                                                            <ul className="list-none mt-2 ml-8 text-sm space-y-1.5 text-gray-700">
                                                                                 {q.options.map((option, optIndex) => <li key={optIndex}>{String.fromCharCode(97 + optIndex)}. {option}</li>)}
                                                                             </ul>
                                                                         )}
-                                                                    </li>
+                                                                    </div>
                                                                 ))}
-                                                            </ol>
+                                                            </div>
                                                         </div>
                                                     );
                                                 });
                                             })()}
                                         </div>
 
-                                        {/* Page 3 Preview */}
-                                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                                            <h3 className="text-lg font-bold mb-2">Page 3: Answer Key</h3>
+                                        <div className="bg-white p-5 rounded-2xl shadow-sm">
+                                            <h3 className="text-lg font-bold mb-3">Page 3: Answer Key</h3>
                                             <ul className="list-none space-y-2">
                                                 {previewData.examQuestions.map((q, index) => (
                                                     <li key={index} className="text-sm">
-                                                        <strong>Question {q.questionNumber}:</strong> {q.correctAnswer || (q.correctAnswers && Object.entries(q.correctAnswers).map(([key, val]) => `${key}-${val}`).join(', '))}
+                                                        <strong className="font-semibold text-gray-800">Question {q.questionNumber}:</strong> <span className="text-gray-700">{q.correctAnswer || (q.correctAnswers && Object.entries(q.correctAnswers).map(([key, val]) => `${key}-${val}`).join(', '))}</span>
                                                     </li>
                                                 ))}
                                             </ul>
                                         </div>
 
-                                        {/* Page 4 Preview */}
-                                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                                            <h3 className="text-lg font-bold mb-2">Page 4: Explanations</h3>
+                                        <div className="bg-white p-5 rounded-2xl shadow-sm">
+                                            <h3 className="text-lg font-bold mb-3">Page 4: Explanations</h3>
                                             <ul className="list-none space-y-4">
                                                 {previewData.examQuestions.filter(q => q.explanation || q.solution).map((q, index) => (
                                                     <li key={index} className="text-sm">
-                                                        <strong>Question {q.questionNumber}:</strong>
-                                                        {q.explanation && <p className="ml-4 italic text-slate-600">Explanation: {q.explanation}</p>}
-                                                        {q.solution && <p className="ml-4 italic text-slate-600">Solution: {q.solution}</p>}
+                                                        <strong className="font-semibold text-gray-800">Question {q.questionNumber}:</strong>
+                                                        {q.explanation && <p className="ml-4 text-gray-700">Explanation: {q.explanation}</p>}
+                                                        {q.solution && <p className="ml-4 text-gray-700">Solution: {q.solution}</p>}
                                                     </li>
                                                 ))}
                                             </ul>
                                         </div>
                                     </>
-                                ) : <p className="text-red-600">Could not generate a valid preview.</p>}
+                                ) : <p className="text-red-600 font-medium p-4">Could not generate a valid preview.</p>}
                             </div>
                         </div>
                     )}
                 </div>
 
-                <div className="pt-5 border-t border-gray-200 flex-shrink-0 flex justify-end gap-3">
+                <div className="pt-5 border-t border-gray-900/10 flex-shrink-0 flex justify-end gap-3">
                     {previewData ? (
                         <>
-                            <button onClick={() => setPreviewData(null)} disabled={isSaving} className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Back to Edit</button>
-                            <button onClick={handleSave} disabled={!isValidPreview || isSaving} className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50">
+                            <button onClick={() => setPreviewData(null)} disabled={isSaving} className="bg-gray-200 py-2.5 px-5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors">Back to Edit</button>
+                            <button onClick={handleSave} disabled={!isValidPreview || isSaving} className="inline-flex justify-center py-2.5 px-5 shadow-sm text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-colors">
                                 {isSaving ? 'Saving...' : 'Accept & Save'}
                             </button>
                         </>
                     ) : (
                         <>
-                            <button type="button" className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" onClick={onClose}>
+                            <button type="button" className="bg-gray-200 py-2.5 px-5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors" onClick={onClose}>
                                 Cancel
                             </button>
-                            <button type="button" className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50" onClick={handleGenerate} disabled={!isValidForGeneration || isGenerating}>
+                            <button type="button" className="inline-flex justify-center py-2.5 px-5 shadow-sm text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors" onClick={handleGenerate} disabled={!isValidForGeneration || isGenerating}>
                                 {isGenerating ? 'Generating...' : 'Generate Exam & TOS'}
                             </button>
                         </>

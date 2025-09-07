@@ -1,60 +1,69 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpenIcon, ChevronDownIcon, ChevronUpIcon, SparklesIcon, ArrowRightIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
-import Spinner from '../common/Spinner';
-import ViewLessonModal from './ViewLessonModal'; // Assuming correct path to ViewLessonModal
+import { BookOpenIcon, ChevronDownIcon, ChevronUpIcon, SparklesIcon, ChevronRightIcon, ChevronLeftIcon } from '@heroicons/react/24/outline';
+import ViewLessonModal from './ViewLessonModal'; // Assuming correct path
 
-// Helper component for Empty State (can be reused from StudentLessonsTab if desired)
-const EmptyState = ({ icon: Icon, text, subtext, color }) => (
-    <div className={`text-center py-12 px-4 bg-${color}-50/50 rounded-xl shadow-inner border border-${color}-200`}>
-        <Icon className={`h-16 w-16 mb-4 text-${color}-300 mx-auto`} />
-        <p className={`text-xl font-semibold text-${color}-600`}>{text}</p>
-        <p className={`mt-2 text-md text-${color}-400`}>{subtext}</p>
+// --- UI Helper Components (iOS Style) ---
+
+const EmptyState = ({ icon: Icon, text, subtext }) => (
+    <div className="text-center py-24 px-6 animate-fadeIn">
+        <Icon className="h-14 w-14 mb-4 text-slate-300 mx-auto" />
+        <p className="text-lg font-semibold text-slate-600">{text}</p>
+        <p className="mt-2 text-base text-slate-400">{subtext}</p>
     </div>
 );
 
-// Helper component for Lesson List Item (reused from StudentClassDetailView)
-const LessonListItemForStudent = ({ lesson, onClick }) => (
-    <div className="group relative p-4 sm:p-5 rounded-2xl bg-white hover:bg-sky-50 shadow-md border border-sky-200 transition-all duration-300 cursor-pointer flex items-center space-x-4 sm:space-x-5 hover:shadow-lg hover:scale-[1.005]" onClick={onClick}>
-        <div className="flex-shrink-0 p-2.5 sm:p-3 rounded-full bg-sky-100 group-hover:bg-sky-200 transition-colors">
-            <SparklesIcon className="h-6 w-6 text-sky-600" />
+const IOSLessonListItem = ({ lesson, onClick }) => (
+    <div
+        onClick={onClick}
+        className="group flex items-center space-x-4 p-4 bg-transparent hover:bg-black/5 transition-colors duration-200 cursor-pointer border-b border-slate-900/10 last:border-b-0"
+    >
+        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-red-500 flex items-center justify-center shadow-sm">
+            <SparklesIcon className="h-5 w-5 text-white" />
         </div>
         <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-slate-800 group-hover:text-blue-700 transition-colors line-clamp-2">{lesson.title}</h3> {/* MODIFIED: text-sm font-semibold */}
-            {lesson.description && <p className="text-sm text-slate-500 mt-1 line-clamp-2">{lesson.description}</p>}
+            <h3 className="text-base font-medium text-slate-800 truncate">{lesson.title}</h3>
+            {lesson.description && <p className="text-sm text-slate-500 mt-0.5 truncate">{lesson.description}</p>}
         </div>
-        <div className="flex-shrink-0 text-slate-400 group-hover:text-blue-500 transition-colors">
-            <ArrowRightIcon className="h-5 w-5" />
+        <div className="flex-shrink-0">
+            <ChevronRightIcon className="h-5 w-5 text-slate-400 group-hover:text-slate-500 transition-colors" />
         </div>
     </div>
 );
 
+// --- MODIFIED COMPONENT ---
+// The UnitSectionHeader now features a pill container for the title.
+const UnitSectionHeader = ({ title, isCollapsed, onClick }) => (
+    <button
+        onClick={onClick}
+        className="w-full flex justify-between items-center py-2 group"
+    >
+        {/* This span is now styled as a pill for emphasis */}
+        <span className="bg-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wide px-3 py-1 rounded-full">
+            {title}
+        </span>
+        {isCollapsed ? (
+            <ChevronDownIcon className="h-5 w-5 text-slate-400 group-hover:text-slate-600 transition-transform" />
+        ) : (
+            <ChevronUpIcon className="h-5 w-5 text-slate-400 group-hover:text-slate-600 transition-transform" />
+        )}
+    </button>
+);
+
+
 /**
- * Displays lessons grouped by unit for a specific class.
- *
- * @param {object} props - The component props.
- * @param {object} props.selectedClass - The class object for which to display lessons.
- * @param {Array<object>} props.lessons - All lessons associated with the selectedClass.
- * @param {Array<object>} props.units - All global unit data from Firestore.
- * @param {function} props.onBack - Callback to return to the previous view (class list).
- * @param {function} props.setLessonToView - Function to set the lesson for the modal.
+ * Displays lessons grouped by unit for a specific class, with an iOS-inspired UI.
  */
 const LessonsByUnitView = ({ selectedClass, lessons, units, onBack, setLessonToView }) => {
+    // --- CORE LOGIC AND STATE MANAGEMENT (Unchanged) ---
     const [lessonsByUnit, setLessonsByUnit] = useState({});
     const [collapsedUnits, setCollapsedUnits] = useState(new Set());
-    const [viewLessonData, setViewLessonData] = useState(null); // Local state for the modal
+    const [viewLessonData, setViewLessonData] = useState(null);
 
     useEffect(() => {
-        console.log("LessonsByUnitView - selectedClass:", selectedClass);
-        console.log("LessonsByUnitView - lessons for this class:", lessons);
-        console.log("LessonsByUnitView - all units:", units);
-
         if (lessons.length > 0 && units.length > 0) {
             const unitsMap = new Map(units.map(unit => [unit.id, unit.title]));
-
             const grouped = lessons.reduce((acc, lesson) => {
-                const unitTitle = unitsMap.get(lesson.unitId) || 'Uncategorized Unit';
-                console.log(`Lesson: ${lesson.title}, unitId: ${lesson.unitId}, Found Unit Title: ${unitsMap.get(lesson.unitId)}, Grouped As: ${unitTitle}`);
-
+                const unitTitle = unitsMap.get(lesson.unitId) || 'Uncategorized';
                 if (!acc[unitTitle]) {
                     acc[unitTitle] = [];
                 }
@@ -62,7 +71,6 @@ const LessonsByUnitView = ({ selectedClass, lessons, units, onBack, setLessonToV
                 return acc;
             }, {});
 
-            // Sort lessons within each unit
             Object.keys(grouped).forEach(unitTitle => {
                 grouped[unitTitle].sort((a, b) => {
                     const orderA = a.order ?? Infinity;
@@ -73,27 +81,25 @@ const LessonsByUnitView = ({ selectedClass, lessons, units, onBack, setLessonToV
             });
 
             setLessonsByUnit(grouped);
-            // Collapse all units by default when data loads
             setCollapsedUnits(new Set(Object.keys(grouped)));
 
         } else if (lessons.length > 0 && units.length === 0) {
-            console.warn("Lessons for selected class found, but no units loaded. Grouping all lessons as 'Uncategorized Unit'.");
-            const grouped = { 'Uncategorized Unit': [...lessons] };
-            grouped['Uncategorized Unit'].sort((a, b) => {
+            const grouped = { 'Uncategorized': [...lessons] };
+            grouped['Uncategorized'].sort((a, b) => {
                 const orderA = a.order ?? Infinity;
                 const orderB = b.order ?? Infinity;
                 if (orderA !== orderB) return orderA - orderB;
                 return a.title.localeCompare(b.title, 'en-US', { numeric: true });
             });
             setLessonsByUnit(grouped);
-            setCollapsedUnits(new Set(['Uncategorized Unit']));
+            setCollapsedUnits(new Set(Object.keys(grouped)));
         }
         else {
             setLessonsByUnit({});
             setCollapsedUnits(new Set());
         }
-    }, [lessons, units]); // Dependencies on lessons (for the class) and all units
-
+    }, [lessons, units]);
+    
     const toggleUnitCollapse = (unitTitle) => {
         setCollapsedUnits(prev => {
             const newSet = new Set(prev);
@@ -107,63 +113,65 @@ const LessonsByUnitView = ({ selectedClass, lessons, units, onBack, setLessonToV
     };
 
     const handleLessonClick = (lesson) => {
-        setViewLessonData(lesson); // Use local state for modal
-        setLessonToView(lesson); // Also call the parent's handler if needed
+        setViewLessonData(lesson);
+        setLessonToView(lesson);
     };
 
     const closeLessonModal = () => {
-        setViewLessonData(null); // Clear local state to close modal
-        setLessonToView(null); // Clear parent's state
+        setViewLessonData(null);
+        setLessonToView(null);
     };
-
+    
     const sortedUnitTitles = Object.keys(lessonsByUnit).sort();
 
+    // --- RENDER/VIEW ---
     return (
-        <div className="min-h-[60vh]">
-            <button
-                onClick={onBack}
-                className="flex items-center text-blue-600 hover:text-blue-800 transition-colors mb-6 font-semibold text-sm group"
-            >
-                <ArrowLeftIcon className="h-4 w-4 mr-1 group-hover:-translate-x-0.5 transition-transform" /> Back to All Classes
-            </button>
-            <h2 className="text-3xl font-extrabold text-slate-900 mb-2">Lessons for {selectedClass.name}</h2>
-            <p className="text-lg text-slate-600 mb-8">Organized by unit for this class.</p>
+        <div className="min-h-full font-sans antialiased"> 
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <button
+                    onClick={onBack}
+                    className="flex items-center text-red-600 hover:text-red-700 transition-colors mb-6 text-lg group font-semibold"
+                >
+                    <ChevronLeftIcon className="h-6 w-6 mr-1 transition-transform group-hover:-translate-x-1" />
+                    <span>All Classes</span>
+                </button>
 
-            {sortedUnitTitles.length > 0 ? (
-                <div className="space-y-3"> {/* Reduced space-y from 6 to 3 for compactness */}
-                    {sortedUnitTitles.map(unitTitle => (
-                        <div key={unitTitle} className="bg-white rounded-xl shadow-md border border-gray-100 animate-slideInUp">
-                            <button
-                                className="flex items-center justify-between w-full p-3 font-semibold text-base text-slate-800 bg-gradient-to-r from-teal-50 to-white hover:from-teal-100 rounded-t-xl transition-colors"
-                                onClick={() => toggleUnitCollapse(unitTitle)}
-                            >
-                                {unitTitle}
-                                {collapsedUnits.has(unitTitle) ? (
-                                    <ChevronDownIcon className="h-6 w-6 text-slate-500" />
-                                ) : (
-                                    <ChevronUpIcon className="h-6 w-6 text-slate-500" />
-                                )}
-                            </button>
-                            {!collapsedUnits.has(unitTitle) && (
-                                <div className="p-4 space-y-2 border-t border-slate-100"> {/* Reduced space-y from 4 to 2 */}
-                                    {lessonsByUnit[unitTitle].map(lesson => (
-                                        <LessonListItemForStudent key={lesson.id} lesson={lesson} onClick={() => handleLessonClick(lesson)} />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                <div className="mb-10">
+                    <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-slate-900 mb-2">Lessons</h1>
+                    <p className="text-xl sm:text-2xl text-slate-500">For {selectedClass.name}</p>
                 </div>
-            ) : (
-                <EmptyState
-                    icon={BookOpenIcon}
-                    text={`No lessons found for ${selectedClass.name}.`}
-                    subtext="Lessons will appear here once your teacher shares them."
-                    color="sky"
-                />
-            )}
 
-            {/* View Lesson Modal */}
+                {sortedUnitTitles.length > 0 ? (
+                    <div className="space-y-4"> {/* Reduced space-y for a tighter look with the new headers */}
+                        {sortedUnitTitles.map(unitTitle => {
+                            const isCollapsed = collapsedUnits.has(unitTitle);
+                            return (
+                                <div key={unitTitle} className="animate-fadeIn">
+                                    <UnitSectionHeader
+                                        title={unitTitle}
+                                        isCollapsed={isCollapsed}
+                                        onClick={() => toggleUnitCollapse(unitTitle)}
+                                    />
+                                    {!isCollapsed && (
+                                        <div className="mt-1 bg-white/60 backdrop-blur-3xl rounded-2xl shadow-lg-floating-md border border-slate-200/50 overflow-hidden">
+                                            {lessonsByUnit[unitTitle].map(lesson => (
+                                                <IOSLessonListItem key={lesson.id} lesson={lesson} onClick={() => handleLessonClick(lesson)} />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <EmptyState
+                        icon={BookOpenIcon}
+                        text={`No Lessons Available`}
+                        subtext="Your teacher hasn't shared any lessons for this class yet."
+                    />
+                )}
+            </div>
+
             <ViewLessonModal
                 isOpen={!!viewLessonData}
                 onClose={closeLessonModal}

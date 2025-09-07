@@ -1,23 +1,21 @@
-/* Spinner.css - Redesigned for branded loading experience */
+/* Spinner.css - Updated with Modal's Background Style */
 
+/* --- Font & Base Styles --- */
 :root {
-  /* --- Customize your spinner here --- */
-  --spinner-size: 100px; /* Base size for the main circling element */
-  --spinner-rotation-speed: 10s; /* Faster rotation for dynamic feel */
-  --color-pulse-speed: 1.5s; /* Speed for the color pulsation */
+  /* --- KEY CHANGES to match the modal's aesthetic --- */
+  /* Darker text to ensure contrast against the new gray background */
+  --text-color: rgb(17, 24, 39); /* text-gray-900 */
+  --text-color-secondary: rgb(55, 65, 81); /* text-gray-700 */
+  --spinner-color: rgb(107, 114, 128); /* text-gray-500 */
 
-  /* Vibrant, modern color palette for the main circling gradient (RGB values, no pinks/purples) */
-  --color-1: rgb(0, 179, 255);   /* Blue */
-  --color-2: rgb(0, 255, 170);   /* Aqua/Turquoise */
-  --color-3: rgb(128, 255, 0);   /* Lime Green */
-  --color-4: rgb(255, 255, 0);   /* Yellow */
-  --color-5: rgb(255, 128, 0);   /* Orange */
-  --color-6: rgb(255, 0, 0);     /* Red */
-  --color-7: rgb(0, 179, 255);   /* Repeat start color for smooth loop */
+  /* Matches the modal's bg-black/40 backdrop */
+  --overlay-bg: rgba(0, 0, 0, 0.4);
 
+  /* Matches the modal's bg-gray-200/60 for a cleaner look */
+  --container-bg: rgba(229, 231, 235, 0.6);
 
-  --text-color: rgb(240, 240, 240); /* Light gray for main text */
-  --overlay-bg: rgba(10, 10, 15, 0.7); /* Darker, more prominent overlay */
+  /* Matches the modal's subtle border-white/20 */
+  --container-border: rgba(255, 255, 255, 0.2);
 }
 
 /* Full-screen overlay */
@@ -31,10 +29,12 @@
   justify-content: center;
   align-items: center;
   background-color: var(--overlay-bg);
-  backdrop-filter: blur(15px) saturate(150%);
-  -webkit-backdrop-filter: blur(15px) saturate(150%);
+  /* Using a medium blur on the backdrop, similar to the modal */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   z-index: 9999;
-  font-family: 'Inter', sans-serif; /* Assuming Inter font is available or fallbacks */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
 }
 
 /* Container for all spinner elements */
@@ -42,144 +42,96 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.5rem; /* Increased spacing between elements */
-  text-align: center;
-  padding: 2rem;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--container-bg);
   border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-}
-
-/*
- * The Circling Gradient Effect (outer ring)
- * This div acts as the container for the revolving gradient.
- * The school logo will be positioned on top of this.
-*/
-.pulsar-spinner {
-  position: relative;
-  width: var(--spinner-size);
-  height: var(--spinner-size);
-  border-radius: 50%;
-  overflow: hidden; /* Crucial to contain the revolving pseudo-element */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.5); /* Subtle shadow for the central element */
-}
-
-/*
- * The pseudo-element holds the revolving gradient.
- * This creates the "circling varied gradient colors" effect, now with pulsation.
-*/
-.pulsar-spinner::before {
-  content: '';
-  position: absolute;
-  top: -10%;
-  left: -10%;
-  width: 120%;
-  height: 120%;
-  background: conic-gradient(
-    from 0deg,
-    var(--color-1) 0%,
-    var(--color-2) 16.6%,
-    var(--color-3) 33.3%,
-    var(--color-4) 50%,
-    var(--color-5) 66.6%,
-    var(--color-6) 83.3%,
-    var(--color-7) 100%
-  );
-  filter: blur(8px); /* Reduced blur for distinct colors */
-  animation: rotate var(--spinner-rotation-speed) linear infinite,
-             pulseColorOpacity var(--color-pulse-speed) ease-in-out infinite alternate; /* Added pulse animation */
-  z-index: 0; /* Ensure it's behind the logo */
+  border: 1px solid var(--container-border);
+  gap: 1.25rem;
+  padding: 2.5rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  /* --- NEW: Adds a strong blur to the container itself, just like the modal panel --- */
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
 }
 
 /* Style for the school logo */
 .school-logo {
-  position: relative;
-  z-index: 1;
-  background-color: rgba(139, 0, 0, 0.3); /* Translucent maroon/dark red */
-  padding: 5px;
-  box-sizing: border-box;
-  border-radius: 50%; /* Ensure it's perfectly round */
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  margin-bottom: 0.5rem;
 }
-
-/* --- Keyframe Animations --- */
-
-/* Rotates the gradient for the fluid color-shifting effect */
-@keyframes rotate {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* New animation for pulsating colors (opacity) */
-@keyframes pulseColorOpacity {
-  0% { opacity: 0.8; } /* Start slightly transparent */
-  50% { opacity: 1; } /* Fully opaque at peak */
-  100% { opacity: 0.8; } /* Back to slightly transparent */
-}
-
-/* Blinking animation for the typewriter cursor */
-@keyframes blink {
-  50% {
-    opacity: 0;
-  }
-}
-
-/* --- Text Styles --- */
-
-/* "Powered by Gemini" container */
-.powered-by-gemini {
-    color: rgb(160, 160, 160); /* RGB value for #a0a0a0 */
-    font-weight: 500;
-    text-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
-    font-size: 0.9em;
-    display: flex;
-    align-items: center; /* Ensures vertical centering of its contents */
-    justify-content: center; /* Ensures horizontal centering of its contents */
-    gap: 0.25rem; /* Standard spacing between items */
-    line-height: 1; /* Normalize line-height for better centering */
-}
-
-.powered-by-gemini span {
-    /* --- IMPORTANT CHANGE: Adjusted transform for more precise vertical/horizontal alignment --- */
-    transform: translateY(3px) translateX(-2px); /* Move "Powered by" text slightly more down and a little to the left */
-    display: inline-block; /* Essential for transform to work */
-    line-height: inherit;
-}
-
-.powered-by-gemini img {
-    vertical-align: middle; /* Helps with optical alignment if needed */
-}
-
 
 /* "SRCS LEARNING PORTAL" text (Branding text) */
 .branding-text {
-  color: rgb(255, 255, 255); /* Pure white (RGB) */
+  color: var(--text-color);
+  font-size: 1.2em;
   font-weight: 700;
-  text-shadow: 0 0 15px rgba(0, 0, 0, 0.6);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.05em;
 }
 
-/* Typewriter Text Styles */
+
+/* --- iOS Spinner Animation --- */
+.ios-spinner {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  margin: 1rem 0;
+}
+
+.ios-spinner div {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 2.5px;
+  height: 10px;
+  background-color: var(--spinner-color);
+  border-radius: 2px;
+  transform-origin: 1.25px 17px;
+  animation: ios-spinner-fade 1.2s ease-in-out infinite;
+}
+
+@keyframes ios-spinner-fade {
+  from { opacity: 1; }
+  to { opacity: 0.15; }
+}
+
+/* Positioning and delay for each of the 12 ticks */
+.ios-spinner div:nth-child(1)  { transform: rotate(0deg);   animation-delay: -1.1s; }
+.ios-spinner div:nth-child(2)  { transform: rotate(30deg);  animation-delay: -1.0s; }
+.ios-spinner div:nth-child(3)  { transform: rotate(60deg);  animation-delay: -0.9s; }
+.ios-spinner div:nth-child(4)  { transform: rotate(90deg);  animation-delay: -0.8s; }
+.ios-spinner div:nth-child(5)  { transform: rotate(120deg); animation-delay: -0.7s; }
+.ios-spinner div:nth-child(6)  { transform: rotate(150deg); animation-delay: -0.6s; }
+.ios-spinner div:nth-child(7)  { transform: rotate(180deg); animation-delay: -0.5s; }
+.ios-spinner div:nth-child(8)  { transform: rotate(210deg); animation-delay: -0.4s; }
+.ios-spinner div:nth-child(9)  { transform: rotate(240deg); animation-delay: -0.3s; }
+.ios-spinner div:nth-child(10) { transform: rotate(270deg); animation-delay: -0.2s; }
+.ios-spinner div:nth-child(11) { transform: rotate(300deg); animation-delay: -0.1s; }
+.ios-spinner div:nth-child(12) { transform: rotate(330deg); animation-delay: 0s; }
+
+
+/* --- Typewriter Text Styles --- */
 .spinner-text-container {
-  color: var(--text-color);
-  font-size: 1.1em;
-  font-weight: 500;
+  color: var(--text-color-secondary);
+  font-size: 1em;
+  font-weight: 400;
   height: 1.5em;
   font-family: 'SF Mono', 'Fira Code', 'IBM Plex Mono', monospace;
-  text-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
-  margin-top: 1rem;
 }
 
 .typing-cursor {
   display: inline-block;
-  width: 2px;
-  height: 1.1em;
-  background-color: var(--text-color);
-  opacity: 0.7;
-  margin-left: 4px;
+  width: 1px;
+  height: 1em;
+  background-color: var(--text-color-secondary);
   animation: blink 1s step-end infinite;
-  vertical-align: bottom;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
 }

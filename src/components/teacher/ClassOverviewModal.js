@@ -185,7 +185,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             nestedUnsubscribes.forEach(unsub => unsub());
         };
     }, [classData?.id, showToast]);
-
+    
     useEffect(() => {
         if (isAnnouncementsLoaded && isUnitsLoaded && isPostsLoaded && isLessonsLoaded && isQuizzesLoaded && isScoresLoaded && isLocksLoaded) {
             setLoading(false);
@@ -295,10 +295,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
     };
 
-    const baseCardClasses = "bg-white p-4 rounded-xl border border-gray-200/80 shadow-sm hover:shadow-lg hover:border-gray-300 transition-all duration-300 transform hover:scale-[1.01]";
-
     const EmptyState = ({ icon: Icon, text, subtext }) => (
-        <div className="text-center p-12 bg-gray-100 rounded-2xl border-2 border-dashed border-gray-200 animate-fadeIn mt-4">
+        <div className="text-center p-12 bg-gray-500/5 rounded-2xl border-2 border-dashed border-gray-200 animate-fadeIn mt-4">
             <Icon className="h-16 w-16 mb-4 text-gray-300 mx-auto" />
             <p className="text-xl font-semibold text-gray-700">{text}</p>
             <p className="mt-2 text-base text-gray-500">{subtext}</p>
@@ -307,7 +305,44 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
     const renderContent = () => {
         if (loading) return <div className="text-center py-10 text-gray-500 text-lg">Loading...</div>;
+        
+        // Custom sort function to handle "Unit 2" vs "Unit 14" correctly
+        const customUnitSort = (a, b) => {
+            const numA = parseInt(a.match(/\d+/)?.[0], 10);
+            const numB = parseInt(b.match(/\d+/)?.[0], 10);
+    
+            // If both have numbers, sort by number
+            if (!isNaN(numA) && !isNaN(numB)) {
+                return numA - numB;
+            }
+            // If only 'a' has a number, it comes first
+            if (!isNaN(numA)) {
+                return -1;
+            }
+            // If only 'b' has a number, it comes first
+            if (!isNaN(numB)) {
+                return 1;
+            }
+            // Otherwise, fall back to alphabetical sort
+            return a.localeCompare(b);
+        };
 
+        const ListItem = ({ children }) => (
+            <div className="flex items-center justify-between gap-4 py-4 px-5 border-b border-gray-200/80 last:border-b-0 hover:bg-gray-500/10 transition-colors">
+                {children}
+            </div>
+        );
+
+        const UnitGroup = ({ title, children }) => (
+            <div className="bg-black/5 rounded-2xl border border-white/50 animate-slideInUp">
+                <button className="flex items-center justify-between w-full p-4 font-semibold text-xl text-gray-800 transition-all" onClick={() => toggleUnitCollapse(title)}>
+                    <span>{title}</span>
+                    {collapsedUnits.has(title) ? <ChevronDownIcon className="h-6 w-6 text-gray-500" /> : <ChevronUpIcon className="h-6 w-6 text-gray-500" />}
+                </button>
+                {!collapsedUnits.has(title) && <div className="px-1 pb-1">{children}</div>}
+            </div>
+        );
+        
         if (activeTab === 'lessons') {
             const lessonsByUnit = sharedContentPosts.reduce((acc, post) => {
                 (post.lessonIds || []).forEach(lessonId => {
@@ -320,32 +355,24 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 });
                 return acc;
             }, {});
-            const sortedUnitKeys = Object.keys(lessonsByUnit).sort((a, b) => a.localeCompare(b));
+            const sortedUnitKeys = Object.keys(lessonsByUnit).sort(customUnitSort);
             return (
                 <div className="space-y-6">
                     {sortedUnitKeys.length > 0 ? sortedUnitKeys.map(unitDisplayName => (
-                        <div key={unitDisplayName} className="bg-white rounded-xl shadow-md border border-gray-100 animate-slideInUp">
-                            <button className="flex items-center justify-between w-full p-4 font-bold text-lg text-gray-800 hover:bg-gray-50 rounded-t-xl transition-all" onClick={() => toggleUnitCollapse(unitDisplayName)}>
-                                <span>{unitDisplayName}</span>
-                                {collapsedUnits.has(unitDisplayName) ? <ChevronDownIcon className="h-6 w-6 text-gray-500" /> : <ChevronUpIcon className="h-6 w-6 text-gray-500" />}
-                            </button>
-                            {!collapsedUnits.has(unitDisplayName) && (
-                                <div className="p-4 pt-0 space-y-3">
-                                    {lessonsByUnit[unitDisplayName].sort((a, b) => a.lessonDetails.title.localeCompare(b.lessonDetails.title)).map(({ post, lessonDetails }) => (
-                                        <div key={`${post.id}-${lessonDetails.id}`} className={`${baseCardClasses} flex items-center justify-between gap-4`}>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-bold text-slate-800 text-lg cursor-pointer hover:text-blue-600 transition-colors truncate" onClick={() => setViewLessonData(lessonDetails)}>{lessonDetails.title}</p>
-                                                <div className="text-sm text-gray-500 mt-1 flex items-center gap-2"><CalendarDaysIcon className="h-4 w-4 text-gray-400" /><span>{post.availableFrom?.toDate().toLocaleString()}</span></div>
-                                            </div>
-                                            <div className="flex space-x-1 flex-shrink-0">
-                                                <button onClick={() => handleEditDatesClick(post)} title="Edit Availability" className="p-2 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition-colors"><PencilSquareIcon className="w-5 h-5" /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, lessonDetails.id, 'lesson'); }} className="p-2 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors" title="Unshare Lesson"><TrashIcon className="w-5 h-5" /></button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                        <UnitGroup key={unitDisplayName} title={unitDisplayName}>
+                            {lessonsByUnit[unitDisplayName].sort((a, b) => a.lessonDetails.title.localeCompare(b.lessonDetails.title)).map(({ post, lessonDetails }) => (
+                                <ListItem key={`${post.id}-${lessonDetails.id}`}>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-bold text-slate-800 text-lg cursor-pointer hover:text-blue-600 transition-colors truncate" onClick={() => setViewLessonData(lessonDetails)}>{lessonDetails.title}</p>
+                                        <div className="text-sm text-gray-500 mt-1 flex items-center gap-2"><CalendarDaysIcon className="h-4 w-4 text-gray-400" /><span>{post.availableFrom?.toDate().toLocaleString()}</span></div>
+                                    </div>
+                                    <div className="flex space-x-1 flex-shrink-0">
+                                        <button onClick={() => handleEditDatesClick(post)} title="Edit Availability" className="p-2 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition-colors"><PencilSquareIcon className="w-5 h-5" /></button>
+                                        <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, lessonDetails.id, 'lesson'); }} className="p-2 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors" title="Unshare Lesson"><TrashIcon className="w-5 h-5" /></button>
+                                    </div>
+                                </ListItem>
+                            ))}
+                        </UnitGroup>
                     )) : <EmptyState icon={BookOpenIcon} text="No lessons shared yet" subtext="Share lessons with your class to get started." />}
                 </div>
             );
@@ -363,32 +390,24 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 });
                 return acc;
             }, {});
-            const sortedUnitKeys = Object.keys(quizzesByUnit).sort((a, b) => a.localeCompare(b));
+            const sortedUnitKeys = Object.keys(quizzesByUnit).sort(customUnitSort);
             return (
                 <div className="space-y-6">
                     {sortedUnitKeys.length > 0 ? sortedUnitKeys.map(unitDisplayName => (
-                        <div key={unitDisplayName} className="bg-white rounded-xl shadow-md border border-gray-100 animate-slideInUp">
-                            <button className="flex items-center justify-between w-full p-4 font-bold text-lg text-gray-800 hover:bg-gray-50 rounded-t-xl transition-all" onClick={() => toggleUnitCollapse(unitDisplayName)}>
-                                <span>{unitDisplayName}</span>
-                                {collapsedUnits.has(unitDisplayName) ? <ChevronDownIcon className="h-6 w-6 text-gray-500" /> : <ChevronUpIcon className="h-6 w-6 text-gray-500" />}
-                            </button>
-                            {!collapsedUnits.has(unitDisplayName) && (
-                                <div className="p-4 pt-0 space-y-3">
-                                    {quizzesByUnit[unitDisplayName].sort((a, b) => a.quizDetails.title.localeCompare(b.quizDetails.title)).map(({ post, quizDetails }) => (
-                                        <div key={`${post.id}-${quizDetails.id}`} className={`${baseCardClasses} flex items-center justify-between gap-4`}>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-bold text-slate-800 text-lg cursor-pointer hover:text-purple-600 transition-colors truncate" onClick={() => setViewQuizData(quizDetails)}>{quizDetails.title}</p>
-                                                <div className="text-sm text-gray-500 mt-1 flex items-center gap-2"><CalendarDaysIcon className="h-4 w-4 text-gray-400" /><span>{post.availableFrom?.toDate().toLocaleString()}</span></div>
-                                            </div>
-                                            <div className="flex space-x-1 flex-shrink-0">
-                                                <button onClick={() => handleEditDatesClick(post)} title="Edit Availability" className="p-2 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition-colors"><PencilSquareIcon className="w-5 h-5" /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, quizDetails.id, 'quiz'); }} className="p-2 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors" title="Unshare Quiz"><TrashIcon className="w-5 h-5" /></button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                        <UnitGroup key={unitDisplayName} title={unitDisplayName}>
+                            {quizzesByUnit[unitDisplayName].sort((a, b) => a.quizDetails.title.localeCompare(b.quizDetails.title)).map(({ post, quizDetails }) => (
+                                <ListItem key={`${post.id}-${quizDetails.id}`}>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-bold text-slate-800 text-lg cursor-pointer hover:text-purple-600 transition-colors truncate" onClick={() => setViewQuizData(quizDetails)}>{quizDetails.title}</p>
+                                        <div className="text-sm text-gray-500 mt-1 flex items-center gap-2"><CalendarDaysIcon className="h-4 w-4 text-gray-400" /><span>{post.availableFrom?.toDate().toLocaleString()}</span></div>
+                                    </div>
+                                    <div className="flex space-x-1 flex-shrink-0">
+                                        <button onClick={() => handleEditDatesClick(post)} title="Edit Availability" className="p-2 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition-colors"><PencilSquareIcon className="w-5 h-5" /></button>
+                                        <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, quizDetails.id, 'quiz'); }} className="p-2 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors" title="Unshare Quiz"><TrashIcon className="w-5 h-5" /></button>
+                                    </div>
+                                </ListItem>
+                            ))}
+                        </UnitGroup>
                     )) : <EmptyState icon={AcademicCapIcon} text="No quizzes shared yet" subtext="Share quizzes with your class to get started." />}
                 </div>
             );
@@ -412,34 +431,34 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         
         if (activeTab === 'students') {
             return (
-                <div className="space-y-3">
-                    {(classData?.students && classData.students.length > 0) ? classData.students.map(student => (
-                        <div key={student.id} className={`${baseCardClasses} flex items-center justify-between gap-4`}>
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-semibold text-lg flex-shrink-0 border">
-                                    {student.firstName?.charAt(0).toUpperCase()}
-                                </div>
-                                <div>
-                                    <p className="font-bold text-gray-800">{student.firstName} {student.lastName}</p>
-                                    <p className="text-sm text-gray-500">ID: {student.id}</p>
-                                </div>
-                            </div>
-                            <button onClick={() => onRemoveStudent(classData.id, student.id)} className="p-2 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors" title={`Remove ${student.firstName}`}><TrashIcon className="w-5 h-5" /></button>
+                 <div className="space-y-3">
+                    {(classData?.students && classData.students.length > 0) ? (
+                        <div className="bg-black/5 rounded-2xl border border-white/50 p-1">
+                            {classData.students.map(student => (
+                                <ListItem key={student.id}>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 font-semibold text-lg flex-shrink-0 border border-gray-300">
+                                            {student.firstName?.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-gray-800">{student.firstName} {student.lastName}</p>
+                                            <p className="text-sm text-gray-500">ID: {student.id}</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => onRemoveStudent(classData.id, student.id)} className="p-2 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors" title={`Remove ${student.firstName}`}><TrashIcon className="w-5 h-5" /></button>
+                                </ListItem>
+                            ))}
                         </div>
-                    )) : <EmptyState icon={UsersIcon} text="No students enrolled" subtext="Share the class code to get students enrolled." />}
+                    ) : <EmptyState icon={UsersIcon} text="No students enrolled" subtext="Share the class code to get students enrolled." />}
                 </div>
             );
         }
 
+        // Default tab: announcements
         return (
             <div className="flex-1 flex flex-col">
-                {userProfile?.role === 'teacher' && (
-                    <div className="mb-4 text-right">
-                        <Button onClick={() => setShowAddForm(prev => !prev)} icon={PlusCircleIcon} className="bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all">{showAddForm ? 'Cancel' : 'New Announcement'}</Button>
-                    </div>
-                )}
                 {showAddForm && (
-                    <div className="mb-4 p-4 bg-white border border-gray-200 rounded-xl shadow-sm animate-fadeIn">
+                    <div className="mb-6 p-4 bg-white border border-gray-200 rounded-xl shadow-sm animate-fadeIn">
                         <CreateClassAnnouncementForm classId={classData.id} onAnnouncementPosted={() => setShowAddForm(false)} />
                     </div>
                 )}
@@ -460,50 +479,55 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         { id: 'students', name: 'Students', icon: UsersIcon, count: classData?.students?.length || 0 }
     ];
 
-    // THIS IS THE FINAL CORRECTED STRUCTURE
     return (
         <>
             <Modal
                 isOpen={isOpen}
                 onClose={onClose}
-                title="" // Title is handled inside the content for more complex layout
+                title=""
                 size="screen"
                 roundedClass="rounded-none sm:rounded-2xl"
-                // The main modal's container. Let it use the default z-index from the Modal component (e.g., z-40)
-                // The iOS blur effect is applied here.
-                containerClassName="h-full sm:h-auto p-0 sm:p-4 bg-black/20 backdrop-blur-sm"
+                containerClassName="h-full sm:h-auto p-0 sm:p-4 bg-black/20 backdrop-blur-md"
                 contentClassName="p-0"
             >
-                <div className="flex flex-col md:flex-row bg-gray-50 h-full w-full p-4 gap-4">
-                    <nav className="flex-shrink-0 bg-white/70 backdrop-blur-xl p-4 rounded-2xl border border-gray-200/80 shadow-lg md:w-60">
-                        <div className="mb-4 p-2 hidden md:block">
-                             <h2 className="text-xl font-bold text-gray-800 truncate">{classData?.name || 'Class'}</h2>
-                             <p className="text-sm text-gray-500">Class Management</p>
+                <div className="flex flex-col md:flex-row bg-transparent h-full w-full p-4 gap-4">
+                    {/* --- Sidebar Navigation --- */}
+                    <nav className="flex-shrink-0 bg-black/5 backdrop-blur-xl p-4 rounded-2xl border border-white/50 shadow-lg md:w-64">
+                        <div className="mb-6 p-2 hidden md:block">
+                             <h2 className="text-2xl font-bold text-gray-800 truncate">{classData?.name || 'Class'}</h2>
+                             <p className="text-sm text-gray-600">Class Management</p>
                         </div>
                         <div className="flex flex-row md:flex-col md:space-y-2 overflow-x-auto gap-2">
                            {tabs.map(tab => (
-                               <button key={tab.id} onClick={() => handleTabChange(tab.id)} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 w-full text-left flex-shrink-0 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-200/50 hover:text-gray-900'}`}>
+                               <button 
+                                   key={tab.id} 
+                                   onClick={() => handleTabChange(tab.id)} 
+                                   className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 w-full text-left flex-shrink-0 transform hover:scale-[1.02] ${activeTab === tab.id ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'text-gray-700 hover:bg-blue-500/10'}`}
+                               >
                                    <tab.icon className="h-5 w-5" /> {tab.name} {tab.count !== undefined && `(${tab.count})`}
                                </button>
                            ))}
                         </div>
                     </nav>
-                    <main className="flex-1 bg-white/70 backdrop-blur-xl rounded-2xl border border-gray-200/80 shadow-lg flex flex-col overflow-hidden">
-                        <header className="p-6 border-b border-gray-200 flex-shrink-0">
-                            <h2 className="text-2xl font-bold text-gray-900 capitalize">{activeTab}</h2>
+                    
+                    {/* --- Main Content --- */}
+                    <main className="flex-1 bg-white/60 backdrop-blur-xl rounded-2xl border border-white/50 shadow-lg flex flex-col overflow-hidden">
+                        <header className="px-8 pt-8 pb-4 flex-shrink-0 flex items-center justify-between">
+                            <h2 className="text-3xl font-bold text-gray-900 capitalize">{activeTab}</h2>
+                            {activeTab === 'announcements' && userProfile?.role === 'teacher' && (
+                                <div>
+                                    <Button onClick={() => setShowAddForm(prev => !prev)} icon={PlusCircleIcon} className="bg-blue-500 hover:bg-blue-600 text-white shadow-md hover:shadow-lg transition-all">{showAddForm ? 'Cancel' : 'New'}</Button>
+                                </div>
+                            )}
                         </header>
-                        <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
+                        <div className="flex-1 px-8 pb-8 overflow-y-auto custom-scrollbar">
                            {renderContent()}
                         </div>
                     </main>
                 </div>
             </Modal>
             
-            {/* * FINAL Z-INDEX FIX: Reverting to your original, correct pattern.
-              * Modals are placed here as siblings to the main modal.
-              * We pass a high z-index directly via the `className` prop, which the
-              * respective modal components are designed to handle.
-            */}
+            {/* All subsequent modals remain unchanged, preserving their z-index and functionality. */}
             <GenerateReportModal
                 isOpen={isReportModalOpen}
                 onClose={() => setIsReportModalOpen(false)}
@@ -563,7 +587,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 const AnnouncementListItem = ({ post, isOwn, onEdit, onDelete, isEditing, editContent, onChangeEdit, onSaveEdit, onCancelEdit, onClick }) => {
     const formattedDate = post.createdAt?.toDate().toLocaleString() || 'N/A';
     return (
-        <div className="group relative bg-white p-5 rounded-xl shadow-sm border border-gray-200/80 transition-all duration-300 transform hover:scale-[1.01] hover:shadow-lg cursor-pointer" onClick={!isEditing ? onClick : undefined}>
+        <div className="group relative bg-white/80 p-5 rounded-2xl shadow-md border border-white/50 transition-all duration-300 transform hover:scale-[1.01] hover:shadow-lg cursor-pointer" onClick={!isEditing ? onClick : undefined}>
             {isEditing ? (
                 <div className="flex flex-col gap-3">
                     <textarea className="w-full border border-gray-300 p-2 rounded-lg text-base text-gray-800 focus:ring-2 focus:ring-blue-500" rows={3} value={editContent} onChange={onChangeEdit} onClick={(e) => e.stopPropagation()} />

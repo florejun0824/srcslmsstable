@@ -1,97 +1,25 @@
 // src/pages/LoginPage.js
 
-import React, { useState, Suspense } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { ArrowLeft } from 'lucide-react';
-import { AcademicCapIcon, BriefcaseIcon } from '@heroicons/react/24/solid'; // RE-ADDED: Import icons
+import { AcademicCapIcon, BriefcaseIcon, AtSymbolIcon, LockClosedIcon } from '@heroicons/react/24/solid';
+import RoleDock from '../components/common/RoleDock'; 
 
-import { Capacitor } from '@capacitor/core';
-
-const RoleCard = React.lazy(() => import('./RoleCard'));
-
-// REMOVED: SVG path data constants, as we're using icon components directly
+const HeliosBackground = () => (
+    <div className="absolute inset-0 z-0 overflow-hidden bg-gray-50">
+        <div className="absolute top-[-20%] left-[-10%] w-96 h-96 bg-purple-100 rounded-full filter blur-3xl opacity-60 animate-blob"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-blue-100 rounded-full filter blur-3xl opacity-60 animate-blob animation-delay-2000"></div>
+        <div className="absolute bottom-[20%] left-[15%] w-80 h-80 bg-teal-100 rounded-full filter blur-3xl opacity-50 animate-blob animation-delay-4000"></div>
+    </div>
+);
 
 
 const LoginPage = () => {
-    const isMobileApp = Capacitor.isNativePlatform();
-
-    const [step, setStep] = useState(isMobileApp ? 'loginForm' : 'roleSelection');
-    const [selectedRole, setSelectedRole] = useState(isMobileApp ? 'student' : null);
-
+    const [selectedRole, setSelectedRole] = useState('student');
     const [isLoading, setIsLoading] = useState(false);
     const { login } = useAuth();
     const { showToast } = useToast();
-
-    const handleRoleSelect = (role) => {
-        setSelectedRole(role);
-        setStep('loginForm');
-    };
-
-    const handleBack = () => {
-        setStep('roleSelection');
-        setSelectedRole(null);
-    };
-
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-100 text-gray-800 flex flex-col items-center justify-center p-4 overflow-hidden">
-            <div className="w-full max-w-6xl mx-auto">
-                {step === 'roleSelection' && (
-                    <Suspense fallback={<div>Loading roles...</div>}>
-                        <RoleSelection onSelect={handleRoleSelect} />
-                    </Suspense>
-                )}
-
-                {step === 'loginForm' && (
-                    <LoginForm
-                        role={selectedRole}
-                        onBack={handleBack}
-                        login={login}
-                        showToast={showToast}
-                        isLoading={isLoading}
-                        setIsLoading={setIsLoading}
-                        isMobileApp={isMobileApp}
-                    />
-                )}
-            </div>
-            <p className="text-sm text-gray-500 mt-8">SRCS Learning Portal &copy; 2025</p>
-        </div>
-    );
-};
-
-
-const RoleSelection = ({ onSelect }) => {
-    return (
-        <div className="text-center">
-            <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="SRCS Logo" className="w-24 h-24 mx-auto mb-4 rounded-full border-2 border-white shadow-lg" />
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
-                Your Learning Adventure Awaits
-            </h1>
-            <p className="text-lg text-gray-600 mb-12">Who are you logging in as today?</p>
-            <div className="flex flex-col md:flex-row items-center justify-center gap-10 md:gap-20">
-                <RoleCard
-                    role="student"
-                    title="I'm a Student"
-                    Icon={AcademicCapIcon} // RE-ADDED: Icon component
-                    gradient="from-blue-500 to-purple-600" // Background circle gradient
-                    textColor="text-red-800" // RE-ADDED: Tailwind class for maroon-like color
-                    onSelect={onSelect}
-                />
-                <RoleCard
-                    role="teacher"
-                    title="I'm a Teacher"
-                    Icon={BriefcaseIcon} // RE-ADDED: Icon component
-                    gradient="from-green-500 to-teal-600" // Background circle gradient
-                    textColor="text-blue-600" // RE-ADDED: Tailwind class for blue color
-                    onSelect={onSelect}
-                />
-            </div>
-        </div>
-    );
-};
-
-
-const LoginForm = ({ role, onBack, login, showToast, isLoading, setIsLoading, isMobileApp }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -101,7 +29,7 @@ const LoginForm = ({ role, onBack, login, showToast, isLoading, setIsLoading, is
         setError('');
         setIsLoading(true);
         try {
-            await login(`${email}@srcs.edu`, password, role);
+            await login(`${email}@srcs.edu`, password, selectedRole);
         } catch (err) {
             setError(err.message);
             showToast(err.message, 'error');
@@ -110,59 +38,89 @@ const LoginForm = ({ role, onBack, login, showToast, isLoading, setIsLoading, is
         }
     };
 
-    const roleTitle = role === 'student' ? 'Student Portal' : 'Teacher Portal';
-    const accentColor = role === 'student' ? 'from-blue-500 to-purple-600' : 'from-green-500 to-teal-600';
+    const accentColor = selectedRole === 'student' ? 'blue' : 'teal';
 
     return (
-        <div className="w-full max-w-md mx-auto bg-white bg-opacity-60 backdrop-blur-md p-8 rounded-2xl shadow-lg border border-gray-200 animate-fade-in">
-            {!isMobileApp && (
-                <button onClick={onBack} className="flex items-center text-gray-500 hover:text-black mb-6 transition-colors">
-                    <ArrowLeft size={20} className="mr-2" />
-                    Back to Role Selection
-                </button>
-            )}
+        <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+            <HeliosBackground />
+            
+            <div className="relative z-10 w-full max-w-sm space-y-6 animate-fade-in-up">
+                <div className="text-center">
+                    <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="SRCS Logo" className="w-24 h-24 mx-auto mb-4 rounded-full shadow-lg" />
+                    <h1 className="text-4xl font-bold text-gray-800">
+                        Welcome Back
+                    </h1>
+                    <p className="text-gray-500">Please sign in to continue.</p>
+                </div>
 
-            <h2 className={`text-3xl font-bold text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r ${accentColor}`}>
-                {roleTitle}
-            </h2>
-            <p className="text-center text-gray-600 mb-8">Welcome! Please sign in to continue.</p>
-
-            {error && <p className="bg-red-100 text-red-700 p-3 rounded-lg mb-4 text-sm text-center">{error}</p>}
-            <form onSubmit={handleSubmit} className="space-y-6">
-                <div>
-                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="username">Username</label>
-                    <div className="flex items-center bg-white border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-400 transition-all">
-                        <input
-                            className="appearance-none bg-transparent w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none"
-                            id="username"
-                            type="text"
-                            placeholder="e.g., srcslearn01"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
+                {/* MODIFIED: Changed rounded-5xl to rounded-3xl for a more standard rounded corner. */}
+                <div className="bg-white/60 backdrop-blur-3xl p-6 rounded-3xl shadow-2xl border border-white/50 space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                        <RoleDock
+                            role="student"
+                            title="Student"
+                            Icon={AcademicCapIcon}
+                            isSelected={selectedRole === 'student'}
+                            onSelect={setSelectedRole}
+                            accentColor="blue"
                         />
-                        <span className="bg-gray-100 p-3 text-gray-500 rounded-r-lg border-l border-gray-300">@srcs.edu</span>
+                        <RoleDock
+                            role="teacher"
+                            title="Teacher"
+                            Icon={BriefcaseIcon}
+                            isSelected={selectedRole === 'teacher'}
+                            onSelect={setSelectedRole}
+                            accentColor="teal"
+                        />
                     </div>
+                    
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="space-y-4">
+                           <div className="relative group">
+                                <AtSymbolIcon className={`absolute top-1/2 -translate-y-1/2 left-4 w-5 h-5 text-gray-400 group-focus-within:text-${accentColor}-500 transition-colors duration-300`} />
+                                <input
+                                    className={`w-full bg-gray-100/70 h-14 pl-12 pr-4 text-gray-800 placeholder:text-gray-500 rounded-2xl
+                                                border-2 border-transparent focus:outline-none focus:bg-white focus:border-${accentColor}-300 transition-all duration-300`}
+                                    id="username"
+                                    type="text"
+                                    placeholder="Username"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                />
+                           </div>
+                           <div className="relative group">
+                                <LockClosedIcon className={`absolute top-1/2 -translate-y-1/2 left-4 w-5 h-5 text-gray-400 group-focus-within:text-${accentColor}-500 transition-colors duration-300`} />
+                                <input
+                                    className={`w-full bg-gray-100/70 h-14 pl-12 pr-4 text-gray-800 placeholder:text-gray-500 rounded-2xl
+                                                border-2 border-transparent focus:outline-none focus:bg-white focus:border-${accentColor}-300 transition-all duration-300`}
+                                    id="password"
+                                    type="password"
+                                    placeholder="Password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                />
+                           </div>
+                        </div>
+                        
+                        {error && <p className="text-red-600 pt-1 text-sm text-center">{error}</p>}
+
+                        <button
+                            className={`w-full h-16 bg-gradient-to-br from-${accentColor}-400 to-${accentColor}-500 text-white font-bold text-lg 
+                                       rounded-3xl focus:outline-none focus:ring-4 focus:ring-${accentColor}-200 transition-all duration-300 
+                                       disabled:opacity-60 active:scale-95 active:shadow-inner-lg shadow-lg shadow-${accentColor}-500/30
+                                       hover:shadow-xl hover:shadow-${accentColor}-500/40`}
+                            type="submit"
+                            disabled={isLoading}
+                        >
+                            {isLoading ? 'Signing In...' : 'Sign In'}
+                        </button>
+                    </form>
                 </div>
-                <div>
-                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">Password</label>
-                    <input
-                        className="shadow-sm appearance-none bg-white border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
-                        id="password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
-                </div>
-                <button
-                    className={`w-full bg-gradient-to-r ${accentColor} hover:opacity-90 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-opacity duration-300 disabled:opacity-50`}
-                    type="submit"
-                    disabled={isLoading}
-                >
-                    {isLoading ? 'Signing In...' : 'Sign In'}
-                </button>
-            </form>
+            </div>
+            
+            <p className="text-sm text-gray-500/80 mt-8 absolute bottom-5 z-10">SRCS Learning Portal &copy; 2025</p>
         </div>
     );
 };

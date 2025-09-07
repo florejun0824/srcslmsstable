@@ -3,29 +3,36 @@
 import React from 'react';
 
 /**
- * Renders a role selection card.
- * Displays an icon and a title, with interactive hover effects.
+ * Renders a segment for a macOS-inspired segmented control.
+ * Used for role selection (Student/Teacher).
  *
  * @param {object} props - The component props.
- * @param {string} props.role - The role identifier (e.g., 'student', 'teacher').
- * @param {string} props.title - The title to display for the role.
- * @param {React.ElementType} props.Icon - The icon component to render (e.g., AcademicCapIcon, BriefcaseIcon).
- * @param {string} props.gradient - Tailwind CSS gradient classes for the background.
- * @param {string} props.textColor - Tailwind CSS class for the icon's color.
+ * @param {string} props.role - The role identifier.
+ * @param {string} props.title - The title to display.
+ * @param {React.ElementType} props.Icon - The icon component.
+ * @param {boolean} props.isSelected - Whether this card is the currently selected role.
  * @param {function} props.onSelect - Callback function when the card is selected.
  */
-const RoleCard = ({ role, title, Icon, gradient, textColor, onSelect }) => {
+const RoleCard = ({ role, title, Icon, isSelected, onSelect }) => {
+    // NEW: The component is now a button within a segmented control.
+    // The visual style changes significantly based on the `isSelected` prop.
+    // Selected state has a solid white background and shadow, giving it a raised, active look.
+    // Unselected state is flat and semi-transparent.
+    const baseClasses = "w-full flex items-center justify-center gap-2 p-2.5 rounded-md cursor-pointer transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-400";
+    
+    const selectedClasses = "bg-white shadow-sm text-gray-800";
+    const unselectedClasses = "bg-transparent text-gray-600 hover:bg-white/50";
+
     return (
-        <div
-            className="group cursor-pointer flex flex-col items-center gap-4 transition-transform duration-300 hover:scale-105"
+        <button
+            type="button" // Important for forms
+            className={`${baseClasses} ${isSelected ? selectedClasses : unselectedClasses}`}
             onClick={() => onSelect(role)}
+            aria-pressed={isSelected}
         >
-            <div className={`w-48 h-48 md:w-64 md:h-64 rounded-full overflow-hidden border-4 border-white group-hover:border-blue-300 transition-all duration-300 shadow-2xl flex items-center justify-center ${gradient}`}>
-                {/* REVERTED: Using the Icon component directly with textColor */}
-                {Icon && <Icon className={`w-2/3 h-2/3 transform group-hover:scale-110 transition-transform duration-300 ${textColor}`} />}
-            </div>
-            <h2 className="text-2xl font-semibold text-gray-700 group-hover:text-black transition-colors duration-300">{title}</h2>
-        </div>
+            {Icon && <Icon className="w-5 h-5" />}
+            <span className="text-sm font-semibold">{title}</span>
+        </button>
     );
 };
 

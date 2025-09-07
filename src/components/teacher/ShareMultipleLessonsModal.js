@@ -1,36 +1,37 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../services/firebase';
 import { collection, doc, getDocs, writeBatch, serverTimestamp, query, where, Timestamp } from 'firebase/firestore';
-import Modal from '../common/Modal'; // Using our custom Modal component
-import { ChevronUpDownIcon, ShareIcon, CheckIcon } from '@heroicons/react/24/solid';
+import Modal from '../common/Modal';
+import { ChevronUpDownIcon, CheckIcon } from '@heroicons/react/24/solid';
 import PortalDatePicker from '../common/PortalDatePicker';
 
 // ===================================================================================
-// START: Custom Components (Restyled for iOS 18 Vibe)
+// START: Memoized & Restyled Custom Components
+// NOTE: Components are wrapped in React.memo to prevent unnecessary re-renders.
 // ===================================================================================
 
-const GroupCheckbox = ({ checked, indeterminate, ...props }) => {
+const GroupCheckbox = React.memo(({ checked, indeterminate, ...props }) => {
     const ref = useRef(null);
     useEffect(() => {
         if (ref.current) {
             ref.current.indeterminate = indeterminate;
         }
     }, [indeterminate]);
-    // A slightly larger, more modern checkbox
-    return <input type="checkbox" ref={ref} checked={checked} {...props} className="h-5 w-5 rounded-md border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />;
-};
+    // NEW: iOS-style larger, softer rounded checkbox
+    return <input type="checkbox" ref={ref} checked={checked} {...props} className="h-5 w-5 rounded-md border-gray-400/70 text-blue-600 focus:ring-blue-500 cursor-pointer" />;
+});
 
-function CustomMultiSelect({ title, options, selectedValues, onSelectionChange, onSelectGroup, isOpen, onToggle, disabled = false }) {
+const CustomMultiSelect = React.memo(({ title, options, selectedValues, onSelectionChange, onSelectGroup, isOpen, onToggle, disabled = false }) => {
     const selectedCount = selectedValues.length;
     const isGrouped = !Array.isArray(options);
 
     const renderOptions = () => {
         if (!isGrouped) {
             return options.map(({ value, label }) => (
-                <li key={value} onClick={() => onSelectionChange(value)} className="flex items-center justify-between p-3 hover:bg-indigo-100 cursor-pointer rounded-lg text-base transition-colors duration-150">
-                    <span className="text-slate-700">{label}</span>
-                    {selectedValues.includes(value) && <CheckIcon className="h-5 w-5 text-indigo-600" />}
+                <li key={value} onClick={() => onSelectionChange(value)} className="flex items-center justify-between p-3 hover:bg-blue-500/10 cursor-pointer rounded-lg text-base transition-colors duration-150">
+                    <span className="text-gray-800">{label}</span>
+                    {selectedValues.includes(value) && <CheckIcon className="h-5 w-5 text-blue-600" />}
                 </li>
             ));
         }
@@ -43,15 +44,15 @@ function CustomMultiSelect({ title, options, selectedValues, onSelectionChange, 
             return (
                 <div key={groupName}>
                     {onSelectGroup && (
-                        <div className="flex items-center gap-3 p-2 my-1 bg-slate-100 rounded-lg sticky top-0 z-10">
+                        <div className="flex items-center gap-3 p-2 my-1 bg-gray-100/80 rounded-lg sticky top-0 z-10">
                             <GroupCheckbox checked={isAllSelected} indeterminate={isPartiallySelected} onChange={() => onSelectGroup(groupName)} />
-                            <label onClick={() => onSelectGroup(groupName)} className="font-bold text-slate-800 cursor-pointer select-none flex-grow text-sm">{groupName}</label>
+                            <label onClick={() => onSelectGroup(groupName)} className="font-semibold text-gray-900 cursor-pointer select-none flex-grow text-sm">{groupName}</label>
                         </div>
                     )}
                     {groupOptions.map(({ value, label }) => (
-                        <li key={value} onClick={() => onSelectionChange(value)} className="flex items-center justify-between p-3 pl-10 hover:bg-indigo-100 cursor-pointer rounded-lg text-base transition-colors duration-150">
-                            <span className="text-slate-700">{label}</span>
-                            {selectedValues.includes(value) && <CheckIcon className="h-5 w-5 text-indigo-600" />}
+                        <li key={value} onClick={() => onSelectionChange(value)} className="flex items-center justify-between p-3 pl-10 hover:bg-blue-500/10 cursor-pointer rounded-lg text-base transition-colors duration-150">
+                            <span className="text-gray-800">{label}</span>
+                            {selectedValues.includes(value) && <CheckIcon className="h-5 w-5 text-blue-600" />}
                         </li>
                     ))}
                 </div>
@@ -61,21 +62,23 @@ function CustomMultiSelect({ title, options, selectedValues, onSelectionChange, 
 
     return (
         <div className="relative">
-            {/* Restyled MultiSelect Button */}
-            <button type="button" onClick={onToggle} disabled={disabled} className="flex w-full items-center justify-between p-4 bg-gray-500/10 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-800 placeholder:text-gray-400 disabled:bg-slate-200/50 disabled:cursor-not-allowed">
+            {/* NEW: Updated button style for a cleaner look */}
+            <button type="button" onClick={onToggle} disabled={disabled} className="flex w-full items-center justify-between p-4 bg-black/5 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 disabled:bg-gray-200/50 disabled:cursor-not-allowed">
                 <span className="block truncate text-base">{selectedCount > 0 ? `${selectedCount} ${title} Selected` : `Select ${title}`}</span>
-                <ChevronUpDownIcon className={`h-5 w-5 text-slate-400 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronUpDownIcon className={`h-5 w-5 text-gray-400 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
             {isOpen && (
+                // NEW: Increased rounding for a softer, more modern dropdown
                 <div className="absolute z-20 mt-2 max-h-60 w-full overflow-auto rounded-2xl bg-white/80 backdrop-blur-xl py-2 text-base shadow-xl ring-1 ring-black/5 focus:outline-none p-2">
                     <ul className="space-y-1">{renderOptions()}</ul>
                 </div>
             )}
         </div>
     );
-}
+});
 
-const CustomDateTimePicker = ({ selectedDate, onDateChange, isClearable = false, placeholder = "Select date" }) => {
+const CustomDateTimePicker = React.memo(({ selectedDate, onDateChange, isClearable = false, placeholder = "Select date" }) => {
+    // OPTIMIZATION: Callbacks are now memoized with useCallback in parent
     const handleDateSelect = (date) => {
         if (!date && isClearable) {
             onDateChange(null);
@@ -94,7 +97,8 @@ const CustomDateTimePicker = ({ selectedDate, onDateChange, isClearable = false,
         onDateChange(newDate);
     };
     const timeValue = selectedDate ? `${String(selectedDate.getHours()).padStart(2, '0')}:${String(selectedDate.getMinutes()).padStart(2, '0')}` : '';
-    const inputClasses = "w-full p-4 bg-gray-500/10 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-800 placeholder:text-gray-400";
+    // NEW: Consistent input styling with other components
+    const inputClasses = "w-full p-4 bg-black/5 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 placeholder:text-gray-500";
     
     return (
         <div className="flex flex-col sm:flex-row gap-3">
@@ -102,88 +106,97 @@ const CustomDateTimePicker = ({ selectedDate, onDateChange, isClearable = false,
             <input type="time" value={timeValue} onChange={(e) => handleTimeSelect(e.target.value)} className={`${inputClasses} w-full sm:w-1/3`} />
         </div>
     );
-};
+});
 // ===================================================================================
-// END: Custom Components
+// END: Memoized & Restyled Custom Components
 // ===================================================================================
 
 export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) {
     const { user } = useAuth();
-    const [selectedClasses, setSelectedClasses] = useState([]);
     const [classes, setClasses] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-    const [allLessons, setAllLessons] = useState({});
+    const [rawLessons, setRawLessons] = useState([]);
+    const [rawQuizzes, setRawQuizzes] = useState([]);
+    const [units, setUnits] = useState([]);
+    const [selectedClasses, setSelectedClasses] = useState([]);
     const [selectedLessons, setSelectedLessons] = useState([]);
-    const [allQuizzes, setAllQuizzes] = useState({});
     const [selectedQuizzes, setSelectedQuizzes] = useState([]);
     const [availableFrom, setAvailableFrom] = useState(new Date());
     const [availableUntil, setAvailableUntil] = useState(null);
+    const [loading, setLoading] = useState(false);
     const [contentLoading, setContentLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
     const [activeDropdown, setActiveDropdown] = useState(null);
-
-    const handleToggleDropdown = (dropdownName) => {
-        setActiveDropdown(prev => prev === dropdownName ? null : dropdownName);
-    };
 
     useEffect(() => {
         const fetchPrerequisites = async () => {
             if (!isOpen || !user?.id || !subject?.id) return;
+            setContentLoading(true);
+            setError('');
             try {
+                // Fetch classes
                 const classesRef = collection(db, 'classes');
                 const q = query(classesRef, where('teacherId', '==', user.id));
-                const querySnapshot = await getDocs(q);
-                setClasses(querySnapshot.docs.map(doc => ({ value: doc.id, label: `${doc.data().name} (${doc.data().gradeLevel} - ${doc.data().section})` })));
+                const classesSnapshot = await getDocs(q);
+                setClasses(classesSnapshot.docs.map(doc => ({ value: doc.id, label: `${doc.data().name} (${doc.data().gradeLevel} - ${doc.data().section})` })));
+
+                // Fetch units, lessons, and quizzes in parallel for speed
+                const [unitsSnapshot, lessonsSnapshot, quizzesSnapshot] = await Promise.all([
+                    getDocs(query(collection(db, 'units'), where('subjectId', '==', subject.id))),
+                    getDocs(query(collection(db, 'lessons'), where('subjectId', '==', subject.id))),
+                    getDocs(query(collection(db, 'quizzes'), where('subjectId', '==', subject.id)))
+                ]);
+
+                setUnits(unitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => (a.order || 0) - (b.order || 0)));
+                setRawLessons(lessonsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), value: doc.id, label: doc.data().title })));
+                setRawQuizzes(quizzesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), value: doc.id, label: doc.data().title })));
+
             } catch (err) {
-                console.error("Error fetching classes: ", err);
-                setError("Failed to load classes.");
-            }
-            setContentLoading(true);
-            try {
-                const unitsQuery = query(collection(db, 'units'), where('subjectId', '==', subject.id));
-                const unitsSnapshot = await getDocs(unitsQuery);
-                const sortedUnits = unitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => (a.order || 0) - (b.order || 0));
-                const lessonsQuery = query(collection(db, 'lessons'), where('subjectId', '==', subject.id));
-                const lessonsSnapshot = await getDocs(lessonsQuery);
-                const allFetchedLessons = lessonsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), value: doc.id, label: doc.data().title }));
-                const groupedLessons = {};
-                sortedUnits.forEach(unit => {
-                    const lessonsForThisUnit = allFetchedLessons.filter(lesson => lesson.unitId === unit.id).sort((a, b) => (a.order || 0) - (b.order || 0));
-                    if (lessonsForThisUnit.length > 0) groupedLessons[unit.title] = lessonsForThisUnit;
-                });
-                const uncategorizedLessons = allFetchedLessons.filter(lesson => !lesson.unitId || !sortedUnits.some(u => u.id === lesson.unitId));
-                if(uncategorizedLessons.length > 0) groupedLessons['Uncategorized'] = uncategorizedLessons;
-                setAllLessons(groupedLessons);
-
-                const quizzesQuery = query(collection(db, 'quizzes'), where('subjectId', '==', subject.id));
-                const quizzesSnapshot = await getDocs(quizzesQuery);
-                const allFetchedQuizzes = quizzesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), value: doc.id, label: doc.data().title }));
-                const groupedQuizzes = {};
-                sortedUnits.forEach(unit => {
-                    const quizzesForThisUnit = allFetchedQuizzes.filter(quiz => quiz.unitId === unit.id);
-                    if (quizzesForThisUnit.length > 0) groupedQuizzes[unit.title] = quizzesForThisUnit;
-                });
-                const uncategorizedQuizzes = allFetchedQuizzes.filter(quiz => !quiz.unitId || !sortedUnits.some(u => u.id === quiz.unitId));
-                if(uncategorizedQuizzes.length > 0) groupedQuizzes['Uncategorized'] = uncategorizedQuizzes;
-                setAllQuizzes(groupedQuizzes);
-
-            } catch (e) {
-                console.error("Error fetching content for sharing:", e);
-                setError("Could not load content for this subject.");
+                console.error("Error fetching prerequisites: ", err);
+                setError("Failed to load required data.");
             } finally {
                 setContentLoading(false);
             }
         };
         fetchPrerequisites();
     }, [isOpen, user, subject]);
+    
+    // OPTIMIZATION: Memoize the expensive grouping logic.
+    // This now only runs when the raw data changes, not on every render.
+    const allLessons = useMemo(() => {
+        const grouped = {};
+        units.forEach(unit => {
+            const items = rawLessons.filter(lesson => lesson.unitId === unit.id).sort((a, b) => (a.order || 0) - (b.order || 0));
+            if (items.length > 0) grouped[unit.title] = items;
+        });
+        const uncategorized = rawLessons.filter(lesson => !lesson.unitId || !units.some(u => u.id === lesson.unitId));
+        if (uncategorized.length > 0) grouped['Uncategorized'] = uncategorized;
+        return grouped;
+    }, [rawLessons, units]);
 
-    const handleSelection = (id, type) => {
+    const allQuizzes = useMemo(() => {
+        const grouped = {};
+        units.forEach(unit => {
+            const items = rawQuizzes.filter(quiz => quiz.unitId === unit.id);
+            if (items.length > 0) grouped[unit.title] = items;
+        });
+        const uncategorized = rawQuizzes.filter(quiz => !quiz.unitId || !units.some(u => u.id === quiz.unitId));
+        if (uncategorized.length > 0) grouped['Uncategorized'] = uncategorized;
+        return grouped;
+    }, [rawQuizzes, units]);
+
+    // OPTIMIZATION: All handlers are wrapped in useCallback to maintain a stable reference,
+    // which prevents child components (like CustomMultiSelect) from re-rendering unnecessarily.
+    const handleToggleDropdown = useCallback((dropdownName) => {
+        setActiveDropdown(prev => prev === dropdownName ? null : dropdownName);
+    }, []);
+
+    const handleSelection = useCallback((id, type) => {
         const setters = { class: setSelectedClasses, lesson: setSelectedLessons, quiz: setSelectedQuizzes };
         setters[type](prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
-    };
-
-    const handleSelectUnit = (unitName, type) => {
+    }, []);
+    
+    const handleSelectUnit = useCallback((unitName, type) => {
         const sourceData = type === 'lesson' ? allLessons : allQuizzes;
         const setSelected = type === 'lesson' ? setSelectedLessons : setSelectedQuizzes;
         const currentSelected = type === 'lesson' ? selectedLessons : selectedQuizzes;
@@ -199,7 +212,15 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
             }
             return Array.from(selectedSet);
         });
-    };
+    }, [allLessons, allQuizzes, selectedLessons, selectedQuizzes]);
+
+    const handleClose = useCallback(() => {
+        setSelectedClasses([]); setSelectedLessons([]); setSelectedQuizzes([]);
+        setAvailableFrom(new Date()); setAvailableUntil(null);
+        setError(''); setSuccess(''); setRawLessons([]); setRawQuizzes([]);
+        setActiveDropdown(null);
+        onClose();
+    }, [onClose]);
 
     const handleShare = async () => {
         if (selectedClasses.length === 0 || (selectedLessons.length === 0 && selectedQuizzes.length === 0)) {
@@ -214,9 +235,9 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
             if (selectedQuizzes.length > 0) contentParts.push(`${selectedQuizzes.length} quiz(zes)`);
             for (const classId of selectedClasses) {
                 const newPostRef = doc(collection(db, `classes/${classId}/posts`));
-                const postData = {
-                    title: `New materials shared for ${subject.title}`,
-                    content: `The following materials are now available: ${contentParts.join(' and ')}.`,
+                batch.set(newPostRef, {
+                    title: `New materials for ${subject.title}`,
+                    content: `The following are now available: ${contentParts.join(' and ')}.`,
                     author: user.displayName || 'Teacher',
                     createdAt: serverTimestamp(),
                     subjectId: subject.id,
@@ -224,78 +245,70 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                     availableUntil: availableUntil ? Timestamp.fromDate(availableUntil) : null,
                     lessonIds: selectedLessons,
                     quizIds: selectedQuizzes,
-                };
-                batch.set(newPostRef, postData);
+                });
             }
             await batch.commit();
             setSuccess(`Successfully shared materials to ${selectedClasses.length} class(es).`);
-            setTimeout(() => handleClose(), 2000);
+            setTimeout(handleClose, 2000);
         } catch (err) {
             console.error("Error sharing content: ", err);
             setError("An error occurred while sharing. Please try again.");
-        } finally {
             setLoading(false);
         }
     };
 
-    const handleClose = () => {
-        setSelectedClasses([]); setSelectedLessons([]); setSelectedQuizzes([]);
-        setAvailableFrom(new Date()); setAvailableUntil(null);
-        setError(''); setSuccess(''); setAllLessons({}); setAllQuizzes({});
-        setActiveDropdown(null);
-        onClose();
-    };
-
     const thingsToShareCount = selectedLessons.length + selectedQuizzes.length;
-    const primaryButtonStyles = "flex items-center justify-center gap-2 px-5 py-3 text-base font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:transform-none";
-    const secondaryButtonStyles = "px-5 py-3 text-base font-medium text-slate-700 bg-slate-200/70 rounded-xl hover:bg-slate-300 transition-all disabled:opacity-50";
+    // NEW: iOS-style pill-shaped buttons with solid colors for clarity.
+    const primaryButtonStyles = "px-6 py-3 text-base font-semibold text-white bg-blue-600 rounded-full shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all duration-200 disabled:opacity-50 active:scale-95";
+    const secondaryButtonStyles = "px-6 py-3 text-base font-semibold text-gray-900 bg-black/5 rounded-full hover:bg-black/10 transition-all disabled:opacity-50 active:scale-95";
 
     return (
         <Modal 
             isOpen={isOpen} 
             onClose={handleClose} 
             title="Share Content"
-            description={`Share from "${subject.title}"`}
-            size="6xl"
+            description={`Share materials from "${subject.title}" to your classes.`}
+            size="5xl" // Slightly smaller for a tighter feel
         >
             <div className="relative max-h-[75vh] flex flex-col">
-                <main className="flex-grow overflow-y-auto pr-2">
+                <main className="flex-grow overflow-y-auto pr-2 -mr-2"> {/* Offset padding for scrollbar */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* --- Left Column: Settings --- */}
                         <div className="space-y-6">
-                            <div className="bg-white/60 p-6 rounded-2xl ring-1 ring-black/5">
-                                <label className="text-lg font-bold text-slate-800 mb-3 block">1. Share With</label>
+                            {/* NEW: Updated section styling with bolder headers */}
+                            <section className="bg-white/60 p-5 rounded-2xl ring-1 ring-black/5">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-3">1. Share With</h3>
                                 <CustomMultiSelect title="Classes" options={classes} selectedValues={selectedClasses} onSelectionChange={(id) => handleSelection(id, 'class')} disabled={contentLoading} isOpen={activeDropdown === 'classes'} onToggle={() => handleToggleDropdown('classes')} />
-                            </div>
-                            <div className="bg-white/60 p-6 rounded-2xl ring-1 ring-black/5">
-                                <label className="text-lg font-bold text-slate-800 mb-3 block">2. Set Availability</label>
+                            </section>
+                            <section className="bg-white/60 p-5 rounded-2xl ring-1 ring-black/5">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-3">2. Set Availability</h3>
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-600 mb-1">Available From</label>
-                                        <CustomDateTimePicker selectedDate={availableFrom} onDateChange={setAvailableFrom} placeholder="Select start date and time" />
+                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Available From</label>
+                                        <CustomDateTimePicker selectedDate={availableFrom} onDateChange={setAvailableFrom} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-600 mb-1">Available Until <span className="font-normal text-gray-400">(Optional)</span></label>
-                                        <CustomDateTimePicker selectedDate={availableUntil} onDateChange={setAvailableUntil} placeholder="No end date or time" isClearable={true} />
+                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Available Until <span className="font-normal text-gray-500">(Optional)</span></label>
+                                        <CustomDateTimePicker selectedDate={availableUntil} onDateChange={setAvailableUntil} placeholder="No end date" isClearable={true} />
                                     </div>
                                 </div>
-                            </div>
+                            </section>
                         </div>
                         {/* --- Right Column: Content --- */}
-                        <div className="bg-white/60 p-6 rounded-2xl ring-1 ring-black/5">
-                            <label className="text-lg font-bold text-slate-800 mb-3 block">3. Choose Content</label>
+                        <section className="bg-white/60 p-5 rounded-2xl ring-1 ring-black/5">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-3">3. Choose Content</h3>
                             <div className="space-y-4">
                                 <CustomMultiSelect title="Lessons" options={allLessons} selectedValues={selectedLessons} onSelectionChange={(id) => handleSelection(id, 'lesson')} onSelectGroup={(unitName) => handleSelectUnit(unitName, 'lesson')} disabled={contentLoading} isOpen={activeDropdown === 'lessons'} onToggle={() => handleToggleDropdown('lessons')} />
                                 <CustomMultiSelect title="Quizzes" options={allQuizzes} selectedValues={selectedQuizzes} onSelectionChange={(id) => handleSelection(id, 'quiz')} onSelectGroup={(unitName) => handleSelectUnit(unitName, 'quiz')} disabled={contentLoading} isOpen={activeDropdown === 'quizzes'} onToggle={() => handleToggleDropdown('quizzes')} />
                             </div>
-                        </div>
+                        </section>
                     </div>
                 </main>
 
                 {/* --- FOOTER --- */}
-                <footer className="flex-shrink-0 pt-6 mt-4 border-t border-gray-200/80">
-                    {error && (<div className="text-center text-red-600 text-sm mb-4 p-3 bg-red-50 rounded-lg">{error}</div>)}
-                    {success && (<div className="text-center text-green-600 text-sm mb-4 p-3 bg-green-50 rounded-lg">{success}</div>)}
+                <footer className="flex-shrink-0 pt-5 mt-5 border-t border-gray-200/80">
+                    {error && (<div className="text-center text-red-600 text-sm mb-4 p-3 bg-red-100/70 rounded-xl">{error}</div>)}
+                    {success && (<div className="text-center text-green-600 text-sm mb-4 p-3 bg-green-100/70 rounded-xl">{success}</div>)}
                     <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                         <button type="button" onClick={handleClose} disabled={loading} className={secondaryButtonStyles}>Cancel</button>
                         <button onClick={handleShare} disabled={loading || contentLoading || thingsToShareCount === 0 || selectedClasses.length === 0} className={primaryButtonStyles}>
