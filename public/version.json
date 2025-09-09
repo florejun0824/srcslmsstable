@@ -1,3 +1,4 @@
 {
-  "version": "2025-09-09T12:34:56Z"
+  "version": "2025-09-09T09:00:16.565Z",
+  "whatsNew": "Enhanced Loading Time and Performance\nEnhanced AI automation across the LMS\nAdded an option to export quizzes to pdf\nLearning Plans can now be exported as docx or pdf\nImproved DOCX export with proper table styling\nFixed left column width to 2 inches\nAdded auto-refresh banner when new version is available\nIntroduced \"What's New\" modal for new deployments"
 }
