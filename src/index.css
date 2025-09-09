@@ -268,3 +268,15 @@
     transform: translate(-50%, 0);
   }
 }
+@keyframes holoText {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes flicker {
+  0% { opacity: 1; }
+  45% { opacity: 0.9; }
+  50% { opacity: 0.4; }
+  55% { opacity: 0.9; }
+  100% { opacity: 1; }
+}
