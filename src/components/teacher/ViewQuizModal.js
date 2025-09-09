@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogPanel, Title, Button, TextInput } from '@tremor/react';
-import { ArrowLeftIcon, ArrowRightIcon, CheckCircleIcon, LockClosedIcon, InformationCircleIcon, ClipboardDocumentListIcon, ShieldExclamationIcon, XCircleIcon, XMarkIcon } from '@heroicons/react/24/solid';
+import { ArrowLeftIcon, ArrowRightIcon, CheckCircleIcon, LockClosedIcon, InformationCircleIcon, ClipboardDocumentListIcon, ShieldExclamationIcon, XCircleIcon, XMarkIcon, DocumentArrowDownIcon } from '@heroicons/react/24/solid';
 import { db } from '../../services/firebase';
 import {
     collection,
@@ -11,8 +11,10 @@ import {
     setDoc,
     serverTimestamp,
     getDoc,
-    updateDoc
 } from 'firebase/firestore';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable'; // <-- FIX: Changed import
+import { useToast } from '../../contexts/ToastContext';
 import Spinner from '../common/Spinner';
 import ContentRenderer from './ContentRenderer';
 import { Capacitor } from '@capacitor/core';
@@ -48,6 +50,7 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
     const [currentQuestionAttempted, setCurrentQuestionAttempted] = useState(false);
     const warningKey = `quizWarnings_${quiz?.id}_${userProfile?.id}`;
     const shuffleKey = `quizShuffle_${quiz?.id}_${userProfile?.id}`;
+    const { showToast } = useToast();
 
     const issueWarning = useCallback(async () => {
         if (isTeacherView || isLocked || score !== null || showReview) {
@@ -214,6 +217,70 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
             setShowWarningModal(false);
         }
     }, [isOpen, quiz, warningKey, shuffleKey, fetchSubmission, userProfile, isTeacherView]);
+
+    const handleExportPdf = () => {
+        if (!quiz?.questions) {
+            showToast("No quiz data to export.", "warning");
+            return;
+        }
+
+        const doc = new jsPDF();
+        const quizBody = [];
+        const answerKey = [];
+
+        quiz.questions.forEach((q, i) => {
+            let questionContent = q.question || q.text;
+            let correctAnswerText = '';
+
+            if (q.type === 'multiple-choice' && q.options) {
+                const optionsText = q.options.map((opt, idx) => `  ${String.fromCharCode(97 + idx)}. ${opt.text || opt}`).join('\n');
+                questionContent += `\n${optionsText}`;
+                
+                const correctOption = q.options.find(opt => opt.isCorrect);
+                if (correctOption) {
+                    correctAnswerText = correctOption.text || correctOption;
+                } else if (q.correctAnswerIndex !== undefined) {
+                    const correctOpt = q.options[q.correctAnswerIndex];
+                    correctAnswerText = correctOpt?.text || correctOpt || 'N/A';
+                } else {
+                    correctAnswerText = 'N/A';
+                }
+            } else { // Handles 'identification', 'true-false', 'exactAnswer'
+                correctAnswerText = String(q.correctAnswer);
+            }
+            
+            quizBody.push([i + 1, questionContent]);
+            answerKey.push([i + 1, correctAnswerText]);
+        });
+
+        doc.setFontSize(18);
+        doc.text(quiz.title, 14, 22);
+
+        // FIX: Changed function call
+        autoTable(doc, {
+            head: [['#', 'Question']],
+            body: quizBody,
+            startY: 30,
+            theme: 'grid',
+            headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+        });
+
+        doc.addPage();
+        doc.setFontSize(18);
+        doc.text('Answer Key', 14, 22);
+
+        // FIX: Changed function call
+        autoTable(doc, {
+            head: [['#', 'Correct Answer']],
+            body: answerKey,
+            startY: 30,
+            theme: 'striped',
+            headStyles: { fillColor: [22, 160, 133], textColor: 255 },
+        });
+
+        doc.save(`${quiz.title}.pdf`);
+        showToast("Quiz exported as PDF.", "success");
+    };
 
     const totalQuestions = shuffledQuestions.length;
     const hasAttemptsLeft = isTeacherView ? true : attemptsTaken < MAX_WARNINGS;
@@ -490,7 +557,19 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                     </button>
 
                     <div className="flex justify-between items-start mb-6">
-                        <Title className="text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight pr-10">{quiz?.title}</Title>
+                        <div>
+                            <Title className="text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight pr-10">{quiz?.title}</Title>
+                            {isTeacherView && (
+                                <Button 
+                                    icon={DocumentArrowDownIcon} 
+                                    variant="light" 
+                                    onClick={handleExportPdf} 
+                                    className="mt-3"
+                                >
+                                    Export as PDF
+                                </Button>
+                            )}
+                        </div>
                         {!isTeacherView && classId && !isLocked && score === null && (
                             <div className="flex items-center gap-2 bg-yellow-400/20 text-yellow-900 px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-yellow-400/30 shadow-sm flex-shrink-0">
                                 <ShieldExclamationIcon className="w-5 h-5 text-yellow-600"/>

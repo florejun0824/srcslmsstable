@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, Title, Button, NumberInput, Textarea, Subtitle } from '@tremor/react';
-import { SparklesIcon, ArrowUturnLeftIcon, CheckCircleIcon, LanguageIcon, ListBulletIcon, HashtagIcon, ClipboardDocumentListIcon, XMarkIcon } from '@heroicons/react/24/solid'; // Added XMarkIcon
+import { SparklesIcon, ArrowUturnLeftIcon, CheckCircleIcon, LanguageIcon, ListBulletIcon, HashtagIcon, ClipboardDocumentListIcon, XMarkIcon, DocumentArrowDownIcon } from '@heroicons/react/24/solid';
 import { db } from '../../services/firebase';
 import { doc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable'; // <-- FIX: Changed import
 import QuizLoadingScreen from './QuizLoadingScreen';
 import ContentRenderer from './ContentRenderer';
 
@@ -104,7 +106,8 @@ ${lessonContentForPrompt}
 3.  **Difficulty Levels (Bloom's Taxonomy):** You must generate questions based on these two difficulty levels, with a 50/50 split between them:
     - **easy:** Corresponds to the 'Remembering' and 'Understanding' levels. These questions test for recall of facts and basic concepts.
     - **comprehension:** Corresponds to the 'Applying' and 'Analyzing' levels. These questions require using information in new situations or drawing connections among ideas.
-4.  **Question Types:**`;
+4.	**Lesson Citing:** Do not explicitly cite the lesson in the quiz.
+5.  **Question Types:**`;
 
         if (quizType === 'mixed') {
             prompt += ` The quiz should be a mix of types with the following distribution: ${distribution['multiple-choice']} multiple-choice, ${distribution['true-false']} true/false, and ${distribution['identification']} identification items.\n`;
@@ -216,6 +219,67 @@ You MUST order the choices in the "options" array according to the following log
         } finally {
             setIsGenerating(false);
         }
+    };
+
+    const handleExportPdf = () => {
+        if (!generatedQuiz) {
+            showToast("No quiz data available to export.", "warning");
+            return;
+        }
+
+        const doc = new jsPDF();
+        const quizBody = [];
+        const answerKey = [];
+
+        generatedQuiz.questions.forEach((q, i) => {
+            let questionContent = q.text;
+            let correctAnswerText = '';
+
+            if (q.type === 'multiple-choice' && q.options) {
+                const optionsText = q.options.map((opt, idx) => `  ${String.fromCharCode(97 + idx)}. ${opt.text}`).join('\n');
+                questionContent += `\n${optionsText}`;
+                const correctOption = q.options.find(opt => opt.isCorrect);
+                correctAnswerText = correctOption ? correctOption.text : 'N/A';
+            } else if (q.type === 'true-false') {
+                correctAnswerText = String(q.correctAnswer);
+            } else if (q.type === 'identification') {
+                correctAnswerText = q.correctAnswer;
+            }
+            
+            quizBody.push([i + 1, questionContent]);
+            answerKey.push([i + 1, correctAnswerText]);
+        });
+
+        doc.setFontSize(18);
+        doc.text(generatedQuiz.title, 14, 22);
+        doc.setFontSize(11);
+        doc.setTextColor(100);
+
+        // FIX: Changed function call
+        autoTable(doc, {
+            head: [['#', 'Question']],
+            body: quizBody,
+            startY: 30,
+            theme: 'grid',
+            headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+            styles: { cellPadding: 2, fontSize: 10 },
+        });
+
+        doc.addPage();
+        doc.setFontSize(18);
+        doc.text('Answer Key', 14, 22);
+        
+        // FIX: Changed function call
+        autoTable(doc, {
+            head: [['#', 'Correct Answer']],
+            body: answerKey,
+            startY: 30,
+            theme: 'striped',
+            headStyles: { fillColor: [22, 160, 133], textColor: 255 },
+        });
+
+        doc.save(`${generatedQuiz.title}.pdf`);
+        showToast("Quiz exported as PDF.", "success");
     };
     
     const renderStepContent = () => {
@@ -375,9 +439,10 @@ You MUST order the choices in the "options" array according to the following log
         }
         if (step === 3) {
             return (
-                <div className="flex items-center space-x-3">
-                    <Button variant="secondary" onClick={() => setStep(1)} className="w-1/3 h-14 text-base rounded-2xl">Back</Button>
-                    <Button icon={CheckCircleIcon} onClick={handleSaveQuiz} disabled={isGenerating} className={`${baseButtonClasses} w-2/3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white`}>Save Quiz</Button>
+                <div className="grid grid-cols-3 gap-3">
+                    <Button variant="secondary" onClick={() => setStep(1)} className="h-14 text-base rounded-2xl">Back</Button>
+                    <Button icon={DocumentArrowDownIcon} variant="light" onClick={handleExportPdf} className="h-14 text-base rounded-2xl">Export PDF</Button>
+                    <Button icon={CheckCircleIcon} onClick={handleSaveQuiz} disabled={isGenerating} className="h-14 text-base rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white">Save Quiz</Button>
                 </div>
             );
         }

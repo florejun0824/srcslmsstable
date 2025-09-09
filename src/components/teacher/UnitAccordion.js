@@ -40,6 +40,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { marked } from 'marked';
 import { useToast } from '../../contexts/ToastContext';
 import htmlToDocx from 'html-to-docx';
+import pdfMake from "pdfmake/build/pdfmake";
+import pdfFonts from "pdfmake/build/vfs_fonts";
 
 // --- Component Imports ---
 import AddLessonModal from './AddLessonModal';
@@ -53,7 +55,9 @@ import ViewQuizModal from './ViewQuizModal';
 import AiQuizModal from './AiQuizModal';
 import AiGenerationHub from './AiGenerationHub';
 import Spinner from '../common/Spinner';
+import htmlToPdfmake from 'html-to-pdfmake';
 
+pdfMake.vfs = pdfFonts.pdfMake.vfs;
 // --- Helper Functions & Sub-components ---
 const convertSvgStringToPngDataUrl = (svgString) => {
     return new Promise((resolve, reject) => {
@@ -173,10 +177,7 @@ const AddContentDropdown = ({ onAddLesson, onAddQuiz }) => {
     );
 };
 
-/**
- * NEW: iOS 18 inspired "pill" component for lessons and quizzes.
- * Each item is a distinct, floating card with enhanced styling and interactivity.
- */
+
 function SortableContentItem({ item, exportingLessonId, selectedLessons, onLessonSelect, isAiGenerating, ...props }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: item.id,
@@ -207,25 +208,25 @@ function SortableContentItem({ item, exportingLessonId, selectedLessons, onLesso
     `;
 
     return (
-        <div ref={setNodeRef} style={style} {...attributes} className="mb-3"> {/* Added margin-bottom for separation */}
+        <div ref={setNodeRef} style={style} {...attributes} className="mb-3"> 
             <div className={itemClasses}>
-                {/* Drag Handle */}
+                
                 <button {...listeners} className="p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-200/70 cursor-grab flex-shrink-0" title="Drag to reorder">
                     <Bars3Icon className="w-5 h-5" />
                 </button>
 
-                {/* Gradient Icon */}
+                
                 <div className={`ml-3 mr-4 p-3 rounded-xl flex-shrink-0 bg-gradient-to-br text-white shadow-lg ${iconGradient} shadow-${isLesson ? 'cyan' : 'violet'}-500/30`}>
                     <Icon className="h-6 w-6" />
                 </div>
                 
-                {/* Title and Type */}
+                
                 <div className="flex-grow">
                     <h4 className="font-semibold text-slate-800 leading-tight">{title}</h4>
                     <p className="text-sm text-slate-500">{itemTypeLabel}</p>
                 </div>
                 
-                {/* Actions */}
+                
                 <div className="flex items-center gap-2 ml-4 flex-shrink-0">
                     {isLesson && (
                         <button
@@ -248,7 +249,10 @@ function SortableContentItem({ item, exportingLessonId, selectedLessons, onLesso
                             ) : isAtg ? (
                                 <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => props.onExportAtgPdf(item)} loading={isExporting} />
                             ) : (
-                                <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as .docx"} onClick={() => props.onExport(item)} loading={isExporting} />
+                                <>
+                                    <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => props.onExportPdf(item)} loading={isExporting} />
+                                    <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as .docx"} onClick={() => props.onExport(item)} loading={isExporting} />
+                                </>
                             ))}
                             {isLesson && <MenuItem icon={SparklesIcon} text="AI Generate Quiz" onClick={props.onGenerateQuiz} disabled={isAiGenerating} />}
                             <MenuItem icon={TrashIcon} text={isLesson ? "Delete Lesson" : "Delete Quiz"} onClick={props.onDelete} />
@@ -502,6 +506,85 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	    setTimeout(() => { printWindow.focus(); printWindow.print(); setExportingLessonId(null); }, 500);
 	};
 
+	const handleExportLessonPdf = async (lesson) => {
+	    if (exportingLessonId) return;
+	    setExportingLessonId(lesson.id);
+	    showToast("Preparing PDF...", "info");
+
+	    try {
+	        // --- CENTRALIZED STYLING ---
+	        const pdfStyles = {
+	            coverTitle: { fontSize: 32, bold: true, margin: [0, 0, 0, 15] },
+	            coverSub: { fontSize: 18, italics: true, color: '#555555' },
+	            pageTitle: { fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] },
+	            default: {
+	                fontSize: 11,
+	                lineHeight: 1.5,
+	                color: '#333333',
+	                alignment: 'justify'
+	            }
+	        };
+
+	        const lessonTitle = lesson.lessonTitle || lesson.title;
+	        const subjectTitle = subject?.title || "SRCS Learning Portal";
+
+	        let lessonContent = [];
+	        for (const page of lesson.pages) {
+	            const cleanTitle = page.title.replace(/^page\s*\d+\s*[:-]?\s*/i, "");
+
+	            if (cleanTitle) {
+	                lessonContent.push({ text: cleanTitle, style: 'pageTitle' });
+	            }
+            
+	            const html = marked.parse(page.content || '');
+	            const convertedContent = htmlToPdfmake(html, { defaultStyles: pdfStyles.default });
+            
+	            lessonContent.push(convertedContent);
+	        }
+
+	        const docDefinition = {
+	            pageSize: "A4",
+	            pageMargins: [72, 100, 72, 100],
+	            header: {
+	                margin: [0, 20, 0, 0],
+	                stack: [{ image: "headerImg", width: 450, alignment: "center" }]
+	            },
+	            footer: {
+	                margin: [0, 0, 0, 20],
+	                stack: [{ image: "footerImg", width: 450, alignment: "center" }]
+	            },
+	            defaultStyle: pdfStyles.default,
+	            styles: pdfStyles,
+	            content: [
+	                {
+	                    stack: [
+	                        { text: lessonTitle, style: "coverTitle" },
+	                        { text: subjectTitle, style: "coverSub" }
+	                    ],
+	                    alignment: "center",
+	                    margin: [0, 200, 0, 0],
+	                    pageBreak: "after"
+	                },
+	                ...lessonContent
+	            ],
+	            images: {
+	  		        headerImg: "https://i.ibb.co/xt5CY6GY/header-port.png",
+	  		        footerImg: "https://i.ibb.co/kgrMBfDr/Footer.png"
+	            }
+	        };
+
+	        pdfMake.createPdf(docDefinition).download(`${lessonTitle}.pdf`, () => {
+	            setExportingLessonId(null);
+	        });
+
+	    } catch (error) {
+	        console.error("Failed to export PDF:", error);
+	        showToast("An error occurred while creating the PDF.", "error");
+	        setExportingLessonId(null);
+	    }
+	};
+
+
     const unitVisuals = [
         { icon: RectangleStackIcon, color: 'from-blue-500 to-sky-500' },
         { icon: BookOpenIcon, color: 'from-green-500 to-emerald-500' },
@@ -537,7 +620,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                 {isLoading ? (
                                     <div className="w-full flex justify-center items-center p-20"><Spinner /></div>
                                 ) : unifiedContent.length > 0 ? (
-                                    // NEW: Textured background container for the pills
                                     <div className="bg-slate-100 p-4 rounded-2xl shadow-inner" style={{backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.1'%3E%3Cpath d='M0 38.59l2.83-2.83 1.41 1.41L1.41 40H0v-1.41zM0 1.4l2.83 2.83 1.41-1.41L1.41 0H0v1.41zM38.59 40l-2.83-2.83 1.41-1.41L40 38.59V40h-1.41zM40 1.41l-2.83 2.83-1.41-1.41L38.59 0H40v1.41zM20 18.6l2.83-2.83 1.41 1.41L21.41 20l2.83 2.83-1.41 1.41L20 21.41l-2.83 2.83-1.41-1.41L18.59 20l-2.83-2.83 1.41-1.41L20 18.59z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")"}}>
                                         <SortableContext items={unifiedContent.map(item => item.id)} strategy={verticalListSortingStrategy}>
                                             {unifiedContent.map(item => (
@@ -548,6 +630,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                                     onDelete={() => onInitiateDelete(item.type, item.id)}
                                                     onGenerateQuiz={() => handleOpenAiQuizModal(item)}
                                                     onExport={handleExportDocx} onExportUlpPdf={handleExportUlpAsPdf} onExportAtgPdf={handleExportAtgPdf}
+                                                    onExportPdf={handleExportLessonPdf}
                                                     exportingLessonId={exportingLessonId} selectedLessons={selectedLessons} onLessonSelect={onLessonSelect} isAiGenerating={isAiGenerating}
                                                 />
                                             ))}
@@ -582,7 +665,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             <EditLessonModal isOpen={editLessonModalOpen} onClose={() => setEditLessonModalOpen(false)} lesson={selectedLesson} />
             <ViewLessonModal isOpen={viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={selectedLesson} />
             {selectedQuiz && (<EditQuizModal isOpen={editQuizModalOpen} onClose={() => setEditQuizModalOpen(false)} quiz={selectedQuiz} onEditQuiz={() => { setEditQuizModalOpen(false); }} />)}
-            <ViewQuizModal isOpen={viewQuizModalOpen} onClose={() => setViewQuizModalOpen(false)} quiz={selectedQuiz} userProfile={userProfile} />
+            <ViewQuizModal isOpen={viewQuizModalOpen} onClose={() => setViewQuizModalOpen(false)} quiz={selectedQuiz} userProfile={userProfile} isTeacherView={true} />
             <AiQuizModal isOpen={aiQuizModalOpen} onClose={() => setAiQuizModalOpen(false)} unitId={lessonForAiQuiz?.unitId} subjectId={lessonForAiQuiz?.subjectId} lesson={lessonForAiQuiz} />
         </>
     );
