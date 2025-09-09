@@ -6,3 +6,5 @@ dist/
 build/.DS_Store
 # macOS temporary files
 ._*
+# Local Netlify folder
+.netlify

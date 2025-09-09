@@ -3,10 +3,11 @@ import React, { useEffect, useState } from "react";
 export default function HologramWelcome({ version, onClose }) {
   const [visible, setVisible] = useState(true);
   const [typedText, setTypedText] = useState("");
+  const [dontShowAgain, setDontShowAgain] = useState(false);
 
   const message = `// Welcome to the new update
-("Your are now Running Version ${version}");
-("May your journey be filled with wisdom ");
+("You are now running Version ${version}");
+("May your journey be filled with wisdom");
 ("Have a Blessed Day!");`;
 
   // typing effect
@@ -22,7 +23,9 @@ export default function HologramWelcome({ version, onClose }) {
 
   const handleClose = () => {
     setVisible(false);
-    if (onClose) onClose();
+    if (onClose) {
+      onClose({ dontShowAgain });
+    }
   };
 
   if (!visible) return null;
@@ -76,6 +79,68 @@ export default function HologramWelcome({ version, onClose }) {
         >
           <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>{typedText}</pre>
 
+          {/* iOS-style toggle */}
+          <div
+            style={{
+              borderRadius: "12px",
+              overflow: "hidden",
+              border: "1px solid #3c3c3c",
+              background: "#2a2a2a",
+              marginTop: "16px",
+              padding: "12px 16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <span style={{ fontSize: "13px", color: "#bbb" }}>
+              Do not show again
+            </span>
+
+            <div style={{ position: "relative", width: "50px", height: "28px" }}>
+              <input
+                type="checkbox"
+                checked={dontShowAgain}
+                onChange={(e) => setDontShowAgain(e.target.checked)}
+                style={{
+                  opacity: 0,
+                  width: "100%",
+                  height: "100%",
+                  margin: 0,
+                  position: "absolute",
+                  cursor: "pointer",
+                  zIndex: 2,
+                }}
+              />
+              <span
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: dontShowAgain ? "#34c759" : "#555",
+                  borderRadius: "14px",
+                  transition: "background-color 0.25s",
+                }}
+              />
+              <span
+                style={{
+                  position: "absolute",
+                  top: "2px",
+                  left: dontShowAgain ? "26px" : "2px",
+                  width: "24px",
+                  height: "24px",
+                  borderRadius: "50%",
+                  background: "#fff",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                  transition: "left 0.25s",
+                  zIndex: 1,
+                }}
+              />
+            </div>
+          </div>
+
           <button
             onClick={handleClose}
             style={{
@@ -89,6 +154,7 @@ export default function HologramWelcome({ version, onClose }) {
               cursor: "pointer",
               fontFamily: `"Fira Code", monospace`,
               boxShadow: "0 2px 6px rgba(0,0,0,0.5)",
+              width: "100%",
             }}
           >
             Continue

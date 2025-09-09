@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from "react";
-import HologramWelcome from "./HologramWelcome";
-import WhatsNewModal from "./WhatsNewModal";
+import React, { useState, useEffect, useRef } from "react";
+// Import the new combined component
+import HologramOnboarding from "./HologramOnboarding"; 
 
 export default function PostLoginExperience({ children }) {
-  const [showHologram, setShowHologram] = useState(false);
-  const [showWhatsNew, setShowWhatsNew] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [versionInfo, setVersionInfo] = useState(null);
+  const hasRun = useRef(false);
 
   useEffect(() => {
+    if (hasRun.current) return;
+    hasRun.current = true;
+
     const fetchVersion = async () => {
       try {
         const res = await fetch("/version.json", { cache: "no-store" });
@@ -15,19 +18,11 @@ export default function PostLoginExperience({ children }) {
         setVersionInfo(data);
 
         const lastSeenVersion = localStorage.getItem("lastSeenVersion");
-        const alwaysShowGreeting =
-          localStorage.getItem("alwaysShowGreeting") === "true";
-        const alreadyShownThisSession =
-          sessionStorage.getItem("postLoginShown") === "true";
+        const skipHologramVersion = localStorage.getItem("skipHologramVersion");
 
-        if (!alreadyShownThisSession) {
-          if (data.version !== lastSeenVersion) {
-            // 👆 New version → run full flow
-            setShowHologram(true);
-          } else if (alwaysShowGreeting) {
-            // 👆 User preference → show hologram every login
-            setShowHologram(true);
-          }
+        // Show the onboarding flow if the version is new and not skipped
+        if (data.version !== lastSeenVersion && data.version !== skipHologramVersion) {
+          setShowOnboarding(true);
         }
       } catch (err) {
         console.error("Failed to fetch version.json", err);
@@ -37,38 +32,28 @@ export default function PostLoginExperience({ children }) {
     fetchVersion();
   }, []);
 
-  const handleHologramClose = () => {
-    setShowHologram(false);
+  const handleOnboardingClose = ({ dontShowAgain } = {}) => {
+    setShowOnboarding(false);
 
-    // If it was a new version, chain into WhatsNew
-    const lastSeenVersion = localStorage.getItem("lastSeenVersion");
-    if (versionInfo?.version && versionInfo.version !== lastSeenVersion) {
-      setShowWhatsNew(true);
-    } else {
-      sessionStorage.setItem("postLoginShown", "true");
+    if (dontShowAgain && versionInfo?.version) {
+      localStorage.setItem("skipHologramVersion", versionInfo.version);
     }
-  };
-
-  const handleWhatsNewClose = () => {
-    setShowWhatsNew(false);
+    
+    // Always set the lastSeenVersion when the flow is completed
     if (versionInfo?.version) {
       localStorage.setItem("lastSeenVersion", versionInfo.version);
     }
-    sessionStorage.setItem("postLoginShown", "true");
   };
 
   return (
     <>
-      {showHologram && (
-        <HologramWelcome
-          version={versionInfo?.version}
-          onClose={handleHologramClose}
+      {showOnboarding && (
+        <HologramOnboarding
+          versionInfo={versionInfo}
+          onClose={handleOnboardingClose}
         />
       )}
-      {showWhatsNew && (
-        <WhatsNewModal versionInfo={versionInfo} onClose={handleWhatsNewClose} />
-      )}
-      {!showHologram && !showWhatsNew && children}
+      {!showOnboarding && children}
     </>
   );
 }

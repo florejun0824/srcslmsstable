@@ -1,0 +1,24 @@
+# This section defines your main build settings.
+[build]
+  command = "npm run build"
+  publish = "build" # Or "dist", etc. whatever your project uses
+
+# This section (from Step 1) tells Netlify to create the KV store.
+[functions]
+  [functions.build_status_store]
+  name = "build_status_store"
+  description = "Stores the current build status of the application."
+
+# This section (from Step 3) tells Netlify WHEN to run your scripts.
+[build.processing]
+  # Runs BEFORE the main 'npm run build' command
+  [build.processing.on-prebuild]
+    command = "node scripts/set-building.js"
+  
+  # Runs AFTER a successful deployment
+  [build.processing.on-success]
+    command = "node scripts/set-ready.js"
+
+  # Runs if the build FAILS
+  [build.processing.on-error]
+    command = "node scripts/set-ready.js"
