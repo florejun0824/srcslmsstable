@@ -8,6 +8,8 @@ import AdminSignup from './pages/AdminSignup';
 import TestPage from './pages/TestPage';
 // Import the Google Slides service functions
 import { handleAuthRedirect, createPresentationFromData } from './services/googleSlidesService';
+import VersionNotifier from "./components/VersionNotifier";
+
 
 const AppRouter = () => {
     const { userProfile, loading } = useAuth();
@@ -85,6 +87,7 @@ export default function App() {
     <div className="bg-gray-100 min-h-screen">
       <AuthProvider>
         <AppRouter />
+	  	  <VersionNotifier />
       </AuthProvider>
     </div>
   );
