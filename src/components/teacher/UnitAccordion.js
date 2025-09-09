@@ -56,6 +56,104 @@ import AiQuizModal from './AiQuizModal';
 import AiGenerationHub from './AiGenerationHub';
 import Spinner from '../common/Spinner';
 import htmlToPdfmake from 'html-to-pdfmake';
+import { 
+    Document, Packer, Paragraph, TextRun, HeadingLevel, 
+    AlignmentType, PageOrientation, ImageRun, Numbering, Header, Footer 
+} from "docx";
+
+import { saveAs } from "file-saver";
+
+// Helper: fetch image as ArrayBuffer
+async function fetchImageAsBase64(url) {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// helper to fetch image as ArrayBuffer
+async function fetchImage(url) {
+    const response = await fetch(url);
+    return await response.arrayBuffer();
+}
+
+// convert markdown tokens → docx paragraphs
+function markdownToDocx(content) {
+    const tokens = marked.lexer(content || "");
+    let paragraphs = [];
+
+    tokens.forEach(token => {
+        if (token.type === "paragraph") {
+            paragraphs.push(
+                new Paragraph({
+                    children: token.tokens.map(t => {
+                        if (t.type === "strong") {
+                            return new TextRun({ text: t.text, bold: true, size: 22, font: "Arial" });
+                        } else if (t.type === "em") {
+                            return new TextRun({ text: t.text, italics: true, size: 22, font: "Arial" });
+                        } else {
+                            return new TextRun({ text: t.text, size: 22, font: "Arial" });
+                        }
+                    }),
+                    alignment: AlignmentType.JUSTIFIED,
+                    spacing: { line: 360 }
+                })
+            );
+        } else if (token.type === "list") {
+            token.items.forEach(item => {
+                paragraphs.push(
+                    new Paragraph({
+                        text: item.text,
+                        bullet: token.ordered ? undefined : { level: 0 },
+                        numbering: token.ordered
+                            ? { reference: "numbered-list", level: 0 }
+                            : undefined,
+                        spacing: { line: 360 }
+                    })
+                );
+            });
+        } else if (token.type === "heading") {
+            paragraphs.push(
+                new Paragraph({
+                    text: token.text,
+                    heading: token.depth === 1 
+                        ? HeadingLevel.HEADING_1 
+                        : HeadingLevel.HEADING_2,
+                    spacing: { before: 300, after: 200 }
+                })
+            );
+        } else if (token.type === "blockquote") {
+            paragraphs.push(
+                new Paragraph({
+                    text: token.text,
+                    italics: true,
+                    alignment: AlignmentType.LEFT,
+                    spacing: { line: 360 }
+                })
+            );
+        } else if (token.type === "code") {
+            paragraphs.push(
+                new Paragraph({
+                    children: [
+                        new TextRun({ 
+                            text: token.text, 
+                            font: "Courier New", 
+                            size: 20, 
+                            color: "555555" 
+                        })
+                    ],
+                    spacing: { line: 360 }
+                })
+            );
+        }
+    });
+
+    return paragraphs;
+}
 
 pdfMake.vfs = pdfFonts.pdfMake.vfs;
 // --- Helper Functions & Sub-components ---
@@ -242,21 +340,70 @@ function SortableContentItem({ item, exportingLessonId, selectedLessons, onLesso
                         <button onClick={props.onView} className="p-2 rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-100/70" title={isLesson ? "View Lesson" : "View Quiz"}>
                             <EyeIcon className="w-5 h-5" />
                         </button>
-                        <ActionMenu>
-                            <MenuItem icon={PencilIcon} text={isLesson ? "Edit Lesson" : "Edit Quiz"} onClick={props.onEdit} />
-                            {isLesson && ( isUlp ? (
-                                <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => props.onExportUlpPdf(item)} loading={isExporting} />
-                            ) : isAtg ? (
-                                <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => props.onExportAtgPdf(item)} loading={isExporting} />
-                            ) : (
-                                <>
-                                    <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as PDF"} onClick={() => props.onExportPdf(item)} loading={isExporting} />
-                                    <MenuItem icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} text={isExporting ? "Exporting..." : "Export as .docx"} onClick={() => props.onExport(item)} loading={isExporting} />
-                                </>
-                            ))}
-                            {isLesson && <MenuItem icon={SparklesIcon} text="AI Generate Quiz" onClick={props.onGenerateQuiz} disabled={isAiGenerating} />}
-                            <MenuItem icon={TrashIcon} text={isLesson ? "Delete Lesson" : "Delete Quiz"} onClick={props.onDelete} />
-                        </ActionMenu>
+				<ActionMenu>
+				  <MenuItem 
+				    icon={PencilIcon} 
+				    text={isLesson ? "Edit Lesson" : "Edit Quiz"} 
+				    onClick={props.onEdit} 
+				  />
+
+				  {isLesson && (
+				    isUlp ? (
+				      <>
+				        <MenuItem 
+				          icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} 
+				          text={isExporting ? "Exporting..." : "Export as PDF"} 
+				          onClick={() => props.onExportUlpPdf(item)} 
+				          loading={isExporting} 
+				        />
+				        <MenuItem 
+				          icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} 
+				          text={isExporting ? "Exporting..." : "Export as .docx"} 
+				          onClick={() => props.onExportUlpDocx(item)} 
+				          loading={isExporting} 
+				        />
+				      </>
+				    ) : isAtg ? (
+				      <MenuItem 
+				        icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} 
+				        text={isExporting ? "Exporting..." : "Export as PDF"} 
+				        onClick={() => props.onExportAtgPdf(item)} 
+				        loading={isExporting} 
+				      />
+				    ) : (
+				      <>
+				        <MenuItem 
+				          icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} 
+				          text={isExporting ? "Exporting..." : "Export as PDF"} 
+				          onClick={() => props.onExportPdf(item)} 
+				          loading={isExporting} 
+				        />
+				        <MenuItem 
+				          icon={isExporting ? CloudArrowUpIcon : DocumentTextIcon} 
+				          text={isExporting ? "Exporting..." : "Export as .docx"} 
+				          onClick={() => props.onExport(item)} 
+				          loading={isExporting} 
+				        />
+				      </>
+				    )
+				  )}
+
+				  {isLesson && (
+				    <MenuItem 
+				      icon={SparklesIcon} 
+				      text="AI Generate Quiz" 
+				      onClick={props.onGenerateQuiz} 
+				      disabled={isAiGenerating} 
+				    />
+				  )}
+
+				  <MenuItem 
+				    icon={TrashIcon} 
+				    text={isLesson ? "Delete Lesson" : "Delete Quiz"} 
+				    onClick={props.onDelete} 
+				  />
+				</ActionMenu>
+
                     </div>
                 </div>
             </div>
@@ -414,6 +561,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             }
         }
 	}
+	
 
 	const handleExportDocx = async (lesson) => {
 	    if (isExportingRef.current) return;
@@ -467,23 +615,148 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        setExportingLessonId(null);
 	    }
 	};
-    
-	const handleExportUlpAsPdf = (lesson) => {
-	    if (exportingLessonId) return;
-	    setExportingLessonId(lesson.id);
-	    showToast("Preparing PDF for printing...", "info");
-	    const htmlContent = lesson.pages[0]?.content || '<h1>No Content</h1>';
-	    const title = lesson.lessonTitle || lesson.title;
-	    const printWindow = window.open('', '_blank');
-	    if (!printWindow) {
-	        showToast("Could not open a new window. Please disable your pop-up blocker.", "error");
-	        setExportingLessonId(null);
-	        return;
-	    }
-	    printWindow.document.write(`<html><head><title>${title}</title><style>@media print { @page { size: 8.5in 13in; margin: 1in; } body { margin: 0; font-family: sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; } table { width: 100%; border-collapse: collapse; page-break-inside: auto; } tr { page-break-inside: avoid; page-break-after: auto; } thead { display: table-header-group; } td, th { border: 1px solid #ccc; padding: 8px; text-align: left; } table table { margin-top: 5px; border: 1px solid #ccc; } }</style></head><body>${htmlContent}</body></html>`);
-	    printWindow.document.close();
-	    setTimeout(() => { printWindow.focus(); printWindow.print(); setExportingLessonId(null); }, 500);
-	};
+		const handleExportUlpAsPdf = async (lesson) => {
+		    if (exportingLessonId) return;
+		    setExportingLessonId(lesson.id);
+		    showToast("Preparing PDF...", "info");
+
+		    try {
+		        // --- CENTRALIZED STYLING ---
+		        const pdfStyles = {
+		            coverTitle: { fontSize: 32, bold: true, margin: [0, 0, 0, 15] },
+		            coverSub: { fontSize: 18, italics: true, color: '#555555' },
+		            pageTitle: { fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] },
+		            default: {
+		                fontSize: 9,
+		                lineHeight: 1.15,
+		                color: '#333333',
+		                alignment: 'justify'
+		            }
+		        };
+
+		        const lessonTitle = lesson.lessonTitle || lesson.title;
+		        const subjectTitle = subject?.title || "SRCS Learning Portal";
+
+		        let lessonContent = [];
+		        for (const page of lesson.pages) {
+		            const cleanTitle = page.title.replace(/^page\s*\d+\s*[:-]?\s*/i, "");
+
+		            if (cleanTitle) {
+		                lessonContent.push({ text: cleanTitle, style: 'pageTitle' });
+		            }
+            
+		            const html = marked.parse(page.content || '');
+		            const convertedContent = htmlToPdfmake(html, { defaultStyles: pdfStyles.default });
+            
+		            lessonContent.push(convertedContent);
+		        }
+
+				const docDefinition = {
+				    pageSize: "Folio",
+				    pageMargins: [72, 100, 72, 100], // keep margins
+				    header: {
+				        margin: [0, 20, 0, 0],
+				        stack: [{ image: "headerImg", width: 450, alignment: "center" }]
+				    },
+				    footer: {
+				        margin: [0, 0, 0, 20],
+				        stack: [{ image: "footerImg", width: 450, alignment: "center" }]
+				    },
+				    defaultStyle: pdfStyles.default,
+				    styles: pdfStyles,
+				    content: [
+				        {
+				            stack: [
+				                { text: lessonTitle, style: "coverTitle" },
+				                { text: subjectTitle, style: "coverSub" }
+				            ],
+				            alignment: "center",
+				            margin: [0, 200, 0, 0],
+				            pageBreak: "after"
+				        },
+				        {
+				            stack: lessonContent,
+				            margin: [0, 0, 0, 0],
+				            // --- this ensures content fits page width ---
+				            width: "auto",
+				            alignment: "justify"
+				        }
+				    ],
+				    images: {
+				        headerImg: "https://i.ibb.co/xt5CY6GY/header-port.png",
+				        footerImg: "https://i.ibb.co/kgrMBfDr/Footer.png"
+				    }
+				};
+
+		        pdfMake.createPdf(docDefinition).download(`${lessonTitle}.pdf`, () => {
+		            setExportingLessonId(null);
+		        });
+
+		    } catch (error) {
+		        console.error("Failed to export PDF:", error);
+		        showToast("An error occurred while creating the PDF.", "error");
+		        setExportingLessonId(null);
+		    }
+		};
+		
+		const handleExportUlpAsDocx = async (lesson) => {
+		  if (exportingLessonId) return;
+		  setExportingLessonId(lesson.id);
+		  showToast("Preparing Word Document...", "info");
+
+		  try {
+		    const lessonTitle = lesson.lessonTitle || lesson.title;
+		    const page = lesson.pages[0];
+		    let ulpHtmlContent = page?.content || "";
+
+		    // --- Patch 1: Force header row background ---
+		    ulpHtmlContent = ulpHtmlContent.replace(
+		      /<tr>(\s*<td[^>]*>Learning Focus<\/td>\s*<td[^>]*>Learning Process<\/td>\s*)<\/tr>/i,
+		      `<tr style="font-weight:bold; color:white;">
+		        <td bgcolor="#374151" style="padding:8px; width:108px;">Learning Focus</td>
+		        <td bgcolor="#374151" style="padding:8px;">Learning Process</td>
+		      </tr>`
+		    );
+
+		    // --- Patch 2: Ensure first column width (1.5in ≈ 108px) ---
+		    ulpHtmlContent = ulpHtmlContent.replace(
+		      /<td/gi,
+		      (match, offset, full) =>
+		        offset < full.indexOf("Learning Focus") // only modify data cells, not header row (already set)
+		          ? match
+		          : match.includes("width:")
+		            ? match // don’t overwrite if width already defined
+		            : `${match} style="width:108px;"`
+		    );
+
+		    // Convert header/footer images
+		    const headerBase64 = await fetchImageAsBase64("https://i.ibb.co/xt5CY6GY/header-port.png");
+		    const footerBase64 = await fetchImageAsBase64("https://i.ibb.co/kgrMBfDr/Footer.png");
+
+		    // Build DOCX
+		    const fileBuffer = await htmlToDocx(ulpHtmlContent, null, {
+		      table: { row: { cantSplit: false } },
+		      page: {
+		        size: { width: 12240, height: 18720 }, // Folio (8.5x13 in)
+		        margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
+		      },
+		      header: {
+		        default: `<div style="text-align:center;"><img src="${headerBase64}" style="width:450px;"/></div>`
+		      },
+		      footer: {
+		        default: `<div style="text-align:center;"><img src="${footerBase64}" style="width:450px;"/></div>`
+		      }
+		    });
+
+		    saveAs(fileBuffer, `${lessonTitle}.docx`);
+		    setExportingLessonId(null);
+
+		  } catch (error) {
+		    console.error("Failed to export DOCX:", error);
+		    showToast("An error occurred while creating the Word document.", "error");
+		    setExportingLessonId(null);
+		  }
+		};
     
 	const handleExportAtgPdf = (lesson) => {
 	    if (exportingLessonId) return;
@@ -629,7 +902,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                                     onEdit={() => item.type === 'lesson' ? handleOpenLessonModal(setEditLessonModalOpen, item) : handleEditQuiz(item)}
                                                     onDelete={() => onInitiateDelete(item.type, item.id)}
                                                     onGenerateQuiz={() => handleOpenAiQuizModal(item)}
-                                                    onExport={handleExportDocx} onExportUlpPdf={handleExportUlpAsPdf} onExportAtgPdf={handleExportAtgPdf}
+                                                    onExport={handleExportDocx} onExportUlpPdf={handleExportUlpAsPdf} onExportAtgPdf={handleExportAtgPdf} onExportUlpDocx={handleExportUlpAsDocx}
                                                     onExportPdf={handleExportLessonPdf}
                                                     exportingLessonId={exportingLessonId} selectedLessons={selectedLessons} onLessonSelect={onLessonSelect} isAiGenerating={isAiGenerating}
                                                 />
