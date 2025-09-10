@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'; // <-- Import useState and useEffect
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Spinner from './components/common/Spinner';
 import LoginPage from './pages/LoginPage';
@@ -9,12 +9,10 @@ import TestPage from './pages/TestPage';
 import { handleAuthRedirect, createPresentationFromData } from './services/googleSlidesService';
 import VersionNotifier from "./components/VersionNotifier";
 import PostLoginExperience from "./components/PostLoginExperience";
-import UpdateOverlay from './components/UpdateOverlay'; // <-- 1. Import UpdateOverlay
+import UpdateOverlay from './components/UpdateOverlay';
 
-// This value should be based on your average build time in Netlify.
 const AVERAGE_BUILD_SECONDS = 180; // 3 minutes
 
-// No changes needed for your AppRouter component
 const AppRouter = () => {
   const { userProfile, loading } = useAuth();
 
@@ -85,8 +83,7 @@ const AppRouter = () => {
 };
 
 export default function App() {
-  // --- 2. Define build status logic inside the main App component ---
-  const [buildStatus, setBuildStatus] = useState('ready'); // Default to ready
+  const [buildStatus, setBuildStatus] = useState('ready');
   const [timeLeft, setTimeLeft] = useState(AVERAGE_BUILD_SECONDS);
 
   useEffect(() => {
@@ -102,12 +99,12 @@ export default function App() {
           setBuildStatus(data.status);
         }
 
-        if (data.status === 'building' && data.startTime) {
-          const elapsedSeconds = Math.floor((Date.now() - data.startTime) / 1000);
-          const remaining = Math.max(0, AVERAGE_BUILD_SECONDS - elapsedSeconds);
-          setTimeLeft(remaining);
-
+        // --- MODIFIED LOGIC ---
+        // This block is updated because the new method does not provide a 'startTime'.
+        if (data.status === 'building') {
+          // If a countdown isn't already running, start one.
           if (!countdownInterval) {
+            setTimeLeft(AVERAGE_BUILD_SECONDS); // Reset timer to full duration
             countdownInterval = setInterval(() => {
               setTimeLeft(prev => Math.max(0, prev - 1));
             }, 1000);
@@ -133,12 +130,10 @@ export default function App() {
     };
   }, [buildStatus]);
 
-  // --- 3. Conditionally render based on build status ---
   if (buildStatus === 'building') {
     return <UpdateOverlay status={buildStatus} timeLeft={timeLeft} />;
   }
 
-  // If the site is ready, render the normal application
   return (
     <div className="bg-gray-100 min-h-screen">
       <AuthProvider>

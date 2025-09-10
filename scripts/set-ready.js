@@ -1,25 +1,31 @@
-// This script is run by Netlify at the END of a successful build.
-const fetch = require('node-fetch'); // You may need to install this: npm i node-fetch
+const fetch = require('node-fetch');
 
-const DEPLOY_URL = process.env.URL;
+const SITE_ID = '{e80d52cd-4f0a-47d9-b762-6c2a007cab53}'; // <-- PASTE YOUR SITE ID HERE
+const TOKEN = process.env.NETLIFY_AUTH_TOKEN;
+const url = `https://api.netlify.com/api/v1/sites/${SITE_ID}`;
 
-async function setReadyStatus() {
-  if (!DEPLOY_URL) {
-    console.log("URL environment variable not found. Skipping status update.");
+const updateEnvVar = async () => {
+  if (!TOKEN) {
+    console.error('NETLIFY_AUTH_TOKEN not found.');
     return;
   }
-
   try {
-    const response = await fetch(`${DEPLOY_URL}/.netlify/functions/build-status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'ready' }),
+    await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${TOKEN}`,
+      },
+      body: JSON.stringify({
+        build_settings: {
+          env: { BUILD_STATUS: 'ready' },
+        },
+      }),
     });
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    console.log('✅ Successfully set build status to: ready');
+    console.log('✅ Set BUILD_STATUS to ready');
   } catch (error) {
-    console.error('❌ Failed to set ready status:', error);
+    console.error('Error setting build status:', error);
   }
-}
+};
 
-setReadyStatus();
+updateEnvVar();
