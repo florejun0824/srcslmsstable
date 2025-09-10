@@ -1,5 +1,4 @@
-# Main build settings are now defined here.
-# These will override the settings in the Netlify UI.
+# Main build settings
 [build]
   command = "npm run build"
   publish = "build"
