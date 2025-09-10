@@ -184,7 +184,7 @@ const TeacherDashboardLayout = (props) => {
                     <div className="mx-auto max-w-screen-2xl flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="Logo" className="w-10 h-10 rounded-full" />
-                            <span className="hidden md:block font-bold text-xl text-gray-800">SRCS Portal</span>
+                            <span className="hidden md:block font-bold text-xl text-gray-800">SRCS Learning Portal</span>
                         </div>
                         
                         {/* Desktop Navigation Tabs */}

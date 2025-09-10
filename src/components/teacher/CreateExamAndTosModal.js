@@ -416,6 +416,36 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
             const aiResponse = await callGeminiWithLimitCheck(prompt);
             const jsonText = extractJson(aiResponse);
             const parsedData = tryParseJson(jsonText);
+
+            // =================================================================
+            // ======= ✅ MODIFIED: RECALCULATE TOS TOTALS FOR ACCURACY ✅ ======
+            // =================================================================
+            if (parsedData.tos && parsedData.tos.competencyBreakdown) {
+                const breakdown = parsedData.tos.competencyBreakdown;
+
+                // Recalculate the sum of each column from the AI-generated rows
+                const calculatedTotalHours = breakdown.reduce((sum, row) => sum + Number(row.noOfHours || 0), 0);
+                const calculatedTotalItems = breakdown.reduce((sum, row) => sum + Number(row.noOfItems || 0), 0);
+                
+                // Overwrite the AI's totalRow with your precise calculations
+                parsedData.tos.totalRow = {
+                    ...parsedData.tos.totalRow, // Keep any other fields from the AI
+                    hours: String(calculatedTotalHours),
+                    weightPercentage: "100.00%", // Always 100%
+                    noOfItems: calculatedTotalItems, 
+                };
+
+                // Optional but recommended: Check if the AI's item count matches the user's input
+                if (calculatedTotalItems !== totalConfiguredItems) {
+                    console.warn(`AI generated ${calculatedTotalItems} items, but user configured ${totalConfiguredItems}. The displayed total will reflect what was generated.`);
+                    // To force the total to match the user's configuration, you can uncomment the line below
+                    // parsedData.tos.totalRow.noOfItems = totalConfiguredItems; 
+                }
+            }
+            // =================================================================
+            // =================== END OF MODIFIED LOGIC =======================
+            // =================================================================
+
             setPreviewData(parsedData);
             showToast("Exam and TOS generated successfully!", "success");
         } catch (err) {
