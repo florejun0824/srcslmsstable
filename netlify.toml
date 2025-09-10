@@ -1,6 +1,6 @@
 # Main build settings
 [build]
-  command = "npm run build"
+  command = "node write-build.js && npm run build"
   publish = "build"
   functions = "netlify/functions"
 
