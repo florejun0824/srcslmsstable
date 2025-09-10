@@ -7,11 +7,10 @@ import StudentDashboard from './pages/StudentDashboard';
 import AdminSignup from './pages/AdminSignup';
 import TestPage from './pages/TestPage';
 import { handleAuthRedirect, createPresentationFromData } from './services/googleSlidesService';
-import VersionNotifier from "./components/VersionNotifier";
 import PostLoginExperience from "./components/PostLoginExperience";
 import UpdateOverlay from './components/UpdateOverlay';
 
-const AVERAGE_BUILD_SECONDS = 180; // 3 minutes
+const AVERAGE_BUILD_SECONDS = 300; // 5 minutes
 
 const AppRouter = () => {
   const { userProfile, loading } = useAuth();
@@ -95,24 +94,28 @@ export default function App() {
         const res = await fetch('/.netlify/functions/build-status', { cache: 'no-store' });
         const data = await res.json();
 
-        if (data.status !== buildStatus) {
-          setBuildStatus(data.status);
-        }
-
-        // --- MODIFIED LOGIC ---
-        // This block is updated because the new method does not provide a 'startTime'.
-        if (data.status === 'building') {
-          // If a countdown isn't already running, start one.
-          if (!countdownInterval) {
-            setTimeLeft(AVERAGE_BUILD_SECONDS); // Reset timer to full duration
-            countdownInterval = setInterval(() => {
-              setTimeLeft(prev => Math.max(0, prev - 1));
-            }, 1000);
+        setBuildStatus(prevStatus => {
+          if (data.status !== prevStatus) {
+            // Case 1: Build is starting
+            if (data.status === 'building') {
+              setTimeLeft(AVERAGE_BUILD_SECONDS);
+              if (countdownInterval) clearInterval(countdownInterval);
+              countdownInterval = setInterval(() => {
+                setTimeLeft(prevTime => Math.max(0, prevTime - 1));
+              }, 1000);
+              return 'building';
+            }
+            // Case 2: Build has just finished
+            if (prevStatus === 'building' && data.status === 'ready') {
+              if (countdownInterval) clearInterval(countdownInterval);
+              if (pollInterval) clearInterval(pollInterval); // Stop polling
+              return 'complete'; // New status to show the 'Enter' button
+            }
+            return data.status;
           }
-        } else if (data.status === 'ready') {
-          if (pollInterval) clearInterval(pollInterval);
-          if (countdownInterval) clearInterval(countdownInterval);
-        }
+          return prevStatus;
+        });
+
       } catch (err) {
         console.error('Failed to fetch build status, assuming ready.', err);
         setBuildStatus('ready');
@@ -128,18 +131,24 @@ export default function App() {
       clearInterval(pollInterval);
       if (countdownInterval) clearInterval(countdownInterval);
     };
-  }, [buildStatus]);
+  }, []);
 
-  if (buildStatus === 'building') {
-    return <UpdateOverlay status={buildStatus} timeLeft={timeLeft} />;
+  // The 'Enter' button handler - reloads the page to get the new version
+  const handleEnter = () => {
+    setBuildStatus('ready');
+    window.location.reload();
+  };
+
+  // Show overlay if the status is 'building' OR 'complete'
+  if (buildStatus === 'building' || buildStatus === 'complete') {
+    return <UpdateOverlay status={buildStatus} timeLeft={timeLeft} onEnter={handleEnter} />;
   }
 
   return (
-    <div className="bg-gray-100 min-h-screen">
-      <AuthProvider>
-        <AppRouter />
-        <VersionNotifier />
-      </AuthProvider>
-    </div>
-  );
+      <div className="bg-gray-100 min-h-screen">
+        <AuthProvider>
+          <AppRouter />
+        </AuthProvider>
+      </div>
+    );
 }

@@ -8,3 +8,4 @@ build/.DS_Store
 ._*
 # Local Netlify folder
 .netlify
+._*

@@ -80,6 +80,8 @@
     "prebuild": "node scripts/write-version.js",
     "start": "npx craco start",
     "build": "craco build",
+    "set:building": "node scripts/set-building.js",
+    "set:ready": "node scripts/set-ready.js",
     "test": "craco test"
   },
   "eslintConfig": {

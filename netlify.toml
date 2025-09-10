@@ -4,21 +4,15 @@
   publish = "build"
   functions = "netlify/functions"
 
-# This section tells Netlify to give your functions access to the blob store.
-[[functions]]
-  name = "build-status" # The serverless function that clients poll
-  [functions.blobs]
-    store = "build_status_store"
+# Correctly configure blob store access for each function
+[functions."build-status"]
+  blobs = ["build_status_store"]
 
-[[functions]]
-  name = "set-building" # A name for your build hook script
-  [functions.blobs]
-    store = "build_status_store"
+[functions."set-building"]
+  blobs = ["build_status_store"]
 
-[[functions]]
-  name = "set-ready" # A name for your build hook script
-  [functions.blobs]
-    store = "build_status_store"
+[functions."set-ready"]
+  blobs = ["build_status_store"]
 
 # Build hook processing
 [build.processing]
