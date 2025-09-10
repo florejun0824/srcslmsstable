@@ -1,8 +1,11 @@
-export default async (req, context) => {
-  const status = process.env.BUILD_STATUS || 'ready';
+import { getStore } from "@netlify/blobs";
 
-  // The 'startTime' is no longer available with this method,
-  // so we won't return it. The UI will just show a static countdown.
+export default async (req, context) => {
+  // 'build_status_store' matches the name in netlify.toml
+  const store = getStore("build_status_store");
+  // Get the value of the 'current_status' key, defaulting to 'ready' if it doesn't exist
+  const status = await store.get("current_status") || "ready";
+
   const statusData = {
     status: status,
   };
