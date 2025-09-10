@@ -1,26 +1,4 @@
-# Main build settings
 [build]
   command = "npm run build"
   publish = "build"
   functions = "netlify/functions"
-
-# Correctly configure blob store access for each function
-[functions."build-status"]
-  blobs = ["build_status_store"]
-
-[functions."set-building"]
-  blobs = ["build_status_store"]
-
-[functions."set-ready"]
-  blobs = ["build_status_store"]
-
-# Build hook processing
-[build.processing]
-  [build.processing.on-prebuild]
-    command = "node scripts/set-building.js"
-  
-  [build.processing.on-success]
-    command = "node scripts/set-ready.js"
-
-  [build.processing.on-error]
-    command = "node scripts/set-ready.js"
