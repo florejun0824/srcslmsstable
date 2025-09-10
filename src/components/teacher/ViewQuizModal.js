@@ -13,7 +13,7 @@ import {
     getDoc,
 } from 'firebase/firestore';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable'; // <-- FIX: Changed import
+import autoTable from 'jspdf-autotable';
 import { useToast } from '../../contexts/ToastContext';
 import Spinner from '../common/Spinner';
 import ContentRenderer from './ContentRenderer';
@@ -76,6 +76,7 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
         }
     }, [warnings, warningKey, quiz, userProfile, classId, isLocked, score, showReview, isTeacherView]);
 
+    // --- MODIFICATION START ---
     const handleSubmit = useCallback(async () => {
         if (hasSubmitted.current || score !== null || isLocked) {
             return;
@@ -100,17 +101,37 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
 
         try {
             const submissionRef = doc(collection(db, 'quizSubmissions'));
-            await setDoc(submissionRef, {
-                quizId: quiz.id, quizTitle: quiz.title, studentId: userProfile.id,
-                studentName: `${userProfile.firstName} ${userProfile.lastName}`, classId: classId,
-                score: correctCount, totalItems: shuffledQuestions.length, attemptNumber: attemptsTaken + 1,
+            const submissionData = {
+                quizId: quiz.id,
+                quizTitle: quiz.title,
+                studentId: userProfile.id,
+                studentName: `${userProfile.firstName} ${userProfile.lastName}`,
+                classId: classId,
+                score: correctCount,
+                totalItems: shuffledQuestions.length,
+                attemptNumber: attemptsTaken + 1,
                 submittedAt: serverTimestamp(),
-            });
-            await fetchSubmission();
+                status: 'pending_sync' // Critical for offline tracking
+            };
+
+            // This write will be queued by the Firebase SDK if the user is offline.
+            await setDoc(submissionRef, submissionData);
+
+            // To make the UI feel instant and work offline, we'll update the local state manually
+            // instead of re-fetching from the server.
+            const newSubmissionForUI = { ...submissionData, id: submissionRef.id, submittedAt: new Date() };
+            setLatestSubmission(newSubmissionForUI);
+            setAttemptsTaken(prev => prev + 1); // Increment attempts count in the UI
+
+            showToast("Quiz submitted! Your results will upload when you're back online.", "success");
+
         } catch (error) {
             console.error("Error saving submission:", error);
+            showToast("Could not save your quiz. Please try again.", "error");
         }
-    }, [userAnswers, score, shuffledQuestions, quiz, userProfile, classId, attemptsTaken, warningKey, shuffleKey, isLocked]);
+    }, [userAnswers, score, shuffledQuestions, quiz, userProfile, classId, attemptsTaken, warningKey, shuffleKey, isLocked, showToast]);
+    // --- MODIFICATION END ---
+
 
     const fetchSubmission = useCallback(async () => {
         if (!quiz?.id || !userProfile?.id || !classId) {
@@ -245,7 +266,7 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                 } else {
                     correctAnswerText = 'N/A';
                 }
-            } else { // Handles 'identification', 'true-false', 'exactAnswer'
+            } else { 
                 correctAnswerText = String(q.correctAnswer);
             }
             
@@ -256,7 +277,6 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
         doc.setFontSize(18);
         doc.text(quiz.title, 14, 22);
 
-        // FIX: Changed function call
         autoTable(doc, {
             head: [['#', 'Question']],
             body: quizBody,
@@ -269,7 +289,6 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
         doc.setFontSize(18);
         doc.text('Answer Key', 14, 22);
 
-        // FIX: Changed function call
         autoTable(doc, {
             head: [['#', 'Correct Answer']],
             body: answerKey,

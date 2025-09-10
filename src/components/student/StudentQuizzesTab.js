@@ -3,7 +3,9 @@ import { db } from '../../services/firebase';
 import { collection, query, getDocs, where, documentId, Timestamp } from 'firebase/firestore';
 import ViewQuizModal from '../teacher/ViewQuizModal';
 import Spinner from '../common/Spinner';
-import { AcademicCapIcon, ClockIcon, CheckCircleIcon, ClipboardDocumentCheckIcon, ExclamationTriangleIcon, ChevronRightIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
+// --- MODIFICATION START ---
+import { AcademicCapIcon, ClockIcon, CheckCircleIcon, ClipboardDocumentCheckIcon, ExclamationTriangleIcon, ChevronRightIcon, ChevronDownIcon, ChevronUpIcon, CloudArrowUpIcon } from '@heroicons/react/24/solid';
+// --- MODIFICATION END ---
 import { motion, AnimatePresence } from 'framer-motion';
 
 const StudentQuizzesTab = ({ classes, userProfile, isModule = false }) => {
@@ -56,10 +58,18 @@ const StudentQuizzesTab = ({ classes, userProfile, isModule = false }) => {
         fetchUnits();
     }, []);
 
+    // --- MODIFICATION START ---
     const getQuizStatus = (quizEntry, userSubmissionsMap) => {
         const now = Timestamp.now();
-        const completedSubmissions = userSubmissionsMap.get(`${quizEntry.id}-${quizEntry.classId}`) || [];
-        if (completedSubmissions.length >= 3) {
+        const submissions = userSubmissionsMap.get(`${quizEntry.id}-${quizEntry.classId}`) || [];
+
+        // Check if there's a pending submission first
+        if (submissions.some(sub => sub.status === 'pending_sync')) {
+            return 'pending_sync';
+        }
+
+        // Then check other statuses
+        if (submissions.length >= 3) {
             return 'completed';
         }
         
@@ -70,6 +80,7 @@ const StudentQuizzesTab = ({ classes, userProfile, isModule = false }) => {
         
         return 'active';
     };
+    // --- MODIFICATION END ---
 
     const fetchSharedQuizzes = useCallback(async () => {
         if (!classes || classes.length === 0 || !userProfile?.id) {
@@ -330,11 +341,14 @@ const StudentQuizzesTab = ({ classes, userProfile, isModule = false }) => {
 };
 
 const QuizListItem = ({ quiz, onClick }) => {
+    // --- MODIFICATION START ---
     const statusInfo = {
         active: { icon: AcademicCapIcon, color: "text-blue-500", label: "Take Quiz" },
         completed: { icon: CheckCircleIcon, color: "text-green-500", label: "Review" },
         overdue: { icon: ExclamationTriangleIcon, color: "text-red-500", label: "Submit Late" },
+        pending_sync: { icon: CloudArrowUpIcon, color: "text-slate-500", label: "Syncing..." }
     };
+    // --- MODIFICATION END ---
     const { icon: Icon, color, label } = statusInfo[quiz.status];
 
     return (

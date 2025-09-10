@@ -544,36 +544,35 @@ const HomeView = ({
     };
 
     return (
-        <div className="relative min-h-screen p-4 md:p-6 bg-gray-50 text-gray-800 font-sans overflow-hidden rounded-3xl">
-             {/* PERFORMANCE OPTIMIZED: Replaced animated blobs with a lightweight static gradient background */}
+        <div className="relative min-h-screen p-3 sm:p-4 md:p-6 bg-gray-50 text-gray-800 font-sans overflow-hidden rounded-3xl">
             <div className="absolute top-0 left-0 w-full h-full z-0 pointer-events-none">
                 <div className="absolute -top-1/4 -left-1/4 w-1/2 h-1/2 bg-blue-200/40 rounded-full filter blur-3xl opacity-50"></div>
                 <div className="absolute bottom-0 -right-1/4 w-1/2 h-1/2 bg-indigo-200/40 rounded-full filter blur-3xl opacity-50"></div>
             </div>
 
-            <div className="relative z-10 space-y-6">
+            <div className="relative z-10 space-y-4 md:space-y-6">
                 <motion.header
                     {...fadeProps}
-                    className="relative px-6 py-4 md:px-8 md:py-5 bg-white/70 backdrop-blur-xl rounded-3xl shadow-lg border border-white/50 overflow-hidden h-auto md:h-48"
+                    className="relative p-4 md:p-6 bg-white/70 backdrop-blur-xl rounded-3xl shadow-lg border border-white/50 overflow-hidden"
                 >
                     {isSpecialBannerActive ? (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full items-center">
                             <div className="col-span-1 text-center md:text-left">
-                                <h1 className="text-3xl font-bold text-gray-800 drop-shadow-sm leading-tight">
+                                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 drop-shadow-sm leading-tight">
                                     Welcome, {userProfile?.firstName}!
                                 </h1>
                                 <p className="text-sm text-gray-600 mt-1">Here's your dashboard at a glance.</p>
                             </div>
 
                             <div
-                                className="col-span-1 flex items-center justify-center h-full w-full"
+                                className="col-span-1 flex items-center justify-center h-full w-full order-first md:order-none"
                                 onClick={userProfile?.role === 'admin' ? handleBannerImageClick : undefined}
                                 style={{ cursor: userProfile?.role === 'admin' ? 'pointer' : 'default' }}
                             >
                                 <motion.img
                                     src={bannerSettings.imageUrl}
                                     alt="Promotional Banner"
-                                    className="block h-36 w-auto object-contain p-1 drop-shadow-lg"
+                                    className="block h-24 md:h-36 w-auto object-contain p-1 drop-shadow-lg"
                                     onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/150x38/E0E7EE/888888?text=Image+Load+Error'; }}
                                     initial={{ scale: 0.9, opacity: 0 }}
                                     animate={{ scale: 1, opacity: 1 }}
@@ -624,11 +623,11 @@ const HomeView = ({
                         </div>
                     ) : (
                         <div className="flex flex-col md:flex-row md:items-center md:justify-between h-full w-full py-4">
-                            <div className="flex-1">
-                                <h1 className="text-4xl lg:text-5xl font-bold text-gray-800 drop-shadow-sm leading-tight">
+                            <div className="flex-1 text-center md:text-left">
+                                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-800 drop-shadow-sm leading-tight">
                                      Welcome, {userProfile?.firstName}!
                                 </h1>
-                                <p className="text-lg text-gray-600 mt-2">Here's your dashboard at a glance.</p>
+                                <p className="text-base md:text-lg text-gray-600 mt-2">Here's your dashboard at a glance.</p>
                             </div>
                             <div className="mt-6 md:mt-0 md:ml-6 p-4 bg-white text-gray-800 rounded-2xl shadow-lg border border-gray-200/50 w-full max-w-sm flex-shrink-0 flex flex-col justify-between">
                                 <p className="font-bold text-indigo-700 flex items-center gap-2">
@@ -668,7 +667,7 @@ const HomeView = ({
                     )}
                 </motion.header>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
                     <motion.div {...fadeProps} transition={{ duration: 0.4, delay: 0.1 }}>
                         <ClockWidget className="rounded-3xl shadow-lg transition-transform transform hover:-translate-y-1 duration-300 ease-in-out hover:shadow-xl border border-white/50" />
                     </motion.div>
