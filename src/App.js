@@ -9,7 +9,7 @@ import TestPage from './pages/TestPage';
 import { handleAuthRedirect, createPresentationFromData } from './services/googleSlidesService';
 import PostLoginExperience from "./components/PostLoginExperience";
 import UpdateOverlay from './components/UpdateOverlay';
-import * as serviceWorkerRegistration from './serviceWorkerRegistration'; // 👈 1. Import the service worker registration
+import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 
 const AVERAGE_BUILD_SECONDS = 300; // 5 minutes
 
@@ -132,8 +132,11 @@ export default function App() {
     };
   }, []);
 
+  // --- MODIFICATION: Restored window.location.reload() ---
   const handleEnter = () => {
     setBuildStatus('ready');
+    // A page reload is necessary to ensure the new service worker
+    // activates and the browser loads the updated app code.
     window.location.reload();
   };
 
@@ -150,5 +153,4 @@ export default function App() {
     );
 }
 
-// 👈 2. Call register() to enable the service worker for offline functionality
 serviceWorkerRegistration.register();
