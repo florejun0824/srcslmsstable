@@ -1,4 +1,5 @@
-// src/service-worker.js
+// --- FIX: Add this line at the very top of the file ---
+/* eslint-disable no-restricted-globals */
 
 import { clientsClaim } from 'workbox-core';
 import { ExpirationPlugin } from 'workbox-expiration';
