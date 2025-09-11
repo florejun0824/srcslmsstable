@@ -1,24 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Title, Text, Button } from '@tremor/react';
+import { Button } from '@tremor/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     AcademicCapIcon,
     ClipboardDocumentCheckIcon,
     ChartBarIcon,
-    UserGroupIcon,
     UserIcon,
     PlusCircleIcon,
     Bars3Icon,
     ArrowLeftOnRectangleIcon,
     BookOpenIcon,
-    UserCircleIcon,
-    CalendarDaysIcon,
-    ArrowRightIcon,
-    SparklesIcon,
-    RocketLaunchIcon,
-
     Squares2X2Icon,
+    SparklesIcon,
 } from '@heroicons/react/24/solid';
-
 import StudentProfilePage from './StudentProfilePage';
 import StudentClassesTab from '../components/student/StudentClassesTab';
 import StudentPerformanceTab from '../components/student/StudentPerformanceTab';
@@ -30,7 +24,6 @@ import Spinner from '../components/common/Spinner';
 import SessionConflictModal from '../components/common/SessionConflictModal';
 import { useAuth } from '../contexts/AuthContext';
 
-// --- Sidebar ---
 const SidebarContent = ({ view, handleViewChange, sidebarNavItems, logout }) => {
     return (
         <div className="h-full flex flex-col justify-between">
@@ -73,12 +66,12 @@ const SidebarContent = ({ view, handleViewChange, sidebarNavItems, logout }) => 
     );
 };
 
-// --- Main UI Component ---
 const StudentDashboardUI = ({
     userProfile, logout, view, isSidebarOpen, setIsSidebarOpen, handleViewChange,
-    setJoinClassModalOpen, selectedClass, setSelectedClass, myClasses, isFetchingContent,
-    authLoading, lessons, units, isFetchingUnits, setLessonToView, quizzes,
-    activeQuizTab, setActiveQuizTab, handleTakeQuizClick
+    setJoinClassModalOpen, selectedClass, setSelectedClass, myClasses, 
+    isFetching,
+    lessons, units, setLessonToView, quizzes,
+    handleTakeQuizClick, handleDownloadPacket
 }) => {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const profileMenuRef = useRef(null);
@@ -91,11 +84,8 @@ const StudentDashboardUI = ({
         { view: 'performance', text: 'Performance', icon: ChartBarIcon },
     ];
     
-    const desktopSidebarNavItems = [
-        ...sidebarNavItems,
-        { view: 'profile', text: 'Profile', icon: UserIcon },
-    ];
-
+    const desktopSidebarNavItems = [ ...sidebarNavItems, { view: 'profile', text: 'Profile', icon: UserIcon }, ];
+    
     const getGreeting = () => {
         const hour = new Date().getHours();
         if (hour < 12) return 'Good morning';
@@ -113,34 +103,25 @@ const StudentDashboardUI = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
     
-    const handleMobileViewChange = (newView) => {
-        handleViewChange(newView);
-        setIsSidebarOpen(false);
+    const handleMobileViewChange = (newView) => { 
+        handleViewChange(newView); 
+        setIsSidebarOpen(false); 
     }
-
-    const handleProfileClick = () => {
-        handleViewChange('profile');
-        setIsProfileMenuOpen(false);
+    
+    const handleProfileClick = () => { 
+        handleViewChange('profile'); 
+        setIsProfileMenuOpen(false); 
     };
 
-    const handleLogoutClick = () => {
-        logout();
-        setIsProfileMenuOpen(false);
+    const handleLogoutClick = () => { 
+        logout(); 
+        setIsProfileMenuOpen(false); 
     };
 
     const renderView = () => {
-        if (authLoading || (isFetchingContent && view !== 'profile') || (isFetchingUnits && view === 'lessons')) {
-            return (
-                <div className="flex justify-center items-center h-full pt-16">
-                    <Spinner />
-                </div>
-            );
-        }
-
         if (selectedClass) {
             return <StudentClassDetailView selectedClass={selectedClass} onBack={() => setSelectedClass(null)} />;
         }
-
         switch (view) {
             case 'classes':
             case 'default':
@@ -150,35 +131,26 @@ const StudentDashboardUI = ({
                             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 tracking-tight">{getGreeting()}, {userProfile?.firstName || 'Student'}!</h1>
                             <p className="mt-2 text-base sm:text-lg text-slate-500 max-w-2xl">Welcome back. Let's dive into today's learning journey.</p>
                          </div>
-
                         <div className="bg-white/60 backdrop-blur-2xl p-4 sm:p-6 rounded-3xl border border-white/50 shadow-lg">
                             <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-4 flex items-center gap-3">
-                                <SparklesIcon className="h-6 w-6 sm:h-8 sm:w-8 text-red-500"/>
-                                My Classes
+                                <SparklesIcon className="h-6 w-6 sm:h-8 sm:w-8 text-red-500"/> My Classes
                             </h2>
-                            <StudentClassesTab classes={myClasses} onClassSelect={setSelectedClass} />
+                            <StudentClassesTab 
+                                classes={myClasses} 
+                                onClassSelect={setSelectedClass}
+                                onDownloadPacket={handleDownloadPacket}
+                            />
                         </div>
                     </div>
                 );
             case 'lessons':
-                return (
-                    <StudentLessonsTab
-                        lessons={lessons}
-                        units={units}
-                        isFetchingUnits={isFetchingUnits}
-                        setLessonToView={setLessonToView}
-                        isFetchingContent={isFetchingContent}
-                    />
-                );
+                return <StudentLessonsTab lessons={lessons} units={units} setLessonToView={setLessonToView} isFetchingContent={isFetching} />;
             case 'quizzes':
-                return <StudentQuizzesTab
-                            classes={myClasses}
-                            userProfile={userProfile}
-                        />;
+                return <StudentQuizzesTab quizzes={quizzes} units={units} handleTakeQuizClick={handleTakeQuizClick} isFetchingContent={isFetching} userProfile={userProfile} />;
             case 'performance':
                 return <StudentPerformanceTab userProfile={userProfile} classes={myClasses} />;
             case 'profile':
-                return <StudentProfilePage authLoading={authLoading} />;
+                return <StudentProfilePage />;
             default:
                 return null;
         }
@@ -190,20 +162,16 @@ const StudentDashboardUI = ({
                 <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-100/50 via-rose-50/50 to-transparent"></div>
                 <div className="absolute bottom-0 right-0 w-full h-full bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-red-100/50 via-rose-50/30 to-transparent"></div>
             </div>
-
             <div className="relative z-10 h-full md:flex">
                 <aside className="w-72 flex-shrink-0 hidden md:block bg-white/70 backdrop-blur-2xl p-6 border-r border-slate-900/10 shadow-lg">
                     <SidebarContent view={view} handleViewChange={handleViewChange} sidebarNavItems={desktopSidebarNavItems} logout={logout}/>
                 </aside>
-
                 <div className={`fixed inset-0 z-50 md:hidden transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)}></div>
                     <div className="relative w-80 h-full bg-white/80 backdrop-blur-2xl shadow-xl p-6 border-r border-slate-900/10">
                         <SidebarContent view={view} handleViewChange={handleMobileViewChange} sidebarNavItems={desktopSidebarNavItems} logout={logout}/>
                     </div>
                 </div>
-
-
                 <div className="flex-1 flex flex-col overflow-hidden pb-20 md:pb-0">
                      <header className="p-4 sm:p-6 flex items-center justify-between bg-white/70 backdrop-blur-2xl border-b border-slate-900/10 sticky top-0 z-20 shadow-sm">
                         <button className="md:hidden p-2 text-slate-500" onClick={() => setIsSidebarOpen(true)}>
@@ -217,7 +185,6 @@ const StudentDashboardUI = ({
                             >
                                 Join Class
                             </Button>
-
                             {userProfile && (
                                 <div ref={profileMenuRef}>
                                     <button
@@ -234,7 +201,6 @@ const StudentDashboardUI = ({
                                         )}
                                         <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
                                     </button>
-
                                     {isProfileMenuOpen && (
                                         <div className="absolute right-0 mt-3 w-56 bg-white/80 backdrop-blur-2xl rounded-xl shadow-lg py-2 z-30 border border-slate-900/10 transform origin-top-right animate-scale-in">
                                             <button
@@ -255,13 +221,25 @@ const StudentDashboardUI = ({
                             )}
                         </div>
                     </header>
-
-                    <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pt-6">
+                    <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pt-6 relative">
+                        <AnimatePresence>
+                            {isFetching && (
+                                <motion.div
+                                    key="loading-overlay"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="absolute inset-0 bg-slate-50/80 backdrop-blur-sm flex items-center justify-center z-20"
+                                >
+                                    <Spinner />
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                         {renderView()}
                     </main>
                 </div>
             </div>
-
             <footer className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-2xl flex justify-around md:hidden border-t border-slate-900/10 z-40 shadow-md">
                 {sidebarNavItems.map(item => {
                     const isActive = view === item.view;
@@ -280,12 +258,7 @@ const StudentDashboardUI = ({
                     )
                 })}
             </footer>
-
-            <SessionConflictModal
-                isOpen={isSessionConflictModalOpen}
-                message={sessionConflictMessage}
-                onClose={performLogout}
-            />
+            <SessionConflictModal isOpen={isSessionConflictModalOpen} message={sessionConflictMessage} onClose={performLogout} />
         </div>
     );
 };

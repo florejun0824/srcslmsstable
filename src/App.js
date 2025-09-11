@@ -9,6 +9,7 @@ import TestPage from './pages/TestPage';
 import { handleAuthRedirect, createPresentationFromData } from './services/googleSlidesService';
 import PostLoginExperience from "./components/PostLoginExperience";
 import UpdateOverlay from './components/UpdateOverlay';
+import * as serviceWorkerRegistration from './serviceWorkerRegistration'; // 👈 1. Import the service worker registration
 
 const AVERAGE_BUILD_SECONDS = 300; // 5 minutes
 
@@ -96,7 +97,6 @@ export default function App() {
 
         setBuildStatus(prevStatus => {
           if (data.status !== prevStatus) {
-            // Case 1: Build is starting
             if (data.status === 'building') {
               setTimeLeft(AVERAGE_BUILD_SECONDS);
               if (countdownInterval) clearInterval(countdownInterval);
@@ -105,11 +105,10 @@ export default function App() {
               }, 1000);
               return 'building';
             }
-            // Case 2: Build has just finished
             if (prevStatus === 'building' && data.status === 'ready') {
               if (countdownInterval) clearInterval(countdownInterval);
-              if (pollInterval) clearInterval(pollInterval); // Stop polling
-              return 'complete'; // New status to show the 'Enter' button
+              if (pollInterval) clearInterval(pollInterval);
+              return 'complete';
             }
             return data.status;
           }
@@ -133,13 +132,11 @@ export default function App() {
     };
   }, []);
 
-  // The 'Enter' button handler - reloads the page to get the new version
   const handleEnter = () => {
     setBuildStatus('ready');
     window.location.reload();
   };
 
-  // Show overlay if the status is 'building' OR 'complete'
   if (buildStatus === 'building' || buildStatus === 'complete') {
     return <UpdateOverlay status={buildStatus} timeLeft={timeLeft} onEnter={handleEnter} />;
   }
@@ -152,3 +149,6 @@ export default function App() {
       </div>
     );
 }
+
+// 👈 2. Call register() to enable the service worker for offline functionality
+serviceWorkerRegistration.register();

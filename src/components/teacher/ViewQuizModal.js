@@ -20,6 +20,8 @@ import ContentRenderer from './ContentRenderer';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import QuizWarningModal from '../../components/common/QuizWarningModal';
+import localforage from 'localforage';
+import { queueQuizSubmission, syncOfflineSubmissions } from '../../services/offlineSyncService';
 
 const shuffleArray = (array) => {
     let currentIndex = array.length, randomIndex;
@@ -62,76 +64,79 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
         localStorage.setItem(warningKey, newWarningCount.toString());
 
         if (newWarningCount >= MAX_WARNINGS) {
-            const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
-            await setDoc(lockRef, {
-                quizId: quiz.id, studentId: userProfile.id,
-                studentName: `${userProfile.firstName} ${userProfile.lastName}`,
-                classId: classId, lockedAt: serverTimestamp(),
-                reason: 'Too many unauthorized attempts to navigate away'
-            });
             setIsLocked(true);
             setShowWarningModal(true);
+            
+            if (navigator.onLine) {
+                const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
+                await setDoc(lockRef, {
+                    quizId: quiz.id, studentId: userProfile.id,
+                    studentName: `${userProfile.firstName} ${userProfile.lastName}`,
+                    classId: classId, lockedAt: serverTimestamp(),
+                    reason: 'Too many unauthorized attempts to navigate away'
+                });
+            }
         } else {
             setShowWarningModal(true);
         }
     }, [warnings, warningKey, quiz, userProfile, classId, isLocked, score, showReview, isTeacherView]);
 
-    // --- MODIFICATION START ---
-    const handleSubmit = useCallback(async () => {
-        if (hasSubmitted.current || score !== null || isLocked) {
-            return;
-        }
-        hasSubmitted.current = true;
+	const handleSubmit = useCallback(async () => {
+	    if (hasSubmitted.current || score !== null || isLocked) {
+	        return;
+	    }
+	    hasSubmitted.current = true;
 
-        let correctCount = 0;
-        shuffledQuestions.forEach((q, index) => {
-            const userAnswer = userAnswers[index];
-            if (q.type === 'multiple-choice' && userAnswer === q.correctAnswerIndex) correctCount++;
-            else if (q.type === 'identification' || q.type === 'exactAnswer') {
-                const formattedUserAnswer = String(userAnswer || '').toLowerCase().trim().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "");
-                const formattedCorrectAnswer = String(q.correctAnswer || '').toLowerCase().trim().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "");
-                if (formattedUserAnswer === formattedCorrectAnswer) correctCount++;
-            }
-        });
+	    let correctCount = 0;
+	    shuffledQuestions.forEach((q, index) => {
+	        const userAnswer = userAnswers[index];
+	        if (q.type === 'multiple-choice' && userAnswer === q.correctAnswerIndex) correctCount++;
+	        else if (q.type === 'identification' || q.type === 'exactAnswer') {
+	            const formattedUserAnswer = String(userAnswer || '').toLowerCase().trim().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "");
+	            const formattedCorrectAnswer = String(q.correctAnswer || '').toLowerCase().trim().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "");
+	            if (formattedUserAnswer === formattedCorrectAnswer) correctCount++;
+	        }
+	    });
 
-        setScore(correctCount);
-        localStorage.removeItem(warningKey);
-        localStorage.removeItem(shuffleKey);
-        setWarnings(0);
+	    setScore(correctCount);
+	    localStorage.removeItem(warningKey);
+	    localStorage.removeItem(shuffleKey);
+	    setWarnings(0);
 
-        try {
-            const submissionRef = doc(collection(db, 'quizSubmissions'));
-            const submissionData = {
-                quizId: quiz.id,
-                quizTitle: quiz.title,
+	    try {
+	        const submissionData = {
+	            quizId: quiz.id,
+	            quizTitle: quiz.title,
+	            classId: classId,
                 studentId: userProfile.id,
-                studentName: `${userProfile.firstName} ${userProfile.lastName}`,
-                classId: classId,
-                score: correctCount,
-                totalItems: shuffledQuestions.length,
-                attemptNumber: attemptsTaken + 1,
-                submittedAt: serverTimestamp(),
-                status: 'pending_sync' // Critical for offline tracking
-            };
+	            studentName: `${userProfile.firstName} ${userProfile.lastName}`,
+	            answers: userAnswers,
+	            score: correctCount,
+	            totalItems: shuffledQuestions.length,
+	            attemptNumber: attemptsTaken + 1,
+	        };
+            
+	        await queueQuizSubmission(submissionData);
+            
+            setLatestSubmission({ ...submissionData, submittedAt: new Date() });
+            setAttemptsTaken(prev => prev + 1);
 
-            // This write will be queued by the Firebase SDK if the user is offline.
-            await setDoc(submissionRef, submissionData);
+	        showToast(
+	            navigator.onLine 
+	                ? "✅ Quiz submitted successfully!" 
+	                : "📡 Quiz saved. It will sync when you’re back online.",
+	            "success"
+	        );
 
-            // To make the UI feel instant and work offline, we'll update the local state manually
-            // instead of re-fetching from the server.
-            const newSubmissionForUI = { ...submissionData, id: submissionRef.id, submittedAt: new Date() };
-            setLatestSubmission(newSubmissionForUI);
-            setAttemptsTaken(prev => prev + 1); // Increment attempts count in the UI
+            if (navigator.onLine) {
+                syncOfflineSubmissions();
+            }
 
-            showToast("Quiz submitted! Your results will upload when you're back online.", "success");
-
-        } catch (error) {
-            console.error("Error saving submission:", error);
-            showToast("Could not save your quiz. Please try again.", "error");
-        }
-    }, [userAnswers, score, shuffledQuestions, quiz, userProfile, classId, attemptsTaken, warningKey, shuffleKey, isLocked, showToast]);
-    // --- MODIFICATION END ---
-
+	    } catch (error) {
+	        console.error("Error queuing submission:", error);
+	        showToast("❌ Could not save your quiz. Please try again.", "error");
+	    }
+	}, [userAnswers, score, shuffledQuestions, quiz, userProfile, classId, attemptsTaken, warningKey, shuffleKey, isLocked, showToast]);
 
     const fetchSubmission = useCallback(async () => {
         if (!quiz?.id || !userProfile?.id || !classId) {
@@ -140,20 +145,38 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
         }
         setLoading(true);
 
-        const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
-        const lockSnap = await getDoc(lockRef);
-        setIsLocked(lockSnap.exists());
+        if (navigator.onLine) {
+            const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
+            const lockSnap = await getDoc(lockRef);
+            setIsLocked(lockSnap.exists());
 
-        const submissionsRef = collection(db, 'quizSubmissions');
-        const q = query(submissionsRef, where("quizId", "==", quiz.id), where("studentId", "==", userProfile.id), where("classId", "==", classId));
-        const querySnapshot = await getDocs(q);
-        const submissions = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        submissions.sort((a, b) => (b.submittedAt?.seconds || 0) - (a.submittedAt?.seconds || 0));
-        
-        setLatestSubmission(submissions[0] || null);
-        setAttemptsTaken(submissions.length);
+            const submissionsRef = collection(db, 'quizSubmissions');
+            const q = query(submissionsRef, where("quizId", "==", quiz.id), where("studentId", "==", userProfile.id), where("classId", "==", classId));
+            const querySnapshot = await getDocs(q);
+            const submissions = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            submissions.sort((a, b) => (b.submittedAt?.seconds || 0) - (a.submittedAt?.seconds || 0));
+            
+            setLatestSubmission(submissions[0] || null);
+            setAttemptsTaken(submissions.length);
+        } else {
+            const savedWarnings = localStorage.getItem(warningKey);
+            if (savedWarnings && parseInt(savedWarnings, 10) >= MAX_WARNINGS) {
+                setIsLocked(true);
+            } else {
+                setIsLocked(false);
+            }
+
+            const offlineSubmissions = await localforage.getItem("quiz-submission-outbox") || [];
+            const myOfflineAttempts = offlineSubmissions.filter(
+                sub => sub.quizId === quiz.id && sub.studentId === userProfile.id && sub.classId === classId
+            );
+            
+            setLatestSubmission(null);
+            setAttemptsTaken(myOfflineAttempts.length);
+        }
+
         setLoading(false);
-    }, [quiz, userProfile, classId]);
+    }, [quiz, userProfile, classId, warningKey]);
 
     useEffect(() => {
         let listener;
@@ -208,16 +231,7 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                 const initialWarnings = savedWarnings ? parseInt(savedWarnings, 10) : 0;
                 setWarnings(initialWarnings);
                 
-                const checkLockStatus = async () => {
-                    const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
-                    const lockSnap = await getDoc(lockRef);
-                    if (lockSnap.exists() || initialWarnings >= MAX_WARNINGS) {
-                        setIsLocked(true);
-                    } else {
-                        setIsLocked(false);
-                    }
-                };
-                checkLockStatus();
+                fetchSubmission();
 
                 const savedShuffle = localStorage.getItem(shuffleKey);
                 if (savedShuffle && JSON.parse(savedShuffle).length === (quiz.questions || []).length) {
@@ -231,13 +245,12 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                 setWarnings(0);
                 setIsLocked(false);
                 setShuffledQuestions(quiz.questions || []);
+                setLoading(false);
             }
-            
-            fetchSubmission();
         } else {
             setShowWarningModal(false);
         }
-    }, [isOpen, quiz, warningKey, shuffleKey, fetchSubmission, userProfile, isTeacherView]);
+    }, [isOpen, quiz, warningKey, shuffleKey, fetchSubmission, isTeacherView]);
 
     const handleExportPdf = () => {
         if (!quiz?.questions) {
@@ -276,27 +289,17 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
 
         doc.setFontSize(18);
         doc.text(quiz.title, 14, 22);
-
         autoTable(doc, {
-            head: [['#', 'Question']],
-            body: quizBody,
-            startY: 30,
-            theme: 'grid',
+            head: [['#', 'Question']], body: quizBody, startY: 30, theme: 'grid',
             headStyles: { fillColor: [41, 128, 185], textColor: 255 },
         });
-
         doc.addPage();
         doc.setFontSize(18);
         doc.text('Answer Key', 14, 22);
-
         autoTable(doc, {
-            head: [['#', 'Correct Answer']],
-            body: answerKey,
-            startY: 30,
-            theme: 'striped',
+            head: [['#', 'Correct Answer']], body: answerKey, startY: 30, theme: 'striped',
             headStyles: { fillColor: [22, 160, 133], textColor: 255 },
         });
-
         doc.save(`${quiz.title}.pdf`);
         showToast("Quiz exported as PDF.", "success");
     };
@@ -306,11 +309,9 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
 
     const handleAnswer = (answer) => {
         if (isTeacherView || currentQuestionAttempted) return;
-
         const currentQuestion = shuffledQuestions[currentQ];
         setUserAnswers({ ...userAnswers, [currentQ]: answer });
         setCurrentQuestionAttempted(true);
-
         let isCorrect = false;
         if (currentQuestion.type === 'multiple-choice') {
             isCorrect = (answer === currentQuestion.correctAnswerIndex);
@@ -321,7 +322,6 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
             const formattedCorrectAnswer = String(currentQuestion.correctAnswer || '').toLowerCase().trim().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "");
             isCorrect = (formattedUserAnswer === formattedCorrectAnswer);
         }
-        
         setQuestionResult(isCorrect ? 'correct' : 'incorrect');
     };
 
@@ -355,7 +355,6 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
         const question = shuffledQuestions[currentQ];
         if(!question) return null;
         const isDisabled = currentQuestionAttempted || isTeacherView;
-
         return (
             <div>
                 <div className="font-medium text-xl text-slate-800 mb-6">
@@ -388,7 +387,6 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
     const renderQuestionFeedback = () => {
         const question = shuffledQuestions[currentQ];
         if (!question) return null;
-
         const isCorrect = questionResult === 'correct';
         const userAnswerText = question.type === 'multiple-choice'
             ? (question.options[userAnswers[currentQ]]?.text ?? 'No Answer')
@@ -396,20 +394,15 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
         const correctAnswerText = question.type === 'multiple-choice'
             ? question.options[question.correctAnswerIndex]?.text
             : question.correctAnswer;
-
         return (
             <div className={`p-6 rounded-2xl ${isCorrect ? 'bg-green-500/10' : 'bg-red-500/10'} shadow-lg transition-all duration-300`}>
                 <div className="flex items-center gap-4 mb-4">
                     {isCorrect ? <CheckCircleIcon className="h-10 w-10 text-green-600" /> : <XCircleIcon className="h-10 w-10 text-red-600" />}
-                    <Title className={`text-2xl md:text-3xl font-extrabold ${isCorrect ? 'text-green-800' : 'text-red-800'}`}>
-                        {isCorrect ? "Correct!" : "Incorrect"}
-                    </Title>
+                    <Title className={`text-2xl md:text-3xl font-extrabold ${isCorrect ? 'text-green-800' : 'text-red-800'}`}>{isCorrect ? "Correct!" : "Incorrect"}</Title>
                 </div>
                 <div className="text-base text-gray-700 space-y-2">
                     <p><span className="font-semibold text-gray-800">Your Answer:</span> <ContentRenderer text={userAnswerText} /></p>
-                    {!isCorrect && (
-                        <p><span className="font-semibold text-gray-800">Correct Answer:</span> <ContentRenderer text={correctAnswerText} /></p>
-                    )}
+                    {!isCorrect && (<p><span className="font-semibold text-gray-800">Correct Answer:</span> <ContentRenderer text={correctAnswerText} /></p>)}
                 </div>
                 {question.explanation && (
                     <div className="mt-5 pt-5 border-t border-gray-400/30">
@@ -570,11 +563,9 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                     <button
                         onClick={handleClose}
                         className="absolute top-4 right-4 p-2 rounded-full text-gray-500 hover:bg-gray-500/10 hover:text-gray-800 transition-colors z-10"
-                        aria-label="Close"
-                    >
+                        aria-label="Close" >
                         <XMarkIcon className="h-6 w-6" />
                     </button>
-
                     <div className="flex justify-between items-start mb-6">
                         <div>
                             <Title className="text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight pr-10">{quiz?.title}</Title>
@@ -583,8 +574,7 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                                     icon={DocumentArrowDownIcon} 
                                     variant="light" 
                                     onClick={handleExportPdf} 
-                                    className="mt-3"
-                                >
+                                    className="mt-3" >
                                     Export as PDF
                                 </Button>
                             )}
@@ -609,8 +599,7 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                             <Button
                                 onClick={() => setCurrentQ(currentQ - 1)}
                                 disabled={currentQ === 0}
-                                className="bg-gray-200/70 text-gray-800 font-semibold py-2.5 px-5 rounded-xl hover:bg-gray-300/80 transition-all duration-200 shadow-sm"
-                            >
+                                className="bg-gray-200/70 text-gray-800 font-semibold py-2.5 px-5 rounded-xl hover:bg-gray-300/80 transition-all duration-200 shadow-sm" >
                                 Previous
                             </Button>
                             <div className="text-center">
@@ -622,15 +611,13 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                                     icon={ArrowRightIcon}
                                     iconPosition="right"
                                     onClick={handleNextQuestion}
-                                    className="bg-blue-600 text-white font-bold py-2.5 px-5 rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all duration-300"
-                                >
+                                    className="bg-blue-600 text-white font-bold py-2.5 px-5 rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all duration-300" >
                                     Next
                                 </Button>
                             ) : (
                                 <Button
                                     onClick={handleSubmit}
-                                    className="bg-green-600 text-white font-bold py-2.5 px-5 rounded-xl hover:bg-green-700 shadow-md hover:shadow-lg transition-all duration-300"
-                                >
+                                    className="bg-green-600 text-white font-bold py-2.5 px-5 rounded-xl hover:bg-green-700 shadow-md hover:shadow-lg transition-all duration-300" >
                                     Submit Quiz
                                 </Button>
                             )}
@@ -638,7 +625,6 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                     )}
                 </DialogPanel>
             </Dialog>
-
             <QuizWarningModal
                 isOpen={showWarningModal}
                 warnings={warnings}

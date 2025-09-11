@@ -2,7 +2,7 @@
 
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getStorage } from 'firebase/storage';
 
@@ -24,6 +24,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
+
 // These services will connect to your LIVE Firebase project in the cloud
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -32,12 +33,14 @@ const storage = getStorage(app);
 // Initialize the Functions service
 const functions = getFunctions(app);
 
+
 // ✅ FIX: This block now connects ONLY the Functions service to your local emulator
 // when you are running the app on localhost. Auth and Firestore will use the live services.
 if (window.location.hostname === "localhost") {
   console.log("Hybrid Mode: Connecting to LIVE Auth/Firestore and LOCAL Functions emulator.");
   connectFunctionsEmulator(functions, "localhost", 5001);
 }
+
 
 // Export all services for your application to use
 export { db, auth, storage, functions, app };

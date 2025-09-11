@@ -7,6 +7,4 @@ Learning Plans can now be exported as docx or pdf
 Improved DOCX export with proper table styling
 Enhanced UI Philosophy
 Added auto-refresh banner when new version is available
-
-Upcoming Feature:
-Offline-Online Synching of Quizzes for students
+Offline-Online Synching of Lessons and Quizzes for students

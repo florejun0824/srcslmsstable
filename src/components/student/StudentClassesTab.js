@@ -1,6 +1,14 @@
 import React from 'react';
 import { Text } from '@tremor/react';
-import { AcademicCapIcon, UserGroupIcon, ClipboardDocumentListIcon, ShieldCheckIcon, InboxIcon, ArrowRightIcon } from '@heroicons/react/24/solid';
+import { 
+    AcademicCapIcon, 
+    UserGroupIcon, 
+    ClipboardDocumentListIcon, 
+    ShieldCheckIcon, 
+    InboxIcon, 
+    ArrowRightIcon,
+    ArrowDownTrayIcon
+} from '@heroicons/react/24/solid';
 
 const classVisuals = [
     { icon: AcademicCapIcon, color: 'text-orange-500', glow: 'hover:shadow-orange-500/20', bg: 'bg-orange-100' },
@@ -9,14 +17,12 @@ const classVisuals = [
     { icon: ShieldCheckIcon, color: 'text-green-500', glow: 'hover:shadow-green-500/20', bg: 'bg-green-100' },
 ];
 
-const StudentClassCard = ({ classData, onSelect, visual }) => {
+const StudentClassCard = ({ classData, onSelect, visual, onDownloadPacket }) => {
     const { icon: Icon, color, glow, bg } = visual;
 
     return (
         <div
-            onClick={() => onSelect(classData)}
-            // NOTE: Styling for individual cards is excellent. The floating effect on hover is perfect. No major changes needed here.
-            className={`group bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm ${glow} hover:border-red-400/50 hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between`}
+            className={`group bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm ${glow} hover:border-red-400/50 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between`}
         >
             <div>
                 <div className={`w-12 h-12 flex items-center justify-center rounded-lg mb-4 ${bg}`}>
@@ -24,14 +30,34 @@ const StudentClassCard = ({ classData, onSelect, visual }) => {
                 </div>
                 <h3 className="text-lg font-bold text-slate-800 truncate">{classData.name}</h3>
                 <Text className="text-sm text-slate-500">{classData.gradeLevel} - {classData.section}</Text>
+                <Text className="mt-4 text-xs text-slate-400">Teacher: {classData.teacherName}</Text>
             </div>
-            <Text className="mt-4 text-xs text-slate-400">Teacher: {classData.teacherName}</Text>
+
+            <div className="mt-5 pt-4 border-t border-slate-200/60 flex items-center justify-between gap-2">
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onDownloadPacket(classData.id);
+                    }}
+                    title="Download for Offline Use"
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors"
+                >
+                    <ArrowDownTrayIcon className="h-4 w-4" />
+                    Offline
+                </button>
+                <button
+                    onClick={() => onSelect(classData)}
+                    className="flex items-center gap-1.5 text-sm font-semibold text-red-600 hover:text-red-700 transition-colors"
+                >
+                    <span>View Class</span>
+                    <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-1 duration-200" />
+                </button>
+            </div>
         </div>
     );
 };
 
-const StudentClassesTab = ({ classes, onClassSelect }) => {
-    // Renders if the user has no classes
+const StudentClassesTab = ({ classes, onClassSelect, onDownloadPacket }) => {
     if (!classes || classes.length === 0) {
         return (
             <div className="text-center py-20 px-4 bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200">
@@ -42,7 +68,6 @@ const StudentClassesTab = ({ classes, onClassSelect }) => {
         );
     }
 
-    // Renders the grid of classes. The container and title are now handled by the parent component (StudentDashboardUI).
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {classes.map((classData, index) => (
@@ -50,6 +75,7 @@ const StudentClassesTab = ({ classes, onClassSelect }) => {
                     key={classData.id}
                     classData={classData}
                     onSelect={onClassSelect}
+                    onDownloadPacket={onDownloadPacket}
                     visual={classVisuals[index % classVisuals.length]}
                 />
             ))}
