@@ -75,6 +75,9 @@ const HomeView = ({
     const [reactionsForBreakdownModal, setReactionsForBreakdownModal] = useState(null);
 
     const [expandedAnnouncements, setExpandedAnnouncements] = useState({});
+    // --- FIX: State to hold the most up-to-date comment counts after modal interaction ---
+    const [liveCommentCounts, setLiveCommentCounts] = useState({});
+
 
     const [bannerSettings, setBannerSettings] = useState({
         imageUrl: 'https://i.ibb.co/FqJPnT1J/buwan-ng-wika.png',
@@ -102,13 +105,11 @@ const HomeView = ({
 
     const currentUserId = userProfile?.id;
 
-    // ✅ ENHANCED: User data fetching is now more efficient and caches users.
     const fetchUsersData = useCallback(async (userIds) => {
         const usersToFetch = [...new Set(userIds.filter(id => id && !homeViewUsersMap[id]))];
         if (usersToFetch.length === 0) return;
 
         try {
-            // Firestore 'in' queries are limited to 30 items. Batch if necessary.
             const userBatches = [];
             for (let i = 0; i < usersToFetch.length; i += 30) {
                 userBatches.push(usersToFetch.slice(i, i + 30));
@@ -130,8 +131,6 @@ const HomeView = ({
     }, [homeViewUsersMap]);
 
 
-    // ✅ ENHANCED: This effect is now much more efficient.
-    // It fetches reactions in a single batch instead of creating a listener for every announcement.
     useEffect(() => {
         if (!Array.isArray(teacherAnnouncements) || teacherAnnouncements.length === 0) {
             setHomeViewPostReactions({});
@@ -142,9 +141,6 @@ const HomeView = ({
         if(announcementIds.length === 0) return;
         
         const allUserIds = new Set(teacherAnnouncements.map(a => a.teacherId).filter(Boolean));
-
-        // Note: For this to work, you need a top-level `reactions` collection
-        // where each reaction document contains an `announcementId`.
         const reactionsQuery = query(collection(db, 'reactions'), where('announcementId', 'in', announcementIds));
         
         const unsubscribe = onSnapshot(reactionsQuery, (snapshot) => {
@@ -312,7 +308,14 @@ const HomeView = ({
         setIsAnnouncementModalOpen(true);
     };
 
-    const closeAnnouncementModal = () => {
+    // --- FIX: New handler to close the modal and receive the updated count ---
+    const handleCloseAnnouncementModal = (updatedCount) => {
+        if (selectedAnnouncement && typeof updatedCount === 'number') {
+            setLiveCommentCounts(prev => ({
+                ...prev,
+                [selectedAnnouncement.id]: updatedCount,
+            }));
+        }
         setIsAnnouncementModalOpen(false);
         setSelectedAnnouncement(null);
     };
@@ -718,7 +721,9 @@ const HomeView = ({
                                 const isTruncated = post.content && post.content.length > ANNOUNCEMENT_TRUNCATE_LENGTH;
                                 const showFullAnnouncement = expandedAnnouncements[post.id];
                                 const authorProfile = homeViewUsersMap[post.teacherId];
-                                
+                                // --- FIX: Prioritize the live count, fallback to the prop count ---
+                                const displayCommentCount = liveCommentCounts[post.id] !== undefined ? liveCommentCounts[post.id] : (post.commentsCount || 0);
+
                                 const {
                                     component: ReactionButtonIcon,
                                     label: reactionLabel,
@@ -812,11 +817,11 @@ const HomeView = ({
                                             </div>
                                         )}
 
-                                        {(Object.keys(postReactionsForThisPost).length > 0 || (post.commentsCount || 0) > 0) && (
+                                        {(Object.keys(postReactionsForThisPost).length > 0 || displayCommentCount > 0) && (
                                             <div className="flex justify-between items-center text-sm text-gray-500 mt-4">
                                                 {formatReactionCountHomeView(postReactionsForThisPost, post.id)}
                                                 <span className="cursor-pointer hover:underline" onClick={() => openAnnouncementModal(post)}>
-                                                    {post.commentsCount || 0} comments
+                                                    {displayCommentCount} {displayCommentCount === 1 ? 'comment' : 'comments'}
                                                 </span>
                                             </div>
                                         )}
@@ -926,14 +931,18 @@ const HomeView = ({
                 onDeleteActivity={handleDeleteScheduleActivity}
             />
 
-            <AnnouncementModal
-                isOpen={isAnnouncementModalOpen}
-                onClose={closeAnnouncementModal}
-                announcement={selectedAnnouncement}
-                userProfile={userProfile}
-                db={db}
-                usersMap={homeViewUsersMap}
-            />
+            {isAnnouncementModalOpen && (
+                <AnnouncementModal
+                    isOpen={isAnnouncementModalOpen}
+                    onClose={handleCloseAnnouncementModal} // --- FIX: Use the new handler ---
+                    announcement={selectedAnnouncement}
+                    userProfile={userProfile}
+                    db={db}
+                    postReactions={selectedAnnouncement ? homeViewPostReactions[selectedAnnouncement.id] : {}}
+                    onToggleReaction={handleTogglePostReactionHomeView}
+                    usersMap={homeViewUsersMap}
+                />
+            )}
 
             <ReactionsBreakdownModal
                 isOpen={isReactionsBreakdownModalOpen}

@@ -9,6 +9,18 @@ import UserInitialsAvatar from '../../../common/UserInitialsAvatar';
 const COMMENT_TRUNCATE_LENGTH = 150;
 const reactionTypes = ["like", "love", "haha", "wow", "sad", "angry", "care"];
 
+const NativeEmoji = ({ emoji, ...props }) => <span {...props}>{emoji}</span>;
+
+const reactionIcons = {
+    like: { component: (props) => <NativeEmoji emoji="👍" {...props} />, color: 'text-blue-500', label: 'Like' },
+    love: { component: (props) => <NativeEmoji emoji="❤️" {...props} />, color: 'text-red-500', label: 'Love' },
+    haha: { component: (props) => <NativeEmoji emoji="😂" {...props} />, color: 'text-yellow-500', label: 'Haha' },
+    wow: { component: (props) => <NativeEmoji emoji="😮" {...props} />, color: 'text-amber-500', label: 'Wow' },
+    sad: { component: (props) => <NativeEmoji emoji="😢" {...props} />, color: 'text-slate-500', label: 'Sad' },
+    angry: { component: (props) => <NativeEmoji emoji="😡" {...props} />, color: 'text-red-700', label: 'Angry' },
+    care: { component: (props) => <NativeEmoji emoji="🤗" {...props} />, color: 'text-pink-500', label: 'Care' }
+};
+
 const IosEmoji = ({ type = 'like', size = '1.5rem', className = '' }) => {
     const map = {
         like: '👍', love: '❤️', haha: '😂', wow: '😮', sad: '😢', angry: '😡', care: '🤗',
@@ -28,14 +40,14 @@ const IosEmoji = ({ type = 'like', size = '1.5rem', className = '' }) => {
     );
 };
 
-const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) => {
+const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db, postReactions, onToggleReaction, usersMap }) => {
     const [comments, setComments] = useState([]);
+    // --- FIX: Use a local state for the live count within the modal ---
+    const [liveCommentCount, setLiveCommentCount] = useState(announcement?.commentsCount || 0);
     const [newCommentText, setNewCommentText] = useState('');
     const [replyToCommentId, setReplyToCommentId] = useState(null);
     const [replyToUserName, setReplyToUserName] = useState('');
-    const [postReactions, setPostReactions] = useState({});
     const [commentReactions, setCommentReactions] = useState({});
-    const [usersMap, setUsersMap] = useState({});
     const [hoveredReactionData, setHoveredReactionData] = useState(null);
     const [editingCommentId, setEditingCommentId] = useState(null);
     const [editingCommentText, setEditingCommentText] = useState('');
@@ -48,7 +60,10 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) =
     const currentUserName = `${userProfile?.firstName} ${userProfile?.lastName}`;
     
     const commentsCollectionRef = announcement?.id ? collection(db, `teacherAnnouncements/${announcement.id}/comments`) : null;
-    const postReactionsCollectionRef = announcement?.id ? collection(db, `teacherAnnouncements/${announcement.id}/reactions`) : null;
+
+    useEffect(() => {
+        setLiveCommentCount(announcement?.commentsCount || 0);
+    }, [announcement]);
 
     const convertTimestampToDate = (timestamp) => {
         if (timestamp && typeof timestamp.toDate === 'function') return timestamp.toDate();
@@ -71,36 +86,10 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) =
         const weeks = Math.floor(days / 7);
         return `${weeks}w`;
     };
-
-    const fetchUsersData = async (userIds) => {
-        const usersToFetch = [...new Set(userIds)].filter(id => !usersMap[id]);
-        if (usersToFetch.length === 0) return;
-
-        const usersData = {};
-        const promises = usersToFetch.map(async (uid) => {
-            try {
-                const userDocRef = doc(db, 'users', uid);
-                const userDocSnap = await getDoc(userDocRef);
-                if (userDocSnap.exists()) {
-                    const userData = userDocSnap.data();
-                    usersData[uid] = {
-                        firstName: userData.firstName || '', lastName: userData.lastName || '', photoURL: userData.photoURL || null, id: uid,
-                    };
-                } else {
-                    usersData[uid] = { firstName: 'Unknown', lastName: 'User', photoURL: null, id: uid };
-                }
-            } catch (error) {
-                console.warn(`Could not fetch user data for ID ${uid}:`, error);
-                usersData[uid] = { firstName: 'Error', lastName: 'User', photoURL: null, id: uid };
-            }
-        });
-        await Promise.all(promises);
-        setUsersMap(prev => ({ ...prev, ...usersData }));
-    };
     
     useEffect(() => {
         if (!isOpen || !announcement?.id || !commentsCollectionRef) {
-            setComments([]); setPostReactions({}); setCommentReactions({});
+            setComments([]); setCommentReactions({});
             return;
         }
 
@@ -108,38 +97,21 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) =
         const unsubscribeComments = onSnapshot(commentsQuery, (snapshot) => {
             const fetchedComments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), createdAt: convertTimestampToDate(doc.data().createdAt) }));
             setComments(fetchedComments);
+            setLiveCommentCount(fetchedComments.length); // Update with the live count
 
-            let allUserIds = new Set();
-            if(announcement.teacherId) allUserIds.add(announcement.teacherId);
-            fetchedComments.forEach(comment => allUserIds.add(comment.userId));
-            
             const commentReactionUnsubs = fetchedComments.map(comment => {
                 const commentReactionsRef = collection(db, `teacherAnnouncements/${announcement.id}/comments/${comment.id}/reactions`);
                 return onSnapshot(commentReactionsRef, (reactionSnap) => {
                     const reactionsForThisComment = {};
                     reactionSnap.docs.forEach(rDoc => {
                         reactionsForThisComment[rDoc.id] = rDoc.data().reactionType;
-                        allUserIds.add(rDoc.id);
                     });
                     setCommentReactions(prev => ({ ...prev, [comment.id]: reactionsForThisComment }));
-                    fetchUsersData(Array.from(allUserIds));
                 });
             });
 
-            const postReactionsRef = postReactionsCollectionRef ? collection(db, `teacherAnnouncements/${announcement.id}/reactions`) : null;
-            const unsubscribePostReactions = postReactionsRef ? onSnapshot(postReactionsRef, (snapshot) => {
-                const fetchedPostReactions = {};
-                snapshot.docs.forEach(doc => {
-                    fetchedPostReactions[doc.id] = doc.data().reactionType;
-                    allUserIds.add(doc.id);
-                });
-                setPostReactions(fetchedPostReactions);
-                fetchUsersData(Array.from(allUserIds));
-            }) : () => {};
-
             return () => {
                 unsubscribeComments();
-                unsubscribePostReactions();
                 commentReactionUnsubs.forEach(unsub => unsub());
             };
         });
@@ -151,7 +123,6 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) =
 
     const handlePostComment = async () => { if (!newCommentText.trim() || !commentsCollectionRef) return; try { await addDoc(commentsCollectionRef, { userId: currentUserId, userName: currentUserName, commentText: newCommentText.trim(), createdAt: new Date(), parentId: replyToCommentId }); setNewCommentText(''); setReplyToCommentId(null); setReplyToUserName(''); } catch (error) { console.error("Error adding comment:", error); } };
     const handleReplyClick = (commentId, userName) => { setReplyToCommentId(commentId); setReplyToUserName(userName); setNewCommentText(`@${userName} `); };
-    const handleTogglePostReaction = async (reactionType) => { if (!currentUserId || !postReactionsCollectionRef) return; const userReactionRef = doc(postReactionsCollectionRef, currentUserId); const existingReactionType = postReactions[currentUserId]; try { if (existingReactionType === reactionType) await deleteDoc(userReactionRef); else await setDoc(userReactionRef, { userId: currentUserId, reactionType: reactionType }); } catch (error) { console.error("Error toggling post reaction:", error); } };
     const handleToggleCommentReaction = async (commentId, reactionType) => { if (!currentUserId || !announcement?.id) return; const commentReactionsRef = collection(db, `teacherAnnouncements/${announcement.id}/comments/${commentId}/reactions`); const userCommentReactionRef = doc(commentReactionsRef, currentUserId); const existingCommentReactionType = commentReactions[commentId]?.[currentUserId]; try { if (existingCommentReactionType === reactionType) await deleteDoc(userCommentReactionRef); else await setDoc(userCommentReactionRef, { userId: currentUserId, reactionType: reactionType }); } catch (error) { console.error("Error toggling comment reaction:", error); } };
     const handleStartEditComment = (comment) => { setEditingCommentId(comment.id); setEditingCommentText(comment.commentText); };
     const handleSaveEditComment = async (commentId) => { if (!editingCommentText.trim() || !commentsCollectionRef) return; try { await updateDoc(doc(commentsCollectionRef, commentId), { commentText: editingCommentText.trim(), editedAt: new Date() }); setEditingCommentId(null); setEditingCommentText(''); } catch (error) { console.error("Error updating comment:", error); } };
@@ -173,14 +144,23 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) =
         if (!reactions || Object.keys(reactions).length === 0) return null;
         const counts = {};
         Object.values(reactions).forEach(t => { counts[t] = (counts[t] || 0) + 1; });
-        const sortedReactions = Object.entries(counts).sort(([, a], [, b]) => b - a).slice(0, 3);
+        const sortedReactions = Object.entries(counts).sort(([, a], [, b]) => b - a);
         
         return (
-            <div className="flex items-center" onClick={(e) => { e.stopPropagation(); openReactionsBreakdownModal(reactions); }}>
-                <div className="flex -space-x-1">
-                    {sortedReactions.map(([t]) => <IosEmoji key={t} type={t} size="1rem" className="p-0.5 bg-white dark:bg-zinc-700 rounded-full" />)}
+            <div className="flex items-center space-x-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); openReactionsBreakdownModal(reactions); }}>
+                <div className="flex items-center">
+                    {sortedReactions.slice(0, 3).map(([type], index) => {
+                        const reaction = reactionIcons[type];
+                        if (!reaction) return null;
+                        const { component: Icon } = reaction;
+                        return (
+                            <div key={type} className={`w-6 h-6 flex items-center justify-center ${index > 0 ? '-ml-2' : ''}`}>
+                                <Icon className="text-xl" />
+                            </div>
+                        );
+                    })}
                 </div>
-                <span className="ml-2 text-sm text-zinc-500 dark:text-zinc-400 font-medium">{Object.keys(reactions).length}</span>
+                <span className="text-sm text-zinc-500 dark:text-zinc-400 font-medium ml-2">{Object.keys(reactions).length}</span>
             </div>
         );
     };
@@ -193,7 +173,8 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) =
                 <div className="flex items-center justify-center p-4 border-b border-zinc-200 dark:border-zinc-700 relative">
                     <div className="w-10 h-1.5 bg-zinc-300 dark:bg-zinc-600 rounded-full absolute top-2.5"></div>
                     <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 pt-2">Announcement</h2>
-                    <button onClick={onClose} className="absolute top-3 right-4 w-8 h-8 flex items-center justify-center bg-zinc-200/70 dark:bg-zinc-700/70 rounded-full hover:bg-zinc-300/80 dark:hover:bg-zinc-600/80 transition-colors">
+                    {/* --- FIX: Pass the live count back on close --- */}
+                    <button onClick={() => onClose(liveCommentCount)} className="absolute top-3 right-4 w-8 h-8 flex items-center justify-center bg-zinc-200/70 dark:bg-zinc-700/70 rounded-full hover:bg-zinc-300/80 dark:hover:bg-zinc-600/80 transition-colors">
                         <FaTimes className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
                     </button>
                 </div>
@@ -213,20 +194,22 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db }) =
                     </div>
 
                     <div className="flex justify-between items-center text-sm text-zinc-500 border-y border-zinc-200 dark:border-zinc-700 py-2 my-2">
-                        {renderReactionCount(postReactions)}
-                        <span className="text-sm text-zinc-500 dark:text-zinc-400">{comments.length} Comments</span>
+                        <div>
+                           {renderReactionCount(postReactions)}
+                        </div>
+                        <span className="text-sm text-zinc-500 dark:text-zinc-400">{liveCommentCount} {liveCommentCount === 1 ? 'Comment' : 'Comments'}</span>
                     </div>
 
                     <div className="flex justify-around items-center py-1 mb-4">
                         <div className="relative" onMouseEnter={() => handleReactionOptionsMouseEnter(announcement.id, 'post')} onMouseLeave={handleReactionOptionsMouseLeave}>
-                            <button className="ios-action-button" onClick={() => handleTogglePostReaction(currentUserPostReaction || 'like')}>
+                            <button className="ios-action-button" onClick={() => onToggleReaction(announcement.id, currentUserPostReaction || 'like')}>
                                 {currentUserPostReaction ? <IosEmoji type={currentUserPostReaction} size="1.25rem" /> : <FaThumbsUp className="h-5 w-5" />}
                                 <span className={`font-semibold capitalize ml-2 ${currentUserPostReaction ? 'text-blue-500' : ''}`}>{currentUserPostReaction || 'Like'}</span>
                             </button>
                              {hoveredReactionData?.type === 'post' && hoveredReactionData?.id === announcement.id && (
                                 <div className="ios-reaction-popup" onMouseEnter={() => clearTimeout(timeoutRef.current)} onMouseLeave={handleReactionOptionsMouseLeave}>
                                     {reactionTypes.map((type) => (
-                                        <button key={type} className="p-1" onClick={() => { handleReactionOptionsMouseLeave(); handleTogglePostReaction(type); }}>
+                                        <button key={type} className="p-1" onClick={() => { handleReactionOptionsMouseLeave(); onToggleReaction(announcement.id, type); }}>
                                             <IosEmoji type={type} size="2rem" className="hover:scale-125" />
                                         </button>
                                     ))}

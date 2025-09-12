@@ -85,9 +85,8 @@ const AppRouter = () => {
 export default function App() {
   const [buildStatus, setBuildStatus] = useState('ready');
   const [timeLeft, setTimeLeft] = useState(AVERAGE_BUILD_SECONDS);
-  const [waitingWorker, setWaitingWorker] = useState(null); // MODIFICATION 1
+  const [waitingWorker, setWaitingWorker] = useState(null);
 
-  // MODIFICATION 2: Register service worker and listen for updates
   useEffect(() => {
     serviceWorkerRegistration.register({
       onUpdate: registration => {
@@ -142,19 +141,20 @@ export default function App() {
     };
   }, []);
 
-  // MODIFICATION 3: Update the handleEnter function
   const handleEnter = () => {
     if (waitingWorker) {
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
-      }, { once: true });
       waitingWorker.waiting.postMessage({ type: 'SKIP_WAITING' });
+      // The 'controllerchange' event will fire when the new service worker has taken control
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        // Hard refresh the page to ensure all assets are updated
+        window.location.reload(true);
+      }, { once: true });
     } else {
-      window.location.reload();
+      // Fallback to a hard refresh if there's no waiting worker
+      window.location.reload(true);
     }
   };
 
-  // MODIFICATION 4: Update the condition to show the overlay
   if (buildStatus === 'building' || buildStatus === 'complete' || waitingWorker) {
     const status = waitingWorker ? 'complete' : buildStatus;
     return <UpdateOverlay status={status} timeLeft={timeLeft} onEnter={handleEnter} />;
@@ -168,5 +168,3 @@ export default function App() {
       </div>
     );
 }
-
-// REMOVED: serviceWorkerRegistration.register(); (It's now inside the App component)
