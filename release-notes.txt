@@ -8,3 +8,4 @@ Improved DOCX export with proper table styling
 Enhanced UI Philosophy
 Added auto-refresh banner when new version is available
 Offline-Online Synching of Lessons and Quizzes for students
+Memory Leaks Fixes

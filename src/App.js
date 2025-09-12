@@ -141,16 +141,19 @@ export default function App() {
     };
   }, []);
 
+  // This function now correctly handles the service worker update process.
   const handleEnter = () => {
     if (waitingWorker) {
-      waitingWorker.waiting.postMessage({ type: 'SKIP_WAITING' });
-      // The 'controllerchange' event will fire when the new service worker has taken control
+      // We add the event listener first to ensure we catch the 'controllerchange' event.
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        // Hard refresh the page to ensure all assets are updated
+        // A hard refresh is used to ensure all assets are fetched from the server.
         window.location.reload(true);
       }, { once: true });
+      
+      // We then send a message to the new service worker, telling it to activate.
+      waitingWorker.waiting.postMessage({ type: 'SKIP_WAITING' });
     } else {
-      // Fallback to a hard refresh if there's no waiting worker
+      // If there's no waiting worker, a simple hard refresh is sufficient.
       window.location.reload(true);
     }
   };
