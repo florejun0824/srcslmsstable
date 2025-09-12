@@ -411,18 +411,24 @@ const HomeView = ({
                     openReactionsBreakdownModal(reactions, homeViewUsersMap);
                 }}
             >
-                <div className="flex items-center">
-                    {sortedReactions.slice(0, 3).map(([type], index) => {
-                        const reaction = reactionIconsHomeView[type];
-                        if (!reaction) return null;
-                        const { component: Icon } = reaction;
-                        return (
-                            <div key={type} className={`w-6 h-6 flex items-center justify-center ${index > 0 ? '-ml-2' : ''}`}>
-                                <Icon className="text-xl" />
-                            </div>
-                        );
-                    })}
-                </div>
+			<div className="flex items-center">
+			    {Object.values(safeReactions).map((reactionType, index) => {
+			        const reaction = reactionIconsHomeView[reactionType];
+			        if (!reaction) return null;
+			        const { component: Icon } = reaction;
+        
+			        // We use a simple index for the key as reaction types are no longer unique
+			        return (
+			            <div
+			                key={index} 
+			                className={`relative w-6 h-6 flex items-center justify-center rounded-full bg-white ring-2 ring-white ${index > 0 ? '-ml-2' : ''}`}
+			                style={{ zIndex: Object.values(safeReactions).length - index }}
+			            >
+			                <Icon className="text-xl" />
+			            </div>
+			        );
+			    })}
+			</div>
                 <span className="text-sm text-gray-600 font-medium ml-2">{Object.keys(safeReactions).length}</span>
                 <AnimatePresence>
                     {isVisible && (

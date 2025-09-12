@@ -117,7 +117,8 @@ export default function App() {
             if (prevStatus === 'building' && data.status === 'ready') {
               if (countdownInterval) clearInterval(countdownInterval);
               if (pollInterval) clearInterval(pollInterval);
-              return 'complete';
+              // We no longer set a 'complete' status, as the waitingWorker is the true signal.
+              return 'ready';
             }
             return data.status;
           }
@@ -141,26 +142,23 @@ export default function App() {
     };
   }, []);
 
-  // This function now correctly handles the service worker update process.
+  // ✅ FIXED: This function now correctly handles the service worker update process.
   const handleEnter = () => {
-    if (waitingWorker) {
-      // We add the event listener first to ensure we catch the 'controllerchange' event.
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        // A hard refresh is used to ensure all assets are fetched from the server.
-        window.location.reload(true);
-      }, { once: true });
-      
-      // We then send a message to the new service worker, telling it to activate.
+    if (waitingWorker && waitingWorker.waiting) {
       waitingWorker.waiting.postMessage({ type: 'SKIP_WAITING' });
-    } else {
-      // If there's no waiting worker, a simple hard refresh is sufficient.
-      window.location.reload(true);
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      }, { once: true });
     }
   };
 
-  if (buildStatus === 'building' || buildStatus === 'complete' || waitingWorker) {
-    const status = waitingWorker ? 'complete' : buildStatus;
-    return <UpdateOverlay status={status} timeLeft={timeLeft} onEnter={handleEnter} />;
+  // ✅ FIXED: Separated UI logic for a cleaner, single-click update flow.
+  if (buildStatus === 'building') {
+    return <UpdateOverlay status="building" timeLeft={timeLeft} />;
+  }
+
+  if (waitingWorker) {
+    return <UpdateOverlay status="complete" onEnter={handleEnter} />;
   }
 
   return (

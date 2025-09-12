@@ -13,7 +13,7 @@ const NativeEmoji = ({ emoji, ...props }) => <span {...props}>{emoji}</span>;
 
 const reactionIcons = {
     like: { component: (props) => <NativeEmoji emoji="👍" {...props} />, color: 'text-blue-500', label: 'Like' },
-    love: { component: (props) => <NativeEmoji emoji="❤️" {...props} />, color: 'text-red-500', label: 'Love' },
+    heart: { component: (props) => <NativeEmoji emoji="❤️" {...props} />, color: 'text-red-500', label: 'Love' }, // <-- FIXED: "love" is now "heart"
     haha: { component: (props) => <NativeEmoji emoji="😂" {...props} />, color: 'text-yellow-500', label: 'Haha' },
     wow: { component: (props) => <NativeEmoji emoji="😮" {...props} />, color: 'text-amber-500', label: 'Wow' },
     sad: { component: (props) => <NativeEmoji emoji="😢" {...props} />, color: 'text-slate-500', label: 'Sad' },
@@ -140,30 +140,38 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db, pos
     const announcementDate = announcement?.createdAt ? convertTimestampToDate(announcement.createdAt) : null;
     const formattedAnnouncementDate = announcementDate ? announcementDate.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Invalid Date';
 
-    const renderReactionCount = (reactions) => {
-        if (!reactions || Object.keys(reactions).length === 0) return null;
-        const counts = {};
-        Object.values(reactions).forEach(t => { counts[t] = (counts[t] || 0) + 1; });
-        const sortedReactions = Object.entries(counts).sort(([, a], [, b]) => b - a);
-        
-        return (
-            <div className="flex items-center space-x-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); openReactionsBreakdownModal(reactions); }}>
-                <div className="flex items-center">
-                    {sortedReactions.slice(0, 3).map(([type], index) => {
-                        const reaction = reactionIcons[type];
-                        if (!reaction) return null;
-                        const { component: Icon } = reaction;
-                        return (
-                            <div key={type} className={`w-6 h-6 flex items-center justify-center ${index > 0 ? '-ml-2' : ''}`}>
-                                <Icon className="text-xl" />
-                            </div>
-                        );
-                    })}
-                </div>
-                <span className="text-sm text-zinc-500 dark:text-zinc-400 font-medium ml-2">{Object.keys(reactions).length}</span>
-            </div>
-        );
-    };
+	// Replace the entire function in AnnouncementModal.js with this one.
+	const renderReactionCount = (reactions) => {
+	    if (!reactions || Object.keys(reactions).length === 0) return null;
+
+	    const allReactionTypes = Object.values(reactions);
+
+	    return (
+	        <div className="flex items-center space-x-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); openReactionsBreakdownModal(reactions); }}>
+	            <div className="flex items-center">
+	                {allReactionTypes.map((type, index) => {
+	                    // This lookup will now work correctly with the fixed icon names
+	                    const reaction = reactionIcons[type]; 
+	                    if (!reaction) return null;
+
+	                    const { component: Icon } = reaction;
+	                    const zIndex = allReactionTypes.length - index;
+
+	                    return (
+	                        <div
+	                            key={index}
+	                            className={`relative w-6 h-6 flex items-center justify-center rounded-full bg-white ring-2 ring-white ${index > 0 ? '-ml-2' : ''}`}
+	                            style={{ zIndex: zIndex }}
+	                        >
+	                            <Icon className="text-xl" />
+	                        </div>
+	                    );
+	                })}
+	            </div>
+	            <span className="text-sm text-zinc-500 dark:text-zinc-400 font-medium ml-2">{allReactionTypes.length}</span>
+	        </div>
+	    );
+	};
     
     if (!isOpen || !announcement) return null;
 

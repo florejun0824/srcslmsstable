@@ -1,10 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, 'react';
 import { db } from '../../../../services/firebase';
-import { doc, onSnapshot, collection, query, where, orderBy, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, orderBy, getDocs, setDoc, deleteDoc, addDoc } from 'firebase/firestore';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { PiThumbsUpFill, PiHeartFill, PiSmileyStickerFill, PiStarFill, PiSmileySadFill, PiAngryFill, PiHeartbeatFill, PiChatCircleDotsFill } from 'react-icons/pi';
-import UserInitialsAvatar from '../../../common/UserInitialsAvatar'; // Assuming path
-import Spinner from '../../../common/Spinner'; // Assuming path
+import { PiThumbsUpFill, PiHeartFill, PiSmileyStickerFill, PiStarFill, PiSmileySadFill, PiAngryFill, PiHeartbeatFill } from 'react-icons/pi';
+import UserInitialsAvatar from '../../../common/UserInitialsAvatar';
+import Spinner from '../../../common/Spinner';
+
+// --- ADDED: Definition for reaction icons ---
+const reactionIcons = {
+    like: { component: PiThumbsUpFill, color: 'text-blue-500' },
+    heart: { component: PiHeartFill, color: 'text-red-500' },
+    haha: { component: PiSmileyStickerFill, color: 'text-yellow-500' },
+    wow: { component: PiStarFill, color: 'text-amber-500' },
+    sad: { component: PiSmileySadFill, color: 'text-slate-500' },
+    angry: { component: PiAngryFill, color: 'text-red-700' },
+    care: { component: PiHeartbeatFill, color: 'text-pink-500' }
+};
 
 const userProfileCache = new Map();
 
@@ -28,7 +39,7 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
     const [loading, setLoading] = useState(true);
     const [newComment, setNewComment] = useState("");
 
-    const fetchUsers = useCallback(async (userIds) => {
+    const fetchUsers = React.useCallback(async (userIds) => {
         const idsToFetch = [...new Set(userIds.filter(id => id && !userProfileCache.has(id)))];
         if (idsToFetch.length === 0) {
             setUsersMap(Object.fromEntries(userProfileCache));
@@ -52,7 +63,7 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
         }
     }, []);
 
-    useEffect(() => {
+    React.useEffect(() => {
         if (!announcementId) return;
         setLoading(true);
 
@@ -66,7 +77,9 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
             }
             setLoading(false);
         });
-
+        
+        // Note: The original timestamp field in your comments query was 'timestamp'. 
+        // If your Firestore field is 'createdAt', you should change 'timestamp' to 'createdAt' here.
         const commentsQuery = query(collection(db, `teacherAnnouncements/${announcementId}/comments`), orderBy('timestamp', 'asc'));
         const unsubComments = onSnapshot(commentsQuery, (snapshot) => {
             const fetchedComments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -101,7 +114,7 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
         const commentData = {
             text: newComment,
             userId: currentUserProfile.id,
-            timestamp: new Date(),
+            timestamp: new Date(), // Using 'timestamp' to match the query above
         };
 
         try {
@@ -110,6 +123,40 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
         } catch (error) {
             console.error("Error posting comment: ", error);
         }
+    };
+
+    // --- ADDED: Helper function to render the reaction icons ---
+    const renderReactionIcons = (reactionsObj) => {
+        if (!reactionsObj || Object.keys(reactionsObj).length === 0) {
+            return null;
+        }
+        // Count unique reactions
+        const counts = {};
+        Object.values(reactionsObj).forEach(type => {
+            counts[type] = (counts[type] || 0) + 1;
+        });
+        const sortedUniqueReactions = Object.entries(counts).sort(([, a], [, b]) => b - a);
+
+        return (
+            <div className="flex items-center">
+                {/* Map over unique reactions */}
+                {sortedUniqueReactions.map(([type], index) => {
+                    const reaction = reactionIcons[type];
+                    if (!reaction) return null;
+                    const IconComponent = reaction.component;
+                    const zIndex = sortedUniqueReactions.length - index;
+                    return (
+                        <div
+                            key={type}
+                            className={`relative w-7 h-7 flex items-center justify-center rounded-full bg-zinc-100 ring-2 ring-white ${index > 0 ? '-ml-2' : ''}`}
+                            style={{ zIndex }}
+                        >
+                            <IconComponent className={`text-xl ${reaction.color}`} />
+                        </div>
+                    );
+                })}
+            </div>
+        );
     };
 
 
@@ -143,6 +190,16 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
                     </div>
                     <p className="text-zinc-800 whitespace-pre-wrap">{announcement.content}</p>
                     {announcement.photoURL && <img src={announcement.photoURL} alt="Announcement" className="mt-4 rounded-lg max-h-[50vh] w-full object-contain" />}
+
+                    {/* --- ADDED: JSX to display the reactions and counts --- */}
+                    <div className="mt-4 pt-3 border-t border-zinc-200 flex justify-between items-center text-sm text-zinc-600">
+                        <div className="flex items-center space-x-2">
+                            {renderReactionIcons(reactions)}
+                            {Object.keys(reactions).length > 0 && (
+                                <span className="font-medium">{Object.keys(reactions).length}</span>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Comments Section */}
@@ -175,7 +232,7 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
                                 className="w-full border-zinc-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500"
                                 rows="3"
                             ></textarea>
-                            <button type="submit" className="mt-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-full hover:bg-blue-700 transition">Post Comment</button>
+                            <button type="submit" className="mt-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-full hover:bg-blue-700 transition disabled:opacity-50" disabled={!newComment.trim()}>Post Comment</button>
                          </div>
                     </form>
                 </div>
