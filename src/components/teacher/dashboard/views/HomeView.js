@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     GraduationCap,
@@ -23,7 +23,7 @@ import UserInitialsAvatar from '../../../../components/common/UserInitialsAvatar
 import AdminBannerEditModal from '../widgets/AdminBannerEditModal';
 
 import { db } from '../../../../services/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, getDoc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, getDoc, setDoc, query, where, getDocs } from 'firebase/firestore';
 
 const NativeEmoji = ({ emoji, ...props }) => <span {...props}>{emoji}</span>;
 
@@ -89,7 +89,7 @@ const HomeView = ({
             if (!a.isPinned && b.isPinned) return 1;
             const dateA = a.createdAt?.toDate() || 0;
             const dateB = b.createdAt?.toDate() || 0;
-            return dateB - dateA;
+            return dateB - a;
         });
     }, [teacherAnnouncements]);
 
@@ -102,45 +102,71 @@ const HomeView = ({
 
     const currentUserId = userProfile?.id;
 
-    const fetchUsersData = async (userIds, dbInstance, currentUserProfile, setUsersMap) => {
-        const usersData = {};
-        if (userIds.length === 0) return;
+    // ✅ ENHANCED: User data fetching is now more efficient and caches users.
+    const fetchUsersData = useCallback(async (userIds) => {
+        const usersToFetch = [...new Set(userIds.filter(id => id && !homeViewUsersMap[id]))];
+        if (usersToFetch.length === 0) return;
 
-        const uniqueUserIds = [...new Set(userIds)];
-
-        if (currentUserProfile?.id) {
-            usersData[currentUserProfile.id] = {
-                ...currentUserProfile,
-                id: currentUserProfile.id,
-            };
-        }
-
-        const promises = uniqueUserIds.map(async (uid) => {
-            if (usersData[uid]) return;
-
-            try {
-                const userDocRef = doc(dbInstance, 'users', uid);
-                const userDocSnap = await getDoc(userDocRef);
-                if (userDocSnap.exists()) {
-                    const userData = userDocSnap.data();
-                    usersData[uid] = {
-                        firstName: userData.firstName || '',
-                        lastName: userData.lastName || '',
-                        photoURL: userData.photoURL || null,
-                        id: uid,
-                    };
-                } else {
-                    usersData[uid] = { firstName: 'Unknown', lastName: 'User', id: uid, photoURL: null };
-                }
-            } catch (error) {
-                console.warn(`Could not fetch user data for ID ${uid}:`, error);
-                usersData[uid] = { firstName: 'Error', lastName: 'User', id: uid, photoURL: null };
+        try {
+            // Firestore 'in' queries are limited to 30 items. Batch if necessary.
+            const userBatches = [];
+            for (let i = 0; i < usersToFetch.length; i += 30) {
+                userBatches.push(usersToFetch.slice(i, i + 30));
             }
+
+            const newUsersData = {};
+            for (const batch of userBatches) {
+                const usersQuery = query(collection(db, 'users'), where('__name__', 'in', batch));
+                const querySnapshot = await getDocs(usersQuery);
+                querySnapshot.forEach(doc => {
+                    newUsersData[doc.id] = { ...doc.data(), id: doc.id };
+                });
+            }
+            
+            setHomeViewUsersMap(prev => ({ ...prev, ...newUsersData }));
+        } catch (error) {
+            console.error("Error fetching users data:", error);
+        }
+    }, [homeViewUsersMap]);
+
+
+    // ✅ ENHANCED: This effect is now much more efficient.
+    // It fetches reactions in a single batch instead of creating a listener for every announcement.
+    useEffect(() => {
+        if (!Array.isArray(teacherAnnouncements) || teacherAnnouncements.length === 0) {
+            setHomeViewPostReactions({});
+            return;
+        };
+
+        const announcementIds = teacherAnnouncements.map(a => a.id).filter(Boolean);
+        if(announcementIds.length === 0) return;
+        
+        const allUserIds = new Set(teacherAnnouncements.map(a => a.teacherId).filter(Boolean));
+
+        // Note: For this to work, you need a top-level `reactions` collection
+        // where each reaction document contains an `announcementId`.
+        const reactionsQuery = query(collection(db, 'reactions'), where('announcementId', 'in', announcementIds));
+        
+        const unsubscribe = onSnapshot(reactionsQuery, (snapshot) => {
+            const newReactionsByAnnouncement = announcementIds.reduce((acc, id) => ({...acc, [id]: {}}), {});
+
+            snapshot.forEach(doc => {
+                const reaction = doc.data();
+                if (newReactionsByAnnouncement[reaction.announcementId]) {
+                    newReactionsByAnnouncement[reaction.announcementId][reaction.userId] = reaction.reactionType;
+                    allUserIds.add(reaction.userId);
+                }
+            });
+
+            setHomeViewPostReactions(newReactionsByAnnouncement);
+            fetchUsersData(Array.from(allUserIds));
+        }, (error) => {
+            console.error("Error fetching reactions:", error);
         });
 
-        await Promise.all(promises);
-        setUsersMap(prev => ({ ...prev, ...usersData }));
-    };
+        return () => unsubscribe();
+    }, [teacherAnnouncements, fetchUsersData]);
+
 
     useEffect(() => {
         const unsubscribe = onSnapshot(scheduleCollectionRef, (snapshot) => {
@@ -152,51 +178,7 @@ const HomeView = ({
         });
 
         return () => unsubscribe();
-    }, [scheduleCollectionRef, showToast]);
-
-
-    useEffect(() => {
-        const unsubscribeFunctions = [];
-        if (!Array.isArray(teacherAnnouncements)) {
-            console.warn("teacherAnnouncements prop is not an array:", teacherAnnouncements);
-            return () => {};
-        }
-
-        const allUserIdsInReactions = new Set();
-
-        teacherAnnouncements.forEach(announcement => {
-            if (announcement.id) {
-                if (announcement.teacherId) {
-                    allUserIdsInReactions.add(announcement.teacherId);
-                }
-
-                const reactionsQuery = collection(db, `teacherAnnouncements/${announcement.id}/reactions`);
-                const unsubscribe = onSnapshot(reactionsQuery, (snapshot) => {
-                    const fetchedPostReactions = {};
-                    snapshot.docs.forEach(doc => {
-                        const reactionData = doc.data();
-                        fetchedPostReactions[doc.id] = reactionData.reactionType;
-                        allUserIdsInReactions.add(doc.id);
-                    });
-
-                    setHomeViewPostReactions(prev => ({
-                        ...prev,
-                        [announcement.id]: fetchedPostReactions
-                    }));
-
-                    fetchUsersData(Array.from(allUserIdsInReactions), db, userProfile, setHomeViewUsersMap);
-
-                }, (error) => {
-                    console.error(`Error fetching reactions for announcement ${announcement.id}:`, error);
-                });
-                unsubscribeFunctions.push(unsubscribe);
-            }
-        });
-
-        return () => {
-            unsubscribeFunctions.forEach(unsub => unsub());
-        };
-    }, [teacherAnnouncements, db, userProfile]);
+    }, [showToast]);
 
 
     const handleAddScheduleActivity = async (newActivity) => {
@@ -352,15 +334,22 @@ const HomeView = ({
             return;
         }
 
-        const userReactionRef = doc(db, `teacherAnnouncements/${announcementId}/reactions`, currentUserId);
+        const reactionDocId = `${currentUserId}_${announcementId}`;
+        const reactionRef = doc(db, 'reactions', reactionDocId);
         const existingReactionType = homeViewPostReactions[announcementId]?.[currentUserId];
+
 
         try {
             if (existingReactionType === reactionType) {
-                await deleteDoc(userReactionRef);
+                await deleteDoc(reactionRef);
                 showToast(`Your ${reactionType} reaction has been removed.`, "info");
             } else {
-                await setDoc(userReactionRef, { userId: currentUserId, reactionType: reactionType, timestamp: new Date() });
+                await setDoc(reactionRef, {
+                    announcementId,
+                    userId: currentUserId,
+                    reactionType,
+                    timestamp: new Date()
+                });
                 showToast(`You reacted with ${reactionType}!`, "success");
             }
         } catch (error) {

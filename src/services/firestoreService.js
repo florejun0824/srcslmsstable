@@ -41,11 +41,13 @@ const saveOfflineSubmission = async (submission) => {
 export const syncOfflineSubmissions = async (studentId) => {
     const submissions = (await localforage.getItem("quizSubmissions")) || [];
     const stillPending = [];
+    const batch = writeBatch(db);
 
     for (let sub of submissions) {
         if (sub.status === "pending_sync" && sub.studentId === studentId) {
             try {
-                await addDoc(collection(db, "quizSubmissions"), {
+                const docRef = doc(collection(db, "quizSubmissions"));
+                batch.set(docRef, {
                     ...sub,
                     status: "synced",
                     syncedAt: new Date(),
@@ -59,6 +61,7 @@ export const syncOfflineSubmissions = async (studentId) => {
         }
     }
 
+    await batch.commit();
     await localforage.setItem("quizSubmissions", stillPending);
     return stillPending;
 };
@@ -119,31 +122,39 @@ export const updateUserPassword = async (userId, newPassword) => {
     await updateDoc(userDocRef, { password: newPassword });
 };
 
+/**
+ * ✅ ENHANCED: This function is now much more efficient.
+ * Instead of reading all classes, it now queries only the classes that the student is actually in.
+ * This drastically reduces the number of read operations.
+ */
 export const updateStudentDetailsInClasses = async (studentId, newData) => {
     if (!studentId || !newData) {
         throw new Error("Student ID and new data must be provided.");
     }
     const batch = writeBatch(db);
-    const classesSnapshot = await getDocs(collection(db, 'classes'));
+    // This query is much more efficient as it only gets the classes a student is in.
+    const q = query(collection(db, 'classes'), where('studentIds', 'array-contains', studentId));
+    const classesSnapshot = await getDocs(q);
+
     classesSnapshot.forEach(docSnap => {
         const classData = docSnap.data();
         if (!classData.students || !Array.isArray(classData.students)) {
             return;
         }
-        let studentFound = false;
+
         const updatedStudents = classData.students.map(student => {
             if (student.id === studentId) {
-                studentFound = true;
                 return { ...student, ...newData };
             }
             return student;
         });
-        if (studentFound) {
-            batch.update(docSnap.ref, { students: updatedStudents });
-        }
+
+        batch.update(docSnap.ref, { students: updatedStudents });
     });
+
     await batch.commit();
 };
+
 
 export const updateTeacherDetailsInDocuments = async (teacherId, newData) => {
     if (!teacherId || !newData) {

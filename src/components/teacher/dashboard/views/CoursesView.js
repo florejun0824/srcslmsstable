@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../../../services/firebase';
-import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore'; // Removed getDocs as it's no longer needed here
 import UnitAccordion from '../../UnitAccordion';
 import Spinner from '../../../../components/common/Spinner';
 import {
@@ -31,8 +31,9 @@ const CoursesView = (props) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeContentGroup, setActiveContentGroup] = useState(null);
     const [selectedLessons, setSelectedLessons] = useState(new Set());
-    const [unitCounts, setUnitCounts] = useState({});
-    const [isFetchingUnitCounts, setIsFetchingUnitCounts] = useState(false);
+    // ✅ REMOVED: State for unit counts and fetching status is no longer needed.
+    // const [unitCounts, setUnitCounts] = useState({});
+    // const [isFetchingUnitCounts, setIsFetchingUnitCounts] = useState(false);
     const [units, setUnits] = useState([]);
     const [allLessonsForSubject, setAllLessonsForSubject] = useState([]);
     const [isLoadingUnitsAndLessons, setIsLoadingUnitsAndLessons] = useState(false);
@@ -50,32 +51,10 @@ const CoursesView = (props) => {
         setSelectedLessons(new Set());
     }, [activeSubject]);
 
-    useEffect(() => {
-        const fetchUnitCounts = async () => {
-            if (selectedCategory) {
-                setIsFetchingUnitCounts(true);
-                const categoryCourses = courses.filter(c => c.category === selectedCategory);
-                if (categoryCourses.length === 0) {
-                    setUnitCounts({});
-                    setIsFetchingUnitCounts(false);
-                    return;
-                }
-                const countPromises = categoryCourses.map(course => {
-                    const q = query(collection(db, 'units'), where('subjectId', '==', course.id));
-                    return getDocs(q).then(snapshot => ({ courseId: course.id, count: snapshot.size }));
-                });
-                const results = await Promise.all(countPromises);
-                const counts = results.reduce((acc, { courseId, count }) => {
-                    acc[courseId] = count;
-                    return acc;
-                }, {});
-                setUnitCounts(counts);
-                setIsFetchingUnitCounts(false);
-            }
-        };
-        fetchUnitCounts();
-    }, [selectedCategory, courses]);
-    
+    // ✅ REMOVED: The entire useEffect for fetchUnitCounts has been removed.
+    // This eliminates the N+1 query problem, which was a major source of high read operations.
+    // The component now relies on a `unitCount` field on the course document itself.
+
     useEffect(() => {
         if (activeSubject?.id) {
             setIsLoadingUnitsAndLessons(true);
@@ -187,7 +166,36 @@ const CoursesView = (props) => {
                         <button onClick={() => { if (onAddSubjectClick) { onAddSubjectClick(selectedCategory); } }} className={primaryButton}><PlusCircleIcon className="w-5 h-5" />Add Subject</button>
                     </div>
                     <div className="mb-6 sticky top-0 bg-white/50 backdrop-blur-sm py-3 z-20 rounded-md"><div className="relative"><MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" /><input type="text" placeholder={`Search in ${selectedCategory}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full max-w-md p-3 pl-10 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white/70" /></div></div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{isFetchingUnitCounts ? (<div className="col-span-full flex justify-center items-center py-10"><Spinner /><p className="ml-4 text-gray-500">Loading subjects...</p></div>) : (filteredCourses.length > 0 ? (filteredCourses.map((course) => { const { icon: Icon, iconBgColor } = getSubjectIconAndColor(course.title); const unitCount = unitCounts[course.id] || 0; return (<div key={course.id} onClick={() => setActiveSubject(course)} className={`group relative rounded-3xl p-6 shadow-lg hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer overflow-hidden bg-gradient-to-br ${{ 'bg-blue-600': 'from-blue-500/80 to-sky-600/70', 'bg-green-600': 'from-green-500/80 to-emerald-600/70', 'bg-teal-600': 'from-teal-500/80 to-cyan-600/70', 'bg-red-600': 'from-red-500/80 to-rose-600/70', 'bg-pink-600': 'from-pink-500/80 to-fuchsia-600/70', 'bg-purple-600': 'from-purple-500/80 to-violet-600/70', 'bg-amber-600': 'from-amber-500/80 to-yellow-600/70', 'bg-gray-600': 'from-gray-500/80 to-slate-600/70' }[iconBgColor] || 'from-gray-500/80 to-slate-600/70'} text-white backdrop-blur-xl ring-1 ring-white/20`}><div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-lg opacity-50 group-hover:opacity-80 transition-opacity"></div><div className="relative z-10 flex flex-col h-full justify-between"><div><div className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-white/20 ring-1 ring-white/30 shadow-md"><Icon className="w-7 h-7" /></div><h2 className="text-2xl font-bold tracking-tight" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>{course.title}</h2></div><p className="text-sm text-white/80 mt-2 font-medium">{unitCount} {unitCount === 1 ? 'Unit' : 'Units'}</p></div><div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20"><button onClick={(e) => { e.stopPropagation(); handleOpenEditSubject(course); }} className="p-2 rounded-full text-white bg-black/10 hover:bg-black/30 transition-colors" title="Edit Subject Name"><PencilSquareIcon className="w-5 h-5" /></button><button onClick={(e) => { e.stopPropagation(); handleInitiateDelete('subject', course.id, course.title); }} className="p-2 rounded-full text-white bg-black/10 hover:bg-black/30 transition-colors" title="Delete Subject"><TrashIcon className="w-5 h-5" /></button></div></div>);})) : (<p className="col-span-full text-center text-gray-500 py-10">No subjects found matching your search.</p>))}</div>
+                    {/* ✅ MODIFIED: The loading check is removed as fetching is no longer happening here. */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredCourses.length > 0 ? (
+                            filteredCourses.map((course) => {
+                                const { icon: Icon, iconBgColor } = getSubjectIconAndColor(course.title);
+                                // ✅ MODIFIED: Reading 'unitCount' directly from the course object.
+                                const unitCount = course.unitCount || 0;
+                                return (
+                                    <div key={course.id} onClick={() => setActiveSubject(course)} className={`group relative rounded-3xl p-6 shadow-lg hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer overflow-hidden bg-gradient-to-br ${{ 'bg-blue-600': 'from-blue-500/80 to-sky-600/70', 'bg-green-600': 'from-green-500/80 to-emerald-600/70', 'bg-teal-600': 'from-teal-500/80 to-cyan-600/70', 'bg-red-600': 'from-red-500/80 to-rose-600/70', 'bg-pink-600': 'from-pink-500/80 to-fuchsia-600/70', 'bg-purple-600': 'from-purple-500/80 to-violet-600/70', 'bg-amber-600': 'from-amber-500/80 to-yellow-600/70', 'bg-gray-600': 'from-gray-500/80 to-slate-600/70' }[iconBgColor] || 'from-gray-500/80 to-slate-600/70'} text-white backdrop-blur-xl ring-1 ring-white/20`}>
+                                        <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-lg opacity-50 group-hover:opacity-80 transition-opacity"></div>
+                                        <div className="relative z-10 flex flex-col h-full justify-between">
+                                            <div>
+                                                <div className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-white/20 ring-1 ring-white/30 shadow-md">
+                                                    <Icon className="w-7 h-7" />
+                                                </div>
+                                                <h2 className="text-2xl font-bold tracking-tight" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>{course.title}</h2>
+                                            </div>
+                                            <p className="text-sm text-white/80 mt-2 font-medium">{unitCount} {unitCount === 1 ? 'Unit' : 'Units'}</p>
+                                        </div>
+                                        <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                                            <button onClick={(e) => { e.stopPropagation(); handleOpenEditSubject(course); }} className="p-2 rounded-full text-white bg-black/10 hover:bg-black/30 transition-colors" title="Edit Subject Name"><PencilSquareIcon className="w-5 h-5" /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleInitiateDelete('subject', course.id, course.title); }} className="p-2 rounded-full text-white bg-black/10 hover:bg-black/30 transition-colors" title="Delete Subject"><TrashIcon className="w-5 h-5" /></button>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <p className="col-span-full text-center text-gray-500 py-10">No subjects found matching your search.</p>
+                        )}
+                    </div>
                 </div>
             </div>
         );

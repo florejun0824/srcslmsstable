@@ -1,47 +1,35 @@
 import React, { useState } from 'react';
-import { db } from '../../services/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+// ✅ REMOVED: Firestore imports are no longer needed.
 import { Dialog, DialogPanel, Title, Button } from '@tremor/react';
-import { TrashIcon } from '@heroicons/react/24/outline'; // Using outline for a lighter feel
+import { TrashIcon } from '@heroicons/react/24/outline';
 
-export default function DeleteUnitModal({ isOpen, onClose, unitId }) {
+// ✅ ADDED: Now accepts 'onConfirm' to handle the deletion logic.
+export default function DeleteUnitModal({ isOpen, onClose, onConfirm }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleDeleteUnit = async () => {
-    if (!unitId) {
-      setError('No unit selected for deletion.');
-      return;
-    }
-
+  const handleDelete = async () => {
     setLoading(true);
     setError('');
-
     try {
-      // NOTE: This deletes the unit, but not sub-collections like lessons and quizzes.
-      // A cloud function is recommended for cascading deletes.
-      const unitRef = doc(db, 'units', unitId);
-      await deleteDoc(unitRef);
-      onClose();
+      // ✅ MODIFIED: Calls the onConfirm function from the parent.
+      // The parent (TeacherDashboard) now handles the transaction.
+      if (onConfirm) {
+        await onConfirm();
+      }
+      onClose(); // Close the modal on success
     } catch (err) {
-      console.error("Error deleting unit: ", err);
-      setError("Failed to delete unit. Please try again.");
+      console.error("Error during delete confirmation: ", err);
+      setError("Failed to delete. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    // The Dialog component now includes a backdrop blur for the frosted glass effect
     <Dialog open={isOpen} onClose={onClose} static={true} className="z-50">
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" aria-hidden="true" />
       <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-        {/*
-          iOS Vibe Changes:
-          - Styled as a centered alert with increased rounding ('rounded-2xl').
-          - Content is centered to focus the user on the confirmation action.
-          - Padding and background color adjusted for a modern, clean look.
-        */}
         <DialogPanel className="w-full max-w-sm rounded-2xl bg-zinc-50/95 p-6 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 mb-4">
             <TrashIcon className="h-6 w-6 text-red-600" aria-hidden="true" />
@@ -50,17 +38,11 @@ export default function DeleteUnitModal({ isOpen, onClose, unitId }) {
             Delete Unit
           </Title>
           <p className="text-sm text-zinc-600 mb-6">
-            Are you sure you want to delete this unit? All of its contents will be permanently removed. This action cannot be undone.
+            Are you sure you want to delete this unit? All of its contents (lessons, quizzes, etc.) will be permanently removed. This action cannot be undone.
           </p>
 
           {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
           
-          {/*
-            iOS Vibe Changes:
-            - Buttons are pill-shaped ('rounded-full') and have a larger, more tappable feel.
-            - Destructive action button is a bold, solid red to clearly communicate its function.
-            - Secondary 'Cancel' button is neutral gray.
-          */}
           <div className="grid grid-cols-2 gap-3">
             <Button
               variant="light"
@@ -72,7 +54,7 @@ export default function DeleteUnitModal({ isOpen, onClose, unitId }) {
             </Button>
             <Button
               color="red"
-              onClick={handleDeleteUnit}
+              onClick={handleDelete}
               loading={loading}
               disabled={loading}
               className="rounded-full py-2.5 text-base font-semibold bg-red-500 text-white hover:bg-red-600"

@@ -46,7 +46,8 @@ import pdfFonts from "pdfmake/build/vfs_fonts";
 // --- Component Imports ---
 import AddLessonModal from './AddLessonModal';
 import AddQuizModal from './AddQuizModal';
-import DeleteUnitModal from './DeleteUnitModal';
+// ✅ REMOVED: DeleteUnitModal is no longer needed here.
+// import DeleteUnitModal from './DeleteUnitModal';
 import EditLessonModal from './EditLessonModal';
 import ViewLessonModal from './ViewLessonModal';
 import EditUnitModal from './EditUnitModal';
@@ -63,7 +64,7 @@ import {
 
 import { saveAs } from "file-saver";
 
-// Helper: fetch image as ArrayBuffer
+// ... (All helper functions like fetchImageAsBase64, markdownToDocx, etc. remain unchanged) ...
 async function fetchImageAsBase64(url) {
   const res = await fetch(url);
   const blob = await res.blob();
@@ -74,18 +75,13 @@ async function fetchImageAsBase64(url) {
     reader.readAsDataURL(blob);
   });
 }
-
-// helper to fetch image as ArrayBuffer
 async function fetchImage(url) {
     const response = await fetch(url);
     return await response.arrayBuffer();
 }
-
-// convert markdown tokens → docx paragraphs
 function markdownToDocx(content) {
     const tokens = marked.lexer(content || "");
     let paragraphs = [];
-
     tokens.forEach(token => {
         if (token.type === "paragraph") {
             paragraphs.push(
@@ -151,12 +147,9 @@ function markdownToDocx(content) {
             );
         }
     });
-
     return paragraphs;
 }
-
 pdfMake.vfs = pdfFonts.pdfMake.vfs;
-// --- Helper Functions & Sub-components ---
 const convertSvgStringToPngDataUrl = (svgString) => {
     return new Promise((resolve, reject) => {
         let correctedSvgString = svgString;
@@ -204,7 +197,6 @@ const convertSvgStringToPngDataUrl = (svgString) => {
         img.src = dataUri;
     });
 };
-
 const MenuPortal = ({ children, menuStyle, onClose }) => {
     const menuRef = useRef(null);
     useEffect(() => {
@@ -216,7 +208,6 @@ const MenuPortal = ({ children, menuStyle, onClose }) => {
     }, [onClose]);
     return createPortal(<div ref={menuRef} style={menuStyle} className="fixed bg-white rounded-md shadow-lg z-[5000] border"><div className="py-1" onClick={onClose}>{children}</div></div>, document.body);
 };
-
 const ActionMenu = ({ children }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [menuStyle, setMenuStyle] = useState({});
@@ -242,14 +233,12 @@ const ActionMenu = ({ children }) => {
         </>
     );
 };
-
 const MenuItem = ({ icon: Icon, text, onClick, disabled = false, loading = false }) => (
     <button onClick={onClick} disabled={disabled || loading} className="flex items-center w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
         <Icon className={`h-5 w-5 mr-3 ${loading ? 'animate-spin' : ''}`} />
         <span>{text}</span>
     </button>
 );
-
 const AddContentDropdown = ({ onAddLesson, onAddQuiz }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -274,8 +263,6 @@ const AddContentDropdown = ({ onAddLesson, onAddQuiz }) => {
         </div>
     );
 };
-
-
 function SortableContentItem({ item, exportingLessonId, selectedLessons, onLessonSelect, isAiGenerating, ...props }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: item.id,
@@ -410,7 +397,6 @@ function SortableContentItem({ item, exportingLessonId, selectedLessons, onLesso
         </div>
     );
 }
-
 function SortableUnitCard(props) {
     const { unit, onSelect, onEdit, onDelete, onOpenAiHub, visuals } = props;
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
@@ -437,7 +423,6 @@ function SortableUnitCard(props) {
         </div>
     );
 }
-
 const customSort = (a, b) => {
     const orderA = a.order;
     const orderB = b.order;
@@ -458,7 +443,8 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     const [exportingLessonId, setExportingLessonId] = useState(null);
     const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
     const [addQuizModalOpen, setAddQuizModalOpen] = useState(false);
-    const [deleteUnitModalOpen, setDeleteUnitModalOpen] = useState(false);
+    // ✅ REMOVED: No longer needed as the parent handles the generic delete modal.
+    // const [deleteUnitModalOpen, setDeleteUnitModalOpen] = useState(false);
     const [editLessonModalOpen, setEditLessonModalOpen] = useState(false);
     const [viewLessonModalOpen, setViewLessonModalOpen] = useState(false);
     const [editUnitModalOpen, setEditUnitModalOpen] = useState(false);
@@ -562,7 +548,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         }
 	}
 	
-
+    // ... (All export functions like handleExportDocx, handleExportUlpAsPdf, etc. remain unchanged) ...
 	const handleExportDocx = async (lesson) => {
 	    if (isExportingRef.current) return;
 	    isExportingRef.current = true;
@@ -856,8 +842,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        setExportingLessonId(null);
 	    }
 	};
-
-
     const unitVisuals = [
         { icon: RectangleStackIcon, color: 'from-blue-500 to-sky-500' },
         { icon: BookOpenIcon, color: 'from-green-500 to-emerald-500' },
@@ -923,7 +907,18 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                     units.length > 0 ? (
                         <SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {units.map((unit, index) => (<SortableUnitCard key={unit.id} unit={unit} onSelect={onSetActiveUnit} onEdit={(unitToEdit) => handleOpenUnitModal(setEditUnitModalOpen, unitToEdit)} onDelete={(unitToDelete) => handleOpenUnitModal(setDeleteUnitModalOpen, unitToDelete)} onOpenAiHub={handleOpenAiHub} visuals={unitVisuals[index % unitVisuals.length]} />))}
+                                {/* ✅ MODIFIED: The onDelete prop now calls the centralized onInitiateDelete function */}
+                                {units.map((unit, index) => (
+                                    <SortableUnitCard 
+                                        key={unit.id} 
+                                        unit={unit} 
+                                        onSelect={onSetActiveUnit} 
+                                        onEdit={(unitToEdit) => handleOpenUnitModal(setEditUnitModalOpen, unitToEdit)} 
+                                        onDelete={(unitToDelete) => onInitiateDelete('unit', unitToDelete.id, unitToDelete.title, unitToDelete.subjectId)} 
+                                        onOpenAiHub={handleOpenAiHub} 
+                                        visuals={unitVisuals[index % unitVisuals.length]} 
+                                    />
+                                ))}
                             </div>
                         </SortableContext>
                     ) : (<p className="text-center text-gray-500 py-10">No units in this subject yet. Add one to get started!</p>)
@@ -934,7 +929,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             <EditUnitModal isOpen={editUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={selectedUnit} />
             <AddLessonModal isOpen={addLessonModalOpen} onClose={() => setAddLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject?.id} setIsAiGenerating={setIsAiGenerating} />
             <AddQuizModal isOpen={addQuizModalOpen} onClose={() => setAddQuizModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject?.id} />
-            <DeleteUnitModal isOpen={deleteUnitModalOpen} onClose={() => setDeleteUnitModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject?.id} />
+            {/* ✅ REMOVED: The old DeleteUnitModal is no longer rendered here. */}
             <EditLessonModal isOpen={editLessonModalOpen} onClose={() => setEditLessonModalOpen(false)} lesson={selectedLesson} />
             <ViewLessonModal isOpen={viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={selectedLesson} />
             {selectedQuiz && (<EditQuizModal isOpen={editQuizModalOpen} onClose={() => setEditQuizModalOpen(false)} quiz={selectedQuiz} onEditQuiz={() => { setEditQuizModalOpen(false); }} />)}

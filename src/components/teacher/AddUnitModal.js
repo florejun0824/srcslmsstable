@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { db } from '../../services/firebase';
-import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+// ✅ REMOVED: All firestore imports are gone as this component no longer handles DB logic.
 import Modal from '../common/Modal';
-import { PlusIcon } from '@heroicons/react/24/solid';
 
-export default function AddUnitModal({ isOpen, onClose, subjectId }) {
+// ✅ ADDED: Now accepts the 'onCreateUnit' function as a prop.
+export default function AddUnitModal({ isOpen, onClose, subjectId, onCreateUnit }) {
     const [unitTitle, setUnitTitle] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -15,26 +14,25 @@ export default function AddUnitModal({ isOpen, onClose, subjectId }) {
             return;
         }
         if (!subjectId) {
-            setError('No subject selected. Please go back and select a subject.');
+            setError('No subject selected. Cannot create unit.');
             return;
         }
         setLoading(true);
         setError('');
+
+        // ✅ MODIFIED: Instead of writing to the DB, it calls the parent function.
+        // The parent (TeacherDashboard) now handles the transaction and closing the modal.
         try {
-            const unitsRef = collection(db, 'units');
-            const q = query(unitsRef, where('subjectId', '==', subjectId));
-            const querySnapshot = await getDocs(q);
-            const newOrderValue = querySnapshot.size;
-            await addDoc(collection(db, 'units'), {
+            const unitData = {
                 title: unitTitle,
                 subjectId: subjectId,
-                createdAt: serverTimestamp(),
-                order: newOrderValue,
-            });
-            handleClose();
+                createdAt: new Date(), // Timestamp will be converted by the parent
+            };
+            await onCreateUnit(unitData);
         } catch (err) {
-            console.error("Error adding unit: ", err);
-            setError("Failed to add unit. Please try again.");
+            // The parent function will show a toast, but we can log here too.
+            console.error("Error callback in AddUnitModal:", err);
+            setError("An unexpected error occurred.");
         } finally {
             setLoading(false);
         }

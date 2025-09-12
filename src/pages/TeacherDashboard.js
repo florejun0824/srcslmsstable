@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { addDoc, serverTimestamp, collection, query, where, onSnapshot, orderBy, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, getDocs, writeBatch } from 'firebase/firestore';
+// ✅ ADDED: runTransaction for safe counter updates
+import { addDoc, serverTimestamp, collection, query, where, onSnapshot, orderBy, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, getDocs, writeBatch, runTransaction } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { callGeminiWithLimitCheck } from '../services/aiService';
 import { createPresentationFromData } from '../services/googleSlidesService';
@@ -10,6 +11,7 @@ import PresentationPreviewModal from '../components/teacher/PresentationPreviewM
 import BetaWarningModal from '../components/teacher/BetaWarningModal';
 
 const TeacherDashboard = () => {
+    // ... (all existing state variables remain the same) ...
     const { user, userProfile, logout, firestoreService, refreshUserProfile } = useAuth();
     const { showToast } = useToast();
     const [classes, setClasses] = useState([]);
@@ -73,47 +75,140 @@ const TeacherDashboard = () => {
     const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState([]);
     const [reloadKey, setReloadKey] = useState(0);
 
+    // ... (all useEffect hooks remain the same) ...
     useEffect(() => {
         if (userProfile && messages.length === 0) {
             setMessages([ { sender: 'ai', text: `Hello, ${userProfile?.firstName}! I'm your AI assistant. How can I help you today?` } ]);
         }
     }, [userProfile, messages.length]);
-
+    
     useEffect(() => {
         if (!user) { setLoading(false); return; }
         setLoading(true);
         const teacherId = user.uid || user.id;
         if (!teacherId) { setLoading(false); setError("User ID not found."); return; }
-        const queries = [
+
+        const realTimeQueries = [
             { query: query(collection(db, "subjectCategories"), orderBy("name")), setter: setCourseCategories },
             { query: query(collection(db, "classes"), where("teacherId", "==", teacherId)), setter: setClasses },
-            { query: query(collection(db, "courses")), setter: setCourses },
             { query: query(collection(db, "teacherAnnouncements"), orderBy("createdAt", "desc")), setter: setTeacherAnnouncements },
         ];
-        const unsubscribers = queries.map(({ query, setter }) =>
+
+        const unsubscribers = realTimeQueries.map(({ query, setter }) =>
             onSnapshot(query, (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setter(data);
-            }, (err) => { console.error("Firestore snapshot error:", err); setError("Failed to load dashboard data in real-time."); })
+            }, (err) => { 
+                console.error("Firestore snapshot error:", err); 
+                setError("Failed to load dashboard data in real-time."); 
+            })
         );
-        const categoriesQuery = query(collection(db, "subjectCategories"));
-        const unsubLoader = onSnapshot(categoriesQuery, () => { setLoading(false); unsubLoader(); });
-        return () => { unsubscribers.forEach(unsub => unsub()); unsubLoader(); };
+        
+        const fetchGlobalData = async () => {
+            try {
+                const coursesQuery = query(collection(db, "courses"));
+                const coursesSnapshot = await getDocs(coursesQuery);
+                const coursesData = coursesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setCourses(coursesData);
+            } catch (err) {
+                console.error("Firestore getDocs error:", err);
+                setError("Failed to load courses data.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchGlobalData();
+
+        return () => { unsubscribers.forEach(unsub => unsub()); };
     }, [user]);
 
     useEffect(() => {
         if (activeView === 'studentManagement') {
             setIsImportViewLoading(true);
-            const q = query(collection(db, "classes"), orderBy("name"));
-            const unsubscribe = onSnapshot(q, (snapshot) => {
-                const allClassesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setAllLmsClasses(allClassesData);
-                setIsImportViewLoading(false);
-            }, (err) => { console.error("Error fetching all classes:", err); showToast("Failed to load class list.", "error"); setIsImportViewLoading(false); });
-            return () => unsubscribe();
+            const fetchAllClassesForImport = async () => {
+                try {
+                    const q = query(collection(db, "classes"), orderBy("name"));
+                    const querySnapshot = await getDocs(q);
+                    const allClassesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setAllLmsClasses(allClassesData);
+                } catch (err) {
+                    console.error("Error fetching all classes:", err);
+                    showToast("Failed to load class list.", "error");
+                } finally {
+                    setIsImportViewLoading(false);
+                }
+            };
+            
+            fetchAllClassesForImport();
         }
     }, [activeView, showToast]);
 
+    // ✅ --- NEW TRANSACTIONAL FUNCTIONS ---
+    
+    const handleCreateUnit = async (unitData) => {
+        if (!unitData || !unitData.subjectId) {
+            showToast("Missing data to create the unit.", "error");
+            return;
+        }
+        const courseRef = doc(db, "courses", unitData.subjectId);
+        const newUnitRef = doc(collection(db, "units")); // Auto-generate ID
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                const courseDoc = await transaction.get(courseRef);
+                if (!courseDoc.exists()) {
+                    throw new Error("Parent course document does not exist!");
+                }
+                const newUnitCount = (courseDoc.data().unitCount || 0) + 1;
+                transaction.update(courseRef, { unitCount: newUnitCount });
+                transaction.set(newUnitRef, unitData);
+            });
+            showToast("Unit created successfully!", "success");
+            setAddUnitModalOpen(false); // Close modal on success
+        } catch (e) {
+            console.error("Unit creation transaction failed: ", e);
+            showToast("Failed to create unit.", "error");
+        }
+    };
+
+    const handleDeleteUnit = async (unitId, subjectId) => {
+        if (!unitId || !subjectId) {
+            showToast("Missing data to delete the unit.", "error");
+            return;
+        }
+        const courseRef = doc(db, "courses", subjectId);
+        const unitRef = doc(db, "units", unitId);
+        const lessonsQuery = query(collection(db, 'lessons'), where('unitId', '==', unitId));
+        const quizzesQuery = query(collection(db, 'quizzes'), where('unitId', '==', unitId));
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                const courseDoc = await transaction.get(courseRef);
+                if (!courseDoc.exists()) {
+                    // If course doesn't exist, just delete the unit without count update
+                } else {
+                    const newUnitCount = Math.max(0, (courseDoc.data().unitCount || 0) - 1);
+                    transaction.update(courseRef, { unitCount: newUnitCount });
+                }
+
+                // Also delete all lessons and quizzes within this unit
+                const lessonsSnapshot = await getDocs(lessonsQuery);
+                lessonsSnapshot.forEach(lessonDoc => transaction.delete(lessonDoc.ref));
+                
+                const quizzesSnapshot = await getDocs(quizzesQuery);
+                quizzesSnapshot.forEach(quizDoc => transaction.delete(quizDoc.ref));
+                
+                transaction.delete(unitRef);
+            });
+            showToast("Unit and its content deleted successfully!", "success");
+        } catch (e) {
+            console.error("Unit deletion transaction failed: ", e);
+            showToast("Failed to delete unit.", "error");
+        }
+    };
+    
+    // ... (handleCreateAnnouncement, handleAskAi, etc. remain the same) ...
     const handleCreateAnnouncement = async ({ content, audience, classId, className, photoURL, caption }) => {
         if (!content.trim() && !photoURL?.trim()) { 
             showToast("Announcement must have content or a photo.", "error"); 
@@ -231,38 +326,44 @@ const TeacherDashboard = () => {
         } catch (error) { console.error("Presentation Creation Error:", error); showToast(`Creation Error: ${error.message}`, "error"); }
         finally { setIsSavingPresentation(false); }
     };
-
-    const handleInitiateDelete = (type, id, name) => {
-        setDeleteTarget({ type, id, name });
+    
+    // ✅ MODIFIED: Now accepts an optional subjectId for unit deletions
+    const handleInitiateDelete = (type, id, name, subjectId = null) => {
+        setDeleteTarget({ type, id, name, subjectId });
         setIsDeleteModalOpen(true);
     };
 
-    // ✅ FIXED: This function no longer checks for confirmation text. The modal does it now.
+    // ✅ MODIFIED: This function now handles unit deletions using the new transaction
     const handleConfirmDelete = async () => {
         if (!deleteTarget) {
             showToast("An error occurred. No item selected for deletion.", "error");
             return;
         }
 
-        const { type, id, name } = deleteTarget;
-        setIsAiGenerating(true); 
+        const { type, id, name, subjectId } = deleteTarget;
+        
+        // --- New path for single unit deletion ---
+        if (type === 'unit') {
+            await handleDeleteUnit(id, subjectId);
+            setIsDeleteModalOpen(false);
+            setDeleteTarget(null);
+            return;
+        }
 
+        // --- Existing logic for other types ---
+        setIsAiGenerating(true); 
         try {
             const batch = writeBatch(db);
-
             const deleteSubjectContent = async (subjectId) => {
                 const unitsQuery = query(collection(db, 'units'), where('subjectId', '==', subjectId));
                 const unitsSnapshot = await getDocs(unitsQuery);
-
                 for (const unitDoc of unitsSnapshot.docs) {
                     const lessonsQuery = query(collection(db, 'lessons'), where('unitId', '==', unitDoc.id));
                     const lessonsSnapshot = await getDocs(lessonsQuery);
                     lessonsSnapshot.forEach(lessonDoc => batch.delete(doc(db, 'lessons', lessonDoc.id)));
-
                     const quizzesQuery = query(collection(db, 'quizzes'), where('unitId', '==', unitDoc.id));
                     const quizzesSnapshot = await getDocs(quizzesQuery);
                     quizzesSnapshot.forEach(quizDoc => batch.delete(doc(db, 'quizzes', quizDoc.id)));
-                    
                     batch.delete(doc(db, 'units', unitDoc.id));
                 }
             };
@@ -270,31 +371,25 @@ const TeacherDashboard = () => {
             if (type === 'category') {
                 const coursesInCategoryQuery = query(collection(db, 'courses'), where('category', '==', name));
                 const coursesSnapshot = await getDocs(coursesInCategoryQuery);
-
                 for (const courseDoc of coursesSnapshot.docs) {
                     await deleteSubjectContent(courseDoc.id);
                     batch.delete(doc(db, 'courses', courseDoc.id));
                 }
-                
                 showToast(`Successfully deleted category "${name}" and all its content.`, "success");
-
             } else if (type === 'subject') {
                 await deleteSubjectContent(id);
                 batch.delete(doc(db, 'courses', id));
                 showToast(`Successfully deleted subject "${name}" and all its content.`, "success");
                 setActiveSubject(null);
-
             } else if (type === 'lesson' || type === 'quiz') {
                 const collectionName = type === 'lesson' ? 'lessons' : 'quizzes';
                 batch.delete(doc(db, collectionName, id));
                 showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully.`, "success");
-
             } else {
                  showToast(`Deletion for type "${type}" is not implemented.`, "warning");
             }
             
             await batch.commit();
-
         } catch (error) { 
             console.error(`Error deleting ${type}:`, error); 
             showToast(`An error occurred. Could not delete the ${type}. Please check permissions or try again.`, "error"); 
@@ -313,6 +408,7 @@ const TeacherDashboard = () => {
     const activeClasses = classes.filter(c => !c.isArchived);
     const archivedClasses = classes.filter(c => c.isArchived);
     
+    // ... (all other handler functions remain the same) ...
     const handleViewChange = (view) => {
         if (activeView === view) { setReloadKey(prevKey => prevKey + 1); }
         else { setActiveView(view); setSelectedCategory(null); setIsSidebarOpen(false); }
@@ -408,9 +504,12 @@ const TeacherDashboard = () => {
     const handleOpenDeleteSubject = (subject) => { setSubjectToActOn(subject); setDeleteSubjectModalOpen(true); };
     const handleAskAiWrapper = (message) => { handleAskAi(message); if (!aiConversationStarted) setAiConversationStarted(true); };
 
+
     return (
         <>
             <TeacherDashboardLayout
+                // ✅ PASSING NEW FUNCTIONS AS PROPS
+                handleCreateUnit={handleCreateUnit}
                 user={user} userProfile={userProfile} loading={loading} error={error} activeView={activeView} handleViewChange={handleViewChange} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} logout={logout} showToast={showToast} activeClasses={activeClasses} archivedClasses={archivedClasses} courses={courses} courseCategories={courseCategories} teacherAnnouncements={teacherAnnouncements} selectedCategory={selectedCategory} handleCategoryClick={handleCategoryClick} handleBackToCategoryList={handleBackToCategoryList} activeSubject={activeSubject} setActiveSubject={setActiveSubject} activeUnit={activeUnit} onSetActiveUnit={setActiveUnit} handleOpenEditClassModal={handleOpenEditClassModal} handleArchiveClass={handleArchiveClass} handleDeleteClass={handleDeleteClass} isHoveringActions={isHoveringActions} setIsHoveringActions={setIsHoveringActions} setClassOverviewModal={setClassOverviewModal} setIsArchivedModalOpen={setIsArchivedModalOpen} setCreateClassModalOpen={setCreateClassModalOpen} setCreateCategoryModalOpen={setCreateCategoryModalOpen} setCreateCourseModalOpen={setCreateCourseModalOpen} handleEditCategory={handleEditCategory} handleOpenEditSubject={handleOpenEditSubject} handleOpenDeleteSubject={handleOpenDeleteSubject} setShareContentModalOpen={setShareContentModalOpen} handleInitiateDelete={handleInitiateDelete} handleGenerateQuizForLesson={handleGenerateQuizForLesson} onGeneratePresentationPreview={handleInitiatePresentationGeneration} isAiGenerating={isAiGenerating} setEditProfileModalOpen={setEditProfileModalOpen} setChangePasswordModalOpen={setChangePasswordModalOpen} editingAnnId={editingAnnId} editingAnnText={editingAnnText} setEditingAnnText={setEditingAnnText} handleStartEditAnn={handleStartEditAnn} handleUpdateTeacherAnn={handleUpdateTeacherAnn} setEditingAnnId={setEditingAnnId} handleDeleteTeacherAnn={handleDeleteTeacherAnn} handleTogglePinAnnouncement={handleTogglePinAnnouncement} importClassSearchTerm={importClassSearchTerm} setImportClassSearchTerm={setImportClassSearchTerm} allLmsClasses={allLmsClasses} filteredLmsClasses={filteredLmsClasses} isImportViewLoading={isImportViewLoading} selectedClassForImport={selectedClassForImport} setSelectedClassForImport={setSelectedClassForImport} handleBackToClassSelection={handleBackToClassSelection} importTargetClassId={importTargetClassId} setImportTargetClassId={setImportTargetClassId} handleImportStudents={handleImportStudents} isImporting={isImporting} studentsToImport={studentsToImport} handleToggleStudentForImport={handleToggleStudentForImport} handleSelectAllStudents={handleSelectAllStudents} isArchivedModalOpen={isArchivedModalOpen} handleUnarchiveClass={handleUnarchiveClass} isEditProfileModalOpen={isEditProfileModalOpen} handleUpdateProfile={handleUpdateProfile} isChangePasswordModalOpen={isChangePasswordModalOpen} handleChangePassword={handleChangePassword} isCreateCategoryModalOpen={isCreateCategoryModalOpen} isEditCategoryModalOpen={isEditCategoryModalOpen} setEditCategoryModalOpen={setEditCategoryModalOpen} categoryToEdit={categoryToEdit} isCreateClassModalOpen={isCreateClassModalOpen} isCreateCourseModalOpen={isCreateCourseModalOpen} classOverviewModal={classOverviewModal} isEditClassModalOpen={isEditClassModalOpen} setEditClassModalOpen={setEditClassModalOpen} classToEdit={classToEdit} isAddUnitModalOpen={isAddUnitModalOpen} setAddUnitModalOpen={setAddUnitModalOpen} editUnitModalOpen={editUnitModalOpen} setEditUnitModalOpen={setEditUnitModalOpen} selectedUnit={selectedUnit} addLessonModalOpen={addLessonModalOpen} setAddLessonModalOpen={setAddLessonModalOpen} addQuizModalOpen={addQuizModalOpen} setAddQuizModalOpen={setAddQuizModalOpen} deleteUnitModalOpen={deleteUnitModalOpen} setDeleteUnitModalOpen={setDeleteUnitModalOpen} editLessonModalOpen={editLessonModalOpen} setEditLessonModalOpen={setEditLessonModalOpen} selectedLesson={selectedLesson} viewLessonModalOpen={viewLessonModalOpen} setViewLessonModalOpen={setViewLessonModalOpen} isShareContentModalOpen={isShareContentModalOpen} isDeleteModalOpen={isDeleteModalOpen} setIsDeleteModalOpen={setIsDeleteModalOpen} handleConfirmDelete={handleConfirmDelete} deleteTarget={deleteTarget} isEditSubjectModalOpen={isEditSubjectModalOpen} setEditSubjectModalOpen={setEditSubjectModalOpen} subjectToActOn={subjectToActOn} isDeleteSubjectModalOpen={isDeleteSubjectModalOpen} setDeleteSubjectModalOpen={setDeleteSubjectModalOpen} handleCreateAnnouncement={handleCreateAnnouncement} isChatOpen={isChatOpen} setIsChatOpen={setIsChatOpen} messages={messages} isAiThinking={isAiThinking} handleAskAi={handleAskAi} handleAskAiWrapper={handleAskAiWrapper} aiConversationStarted={aiConversationStarted} setAiConversationStarted={setAiConversationStarted} handleRemoveStudentFromClass={handleRemoveStudentFromClass} setIsAiGenerating={setIsAiGenerating} isAiHubOpen={isAiHubOpen} setIsAiHubOpen={setIsAiHubOpen} reloadKey={reloadKey}
             />
             <BetaWarningModal isOpen={isBetaWarningModalOpen} onClose={() => setIsBetaWarningModalOpen(false)} onConfirm={handleConfirmBetaWarning} title="AI Presentation Generator" />

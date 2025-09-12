@@ -3,7 +3,8 @@ import {
     FaHouse, FaUserGroup, FaBook, FaBookOpen, FaUser, FaShieldHalved, FaArrowRightFromBracket
 } from 'react-icons/fa6';
 import { Bars3Icon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { collection, query, where, getDocs, writeBatch, doc, onSnapshot } from 'firebase/firestore';
+// ✅ FIXED: Added 'query' and 'collection' to the import list
+import { getDocs, writeBatch, doc, where, query, collection } from 'firebase/firestore'; 
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
 import { CSSTransition, SwitchTransition } from 'react-transition-group';
@@ -66,27 +67,20 @@ const TeacherDashboardLayout = (props) => {
         reloadKey,
         // Deletion props
         isDeleteModalOpen, setIsDeleteModalOpen, handleConfirmDelete, deleteTarget, handleInitiateDelete,
+        
+        // ADDED: Destructure the new function and courses from props
+        handleCreateUnit,
+        courses,
+
         ...rest
     } = props;
     
-    // Note: isSidebarOpen and setIsSidebarOpen are removed as the sidebar is replaced by a more modern bottom tab bar on mobile.
-
-    const [courses, setCourses] = useState(rest.courses || []);
     const [categoryToEdit, setCategoryToEdit] = useState(null);
     const [isEditCategoryModalOpen, setIsEditCategoryModalOpen] = useState(false);
     const { showToast } = useToast();
     const [preselectedCategoryForCourseModal, setPreselectedCategoryForCourseModal] = useState(null);
-
-    useEffect(() => {
-        const q = query(collection(db, 'courses'));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const coursesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setCourses(coursesData);
-        });
-        return () => unsubscribe();
-    }, []);
     
-    // --- Core Logic for Category and Course Management (Unchanged) ---
+    // --- Core Logic for Category and Course Management ---
     const handleRenameCategory = async (newName) => {
         const oldName = categoryToEdit?.name;
         if (!oldName || !newName || oldName === newName) {
@@ -136,7 +130,7 @@ const TeacherDashboardLayout = (props) => {
         navItems.push({ view: 'admin', text: 'Admin', icon: FaShieldHalved, color: 'text-gray-500' });
     }
     
-    // --- Main Content Renderer (Unchanged Logic) ---
+    // --- Main Content Renderer ---
     const renderMainContent = () => {
         if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
         if (error) {
@@ -149,7 +143,6 @@ const TeacherDashboardLayout = (props) => {
                 </div>
             );
         }
-        // The key prop on child components ensures they remount and fetch fresh data on view change if needed.
         switch (activeView) {
             case 'home': return <HomeView key={`${reloadKey}-home`} userProfile={userProfile} handleViewChange={handleViewChange} {...rest} />;
             case 'classes': return <ClassesView key={`${reloadKey}-classes`} {...rest} />;
@@ -163,10 +156,6 @@ const TeacherDashboardLayout = (props) => {
 
     return (
         <>
-            {/* This style block defines the smooth transitions for view changes.
-              Using a style tag here for demonstration purposes as requested.
-              In a real-world project, this would be in a CSS file.
-            */}
             <style>{`
                 .view-fade-enter { opacity: 0; transform: scale(0.98) translateY(10px); }
                 .view-fade-enter-active { opacity: 1; transform: scale(1) translateY(0); transition: opacity 300ms, transform 300ms; }
@@ -179,7 +168,7 @@ const TeacherDashboardLayout = (props) => {
             `}</style>
             
             <div className="min-h-screen flex flex-col bg-slate-100 font-sans antialiased text-gray-800">
-                {/* --- HEADER: Glassy, floating top bar for navigation and controls --- */}
+                {/* --- HEADER --- */}
                 <header className="sticky top-0 z-50 p-3 bg-white/75 backdrop-blur-xl border-b border-slate-900/10">
                     <div className="mx-auto max-w-screen-2xl flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -187,16 +176,9 @@ const TeacherDashboardLayout = (props) => {
                             <span className="hidden md:block font-bold text-xl text-gray-800">SRCS Learning Portal</span>
                         </div>
                         
-                        {/* Desktop Navigation Tabs */}
                         <nav className="hidden lg:flex items-center justify-center gap-2 p-1 bg-slate-200/70 rounded-full">
                             {navItems.map(item => (
-                                <button
-                                    key={item.view}
-                                    onClick={() => handleViewChange(item.view)}
-                                    className={`group flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 text-sm font-semibold
-                                        ${activeView === item.view ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}
-                                    `}
-                                >
+                                <button key={item.view} onClick={() => handleViewChange(item.view)} className={`group flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 text-sm font-semibold ${activeView === item.view ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>
                                     <item.icon className={`h-5 w-5 transition-colors ${activeView === item.view ? item.color : 'text-gray-500 group-hover:text-gray-800'}`} />
                                     {item.text}
                                 </button>
@@ -206,11 +188,7 @@ const TeacherDashboardLayout = (props) => {
                         <div className="flex items-center gap-2">
                             <div onClick={() => handleViewChange('profile')} className="flex items-center gap-2 cursor-pointer p-1 rounded-full transition-colors hover:bg-slate-200/80" title="View Profile">
                                 <div className="relative w-9 h-9 rounded-full overflow-hidden flex items-center justify-center bg-slate-200">
-                                    {userProfile?.photoURL ? (
-                                        <img src={userProfile.photoURL} alt="Profile" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="sm" />
-                                    )}
+                                    {userProfile?.photoURL ? (<img src={userProfile.photoURL} alt="Profile" className="w-full h-full object-cover" />) : (<UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="sm" />)}
                                 </div>
                                 <span className="hidden lg:block font-medium text-gray-700 pr-2">{userProfile?.firstName || 'Profile'}</span>
                             </div>
@@ -235,26 +213,24 @@ const TeacherDashboardLayout = (props) => {
             
             {/* --- FLOATING UI & MODALS --- */}
             <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} subjectId={activeSubject?.id} unitId={activeUnit?.id} />
-            
-            <CSSTransition in={!isChatOpen} timeout={300} classNames="animated-robot" unmountOnExit>
-                <AnimatedRobot onClick={() => setIsChatOpen(true)} />
-            </CSSTransition>
-
+            <CSSTransition in={!isChatOpen} timeout={300} classNames="animated-robot" unmountOnExit><AnimatedRobot onClick={() => setIsChatOpen(true)} /></CSSTransition>
             <ChatDialog isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} messages={messages} onSendMessage={handleAskAiWrapper} isAiThinking={isAiThinking} userFirstName={userProfile?.firstName} />
-
             <GlobalAiSpinner isGenerating={isAiGenerating} text="Crafting content..." />
             
-            {/* --- All Modals Rendered Here (Functionality Unchanged) --- */}
+            {/* --- All Modals Rendered Here --- */}
             <ArchivedClassesModal isOpen={rest.isArchivedModalOpen} onClose={() => rest.setIsArchivedModalOpen(false)} archivedClasses={rest.archivedClasses} onUnarchive={rest.handleUnarchiveClass} onDelete={(classId) => rest.handleDeleteClass(classId, true)} />
             <EditProfileModal isOpen={rest.isEditProfileModalOpen} onClose={() => rest.setEditProfileModalOpen(false)} userProfile={userProfile} onUpdate={rest.handleUpdateProfile} />
             <ChangePasswordModal isOpen={rest.isChangePasswordModalOpen} onClose={() => rest.setChangePasswordModalOpen(false)} onSubmit={rest.handleChangePassword} />
             <CreateCategoryModal isOpen={rest.isCreateCategoryModalOpen} onClose={() => rest.setCreateCategoryModalOpen(false)} teacherId={user?.uid || user?.id} />
+            
+            {/* ✅ FIXED: Corrected the typo from 'categoryToedit' to 'categoryToEdit' */}
             {categoryToEdit && <EditCategoryModal isOpen={isEditCategoryModalOpen} onClose={() => setIsEditCategoryModalOpen(false)} categoryName={categoryToEdit.name} onSave={handleRenameCategory} />}
+
             <CreateClassModal isOpen={rest.isCreateClassModalOpen} onClose={() => rest.setCreateClassModalOpen(false)} teacherId={user?.uid || user?.id} />
             <CreateCourseModal isOpen={rest.isCreateCourseModalOpen} onClose={() => { rest.setCreateCourseModalOpen(false); setPreselectedCategoryForCourseModal(null); }} teacherId={user?.uid || user?.id} courseCategories={courseCategories} preselectedCategory={preselectedCategoryForCourseModal} />
             <ClassOverviewModal isOpen={rest.classOverviewModal.isOpen} onClose={() => rest.setClassOverviewModal({ isOpen: false, data: null })} classData={rest.classOverviewModal.data} courses={courses} onRemoveStudent={rest.handleRemoveStudentFromClass} />
             <EditClassModal isOpen={rest.isEditClassModalOpen} onClose={() => rest.setEditClassModalOpen(false)} classData={rest.classToEdit} />
-            <AddUnitModal isOpen={rest.isAddUnitModalOpen} onClose={() => rest.setAddUnitModalOpen(false)} subjectId={activeSubject?.id} />
+            <AddUnitModal isOpen={rest.isAddUnitModalOpen} onClose={() => rest.setAddUnitModalOpen(false)} subjectId={activeSubject?.id} onCreateUnit={handleCreateUnit} />
             {rest.selectedUnit && <EditUnitModal isOpen={rest.editUnitModalOpen} onClose={() => rest.setEditUnitModalOpen(false)} unit={rest.selectedUnit} />}
             {rest.selectedUnit && <AddLessonModal isOpen={rest.addLessonModalOpen} onClose={() => rest.setAddLessonModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} setIsAiGenerating={setIsAiGenerating} />}
             {rest.selectedUnit && <AddQuizModal isOpen={rest.addQuizModalOpen} onClose={() => rest.setAddQuizModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} />}
@@ -266,21 +242,15 @@ const TeacherDashboardLayout = (props) => {
             <EditSubjectModal isOpen={rest.isEditSubjectModalOpen} onClose={() => rest.setEditSubjectModalOpen(false)} subject={rest.subjectToActOn} />
             <DeleteSubjectModal isOpen={rest.isDeleteSubjectModalOpen} onClose={() => rest.setDeleteSubjectModalOpen(false)} subject={rest.subjectToActOn} />
 
-            {/* --- MOBILE FOOTER: Floating Tab Bar for primary mobile navigation --- */}
+            {/* --- MOBILE FOOTER --- */}
             <footer className="fixed bottom-4 left-4 right-4 z-50 lg:hidden">
                 <div className="mx-auto max-w-md bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-900/10 p-2 flex justify-around items-center">
                     {navItems.map(item => {
                         const isActive = activeView === item.view;
                         return (
-                            <button 
-                                key={item.view} 
-                                onClick={() => handleViewChange(item.view)} 
-                                className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all duration-300 ${isActive ? 'bg-indigo-100/70' : 'hover:bg-slate-100'}`}
-                            >
+                            <button key={item.view} onClick={() => handleViewChange(item.view)} className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all duration-300 ${isActive ? 'bg-indigo-100/70' : 'hover:bg-slate-100'}`}>
                                 <item.icon className={`h-6 w-6 mb-0.5 transition-all ${isActive ? item.color : 'text-gray-500'}`} />
-                                <span className={`text-xs font-semibold transition-colors ${isActive ? 'text-indigo-700' : 'text-gray-600'}`}>
-                                    {item.text}
-                                </span>
+                                <span className={`text-xs font-semibold transition-colors ${isActive ? 'text-indigo-700' : 'text-gray-600'}`}>{item.text}</span>
                             </button>
                         );
                     })}

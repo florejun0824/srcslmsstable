@@ -1,5 +1,5 @@
 // src/components/teacher/ClassOverviewModal.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Modal from '../common/Modal';
 import AnnouncementViewModal from '../common/AnnouncementViewModal';
 import QuizScoresModal from './QuizScoresModal';
@@ -16,7 +16,8 @@ import {
     deleteDoc,
     Timestamp,
     arrayRemove,
-    onSnapshot
+    onSnapshot,
+    getDocs 
 } from 'firebase/firestore';
 import { Button } from '@tremor/react';
 import {
@@ -30,7 +31,8 @@ import {
     PlusCircleIcon,
     ChartBarIcon,
     ChevronDownIcon,
-    ChevronUpIcon
+    ChevronUpIcon,
+    XMarkIcon
 } from '@heroicons/react/24/solid';
 import CreateClassAnnouncementForm from './CreateClassAnnouncementForm';
 import { useAuth } from '../../contexts/AuthContext';
@@ -64,186 +66,145 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
     const [units, setUnits] = useState({});
     const [collapsedUnits, setCollapsedUnits] = useState(new Set());
-    const [isAnnouncementsLoaded, setIsAnnouncementsLoaded] = useState(false);
-    const [isUnitsLoaded, setIsUnitsLoaded] = useState(false);
-    const [isPostsLoaded, setIsPostsLoaded] = useState(false);
-    const [isLessonsLoaded, setIsLessonsLoaded] = useState(false);
-    const [isQuizzesLoaded, setIsQuizzesLoaded] = useState(false);
-    const [isScoresLoaded, setIsScoresLoaded] = useState(false);
-    const [isLocksLoaded, setIsLocksLoaded] = useState(false);
+    
+    const scoresUnsubscribeRef = useRef(null);
 
+    // ... (All logic functions like toggleUnitCollapse, setupRealtimeAnnouncements, etc. remain the same) ...
     const toggleUnitCollapse = (unitTitle) => {
         setCollapsedUnits(prev => {
             const newSet = new Set(prev);
-            if (newSet.has(unitTitle)) {
-                newSet.delete(unitTitle);
-            } else {
-                newSet.add(unitTitle);
-            }
+            if (newSet.has(unitTitle)) newSet.delete(unitTitle);
+            else newSet.add(unitTitle);
             return newSet;
         });
     };
-
-    const onChangeEdit = (e) => {
-        setEditContent(e.target.value);
-    };
-
+    const onChangeEdit = (e) => setEditContent(e.target.value);
     const setupRealtimeAnnouncements = useCallback(() => {
         if (!classData?.id) {
             setAnnouncements([]);
-            setIsAnnouncementsLoaded(true);
             return () => {};
         }
         const q = query(collection(db, "studentAnnouncements"), where("classId", "==", classData.id), orderBy("createdAt", "desc"));
         const unsub = onSnapshot(q, (snapshot) => {
             setAnnouncements(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-            setIsAnnouncementsLoaded(true);
         }, (error) => {
             console.error("Error listening to announcements:", error);
             showToast("Failed to load announcements.", "error");
-            setIsAnnouncementsLoaded(true);
         });
         return unsub;
     }, [classData?.id, showToast]);
-
-    const setupRealtimeContentListeners = useCallback(() => {
-        if (!classData?.id) {
-            setSharedContentPosts([]); setLessons([]); setQuizzes([]); setQuizScores([]); setQuizLocks([]); setUnits({});
-            setIsUnitsLoaded(true); setIsPostsLoaded(true); setIsLessonsLoaded(true); setIsQuizzesLoaded(true); setIsScoresLoaded(true); setIsLocksLoaded(true);
-            return () => {};
-        }
-
-        let allUnsubscribes = [];
-        let nestedUnsubscribes = [];
-
-        const unitsQuery = query(collection(db, 'units'));
-        const unitsUnsubscribe = onSnapshot(unitsQuery, (snapshot) => {
-            const fetchedUnits = {};
-            snapshot.docs.forEach(doc => { fetchedUnits[doc.id] = doc.data().title; });
-            setUnits(fetchedUnits);
-            setIsUnitsLoaded(true);
-        }, (error) => { console.error(error); showToast("Failed to load units.", "error"); setIsUnitsLoaded(true); });
-        allUnsubscribes.push(unitsUnsubscribe);
-
+    const setupContentListeners = useCallback(() => {
+        if (!classData?.id) return () => {};
+        let isFirstPostLoad = true;
         const postsQuery = query(collection(db, `classes/${classData.id}/posts`), orderBy('createdAt', 'desc'));
-        const postsUnsubscribe = onSnapshot(postsQuery, (snapshot) => {
-            nestedUnsubscribes.forEach(unsub => unsub());
-            nestedUnsubscribes = [];
-
+        const postsUnsubscribe = onSnapshot(postsQuery, async (snapshot) => {
             const allPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setSharedContentPosts(allPosts);
-            setIsPostsLoaded(true);
-
             const lessonIds = new Set(allPosts.flatMap(p => p.lessonIds || []));
             const quizIds = new Set(allPosts.flatMap(p => p.quizIds || []));
-
+            const allUnitIds = new Set();
             if (lessonIds.size > 0) {
                 const lessonsQuery = query(collection(db, 'lessons'), where(documentId(), 'in', Array.from(lessonIds)));
-                const lessonsUnsub = onSnapshot(lessonsQuery, (lessonSnap) => {
-                    setLessons(lessonSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-                    setIsLessonsLoaded(true);
-                }, (err) => { console.error(err); showToast("Failed to load lessons.", "error"); setIsLessonsLoaded(true); });
-                nestedUnsubscribes.push(lessonsUnsub);
+                const lessonSnap = await getDocs(lessonsQuery);
+                const fetchedLessons = lessonSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                setLessons(fetchedLessons);
+                fetchedLessons.forEach(l => l.unitId && allUnitIds.add(l.unitId));
             } else {
                 setLessons([]);
-                setIsLessonsLoaded(true);
             }
-
             if (quizIds.size > 0) {
                 const quizzesQuery = query(collection(db, 'quizzes'), where(documentId(), 'in', Array.from(quizIds)));
-                const quizzesUnsub = onSnapshot(quizzesQuery, (quizSnap) => {
-                    setQuizzes(quizSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-                    setIsQuizzesLoaded(true);
-                }, (err) => { console.error(err); showToast("Failed to load quizzes.", "error"); setIsQuizzesLoaded(true); });
-
+                const quizSnap = await getDocs(quizzesQuery);
+                const fetchedQuizzes = quizSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                setQuizzes(fetchedQuizzes);
+                fetchedQuizzes.forEach(q => q.unitId && allUnitIds.add(q.unitId));
+            } else {
+                setQuizzes([]);
+            }
+            if (scoresUnsubscribeRef.current) {
+                scoresUnsubscribeRef.current();
+            }
+            if (quizIds.size > 0) {
                 const scoresQuery = query(collection(db, 'quizSubmissions'), where("classId", "==", classData.id), where("quizId", "in", Array.from(quizIds)));
                 const scoresUnsub = onSnapshot(scoresQuery, (scoreSnap) => {
                     setQuizScores(scoreSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-                    setIsScoresLoaded(true);
-                }, (err) => { console.error(err); showToast("Failed to load scores.", "error"); setIsScoresLoaded(true); });
-
+                });
                 const locksQuery = query(collection(db, 'quizLocks'), where("classId", "==", classData.id), where("quizId", "in", Array.from(quizIds)));
                 const locksUnsub = onSnapshot(locksQuery, (locksSnap) => {
                     setQuizLocks(locksSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-                    setIsLocksLoaded(true);
-                }, (err) => { console.error(err); showToast("Failed to load quiz locks.", "error"); setIsLocksLoaded(true); });
-
-                nestedUnsubscribes.push(quizzesUnsub, scoresUnsub, locksUnsub);
+                });
+                scoresUnsubscribeRef.current = () => {
+                    scoresUnsub();
+                    locksUnsub();
+                };
             } else {
-                setQuizzes([]); setQuizScores([]); setQuizLocks([]);
-                setIsQuizzesLoaded(true); setIsScoresLoaded(true); setIsLocksLoaded(true);
+                setQuizScores([]);
+                setQuizLocks([]);
+            }
+            if (allUnitIds.size > 0) {
+                const unitsQuery = query(collection(db, 'units'), where(documentId(), 'in', Array.from(allUnitIds)));
+                const unitsSnapshot = await getDocs(unitsQuery);
+                const fetchedUnits = {};
+                unitsSnapshot.docs.forEach(doc => { fetchedUnits[doc.id] = doc.data().title; });
+                setUnits(fetchedUnits);
+            } else {
+                setUnits({});
+            }
+            if (isFirstPostLoad) {
+                setLoading(false);
+                isFirstPostLoad = false;
             }
         }, (error) => {
             console.error(error);
             showToast("Failed to load class posts.", "error");
-            setIsPostsLoaded(true); setIsLessonsLoaded(true); setIsQuizzesLoaded(true); setIsScoresLoaded(true); setIsLocksLoaded(true);
+            setLoading(false);
         });
-        allUnsubscribes.push(postsUnsubscribe);
-
         return () => {
-            allUnsubscribes.forEach(unsub => unsub());
-            nestedUnsubscribes.forEach(unsub => unsub());
+            postsUnsubscribe();
+            if (scoresUnsubscribeRef.current) {
+                scoresUnsubscribeRef.current();
+            }
         };
     }, [classData?.id, showToast]);
-    
-    useEffect(() => {
-        if (isAnnouncementsLoaded && isUnitsLoaded && isPostsLoaded && isLessonsLoaded && isQuizzesLoaded && isScoresLoaded && isLocksLoaded) {
-            setLoading(false);
-        } else {
-            setLoading(true);
-        }
-    }, [isAnnouncementsLoaded, isUnitsLoaded, isPostsLoaded, isLessonsLoaded, isQuizzesLoaded, isScoresLoaded, isLocksLoaded]);
-    
     useEffect(() => {
         if (!isOpen) {
             setShowAddForm(false); setViewLessonData(null); setViewQuizData(null); setActiveTab('announcements');
             setAnnouncements([]); setLessons([]); setQuizzes([]); setQuizScores([]); setSharedContentPosts([]);
             setQuizLocks([]); setEditingId(null); setEditContent(''); setPostToEdit(null); setIsEditModalOpen(false);
             setIsReportModalOpen(false); setScoresDetailModalOpen(false); setSelectedQuizForScores(null);
-            setSelectedAnnouncement(null); setUnits({}); setCollapsedUnits(new Set()); setLoading(true);
-            setIsAnnouncementsLoaded(false); setIsUnitsLoaded(false); setIsPostsLoaded(false); setIsLessonsLoaded(false);
-            setIsQuizzesLoaded(false); setIsScoresLoaded(false); setIsLocksLoaded(false);
+            setSelectedAnnouncement(null); setUnits({}); setCollapsedUnits(new Set());
             return;
         }
         if (isOpen && classData?.id) {
+            setLoading(true);
             const unsubscribeAnnouncements = setupRealtimeAnnouncements();
-            const unsubscribeContent = setupRealtimeContentListeners();
+            const unsubscribeContent = setupContentListeners();
             return () => {
                 unsubscribeAnnouncements();
                 unsubscribeContent();
             };
         }
-    }, [isOpen, classData?.id, setupRealtimeAnnouncements, setupRealtimeContentListeners]);
-
+    }, [isOpen, classData?.id, setupRealtimeAnnouncements, setupContentListeners]);
     useEffect(() => {
         if (isOpen && (activeTab === 'lessons' || activeTab === 'quizzes' || activeTab === 'scores')) {
             const allUnitTitles = new Set();
             sharedContentPosts.forEach(post => {
                 (post.lessonIds || []).forEach(lessonId => {
                     const lesson = lessons.find(l => l.id === lessonId);
-                    if (lesson && lesson.unitId) {
-                        allUnitTitles.add(units[lesson.unitId] || 'Uncategorized');
-                    }
+                    if (lesson && lesson.unitId) allUnitTitles.add(units[lesson.unitId] || 'Uncategorized');
                 });
                 (post.quizIds || []).forEach(quizId => {
                     const quiz = quizzes.find(q => q.id === quizId);
-                    if (quiz && quiz.unitId) {
-                        allUnitTitles.add(units[quiz.unitId] || 'Uncategorized');
-                    } else {
-                        allUnitTitles.add('Uncategorized');
-                    }
+                    if (quiz && quiz.unitId) allUnitTitles.add(units[quiz.unitId] || 'Uncategorized');
+                    else allUnitTitles.add('Uncategorized');
                 });
             });
-            if (allUnitTitles.size > 0) {
-                setCollapsedUnits(allUnitTitles);
-            }
+            if (allUnitTitles.size > 0) setCollapsedUnits(allUnitTitles);
         } else {
             setCollapsedUnits(new Set());
         }
     }, [activeTab, lessons, quizzes, units, sharedContentPosts, isOpen]);
-    
     const handleTabChange = (tabName) => setActiveTab(tabName);
-
     const handleUnlockQuiz = async (quizId, studentId) => {
         if (!window.confirm("Are you sure you want to unlock this quiz?")) return;
         try {
@@ -253,12 +214,10 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             showToast("Failed to unlock quiz.", "error");
         }
     };
-
     const handleEditDatesClick = (post) => {
         setPostToEdit(post);
         setIsEditModalOpen(true);
     };
-
     const handleDeleteContentFromPost = async (postId, contentIdToRemove, contentType) => {
         if (!classData?.id) return;
         const postRef = doc(db, 'classes', classData.id, 'posts', postId);
@@ -271,7 +230,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             showToast(`Failed to unshare ${contentType}.`, "error");
         }
     };
-
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this announcement?")) return;
         try {
@@ -281,7 +239,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             showToast("Failed to delete announcement.", "error");
         }
     };
-
     const handleEditSave = async (id) => {
         const trimmedContent = editContent.trim();
         if (!trimmedContent) return showToast("Content cannot be empty.", "error");
@@ -294,7 +251,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             showToast("Failed to update.", "error");
         }
     };
-
     const EmptyState = ({ icon: Icon, text, subtext }) => (
         <div className="text-center p-12 bg-gray-500/5 rounded-2xl border-2 border-dashed border-gray-200 animate-fadeIn mt-4">
             <Icon className="h-16 w-16 mb-4 text-gray-300 mx-auto" />
@@ -302,37 +258,22 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             <p className="mt-2 text-base text-gray-500">{subtext}</p>
         </div>
     );
-
     const renderContent = () => {
+        // ... (renderContent function remains the same, no changes needed here) ...
         if (loading) return <div className="text-center py-10 text-gray-500 text-lg">Loading...</div>;
-        
-        // Custom sort function to handle "Unit 2" vs "Unit 14" correctly
         const customUnitSort = (a, b) => {
             const numA = parseInt(a.match(/\d+/)?.[0], 10);
             const numB = parseInt(b.match(/\d+/)?.[0], 10);
-    
-            // If both have numbers, sort by number
-            if (!isNaN(numA) && !isNaN(numB)) {
-                return numA - numB;
-            }
-            // If only 'a' has a number, it comes first
-            if (!isNaN(numA)) {
-                return -1;
-            }
-            // If only 'b' has a number, it comes first
-            if (!isNaN(numB)) {
-                return 1;
-            }
-            // Otherwise, fall back to alphabetical sort
+            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+            if (!isNaN(numA)) return -1;
+            if (!isNaN(numB)) return 1;
             return a.localeCompare(b);
         };
-
         const ListItem = ({ children }) => (
             <div className="flex items-center justify-between gap-4 py-4 px-5 border-b border-gray-200/80 last:border-b-0 hover:bg-gray-500/10 transition-colors">
                 {children}
             </div>
         );
-
         const UnitGroup = ({ title, children }) => (
             <div className="bg-black/5 rounded-2xl border border-white/50 animate-slideInUp">
                 <button className="flex items-center justify-between w-full p-4 font-semibold text-xl text-gray-800 transition-all" onClick={() => toggleUnitCollapse(title)}>
@@ -342,7 +283,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 {!collapsedUnits.has(title) && <div className="px-1 pb-1">{children}</div>}
             </div>
         );
-        
         if (activeTab === 'lessons') {
             const lessonsByUnit = sharedContentPosts.reduce((acc, post) => {
                 (post.lessonIds || []).forEach(lessonId => {
@@ -377,7 +317,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 </div>
             );
         }
-
         if (activeTab === 'quizzes') {
             const quizzesByUnit = sharedContentPosts.reduce((acc, post) => {
                 (post.quizIds || []).forEach(quizId => {
@@ -412,7 +351,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 </div>
             );
         }
-
         if (activeTab === 'scores') {
             return (
                 <ScoresTab
@@ -428,7 +366,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 />
             );
         }
-        
         if (activeTab === 'students') {
             return (
                  <div className="space-y-3">
@@ -453,19 +390,11 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 </div>
             );
         }
-
-        // Default tab: announcements
         return (
             <div className="flex-1 flex flex-col">
-                {showAddForm && (
-                    <div className="mb-6 p-4 bg-white border border-gray-200 rounded-xl shadow-sm animate-fadeIn">
-                        <CreateClassAnnouncementForm classId={classData.id} onAnnouncementPosted={() => setShowAddForm(false)} />
-                    </div>
-                )}
+                {showAddForm && (<div className="mb-6 p-4 bg-white border border-gray-200 rounded-xl shadow-sm animate-fadeIn"><CreateClassAnnouncementForm classId={classData.id} onAnnouncementPosted={() => setShowAddForm(false)} /></div>)}
                 <div className="space-y-4">
-                    {announcements.length > 0 ? announcements.map(post => (
-                        <AnnouncementListItem key={post.id} post={post} isOwn={userProfile?.id === post.teacherId} onEdit={() => { setEditingId(post.id); setEditContent(post.content); }} onDelete={() => handleDelete(post.id)} isEditing={editingId === post.id} editContent={editContent} onChangeEdit={onChangeEdit} onSaveEdit={() => handleEditSave(post.id)} onCancelEdit={() => setEditingId(null)} onClick={() => setSelectedAnnouncement(post)} />
-                    )) : <EmptyState icon={MegaphoneIcon} text="No announcements yet" subtext="Post important updates for your students here." />}
+                    {announcements.length > 0 ? announcements.map(post => (<AnnouncementListItem key={post.id} post={post} isOwn={userProfile?.id === post.teacherId} onEdit={() => { setEditingId(post.id); setEditContent(post.content); }} onDelete={() => handleDelete(post.id)} isEditing={editingId === post.id} editContent={editContent} onChangeEdit={onChangeEdit} onSaveEdit={() => handleEditSave(post.id)} onCancelEdit={() => setEditingId(null)} onClick={() => setSelectedAnnouncement(post)} />)) : <EmptyState icon={MegaphoneIcon} text="No announcements yet" subtext="Post important updates for your students here." />}
                 </div>
             </div>
         );
@@ -486,12 +415,17 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 onClose={onClose}
                 title=""
                 size="screen"
-                roundedClass="rounded-none sm:rounded-2xl"
-                containerClassName="h-full sm:h-auto p-0 sm:p-4 bg-black/20 backdrop-blur-md"
+                // ✅ FIXED: Re-added rounded corners and padding for the outer container
+                roundedClass="rounded-2xl"
+                containerClassName="h-full p-4 bg-black/20 backdrop-blur-md"
                 contentClassName="p-0"
+                // ✅ FIXED: Added prop to hide the Modal's default close button
+                showCloseButton={false}
             >
-                <div className="flex flex-col md:flex-row bg-transparent h-full w-full p-4 gap-4">
-                    {/* --- Sidebar Navigation --- */}
+               
+                
+                {/* ✅ FIXED: Changed h-screen back to h-full to respect parent padding */}
+                <div className="flex flex-col md:flex-row bg-transparent h-full w-full gap-4">
                     <nav className="flex-shrink-0 bg-black/5 backdrop-blur-xl p-4 rounded-2xl border border-white/50 shadow-lg md:w-64">
                         <div className="mb-6 p-2 hidden md:block">
                              <h2 className="text-2xl font-bold text-gray-800 truncate">{classData?.name || 'Class'}</h2>
@@ -510,7 +444,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         </div>
                     </nav>
                     
-                    {/* --- Main Content --- */}
                     <main className="flex-1 bg-white/60 backdrop-blur-xl rounded-2xl border border-white/50 shadow-lg flex flex-col overflow-hidden">
                         <header className="px-8 pt-8 pb-4 flex-shrink-0 flex items-center justify-between">
                             <h2 className="text-3xl font-bold text-gray-900 capitalize">{activeTab}</h2>
@@ -527,64 +460,18 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 </div>
             </Modal>
             
-            {/* All subsequent modals remain unchanged, preserving their z-index and functionality. */}
-            <GenerateReportModal
-                isOpen={isReportModalOpen}
-                onClose={() => setIsReportModalOpen(false)}
-                classData={classData}
-                availableQuizzes={quizzes}
-                quizScores={quizScores}
-                lessons={lessons}
-                units={units}
-                sharedContentPosts={sharedContentPosts}
-                className="z-[120]"
-            />
-            <ViewLessonModal
-                isOpen={!!viewLessonData}
-                onClose={() => setViewLessonData(null)}
-                lesson={viewLessonData}
-                className="z-[120]"
-            />
-            <ViewQuizModal
-                isOpen={!!viewQuizData}
-                onClose={() => setViewQuizData(null)}
-                quiz={viewQuizData}
-                userProfile={userProfile}
-                classId={classData?.id}
-                isTeacherView={userProfile.role === 'teacher' || userProfile.role === 'admin'}
-                className="z-[120]"
-            />
-            <EditAvailabilityModal
-                isOpen={isEditModalOpen}
-                onClose={() => setIsEditModalOpen(false)}
-                post={postToEdit}
-                classId={classData?.id}
-                onUpdate={() => {}}
-                className="z-[120]"
-            />
-            {selectedQuizForScores && (
-                <QuizScoresModal
-                    isOpen={isScoresDetailModalOpen}
-                    onClose={() => setScoresDetailModalOpen(false)}
-                    quiz={selectedQuizForScores}
-                    classData={classData}
-                    quizScores={quizScores}
-                    quizLocks={quizLocks}
-                    onUnlockQuiz={handleUnlockQuiz}
-                    className="z-[120]"
-                />
-            )}
-            <AnnouncementViewModal
-                isOpen={!!selectedAnnouncement}
-                onClose={() => setSelectedAnnouncement(null)}
-                announcement={selectedAnnouncement}
-                className="z-[120]"
-            />
+            <GenerateReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} classData={classData} availableQuizzes={quizzes} quizScores={quizScores} lessons={lessons} units={units} sharedContentPosts={sharedContentPosts} className="z-[120]" />
+            <ViewLessonModal isOpen={!!viewLessonData} onClose={() => setViewLessonData(null)} lesson={viewLessonData} className="z-[120]" />
+            <ViewQuizModal isOpen={!!viewQuizData} onClose={() => setViewQuizData(null)} quiz={viewQuizData} userProfile={userProfile} classId={classData?.id} isTeacherView={userProfile.role === 'teacher' || userProfile.role === 'admin'} className="z-[120]" />
+            <EditAvailabilityModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} post={postToEdit} classId={classData?.id} onUpdate={() => {}} className="z-[120]" />
+            {selectedQuizForScores && (<QuizScoresModal isOpen={isScoresDetailModalOpen} onClose={() => setScoresDetailModalOpen(false)} quiz={selectedQuizForScores} classData={classData} quizScores={quizScores} quizLocks={quizLocks} onUnlockQuiz={handleUnlockQuiz} className="z-[120]" />)}
+            <AnnouncementViewModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} className="z-[120]" />
         </>
     );
 };
 
 const AnnouncementListItem = ({ post, isOwn, onEdit, onDelete, isEditing, editContent, onChangeEdit, onSaveEdit, onCancelEdit, onClick }) => {
+    // ... (This sub-component remains the same) ...
     const formattedDate = post.createdAt?.toDate().toLocaleString() || 'N/A';
     return (
         <div className="group relative bg-white/80 p-5 rounded-2xl shadow-md border border-white/50 transition-all duration-300 transform hover:scale-[1.01] hover:shadow-lg cursor-pointer" onClick={!isEditing ? onClick : undefined}>
