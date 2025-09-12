@@ -27,15 +27,115 @@ import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, getDoc, setD
 
 const NativeEmoji = ({ emoji, ...props }) => <span {...props}>{emoji}</span>;
 
+// Aether Theme Reaction Icons
 const reactionIconsHomeView = {
-    like: { component: (props) => <NativeEmoji emoji="👍" {...props} />, color: 'text-blue-500', label: 'Like' },
-    heart: { component: (props) => <NativeEmoji emoji="❤️" {...props} />, color: 'text-red-500', label: 'Love' },
-    haha: { component: (props) => <NativeEmoji emoji="😂" {...props} />, color: 'text-yellow-500', label: 'Haha' },
-    wow: { component: (props) => <NativeEmoji emoji="😮" {...props} />, color: 'text-amber-500', label: 'Wow' },
-    sad: { component: (props) => <NativeEmoji emoji="😢" {...props} />, color: 'text-slate-500', label: 'Sad' },
-    angry: { component: (props) => <NativeEmoji emoji="😡" {...props} />, color: 'text-red-700', label: 'Angry' },
-    care: { component: (props) => <NativeEmoji emoji="🤗" {...props} />, color: 'text-pink-500', label: 'Care' }
+  like: {
+    component: (props) => (
+      <span
+        className="flex items-center justify-center w-10 h-10 rounded-full 
+                   bg-gradient-to-br from-sky-300 to-blue-500 text-white 
+                   shadow-lg shadow-sky-300/40 hover:scale-110 hover:shadow-sky-400/50 
+                   transition-all duration-200"
+        {...props}
+      >
+        👍
+      </span>
+    ),
+    color: 'text-blue-500',
+    label: 'Like',
+  },
+  heart: {
+    component: (props) => (
+      <span
+        className="flex items-center justify-center w-10 h-10 rounded-full 
+                   bg-gradient-to-br from-rose-300 to-red-500 text-white 
+                   shadow-lg shadow-rose-300/40 hover:scale-110 hover:shadow-rose-400/50 
+                   transition-all duration-200"
+        {...props}
+      >
+        ❤️
+      </span>
+    ),
+    color: 'text-red-500',
+    label: 'Love',
+  },
+  haha: {
+    component: (props) => (
+      <span
+        className="flex items-center justify-center w-10 h-10 rounded-full 
+                   bg-gradient-to-br from-amber-200 to-yellow-400 text-black 
+                   shadow-lg shadow-amber-300/40 hover:scale-110 hover:shadow-amber-400/50 
+                   transition-all duration-200"
+        {...props}
+      >
+        😂
+      </span>
+    ),
+    color: 'text-yellow-500',
+    label: 'Haha',
+  },
+  wow: {
+    component: (props) => (
+      <span
+        className="flex items-center justify-center w-10 h-10 rounded-full 
+                   bg-gradient-to-br from-yellow-200 to-orange-400 text-black 
+                   shadow-lg shadow-yellow-300/40 hover:scale-110 hover:shadow-yellow-400/50 
+                   transition-all duration-200"
+        {...props}
+      >
+        😮
+      </span>
+    ),
+    color: 'text-amber-500',
+    label: 'Wow',
+  },
+  sad: {
+    component: (props) => (
+      <span
+        className="flex items-center justify-center w-10 h-10 rounded-full 
+                   bg-gradient-to-br from-sky-200 to-slate-400 text-white 
+                   shadow-lg shadow-sky-300/40 hover:scale-110 hover:shadow-sky-400/50 
+                   transition-all duration-200"
+        {...props}
+      >
+        😢
+      </span>
+    ),
+    color: 'text-slate-500',
+    label: 'Sad',
+  },
+  angry: {
+    component: (props) => (
+      <span
+        className="flex items-center justify-center w-10 h-10 rounded-full 
+                   bg-gradient-to-br from-rose-500 to-red-700 text-white 
+                   shadow-lg shadow-rose-400/40 hover:scale-110 hover:shadow-rose-500/50 
+                   transition-all duration-200"
+        {...props}
+      >
+        😡
+      </span>
+    ),
+    color: 'text-red-700',
+    label: 'Angry',
+  },
+  care: {
+    component: (props) => (
+      <span
+        className="flex items-center justify-center w-10 h-10 rounded-full 
+                   bg-gradient-to-br from-fuchsia-300 to-pink-500 text-white 
+                   shadow-lg shadow-fuchsia-300/40 hover:scale-110 hover:shadow-fuchsia-400/50 
+                   transition-all duration-200"
+        {...props}
+      >
+        🤗
+      </span>
+    ),
+    color: 'text-pink-500',
+    label: 'Care',
+  },
 };
+
 
 const ANNOUNCEMENT_TRUNCATE_LENGTH = 300;
 
@@ -420,7 +520,7 @@ const HomeView = ({
 			        );
 			    })}
 			</div>
-                <span className="text-sm text-gray-600 font-medium ml-2">{Object.keys(safeReactions).length}</span>
+                <span className="text-sm text-slate-600 font-medium ml-2">{Object.keys(safeReactions).length}</span>
                 <AnimatePresence>
                     {isVisible && (
                         <motion.div
@@ -428,7 +528,7 @@ const HomeView = ({
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 10 }}
                             transition={{ duration: 0.2 }}
-                            className="absolute z-50 bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 whitespace-nowrap bg-gray-800 text-white text-xs p-2 rounded-lg shadow-lg"
+                            className="absolute z-50 bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 whitespace-nowrap bg-slate-800 text-white text-xs p-2 rounded-lg shadow-lg"
                             onMouseEnter={handlePopupMouseEnter}
                             onMouseLeave={handlePopupMouseLeave}
                         >
@@ -533,24 +633,24 @@ const HomeView = ({
     };
 
     return (
-        <div className="relative min-h-screen p-3 sm:p-4 md:p-6 bg-gray-50 text-gray-800 font-sans overflow-hidden rounded-3xl">
+        <div className="relative min-h-screen p-3 sm:p-4 md:p-6 bg-[#F7F9FF] text-slate-800 font-sans overflow-hidden rounded-3xl">
             <div className="absolute top-0 left-0 w-full h-full z-0 pointer-events-none">
-                <div className="absolute -top-1/4 -left-1/4 w-1/2 h-1/2 bg-blue-200/40 rounded-full filter blur-3xl opacity-50"></div>
-                <div className="absolute bottom-0 -right-1/4 w-1/2 h-1/2 bg-indigo-200/40 rounded-full filter blur-3xl opacity-50"></div>
+                <div className="absolute -top-1/4 -left-1/4 w-1/2 h-1/2 bg-gradient-to-br from-cyan-100 to-violet-200 rounded-full filter blur-3xl opacity-40 animate-pulse-slow"></div>
+                <div className="absolute bottom-0 -right-1/4 w-1/2 h-1/2 bg-gradient-to-tl from-rose-100 to-sky-200 rounded-full filter blur-3xl opacity-40 animate-pulse-slow animation-delay-4000"></div>
             </div>
 
             <div className="relative z-10 space-y-4 md:space-y-6">
                 <motion.header
                     {...fadeProps}
-                    className="relative p-4 md:p-6 bg-white/70 backdrop-blur-xl rounded-3xl shadow-lg border border-white/50 overflow-hidden"
+                    className="relative p-4 md:p-6 bg-white/60 backdrop-blur-xl rounded-3xl shadow-lg shadow-slate-300/20 border border-white/80 overflow-hidden"
                 >
                     {isSpecialBannerActive ? (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full items-center">
                             <div className="col-span-1 text-center md:text-left">
-                                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 drop-shadow-sm leading-tight">
+                                <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 drop-shadow-sm leading-tight">
                                     Welcome, {userProfile?.firstName}!
                                 </h1>
-                                <p className="text-sm text-gray-600 mt-1">Here's your dashboard at a glance.</p>
+                                <p className="text-sm text-slate-500 mt-1">Here's your dashboard at a glance.</p>
                             </div>
 
                             <div
@@ -570,8 +670,8 @@ const HomeView = ({
                             </div>
 
                             <div className="col-span-1 flex items-center justify-center h-full">
-                                <div className="bg-white text-gray-800 rounded-2xl shadow-md border border-gray-200/50 w-full h-full p-4 flex flex-col justify-between">
-                                    <p className="font-bold text-indigo-700 flex items-center gap-2">
+                                <div className="bg-white/80 text-slate-800 rounded-2xl shadow-md border border-gray-200/50 w-full h-full p-4 flex flex-col justify-between">
+                                    <p className="font-bold text-sky-700 flex items-center gap-2">
                                         <CalendarDays className="w-5 h-5" />
                                         <span className="text-lg">Today's Schedule</span>
                                     </p>
@@ -587,9 +687,9 @@ const HomeView = ({
                                                     exit={{ opacity: 0, y: -10 }}
                                                     transition={{ duration: 0.3 }}
                                                 >
-                                                    <span className="font-bold text-xl text-indigo-900 leading-tight block">{todayActivities[currentActivityIndex].title}</span>
+                                                    <span className="font-bold text-xl text-slate-900 leading-tight block">{todayActivities[currentActivityIndex].title}</span>
                                                     {todayActivities[currentActivityIndex].time && todayActivities[currentActivityIndex].time !== 'N/A' && (
-                                                        <span className="flex items-center text-md justify-center mt-1 text-gray-700 font-light">
+                                                        <span className="flex items-center text-md justify-center mt-1 text-slate-700 font-light">
                                                             <Clock className="w-4 h-4 mr-2 opacity-70" /> {todayActivities[currentActivityIndex].time}
                                                         </span>
                                                     )}
@@ -600,26 +700,26 @@ const HomeView = ({
                                                     className="text-center"
                                                     {...fadeProps}
                                                 >
-                                                   <p className="text-lg font-semibold text-gray-500">All Clear!</p>
-                                                   <p className="text-sm text-gray-400">No activities scheduled.</p>
+                                                   <p className="text-lg font-semibold text-slate-500">All Clear!</p>
+                                                   <p className="text-sm text-slate-400">No activities scheduled.</p>
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
                                     </div>
-                                    <p className="text-xs text-center pt-2 opacity-90 border-t border-indigo-200/80 text-gray-700">Stay on top of your day!</p>
+                                    <p className="text-xs text-center pt-2 opacity-90 border-t border-sky-200/80 text-slate-700">Stay on top of your day!</p>
                                 </div>
                             </div>
                         </div>
                     ) : (
                         <div className="flex flex-col md:flex-row md:items-center md:justify-between h-full w-full py-4">
                             <div className="flex-1 text-center md:text-left">
-                                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-800 drop-shadow-sm leading-tight">
+                                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-800 drop-shadow-sm leading-tight">
                                      Welcome, {userProfile?.firstName}!
                                 </h1>
-                                <p className="text-base md:text-lg text-gray-600 mt-2">Here's your dashboard at a glance.</p>
+                                <p className="text-base md:text-lg text-slate-600 mt-2">Here's your dashboard at a glance.</p>
                             </div>
-                            <div className="mt-6 md:mt-0 md:ml-6 p-4 bg-white text-gray-800 rounded-2xl shadow-lg border border-gray-200/50 w-full max-w-sm flex-shrink-0 flex flex-col justify-between">
-                                <p className="font-bold text-indigo-700 flex items-center gap-2">
+                            <div className="mt-6 md:mt-0 md:ml-6 p-4 bg-white/90 text-slate-800 rounded-2xl shadow-lg border border-gray-200/50 w-full max-w-sm flex-shrink-0 flex flex-col justify-between">
+                                <p className="font-bold text-sky-700 flex items-center gap-2">
                                     <CalendarDays className="w-5 h-5" />
                                     <span className="text-lg">Today's Schedule</span>
                                 </p>
@@ -631,9 +731,9 @@ const HomeView = ({
                                                 className="flex flex-col items-center justify-center"
                                                 {...fadeProps}
                                             >
-                                                <span className="font-bold text-2xl text-indigo-900 leading-tight block">{todayActivities[currentActivityIndex].title}</span>
+                                                <span className="font-bold text-2xl text-slate-900 leading-tight block">{todayActivities[currentActivityIndex].title}</span>
                                                 {todayActivities[currentActivityIndex].time && todayActivities[currentActivityIndex].time !== 'N/A' && (
-                                                    <span className="flex items-center text-xl justify-center mt-1 text-gray-700 font-light">
+                                                    <span className="flex items-center text-xl justify-center mt-1 text-slate-700 font-light">
                                                         <Clock className="w-4 h-4 mr-2 opacity-70" /> {todayActivities[currentActivityIndex].time}
                                                     </span>
                                                 )}
@@ -644,13 +744,13 @@ const HomeView = ({
                                                 className="text-center"
                                                 {...fadeProps}
                                             >
-                                               <p className="text-lg font-semibold text-gray-500">All Clear!</p>
-                                               <p className="text-sm text-gray-400">No activities scheduled.</p>
+                                               <p className="text-lg font-semibold text-slate-500">All Clear!</p>
+                                               <p className="text-sm text-slate-400">No activities scheduled.</p>
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
                                 </div>
-                                <p className="text-xs text-center pt-2 opacity-90 border-t border-indigo-200/80 text-gray-700">Stay on top of your day!</p>
+                                <p className="text-xs text-center pt-2 opacity-90 border-t border-sky-200/80 text-slate-700">Stay on top of your day!</p>
                             </div>
                         </div>
                     )}
@@ -658,33 +758,33 @@ const HomeView = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
                     <motion.div {...fadeProps} transition={{ duration: 0.4, delay: 0.1 }}>
-                        <ClockWidget className="rounded-3xl shadow-lg transition-transform transform hover:-translate-y-1 duration-300 ease-in-out hover:shadow-xl border border-white/50" />
+                        <ClockWidget className="rounded-3xl shadow-lg shadow-slate-300/20 transition-transform transform hover:-translate-y-1 duration-300 ease-in-out hover:shadow-xl hover:shadow-slate-300/30 border border-white/50" />
                     </motion.div>
                     <motion.div {...fadeProps} transition={{ duration: 0.4, delay: 0.2 }}>
-                        <InspirationCard className="rounded-3xl shadow-lg transition-transform transform hover:-translate-y-1 duration-300 ease-in-out hover:shadow-xl border border-white/50" />
+                        <InspirationCard className="rounded-3xl shadow-lg shadow-slate-300/20 transition-transform transform hover:-translate-y-1 duration-300 ease-in-out hover:shadow-xl hover:shadow-slate-300/30 border border-white/50" />
                     </motion.div>
                     <motion.div
                         {...fadeProps}
                         transition={{ duration: 0.4, delay: 0.3 }}
-                        className="bg-white/70 backdrop-blur-xl p-6 rounded-3xl shadow-lg flex items-center justify-center flex-col text-center cursor-pointer transition-transform transform hover:-translate-y-1 duration-300 ease-in-out border border-white/50"
+                        className="bg-white/60 backdrop-blur-xl p-6 rounded-3xl shadow-lg shadow-slate-300/20 flex items-center justify-center flex-col text-center cursor-pointer transition-transform transform hover:-translate-y-1 duration-300 ease-in-out border border-white/50"
                         onClick={() => setIsScheduleModalOpen(true)}
                     >
-                        <CalendarDays className="h-10 w-10 text-indigo-500 mb-2" />
-                        <h3 className="font-bold text-gray-800 text-lg">Schedule of Activities</h3>
-                        <p className="text-sm text-gray-600 mt-1">Click to view what's coming up.</p>
+                        <CalendarDays className="h-10 w-10 text-sky-500 mb-2" />
+                        <h3 className="font-bold text-slate-800 text-lg">Schedule of Activities</h3>
+                        <p className="text-sm text-slate-600 mt-1">Click to view what's coming up.</p>
                     </motion.div>
                     <motion.div
                         {...fadeProps}
                         transition={{ duration: 0.4, delay: 0.4 }}
-                        className="cursor-pointer transition-transform transform hover:-translate-y-1 duration-300 ease-in-out hover:shadow-xl"
+                        className="cursor-pointer transition-transform transform hover:-translate-y-1 duration-300 ease-in-out hover:shadow-xl hover:shadow-slate-300/30"
                         onClick={() => handleViewChange('classes')}
                     >
                         <GradientStatCard
                             title="Active Classes"
                             value={activeClasses.length}
                             icon={<GraduationCap />}
-                            gradient="from-green-500 to-emerald-600"
-                            className="rounded-3xl shadow-lg"
+                            gradient="from-sky-400 to-cyan-400"
+                            className="rounded-3xl shadow-lg shadow-slate-300/20"
                         />
                     </motion.div>
                 </div>
@@ -693,14 +793,14 @@ const HomeView = ({
                     <motion.div
                         {...fadeProps}
                         transition={{ duration: 0.4 }}
-                        className="lg:col-span-1 p-6 bg-white/70 backdrop-blur-xl rounded-3xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-white/50"
+                        className="lg:col-span-1 p-6 bg-white/60 backdrop-blur-xl rounded-3xl shadow-lg shadow-slate-300/20 hover:shadow-xl hover:shadow-slate-300/30 transition-shadow duration-300 border border-white/50"
                     >
                         <div className="flex items-center gap-4 mb-6">
-                            <div className="bg-indigo-100 p-3 rounded-2xl">
-                                <Megaphone className="w-6 h-6 text-indigo-500" />
+                            <div className="bg-sky-100 p-3 rounded-2xl">
+                                <Megaphone className="w-6 h-6 text-sky-500" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-gray-800">Create Announcement</h2>
+                                <h2 className="text-xl font-bold text-slate-800">Create Announcement</h2>
                             </div>
                         </div>
                         <CreateAnnouncement classes={activeClasses} onPost={handleCreateAnnouncement} />
@@ -708,7 +808,7 @@ const HomeView = ({
 
                     <div className="lg:col-span-2 space-y-6">
                         <motion.div {...fadeProps} className="flex items-center gap-3">
-                            <h2 className="text-2xl font-bold text-gray-800">Activity Feed</h2>
+                            <h2 className="text-2xl font-bold text-slate-800">Activity Feed</h2>
                         </motion.div>
                         <AnimatePresence>
                             {sortedAnnouncements && sortedAnnouncements.length > 0 ? sortedAnnouncements.map((post, index) => {
@@ -726,7 +826,7 @@ const HomeView = ({
                                     color: reactionColor
                                 } = currentUserReaction && reactionIconsHomeView[currentUserReaction]
                                     ? reactionIconsHomeView[currentUserReaction]
-                                    : { component: ThumbsUp, label: 'Like', color: 'text-gray-600' };
+                                    : { component: ThumbsUp, label: 'Like', color: 'text-slate-600' };
 
 
                                 return (
@@ -734,10 +834,10 @@ const HomeView = ({
                                         key={post.id}
                                         {...fadeProps}
                                         transition={{ duration: 0.4, delay: index * 0.05 }}
-                                        className={`bg-white/70 backdrop-blur-lg rounded-3xl shadow-lg p-6 relative group transform transition-all duration-300 hover:shadow-xl border ${post.isPinned ? 'border-amber-400 ring-2 ring-amber-200' : 'border-white/50'}`}
+                                        className={`bg-white/60 backdrop-blur-lg rounded-3xl shadow-lg shadow-slate-300/20 p-6 relative group transform transition-all duration-300 hover:shadow-xl hover:shadow-slate-300/30 border ${post.isPinned ? 'border-violet-300 ring-2 ring-violet-200/50' : 'border-white/50'}`}
                                     >
                                         {post.isPinned && (
-                                            <div className="absolute top-4 left-4 flex items-center gap-2 text-amber-700 bg-amber-100 px-3 py-1 rounded-full text-xs font-semibold z-10">
+                                            <div className="absolute top-4 left-4 flex items-center gap-2 text-violet-700 bg-violet-100 px-3 py-1 rounded-full text-xs font-semibold z-10">
                                                 <Pin className="w-3 h-3" />
                                                 <span>Pinned</span>
                                             </div>
@@ -747,18 +847,18 @@ const HomeView = ({
                                                 <UserInitialsAvatar user={authorProfile} size="w-10 h-10" />
                                             </div>
                                             <div className="ml-3">
-                                                <p className="font-bold text-gray-800">{post.teacherName}</p>
-                                                <p className="text-xs text-gray-500">{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString() : ''}</p>
+                                                <p className="font-bold text-slate-800">{post.teacherName}</p>
+                                                <p className="text-xs text-slate-500">{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString() : ''}</p>
                                             </div>
                                             {canModify && (
                                                 <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-white/50 backdrop-blur-sm rounded-full p-1">
                                                      {userProfile?.role === 'admin' && (
-                                                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); handleTogglePinAnnouncement(post.id, post.isPinned); }} className={`p-2 rounded-full hover:bg-gray-100 transition ${post.isPinned ? 'text-amber-500' : 'text-gray-500'}`} title={post.isPinned ? "Unpin Announcement" : "Pin Announcement"}>
+                                                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); handleTogglePinAnnouncement(post.id, post.isPinned); }} className={`p-2 rounded-full hover:bg-gray-100 transition ${post.isPinned ? 'text-violet-500' : 'text-slate-500'}`} title={post.isPinned ? "Unpin Announcement" : "Pin Announcement"}>
                                                             <Pin className="w-5 h-5" />
                                                         </motion.button>
                                                     )}
                                                     <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); handleStartEditAnn(post); }} className="p-2 rounded-full hover:bg-gray-100 transition" title="Edit Announcement">
-                                                        <Pencil className="w-5 h-5 text-gray-500" />
+                                                        <Pencil className="w-5 h-5 text-slate-500" />
                                                     </motion.button>
                                                     <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); handleDeleteTeacherAnn(post.id); }} className="p-2 rounded-full hover:bg-gray-100 transition" title="Delete Announcement">
                                                         <Trash2 className="w-5 h-5 text-red-500" />
@@ -770,27 +870,27 @@ const HomeView = ({
                                         {editingAnnId === post.id ? (
                                             <>
                                                 <textarea
-                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-gray-50 text-gray-800 resize-none mb-4"
+                                                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-slate-50 text-slate-800 resize-none mb-4"
                                                     rows="5"
                                                     value={editingAnnText}
                                                     onChange={(e) => setEditingAnnText(e.target.value)}
                                                     onClick={(e) => e.stopPropagation()}
                                                 />
                                                 <div className="flex justify-end gap-2">
-                                                    <button className="px-4 py-2 rounded-full font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors" onClick={(e) => { e.stopPropagation(); setEditingAnnId(null); }}>Cancel</button>
-                                                    <button className="px-4 py-2 rounded-full font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-all duration-300 shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/20" onClick={(e) => { e.stopPropagation(); handleUpdateTeacherAnn(); }}>Save</button>
+                                                    <button className="px-4 py-2 rounded-full font-semibold bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors" onClick={(e) => { e.stopPropagation(); setEditingAnnId(null); }}>Cancel</button>
+                                                    <button className="px-4 py-2 rounded-full font-semibold text-white bg-sky-600 hover:bg-sky-700 transition-all duration-300 shadow-lg shadow-sky-500/30 hover:shadow-xl hover:shadow-sky-500/20" onClick={(e) => { e.stopPropagation(); handleUpdateTeacherAnn(); }}>Save</button>
                                                 </div>
                                             </>
                                         ) : (
                                             post.content && (
-                                                <p className="text-gray-700 text-base leading-relaxed whitespace-pre-wrap">
+                                                <p className="text-slate-700 text-base leading-relaxed whitespace-pre-wrap">
                                                     {isTruncated && !showFullAnnouncement
                                                         ? post.content.substring(0, ANNOUNCEMENT_TRUNCATE_LENGTH) + '...'
                                                         : post.content}
                                                     {isTruncated && (
                                                         <button
                                                             onClick={() => toggleAnnouncementExpansion(post.id)}
-                                                            className="text-blue-500 hover:underline ml-1 font-semibold"
+                                                            className="text-sky-600 hover:underline ml-1 font-semibold"
                                                         >
                                                             {showFullAnnouncement ? 'Show Less' : 'See More'}
                                                         </button>
@@ -804,17 +904,17 @@ const HomeView = ({
                                                 <img 
                                                     src={post.photoURL} 
                                                     alt="Announcement" 
-                                                    className="rounded-xl max-h-96 w-full object-contain bg-gray-100"
+                                                    className="rounded-xl max-h-96 w-full object-contain bg-slate-100"
                                                     onError={(e) => { e.target.style.display = 'none'; }}
                                                 />
                                                 {post.caption && (
-                                                    <p className="text-sm text-gray-600 mt-2 text-center italic">{post.caption}</p>
+                                                    <p className="text-sm text-slate-600 mt-2 text-center italic">{post.caption}</p>
                                                 )}
                                             </div>
                                         )}
 
 										{((postReactionsForThisPost && Object.keys(postReactionsForThisPost).length > 0) || (post.commentsCount || 0) > 0) && (
-										    <div className="flex justify-between items-center text-sm text-gray-500 mt-4">
+										    <div className="flex justify-between items-center text-sm text-slate-500 mt-4">
 										        {formatReactionCountHomeView(postReactionsForThisPost, post.id)}
 										        <span className="cursor-pointer hover:underline font-medium" onClick={() => openAnnouncementModal(post)}>
 										            View Comments
@@ -822,7 +922,7 @@ const HomeView = ({
 										    </div>
 										)}
 
-                                        <div className="flex justify-around items-center pt-3 mt-4 border-t border-gray-200/80">
+                                        <div className="flex justify-around items-center pt-3 mt-4 border-t border-slate-200/80">
                                             <div
                                                 className="relative"
                                                 onMouseEnter={(e) => handleReactionOptionsMouseEnter(e, post.id)}
@@ -834,7 +934,7 @@ const HomeView = ({
                                                 <motion.button
                                                     whileHover={{ y: -2 }}
                                                     whileTap={{ scale: 0.95 }}
-                                                    className={`flex items-center space-x-2 py-2 px-4 rounded-full transition-colors duration-200 w-full justify-center ${currentUserReaction ? reactionColor : 'text-gray-600'} hover:bg-gray-100/80`}
+                                                    className={`flex items-center space-x-2 py-2 px-4 rounded-full transition-colors duration-200 w-full justify-center ${currentUserReaction ? reactionColor : 'text-slate-600'} hover:bg-slate-100/80`}
                                                     onClick={() => handleTogglePostReactionHomeView(post.id, 'like')}
                                                 >
                                                     {currentUserReaction ? (
@@ -863,7 +963,7 @@ const HomeView = ({
                                                                 visible: { transition: { staggerChildren: 0.05 } },
                                                                 hidden: { transition: { staggerChildren: 0.05, staggerDirection: -1 } }
                                                             }}
-                                                            className="absolute bottom-full mb-2 bg-white/80 backdrop-blur-md rounded-full shadow-xl p-2 flex space-x-1 z-50 border border-gray-200/50"
+                                                            className="absolute bottom-full mb-2 bg-white/80 backdrop-blur-md rounded-full shadow-xl p-2 flex space-x-1 z-50 border border-slate-200/50"
                                                         >
                                                             {Object.entries(reactionIconsHomeView).map(([type, { component: IconComponent, label }]) => (
                                                                 <motion.button
@@ -879,7 +979,7 @@ const HomeView = ({
                                                                     onClick={() => handleReactionOptionClick(post.id, type)}
                                                                 >
                                                                     <IconComponent className="text-4xl" />
-                                                                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs font-semibold px-2 py-1 rounded-md opacity-0 group-hover/reaction:opacity-100 transition-opacity whitespace-nowrap">
+                                                                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs font-semibold px-2 py-1 rounded-md opacity-0 group-hover/reaction:opacity-100 transition-opacity whitespace-nowrap">
                                                                         {label}
                                                                     </div>
                                                                 </motion.button>
@@ -892,7 +992,7 @@ const HomeView = ({
                                             <motion.button
                                                 whileHover={{ y: -2 }}
                                                 whileTap={{ scale: 0.95 }}
-                                                className="flex items-center space-x-2 py-2 px-4 rounded-full text-gray-600 hover:bg-gray-100 transition-colors duration-200"
+                                                className="flex items-center space-x-2 py-2 px-4 rounded-full text-slate-600 hover:bg-slate-100 transition-colors duration-200"
                                                 onClick={() => openAnnouncementModal(post)}
                                             >
                                                 <MessageCircle className="h-5 w-5" />
@@ -905,9 +1005,9 @@ const HomeView = ({
                                 <motion.div
                                     key="no-announcements"
                                     {...fadeProps}
-                                    className="text-center text-gray-400 py-12 border-2 border-dashed border-gray-300 rounded-3xl bg-gray-100/50"
+                                    className="text-center text-slate-400 py-12 border-2 border-dashed border-sky-200 rounded-3xl bg-sky-50/50"
                                 >
-                                    <Megaphone className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                                    <Megaphone className="w-12 h-12 mx-auto text-slate-300 mb-4" />
                                     <p className="text-lg font-semibold">No new announcements.</p>
                                     <p className="text-sm">Be the first to post an update!</p>
                                 </motion.div>
@@ -930,7 +1030,7 @@ const HomeView = ({
             {isAnnouncementModalOpen && (
                 <AnnouncementModal
                     isOpen={isAnnouncementModalOpen}
-                    onClose={handleCloseAnnouncementModal} // --- FIX: Use the new handler ---
+                    onClose={handleCloseAnnouncementModal}
                     announcement={selectedAnnouncement}
                     userProfile={userProfile}
                     db={db}

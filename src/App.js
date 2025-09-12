@@ -90,11 +90,12 @@ export default function App() {
   useEffect(() => {
     serviceWorkerRegistration.register({
       onUpdate: registration => {
-        setWaitingWorker(registration);
+        setWaitingWorker(registration.waiting); // Directly set the waiting worker
       },
     });
   }, []);
 
+  // ✅ FIXED: Corrected build status polling logic
   useEffect(() => {
     let pollInterval;
     let countdownInterval;
@@ -105,26 +106,24 @@ export default function App() {
         const data = await res.json();
 
         setBuildStatus(prevStatus => {
-          if (data.status !== prevStatus) {
-            if (data.status === 'building') {
-              setTimeLeft(AVERAGE_BUILD_SECONDS);
-              if (countdownInterval) clearInterval(countdownInterval);
-              countdownInterval = setInterval(() => {
-                setTimeLeft(prevTime => Math.max(0, prevTime - 1));
-              }, 1000);
-              return 'building';
-            }
-            if (prevStatus === 'building' && data.status === 'ready') {
-              if (countdownInterval) clearInterval(countdownInterval);
-              if (pollInterval) clearInterval(pollInterval);
-              // We no longer set a 'complete' status, as the waitingWorker is the true signal.
-              return 'ready';
-            }
-            return data.status;
+          // If status changes from not building to 'building'
+          if (prevStatus !== 'building' && data.status === 'building') {
+            setTimeLeft(AVERAGE_BUILD_SECONDS);
+            if (countdownInterval) clearInterval(countdownInterval);
+            countdownInterval = setInterval(() => {
+              setTimeLeft(prevTime => Math.max(0, prevTime - 1));
+            }, 1000);
+            return 'building';
           }
-          return prevStatus;
+          // If status changes from 'building' to 'ready'
+          if (prevStatus === 'building' && data.status === 'ready') {
+            if (countdownInterval) clearInterval(countdownInterval);
+            if (pollInterval) clearInterval(pollInterval); // Stop polling
+            return 'ready'; // Set status to ready, don't show overlay
+          }
+          // For any other case, just reflect the server status
+          return data.status;
         });
-
       } catch (err) {
         console.error('Failed to fetch build status, assuming ready.', err);
         setBuildStatus('ready');
@@ -133,34 +132,40 @@ export default function App() {
       }
     };
 
-    checkBuildStatus();
-    pollInterval = setInterval(checkBuildStatus, 5000);
+    // Only start polling if the initial status isn't already building
+    if (buildStatus !== 'building') {
+        checkBuildStatus();
+        pollInterval = setInterval(checkBuildStatus, 15000); // Poll every 15 seconds
+    }
 
     return () => {
       clearInterval(pollInterval);
       if (countdownInterval) clearInterval(countdownInterval);
     };
-  }, []);
+  }, []); // Run this effect only once on mount
 
-  // ✅ FIXED: This function now correctly handles the service worker update process.
   const handleEnter = () => {
-    if (waitingWorker && waitingWorker.waiting) {
-      waitingWorker.waiting.postMessage({ type: 'SKIP_WAITING' });
+    if (waitingWorker) {
+      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         window.location.reload();
       }, { once: true });
     }
   };
 
-  // ✅ FIXED: Separated UI logic for a cleaner, single-click update flow.
+  // ✅ FIXED: Corrected rendering logic to separate the two states
+  
+  // 1. Show the "building" overlay ONLY when a build is in progress.
   if (buildStatus === 'building') {
     return <UpdateOverlay status="building" timeLeft={timeLeft} />;
   }
 
+  // 2. Show the "update ready" overlay with the Enter button ONLY when a new service worker is waiting.
   if (waitingWorker) {
     return <UpdateOverlay status="complete" onEnter={handleEnter} />;
   }
 
+  // 3. Otherwise, render the main application.
   return (
       <div className="bg-gray-100 min-h-screen">
         <AuthProvider>
