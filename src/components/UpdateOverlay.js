@@ -29,8 +29,7 @@ const useTypingEffect = (text, speed = 50, start = true) => {
 // NEW: Blinking cursor component
 const BlinkingCursor = () => <span className="blinking-cursor">|</span>;
 
-// ENHANCEMENT: Added userName and userRole props for personalization
-export default function UpdateOverlay({ status, timeLeft, onEnter, userName = "Operator", userRole }) {
+export default function UpdateOverlay({ status, timeLeft, onEnter }) {
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [showButton, setShowButton] = useState(false);
 
@@ -49,20 +48,6 @@ export default function UpdateOverlay({ status, timeLeft, onEnter, userName = "O
     "Rebooting command services...",
     "System update successful. Launching..."
   ], []);
-
-  // NEW: Create a personalized greeting message
-  const greetingMessage = useMemo(() => {
-    if (!userName) return null;
-
-    let rolePrefix = '';
-    // Check for specific roles and format the greeting accordingly
-    if (userRole && (userRole.toLowerCase() === 'teacher' || userRole.toLowerCase() === 'admin')) {
-        rolePrefix = `${userRole.charAt(0).toUpperCase() + userRole.slice(1)} `;
-    }
-
-    return `Hey ${rolePrefix}${userName}, a system update is underway.`;
-  }, [userName, userRole]);
-
 
   const currentFile = files[currentFileIndex];
   const typedFile = useTypingEffect(currentFile, 30, status === 'building');
@@ -188,22 +173,6 @@ export default function UpdateOverlay({ status, timeLeft, onEnter, userName = "O
               marginBottom: '20px',
             }}
           />
-
-          {/* NEW: Display personalized greeting during the update process */}
-          {status === 'building' && greetingMessage && (
-            <p style={{
-                fontSize: '18px',
-                color: '#ffffff',
-                textShadow: '0 0 5px rgba(0,255,192,0.7)',
-                marginBottom: '0px', // Adjusted margin
-                paddingBottom: '25px',
-                textAlign: 'center',
-                borderBottom: '1px solid rgba(0,255,192,0.2)',
-                width: '100%'
-            }}>
-                {greetingMessage}
-            </p>
-          )}
 
           <div style={{ width: '100%', textAlign: 'left', marginBottom: '20px' }}>
             {status === 'building' ? (
