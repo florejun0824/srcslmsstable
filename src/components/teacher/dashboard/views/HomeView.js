@@ -75,8 +75,6 @@ const HomeView = ({
     const [reactionsForBreakdownModal, setReactionsForBreakdownModal] = useState(null);
 
     const [expandedAnnouncements, setExpandedAnnouncements] = useState({});
-    // --- FIX: State to hold the most up-to-date comment counts after modal interaction ---
-    const [liveCommentCounts, setLiveCommentCounts] = useState({});
 
 
     const [bannerSettings, setBannerSettings] = useState({
@@ -308,17 +306,10 @@ const HomeView = ({
         setIsAnnouncementModalOpen(true);
     };
 
-    // --- FIX: New handler to close the modal and receive the updated count ---
-    const handleCloseAnnouncementModal = (updatedCount) => {
-        if (selectedAnnouncement && typeof updatedCount === 'number') {
-            setLiveCommentCounts(prev => ({
-                ...prev,
-                [selectedAnnouncement.id]: updatedCount,
-            }));
-        }
-        setIsAnnouncementModalOpen(false);
-        setSelectedAnnouncement(null);
-    };
+	const handleCloseAnnouncementModal = () => {
+	    setIsAnnouncementModalOpen(false);
+	    setSelectedAnnouncement(null);
+	};
 
     const openReactionsBreakdownModal = (reactions, usersMap) => {
         setReactionsForBreakdownModal(reactions);
@@ -727,8 +718,7 @@ const HomeView = ({
                                 const isTruncated = post.content && post.content.length > ANNOUNCEMENT_TRUNCATE_LENGTH;
                                 const showFullAnnouncement = expandedAnnouncements[post.id];
                                 const authorProfile = homeViewUsersMap[post.teacherId];
-                                // --- FIX: Prioritize the live count, fallback to the prop count ---
-                                const displayCommentCount = liveCommentCounts[post.id] !== undefined ? liveCommentCounts[post.id] : (post.commentsCount || 0);
+                          
 
                                 const {
                                     component: ReactionButtonIcon,
@@ -823,14 +813,14 @@ const HomeView = ({
                                             </div>
                                         )}
 
-                                        {(Object.keys(postReactionsForThisPost).length > 0 || displayCommentCount > 0) && (
-                                            <div className="flex justify-between items-center text-sm text-gray-500 mt-4">
-                                                {formatReactionCountHomeView(postReactionsForThisPost, post.id)}
-                                                <span className="cursor-pointer hover:underline" onClick={() => openAnnouncementModal(post)}>
-                                                    {displayCommentCount} {displayCommentCount === 1 ? 'comment' : 'comments'}
-                                                </span>
-                                            </div>
-                                        )}
+										{((postReactionsForThisPost && Object.keys(postReactionsForThisPost).length > 0) || (post.commentsCount || 0) > 0) && (
+										    <div className="flex justify-between items-center text-sm text-gray-500 mt-4">
+										        {formatReactionCountHomeView(postReactionsForThisPost, post.id)}
+										        <span className="cursor-pointer hover:underline font-medium" onClick={() => openAnnouncementModal(post)}>
+										            View Comments
+										        </span>
+										    </div>
+										)}
 
                                         <div className="flex justify-around items-center pt-3 mt-4 border-t border-gray-200/80">
                                             <div

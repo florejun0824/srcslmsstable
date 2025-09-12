@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     FaTimes, FaPaperPlane, FaEdit, FaTrash, FaThumbsUp, FaComment,
 } from 'react-icons/fa';
-import { collection, addDoc, onSnapshot, query, orderBy, doc, setDoc, deleteDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, orderBy, doc, setDoc, deleteDoc, getDoc, updateDoc, runTransaction } from 'firebase/firestore';
 import ReactionsBreakdownModal from './ReactionsBreakdownModal';
 import UserInitialsAvatar from '../../../common/UserInitialsAvatar';
 
@@ -120,14 +120,68 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db, pos
             if(unsubscribeComments) unsubscribeComments();
         };
     }, [isOpen, announcement?.id, db]);
+	const handlePostComment = async () => {
+	    if (!newCommentText.trim() || !commentsCollectionRef) return;
 
-    const handlePostComment = async () => { if (!newCommentText.trim() || !commentsCollectionRef) return; try { await addDoc(commentsCollectionRef, { userId: currentUserId, userName: currentUserName, commentText: newCommentText.trim(), createdAt: new Date(), parentId: replyToCommentId }); setNewCommentText(''); setReplyToCommentId(null); setReplyToUserName(''); } catch (error) { console.error("Error adding comment:", error); } };
+	    const announcementRef = doc(db, 'teacherAnnouncements', announcement.id);
+	    const newCommentRef = doc(commentsCollectionRef); // Auto-generate ID for the new comment
+
+	    try {
+	        await runTransaction(db, async (transaction) => {
+	            const annDoc = await transaction.get(announcementRef);
+	            if (!annDoc.exists()) {
+	                throw "Announcement does not exist!";
+	            }
+
+	            // Increment the comment count
+	            const newCount = (annDoc.data().commentsCount || 0) + 1;
+	            transaction.update(announcementRef, { commentsCount: newCount });
+
+	            // Create the new comment
+	            transaction.set(newCommentRef, {
+	                userId: currentUserId,
+	                userName: currentUserName,
+	                commentText: newCommentText.trim(),
+	                createdAt: new Date(),
+	                parentId: replyToCommentId
+	            });
+	        });
+
+	        setNewCommentText('');
+	        setReplyToCommentId(null);
+	        setReplyToUserName('');
+
+	    } catch (error) {
+	        console.error("Error posting comment in transaction:", error);
+	    }
+	};
     const handleReplyClick = (commentId, userName) => { setReplyToCommentId(commentId); setReplyToUserName(userName); setNewCommentText(`@${userName} `); };
     const handleToggleCommentReaction = async (commentId, reactionType) => { if (!currentUserId || !announcement?.id) return; const commentReactionsRef = collection(db, `teacherAnnouncements/${announcement.id}/comments/${commentId}/reactions`); const userCommentReactionRef = doc(commentReactionsRef, currentUserId); const existingCommentReactionType = commentReactions[commentId]?.[currentUserId]; try { if (existingCommentReactionType === reactionType) await deleteDoc(userCommentReactionRef); else await setDoc(userCommentReactionRef, { userId: currentUserId, reactionType: reactionType }); } catch (error) { console.error("Error toggling comment reaction:", error); } };
     const handleStartEditComment = (comment) => { setEditingCommentId(comment.id); setEditingCommentText(comment.commentText); };
     const handleSaveEditComment = async (commentId) => { if (!editingCommentText.trim() || !commentsCollectionRef) return; try { await updateDoc(doc(commentsCollectionRef, commentId), { commentText: editingCommentText.trim(), editedAt: new Date() }); setEditingCommentId(null); setEditingCommentText(''); } catch (error) { console.error("Error updating comment:", error); } };
     const handleCancelEditComment = () => { setEditingCommentId(null); setEditingCommentText(''); };
-    const handleDeleteComment = async (commentId) => { if (!commentsCollectionRef) return; try { await deleteDoc(doc(commentsCollectionRef, commentId)); } catch (error) { console.error("Error deleting comment:", error); } };
+	const handleDeleteComment = async (commentId) => {
+	    if (!commentsCollectionRef) return;
+
+	    const announcementRef = doc(db, 'teacherAnnouncements', announcement.id);
+	    const commentToDeleteRef = doc(commentsCollectionRef, commentId);
+
+	    try {
+	        await runTransaction(db, async (transaction) => {
+	            const annDoc = await transaction.get(announcementRef);
+	            if (annDoc.exists()) {
+	                // Decrement the comment count, ensuring it doesn't go below zero
+	                const newCount = Math.max(0, (annDoc.data().commentsCount || 0) - 1);
+	                transaction.update(announcementRef, { commentsCount: newCount });
+	            }
+
+	            // Delete the comment
+	            transaction.delete(commentToDeleteRef);
+	        });
+	    } catch (error) {
+	        console.error("Error deleting comment in transaction:", error);
+	    }
+	};
     const openReactionsBreakdownModal = (reactions) => { setReactionsForBreakdownModal(reactions); setIsReactionsBreakdownModalOpen(true); };
     const closeReactionsBreakdownModal = () => { setIsReactionsBreakdownModalOpen(false); setReactionsForBreakdownModal(null); };
     const toggleCommentExpansion = (commentId) => { setExpandedComments(prev => ({ ...prev, [commentId]: !prev[commentId] })); };
@@ -182,7 +236,7 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, userProfile, db, pos
                     <div className="w-10 h-1.5 bg-zinc-300 dark:bg-zinc-600 rounded-full absolute top-2.5"></div>
                     <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 pt-2">Announcement</h2>
                     {/* --- FIX: Pass the live count back on close --- */}
-                    <button onClick={() => onClose(liveCommentCount)} className="absolute top-3 right-4 w-8 h-8 flex items-center justify-center bg-zinc-200/70 dark:bg-zinc-700/70 rounded-full hover:bg-zinc-300/80 dark:hover:bg-zinc-600/80 transition-colors">
+                    <button onClick={onClose} className="absolute top-3 right-4 w-8 h-8 flex items-center justify-center bg-zinc-200/70 dark:bg-zinc-700/70 rounded-full hover:bg-zinc-300/80 dark:hover:bg-zinc-600/80 transition-colors">
                         <FaTimes className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
                     </button>
                 </div>
