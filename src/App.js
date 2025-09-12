@@ -141,14 +141,15 @@ export default function App() {
     };
   }, []);
 
+  // MODIFIED: This function now performs a hard refresh.
   const handleEnter = () => {
     if (waitingWorker) {
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
+        window.location.reload(true); // Hard refresh
       }, { once: true });
       waitingWorker.waiting.postMessage({ type: 'SKIP_WAITING' });
     } else {
-      window.location.reload();
+      window.location.reload(true); // Hard refresh
     }
   };
 
