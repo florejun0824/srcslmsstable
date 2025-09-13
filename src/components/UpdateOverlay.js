@@ -1,9 +1,26 @@
 import React, { useState, useEffect } from 'react';
 
+// ✅ RESPONSIVE: A simple hook to check for screen size.
+const useIsMobile = (breakpoint = 768) => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < breakpoint);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < breakpoint);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [breakpoint]);
+
+  return isMobile;
+};
+
 export default function UpdateOverlay({ status, timeLeft, onEnter }) {
   const [progress, setProgress] = useState(0);
   const [currentFile, setCurrentFile] = useState('');
   const [message, setMessage] = useState('');
+  const isMobile = useIsMobile(); // Use the hook
 
   const files = [
     "Initializing update protocol...",
@@ -25,21 +42,14 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
     let messageInterval;
 
     if (status === 'building') {
-      // Simulate progress bar filling up
       setProgress(0);
       setCurrentFile(files[0]);
       setMessage("Preparing update...");
-
-      // Fills up over ~4.5 minutes (2700ms * 100 = 270s)
       progressInterval = setInterval(() => {
-        setProgress(prev => {
-          if (prev < 99) return prev + 1;
-          return prev;
-        });
+        setProgress(prev => Math.min(prev + 1, 99));
       }, 2700); 
 
       let fileIndex = 0;
-      // Change file every ~27 seconds to spread across 5 minutes
       fileInterval = setInterval(() => {
         if (fileIndex < files.length - 1) {
           fileIndex++;
@@ -48,7 +58,6 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
         }
       }, 27000);
 
-      // Final message after 4 minutes
       messageInterval = setInterval(() => {
         setMessage("Applying final configurations...");
       }, 240000); 
@@ -72,6 +81,51 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
+  // ✅ RESPONSIVE: Define styles that will change based on screen size
+  const containerStyle = {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '30px',
+    maxWidth: '800px',
+    width: '90%',
+    padding: isMobile ? '20px' : '40px', // Less padding on mobile
+    background: 'rgba(0,255,192,0.05)',
+    border: '2px solid #00ffc0',
+    borderRadius: '12px',
+    boxShadow: '0 0 30px rgba(0,255,192,0.3)',
+    position: 'relative',
+  };
+
+  const imageStyle = {
+    height: isMobile ? '140px' : '180px', // Smaller image on mobile
+    objectFit: 'contain',
+    filter: 'drop-shadow(0 0 10px rgba(0,255,192,0.8))',
+    marginBottom: '20px',
+  };
+
+  const completeHeaderStyle = {
+    margin: '0 0 20px 0',
+    whiteSpace: 'pre-wrap',
+    color: '#00ffc0',
+    fontSize: isMobile ? '16px' : '18px', // Smaller font on mobile
+  };
+
+  const buttonStyle = {
+    background: 'linear-gradient(45deg, #00ffc0, #00cc99)',
+    border: '2px solid #00ffc0',
+    borderRadius: '8px',
+    padding: isMobile ? '12px 24px' : '15px 30px', // Smaller padding on mobile
+    color: '#000',
+    fontWeight: '700',
+    cursor: 'pointer',
+    fontFamily: `"Fira Code", monospace`,
+    boxShadow: '0 0 15px rgba(0,255,192,0.7)',
+    fontSize: isMobile ? '16px' : '18px', // Smaller font on mobile
+    transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+    textTransform: 'uppercase',
+  };
+
   return (
     <div
       style={{
@@ -83,12 +137,11 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
         justifyContent: 'center',
         zIndex: 20000,
         fontFamily: `"Fira Code", monospace`,
-        color: '#00ffc0', // Neon green for terminal feel
+        color: '#00ffc0',
         overflow: 'hidden',
         fontSize: '14px',
       }}
     >
-      {/* Background grid/dots for terminal effect */}
       <div style={{
         position: 'absolute',
         inset: 0,
@@ -97,31 +150,13 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
         opacity: 0.1,
       }} />
 
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '30px',
-          maxWidth: '800px',
-          width: '90%',
-          padding: '40px',
-          background: 'rgba(0,255,192,0.05)', // Slightly glowing box
-          border: '2px solid #00ffc0',
-          borderRadius: '12px',
-          boxShadow: '0 0 30px rgba(0,255,192,0.3)',
-          position: 'relative',
-        }}
-      >
+      {/* ✅ RESPONSIVE: Applied conditional style */}
+      <div style={containerStyle}>
+        {/* ✅ RESPONSIVE: Applied conditional style */}
         <img
           src="/characters/guide 2.png"
           alt="Update Assistant"
-          style={{
-            height: '180px',
-            objectFit: 'contain',
-            filter: 'drop-shadow(0 0 10px rgba(0,255,192,0.8))',
-            marginBottom: '20px',
-          }}
+          style={imageStyle}
         />
 
         <div style={{ width: '100%', textAlign: 'left', marginBottom: '20px' }}>
@@ -138,11 +173,11 @@ INITIATING CRITICAL UPDATE...
                 padding: '15px',
                 borderRadius: '6px',
                 marginBottom: '15px',
-                minHeight: '80px', // Ensure it has some height
+                minHeight: '80px',
                 display: 'flex',
                 alignItems: 'center',
               }}>
-                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: '1.4', color: '#00ffc0' }}>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: '1.4', color: '#00ffc0', fontSize: isMobile ? '12px' : '14px' }}>
                   {`> Processing: ${currentFile}
 > Estimated completion: ${formatTime(timeLeft)}`}
                 </pre>
@@ -153,7 +188,7 @@ INITIATING CRITICAL UPDATE...
                   width: `${progress}%`,
                   height: '100%',
                   background: 'linear-gradient(90deg, #00ffc0, #00cc99)',
-                  transition: 'width 2.7s linear', // Match the progress interval for smooth fill
+                  transition: 'width 2.7s linear',
                   boxShadow: '0 0 8px rgba(0,255,192,0.5)',
                   borderRadius: '4px',
                 }} />
@@ -163,31 +198,19 @@ INITIATING CRITICAL UPDATE...
               </p>
             </>
           ) : (
-            // Status === 'complete'
             <div style={{ textAlign: 'center' }}>
-              <pre style={{ margin: '0 0 20px 0', whiteSpace: 'pre-wrap', color: '#00ffc0', fontSize: '18px' }}>
+              {/* ✅ RESPONSIVE: Applied conditional style */}
+              <pre style={completeHeaderStyle}>
                 {`UPDATE COMPLETE.
 NEW SYSTEM VERSION DEPLOYED.`}
               </pre>
-              <p style={{ margin: '0 0 30px 0', color: '#00cc99', fontSize: '16px' }}>
+              <p style={{ margin: '0 0 30px 0', color: '#00cc99', fontSize: isMobile ? '14px' : '16px' }}>
                 Ready for launch. Press 'Enter' to experience the latest features.
               </p>
+              {/* ✅ RESPONSIVE: Applied conditional style */}
               <button
                 onClick={onEnter}
-                style={{
-                  background: 'linear-gradient(45deg, #00ffc0, #00cc99)',
-                  border: '2px solid #00ffc0',
-                  borderRadius: '8px',
-                  padding: '15px 30px',
-                  color: '#000',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  fontFamily: `"Fira Code", monospace`,
-                  boxShadow: '0 0 15px rgba(0,255,192,0.7)',
-                  fontSize: '18px',
-                  transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-                  textTransform: 'uppercase',
-                }}
+                style={buttonStyle}
                 onMouseEnter={e => {
                   e.currentTarget.style.transform = 'scale(1.05)';
                   e.currentTarget.style.boxShadow = '0 0 25px rgba(0,255,192,1)';

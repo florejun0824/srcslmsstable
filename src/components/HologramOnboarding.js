@@ -1,12 +1,30 @@
 import React, { useEffect, useState, useMemo } from "react";
 
+// ✅ RESPONSIVE: A simple hook to check for screen size.
+// This helps decide which layout to use.
+const useIsMobile = (breakpoint = 768) => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < breakpoint);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < breakpoint);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [breakpoint]);
+
+  return isMobile;
+};
+
 export default function HologramOnboarding({ versionInfo, onClose }) {
   const [visible, setVisible] = useState(true);
   const [typedText, setTypedText] = useState("");
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [currentStep, setCurrentStep] = useState("welcome"); // 'welcome' or 'whatsNew'
+  const isMobile = useIsMobile(); // Use the hook to get screen status
 
-  // Memoize the messages to prevent re-creation on every render
+  // Memoized messages (unchanged)
   const welcomeMessage = useMemo(() => 
     `// Welcome to the new update
 ("You are now running Version ${versionInfo.version}");
@@ -18,19 +36,18 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
     const notes = versionInfo.whatsNew
       .split("\n")
       .filter((line) => line.trim() !== "")
-      .map(line => `("${line}");`) // Format each line like the welcome message
+      .map(line => `("${line}");`)
       .join("\n");
     return `// Here is what's new in this version
 ${notes}
 ("Have a Blessed Day!");`;
   }, [versionInfo.whatsNew]);
 
-  // Determine the current message based on the step
   const currentMessage = currentStep === "welcome" ? welcomeMessage : whatsNewMessage;
 
-  // Typing effect - re-runs whenever the currentMessage changes
+  // Typing effect (unchanged)
   useEffect(() => {
-    setTypedText(""); // Reset typed text when message changes
+    setTypedText("");
     let i = 0;
     const interval = setInterval(() => {
       setTypedText(currentMessage.slice(0, i));
@@ -38,17 +55,15 @@ ${notes}
       if (i > currentMessage.length) {
         clearInterval(interval);
       }
-    }, 20); // Typing speed
+    }, 20);
 
     return () => clearInterval(interval);
   }, [currentMessage]);
 
   const handleNextOrClose = () => {
     if (currentStep === "welcome") {
-      // If on the welcome screen, just move to the next step
       setCurrentStep("whatsNew");
     } else {
-      // If on the final screen, close the modal
       setVisible(false);
       if (onClose) {
         onClose({ dontShowAgain });
@@ -57,6 +72,65 @@ ${notes}
   };
 
   if (!visible) return null;
+
+  // ✅ RESPONSIVE: Define conditional styles based on screen size.
+  const containerStyle = {
+    display: "flex",
+    alignItems: "center", // Center vertically on mobile
+    gap: isMobile ? "20px" : "28px",
+    maxWidth: "1000px",
+    padding: "20px",
+    flexDirection: isMobile ? "column" : "row", // Stack on mobile
+    justifyContent: isMobile ? "center" : "flex-end", // Adjust justification
+  };
+
+  const imageStyle = {
+    height: isMobile ? "250px" : "500px", // Smaller image on mobile
+    objectFit: "contain",
+    filter: "drop-shadow(0 0 15px rgba(0,255,200,0.6))",
+    marginBottom: isMobile ? "-20px" : "0", // Pull text box up on mobile
+  };
+
+  const textBoxStyle = {
+    position: "relative",
+    background: "#1e1e1e",
+    border: "2px solid #3c3c3c",
+    borderRadius: "8px",
+    padding: "20px",
+    width: isMobile ? "90vw" : "520px", // Full width on mobile
+    maxWidth: "520px", // Max width for larger mobile screens
+    minHeight: "300px",
+    fontFamily: `"Fira Code", monospace`,
+    fontSize: isMobile ? "13px" : "14px", // Slightly smaller font on mobile
+    color: "#d4d4d4",
+    boxShadow: "0 4px 16px rgba(0,0,0,0.6)",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+  };
+
+  const speechBubbleArrowStyle = isMobile ? {
+    // Arrow on top for mobile
+    position: "absolute",
+    top: "-18px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    width: 0,
+    height: 0,
+    borderLeft: "12px solid transparent",
+    borderRight: "12px solid transparent",
+    borderBottom: "18px solid #1e1e1e",
+  } : {
+    // Arrow on the left for desktop
+    position: "absolute",
+    left: "-18px",
+    top: "50px",
+    width: 0,
+    height: 0,
+    borderTop: "12px solid transparent",
+    borderBottom: "12px solid transparent",
+    borderRight: "18px solid #1e1e1e",
+  };
 
   return (
     <div
@@ -68,44 +142,13 @@ ${notes}
         alignItems: "center",
         justifyContent: "center",
         zIndex: 13000,
+        overflowY: "auto", // Allow scrolling on small screens
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-end",
-          gap: "28px",
-          maxWidth: "1000px",
-          padding: "20px",
-        }}
-      >
-        <img
-          src="/characters/guide.png"
-          alt="Guide"
-          style={{
-            height: "500px",
-            objectFit: "contain",
-            filter: "drop-shadow(0 0 15px rgba(0,255,200,0.6))",
-          }}
-        />
-        <div
-          style={{
-            position: "relative",
-            background: "#1e1e1e",
-            border: "2px solid #3c3c3c",
-            borderRadius: "8px",
-            padding: "20px",
-            width: "520px", // Fixed width for stability
-            minHeight: "300px", // Fixed min-height
-            fontFamily: `"Fira Code", monospace`,
-            fontSize: "14px",
-            color: "#d4d4d4",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.6)",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between", // Pushes button to bottom
-          }}
-        >
+      {/* ✅ RESPONSIVE: Applied conditional styles */}
+      <div style={containerStyle}>
+        <img src="/characters/guide.png" alt="Guide" style={imageStyle} />
+        <div style={textBoxStyle}>
           <pre style={{ margin: 0, whiteSpace: "pre-wrap", flexGrow: 1 }}>{typedText}</pre>
           
           <div>
@@ -125,7 +168,7 @@ ${notes}
               <span style={{ fontSize: "13px", color: "#bbb" }}>
                 Do not show again
               </span>
-              <div style={{ position: "relative", width: "50px", height: "28px" }}>
+              <div style={{ position: "relative", width: "50px", height: "28px", flexShrink: 0 }}>
                 <input
                   type="checkbox"
                   checked={dontShowAgain}
@@ -169,7 +212,7 @@ ${notes}
                 background: "#007acc",
                 border: "none",
                 borderRadius: "6px",
-                padding: "8px 16px",
+                padding: "10px 16px", // Slightly more padding for touch targets
                 color: "#fff",
                 fontWeight: "600",
                 cursor: "pointer",
@@ -181,18 +224,8 @@ ${notes}
               {currentStep === "welcome" ? "Next" : "Okay"}
             </button>
           </div>
-          <div
-            style={{
-              position: "absolute",
-              left: "-18px",
-              top: "50px",
-              width: 0,
-              height: 0,
-              borderTop: "12px solid transparent",
-              borderBottom: "12px solid transparent",
-              borderRight: "18px solid #1e1e1e",
-            }}
-          />
+          {/* ✅ RESPONSIVE: Applied conditional styles */}
+          <div style={speechBubbleArrowStyle} />
         </div>
       </div>
     </div>

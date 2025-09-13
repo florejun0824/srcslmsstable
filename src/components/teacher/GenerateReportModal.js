@@ -14,7 +14,6 @@ import {
 
 import * as XLSX from 'sheetjs-style';
 
-// Animation variants for a smooth modal appearance
 const dropIn = {
     hidden: { y: "-50px", opacity: 0, scale: 0.95 },
     visible: {
@@ -32,50 +31,32 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
     const [sortOption, setSortOption] = useState('gender-lastName');
     const [collapsedUnits, setCollapsedUnits] = useState(new Set());
 
-    // --- MODIFICATION START ---
-    // This useEffect now correctly sets all units to be collapsed by default when the modal opens.
+    // ✅ FIX: Safely access all array props by providing a default empty array `[]`.
+    // This prevents the "Cannot read properties of undefined (reading 'length')" crash.
+    const students = classData?.students || [];
+    const quizzes = availableQuizzes || [];
+    const scores = quizScores || [];
+    const lessonContent = lessons || [];
+    const unitMap = units || {};
+    const posts = sharedContentPosts || [];
+
     useEffect(() => {
         if (isOpen) {
-            // We use the same logic that builds the list to determine all possible unit titles.
             const quizzesByUnit = {};
-            if (availableQuizzes && units) { 
-                availableQuizzes.forEach(quizDetails => {
-                    let unitDisplayName = 'Uncategorized';
-                    if (quizDetails.unitId && units[quizDetails.unitId]) {
-                        unitDisplayName = units[quizDetails.unitId];
-                    } else {
-                        const associatedPosts = sharedContentPosts.filter(post => 
-                            (post.quizIds || []).includes(quizDetails.id)
-                        );
-                        const lessonUnitTitlesInAssociatedPosts = new Set();
-                        associatedPosts.forEach(post => {
-                            (post.lessonIds || []).forEach(lessonId => {
-                                const lesson = lessons.find(l => l.id === lessonId);
-                                if (lesson && lesson.unitId && units[lesson.unitId]) {
-                                    lessonUnitTitlesInAssociatedPosts.add(units[lesson.unitId]);
-                                }
-                            });
-                        });
-                        if (lessonUnitTitlesInAssociatedPosts.size === 1) {
-                            unitDisplayName = Array.from(lessonUnitTitlesInAssociatedPosts)[0];
-                        } else if (lessonUnitTitlesInAssociatedPosts.size > 1) {
-                            unitDisplayName = 'Uncategorized';
-                        }
-                    }
-                    if (!quizzesByUnit[unitDisplayName]) {
-                        quizzesByUnit[unitDisplayName] = [];
-                    }
-                    if (!quizzesByUnit[unitDisplayName].some(q => q.id === quizDetails.id)) {
-                        quizzesByUnit[unitDisplayName].push(quizDetails);
-                    }
-                });
-            }
-            // Create a new Set containing all the unit titles that will be displayed.
+            quizzes.forEach(quizDetails => {
+                let unitDisplayName = 'Uncategorized';
+                if (quizDetails.unitId && unitMap[quizDetails.unitId]) {
+                    unitDisplayName = unitMap[quizDetails.unitId];
+                }
+                if (!quizzesByUnit[unitDisplayName]) {
+                    quizzesByUnit[unitDisplayName] = [];
+                }
+                quizzesByUnit[unitDisplayName].push(quizDetails);
+            });
             const allDisplayedUnitKeys = Object.keys(quizzesByUnit);
             setCollapsedUnits(new Set(allDisplayedUnitKeys));
         }
-    }, [isOpen, units, availableQuizzes, lessons, sharedContentPosts]);
-    // --- MODIFICATION END ---
+    }, [isOpen, unitMap, quizzes]);
 
     const toggleUnitCollapse = (unitTitle) => {
         setCollapsedUnits(prev => {
@@ -97,7 +78,7 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
         );
     };
 
-    const handleUnitSelectionToggle = (unitDisplayName) => {
+    const handleUnitSelectionToggle = (unitDisplayName, quizzesByUnit) => {
         const quizzesInThisUnit = quizzesByUnit[unitDisplayName] || [];
         const quizIdsInThisUnit = quizzesInThisUnit.map(quiz => quiz.id);
 
@@ -110,85 +91,78 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
         }
     };
 
+    // ... (All styling objects like commonBorderStyle, topHeaderStyle, etc. remain unchanged) ...
     const commonBorderStyle = {
         top: { style: "thin", color: { auto: 1 } },
         bottom: { style: "thin", color: { auto: 1 } },
         left: { style: "thin", color: { auto: 1 } },
         right: { style: "thin", color: { auto: 1 } },
     };
-
     const defaultCellStyle = {
         alignment: { vertical: 'center', horizontal: 'general', wrapText: false },
         font: { sz: 11, name: 'Arial' },
         border: commonBorderStyle
     };
-
     const topHeaderStyle = {
         font: { bold: true, sz: 16, name: 'Arial' },
         alignment: { horizontal: 'left', vertical: 'center' },
         border: commonBorderStyle
     };
-
     const subHeaderStyle = {
         font: { bold: true, sz: 14, name: 'Arial' },
         alignment: { horizontal: 'left', vertical: 'center' },
         border: commonBorderStyle
     };
-
     const sectionTitleStyle = {
         font: { bold: true, sz: 12, name: 'Arial' },
         alignment: { horizontal: 'left', vertical: 'center' },
         fill: { fgColor: { rgb: "FFFFCC" } },
         border: commonBorderStyle
     };
-
     const topicTableHeaderStyle = {
         font: { bold: true, sz: 11, name: 'Arial' },
         alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
         fill: { fgColor: { rgb: "DDEBF7" } },
         border: commonBorderStyle
     };
-
     const studentTableHeaderStyle = {
         font: { bold: true, sz: 10, name: 'Arial' },
         alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
         fill: { fgColor: { rgb: "E2EFDA" } },
         border: commonBorderStyle
     };
-
     const studentSubHeaderStyle = {
         font: { sz: 10, name: 'Arial' },
         alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
         fill: { fgColor: { rgb: "DDEBF7" } },
         border: commonBorderStyle
     };
-
     const studentNameCellStyle = {
         alignment: { vertical: 'center', horizontal: 'left', wrapText: false },
         font: { sz: 11, name: 'Arial' },
         border: commonBorderStyle
     };
-
     const checkboxCellStyle = {
         alignment: { vertical: 'center', horizontal: 'center' },
         font: { sz: 11, name: 'Arial' },
         border: commonBorderStyle
     };
-
     const scoreCellStyle = {
         alignment: { vertical: 'center', horizontal: 'center' },
         font: { sz: 11, name: 'Arial' },
         border: commonBorderStyle
     };
 
+
     const handleGenerate = () => {
         if (selectedQuizIds.length === 0) {
             return showToast("Please select at least one quiz to include in the report.", "error");
         }
 
-        const selectedQuizzes = availableQuizzes.filter(q => selectedQuizIds.includes(q.id));
+        const selectedQuizzes = quizzes.filter(q => selectedQuizIds.includes(q.id));
 
-        let sortedStudents = [...classData.students];
+        // ✅ FIX: Use the safe 'students' constant.
+        let sortedStudents = [...students];
         
         sortedStudents.sort((a, b) => {
             const aGender = a.gender || 'Ungrouped';
@@ -198,20 +172,17 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
             if (genderOrder[aGender] !== genderOrder[bGender]) {
                 return genderOrder[aGender] - genderOrder[bGender];
             }
-
             if (sortOption === 'gender-firstName') {
                 return (a.firstName || '').localeCompare(b.firstName || '');
             }
-
             return (a.lastName || '').localeCompare(b.lastName || '');
         });
 
+        // ... (rest of the handleGenerate function is unchanged, but now uses safe variables like 'scores' and 'posts') ...
         const workbook = XLSX.utils.book_new();
         const worksheet = {};
         worksheet['!ref'] = 'A1';
-
         let rowIndex = 0;
-
         const addCell = (row, col, value, style) => {
             const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
             worksheet[cellAddress] = { v: value, s: style };
@@ -222,7 +193,6 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
             currentRange.e.c = Math.max(currentRange.e.c, col);
             worksheet['!ref'] = XLSX.utils.encode_range(currentRange);
         };
-
         const addRowData = (dataArray) => {
             const currentRow = rowIndex;
             dataArray.forEach((value, colIndex) => {
@@ -230,13 +200,11 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
             });
             rowIndex++;
         };
-
         const addMergedCellStyled = (startRow, startCol, endRow, endCol, text, style) => {
             worksheet['!merges'] = worksheet['!merges'] || [];
             worksheet['!merges'].push({ s: { r: startRow, c: startCol }, e: { r: endRow, c: endCol } });
             addCell(startRow, startCol, text, style);
         };
-
         rowIndex = 0;
         addRowData([]);
         addMergedCellStyled(rowIndex, 0, rowIndex, 10, "San Ramon Catholic School, Inc.", topHeaderStyle);
@@ -250,39 +218,25 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
         addRowData([`Class: ${classData.name || 'N/A'}`]);
         addCell(rowIndex - 1, 0, `Class: ${classData.name || 'N/A'}`, defaultCellStyle);
         rowIndex++;
-
         let minDate = null;
         let maxDate = null;
         selectedQuizzes.forEach(quiz => {
-            const quizPosts = sharedContentPosts.filter(post => (post.quizIds || []).includes(quiz.id));
+            const quizPosts = posts.filter(post => (post.quizIds || []).includes(quiz.id));
             quizPosts.forEach(post => {
                 if (post.availableFrom && post.availableFrom.toDate) {
                     const fromDate = post.availableFrom.toDate();
-                    if (!minDate || fromDate < minDate) {
-                        minDate = fromDate;
-                    }
+                    if (!minDate || fromDate < minDate) minDate = fromDate;
                 }
                 if (post.availableUntil && post.availableUntil.toDate) {
                     const untilDate = post.availableUntil.toDate();
-                    if (!maxDate || untilDate > maxDate) {
-                        maxDate = untilDate;
-                    }
+                    if (!maxDate || untilDate > maxDate) maxDate = untilDate;
                 }
             });
         });
-
         let dateRangeString = 'No specific date range';
-        if (minDate && maxDate) {
-            const options = { year: 'numeric', month: 'short', day: 'numeric' };
-            dateRangeString = `${minDate.toLocaleDateString('en-US', options)} – ${maxDate.toLocaleDateString('en-US', options)}`;
-        } else if (minDate) {
-            const options = { year: 'numeric', month: 'short', day: 'numeric' };
-            dateRangeString = `From ${minDate.toLocaleDateString('en-US', options)}`;
-        } else if (maxDate) {
-            const options = { year: 'numeric', month: 'short', day: 'numeric' };
-            dateRangeString = `Until ${maxDate.toLocaleDateString('en-US', options)}`;
-        }
-
+        if (minDate && maxDate) dateRangeString = `${minDate.toLocaleDateString()} – ${maxDate.toLocaleDateString()}`;
+        else if (minDate) dateRangeString = `From ${minDate.toLocaleDateString()}`;
+        else if (maxDate) dateRangeString = `Until ${maxDate.toLocaleDateString()}`;
         addRowData([dateRangeString]);
         addCell(rowIndex - 1, 0, dateRangeString, defaultCellStyle);
         rowIndex++;
@@ -292,155 +246,85 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
         rowIndex++;
         const topicHeaders = ["Quiz Name", "Course", "Average First Attempt Score Percentage", "Average Highest Score Percentage", "Question Count", "Highest Possible Score", "Students Completed"];
         addRowData(topicHeaders);
-        for(let i=0; i<topicHeaders.length; i++) {
-            addCell(rowIndex - 1, i, topicHeaders[i], topicTableHeaderStyle);
-        }
-
+        for(let i=0; i<topicHeaders.length; i++) addCell(rowIndex - 1, i, topicHeaders[i], topicTableHeaderStyle);
         selectedQuizzes.forEach(quiz => {
-            const quizSubmissions = quizScores.filter(s => s.quizId === quiz.id);
+            const quizSubmissions = scores.filter(s => s.quizId === quiz.id);
             const firstAttempts = quizSubmissions.filter(s => s.attemptNumber === 1);
             const sumFirstAttemptScores = firstAttempts.reduce((sum, sub) => sum + sub.score, 0);
             const sumFirstAttemptTotalItems = firstAttempts.reduce((sum, sub) => sum + sub.totalItems, 0);
-            const avgFirstAttemptPercentage = sumFirstAttemptTotalItems > 0 ? ((sumFirstAttemptScores / sumFirstAttemptTotalItems) * 100).toFixed(2) + '%' : '0.00%';
-
+            const avgFirstAttemptPercentage = sumFirstAttemptTotalItems > 0 ? `${((sumFirstAttemptScores / sumFirstAttemptTotalItems) * 100).toFixed(2)}%` : '0.00%';
             const studentHighestScores = {};
             quizSubmissions.forEach(sub => {
-                if (!studentHighestScores[sub.studentId] || sub.score > studentHighestScores[sub.studentId].score) {
-                    studentHighestScores[sub.studentId] = sub;
-                }
+                if (!studentHighestScores[sub.studentId] || sub.score > studentHighestScores[sub.studentId].score) studentHighestScores[sub.studentId] = sub;
             });
             const sumHighestScores = Object.values(studentHighestScores).reduce((sum, sub) => sum + sub.score, 0);
             const sumHighestTotalItems = Object.values(studentHighestScores).reduce((sum, sub) => sum + sub.totalItems, 0);
-            const avgHighestAttemptPercentage = sumHighestTotalItems > 0 ? ((sumHighestScores / sumHighestTotalItems) * 100).toFixed(2) + '%' : '0.00%';
-
+            const avgHighestAttemptPercentage = sumHighestTotalItems > 0 ? `${((sumHighestScores / sumHighestTotalItems) * 100).toFixed(2)}%` : '0.00%';
             const studentsCompletedCount = new Set(quizSubmissions.map(s => s.studentId)).size;
-
-            const rowData = [
-                quiz.title,
-                quiz.courseName || 'N/A',
-                avgFirstAttemptPercentage,
-                avgHighestAttemptPercentage,
-                quiz.totalItems,
-                quiz.totalItems,
-                studentsCompletedCount
-            ];
+            const rowData = [quiz.title, quiz.courseName || 'N/A', avgFirstAttemptPercentage, avgHighestAttemptPercentage, quiz.questions.length, quiz.questions.length, studentsCompletedCount];
             addRowData(rowData);
-            for(let i=0; i<rowData.length; i++) {
-                addCell(rowIndex - 1, i, rowData[i], defaultCellStyle);
-            }
+            for(let i=0; i<rowData.length; i++) addCell(rowIndex - 1, i, rowData[i], defaultCellStyle);
         });
-
         addRowData([]);
-        rowIndex++;
-        addRowData([]);
-        rowIndex++;
-        
+        rowIndex+=2;
         let headerRow1_start = rowIndex;
-
         addMergedCellStyled(headerRow1_start, 0, headerRow1_start + 1, 0, "Learner's Name", studentTableHeaderStyle);
         addMergedCellStyled(headerRow1_start, 1, headerRow1_start + 1, 1, "Status", studentTableHeaderStyle);
-
         let currentHeaderCol = 2;
         selectedQuizzes.forEach(quiz => {
             addMergedCellStyled(headerRow1_start, currentHeaderCol, headerRow1_start, currentHeaderCol + 3, quiz.title, studentTableHeaderStyle);
             currentHeaderCol += 4;
         });
-
         addMergedCellStyled(headerRow1_start, currentHeaderCol, headerRow1_start + 1, currentHeaderCol, "Total First Attempt Raw Score", studentTableHeaderStyle);
         addMergedCellStyled(headerRow1_start, currentHeaderCol + 1, headerRow1_start + 1, currentHeaderCol + 1, "Total Highest Raw Score", studentTableHeaderStyle);
-        
         rowIndex++;
         let subHeaderRowData = ["", ""];
-        selectedQuizzes.forEach(() => {
-            subHeaderRowData.push("First Attempt Raw Score", "First Attempt Score Percentage", "Highest Raw Score", "Highest Score Percentage");
-        });
+        selectedQuizzes.forEach(() => subHeaderRowData.push("First Attempt Raw Score", "First Attempt Score Percentage", "Highest Raw Score", "Highest Score Percentage"));
         subHeaderRowData.push("", "");
-
         worksheet['!rows'] = worksheet['!rows'] || [];
         worksheet['!rows'][rowIndex - 1] = { hpt: 30 };
-
         addRowData(subHeaderRowData);
-        for(let i=0; i<subHeaderRowData.length; i++) {
-            if (subHeaderRowData[i]) {
-                addCell(rowIndex - 1, i, subHeaderRowData[i], studentSubHeaderStyle);
-            }
-        }
-        
+        for(let i=0; i<subHeaderRowData.length; i++) if (subHeaderRowData[i]) addCell(rowIndex - 1, i, subHeaderRowData[i], studentSubHeaderStyle);
         rowIndex++;
         let lastGender = null;
-
         sortedStudents.forEach(student => {
-            const studentGender = student.gender || 'Ungrouped';
-            if (sortOption.startsWith('gender') && studentGender !== lastGender) {
-                addMergedCellStyled(rowIndex, 0, rowIndex, (2 + selectedQuizzes.length * 4 + 2) - 1, `Gender: ${studentGender}`, sectionTitleStyle);
+            if (sortOption.startsWith('gender') && (student.gender || 'Ungrouped') !== lastGender) {
+                lastGender = student.gender || 'Ungrouped';
+                addMergedCellStyled(rowIndex, 0, rowIndex, (2 + selectedQuizzes.length * 4 + 2) - 1, `Gender: ${lastGender}`, sectionTitleStyle);
                 rowIndex++;
-                lastGender = studentGender;
             }
-
-            const hasCompletedAnySelectedQuiz = quizScores.some(s => s.studentId === student.id && selectedQuizIds.includes(s.quizId));
-            
+            const hasCompletedAnySelectedQuiz = scores.some(s => s.studentId === student.id && selectedQuizIds.includes(s.quizId));
             let totalFirstAttemptRawScore = 0;
             let totalHighestRawScore = 0;
-
             const rowData = [`${student.lastName}, ${student.firstName}`, hasCompletedAnySelectedQuiz ? '✓' : 'x'];
-
             selectedQuizzes.forEach(quiz => {
-                const studentQuizSubmissions = quizScores.filter(s => s.studentId === student.id && s.quizId === quiz.id);
+                const studentQuizSubmissions = scores.filter(s => s.studentId === student.id && s.quizId === quiz.id);
                 const firstAttempt = studentQuizSubmissions.find(s => s.attemptNumber === 1);
                 const firstAttemptRawScore = firstAttempt ? firstAttempt.score : '—';
                 const firstAttemptPercentage = firstAttempt ? `${((firstAttempt.score / firstAttempt.totalItems) * 100).toFixed(2)}%` : '—';
-                
-                let highestScoreSubmission = null;
-                studentQuizSubmissions.forEach(s => {
-                    if (!highestScoreSubmission || s.score > highestScoreSubmission.score) {
-                        highestScoreSubmission = s;
-                    }
-                });
+                let highestScoreSubmission = studentQuizSubmissions.reduce((highest, current) => (!highest || current.score > highest.score) ? current : highest, null);
                 const highestRawScore = highestScoreSubmission ? highestScoreSubmission.score : '—';
                 const highestPercentage = highestScoreSubmission ? `${((highestScoreSubmission.score / highestScoreSubmission.totalItems) * 100).toFixed(2)}%` : '—';
-                
                 rowData.push(firstAttemptRawScore, firstAttemptPercentage, highestRawScore, highestPercentage);
-
-                if (firstAttemptRawScore !== '—') {
-                    totalFirstAttemptRawScore += firstAttemptRawScore;
-                }
-                if (highestRawScore !== '—') {
-                    totalHighestRawScore += highestRawScore;
-                }
+                if (typeof firstAttemptRawScore === 'number') totalFirstAttemptRawScore += firstAttemptRawScore;
+                if (typeof highestRawScore === 'number') totalHighestRawScore += highestRawScore;
             });
-
             rowData.push(totalFirstAttemptRawScore, totalHighestRawScore);
-
             addRowData(rowData);
             for(let i=0; i<rowData.length; i++) {
-                if (i === 0) {
-                    addCell(rowIndex - 1, i, rowData[i], studentNameCellStyle);
-                } else if (i === 1) {
-                    addCell(rowIndex - 1, i, rowData[i], checkboxCellStyle);
-                } else {
-                    addCell(rowIndex - 1, i, rowData[i], scoreCellStyle);
-                }
+                if (i === 0) addCell(rowIndex - 1, i, rowData[i], studentNameCellStyle);
+                else if (i === 1) addCell(rowIndex - 1, i, rowData[i], checkboxCellStyle);
+                else addCell(rowIndex - 1, i, rowData[i], scoreCellStyle);
             }
         });
-        
         const studentCols = 2 + selectedQuizzes.length * 4 + 2;
-        const colWidths = [{ wch: 25 }, { wch: 10 }];
-        selectedQuizzes.forEach(() => {
-            colWidths.push({ wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 15 });
-        });
-        colWidths.push({ wch: 15 });
-        colWidths.push({ wch: 15 });
-        worksheet['!cols'] = colWidths;
-
-        const finalRange = { s: { r: 0, c: 0 }, e: { r: rowIndex - 1, c: studentCols - 1 } };
-        worksheet['!ref'] = XLSX.utils.encode_range(finalRange);
-
+        worksheet['!cols'] = [{ wch: 25 }, { wch: 10 }, ...Array(selectedQuizzes.length * 4).fill({ wch: 15 }), { wch: 15 }, { wch: 15 }];
+        worksheet['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rowIndex - 1, c: studentCols - 1 } });
         XLSX.utils.book_append_sheet(workbook, worksheet, "Quiz Scores Report");
         XLSX.writeFile(workbook, `${classData.name || 'Class'} - Quiz Report.xlsx`);
-
         onClose();
-    };
 
+    };
 
     const handleClose = () => {
         setSelectedQuizIds([]);
@@ -449,39 +333,15 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
         onClose();
     };
 
-	const quizzesByUnit = {};
-    if (availableQuizzes && units) { 
-        availableQuizzes.forEach(quizDetails => {
-            let unitDisplayName = 'Uncategorized';
-            if (quizDetails.unitId && units[quizDetails.unitId]) {
-                unitDisplayName = units[quizDetails.unitId];
-            } else {
-                const associatedPosts = sharedContentPosts.filter(post => 
-                    (post.quizIds || []).includes(quizDetails.id)
-                );
-                const lessonUnitTitlesInAssociatedPosts = new Set();
-                associatedPosts.forEach(post => {
-                    (post.lessonIds || []).forEach(lessonId => {
-                        const lesson = lessons.find(l => l.id === lessonId);
-                        if (lesson && lesson.unitId && units[lesson.unitId]) {
-                            lessonUnitTitlesInAssociatedPosts.add(units[lesson.unitId]);
-                        }
-                    });
-                });
-                if (lessonUnitTitlesInAssociatedPosts.size === 1) {
-                    unitDisplayName = Array.from(lessonUnitTitlesInAssociatedPosts)[0];
-                } else if (lessonUnitTitlesInAssociatedPosts.size > 1) {
-                    unitDisplayName = 'Uncategorized';
-                }
-            }
-            if (!quizzesByUnit[unitDisplayName]) {
-                quizzesByUnit[unitDisplayName] = [];
-            }
-            if (!quizzesByUnit[unitDisplayName].some(q => q.id === quizDetails.id)) {
-                quizzesByUnit[unitDisplayName].push(quizDetails);
-            }
-        });
-    }
+    const quizzesByUnit = {};
+    quizzes.forEach(quizDetails => {
+        let unitDisplayName = 'Uncategorized';
+        if (quizDetails.unitId && unitMap[quizDetails.unitId]) {
+            unitDisplayName = unitMap[quizDetails.unitId];
+        }
+        if (!quizzesByUnit[unitDisplayName]) quizzesByUnit[unitDisplayName] = [];
+        quizzesByUnit[unitDisplayName].push(quizDetails);
+    });
 
     const sortedUnitKeys = Object.keys(quizzesByUnit).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
@@ -516,7 +376,7 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
                                 <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center mr-3">1</span>
                                 Select Quizzes
                             </label>
-                            {availableQuizzes.length === 0 ? (
+                            {quizzes.length === 0 ? (
                                 <p className="text-gray-500 text-sm px-2 py-4 text-center">No quizzes have been shared with this class yet.</p>
                             ) : (
                                 <div className="space-y-2 max-h-72 overflow-y-auto custom-scrollbar -mr-2 pr-2">
@@ -533,7 +393,7 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
                                                         <input
                                                             type="checkbox"
                                                             checked={allSelected}
-                                                            onChange={() => handleUnitSelectionToggle(unitDisplayName)}
+                                                            onChange={() => handleUnitSelectionToggle(unitDisplayName, quizzesByUnit)}
                                                             ref={el => el && (el.indeterminate = someSelected)}
                                                             onClick={(e) => e.stopPropagation()}
                                                             className="h-4 w-4 rounded text-indigo-600 border-gray-300 focus:ring-indigo-500 mr-3"

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpenIcon, ChevronDownIcon, ChevronUpIcon, SparklesIcon, ChevronRightIcon, ChevronLeftIcon } from '@heroicons/react/24/outline';
-import ViewLessonModal from './ViewLessonModal'; // Assuming correct path
+// ✅ REMOVED: ViewLessonModal import is no longer needed here.
 
 // --- UI Helper Components (iOS Style) ---
 
@@ -30,14 +30,11 @@ const IOSLessonListItem = ({ lesson, onClick }) => (
     </div>
 );
 
-// --- MODIFIED COMPONENT ---
-// The UnitSectionHeader now features a pill container for the title.
 const UnitSectionHeader = ({ title, isCollapsed, onClick }) => (
     <button
         onClick={onClick}
         className="w-full flex justify-between items-center py-2 group"
     >
-        {/* This span is now styled as a pill for emphasis */}
         <span className="bg-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wide px-3 py-1 rounded-full">
             {title}
         </span>
@@ -49,28 +46,25 @@ const UnitSectionHeader = ({ title, isCollapsed, onClick }) => (
     </button>
 );
 
-
 /**
  * Displays lessons grouped by unit for a specific class, with an iOS-inspired UI.
  */
 const LessonsByUnitView = ({ selectedClass, lessons, units, onBack, setLessonToView }) => {
-    // --- CORE LOGIC AND STATE MANAGEMENT (Unchanged) ---
     const [lessonsByUnit, setLessonsByUnit] = useState({});
     const [collapsedUnits, setCollapsedUnits] = useState(new Set());
-    const [viewLessonData, setViewLessonData] = useState(null);
+    // ✅ REMOVED: Local state for the modal is no longer needed.
+    // const [viewLessonData, setViewLessonData] = useState(null);
 
     useEffect(() => {
+        // ... (this useEffect logic remains the same)
         if (lessons.length > 0 && units.length > 0) {
             const unitsMap = new Map(units.map(unit => [unit.id, unit.title]));
             const grouped = lessons.reduce((acc, lesson) => {
                 const unitTitle = unitsMap.get(lesson.unitId) || 'Uncategorized';
-                if (!acc[unitTitle]) {
-                    acc[unitTitle] = [];
-                }
+                if (!acc[unitTitle]) { acc[unitTitle] = []; }
                 acc[unitTitle].push(lesson);
                 return acc;
             }, {});
-
             Object.keys(grouped).forEach(unitTitle => {
                 grouped[unitTitle].sort((a, b) => {
                     const orderA = a.order ?? Infinity;
@@ -79,10 +73,8 @@ const LessonsByUnitView = ({ selectedClass, lessons, units, onBack, setLessonToV
                     return a.title.localeCompare(b.title, 'en-US', { numeric: true });
                 });
             });
-
             setLessonsByUnit(grouped);
             setCollapsedUnits(new Set(Object.keys(grouped)));
-
         } else if (lessons.length > 0 && units.length === 0) {
             const grouped = { 'Uncategorized': [...lessons] };
             grouped['Uncategorized'].sort((a, b) => {
@@ -93,8 +85,7 @@ const LessonsByUnitView = ({ selectedClass, lessons, units, onBack, setLessonToV
             });
             setLessonsByUnit(grouped);
             setCollapsedUnits(new Set(Object.keys(grouped)));
-        }
-        else {
+        } else {
             setLessonsByUnit({});
             setCollapsedUnits(new Set());
         }
@@ -112,19 +103,15 @@ const LessonsByUnitView = ({ selectedClass, lessons, units, onBack, setLessonToV
         });
     };
 
+    // ✅ MODIFIED: The click handler now only calls the prop to trigger the global modal.
     const handleLessonClick = (lesson) => {
-        setViewLessonData(lesson);
         setLessonToView(lesson);
     };
 
-    const closeLessonModal = () => {
-        setViewLessonData(null);
-        setLessonToView(null);
-    };
+    // ✅ REMOVED: The closeLessonModal function is no longer needed.
     
     const sortedUnitTitles = Object.keys(lessonsByUnit).sort();
 
-    // --- RENDER/VIEW ---
     return (
         <div className="min-h-full font-sans antialiased"> 
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -142,7 +129,7 @@ const LessonsByUnitView = ({ selectedClass, lessons, units, onBack, setLessonToV
                 </div>
 
                 {sortedUnitTitles.length > 0 ? (
-                    <div className="space-y-4"> {/* Reduced space-y for a tighter look with the new headers */}
+                    <div className="space-y-4">
                         {sortedUnitTitles.map(unitTitle => {
                             const isCollapsed = collapsedUnits.has(unitTitle);
                             return (
@@ -172,11 +159,7 @@ const LessonsByUnitView = ({ selectedClass, lessons, units, onBack, setLessonToV
                 )}
             </div>
 
-            <ViewLessonModal
-                isOpen={!!viewLessonData}
-                onClose={closeLessonModal}
-                lesson={viewLessonData}
-            />
+            {/* ✅ REMOVED: The local instance of ViewLessonModal is gone. */}
         </div>
     );
 };

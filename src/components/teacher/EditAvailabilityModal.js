@@ -3,8 +3,7 @@ import Modal from '../common/Modal';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { db } from '../../services/firebase';
-// NEW: Import additional firestore functions for batch deletion
-import { doc, updateDoc, Timestamp, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { doc, updateDoc, Timestamp, collection, query, where, getDocs, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
 
 const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate }) => {
@@ -28,15 +27,27 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate }) => 
 
         setIsSubmitting(true);
         try {
+            const batch = writeBatch(db);
             const postRef = doc(db, `classes/${classId}/posts`, post.id);
+            const classRef = doc(db, "classes", classId);
 
-            await updateDoc(postRef, {
+            batch.update(postRef, {
                 availableFrom: Timestamp.fromDate(availableFrom),
                 availableUntil: Timestamp.fromDate(availableUntil)
             });
 
+            batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
+            
+            await batch.commit();
+
             showToast("Availability updated successfully!", "success");
-            onUpdate();
+
+            // ✅ FIX: Send the updated information back to the parent component.
+            onUpdate({
+                id: post.id,
+                availableFrom: Timestamp.fromDate(availableFrom),
+                availableUntil: Timestamp.fromDate(availableUntil)
+            });
             onClose();
         } catch (error) {
             console.error("Error updating availability:", error);
@@ -46,10 +57,8 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate }) => 
         }
     };
 
-    // --- NEW: Function to delete the post and its associated locks ---
     const handleDelete = async () => {
-        // 1. Confirm with the user before deleting
-        if (!window.confirm("Are you sure you want to delete this? This will also remove any student quiz locks. This action cannot be undone.")) {
+        if (!window.confirm("Are you sure you want to delete this post? This action cannot be undone.")) {
             return;
         }
 
@@ -60,38 +69,35 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate }) => 
 
         setIsSubmitting(true);
         try {
-            // 2. Define references to the post and its locks
-            const postRef = doc(db, `classes/${classId}/posts`, post.id);
-            const locksQuery = query(collection(db, 'quizLocks'), where('quizId', '==', post.id));
-
-            // 3. Find all associated lock documents
-            const locksSnapshot = await getDocs(locksQuery);
-
-            // 4. Use a batch write to delete everything atomically
             const batch = writeBatch(db);
+            const postRef = doc(db, `classes/${classId}/posts`, post.id);
+            const classRef = doc(db, "classes", classId);
+            
+            if (post.quizIds && post.quizIds.length > 0) {
+                const locksQuery = query(collection(db, 'quizLocks'), where('quizId', 'in', post.quizIds));
+                const locksSnapshot = await getDocs(locksQuery);
+                locksSnapshot.forEach(lockDoc => {
+                    batch.delete(lockDoc.ref);
+                });
+            }
 
-            // Add the main post/quiz to the deletion batch
             batch.delete(postRef);
+            batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
 
-            // Add each found lock record to the deletion batch
-            locksSnapshot.forEach(lockDoc => {
-                batch.delete(lockDoc.ref);
-            });
-
-            // 5. Commit the batch to execute all deletions
             await batch.commit();
 
-            showToast("Post and student locks deleted successfully!", "success");
-            onUpdate(); // Refresh the data in the parent component
-            onClose();  // Close the modal
+            showToast("Post deleted successfully!", "success");
+            
+            // ✅ FIX: Send the deletion information back to the parent component.
+            onUpdate({ id: post.id, isDeleted: true });
+            onClose();
         } catch (error) {
-            console.error("Error deleting post and locks:", error);
+            console.error("Error deleting post:", error);
             showToast("Failed to delete the post.", "error");
         } finally {
             setIsSubmitting(false);
         }
     };
-
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Edit Content Availability">
@@ -117,23 +123,20 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate }) => 
                     />
                 </div>
 
-                {/* --- NEW: Updated button layout to include Delete --- */}
                 <div className="flex justify-between items-center pt-4">
-                    {/* The new Delete button */}
                     <button
                         onClick={handleDelete}
-                        className="btn-danger" // Assuming you have a CSS class for a red delete button
+                        className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-md shadow-sm hover:bg-red-500 disabled:opacity-50"
                         disabled={isSubmitting}
                     >
-                        Delete
+                        Delete Post
                     </button>
                     
-                    {/* Existing buttons grouped together */}
                     <div className="flex justify-end gap-2">
-                        <button onClick={onClose} className="btn-secondary" disabled={isSubmitting}>
+                        <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50" disabled={isSubmitting}>
                             Cancel
                         </button>
-                        <button onClick={handleUpdate} className="btn-primary" disabled={isSubmitting}>
+                        <button onClick={handleUpdate} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-md shadow-sm hover:bg-blue-500 disabled:opacity-50" disabled={isSubmitting}>
                             {isSubmitting ? 'Saving...' : 'Save Changes'}
                         </button>
                     </div>

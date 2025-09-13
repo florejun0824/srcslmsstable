@@ -6,11 +6,6 @@ import Modal from '../common/Modal';
 import { ChevronUpDownIcon, CheckIcon } from '@heroicons/react/24/solid';
 import PortalDatePicker from '../common/PortalDatePicker';
 
-// ===================================================================================
-// START: Memoized & Restyled Custom Components
-// NOTE: Components are wrapped in React.memo to prevent unnecessary re-renders.
-// ===================================================================================
-
 const GroupCheckbox = React.memo(({ checked, indeterminate, ...props }) => {
     const ref = useRef(null);
     useEffect(() => {
@@ -18,7 +13,6 @@ const GroupCheckbox = React.memo(({ checked, indeterminate, ...props }) => {
             ref.current.indeterminate = indeterminate;
         }
     }, [indeterminate]);
-    // NEW: iOS-style larger, softer rounded checkbox
     return <input type="checkbox" ref={ref} checked={checked} {...props} className="h-5 w-5 rounded-md border-gray-400/70 text-blue-600 focus:ring-blue-500 cursor-pointer" />;
 });
 
@@ -62,13 +56,11 @@ const CustomMultiSelect = React.memo(({ title, options, selectedValues, onSelect
 
     return (
         <div className="relative">
-            {/* NEW: Updated button style for a cleaner look */}
             <button type="button" onClick={onToggle} disabled={disabled} className="flex w-full items-center justify-between p-4 bg-black/5 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 disabled:bg-gray-200/50 disabled:cursor-not-allowed">
                 <span className="block truncate text-base">{selectedCount > 0 ? `${selectedCount} ${title} Selected` : `Select ${title}`}</span>
                 <ChevronUpDownIcon className={`h-5 w-5 text-gray-400 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
             {isOpen && (
-                // NEW: Increased rounding for a softer, more modern dropdown
                 <div className="absolute z-20 mt-2 max-h-60 w-full overflow-auto rounded-2xl bg-white/80 backdrop-blur-xl py-2 text-base shadow-xl ring-1 ring-black/5 focus:outline-none p-2">
                     <ul className="space-y-1">{renderOptions()}</ul>
                 </div>
@@ -78,7 +70,6 @@ const CustomMultiSelect = React.memo(({ title, options, selectedValues, onSelect
 });
 
 const CustomDateTimePicker = React.memo(({ selectedDate, onDateChange, isClearable = false, placeholder = "Select date" }) => {
-    // OPTIMIZATION: Callbacks are now memoized with useCallback in parent
     const handleDateSelect = (date) => {
         if (!date && isClearable) {
             onDateChange(null);
@@ -97,7 +88,6 @@ const CustomDateTimePicker = React.memo(({ selectedDate, onDateChange, isClearab
         onDateChange(newDate);
     };
     const timeValue = selectedDate ? `${String(selectedDate.getHours()).padStart(2, '0')}:${String(selectedDate.getMinutes()).padStart(2, '0')}` : '';
-    // NEW: Consistent input styling with other components
     const inputClasses = "w-full p-4 bg-black/5 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 placeholder:text-gray-500";
     
     return (
@@ -107,9 +97,6 @@ const CustomDateTimePicker = React.memo(({ selectedDate, onDateChange, isClearab
         </div>
     );
 });
-// ===================================================================================
-// END: Memoized & Restyled Custom Components
-// ===================================================================================
 
 export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) {
     const { user } = useAuth();
@@ -134,13 +121,11 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
             setContentLoading(true);
             setError('');
             try {
-                // Fetch classes
                 const classesRef = collection(db, 'classes');
                 const q = query(classesRef, where('teacherId', '==', user.id));
                 const classesSnapshot = await getDocs(q);
                 setClasses(classesSnapshot.docs.map(doc => ({ value: doc.id, label: `${doc.data().name} (${doc.data().gradeLevel} - ${doc.data().section})` })));
 
-                // Fetch units, lessons, and quizzes in parallel for speed
                 const [unitsSnapshot, lessonsSnapshot, quizzesSnapshot] = await Promise.all([
                     getDocs(query(collection(db, 'units'), where('subjectId', '==', subject.id))),
                     getDocs(query(collection(db, 'lessons'), where('subjectId', '==', subject.id))),
@@ -161,8 +146,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         fetchPrerequisites();
     }, [isOpen, user, subject]);
     
-    // OPTIMIZATION: Memoize the expensive grouping logic.
-    // This now only runs when the raw data changes, not on every render.
     const allLessons = useMemo(() => {
         const grouped = {};
         units.forEach(unit => {
@@ -185,8 +168,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         return grouped;
     }, [rawQuizzes, units]);
 
-    // OPTIMIZATION: All handlers are wrapped in useCallback to maintain a stable reference,
-    // which prevents child components (like CustomMultiSelect) from re-rendering unnecessarily.
     const handleToggleDropdown = useCallback((dropdownName) => {
         setActiveDropdown(prev => prev === dropdownName ? null : dropdownName);
     }, []);
@@ -227,14 +208,27 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
             setError("Please select at least one class and one piece of content.");
             return;
         }
-        setLoading(true); setError(''); setSuccess('');
+        setLoading(true);
+        setError('');
+        setSuccess('');
         try {
             const batch = writeBatch(db);
+
+            const lessonsToPost = rawLessons
+                .filter(l => selectedLessons.includes(l.id))
+                .map(l => ({ ...l }));
+
+            const quizzesToPost = rawQuizzes
+                .filter(q => selectedQuizzes.includes(q.id))
+                .map(q => ({ ...q }));
+
             const contentParts = [];
-            if (selectedLessons.length > 0) contentParts.push(`${selectedLessons.length} lesson(s)`);
-            if (selectedQuizzes.length > 0) contentParts.push(`${selectedQuizzes.length} quiz(zes)`);
+            if (lessonsToPost.length > 0) contentParts.push(`${lessonsToPost.length} lesson(s)`);
+            if (quizzesToPost.length > 0) contentParts.push(`${quizzesToPost.length} quiz(zes)`);
+
             for (const classId of selectedClasses) {
                 const newPostRef = doc(collection(db, `classes/${classId}/posts`));
+                
                 batch.set(newPostRef, {
                     title: `New materials for ${subject.title}`,
                     content: `The following are now available: ${contentParts.join(' and ')}.`,
@@ -243,22 +237,27 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                     subjectId: subject.id,
                     availableFrom: Timestamp.fromDate(availableFrom),
                     availableUntil: availableUntil ? Timestamp.fromDate(availableUntil) : null,
-                    lessonIds: selectedLessons,
-                    quizIds: selectedQuizzes,
+                    lessons: lessonsToPost,
+                    quizzes: quizzesToPost,
                 });
+
+                const classRef = doc(db, "classes", classId);
+                batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
             }
+
             await batch.commit();
             setSuccess(`Successfully shared materials to ${selectedClasses.length} class(es).`);
             setTimeout(handleClose, 2000);
         } catch (err) {
             console.error("Error sharing content: ", err);
             setError("An error occurred while sharing. Please try again.");
+        // ✅ FIX: Moved setLoading(false) to a 'finally' block to ensure it always runs.
+        } finally {
             setLoading(false);
         }
     };
 
     const thingsToShareCount = selectedLessons.length + selectedQuizzes.length;
-    // NEW: iOS-style pill-shaped buttons with solid colors for clarity.
     const primaryButtonStyles = "px-6 py-3 text-base font-semibold text-white bg-blue-600 rounded-full shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all duration-200 disabled:opacity-50 active:scale-95";
     const secondaryButtonStyles = "px-6 py-3 text-base font-semibold text-gray-900 bg-black/5 rounded-full hover:bg-black/10 transition-all disabled:opacity-50 active:scale-95";
 
@@ -268,14 +267,13 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
             onClose={handleClose} 
             title="Share Content"
             description={`Share materials from "${subject.title}" to your classes.`}
-            size="5xl" // Slightly smaller for a tighter feel
+            size="5xl"
         >
             <div className="relative max-h-[75vh] flex flex-col">
-                <main className="flex-grow overflow-y-auto pr-2 -mr-2"> {/* Offset padding for scrollbar */}
+                <main className="flex-grow overflow-y-auto pr-2 -mr-2">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* --- Left Column: Settings --- */}
                         <div className="space-y-6">
-                            {/* NEW: Updated section styling with bolder headers */}
                             <section className="bg-white/60 p-5 rounded-2xl ring-1 ring-black/5">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-3">1. Share With</h3>
                                 <CustomMultiSelect title="Classes" options={classes} selectedValues={selectedClasses} onSelectionChange={(id) => handleSelection(id, 'class')} disabled={contentLoading} isOpen={activeDropdown === 'classes'} onToggle={() => handleToggleDropdown('classes')} />

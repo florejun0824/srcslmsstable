@@ -17,7 +17,9 @@ import {
     Timestamp,
     arrayRemove,
     onSnapshot,
-    getDocs 
+    getDocs,
+    serverTimestamp,
+    runTransaction
 } from 'firebase/firestore';
 import { Button } from '@tremor/react';
 import {
@@ -42,12 +44,23 @@ import ViewQuizModal from './ViewQuizModal';
 import GenerateReportModal from './GenerateReportModal';
 import EditAvailabilityModal from './EditAvailabilityModal';
 
+const fetchDocsInBatches = async (collectionName, ids) => {
+    if (!ids || ids.length === 0) return [];
+    const chunks = [];
+    for (let i = 0; i < ids.length; i += 30) {
+        chunks.push(ids.slice(i, i + 30));
+    }
+    const fetchPromises = chunks.map(chunk => 
+        getDocs(query(collection(db, collectionName), where(documentId(), 'in', chunk)))
+    );
+    const snapshots = await Promise.all(fetchPromises);
+    return snapshots.flatMap(snapshot => snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+};
+
 const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => {
     const { userProfile } = useAuth();
     const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState('announcements');
-    const [lessons, setLessons] = useState([]);
-    const [quizzes, setQuizzes] = useState([]);
     const [quizScores, setQuizScores] = useState([]);
     const [announcements, setAnnouncements] = useState([]);
     const [sharedContentPosts, setSharedContentPosts] = useState([]);
@@ -67,18 +80,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const [units, setUnits] = useState({});
     const [collapsedUnits, setCollapsedUnits] = useState(new Set());
     
-    const scoresUnsubscribeRef = useRef(null);
-
-    // ... (All logic functions like toggleUnitCollapse, setupRealtimeAnnouncements, etc. remain the same) ...
-    const toggleUnitCollapse = (unitTitle) => {
-        setCollapsedUnits(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(unitTitle)) newSet.delete(unitTitle);
-            else newSet.add(unitTitle);
-            return newSet;
-        });
-    };
-    const onChangeEdit = (e) => setEditContent(e.target.value);
     const setupRealtimeAnnouncements = useCallback(() => {
         if (!classData?.id) {
             setAnnouncements([]);
@@ -93,84 +94,69 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         });
         return unsub;
     }, [classData?.id, showToast]);
+
+    // ✅ PERFORMANCE FIX: This function is now dramatically simpler and faster.
+    // It gets all required display data from the 'posts' collection in one go.
     const setupContentListeners = useCallback(() => {
         if (!classData?.id) return () => {};
-        let isFirstPostLoad = true;
+        
         const postsQuery = query(collection(db, `classes/${classData.id}/posts`), orderBy('createdAt', 'desc'));
+        
         const postsUnsubscribe = onSnapshot(postsQuery, async (snapshot) => {
-            const allPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setSharedContentPosts(allPosts);
-            const lessonIds = new Set(allPosts.flatMap(p => p.lessonIds || []));
-            const quizIds = new Set(allPosts.flatMap(p => p.quizIds || []));
-            const allUnitIds = new Set();
-            if (lessonIds.size > 0) {
-                const lessonsQuery = query(collection(db, 'lessons'), where(documentId(), 'in', Array.from(lessonIds)));
-                const lessonSnap = await getDocs(lessonsQuery);
-                const fetchedLessons = lessonSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-                setLessons(fetchedLessons);
-                fetchedLessons.forEach(l => l.unitId && allUnitIds.add(l.unitId));
-            } else {
-                setLessons([]);
-            }
-            if (quizIds.size > 0) {
-                const quizzesQuery = query(collection(db, 'quizzes'), where(documentId(), 'in', Array.from(quizIds)));
-                const quizSnap = await getDocs(quizzesQuery);
-                const fetchedQuizzes = quizSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-                setQuizzes(fetchedQuizzes);
-                fetchedQuizzes.forEach(q => q.unitId && allUnitIds.add(q.unitId));
-            } else {
-                setQuizzes([]);
-            }
-            if (scoresUnsubscribeRef.current) {
-                scoresUnsubscribeRef.current();
-            }
-            if (quizIds.size > 0) {
-                const scoresQuery = query(collection(db, 'quizSubmissions'), where("classId", "==", classData.id), where("quizId", "in", Array.from(quizIds)));
-                const scoresUnsub = onSnapshot(scoresQuery, (scoreSnap) => {
+            try {
+                const allPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setSharedContentPosts(allPosts);
+
+                const allUnitIds = new Set();
+                allPosts.forEach(post => {
+                    (post.lessons || []).forEach(l => l.unitId && allUnitIds.add(l.unitId));
+                    (post.quizzes || []).forEach(q => q.unitId && allUnitIds.add(q.unitId));
+                });
+
+                if (allUnitIds.size > 0) {
+                    const fetchedUnits = await fetchDocsInBatches('units', Array.from(allUnitIds));
+                    const unitsMap = {};
+                    fetchedUnits.forEach(unit => { unitsMap[unit.id] = unit.title; });
+                    setUnits(unitsMap);
+                } else {
+                    setUnits({});
+                }
+
+                const quizIds = Array.from(new Set(allPosts.flatMap(p => (p.quizzes || []).map(q => q.id))));
+
+                if (quizIds.length > 0) {
+                    const scoresQuery = query(collection(db, 'quizSubmissions'), where("classId", "==", classData.id), where("quizId", "in", quizIds));
+                    const locksQuery = query(collection(db, 'quizLocks'), where("classId", "==", classData.id), where("quizId", "in", quizIds));
+                    
+                    const [scoreSnap, locksSnap] = await Promise.all([getDocs(scoresQuery), getDocs(locksQuery)]);
+                    
                     setQuizScores(scoreSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-                });
-                const locksQuery = query(collection(db, 'quizLocks'), where("classId", "==", classData.id), where("quizId", "in", Array.from(quizIds)));
-                const locksUnsub = onSnapshot(locksQuery, (locksSnap) => {
                     setQuizLocks(locksSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-                });
-                scoresUnsubscribeRef.current = () => {
-                    scoresUnsub();
-                    locksUnsub();
-                };
-            } else {
-                setQuizScores([]);
-                setQuizLocks([]);
-            }
-            if (allUnitIds.size > 0) {
-                const unitsQuery = query(collection(db, 'units'), where(documentId(), 'in', Array.from(allUnitIds)));
-                const unitsSnapshot = await getDocs(unitsQuery);
-                const fetchedUnits = {};
-                unitsSnapshot.docs.forEach(doc => { fetchedUnits[doc.id] = doc.data().title; });
-                setUnits(fetchedUnits);
-            } else {
-                setUnits({});
-            }
-            if (isFirstPostLoad) {
+                } else {
+                    setQuizScores([]);
+                    setQuizLocks([]);
+                }
+
+            } catch (err) {
+                console.error("Error processing content snapshot:", err);
+                showToast("Failed to process class content.", "error");
+            } finally {
                 setLoading(false);
-                isFirstPostLoad = false;
             }
         }, (error) => {
             console.error(error);
             showToast("Failed to load class posts.", "error");
             setLoading(false);
         });
-        return () => {
-            postsUnsubscribe();
-            if (scoresUnsubscribeRef.current) {
-                scoresUnsubscribeRef.current();
-            }
-        };
+
+        return () => postsUnsubscribe();
     }, [classData?.id, showToast]);
+    
     useEffect(() => {
         if (!isOpen) {
             setShowAddForm(false); setViewLessonData(null); setViewQuizData(null); setActiveTab('announcements');
-            setAnnouncements([]); setLessons([]); setQuizzes([]); setQuizScores([]); setSharedContentPosts([]);
-            setQuizLocks([]); setEditingId(null); setEditContent(''); setPostToEdit(null); setIsEditModalOpen(false);
+            setAnnouncements([]); setSharedContentPosts([]); setQuizScores([]); setQuizLocks([]);
+            setEditingId(null); setEditContent(''); setPostToEdit(null); setIsEditModalOpen(false);
             setIsReportModalOpen(false); setScoresDetailModalOpen(false); setSelectedQuizForScores(null);
             setSelectedAnnouncement(null); setUnits({}); setCollapsedUnits(new Set());
             return;
@@ -185,16 +171,25 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             };
         }
     }, [isOpen, classData?.id, setupRealtimeAnnouncements, setupContentListeners]);
+
+    const toggleUnitCollapse = (unitTitle) => {
+        setCollapsedUnits(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(unitTitle)) newSet.delete(unitTitle);
+            else newSet.add(unitTitle);
+            return newSet;
+        });
+    };
+    const onChangeEdit = (e) => setEditContent(e.target.value);
+    
     useEffect(() => {
         if (isOpen && (activeTab === 'lessons' || activeTab === 'quizzes' || activeTab === 'scores')) {
             const allUnitTitles = new Set();
             sharedContentPosts.forEach(post => {
-                (post.lessonIds || []).forEach(lessonId => {
-                    const lesson = lessons.find(l => l.id === lessonId);
+                (post.lessons || []).forEach(lesson => {
                     if (lesson && lesson.unitId) allUnitTitles.add(units[lesson.unitId] || 'Uncategorized');
                 });
-                (post.quizIds || []).forEach(quizId => {
-                    const quiz = quizzes.find(q => q.id === quizId);
+                (post.quizzes || []).forEach(quiz => {
                     if (quiz && quiz.unitId) allUnitTitles.add(units[quiz.unitId] || 'Uncategorized');
                     else allUnitTitles.add('Uncategorized');
                 });
@@ -203,7 +198,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         } else {
             setCollapsedUnits(new Set());
         }
-    }, [activeTab, lessons, quizzes, units, sharedContentPosts, isOpen]);
+    }, [activeTab, units, sharedContentPosts, isOpen]);
+
     const handleTabChange = (tabName) => setActiveTab(tabName);
     const handleUnlockQuiz = async (quizId, studentId) => {
         if (!window.confirm("Are you sure you want to unlock this quiz?")) return;
@@ -218,18 +214,40 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         setPostToEdit(post);
         setIsEditModalOpen(true);
     };
+
     const handleDeleteContentFromPost = async (postId, contentIdToRemove, contentType) => {
         if (!classData?.id) return;
-        const postRef = doc(db, 'classes', classData.id, 'posts', postId);
-        const fieldToUpdate = contentType === 'quiz' ? 'quizIds' : 'lessonIds';
+        const fieldToUpdate = contentType === 'quiz' ? 'quizzes' : 'lessons';
         if (!window.confirm(`Are you sure you want to unshare this ${contentType}?`)) return;
+        
         try {
-            await updateDoc(postRef, { [fieldToUpdate]: arrayRemove(contentIdToRemove) });
+            const postRef = doc(db, 'classes', classData.id, 'posts', postId);
+            const classRef = doc(db, 'classes', classData.id);
+            const postToUpdate = sharedContentPosts.find(p => p.id === postId);
+            const updatedContent = postToUpdate[fieldToUpdate].filter(item => item.id !== contentIdToRemove);
+
+            await runTransaction(db, async (transaction) => {
+                transaction.update(postRef, { [fieldToUpdate]: updatedContent });
+                transaction.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
+            });
+
             showToast(`${contentType.charAt(0).toUpperCase() + contentType.slice(1)} unshared.`, "success");
         } catch (error) {
+            console.error(`Error unsharing ${contentType}:`, error);
             showToast(`Failed to unshare ${contentType}.`, "error");
         }
     };
+
+    const handlePostUpdate = (updateInfo) => {
+        if (updateInfo.isDeleted) {
+            setSharedContentPosts(prevPosts => prevPosts.filter(p => p.id !== updateInfo.id));
+        } else {
+            setSharedContentPosts(prevPosts => 
+                prevPosts.map(p => p.id === updateInfo.id ? { ...p, ...updateInfo } : p)
+            );
+        }
+    };
+
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this announcement?")) return;
         try {
@@ -251,16 +269,17 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             showToast("Failed to update.", "error");
         }
     };
-    const EmptyState = ({ icon: Icon, text, subtext }) => (
-        <div className="text-center p-12 bg-gray-500/5 rounded-2xl border-2 border-dashed border-gray-200 animate-fadeIn mt-4">
-            <Icon className="h-16 w-16 mb-4 text-gray-300 mx-auto" />
-            <p className="text-xl font-semibold text-gray-700">{text}</p>
-            <p className="mt-2 text-base text-gray-500">{subtext}</p>
-        </div>
-    );
+    
     const renderContent = () => {
-        // ... (renderContent function remains the same, no changes needed here) ...
         if (loading) return <div className="text-center py-10 text-gray-500 text-lg">Loading...</div>;
+        
+        const EmptyState = ({ icon: Icon, text, subtext }) => (
+            <div className="text-center p-12 bg-gray-500/5 rounded-2xl border-2 border-dashed border-gray-200 animate-fadeIn mt-4">
+                <Icon className="h-16 w-16 mb-4 text-gray-300 mx-auto" />
+                <p className="text-xl font-semibold text-gray-700">{text}</p>
+                <p className="mt-2 text-base text-gray-500">{subtext}</p>
+            </div>
+        );
         const customUnitSort = (a, b) => {
             const numA = parseInt(a.match(/\d+/)?.[0], 10);
             const numB = parseInt(b.match(/\d+/)?.[0], 10);
@@ -283,15 +302,14 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 {!collapsedUnits.has(title) && <div className="px-1 pb-1">{children}</div>}
             </div>
         );
+        
+        // ✅ FIX: These sections now read from the new, efficient data structure.
         if (activeTab === 'lessons') {
             const lessonsByUnit = sharedContentPosts.reduce((acc, post) => {
-                (post.lessonIds || []).forEach(lessonId => {
-                    const lessonDetails = lessons.find(l => l.id === lessonId);
-                    if (lessonDetails) {
-                        const unitDisplayName = units[lessonDetails.unitId] || 'Uncategorized';
-                        if (!acc[unitDisplayName]) acc[unitDisplayName] = [];
-                        acc[unitDisplayName].push({ post, lessonDetails });
-                    }
+                (post.lessons || []).forEach(lessonDetails => {
+                    const unitDisplayName = units[lessonDetails.unitId] || 'Uncategorized';
+                    if (!acc[unitDisplayName]) acc[unitDisplayName] = [];
+                    acc[unitDisplayName].push({ post, lessonDetails });
                 });
                 return acc;
             }, {});
@@ -319,13 +337,10 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
         if (activeTab === 'quizzes') {
             const quizzesByUnit = sharedContentPosts.reduce((acc, post) => {
-                (post.quizIds || []).forEach(quizId => {
-                    const quizDetails = quizzes.find(q => q.id === quizId);
-                    if (quizDetails) {
-                        const unitDisplayName = units[quizDetails.unitId] || 'Uncategorized';
-                        if (!acc[unitDisplayName]) acc[unitDisplayName] = [];
-                        acc[unitDisplayName].push({ post, quizDetails });
-                    }
+                (post.quizzes || []).forEach(quizDetails => {
+                    const unitDisplayName = units[quizDetails.unitId] || 'Uncategorized';
+                    if (!acc[unitDisplayName]) acc[unitDisplayName] = [];
+                    acc[unitDisplayName].push({ post, quizDetails });
                 });
                 return acc;
             }, {});
@@ -352,12 +367,14 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             );
         }
         if (activeTab === 'scores') {
+            const allQuizzesFromPosts = sharedContentPosts.flatMap(p => p.quizzes || []);
+            const allLessonsFromPosts = sharedContentPosts.flatMap(p => p.lessons || []);
             return (
                 <ScoresTab
-                    quizzes={quizzes}
+                    quizzes={allQuizzesFromPosts}
                     units={units}
                     sharedContentPosts={sharedContentPosts}
-                    lessons={lessons}
+                    lessons={allLessonsFromPosts}
                     setIsReportModalOpen={setIsReportModalOpen}
                     setSelectedQuizForScores={setSelectedQuizForScores}
                     setScoresDetailModalOpen={setScoresDetailModalOpen}
@@ -415,16 +432,11 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 onClose={onClose}
                 title=""
                 size="screen"
-                // ✅ FIXED: Re-added rounded corners and padding for the outer container
                 roundedClass="rounded-2xl"
                 containerClassName="h-full p-4 bg-black/20 backdrop-blur-md"
                 contentClassName="p-0"
-                // ✅ FIXED: Added prop to hide the Modal's default close button
                 showCloseButton={false}
             >
-               
-                
-                {/* ✅ FIXED: Changed h-screen back to h-full to respect parent padding */}
                 <div className="flex flex-col md:flex-row bg-transparent h-full w-full gap-4">
                     <nav className="flex-shrink-0 bg-black/5 backdrop-blur-xl p-4 rounded-2xl border border-white/50 shadow-lg md:w-64">
                         <div className="mb-6 p-2 hidden md:block">
@@ -460,10 +472,10 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 </div>
             </Modal>
             
-            <GenerateReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} classData={classData} availableQuizzes={quizzes} quizScores={quizScores} lessons={lessons} units={units} sharedContentPosts={sharedContentPosts} className="z-[120]" />
+            <GenerateReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} classData={classData} quizScores={quizScores} units={units} sharedContentPosts={sharedContentPosts} />
             <ViewLessonModal isOpen={!!viewLessonData} onClose={() => setViewLessonData(null)} lesson={viewLessonData} className="z-[120]" />
             <ViewQuizModal isOpen={!!viewQuizData} onClose={() => setViewQuizData(null)} quiz={viewQuizData} userProfile={userProfile} classId={classData?.id} isTeacherView={userProfile.role === 'teacher' || userProfile.role === 'admin'} className="z-[120]" />
-            <EditAvailabilityModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} post={postToEdit} classId={classData?.id} onUpdate={() => {}} className="z-[120]" />
+            <EditAvailabilityModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} post={postToEdit} classId={classData?.id} onUpdate={handlePostUpdate} className="z-[120]" />
             {selectedQuizForScores && (<QuizScoresModal isOpen={isScoresDetailModalOpen} onClose={() => setScoresDetailModalOpen(false)} quiz={selectedQuizForScores} classData={classData} quizScores={quizScores} quizLocks={quizLocks} onUnlockQuiz={handleUnlockQuiz} className="z-[120]" />)}
             <AnnouncementViewModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} className="z-[120]" />
         </>
@@ -471,7 +483,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 };
 
 const AnnouncementListItem = ({ post, isOwn, onEdit, onDelete, isEditing, editContent, onChangeEdit, onSaveEdit, onCancelEdit, onClick }) => {
-    // ... (This sub-component remains the same) ...
     const formattedDate = post.createdAt?.toDate().toLocaleString() || 'N/A';
     return (
         <div className="group relative bg-white/80 p-5 rounded-2xl shadow-md border border-white/50 transition-all duration-300 transform hover:scale-[1.01] hover:shadow-lg cursor-pointer" onClick={!isEditing ? onClick : undefined}>

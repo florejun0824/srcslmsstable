@@ -1,107 +1,107 @@
 // SubjectDetailView.jsx
 
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
     PencilSquareIcon, TrashIcon, SparklesIcon, PlusCircleIcon,
-    EyeIcon, DocumentTextIcon, BeakerIcon, ArrowUpOnSquareIcon
+    EyeIcon, DocumentTextIcon, BeakerIcon, ArrowUpOnSquareIcon, ClipboardDocumentListIcon
 } from '@heroicons/react/24/solid';
 
 import { db } from '../../services/firebase';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 
-import Spinner from '../common/Spinner'; // Assumes the refactored Spinner
+import Spinner from '../common/Spinner';
 
-// --- Refactored LessonItem ---
-const LessonItem = ({ lesson, onSelect, onGenerateQuiz, onInitiateDelete, variants }) => {
+// ✅ UI/UX: Redesigned Lesson/Quiz Item for a cleaner, modern look
+const ContentItem = ({ item, onSelect, onGenerateQuiz, onInitiateDelete, variants }) => {
+    const isLesson = item.type === 'lesson';
+    const Icon = isLesson ? DocumentTextIcon : ClipboardDocumentListIcon;
+    const iconContainerColor = isLesson ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600';
+    const hoverColor = isLesson ? 'group-hover:text-blue-600' : 'group-hover:text-purple-600';
+    
     return (
         <motion.li
             variants={variants}
-            className="group flex items-center justify-between p-4 border-b border-black/5 dark:border-white/10 last:border-b-0 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+            className="group flex items-center justify-between p-3 last:border-b-0 hover:bg-slate-50 transition-colors rounded-lg"
         >
-            <div className="flex items-center gap-4">
-                <div className="p-3 rounded-full bg-blue-500/10 flex-shrink-0">
-                    <DocumentTextIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            <div className="flex items-center gap-4 min-w-0">
+                <div className={`p-3 rounded-xl ${iconContainerColor} flex-shrink-0`}>
+                    <Icon className="w-6 h-6" />
                 </div>
-                <span className="font-semibold text-gray-800 dark:text-gray-200 text-lg">{lesson.lessonTitle || lesson.title}</span>
+                <span className={`font-semibold text-gray-800 text-base truncate transition-colors ${hoverColor}`}>{item.lessonTitle || item.title}</span>
             </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <button onClick={() => onSelect(lesson, 'view')} className="p-2 text-gray-500 hover:text-blue-600 rounded-full" title="View"><EyeIcon className="w-5 h-5" /></button>
-                <button onClick={() => onSelect(lesson, 'edit')} className="p-2 text-gray-500 hover:text-indigo-600 rounded-full" title="Edit"><PencilSquareIcon className="w-5 h-5" /></button>
-                <button onClick={() => onGenerateQuiz(lesson)} className="p-2 text-gray-500 hover:text-purple-600 rounded-full" title="AI Quiz"><SparklesIcon className="w-5 h-5" /></button>
-                <button onClick={() => onInitiateDelete({ type: 'lesson', data: lesson })} className="p-2 text-gray-500 hover:text-red-600 rounded-full" title="Delete"><TrashIcon className="w-5 h-5" /></button>
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0">
+                <button onClick={() => onSelect(item, 'view')} className="p-2 text-gray-500 hover:text-blue-600 rounded-full" title="View"><EyeIcon className="w-5 h-5" /></button>
+                <button onClick={() => onSelect(item, 'edit')} className="p-2 text-gray-500 hover:text-indigo-600 rounded-full" title="Edit"><PencilSquareIcon className="w-5 h-5" /></button>
+                {isLesson && <button onClick={() => onGenerateQuiz(item)} className="p-2 text-gray-500 hover:text-purple-600 rounded-full" title="AI Quiz"><SparklesIcon className="w-5 h-5" /></button>}
+                <button onClick={() => onInitiateDelete({ type: item.type, data: item })} className="p-2 text-gray-500 hover:text-red-600 rounded-full" title="Delete"><TrashIcon className="w-5 h-5" /></button>
             </div>
         </motion.li>
     );
 };
 
-// --- Refactored UnitCard ---
-const UnitCard = ({ unit, onSelectLesson, onSelectUnit, onGenerateQuiz, onInitiateDelete, variants }) => {
-    const [lessons, setLessons] = useState([]);
-    const [isLoadingLessons, setIsLoadingLessons] = useState(true);
-
-    useEffect(() => {
-        if (!unit.id) return;
-        setIsLoadingLessons(true);
-        const lessonsQuery = query(collection(db, 'lessons'), where('unitId', '==', unit.id), orderBy('createdAt', 'asc'));
-        const unsubscribe = onSnapshot(lessonsQuery, (snapshot) => {
-            setLessons(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-            setIsLoadingLessons(false);
-        }, (error) => {
-            console.error("Error fetching lessons:", error);
-            setIsLoadingLessons(false);
-        });
-        return () => unsubscribe();
-    }, [unit.id]);
-
+// ✅ PERFORMANCE: This component is now much simpler. It receives its lessons as a prop and does not fetch data itself.
+const UnitCard = ({ unit, lessons, quizzes, onSelectContent, onSelectUnit, onGenerateQuiz, onInitiateDelete, variants }) => {
     const listVariants = {
         visible: { transition: { staggerChildren: 0.05 } },
         hidden: {}
     };
     const itemVariants = {
         visible: { opacity: 1, y: 0 },
-        hidden: { opacity: 0, y: 20 }
+        hidden: { opacity: 0, y: 10 }
     };
+    
+    const combinedContent = [
+        ...lessons.map(l => ({ ...l, type: 'lesson' })),
+        ...quizzes.map(q => ({...q, type: 'quiz' })),
+    ].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     return (
         <motion.div
             variants={variants}
-            className="bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl ring-1 ring-black/5 dark:ring-white/10 rounded-3xl shadow-2xl p-7 text-gray-800 transform transition-transform duration-300 hover:scale-[1.02]"
+            className="bg-white/70 backdrop-blur-xl ring-1 ring-black/5 rounded-3xl shadow-xl p-6"
         >
-            <div className="flex items-center justify-between pb-5 mb-5 border-b border-black/10 dark:border-white/10">
-                <h3 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{unit.title}</h3>
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-black/10">
+                <h3 className="text-xl font-bold tracking-tight text-slate-900">{unit.title}</h3>
                 <div className="flex items-center gap-1">
                     <button onClick={() => onSelectUnit(unit, 'addLesson')} className="p-2 text-gray-500 hover:text-blue-600 rounded-full" title="Add Lesson"><PlusCircleIcon className="w-6 h-6" /></button>
                     <button onClick={() => onSelectUnit(unit, 'edit')} className="p-2 text-gray-500 hover:text-indigo-600 rounded-full" title="Edit Unit"><PencilSquareIcon className="w-6 h-6" /></button>
                     <button onClick={() => onInitiateDelete({ type: 'unit', data: unit })} className="p-2 text-gray-500 hover:text-red-600 rounded-full" title="Delete Unit"><TrashIcon className="w-6 h-6" /></button>
                 </div>
             </div>
-            <div className="min-h-[5rem]">
-                {isLoadingLessons ? (
-                    <div className="flex justify-center items-center py-4"><Spinner /></div>
-                ) : (
-                    <motion.ul initial="hidden" animate="visible" variants={listVariants}>
-                        {lessons.length > 0 ? (
-                            lessons.map(lesson => (
-                                <LessonItem key={lesson.id} lesson={lesson} onSelect={onSelectLesson} onGenerateQuiz={onGenerateQuiz} onInitiateDelete={onInitiateDelete} variants={itemVariants} />
-                            ))
-                        ) : (
-                            <p className="text-center text-gray-500 dark:text-gray-400 py-6">No lessons in this unit yet.</p>
-                        )}
-                    </motion.ul>
-                )}
+            <div>
+                <motion.ul initial="hidden" animate="visible" variants={listVariants}>
+                    {combinedContent.length > 0 ? (
+                        combinedContent.map(item => (
+                            <ContentItem key={item.id} item={item} onSelect={onSelectContent} onGenerateQuiz={onGenerateQuiz} onInitiateDelete={onInitiateDelete} variants={itemVariants} />
+                        ))
+                    ) : (
+                        <p className="text-center text-gray-500 py-6">No content in this unit yet.</p>
+                    )}
+                </motion.ul>
             </div>
         </motion.div>
     );
 };
 
-// --- Refactored SubjectDetailView ---
+
 const SubjectDetailView = (props) => {
-    const { subject, handleOpenEditSubject, handleOpenDeleteSubject, setShareContentModalOpen, setAddUnitModalOpen, setIsAiHubOpen, setSelectedUnit, setEditUnitModalOpen, setAddLessonModalOpen, setSelectedLesson, setViewLessonModalOpen, setEditLessonModalOpen, onInitiateDelete, onGenerateQuiz } = props;
+    const { 
+        subject, handleOpenEditSubject, handleOpenDeleteSubject, 
+        setShareContentModalOpen, setAddUnitModalOpen, setIsAiHubOpen, 
+        setSelectedUnit, setEditUnitModalOpen, setAddLessonModalOpen, 
+        setSelectedLesson, setViewLessonModalOpen, setEditLessonModalOpen, 
+        setSelectedQuiz, setViewQuizModalOpen, setEditQuizModalOpen,
+        onInitiateDelete, onGenerateQuiz 
+    } = props;
+
     const [units, setUnits] = useState([]);
+    const [allLessons, setAllLessons] = useState([]); // ✅ PERFORMANCE: State for ALL lessons in the subject
+    const [allQuizzes, setAllQuizzes] = useState([]); // ✅ PERFORMANCE: State for ALL quizzes in the subject
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    // ✅ PERFORMANCE: This single listener fetches all units efficiently.
     useEffect(() => {
         if (!subject?.id) return;
         setIsLoading(true); setError(null);
@@ -117,15 +117,43 @@ const SubjectDetailView = (props) => {
         return () => unsubscribe();
     }, [subject]);
 
+    // ✅ PERFORMANCE: These two listeners fetch ALL content for the subject at once, avoiding the N+1 problem.
+    useEffect(() => {
+        if (!subject?.id) return;
+
+        const lessonsQuery = query(collection(db, 'lessons'), where('subjectId', '==', subject.id));
+        const quizzesQuery = query(collection(db, 'quizzes'), where('subjectId', '==', subject.id));
+        
+        const unsubLessons = onSnapshot(lessonsQuery, (snapshot) => {
+            setAllLessons(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        });
+        
+        const unsubQuizzes = onSnapshot(quizzesQuery, (snapshot) => {
+            setAllQuizzes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        });
+
+        return () => {
+            unsubLessons();
+            unsubQuizzes();
+        };
+    }, [subject]);
+
+
     const handleSelectUnit = (unit, action) => {
         setSelectedUnit(unit);
         if (action === 'edit') setEditUnitModalOpen(true);
         if (action === 'addLesson') setAddLessonModalOpen(true);
     };
-    const handleSelectLesson = (lesson, action) => {
-        setSelectedLesson(lesson);
-        if (action === 'view') setViewLessonModalOpen(true);
-        if (action === 'edit') setEditLessonModalOpen(true);
+    const handleSelectContent = (item, action) => {
+        if (item.type === 'lesson') {
+            setSelectedLesson(item);
+            if (action === 'view') setViewLessonModalOpen(true);
+            if (action === 'edit') setEditLessonModalOpen(true);
+        } else {
+            setSelectedQuiz(item);
+            if (action === 'view') setViewQuizModalOpen(true);
+            if (action === 'edit') setEditQuizModalOpen(true);
+        }
     };
 
     const containerVariants = {
@@ -138,44 +166,54 @@ const SubjectDetailView = (props) => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-black py-12 font-sans">
+        <div className="min-h-screen bg-slate-50 py-12 font-sans">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-                {/* Frameless Header */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-12 gap-4">
+                {/* ✅ UI/UX: Redesigned header for mobile-friendliness and modern style. */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-12 gap-6">
                     <div>
-                        <h1 className="text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight">{subject.title}</h1>
+                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight">{subject.title}</h1>
                         <div className="flex gap-1 mt-2">
-                            <button onClick={() => handleOpenEditSubject(subject)} className="p-2 text-gray-400 hover:text-indigo-600 rounded-full" title="Edit Subject"><PencilSquareIcon className="w-6 h-6" /></button>
-                            <button onClick={() => handleOpenDeleteSubject(subject)} className="p-2 text-gray-400 hover:text-red-600 rounded-full" title="Delete Subject"><TrashIcon className="w-6 h-6" /></button>
+                            <button onClick={() => handleOpenEditSubject(subject)} className="p-2 text-gray-400 hover:text-indigo-600 rounded-full" title="Edit Subject"><PencilSquareIcon className="w-5 h-5" /></button>
+                            <button onClick={() => handleOpenDeleteSubject(subject)} className="p-2 text-gray-400 hover:text-red-600 rounded-full" title="Delete Subject"><TrashIcon className="w-5 h-5" /></button>
                         </div>
                     </div>
-                    <div className="flex gap-3 flex-wrap">
-                        <button onClick={() => setShareContentModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-indigo-600 bg-indigo-500/10 rounded-full hover:bg-indigo-500/20 transition-colors">
+                    <div className="flex gap-3 flex-wrap self-start sm:self-center">
+                        <button onClick={() => setShareContentModalOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-indigo-600 bg-indigo-100/70 rounded-full hover:bg-indigo-200/70 transition-colors">
                             <ArrowUpOnSquareIcon className="w-5 h-5" /> Share
                         </button>
-                        <button onClick={() => setAddUnitModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-blue-600 bg-blue-500/10 rounded-full hover:bg-blue-500/20 transition-colors">
+                        <button onClick={() => setAddUnitModalOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-blue-600 bg-blue-100/70 rounded-full hover:bg-blue-200/70 transition-colors">
                             <PlusCircleIcon className="w-5 h-5" /> Add Unit
                         </button>
-                        <button onClick={() => setIsAiHubOpen(true)} className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-purple-500 to-pink-500 rounded-full hover:shadow-lg transition-all transform hover:scale-105">
+                        <button onClick={() => setIsAiHubOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-gradient-to-r from-purple-500 to-pink-500 rounded-full hover:shadow-lg transition-all transform hover:scale-105">
                             <SparklesIcon className="w-5 h-5" /> AI Tools
                         </button>
                     </div>
                 </div>
 
-                {/* Units Section */}
                 <motion.div initial="hidden" animate="visible" variants={containerVariants} className="space-y-8">
                     {isLoading && <div className="flex justify-center p-8"><Spinner /></div>}
                     {!isLoading && error && <p className="text-center text-red-500 text-lg">{error}</p>}
                     {!isLoading && !error && units.length > 0 && (
                         units.map((unit) => (
-                            <UnitCard key={unit.id} unit={unit} onSelectLesson={handleSelectLesson} onSelectUnit={handleSelectUnit} onGenerateQuiz={onGenerateQuiz} onInitiateDelete={onInitiateDelete} variants={itemVariants} />
+                            <UnitCard 
+                                key={unit.id} 
+                                unit={unit} 
+                                // ✅ PERFORMANCE: Pass the pre-filtered lessons and quizzes for this unit
+                                lessons={allLessons.filter(l => l.unitId === unit.id)}
+                                quizzes={allQuizzes.filter(q => q.unitId === unit.id)}
+                                onSelectContent={handleSelectContent} 
+                                onSelectUnit={handleSelectUnit} 
+                                onGenerateQuiz={onGenerateQuiz} 
+                                onInitiateDelete={onInitiateDelete} 
+                                variants={itemVariants} 
+                            />
                         ))
                     )}
                     {!isLoading && !error && units.length === 0 && (
-                         <div className="text-center py-16 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl ring-1 ring-black/5 dark:ring-white/10 rounded-3xl shadow-2xl">
+                         <div className="text-center py-16 bg-white/70 backdrop-blur-xl ring-1 ring-black/5 rounded-3xl shadow-2xl">
                             <BeakerIcon className="mx-auto h-16 w-16 text-gray-400" />
-                            <h3 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">No units created yet.</h3>
-                            <p className="mt-2 text-md text-gray-500 dark:text-gray-400">Get started by creating your first unit.</p>
+                            <h3 className="mt-4 text-xl font-semibold text-gray-900">No units created yet.</h3>
+                            <p className="mt-2 text-md text-gray-500">Get started by creating your first unit.</p>
                             <div className="mt-8">
                                 <button onClick={() => setAddUnitModalOpen(true)} className="flex items-center mx-auto gap-2 px-6 py-3 text-md font-bold text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors shadow-lg transform hover:scale-105">
                                     <PlusCircleIcon className="h-6 w-6" />

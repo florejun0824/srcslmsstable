@@ -1,14 +1,14 @@
+// src/components/student/StudentClassDetailView.js
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '../../services/firebase';
 import { collection, query, getDocs, orderBy, where, documentId } from 'firebase/firestore';
 import Spinner from '../common/Spinner';
-import ViewLessonModal from '../student/ViewLessonModal';
-import ViewQuizModal from '../teacher/ViewQuizModal';
+// ✅ REMOVED: ViewLessonModal is no longer rendered here
 import AnnouncementViewModal from '../common/AnnouncementViewModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { MegaphoneIcon, BookOpenIcon, ArrowLeftIcon, SparklesIcon, ArrowRightIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 
-// --- Reusable Pill Header (Unchanged) ---
 const UnitPillHeader = ({ title, isCollapsed, onClick }) => (
     <button
         onClick={onClick}
@@ -25,15 +25,15 @@ const UnitPillHeader = ({ title, isCollapsed, onClick }) => (
     </button>
 );
 
-
-const StudentClassDetailView = ({ selectedClass, onBack }) => {
+// ✅ MODIFIED: The component now accepts `setLessonToView` as a prop
+const StudentClassDetailView = ({ selectedClass, onBack, setLessonToView }) => {
     const { userProfile } = useAuth();
     const [activeTab, setActiveTab] = useState('announcements');
     const [announcements, setAnnouncements] = useState([]);
     const [lessonsByUnit, setLessonsByUnit] = useState({});
     const [loading, setLoading] = useState(true);
-    const [viewLessonData, setViewLessonData] = useState(null);
-    const [viewQuizData, setViewQuizData] = useState(null);
+    // ✅ REMOVED: Local state for the modal is no longer needed
+    // const [viewLessonData, setViewLessonData] = useState(null);
     const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
     const [collapsedUnits, setCollapsedUnits] = useState(new Set());
 
@@ -50,35 +50,35 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
     };
 
     const fetchData = useCallback(async () => {
-        // ... (The data fetching logic remains the same)
+        // ... fetchData logic remains the same
         if (!selectedClass?.id) { setLoading(false); return; }
         setLoading(true);
         try {
             const annQuery = query(collection(db, "studentAnnouncements"), where("classId", "==", selectedClass.id), orderBy("createdAt", "desc"));
             const annSnap = await getDocs(annQuery);
             setAnnouncements(annSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-
             const postsQuery = query(collection(db, `classes/${selectedClass.id}/posts`), orderBy('createdAt', 'desc'));
             const postsSnap = await getDocs(postsQuery);
-            const lessonIdSet = new Set();
+            let allLessonsFromPosts = [];
             postsSnap.forEach(doc => {
-                const post = { id: doc.id, ...doc.data() };
-                if (Array.isArray(post.lessonIds)) post.lessonIds.forEach(id => lessonIdSet.add(id));
+                const postData = doc.data();
+                if (Array.isArray(postData.lessons)) {
+                    allLessonsFromPosts.push(...postData.lessons);
+                }
             });
-            let fetchedLessons = [];
-            if (lessonIdSet.size > 0) {
-                const lessonsQuery = query(collection(db, 'lessons'), where(documentId(), 'in', Array.from(lessonIdSet)));
-                const lessonsSnap = await getDocs(lessonsQuery);
-                fetchedLessons = lessonsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-                fetchedLessons.sort((a, b) => {
-                    const orderA = a.order ?? Infinity;
-                    const orderB = b.order ?? Infinity;
-                    if (orderA !== orderB) return orderA - orderB;
-                    const numA = parseInt(a.title.match(/\d+/)?.[0] || 0, 10);
-                    const numB = parseInt(b.title.match(/\d+/)?.[0] || 0, 10);
-                    return numA - numB;
-                });
-            }
+            const uniqueLessonsMap = new Map();
+            allLessonsFromPosts.forEach(lesson => {
+                uniqueLessonsMap.set(lesson.id, lesson);
+            });
+            const fetchedLessons = Array.from(uniqueLessonsMap.values());
+            fetchedLessons.sort((a, b) => {
+                const orderA = a.order ?? Infinity;
+                const orderB = b.order ?? Infinity;
+                if (orderA !== orderB) return orderA - orderB;
+                const numA = parseInt(a.title.match(/\d+/)?.[0] || 0, 10);
+                const numB = parseInt(b.title.match(/\d+/)?.[0] || 0, 10);
+                return numA - numB;
+            });
             const uniqueUnitIds = new Set([...fetchedLessons.map(lesson => lesson.unitId).filter(Boolean)]);
             const unitsMap = new Map();
             if (uniqueUnitIds.size > 0) {
@@ -106,7 +106,6 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
         fetchData();
     }, [fetchData]);
     
-    // --- MODIFICATION: iOS-style segmented control ---
     const getTabClasses = (tabName) => `
         flex items-center justify-center flex-1 gap-2 px-4 py-2 font-medium text-sm rounded-lg transition-all duration-200 ease-in-out
         ${activeTab === tabName ? 'bg-white text-red-600 shadow-sm' : 'text-slate-700 hover:text-red-600'}
@@ -138,7 +137,8 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
                                 {!collapsedUnits.has(unitTitle) && (
                                     <div className="mt-1 bg-white/60 backdrop-blur-3xl rounded-2xl shadow-lg-floating-md border border-slate-200/50 overflow-hidden">
                                         {lessonsByUnit[unitTitle].map(lesson => (
-                                            <LessonListItemForStudent key={lesson.id} lesson={lesson} onClick={() => setViewLessonData(lesson)} />
+                                            // ✅ MODIFIED: onClick now calls the prop from the parent
+                                            <LessonListItemForStudent key={lesson.id} lesson={lesson} onClick={() => setLessonToView(lesson)} />
                                         ))}
                                     </div>
                                 )}
@@ -185,16 +185,14 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
                 <div>{renderContent()}</div>
             </div>
 
-            <ViewLessonModal isOpen={!!viewLessonData} onClose={() => setViewLessonData(null)} lesson={viewLessonData} />
-            <ViewQuizModal isOpen={!!viewQuizData} onClose={() => setViewQuizData(null)} quiz={viewQuizData} userProfile={userProfile} classId={selectedClass.id} />
+            {/* ✅ REMOVED: The local instance of ViewLessonModal is gone. The global one in StudentDashboard will handle it. */}
             <AnnouncementViewModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} />
         </>
     );
 };
 
-// --- Sub-components adapted for glassmorphism ---
+// --- Sub-components (unchanged) ---
 
-// --- MODIFICATION: More compact lesson list item ---
 const LessonListItemForStudent = ({ lesson, onClick }) => (
     <div className="group p-3 bg-transparent hover:bg-black/5 transition-colors duration-200 cursor-pointer flex items-center space-x-3 border-b border-slate-900/10 last:border-b-0" onClick={onClick}>
         <div className="flex-shrink-0 p-2 rounded-full bg-sky-100 group-hover:bg-sky-200 transition-colors">

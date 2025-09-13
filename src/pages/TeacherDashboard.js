@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-// ✅ ADDED: runTransaction for safe counter updates
-import { addDoc, serverTimestamp, collection, query, where, onSnapshot, orderBy, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, getDocs, writeBatch, runTransaction } from 'firebase/firestore';
+// ✅ MODIFIED: Ensured serverTimestamp is imported for all updates
+import { addDoc, serverTimestamp, collection, query, where, onSnapshot, orderBy, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, getDocs, writeBatch, runTransaction, Timestamp } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { callGeminiWithLimitCheck } from '../services/aiService';
 import { createPresentationFromData } from '../services/googleSlidesService';
@@ -18,7 +18,7 @@ const TeacherDashboard = () => {
     const [courses, setCourses] = useState([]);
     const [courseCategories, setCourseCategories] = useState([]);
     const [teacherAnnouncements, setTeacherAnnouncements] = useState([]);
-    
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeView, setActiveView] = useState('home');
@@ -81,7 +81,7 @@ const TeacherDashboard = () => {
             setMessages([ { sender: 'ai', text: `Hello, ${userProfile?.firstName}! I'm your AI assistant. How can I help you today?` } ]);
         }
     }, [userProfile, messages.length]);
-    
+
     useEffect(() => {
         if (!user) { setLoading(false); return; }
         setLoading(true);
@@ -103,7 +103,7 @@ const TeacherDashboard = () => {
                 setError("Failed to load dashboard data in real-time."); 
             })
         );
-        
+
         const fetchGlobalData = async () => {
             try {
                 const coursesQuery = query(collection(db, "courses"));
@@ -139,20 +139,18 @@ const TeacherDashboard = () => {
                     setIsImportViewLoading(false);
                 }
             };
-            
+
             fetchAllClassesForImport();
         }
     }, [activeView, showToast]);
 
-    // ✅ --- NEW TRANSACTIONAL FUNCTIONS ---
-    
     const handleCreateUnit = async (unitData) => {
         if (!unitData || !unitData.subjectId) {
             showToast("Missing data to create the unit.", "error");
             return;
         }
         const courseRef = doc(db, "courses", unitData.subjectId);
-        const newUnitRef = doc(collection(db, "units")); // Auto-generate ID
+        const newUnitRef = doc(collection(db, "units"));
 
         try {
             await runTransaction(db, async (transaction) => {
@@ -165,7 +163,7 @@ const TeacherDashboard = () => {
                 transaction.set(newUnitRef, unitData);
             });
             showToast("Unit created successfully!", "success");
-            setAddUnitModalOpen(false); // Close modal on success
+            setAddUnitModalOpen(false);
         } catch (e) {
             console.error("Unit creation transaction failed: ", e);
             showToast("Failed to create unit.", "error");
@@ -185,45 +183,78 @@ const TeacherDashboard = () => {
         try {
             await runTransaction(db, async (transaction) => {
                 const courseDoc = await transaction.get(courseRef);
-                if (!courseDoc.exists()) {
-                    // If course doesn't exist, just delete the unit without count update
-                } else {
+                if (courseDoc.exists()) {
                     const newUnitCount = Math.max(0, (courseDoc.data().unitCount || 0) - 1);
                     transaction.update(courseRef, { unitCount: newUnitCount });
                 }
 
-                // Also delete all lessons and quizzes within this unit
                 const lessonsSnapshot = await getDocs(lessonsQuery);
                 lessonsSnapshot.forEach(lessonDoc => transaction.delete(lessonDoc.ref));
-                
+
                 const quizzesSnapshot = await getDocs(quizzesQuery);
                 quizzesSnapshot.forEach(quizDoc => transaction.delete(quizDoc.ref));
-                
+
                 transaction.delete(unitRef);
             });
+            
+            // ✅ MODIFIED: Standardized to serverTimestamp and ensured all related classes are updated.
+            const batch = writeBatch(db);
+            const relatedClasses = classes.filter(c => c.subjectId === subjectId);
+            relatedClasses.forEach(c => {
+                const classRef = doc(db, "classes", c.id);
+                batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
+            });
+            await batch.commit();
+            
             showToast("Unit and its content deleted successfully!", "success");
         } catch (e) {
             console.error("Unit deletion transaction failed: ", e);
             showToast("Failed to delete unit.", "error");
         }
     };
-    
-    // ... (handleCreateAnnouncement, handleAskAi, etc. remain the same) ...
-    const handleCreateAnnouncement = async ({ content, audience, classId, className, photoURL, caption }) => {
-        if (!content.trim() && !photoURL?.trim()) { 
-            showToast("Announcement must have content or a photo.", "error"); 
-            return; 
-        }
-        const collectionName = audience === 'teachers' ? 'teacherAnnouncements' : 'studentAnnouncements';
-        const announcementData = { content, teacherId: userProfile?.id, teacherName: `${userProfile?.firstName} ${userProfile?.lastName}`, createdAt: serverTimestamp(), photoURL: photoURL || null, caption: caption || null, isPinned: false, };
-        if (audience === 'students') {
-            if (!classId) { showToast("Please select a class for the student announcement.", "error"); return; }
-            announcementData.classId = classId;
-            announcementData.className = className;
-        }
-        try { await addDoc(collection(db, collectionName), announcementData); showToast("Announcement posted successfully!", "success"); }
-        catch (error) { console.error("Error posting announcement:", error); showToast("Failed to post announcement.", "error"); }
-    };
+
+	const handleCreateAnnouncement = async ({ content, audience, classId, className, photoURL, caption }) => {
+	    if (!content.trim() && !photoURL?.trim()) { 
+	        showToast("Announcement must have content or a photo.", "error"); 
+	        return; 
+	    }
+
+	    const collectionName = audience === 'teachers' ? 'teacherAnnouncements' : 'studentAnnouncements';
+	    const announcementData = {
+	        content,
+	        teacherId: userProfile?.id,
+	        teacherName: `${userProfile?.firstName} ${userProfile?.lastName}`,
+	        createdAt: serverTimestamp(),
+	        photoURL: photoURL || null,
+	        caption: caption || null,
+	        isPinned: false,
+	    };
+
+	    if (audience === 'students') {
+	        if (!classId) { 
+	            showToast("Please select a class for the student announcement.", "error"); 
+	            return; 
+	        }
+	        announcementData.classId = classId;
+	        announcementData.className = className;
+	    }
+
+	    try {
+	        await addDoc(collection(db, collectionName), announcementData);
+
+	        // ✅ MODIFIED: Standardized to serverTimestamp for accuracy
+	        if (audience === 'students' && classId) {
+	            await updateDoc(doc(db, "classes", classId), {
+	                contentLastUpdatedAt: serverTimestamp()
+	            });
+	        }
+
+	        showToast("Announcement posted successfully!", "success");
+	    } catch (error) {
+	        console.error("Error posting announcement:", error);
+            showToast("Failed to post announcement.", "error");
+	    }
+	};
 
     const handleAskAi = async (userMessage) => {
         if (!userMessage.trim()) return;
@@ -256,22 +287,48 @@ const TeacherDashboard = () => {
         } catch (error) { console.error("Error removing student:", error); showToast("Failed to remove student. Please try again.", "error"); }
     };
 
-    const handleGenerateQuizForLesson = async (lesson, unitId, subjectId) => {
-        if (isAiGenerating) return;
-        setIsAiGenerating(true);
-        showToast("AI is generating your quiz... This may take a moment.", "info");
-        const lessonContent = lesson.pages.map(page => `Page Title: ${page.title}\n\n${page.content}`).join('\n\n---\n\n');
-        const prompt = `Based on the following lesson content, generate a 10-question multiple-choice quiz. The quiz title should be: "Quiz for: ${lesson.title}". The output must be a single, valid JSON object. The JSON object must have two keys: "title" (a string) and "questions" (an array of objects). Each object in the "questions" array must have these exact keys: "text", "options" (an array of 4 strings), and "correctAnswerIndex" (a number from 0 to 3). LESSON CONTENT:\n---\n${lessonContent}`;
-        try {
-            const aiResponseText = await callGeminiWithLimitCheck(prompt);
-            const generatedQuiz = JSON.parse(aiResponseText);
-            await addDoc(collection(db, 'quizzes'), { title: generatedQuiz.title, questions: generatedQuiz.questions, unitId: unitId, subjectId: subjectId, createdAt: serverTimestamp(), });
-            showToast("AI has successfully generated and saved the new quiz!", "success");
-        } catch (error) {
-            if (error.message === 'LIMIT_REACHED') { showToast("The AI Assistant has reached its monthly usage limit.", "info"); }
-            else { showToast("The AI Assistant could not generate a quiz. Please try again.", "error"); console.error("AI Generation Error:", error); }
-        } finally { setIsAiGenerating(false); }
-    };
+	const handleGenerateQuizForLesson = async (lesson, unitId, subjectId) => {
+	    if (isAiGenerating) return;
+	    setIsAiGenerating(true);
+	    showToast("AI is generating your quiz... This may take a moment.", "info");
+
+	    const lessonContent = lesson.pages.map(page => 
+	        `Page Title: ${page.title}\n\n${page.content}`
+	    ).join('\n\n---\n\n');
+
+	    const prompt = `Based on the following lesson content, generate a 10-question multiple-choice quiz...`;
+
+	    try {
+	        const aiResponseText = await callGeminiWithLimitCheck(prompt);
+	        const generatedQuiz = JSON.parse(aiResponseText);
+
+	        await addDoc(collection(db, 'quizzes'), {
+	            title: generatedQuiz.title,
+	            questions: generatedQuiz.questions,
+	            unitId: unitId,
+	            subjectId: subjectId,
+	            createdAt: serverTimestamp(),
+	        });
+
+	        // ✅ MODIFIED: Standardized to serverTimestamp
+	        if (subjectId) {
+                const batch = writeBatch(db);
+	            const relatedClasses = classes.filter(c => c.subjectId === subjectId);
+                relatedClasses.forEach(c => {
+                    const classRef = doc(db, "classes", c.id);
+                    batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
+                });
+                await batch.commit();
+	        }
+
+	        showToast("AI has successfully generated and saved the new quiz!", "success");
+	    } catch (error) {
+	        console.error("Error generating quiz:", error);
+	        showToast("Failed to generate quiz.", "error");
+	    } finally {
+	        setIsAiGenerating(false);
+	    }
+	};
 
     const handleInitiatePresentationGeneration = (lessonIds, lessonsData, unitsData) => {
         if (!lessonIds || lessonIds.length === 0) { showToast("Please select one or more lessons to include in the presentation.", "warning"); return; }
@@ -326,23 +383,18 @@ const TeacherDashboard = () => {
         } catch (error) { console.error("Presentation Creation Error:", error); showToast(`Creation Error: ${error.message}`, "error"); }
         finally { setIsSavingPresentation(false); }
     };
-    
-    // ✅ MODIFIED: Now accepts an optional subjectId for unit deletions
+
     const handleInitiateDelete = (type, id, name, subjectId = null) => {
         setDeleteTarget({ type, id, name, subjectId });
         setIsDeleteModalOpen(true);
     };
 
-    // ✅ MODIFIED: This function now handles unit deletions using the new transaction
     const handleConfirmDelete = async () => {
         if (!deleteTarget) {
             showToast("An error occurred. No item selected for deletion.", "error");
             return;
         }
-
         const { type, id, name, subjectId } = deleteTarget;
-        
-        // --- New path for single unit deletion ---
         if (type === 'unit') {
             await handleDeleteUnit(id, subjectId);
             setIsDeleteModalOpen(false);
@@ -350,11 +402,21 @@ const TeacherDashboard = () => {
             return;
         }
 
-        // --- Existing logic for other types ---
         setIsAiGenerating(true); 
         try {
             const batch = writeBatch(db);
+            const classesToUpdate = new Set();
+
+            const findAndQueueClassUpdates = (subjectId) => {
+                classes.forEach(c => {
+                    if (c.subjectId === subjectId) {
+                        classesToUpdate.add(c.id);
+                    }
+                });
+            };
+
             const deleteSubjectContent = async (subjectId) => {
+                findAndQueueClassUpdates(subjectId);
                 const unitsQuery = query(collection(db, 'units'), where('subjectId', '==', subjectId));
                 const unitsSnapshot = await getDocs(unitsQuery);
                 for (const unitDoc of unitsSnapshot.docs) {
@@ -367,7 +429,7 @@ const TeacherDashboard = () => {
                     batch.delete(doc(db, 'units', unitDoc.id));
                 }
             };
-            
+
             if (type === 'category') {
                 const coursesInCategoryQuery = query(collection(db, 'courses'), where('category', '==', name));
                 const coursesSnapshot = await getDocs(coursesInCategoryQuery);
@@ -375,24 +437,29 @@ const TeacherDashboard = () => {
                     await deleteSubjectContent(courseDoc.id);
                     batch.delete(doc(db, 'courses', courseDoc.id));
                 }
-                showToast(`Successfully deleted category "${name}" and all its content.`, "success");
             } else if (type === 'subject') {
                 await deleteSubjectContent(id);
                 batch.delete(doc(db, 'courses', id));
-                showToast(`Successfully deleted subject "${name}" and all its content.`, "success");
                 setActiveSubject(null);
             } else if (type === 'lesson' || type === 'quiz') {
-                const collectionName = type === 'lesson' ? 'lessons' : 'quizzes';
-                batch.delete(doc(db, collectionName, id));
-                showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully.`, "success");
+                findAndQueueClassUpdates(subjectId);
+                batch.delete(doc(db, type === 'lesson' ? 'lessons' : 'quizzes', id));
             } else {
                  showToast(`Deletion for type "${type}" is not implemented.`, "warning");
             }
             
+            // ✅ ADDED: After collecting all classes that need updates, add them to the batch.
+            classesToUpdate.forEach(classId => {
+                const classRef = doc(db, "classes", classId);
+                batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
+            });
+
             await batch.commit();
+            showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully.`, "success");
+            
         } catch (error) { 
             console.error(`Error deleting ${type}:`, error); 
-            showToast(`An error occurred. Could not delete the ${type}. Please check permissions or try again.`, "error"); 
+            showToast(`An error occurred. Could not delete the ${type}.`, "error"); 
         } finally { 
             setIsDeleteModalOpen(false); 
             setDeleteTarget(null); 
@@ -407,7 +474,7 @@ const TeacherDashboard = () => {
 
     const activeClasses = classes.filter(c => !c.isArchived);
     const archivedClasses = classes.filter(c => c.isArchived);
-    
+
     // ... (all other handler functions remain the same) ...
     const handleViewChange = (view) => {
         if (activeView === view) { setReloadKey(prevKey => prevKey + 1); }
@@ -508,7 +575,6 @@ const TeacherDashboard = () => {
     return (
         <>
             <TeacherDashboardLayout
-                // ✅ PASSING NEW FUNCTIONS AS PROPS
                 handleCreateUnit={handleCreateUnit}
                 user={user} userProfile={userProfile} loading={loading} error={error} activeView={activeView} handleViewChange={handleViewChange} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} logout={logout} showToast={showToast} activeClasses={activeClasses} archivedClasses={archivedClasses} courses={courses} courseCategories={courseCategories} teacherAnnouncements={teacherAnnouncements} selectedCategory={selectedCategory} handleCategoryClick={handleCategoryClick} handleBackToCategoryList={handleBackToCategoryList} activeSubject={activeSubject} setActiveSubject={setActiveSubject} activeUnit={activeUnit} onSetActiveUnit={setActiveUnit} handleOpenEditClassModal={handleOpenEditClassModal} handleArchiveClass={handleArchiveClass} handleDeleteClass={handleDeleteClass} isHoveringActions={isHoveringActions} setIsHoveringActions={setIsHoveringActions} setClassOverviewModal={setClassOverviewModal} setIsArchivedModalOpen={setIsArchivedModalOpen} setCreateClassModalOpen={setCreateClassModalOpen} setCreateCategoryModalOpen={setCreateCategoryModalOpen} setCreateCourseModalOpen={setCreateCourseModalOpen} handleEditCategory={handleEditCategory} handleOpenEditSubject={handleOpenEditSubject} handleOpenDeleteSubject={handleOpenDeleteSubject} setShareContentModalOpen={setShareContentModalOpen} handleInitiateDelete={handleInitiateDelete} handleGenerateQuizForLesson={handleGenerateQuizForLesson} onGeneratePresentationPreview={handleInitiatePresentationGeneration} isAiGenerating={isAiGenerating} setEditProfileModalOpen={setEditProfileModalOpen} setChangePasswordModalOpen={setChangePasswordModalOpen} editingAnnId={editingAnnId} editingAnnText={editingAnnText} setEditingAnnText={setEditingAnnText} handleStartEditAnn={handleStartEditAnn} handleUpdateTeacherAnn={handleUpdateTeacherAnn} setEditingAnnId={setEditingAnnId} handleDeleteTeacherAnn={handleDeleteTeacherAnn} handleTogglePinAnnouncement={handleTogglePinAnnouncement} importClassSearchTerm={importClassSearchTerm} setImportClassSearchTerm={setImportClassSearchTerm} allLmsClasses={allLmsClasses} filteredLmsClasses={filteredLmsClasses} isImportViewLoading={isImportViewLoading} selectedClassForImport={selectedClassForImport} setSelectedClassForImport={setSelectedClassForImport} handleBackToClassSelection={handleBackToClassSelection} importTargetClassId={importTargetClassId} setImportTargetClassId={setImportTargetClassId} handleImportStudents={handleImportStudents} isImporting={isImporting} studentsToImport={studentsToImport} handleToggleStudentForImport={handleToggleStudentForImport} handleSelectAllStudents={handleSelectAllStudents} isArchivedModalOpen={isArchivedModalOpen} handleUnarchiveClass={handleUnarchiveClass} isEditProfileModalOpen={isEditProfileModalOpen} handleUpdateProfile={handleUpdateProfile} isChangePasswordModalOpen={isChangePasswordModalOpen} handleChangePassword={handleChangePassword} isCreateCategoryModalOpen={isCreateCategoryModalOpen} isEditCategoryModalOpen={isEditCategoryModalOpen} setEditCategoryModalOpen={setEditCategoryModalOpen} categoryToEdit={categoryToEdit} isCreateClassModalOpen={isCreateClassModalOpen} isCreateCourseModalOpen={isCreateCourseModalOpen} classOverviewModal={classOverviewModal} isEditClassModalOpen={isEditClassModalOpen} setEditClassModalOpen={setEditClassModalOpen} classToEdit={classToEdit} isAddUnitModalOpen={isAddUnitModalOpen} setAddUnitModalOpen={setAddUnitModalOpen} editUnitModalOpen={editUnitModalOpen} setEditUnitModalOpen={setEditUnitModalOpen} selectedUnit={selectedUnit} addLessonModalOpen={addLessonModalOpen} setAddLessonModalOpen={setAddLessonModalOpen} addQuizModalOpen={addQuizModalOpen} setAddQuizModalOpen={setAddQuizModalOpen} deleteUnitModalOpen={deleteUnitModalOpen} setDeleteUnitModalOpen={setDeleteUnitModalOpen} editLessonModalOpen={editLessonModalOpen} setEditLessonModalOpen={setEditLessonModalOpen} selectedLesson={selectedLesson} viewLessonModalOpen={viewLessonModalOpen} setViewLessonModalOpen={setViewLessonModalOpen} isShareContentModalOpen={isShareContentModalOpen} isDeleteModalOpen={isDeleteModalOpen} setIsDeleteModalOpen={setIsDeleteModalOpen} handleConfirmDelete={handleConfirmDelete} deleteTarget={deleteTarget} isEditSubjectModalOpen={isEditSubjectModalOpen} setEditSubjectModalOpen={setEditSubjectModalOpen} subjectToActOn={subjectToActOn} isDeleteSubjectModalOpen={isDeleteSubjectModalOpen} setDeleteSubjectModalOpen={setDeleteSubjectModalOpen} handleCreateAnnouncement={handleCreateAnnouncement} isChatOpen={isChatOpen} setIsChatOpen={setIsChatOpen} messages={messages} isAiThinking={isAiThinking} handleAskAi={handleAskAi} handleAskAiWrapper={handleAskAiWrapper} aiConversationStarted={aiConversationStarted} setAiConversationStarted={setAiConversationStarted} handleRemoveStudentFromClass={handleRemoveStudentFromClass} setIsAiGenerating={setIsAiGenerating} isAiHubOpen={isAiHubOpen} setIsAiHubOpen={setIsAiHubOpen} reloadKey={reloadKey}
             />

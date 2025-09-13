@@ -34,17 +34,7 @@ const StudentClassCard = ({ classData, onSelect, visual, onDownloadPacket }) => 
             </div>
 
             <div className="mt-5 pt-4 border-t border-slate-200/60 flex items-center justify-between gap-2">
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onDownloadPacket(classData.id);
-                    }}
-                    title="Download for Offline Use"
-                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors"
-                >
-                    <ArrowDownTrayIcon className="h-4 w-4" />
-                    Offline
-                </button>
+                
                 <button
                     onClick={() => onSelect(classData)}
                     className="flex items-center gap-1.5 text-sm font-semibold text-red-600 hover:text-red-700 transition-colors"

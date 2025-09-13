@@ -120,7 +120,7 @@ const StudentDashboardUI = ({
 
     const renderView = () => {
         if (selectedClass) {
-            return <StudentClassDetailView selectedClass={selectedClass} onBack={() => setSelectedClass(null)} />;
+            return <StudentClassDetailView selectedClass={selectedClass} onBack={() => setSelectedClass(null)} setLessonToView={setLessonToView} />;
         }
         switch (view) {
             case 'classes':
