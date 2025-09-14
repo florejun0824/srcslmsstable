@@ -362,7 +362,7 @@ const customSort = (a, b) => {
     return timeA - timeB;
 };
 
-export default function UnitAccordion({ subject, onInitiateDelete, userProfile, isAiGenerating, setIsAiGenerating, activeUnit, onSetActiveUnit, selectedLessons, onLessonSelect }) {
+export default function UnitAccordion({ subject, onInitiateDelete, userProfile, isAiGenerating, setIsAiGenerating, activeUnit, onSetActiveUnit, selectedLessons, onLessonSelect, renderGeneratePptButton }) {
     const [units, setUnits] = useState([]);
     const [allLessons, setAllLessons] = useState([]);
     const [allQuizzes, setAllQuizzes] = useState([]);
@@ -769,84 +769,124 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         return [...lessonsForUnit, ...quizzesForUnit].sort(customSort);
     }, [activeUnit, allLessons, allQuizzes]);
 
-    return (
-        <>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                {activeUnit ? (
-                    (() => {
-                        const isLoading = !allLessons || !allQuizzes;
-                        return (
-                            <div>
-                                {/* ✅ UI/UX: Redesigned "Back" button and the entire header for mobile. */}
-                                <button onClick={() => { onSetActiveUnit(null); setIsReordering(false); }} className="flex items-center gap-1.5 mb-4 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
-                                    <ChevronLeftIcon className="w-4 h-4" />
-                                    <span>Back to All Units</span>
-                                </button>
-                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-                                    <div className="min-w-0">
-                                        <h2 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">{activeUnit.title}</h2>
-                                        <p className="mt-1 text-sm text-slate-600">Structure the learning path for this unit.</p>
-                                    </div>
-                                    <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
-                                        <button 
-                                            onClick={() => setIsReordering(prev => !prev)} 
-                                            className={`font-semibold px-4 py-2 rounded-full transition-all text-sm ${isReordering ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'bg-white text-gray-700 hover:bg-gray-100 border border-slate-300'}`}
-                                        >
-                                            {isReordering ? 'Done' : 'Reorder'}
-                                        </button>
-                                        <AddContentButton onAddLesson={() => handleOpenUnitModal(setAddLessonModalOpen, activeUnit)} onAddQuiz={() => handleOpenUnitModal(setAddQuizModalOpen, activeUnit)} />
-                                    </div>
-                                </div>
-                                {isLoading ? (
-                                    <div className="w-full flex justify-center items-center p-20"><Spinner /></div>
-                                ) : unifiedContent.length > 0 ? (
-                                    <div className={`p-1 sm:p-2 md:p-4 rounded-2xl ${isReordering ? 'bg-indigo-50 ring-2 ring-indigo-300 ring-offset-2' : 'bg-slate-100'}`}>
-                                        <SortableContext items={unifiedContent.map(item => item.id)} strategy={verticalListSortingStrategy}>
-                                            {unifiedContent.map(item => (
-                                                <SortableContentItem
-                                                    key={item.id} item={item}
-                                                    isReordering={isReordering}
-                                                    onView={() => item.type === 'lesson' ? handleOpenLessonModal(setViewLessonModalOpen, item) : handleOpenQuizModal(setViewQuizModalOpen, item)}
-                                                    onEdit={() => item.type === 'lesson' ? handleOpenLessonModal(setEditLessonModalOpen, item) : handleEditQuiz(item)}
-                                                    onDelete={() => onInitiateDelete(item.type, item.id, item.title, item.subjectId)}
-                                                    onGenerateQuiz={() => handleOpenAiQuizModal(item)}
-                                                    onExport={handleExportDocx} onExportUlpPdf={handleExportUlpAsPdf} onExportAtgPdf={handleExportAtgPdf} onExportUlpDocx={handleExportUlpAsDocx}
-                                                    onExportPdf={handleExportLessonPdf}
-                                                    exportingLessonId={exportingLessonId} selectedLessons={selectedLessons} onLessonSelect={onLessonSelect} isAiGenerating={isAiGenerating}
-                                                />
-                                            ))}
-                                        </SortableContext>
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-16 bg-white/70 backdrop-blur-sm rounded-2xl border border-dashed ring-1 ring-black/5 shadow-lg">
-                                        <RectangleStackIcon className="mx-auto h-12 w-12 text-gray-400" />
-                                        <h3 className="mt-2 text-lg font-semibold text-gray-800">This unit is empty</h3>
-                                        <p className="mt-1 text-sm text-gray-500">Add a lesson or a quiz to get started.</p>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })()
-                ) : (
-                    units.length > 0 ? (
-                        <SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {units.map((unit, index) => (
-                                    <SortableUnitCard 
-                                        key={unit.id} 
-                                        unit={unit} 
-                                        onSelect={onSetActiveUnit} 
-                                        onEdit={(unitToEdit) => handleOpenUnitModal(setEditUnitModalOpen, unitToEdit)} 
-                                        onDelete={(unitToDelete) => onInitiateDelete('unit', unitToDelete.id, unitToDelete.title, unitToDelete.subjectId)} 
-                                        onOpenAiHub={handleOpenAiHub} 
-                                        visuals={unitVisuals[index % unitVisuals.length]} 
-                                    />
-                                ))}
-                            </div>
-                        </SortableContext>
-                    ) : (<p className="text-center text-gray-500 py-10">No units in this subject yet. Add one to get started!</p>)
-                )}
-            </DndContext>
+	return (
+	        <>
+	            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+	                {activeUnit ? (
+	                    (() => {
+	                        const isLoading = !allLessons || !allQuizzes;
+	                        return (
+	                            <div>
+	                                {/* Back to all units */}
+	                                <button
+	                                    onClick={() => { onSetActiveUnit(null); setIsReordering(false); }}
+	                                    className="flex items-center gap-1.5 mb-4 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+	                                >
+	                                    <ChevronLeftIcon className="w-4 h-4" />
+	                                    <span>Back to All Units</span>
+	                                </button>
+
+	                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+	                                    <div className="min-w-0">
+	                                        <h2 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">{activeUnit.title}</h2>
+	                                        <p className="mt-1 text-sm text-slate-600">Structure the learning path for this unit.</p>
+	                                    </div>
+
+	                                    <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
+	                                        {/* ✅ Show Generate PPT button if provided */}
+	                                        {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
+
+	                                        <button 
+	                                            onClick={() => setIsReordering(prev => !prev)} 
+	                                            className={`font-semibold px-4 py-2 rounded-full transition-all text-sm ${
+	                                                isReordering
+	                                                    ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
+	                                                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-slate-300'
+	                                            }`}
+	                                        >
+	                                            {isReordering ? 'Done' : 'Reorder'}
+	                                        </button>
+
+	                                        <AddContentButton
+	                                            onAddLesson={() => handleOpenUnitModal(setAddLessonModalOpen, activeUnit)}
+	                                            onAddQuiz={() => handleOpenUnitModal(setAddQuizModalOpen, activeUnit)}
+	                                        />
+	                                    </div>
+	                                </div>
+
+	                                {isLoading ? (
+	                                    <div className="w-full flex justify-center items-center p-20"><Spinner /></div>
+	                                ) : unifiedContent.length > 0 ? (
+	                                    <div className={`p-1 sm:p-2 md:p-4 rounded-2xl ${
+	                                        isReordering ? 'bg-indigo-50 ring-2 ring-indigo-300 ring-offset-2' : 'bg-slate-100'
+	                                    }`}>
+	                                        <SortableContext items={unifiedContent.map(item => item.id)} strategy={verticalListSortingStrategy}>
+	                                            {unifiedContent.map(item => (
+	                                                <SortableContentItem
+	                                                    key={item.id}
+	                                                    item={item}
+	                                                    isReordering={isReordering}
+	                                                    onView={() =>
+	                                                        item.type === 'lesson'
+	                                                            ? handleOpenLessonModal(setViewLessonModalOpen, item)
+	                                                            : handleOpenQuizModal(setViewQuizModalOpen, item)
+	                                                    }
+	                                                    onEdit={() =>
+	                                                        item.type === 'lesson'
+	                                                            ? handleOpenLessonModal(setEditLessonModalOpen, item)
+	                                                            : handleEditQuiz(item)
+	                                                    }
+	                                                    onDelete={() =>
+	                                                        onInitiateDelete(item.type, item.id, item.title, item.subjectId)
+	                                                    }
+	                                                    onGenerateQuiz={() => handleOpenAiQuizModal(item)}
+	                                                    onExport={handleExportDocx}
+	                                                    onExportUlpPdf={handleExportUlpAsPdf}
+	                                                    onExportAtgPdf={handleExportAtgPdf}
+	                                                    onExportUlpDocx={handleExportUlpAsDocx}
+	                                                    onExportPdf={handleExportLessonPdf}
+	                                                    exportingLessonId={exportingLessonId}
+	                                                    selectedLessons={selectedLessons}
+	                                                    onLessonSelect={onLessonSelect}
+	                                                    isAiGenerating={isAiGenerating}
+	                                                />
+	                                            ))}
+	                                        </SortableContext>
+	                                    </div>
+	                                ) : (
+	                                    <div className="text-center py-16 bg-white/70 backdrop-blur-sm rounded-2xl border border-dashed ring-1 ring-black/5 shadow-lg">
+	                                        <RectangleStackIcon className="mx-auto h-12 w-12 text-gray-400" />
+	                                        <h3 className="mt-2 text-lg font-semibold text-gray-800">This unit is empty</h3>
+	                                        <p className="mt-1 text-sm text-gray-500">Add a lesson or a quiz to get started.</p>
+	                                    </div>
+	                                )}
+	                            </div>
+	                        );
+	                    })()
+	                ) : (
+	                    units.length > 0 ? (
+	                        <SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}>
+	                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+	                                {units.map((unit, index) => (
+	                                    <SortableUnitCard 
+	                                        key={unit.id}
+	                                        unit={unit}
+	                                        onSelect={onSetActiveUnit}
+	                                        onEdit={(unitToEdit) => handleOpenUnitModal(setEditUnitModalOpen, unitToEdit)}
+	                                        onDelete={(unitToDelete) => onInitiateDelete('unit', unitToDelete.id, unitToDelete.title, unitToDelete.subjectId)}
+	                                        onOpenAiHub={handleOpenAiHub}
+	                                        visuals={unitVisuals[index % unitVisuals.length]}
+	                                    />
+	                                ))}
+	                            </div>
+	                        </SortableContext>
+	                    ) : (
+	                        <p className="text-center text-gray-500 py-10">
+	                            No units in this subject yet. Add one to get started!
+	                        </p>
+	                    )
+	                )}
+	            </DndContext>
 
             <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} unitId={unitForAi?.id} subjectId={subject?.id} />
             <EditUnitModal isOpen={editUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={selectedUnit} />

@@ -9,3 +9,13 @@ build/.DS_Store
 # Local Netlify folder
 .netlify
 ._*
+
+serviceAccountKey.json
+debugPages.js
+fixDiagramLessons.js
+fixDiagramLessonsCleanup.js
+restoreAllBackups.js
+restoreLessonFromBackup.js
+lms/
+pdf/
+backups/

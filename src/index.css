@@ -284,3 +284,124 @@
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
+/* ================================
+   Lesson Content Styling (iOS-like)
+   ================================ */
+
+.content-renderer {
+  line-height: 1.75;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #1f2937; /* slate-800 */
+}
+
+/* Headings */
+.content-renderer h1,
+.content-renderer h2,
+.content-renderer h3,
+.content-renderer h4 {
+  font-weight: 700;
+  color: #111827; /* slate-900 */
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Paragraphs */
+.content-renderer p {
+  margin-bottom: 1rem;
+}
+
+/* Lists */
+.content-renderer ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+.content-renderer ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+/* ================================
+   Inline Highlights
+   ================================ */
+.content-renderer .highlight-term {
+  background: rgba(37, 99, 235, 0.08); /* subtle blue bg */
+  padding: 0.1rem 0.25rem;
+  border-radius: 0.25rem;
+  color: #1e3a8a; /* indigo-900 */
+  font-weight: 600;
+}
+
+.content-renderer .soft-text {
+  color: #6b7280; /* slate-500 */
+  font-weight: 300;
+}
+
+.content-renderer .strong-text {
+  color: #111827;
+  font-weight: 800;
+}
+
+/* ================================
+   Callout Boxes
+   ================================ */
+
+.content-renderer .callout-info {
+  border-left: 4px solid #2563eb; /* blue-600 */
+  padding: 1rem;
+  margin: 1.25rem 0;
+  border-radius: 0.75rem;
+  background: #eff6ff; /* blue-50 */
+  color: #1e40af; /* blue-900 */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.content-renderer .callout-warning {
+  border-left: 4px solid #facc15; /* yellow-400 */
+  padding: 1rem;
+  margin: 1.25rem 0;
+  border-radius: 0.75rem;
+  background: #fefce8; /* yellow-50 */
+  color: #78350f; /* amber-900 */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.content-renderer .callout-success {
+  border-left: 4px solid #22c55e; /* green-500 */
+  padding: 1rem;
+  margin: 1.25rem 0;
+  border-radius: 0.75rem;
+  background: #ecfdf5; /* green-50 */
+  color: #065f46; /* green-900 */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* ================================
+   Links & Tables
+   ================================ */
+.content-renderer a {
+  color: #2563eb;
+  font-weight: 500;
+  text-decoration: underline;
+}
+.content-renderer a:hover {
+  color: #1d4ed8;
+}
+
+.content-renderer table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 0.95rem;
+}
+.content-renderer th,
+.content-renderer td {
+  border: 1px solid #e5e7eb;
+  padding: 0.75rem;
+  text-align: left;
+}
+.content-renderer th {
+  background: #f9fafb;
+  font-weight: 600;
+}

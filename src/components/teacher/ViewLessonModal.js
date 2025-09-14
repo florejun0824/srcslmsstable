@@ -90,30 +90,40 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, goToNextPage, goToPreviousPage]);
 
-    const handleFinalizeDiagram = async (pageIndex, finalizedContent) => {
-        if (isFinalizing) return;
-        setIsFinalizing(true);
-        showToast("Finalizing diagram...", "info");
+	const handleFinalizeDiagram = async (pageIndex, finalizedContent) => {
+	    if (isFinalizing) return;
+	    setIsFinalizing(true);
+	    showToast("Finalizing diagram...", "info");
 
-        try {
-            const updatedPages = currentLesson.pages.map((page, index) =>
-                index === pageIndex ? { ...page, content: JSON.stringify(finalizedContent) } : page
-            );
-            const updatedLesson = { ...currentLesson, pages: updatedPages };
-            setCurrentLesson(updatedLesson);
+	    try {
+	        const updatedPages = currentLesson.pages.map((page, index) =>
+	            index === pageIndex
+	                ? {
+	                    ...page,
+	                    content: {
+	                        labels: Array.isArray(finalizedContent?.labels) ? finalizedContent.labels : [],
+	                        generatedImageUrl: finalizedContent?.generatedImageUrl || "",
+	                    },
+	                }
+	                : page
+	        );
 
-            await updateDoc(doc(db, 'lessons', currentLesson.id), { pages: updatedPages });
+	        const updatedLesson = { ...currentLesson, pages: updatedPages };
+	        setCurrentLesson(updatedLesson);
 
-            showToast("Diagram saved successfully!", "success");
-            if (onUpdate) onUpdate(updatedLesson);
-        } catch (error) {
-            console.error("Error finalizing diagram:", error);
-            showToast("Failed to save the finalized diagram.", "error");
-            setCurrentLesson(lesson);
-        } finally {
-            setIsFinalizing(false);
-        }
-    };
+	        await updateDoc(doc(db, 'lessons', currentLesson.id), { pages: updatedPages });
+
+	        showToast("Diagram saved successfully!", "success");
+	        if (onUpdate) onUpdate(updatedLesson);
+	    } catch (error) {
+	        console.error("Error finalizing diagram:", error);
+	        showToast("Failed to save the finalized diagram.", "error");
+	        setCurrentLesson(lesson);
+	    } finally {
+	        setIsFinalizing(false);
+	    }
+	};
+
 
     if (!isOpen || !currentLesson) return null;
 

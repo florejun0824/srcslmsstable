@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+// src/components/teacher/TeacherDashboardLayout.js
+
+import React, { useState } from 'react';
 import {
     FaHouse, FaUserGroup, FaBook, FaBookOpen, FaUser, FaShieldHalved, FaArrowRightFromBracket
 } from 'react-icons/fa6';
 import { Bars3Icon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-// ✅ FIXED: Added 'query' and 'collection' to the import list
 import { getDocs, writeBatch, doc, where, query, collection } from 'firebase/firestore'; 
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
@@ -21,6 +22,7 @@ import ClassesView from './dashboard/views/ClassesView';
 import CoursesView from './dashboard/views/CoursesView';
 import StudentManagementView from './dashboard/views/StudentManagementView';
 import ProfileView from './dashboard/views/ProfileView';
+import SubjectDetailView from './SubjectDetailView';
 
 // Import all modals
 import ArchivedClassesModal from './ArchivedClassesModal';
@@ -65,13 +67,9 @@ const TeacherDashboardLayout = (props) => {
         isAiHubOpen, setIsAiHubOpen, activeSubject,
         activeUnit, onSetActiveUnit, setViewLessonModalOpen,
         reloadKey,
-        // Deletion props
         isDeleteModalOpen, setIsDeleteModalOpen, handleConfirmDelete, deleteTarget, handleInitiateDelete,
-        
-        // ADDED: Destructure the new function and courses from props
         handleCreateUnit,
         courses,
-
         ...rest
     } = props;
     
@@ -143,16 +141,40 @@ const TeacherDashboardLayout = (props) => {
                 </div>
             );
         }
-        switch (activeView) {
-            case 'home': return <HomeView key={`${reloadKey}-home`} userProfile={userProfile} handleViewChange={handleViewChange} {...rest} />;
-            case 'classes': return <ClassesView key={`${reloadKey}-classes`} {...rest} />;
-            case 'courses': return <CoursesView key={`${reloadKey}-courses`} {...rest} userProfile={userProfile} activeSubject={activeSubject} isAiGenerating={isAiGenerating} setIsAiHubOpen={setIsAiHubOpen} activeUnit={activeUnit} onSetActiveUnit={onSetActiveUnit} courses={courses} courseCategories={courseCategories} handleEditCategory={handleEditCategory} onAddSubjectClick={handleAddSubjectWithCategory} handleInitiateDelete={handleInitiateDelete} />;
-            case 'studentManagement': return <StudentManagementView key={`${reloadKey}-sm`} {...rest} />;
-            case 'profile': return <ProfileView key={`${reloadKey}-profile`} user={user} userProfile={userProfile} logout={logout} {...rest} />;
-            case 'admin': return <div key={`${reloadKey}-admin`} className="p-4 sm:p-6 text-gray-800"><AdminDashboard /></div>;
-            default: return <HomeView key={`${reloadKey}-default`} userProfile={userProfile} handleViewChange={handleViewChange} {...rest} />;
-        }
-    };
+		switch (activeView) {
+		            case 'home': 
+		                return <HomeView key={`${reloadKey}-home`} userProfile={userProfile} handleViewChange={handleViewChange} {...rest} />;
+		            case 'classes': 
+		                return <ClassesView key={`${reloadKey}-classes`} {...rest} />;
+		            case 'courses': 
+		                return (
+		                    <CoursesView 
+		                        key={`${reloadKey}-courses`} 
+		                        {...rest} 
+		                        userProfile={userProfile} 
+		                        activeSubject={activeSubject} 
+		                        isAiGenerating={isAiGenerating} 
+		                        setIsAiGenerating={setIsAiGenerating}
+		                        setIsAiHubOpen={setIsAiHubOpen} 
+		                        activeUnit={activeUnit} 
+		                        onSetActiveUnit={onSetActiveUnit} 
+		                        courses={courses} 
+		                        courseCategories={courseCategories} 
+		                        handleEditCategory={handleEditCategory} 
+		                        onAddSubjectClick={handleAddSubjectWithCategory} 
+		                        handleInitiateDelete={handleInitiateDelete} 
+		                    />
+		                );
+		            case 'studentManagement': 
+		                return <StudentManagementView key={`${reloadKey}-sm`} {...rest} />;
+		            case 'profile': 
+		                return <ProfileView key={`${reloadKey}-profile`} user={user} userProfile={userProfile} logout={logout} {...rest} />;
+		            case 'admin': 
+		                return <div key={`${reloadKey}-admin`} className="p-4 sm:p-6 text-gray-800"><AdminDashboard /></div>;
+		            default: 
+		                return <HomeView key={`${reloadKey}-default`} userProfile={userProfile} handleViewChange={handleViewChange} {...rest} />;
+		        }
+		    };
 
     return (
         <>
@@ -223,7 +245,6 @@ const TeacherDashboardLayout = (props) => {
             <ChangePasswordModal isOpen={rest.isChangePasswordModalOpen} onClose={() => rest.setChangePasswordModalOpen(false)} onSubmit={rest.handleChangePassword} />
             <CreateCategoryModal isOpen={rest.isCreateCategoryModalOpen} onClose={() => rest.setCreateCategoryModalOpen(false)} teacherId={user?.uid || user?.id} />
             
-            {/* ✅ FIXED: Corrected the typo from 'categoryToedit' to 'categoryToEdit' */}
             {categoryToEdit && <EditCategoryModal isOpen={isEditCategoryModalOpen} onClose={() => setIsEditCategoryModalOpen(false)} categoryName={categoryToEdit.name} onSave={handleRenameCategory} />}
 
             <CreateClassModal isOpen={rest.isCreateClassModalOpen} onClose={() => rest.setCreateClassModalOpen(false)} teacherId={user?.uid || user?.id} />
@@ -232,7 +253,18 @@ const TeacherDashboardLayout = (props) => {
             <EditClassModal isOpen={rest.isEditClassModalOpen} onClose={() => rest.setEditClassModalOpen(false)} classData={rest.classToEdit} />
             <AddUnitModal isOpen={rest.isAddUnitModalOpen} onClose={() => rest.setAddUnitModalOpen(false)} subjectId={activeSubject?.id} onCreateUnit={handleCreateUnit} />
             {rest.selectedUnit && <EditUnitModal isOpen={rest.editUnitModalOpen} onClose={() => rest.setEditUnitModalOpen(false)} unit={rest.selectedUnit} />}
-            {rest.selectedUnit && <AddLessonModal isOpen={rest.addLessonModalOpen} onClose={() => rest.setAddLessonModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} setIsAiGenerating={setIsAiGenerating} />}
+            
+            {/* ✅ FIXED: explicitly pass props.setIsAiGenerating */}
+            {rest.selectedUnit && (
+              <AddLessonModal
+                isOpen={rest.addLessonModalOpen}
+                onClose={() => rest.setAddLessonModalOpen(false)}
+                unitId={rest.selectedUnit?.id}
+                subjectId={activeSubject?.id}
+                setIsAiGenerating={props.setIsAiGenerating}
+              />
+            )}
+
             {rest.selectedUnit && <AddQuizModal isOpen={rest.addQuizModalOpen} onClose={() => rest.setAddQuizModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} />}
             {rest.selectedUnit && <DeleteUnitModal isOpen={rest.deleteUnitModalOpen} onClose={() => rest.setDeleteUnitModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} />}
             {rest.selectedLesson && <EditLessonModal isOpen={rest.editLessonModalOpen} onClose={() => rest.setEditLessonModalOpen(false)} lesson={rest.selectedLesson} />}
@@ -249,8 +281,8 @@ const TeacherDashboardLayout = (props) => {
                         const isActive = activeView === item.view;
                         return (
                             <button key={item.view} onClick={() => handleViewChange(item.view)} className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all duration-300 ${isActive ? 'bg-indigo-100/70' : 'hover:bg-slate-100'}`}>
-                                <item.icon className={`h-6 w-6 mb-0.5 transition-all ${isActive ? item.color : 'text-gray-500'}`} />
-                                <span className={`text-xs font-semibold transition-colors ${isActive ? 'text-indigo-700' : 'text-gray-600'}`}>{item.text}</span>
+                                <item.icon className={`h-6 w-6 mb-0.5 ${isActive ? 'text-indigo-600' : 'text-gray-500'}`} />
+                                <span className={`text-xs font-medium ${isActive ? 'text-indigo-600' : 'text-gray-500'}`}>{item.text}</span>
                             </button>
                         );
                     })}

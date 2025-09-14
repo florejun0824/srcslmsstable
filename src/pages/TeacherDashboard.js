@@ -1,8 +1,12 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-// ✅ MODIFIED: Ensured serverTimestamp is imported for all updates
-import { addDoc, serverTimestamp, collection, query, where, onSnapshot, orderBy, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, getDocs, writeBatch, runTransaction, Timestamp } from 'firebase/firestore';
+import {
+  addDoc, serverTimestamp, collection, query, where, onSnapshot, orderBy,
+  doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, getDocs, writeBatch,
+  runTransaction, Timestamp
+} from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { callGeminiWithLimitCheck } from '../services/aiService';
 import { createPresentationFromData } from '../services/googleSlidesService';
@@ -11,70 +15,69 @@ import PresentationPreviewModal from '../components/teacher/PresentationPreviewM
 import BetaWarningModal from '../components/teacher/BetaWarningModal';
 
 const TeacherDashboard = () => {
-    // ... (all existing state variables remain the same) ...
-    const { user, userProfile, logout, firestoreService, refreshUserProfile } = useAuth();
-    const { showToast } = useToast();
-    const [classes, setClasses] = useState([]);
-    const [courses, setCourses] = useState([]);
-    const [courseCategories, setCourseCategories] = useState([]);
-    const [teacherAnnouncements, setTeacherAnnouncements] = useState([]);
+  const { user, userProfile, logout, firestoreService, refreshUserProfile } = useAuth();
+  const { showToast } = useToast();
 
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [activeView, setActiveView] = useState('home');
-    const [selectedCategory, setSelectedCategory] = useState(null);
-    const [activeSubject, setActiveSubject] = useState(null);
-    const [activeUnit, setActiveUnit] = useState(null);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [categoryToEdit, setCategoryToEdit] = useState(null);
-    const [classToEdit, setClassToEdit] = useState(null);
-    const [classOverviewModal, setClassOverviewModal] = useState({ isOpen: false, data: null });
-    const [isCreateClassModalOpen, setCreateClassModalOpen] = useState(false);
-    const [isCreateCourseModalOpen, setCreateCourseModalOpen] = useState(false);
-    const [isCreateCategoryModalOpen, setCreateCategoryModalOpen] = useState(false);
-    const [isEditCategoryModalOpen, setEditCategoryModalOpen] = useState(false);
-    const [isEditClassModalOpen, setEditClassModalOpen] = useState(false);
-    const [isAddUnitModalOpen, setAddUnitModalOpen] = useState(false);
-    const [isShareContentModalOpen, setShareContentModalOpen] = useState(false);
-    const [editLessonModalOpen, setEditLessonModalOpen] = useState(false);
-    const [viewLessonModalOpen, setViewLessonModalOpen] = useState(false);
-    const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
-    const [addQuizModalOpen, setAddQuizModalOpen] = useState(false);
-    const [deleteUnitModalOpen, setDeleteUnitModalOpen] = useState(false);
-    const [editUnitModalOpen, setEditUnitModalOpen] = useState(false);
-    const [selectedUnit, setSelectedUnit] = useState(null);
-    const [selectedLesson, setSelectedLesson] = useState(null);
-    const [isEditProfileModalOpen, setEditProfileModalOpen] = useState(false);
-    const [isChangePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
-    const [isArchivedModalOpen, setIsArchivedModalOpen] = useState(false);
-    const [isHoveringActions, setIsHoveringActions] = useState(false);
-    const [editingAnnId, setEditingAnnId] = useState(null);
-    const [editingAnnText, setEditingAnnText] = useState('');
-    const [importClassSearchTerm, setImportClassSearchTerm] = useState('');
-    const [allLmsClasses, setAllLmsClasses] = useState([]);
-    const [selectedClassForImport, setSelectedClassForImport] = useState(null);
-    const [studentsToImport, setStudentsToImport] = useState(new Set());
-    const [importTargetClassId, setImportTargetClassId] = useState('');
-    const [isImporting, setIsImporting] = useState(false);
-    const [isImportViewLoading, setIsImportViewLoading] = useState(false);
-    const [deleteTarget, setDeleteTarget] = useState(null);
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [isAiGenerating, setIsAiGenerating] = useState(false);
-    const [subjectToActOn, setSubjectToActOn] = useState(null);
-    const [isEditSubjectModalOpen, setEditSubjectModalOpen] = useState(false);
-    const [isDeleteSubjectModalOpen, setDeleteSubjectModalOpen] = useState(false);
-    const [isChatOpen, setIsChatOpen] = useState(false);
-    const [messages, setMessages] = useState([]);
-    const [isAiThinking, setIsAiThinking] = useState(false);
-    const [isAiHubOpen, setIsAiHubOpen] = useState(false);
-    const [aiConversationStarted, setAiConversationStarted] = useState(false);
-    const [presentationPreviewData, setPresentationPreviewData] = useState(null);
-    const [isPresentationPreviewModalOpen, setPresentationPreviewModalOpen] = useState(false);
-    const [isSavingPresentation, setIsSavingPresentation] = useState(false);
-    const [isBetaWarningModalOpen, setIsBetaWarningModalOpen] = useState(false);
-    const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState([]);
-    const [reloadKey, setReloadKey] = useState(0);
-
+  // --- existing state variables (unchanged) ---
+  const [classes, setClasses] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [courseCategories, setCourseCategories] = useState([]);
+  const [teacherAnnouncements, setTeacherAnnouncements] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [activeView, setActiveView] = useState('home');
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [activeSubject, setActiveSubject] = useState(null);
+  const [activeUnit, setActiveUnit] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [categoryToEdit, setCategoryToEdit] = useState(null);
+  const [classToEdit, setClassToEdit] = useState(null);
+  const [classOverviewModal, setClassOverviewModal] = useState({ isOpen: false, data: null });
+  const [isCreateClassModalOpen, setCreateClassModalOpen] = useState(false);
+  const [isCreateCourseModalOpen, setCreateCourseModalOpen] = useState(false);
+  const [isCreateCategoryModalOpen, setCreateCategoryModalOpen] = useState(false);
+  const [isEditCategoryModalOpen, setEditCategoryModalOpen] = useState(false);
+  const [isEditClassModalOpen, setEditClassModalOpen] = useState(false);
+  const [isAddUnitModalOpen, setAddUnitModalOpen] = useState(false);
+  const [isShareContentModalOpen, setShareContentModalOpen] = useState(false);
+  const [editLessonModalOpen, setEditLessonModalOpen] = useState(false);
+  const [viewLessonModalOpen, setViewLessonModalOpen] = useState(false);
+  const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
+  const [addQuizModalOpen, setAddQuizModalOpen] = useState(false);
+  const [deleteUnitModalOpen, setDeleteUnitModalOpen] = useState(false);
+  const [editUnitModalOpen, setEditUnitModalOpen] = useState(false);
+  const [selectedUnit, setSelectedUnit] = useState(null);
+  const [selectedLesson, setSelectedLesson] = useState(null);
+  const [isEditProfileModalOpen, setEditProfileModalOpen] = useState(false);
+  const [isChangePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
+  const [isArchivedModalOpen, setIsArchivedModalOpen] = useState(false);
+  const [isHoveringActions, setIsHoveringActions] = useState(false);
+  const [editingAnnId, setEditingAnnId] = useState(null);
+  const [editingAnnText, setEditingAnnText] = useState('');
+  const [importClassSearchTerm, setImportClassSearchTerm] = useState('');
+  const [allLmsClasses, setAllLmsClasses] = useState([]);
+  const [selectedClassForImport, setSelectedClassForImport] = useState(null);
+  const [studentsToImport, setStudentsToImport] = useState(new Set());
+  const [importTargetClassId, setImportTargetClassId] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [isImportViewLoading, setIsImportViewLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isAiGenerating, setIsAiGenerating] = useState(false); // ✅ GLOBAL SPINNER STATE
+  const [subjectToActOn, setSubjectToActOn] = useState(null);
+  const [isEditSubjectModalOpen, setEditSubjectModalOpen] = useState(false);
+  const [isDeleteSubjectModalOpen, setDeleteSubjectModalOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [isAiThinking, setIsAiThinking] = useState(false);
+  const [isAiHubOpen, setIsAiHubOpen] = useState(false);
+  const [aiConversationStarted, setAiConversationStarted] = useState(false);
+  const [presentationPreviewData, setPresentationPreviewData] = useState(null);
+  const [isPresentationPreviewModalOpen, setPresentationPreviewModalOpen] = useState(false);
+  const [isSavingPresentation, setIsSavingPresentation] = useState(false);
+  const [isBetaWarningModalOpen, setIsBetaWarningModalOpen] = useState(false);
+  const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState([]);
+  const [reloadKey, setReloadKey] = useState(0);
     // ... (all useEffect hooks remain the same) ...
     useEffect(() => {
         if (userProfile && messages.length === 0) {
@@ -574,10 +577,139 @@ const TeacherDashboard = () => {
 
     return (
         <>
-            <TeacherDashboardLayout
-                handleCreateUnit={handleCreateUnit}
-                user={user} userProfile={userProfile} loading={loading} error={error} activeView={activeView} handleViewChange={handleViewChange} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} logout={logout} showToast={showToast} activeClasses={activeClasses} archivedClasses={archivedClasses} courses={courses} courseCategories={courseCategories} teacherAnnouncements={teacherAnnouncements} selectedCategory={selectedCategory} handleCategoryClick={handleCategoryClick} handleBackToCategoryList={handleBackToCategoryList} activeSubject={activeSubject} setActiveSubject={setActiveSubject} activeUnit={activeUnit} onSetActiveUnit={setActiveUnit} handleOpenEditClassModal={handleOpenEditClassModal} handleArchiveClass={handleArchiveClass} handleDeleteClass={handleDeleteClass} isHoveringActions={isHoveringActions} setIsHoveringActions={setIsHoveringActions} setClassOverviewModal={setClassOverviewModal} setIsArchivedModalOpen={setIsArchivedModalOpen} setCreateClassModalOpen={setCreateClassModalOpen} setCreateCategoryModalOpen={setCreateCategoryModalOpen} setCreateCourseModalOpen={setCreateCourseModalOpen} handleEditCategory={handleEditCategory} handleOpenEditSubject={handleOpenEditSubject} handleOpenDeleteSubject={handleOpenDeleteSubject} setShareContentModalOpen={setShareContentModalOpen} handleInitiateDelete={handleInitiateDelete} handleGenerateQuizForLesson={handleGenerateQuizForLesson} onGeneratePresentationPreview={handleInitiatePresentationGeneration} isAiGenerating={isAiGenerating} setEditProfileModalOpen={setEditProfileModalOpen} setChangePasswordModalOpen={setChangePasswordModalOpen} editingAnnId={editingAnnId} editingAnnText={editingAnnText} setEditingAnnText={setEditingAnnText} handleStartEditAnn={handleStartEditAnn} handleUpdateTeacherAnn={handleUpdateTeacherAnn} setEditingAnnId={setEditingAnnId} handleDeleteTeacherAnn={handleDeleteTeacherAnn} handleTogglePinAnnouncement={handleTogglePinAnnouncement} importClassSearchTerm={importClassSearchTerm} setImportClassSearchTerm={setImportClassSearchTerm} allLmsClasses={allLmsClasses} filteredLmsClasses={filteredLmsClasses} isImportViewLoading={isImportViewLoading} selectedClassForImport={selectedClassForImport} setSelectedClassForImport={setSelectedClassForImport} handleBackToClassSelection={handleBackToClassSelection} importTargetClassId={importTargetClassId} setImportTargetClassId={setImportTargetClassId} handleImportStudents={handleImportStudents} isImporting={isImporting} studentsToImport={studentsToImport} handleToggleStudentForImport={handleToggleStudentForImport} handleSelectAllStudents={handleSelectAllStudents} isArchivedModalOpen={isArchivedModalOpen} handleUnarchiveClass={handleUnarchiveClass} isEditProfileModalOpen={isEditProfileModalOpen} handleUpdateProfile={handleUpdateProfile} isChangePasswordModalOpen={isChangePasswordModalOpen} handleChangePassword={handleChangePassword} isCreateCategoryModalOpen={isCreateCategoryModalOpen} isEditCategoryModalOpen={isEditCategoryModalOpen} setEditCategoryModalOpen={setEditCategoryModalOpen} categoryToEdit={categoryToEdit} isCreateClassModalOpen={isCreateClassModalOpen} isCreateCourseModalOpen={isCreateCourseModalOpen} classOverviewModal={classOverviewModal} isEditClassModalOpen={isEditClassModalOpen} setEditClassModalOpen={setEditClassModalOpen} classToEdit={classToEdit} isAddUnitModalOpen={isAddUnitModalOpen} setAddUnitModalOpen={setAddUnitModalOpen} editUnitModalOpen={editUnitModalOpen} setEditUnitModalOpen={setEditUnitModalOpen} selectedUnit={selectedUnit} addLessonModalOpen={addLessonModalOpen} setAddLessonModalOpen={setAddLessonModalOpen} addQuizModalOpen={addQuizModalOpen} setAddQuizModalOpen={setAddQuizModalOpen} deleteUnitModalOpen={deleteUnitModalOpen} setDeleteUnitModalOpen={setDeleteUnitModalOpen} editLessonModalOpen={editLessonModalOpen} setEditLessonModalOpen={setEditLessonModalOpen} selectedLesson={selectedLesson} viewLessonModalOpen={viewLessonModalOpen} setViewLessonModalOpen={setViewLessonModalOpen} isShareContentModalOpen={isShareContentModalOpen} isDeleteModalOpen={isDeleteModalOpen} setIsDeleteModalOpen={setIsDeleteModalOpen} handleConfirmDelete={handleConfirmDelete} deleteTarget={deleteTarget} isEditSubjectModalOpen={isEditSubjectModalOpen} setEditSubjectModalOpen={setEditSubjectModalOpen} subjectToActOn={subjectToActOn} isDeleteSubjectModalOpen={isDeleteSubjectModalOpen} setDeleteSubjectModalOpen={setDeleteSubjectModalOpen} handleCreateAnnouncement={handleCreateAnnouncement} isChatOpen={isChatOpen} setIsChatOpen={setIsChatOpen} messages={messages} isAiThinking={isAiThinking} handleAskAi={handleAskAi} handleAskAiWrapper={handleAskAiWrapper} aiConversationStarted={aiConversationStarted} setAiConversationStarted={setAiConversationStarted} handleRemoveStudentFromClass={handleRemoveStudentFromClass} setIsAiGenerating={setIsAiGenerating} isAiHubOpen={isAiHubOpen} setIsAiHubOpen={setIsAiHubOpen} reloadKey={reloadKey}
-            />
+		{isAiGenerating && (
+		        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
+		          <div className="bg-white px-6 py-4 rounded-xl shadow-lg flex flex-col items-center">
+		            <div className="animate-spin h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full mb-3"></div>
+		            <p className="text-gray-700 font-medium">AI is generating content... Please wait.</p>
+		          </div>
+		        </div>
+		      )}
+			<TeacherDashboardLayout
+			  handleCreateUnit={handleCreateUnit}
+			  user={user}
+			  userProfile={userProfile}
+			  loading={loading}
+			  error={error}
+			  activeView={activeView}
+			  handleViewChange={handleViewChange}
+			  isSidebarOpen={isSidebarOpen}
+			  setIsSidebarOpen={setIsSidebarOpen}
+			  logout={logout}
+			  showToast={showToast}
+			  activeClasses={activeClasses}
+			  archivedClasses={archivedClasses}
+			  courses={courses}
+			  courseCategories={courseCategories}
+			  teacherAnnouncements={teacherAnnouncements}
+			  selectedCategory={selectedCategory}
+			  handleCategoryClick={handleCategoryClick}
+			  handleBackToCategoryList={handleBackToCategoryList}
+			  activeSubject={activeSubject}
+			  setActiveSubject={setActiveSubject}
+			  activeUnit={activeUnit}
+			  onSetActiveUnit={setActiveUnit}
+			  handleOpenEditClassModal={handleOpenEditClassModal}
+			  handleArchiveClass={handleArchiveClass}
+			  handleDeleteClass={handleDeleteClass}
+			  isHoveringActions={isHoveringActions}
+			  setIsHoveringActions={setIsHoveringActions}
+			  setClassOverviewModal={setClassOverviewModal}
+			  setIsArchivedModalOpen={setIsArchivedModalOpen}
+			  setCreateClassModalOpen={setCreateClassModalOpen}
+			  setCreateCategoryModalOpen={setCreateCategoryModalOpen}
+			  setCreateCourseModalOpen={setCreateCourseModalOpen}
+			  handleEditCategory={handleEditCategory}
+			  handleOpenEditSubject={handleOpenEditSubject}
+			  handleOpenDeleteSubject={handleOpenDeleteSubject}
+			  setShareContentModalOpen={setShareContentModalOpen}
+			  handleInitiateDelete={handleInitiateDelete}
+			  handleGenerateQuizForLesson={handleGenerateQuizForLesson}
+			  onGeneratePresentationPreview={handleInitiatePresentationGeneration}
+			  isAiGenerating={isAiGenerating}
+			  setIsAiGenerating={setIsAiGenerating}
+			  setEditProfileModalOpen={setEditProfileModalOpen}
+			  setChangePasswordModalOpen={setChangePasswordModalOpen}
+			  editingAnnId={editingAnnId}
+			  editingAnnText={editingAnnText}
+			  setEditingAnnText={setEditingAnnText}
+			  handleStartEditAnn={handleStartEditAnn}
+			  handleUpdateTeacherAnn={handleUpdateTeacherAnn}
+			  setEditingAnnId={setEditingAnnId}
+			  handleDeleteTeacherAnn={handleDeleteTeacherAnn}
+			  handleTogglePinAnnouncement={handleTogglePinAnnouncement}
+			  importClassSearchTerm={importClassSearchTerm}
+			  setImportClassSearchTerm={setImportClassSearchTerm}
+			  allLmsClasses={allLmsClasses}
+			  filteredLmsClasses={filteredLmsClasses}
+			  isImportViewLoading={isImportViewLoading}
+			  selectedClassForImport={selectedClassForImport}
+			  setSelectedClassForImport={setSelectedClassForImport}
+			  handleBackToClassSelection={handleBackToClassSelection}
+			  importTargetClassId={importTargetClassId}
+			  setImportTargetClassId={setImportTargetClassId}
+			  handleImportStudents={handleImportStudents}
+			  isImporting={isImporting}
+			  studentsToImport={studentsToImport}
+			  handleToggleStudentForImport={handleToggleStudentForImport}
+			  handleSelectAllStudents={handleSelectAllStudents}
+			  isArchivedModalOpen={isArchivedModalOpen}
+			  handleUnarchiveClass={handleUnarchiveClass}
+			  isEditProfileModalOpen={isEditProfileModalOpen}
+			  handleUpdateProfile={handleUpdateProfile}
+			  isChangePasswordModalOpen={isChangePasswordModalOpen}
+			  handleChangePassword={handleChangePassword}
+			  isCreateCategoryModalOpen={isCreateCategoryModalOpen}
+			  isEditCategoryModalOpen={isEditCategoryModalOpen}
+			  setEditCategoryModalOpen={setEditCategoryModalOpen}
+			  categoryToEdit={categoryToEdit}
+			  isCreateClassModalOpen={isCreateClassModalOpen}
+			  isCreateCourseModalOpen={isCreateCourseModalOpen}
+			  classOverviewModal={classOverviewModal}
+			  isEditClassModalOpen={isEditClassModalOpen}
+			  setEditClassModalOpen={setEditClassModalOpen}
+			  classToEdit={classToEdit}
+			  isAddUnitModalOpen={isAddUnitModalOpen}
+			  setAddUnitModalOpen={setAddUnitModalOpen}
+			  editUnitModalOpen={editUnitModalOpen}
+			  setEditUnitModalOpen={setEditUnitModalOpen}
+			  selectedUnit={selectedUnit}
+			  addLessonModalOpen={addLessonModalOpen}
+			  setAddLessonModalOpen={setAddLessonModalOpen}
+			  addQuizModalOpen={addQuizModalOpen}
+			  setAddQuizModalOpen={setAddQuizModalOpen}
+			  deleteUnitModalOpen={deleteUnitModalOpen}
+			  setDeleteUnitModalOpen={setDeleteUnitModalOpen}
+			  editLessonModalOpen={editLessonModalOpen}
+			  setEditLessonModalOpen={setEditLessonModalOpen}
+			  selectedLesson={selectedLesson}
+			  viewLessonModalOpen={viewLessonModalOpen}
+			  setViewLessonModalOpen={setViewLessonModalOpen}
+			  isShareContentModalOpen={isShareContentModalOpen}
+			  isDeleteModalOpen={isDeleteModalOpen}
+			  setIsDeleteModalOpen={setIsDeleteModalOpen}
+			  handleConfirmDelete={handleConfirmDelete}
+			  deleteTarget={deleteTarget}
+			  isEditSubjectModalOpen={isEditSubjectModalOpen}
+			  setEditSubjectModalOpen={setEditSubjectModalOpen}
+			  subjectToActOn={subjectToActOn}
+			  isDeleteSubjectModalOpen={isDeleteSubjectModalOpen}
+			  setDeleteSubjectModalOpen={setDeleteSubjectModalOpen}
+			  handleCreateAnnouncement={handleCreateAnnouncement}
+			  isChatOpen={isChatOpen}
+			  setIsChatOpen={setIsChatOpen}
+			  messages={messages}
+			  isAiThinking={isAiThinking}
+			  handleAskAi={handleAskAi}
+			  handleAskAiWrapper={handleAskAiWrapper}
+			  aiConversationStarted={aiConversationStarted}
+			  setAiConversationStarted={setAiConversationStarted}
+			  handleRemoveStudentFromClass={handleRemoveStudentFromClass}
+			  isAiHubOpen={isAiHubOpen}
+			  setIsAiHubOpen={setIsAiHubOpen}
+			  reloadKey={reloadKey}
+			/>
+            
             <BetaWarningModal isOpen={isBetaWarningModalOpen} onClose={() => setIsBetaWarningModalOpen(false)} onConfirm={handleConfirmBetaWarning} title="AI Presentation Generator" />
             <PresentationPreviewModal isOpen={isPresentationPreviewModalOpen} onClose={() => setPresentationPreviewModalOpen(false)} previewData={presentationPreviewData} onConfirm={handleCreatePresentation} isSaving={isSavingPresentation} />
         </>

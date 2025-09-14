@@ -1,7 +1,7 @@
 // src/components/teacher/EditLessonModal.js
 
 import React, { useState, useEffect, useRef } from 'react';
-import { db } from '../../services/firebase';
+import { db } from '../../services/firebase'; // ✅ removed updateLesson
 import { doc, updateDoc } from 'firebase/firestore';
 import {
     Dialog, DialogPanel, Title, Button, TextInput, Textarea, TabGroup, TabList, Tab, TabPanels, TabPanel
@@ -160,25 +160,45 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
         if (lesson) {
             setTitle(lesson.title || '');
             setStudyGuideUrl(lesson.studyGuideUrl || '');
-            const formattedPages = lesson.pages?.map(page => {
-                let contentToUse = page.content;
-                let pageType = page.type;
 
-                // ✨ MODIFIED: If the page type is not 'diagram-data' or 'video', default it to 'text'.
+            const formattedPages = lesson.pages?.map(page => {
+                let pageType = page.type;
+                let contentToUse = page.content;
+
                 if (pageType !== 'diagram-data' && pageType !== 'video') {
                     pageType = 'text';
                 }
 
-                if (pageType === 'diagram-data' && typeof page.content === 'string') {
-                    try {
-                        contentToUse = JSON.parse(page.content);
-                    } catch (e) {
-                        contentToUse = { labels: [], generatedImageUrl: page.content || '' };
+                if (pageType === 'diagram-data') {
+                    if (typeof page.content === 'string') {
+                        try {
+                            contentToUse = JSON.parse(page.content);
+                        } catch (e) {
+                            contentToUse = { labels: [], generatedImageUrl: page.content || '' };
+                        }
+                    } else if (typeof page.content === 'object' && page.content !== null) {
+                        contentToUse = {
+                            labels: Array.isArray(page.content.labels) ? page.content.labels : [],
+                            generatedImageUrl: page.content.generatedImageUrl || '',
+                        };
+                    } else {
+                        contentToUse = { labels: [], generatedImageUrl: '' };
                     }
                 }
-                return { ...page, content: contentToUse, type: pageType, id: `page-${Math.random()}` };
+
+                return {
+                    ...page,
+                    content: contentToUse,
+                    type: pageType,
+                    id: `page-${Math.random()}`,
+                };
             }) || [];
-            setPages(formattedPages.length > 0 ? formattedPages : [{ id: `page-${Math.random()}`, title: '', content: '', type: 'text' }]);
+
+            setPages(
+                formattedPages.length > 0
+                    ? formattedPages
+                    : [{ id: `page-${Math.random()}`, title: '', content: '', type: 'text' }]
+            );
             setActivePageIndex(0);
         }
     }, [lesson]);
@@ -233,37 +253,41 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
     };
 
     const handleUpdateLesson = async () => {
-        setLoading(true);
-        setError('');
         try {
-            const lessonRef = doc(db, 'lessons', lesson.id);
-            const pagesToSave = pages.map(({ id, ...page }) => {
-                if (page.type === 'diagram-data') {
-                    const contentToSave = typeof page.content === 'object' ? page.content : { labels: [], generatedImageUrl: '' };
-                    return { ...page, content: JSON.stringify(contentToSave) };
+            setLoading(true);
+
+            const updatedPages = pages.map(page => {
+                if (page.type === "diagram-data") {
+                    return {
+                        ...page,
+                        content: {
+                            labels: Array.isArray(page.content?.labels) ? page.content.labels : [],
+                            generatedImageUrl: page.content?.generatedImageUrl || ""
+                        }
+                    };
                 }
-                return {
-                    ...page,
-                    title: cleanTextInput(page.title),
-                    content: page.content,
-                    type: page.type || 'text'
-                };
+                return { ...page, content: page.content || '' };
             });
 
-            await updateDoc(lessonRef, {
-                title: cleanTextInput(title),
-                studyGuideUrl: cleanTextInput(studyGuideUrl),
-                pages: pagesToSave,
-            });
+            const updatedLesson = {
+                ...lesson,
+                title,
+                studyGuideUrl,
+                pages: updatedPages
+            };
+
+            const lessonRef = doc(db, "lessons", lesson.id);
+            await updateDoc(lessonRef, updatedLesson);
+
             onClose();
-        } catch (err) {
-            console.error("Error updating lesson: ", err);
-            setError("Failed to update lesson. Please try again.");
+        } catch (error) {
+            console.error("Error updating lesson:", error);
+            setError("Failed to update lesson.");
         } finally {
             setLoading(false);
         }
     };
-    
+
     const activePage = pages[activePageIndex] || { title: '', content: '', type: 'text' };
     const pageTypeIndex = ['text', 'diagram-data', 'video'].indexOf(activePage.type);
 
@@ -279,8 +303,9 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                 </div>
 
                 <div className="flex-grow grid grid-cols-12 gap-6 pt-4 overflow-hidden">
+                    {/* Sidebar */}
                     <div className="col-span-4 lg:col-span-3 flex flex-col overflow-y-auto pr-2">
-                         <h3 className="text-lg font-medium text-gray-800 mb-3">Pages</h3>
+                        <h3 className="text-lg font-medium text-gray-800 mb-3">Pages</h3>
                         <DragDropContext onDragEnd={handleOnDragEnd}>
                             <StrictModeDroppable droppableId="pages">
                                 {(provided) => (
@@ -322,31 +347,33 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                             </StrictModeDroppable>
                         </DragDropContext>
                         <div className="mt-4 flex-shrink-0">
-                             <Button icon={PlusCircleIcon} variant="light" className="w-full" onClick={addPage}>Add New Page</Button>
+                            <Button icon={PlusCircleIcon} variant="light" className="w-full" onClick={addPage}>Add New Page</Button>
                         </div>
                     </div>
 
+                    {/* Editor */}
                     <div className="col-span-8 lg:col-span-9 flex flex-col overflow-y-auto pl-6 border-l border-gray-200">
                         <h4 className="text-lg font-bold text-slate-700 mb-4">Editing Page {activePageIndex + 1}</h4>
                         <div className="space-y-4">
-                           <TextInput placeholder="Page Title" value={activePage.title} onValueChange={(val) => handlePageChange('title', val)} />
+                            <TextInput placeholder="Page Title" value={activePage.title} onValueChange={(val) => handlePageChange('title', val)} />
                            
-                           <TabGroup index={pageTypeIndex} onIndexChange={(index) => handlePageChange('type', ['text', 'diagram-data', 'video'][index])}>
+                            <TabGroup index={pageTypeIndex} onIndexChange={(index) => handlePageChange('type', ['text', 'diagram-data', 'video'][index])}>
                                 <TabList className="w-full justify-start space-x-2">
-                                     <Tab className={`flex-1 w-auto max-w-[150px] transition-all duration-200 rounded-lg shadow-sm border border-gray-300 ${pageTypeIndex === 0 ? 'bg-gradient-to-r from-blue-500 to-blue-700 text-white shadow-md' : 'text-gray-700 bg-gray-200 hover:bg-gray-300'}`}>
+                                    <Tab className={`flex-1 w-auto max-w-[150px] transition-all duration-200 rounded-lg shadow-sm border border-gray-300 ${pageTypeIndex === 0 ? 'bg-gradient-to-r from-blue-500 to-blue-700 text-white shadow-md' : 'text-gray-700 bg-gray-200 hover:bg-gray-300'}`}>
                                         <BookOpenIcon className="h-5 w-5" />
                                         Text
                                     </Tab>
-                                     <Tab className={`flex-1 w-auto max-w-[150px] transition-all duration-200 rounded-lg shadow-sm border border-gray-300 ${pageTypeIndex === 1 ? 'bg-gradient-to-r from-blue-500 to-blue-700 text-white shadow-md' : 'text-gray-700 bg-gray-200 hover:bg-gray-300'}`}>
+                                    <Tab className={`flex-1 w-auto max-w-[150px] transition-all duration-200 rounded-lg shadow-sm border border-gray-300 ${pageTypeIndex === 1 ? 'bg-gradient-to-r from-blue-500 to-blue-700 text-white shadow-md' : 'text-gray-700 bg-gray-200 hover:bg-gray-300'}`}>
                                         <PhotoIcon className="h-5 w-5" />
                                         Image
                                     </Tab>
-                                     <Tab className={`flex-1 w-auto max-w-[150px] transition-all duration-200 rounded-lg shadow-sm border border-gray-300 ${pageTypeIndex === 2 ? 'bg-gradient-to-r from-blue-500 to-blue-700 text-white shadow-md' : 'text-gray-700 bg-gray-200 hover:bg-gray-300'}`}>
+                                    <Tab className={`flex-1 w-auto max-w-[150px] transition-all duration-200 rounded-lg shadow-sm border border-gray-300 ${pageTypeIndex === 2 ? 'bg-gradient-to-r from-blue-500 to-blue-700 text-white shadow-md' : 'text-gray-700 bg-gray-200 hover:bg-gray-300'}`}>
                                         <VideoCameraIcon className="h-5 w-5" />
                                         Video
                                     </Tab>
                                 </TabList>
                                 <TabPanels className="pt-4 flex-grow overflow-hidden">
+                                    {/* Text tab */}
                                     <TabPanel className="h-full">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
                                             <div className="flex flex-col h-full rounded-lg shadow-md overflow-hidden bg-gray-50">
@@ -364,6 +391,8 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                             </div>
                                         </div>
                                     </TabPanel>
+
+                                    {/* Image tab */}
                                     <TabPanel className="h-full">
                                         <div className="space-y-4 h-full">
                                             <TextInput placeholder="Image URL e.g., https://path/to/image.png" value={activePage.content?.generatedImageUrl || ''} onValueChange={(val) => handlePageChange('generatedImageUrl', val)} />

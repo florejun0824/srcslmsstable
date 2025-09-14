@@ -87,7 +87,9 @@ const UnitCard = ({ unit, lessons, quizzes, onSelectContent, onSelectUnit, onGen
 
 const SubjectDetailView = (props) => {
     const { 
-        subject, handleOpenEditSubject, handleOpenDeleteSubject, 
+        subject,
+        setIsAiGenerating,   // ✅ added
+        handleOpenEditSubject, handleOpenDeleteSubject, 
         setShareContentModalOpen, setAddUnitModalOpen, setIsAiHubOpen, 
         setSelectedUnit, setEditUnitModalOpen, setAddLessonModalOpen, 
         setSelectedLesson, setViewLessonModalOpen, setEditLessonModalOpen, 
@@ -142,8 +144,12 @@ const SubjectDetailView = (props) => {
     const handleSelectUnit = (unit, action) => {
         setSelectedUnit(unit);
         if (action === 'edit') setEditUnitModalOpen(true);
-        if (action === 'addLesson') setAddLessonModalOpen(true);
+        if (action === 'addLesson') {
+            setIsAiGenerating(false); // ✅ ensure spinner resets before opening modal
+            setAddLessonModalOpen(true);
+        }
     };
+
     const handleSelectContent = (item, action) => {
         if (item.type === 'lesson') {
             setSelectedLesson(item);
