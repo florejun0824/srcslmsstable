@@ -66,7 +66,7 @@ const translations = {
         'multiple_choice': 'Instructions: Choose the letter of the best answer.',
         'alternative_response': 'Instructions: Read and understand each statement. Write "True" if the statement is correct and "False" if it is incorrect.',
         'matching_type_v2': 'Instructions: Match the items in Column A with the corresponding items in Column B. Write the letter of the correct answer in Column C.',
-        'identification': 'Instructions: Provide the correct answer on the space provided.',
+        'identification': 'Instructions: Identify the correct term for each statement from the choices in the box. Write your answer on the space provided.',
         'essay': 'Instructions: Answer the following question in a comprehensive essay.',
         'solving': 'Instructions: Solve the following problems. Show your complete solution.',
         'analogy': 'Instructions: Complete the following analogies by choosing the best answer.',
@@ -90,7 +90,7 @@ const translations = {
         'multiple_choice': 'Panuto: Piliin ang titik ng pinakamahusay na sagot.',
         'alternative_response': 'Panuto: Basahin at unawain ang bawat pahayag. Isulat ang "Tama" kung ito ay totoo at "Mali" kung hindi.',
         'matching_type_v2': 'Panuto: Itugma ang mga aytem sa Hanay A sa katumbas na mga aytem sa Hanay B. Isulat ang titik ng tamang sagot sa Hanay C.',
-        'identification': 'Panuto: Ibigay ang tamang sagot sa nakalaang puwang.',
+        'identification': 'Panuto: Tukuyin ang tamang termino para sa bawat pahayag mula sa mga pagpipilian sa kahon. Isulat ang iyong sagot sa nakalaang espasyo.',
         'essay': 'Panuto: Sagutin ang sumusunod na tanong sa isang komprehensibong sanaysay.',
         'solving': 'Panuto: Lutasin ang mga sumusunod na suliranin. Ipakita ang iyong kumpletong solusyon.',
         'analogy': 'Panuto: Kumpletuhin ang mga sumusunod na analohiya sa pamamagitan ng pagpili ng pinakamahusay na sagot.',
@@ -166,7 +166,17 @@ const generateExamQuestionsMarkdown = (questions, language) => {
                  markdown += `${questionsOfType[0].instruction || t[type]}\n\n`;
             }
 
-            if (type === 'matching_type_v2') {
+            // ✅ ADDED: Specific markdown generation for the Identification type
+            if (type === 'identification') {
+                const choices = questionsOfType[0]?.choicesBox;
+                if (choices && choices.length > 0) {
+                    const choicesMarkdown = choices.map(choice => `**${choice}**`).join(' &nbsp; &nbsp; • &nbsp; &nbsp; ');
+                    markdown += `<div style="border: 1px solid #ccc; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 15px;">\n${choicesMarkdown}\n</div>\n\n`;
+                }
+                questionsOfType.forEach(q => {
+                    markdown += `${q.questionNumber}. ${q.question} \n   **Answer:** __________________\n\n`;
+                });
+            } else if (type === 'matching_type_v2') {
                 markdown += `|${t.columnA}|${t.columnB}|${t.columnC}|\n`;
                 markdown += `|---|---|---|\n`;
 
@@ -176,8 +186,17 @@ const generateExamQuestionsMarkdown = (questions, language) => {
 
                 const maxRows = Math.max(allColumnA.length, allColumnB.length);
                 for (let i = 0; i < maxRows; i++) {
-                    const colAItem = allColumnA[i] ? `${firstQuestionNumber + i}. ${allColumnA[i]}` : '';
-                    const colBItem = allColumnB[i] ? `${String.fromCharCode(97 + i)}. ${allColumnB[i]}` : '';
+                    const itemA = allColumnA[i] || '';
+                    const itemB = allColumnB[i] || '';
+
+                    const colAItem = itemA && /^\d+\.\s/.test(itemA)
+                        ? itemA
+                        : (itemA ? `${firstQuestionNumber + i}. ${itemA}` : '');
+
+                    const colBItem = itemB && /^[a-zA-Z]\.\s/.test(itemB)
+                        ? itemB
+                        : (itemB ? `${String.fromCharCode(97 + i)}. ${itemB}` : '');
+
                     const colCItem = allColumnA[i] ? `${firstQuestionNumber + i}. ______` : '';
                     markdown += `| ${colAItem} | ${colBItem} | ${colCItem} |\n`;
                 }
@@ -245,7 +264,6 @@ const generateExplanationsMarkdown = (questions) => {
     return markdown;
 };
 
-// Redesigned TOS Preview Table for iOS UI
 const TOSPreviewTable = ({ tos }) => (
     <div className="overflow-x-auto text-sm">
         <div className="bg-gray-100 p-4 rounded-xl mb-4">
@@ -361,10 +379,8 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 	    },
 	    "examQuestions": [
 	        { "questionNumber": 1, "type": "multiple_choice", "instruction": "...", "question": "...", "options": ["...", "...", "...", "..."], "correctAnswer": "...", "explanation": "...", "difficulty": "Easy", "bloomLevel": "Remembering" },
-            { "questionNumber": 11, "type": "analogy", "instruction": "...", "question": "...", "options": ["...", "...", "...", "..."], "correctAnswer": "...", "explanation": "...", "difficulty": "Easy", "bloomLevel": "Remembering" },
-	        { "questionNumber": 11, "type": "matching_type_v2", "instruction": "...", "columnA": ["...", "..."], "columnB": ["...", "..."], "correctAnswers": {"A": "1", "B": "2"}, "difficulty": "Average", "bloomLevel": "Understanding" },
-            { "questionNumber": 21, "type": "interpretive", "instruction": "...", "passage": "...", "question": "...", "options": ["...", "...", "...", "..."], "correctAnswer": "...", "explanation": "...", "difficulty": "Average", "bloomLevel": "Analyzing" },
-	        { "questionNumber": 21, "type": "alternative_response", "instruction": "${alternativeResponseInstruction}", "question": "...", "correctAnswer": "True", "explanation": "...", "difficulty": "Easy", "bloomLevel": "Remembering" },
+            { "questionNumber": 11, "type": "matching_type_v2", "instruction": "...", "columnA": ["...", "..."], "columnB": ["...", "..."], "correctAnswers": {"A": "1", "B": "2"}, "difficulty": "Average", "bloomLevel": "Understanding" },
+            { "questionNumber": 21, "type": "identification", "instruction": "...", "question": "...", "choicesBox": ["Answer1", "Answer2", "Distractor"], "correctAnswer": "Answer1", "difficulty": "Average", "bloomLevel": "Understanding" },
 	        { "questionNumber": 31, "type": "essay", "instruction": "...", "question": "...", "rubric": [ {"criteria": "...", "points": 0} ], "difficulty": "Difficult", "bloomLevel": "Creating" }
 	    ]
 	}
@@ -380,71 +396,42 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 	
 	**CRITICAL GENERATION RULES (NON-NEGOTIABLE):**
 	
-	1. **LANGUAGE:** ALL generated text (instructions, questions, options, rubrics, explanations, etc.) MUST be in the specified language: **${language}**. This includes translating test type concepts (e.g., 'Multiple Choice' becomes 'Maraming Pagpipilian' if language is Filipino).
-	
-	2. **DIFFICULTY DISTRIBUTION (STRICT):** You must strictly adhere to the following percentages for the total number of items:
-	    - Easy: 60% of 'Total Items'.
-	    - Average: 30% of 'Total Items'.
-	    - Difficult: 10% of 'Total Items'.
-	    
-	    If the calculation results in a non-whole number, you must round down. Any remaining items must be added to the 'Easy' category to ensure the total number of items matches 'Total Items'.
-	
-	3. *OPTION ORDERING (MANDATORY):** For ALL 'multiple_choice', 'analogy', and 'interpretive' questions, you MUST order the strings within the "options" array based on the following logic. This is a strict requirement.
-	    * **Pyramid Style (Shortest to Longest):** If choices are sentences or phrases, you MUST order them from SHORTEST to LONGEST based on character count. This rule **overrides** all other ordering.
-	    * **Alphabetical:** Apply ONLY if choices are single words.
-	    * **Numerical:** Apply ONLY if choices are numbers.
-	    * **Chronological:** Apply ONLY if choices are dates.
-	    * **EXAMPLE (Pyramid Style - Filipino):**
-	        For the question, if the options are ["Ang pamilya", "Ang Diyos", "Upang mas lalo nating maramdaman ang Kanyang pagmamahal", "Ang ating sarili"], the correct order in the JSON's "options" array is:
-	        ["Ang Diyos", "Ang pamilya", "Ang ating sarili", "Upang mas lalo nating maramdaman ang Kanyang pagmamahal"].
-	        This is because "Ang Diyos" (9 chars) is shorter than "Ang pamilya" (11 chars), which is shorter than "Ang ating sarili" (16 chars), etc.
-	
-	4. **ESSAY QUESTION GENERATION (ABSOLUTE RULE):** If the test structure includes "Essay", you MUST generate **EXACTLY ONE (1)** single miss universe style essay question. The number range provided (e.g., '31-35') corresponds to the **TOTAL POINTS** for that single question's rubric (i.e., 5 points). DO NOT create multiple essay questions. The 'questionNumber' should be the start of the range (e.g., 31).
-	
-	5. **MATCHING TYPE:** Group ALL items for a matching type into a SINGLE question object. 'columnA' should contain the questions, and 'columnB' should contain the answers plus ONE extra distractor.
-	
-	6. **TOS & NUMBERING:**
-	    * For Matching Types, the 'itemNumbers' in the TOS must be a sequential list (e.g., "11, 12, 13, 14, 15").
-	    * For the single Essay question, assign its entire point value and number range (e.g., '31-35') to the 'difficultItems' column for the single most relevant competency.
-	
-	7. **CONTENT ADHERENCE:** All questions must be strictly based on the provided **Lesson Content**. Do not use external knowledge. Avoid phrases like "According to the lesson...".
-	8. **ALTERNATIVE RESPONSE:** All questions MUST be ordered from the SHORTEST to LONGEST based on the character count.
-	
-	**Final Check:** Review your generated JSON for syntax errors (commas, quotes, brackets) before outputting.
+	1.  **TOS COMPETENCIES (ABSOLUTE REQUIREMENT):** You MUST use the exact learning competencies provided in the "INPUT DATA" section for the \`competencyBreakdown\` in the TOS. Each competency from the input list MUST correspond to one row in the \`competencyBreakdown\` array. DO NOT invent, paraphrase, or create your own competencies.
+	2.  **LANGUAGE:** ALL generated text (instructions, questions, options, etc.) MUST be in the specified language: **${language}**.
+	3.  **DIFFICULTY DISTRIBUTION (STRICT):** You must strictly adhere to the following percentages for the total number of items: Easy: 60%, Average: 30%, Difficult: 10%. If the calculation results in a non-whole number, round down. Any remaining items must be added to the 'Easy' category.
+	4.  **TOS VERTICAL DISTRIBUTION:** For EACH competency row, you MUST distribute its 'No. of Items' across the 'Easy', 'Average', and 'Difficult' columns, adhering as closely as possible to the 60-30-10 ratio.
+	5.  **OPTION ORDERING (MANDATORY):** For ALL multiple-choice type questions, you MUST order the strings within the "options" array from SHORTEST to LONGEST based on character count. This rule overrides all other ordering conventions.
+	6.  **ESSAY QUESTION GENERATION (ABSOLUTE RULE):** If the test includes an "Essay", you MUST generate **EXACTLY ONE (1)** single "miss universe" style essay question. It must be a single, standalone prompt without follow-up questions or parts (e.g., no 'Part A, Part B'). The number range provided (e.g., '31-35') corresponds to the TOTAL POINTS for that single question's rubric.
+	7.  **ESSAY PLACEMENT IN TOS (STRICT OVERRIDE):** If an Essay question exists, you MUST place its entire item number range (e.g., "31-35") in the 'difficultItems' column of the TOS. **This rule is an absolute override and must be followed even if it conflicts with the 60-30-10 vertical distribution rule.**
+    8.  **IDENTIFICATION TYPE (STRICT):** If the test structure includes 'Identification', group all identification questions together. For this entire group, you MUST generate a single \`choicesBox\` array containing all the correct answers plus EXACTLY ONE extra distractor. This \`choicesBox\` array must be included in the JSON for the *first* identification question only. The choices in the box MUST NOT have any number or letter prefixes.
+	9.  **MATCHING TYPE:** Group ALL items for a matching type into a SINGLE question object. 'columnA' should contain the questions, and 'columnB' the answers plus ONE extra distractor.
+	10. **TOS & NUMBERING:** For Matching Types, the 'itemNumbers' in the TOS must be a sequential list (e.g., "11-15").
+	11. **CONTENT ADHERENCE:** All questions must be strictly based on the provided **Lesson Content**. Do not use external knowledge.
+
+	**Final Check:** Review your generated JSON for syntax errors before outputting.
 	`;
         try {
             const aiResponse = await callGeminiWithLimitCheck(prompt);
             const jsonText = extractJson(aiResponse);
             const parsedData = tryParseJson(jsonText);
 
-            // =================================================================
-            // ======= ✅ MODIFIED: RECALCULATE TOS TOTALS FOR ACCURACY ✅ ======
-            // =================================================================
             if (parsedData.tos && parsedData.tos.competencyBreakdown) {
                 const breakdown = parsedData.tos.competencyBreakdown;
 
-                // Recalculate the sum of each column from the AI-generated rows
                 const calculatedTotalHours = breakdown.reduce((sum, row) => sum + Number(row.noOfHours || 0), 0);
                 const calculatedTotalItems = breakdown.reduce((sum, row) => sum + Number(row.noOfItems || 0), 0);
                 
-                // Overwrite the AI's totalRow with your precise calculations
                 parsedData.tos.totalRow = {
-                    ...parsedData.tos.totalRow, // Keep any other fields from the AI
+                    ...parsedData.tos.totalRow,
                     hours: String(calculatedTotalHours),
-                    weightPercentage: "100.00%", // Always 100%
+                    weightPercentage: "100.00%",
                     noOfItems: calculatedTotalItems, 
                 };
 
-                // Optional but recommended: Check if the AI's item count matches the user's input
                 if (calculatedTotalItems !== totalConfiguredItems) {
                     console.warn(`AI generated ${calculatedTotalItems} items, but user configured ${totalConfiguredItems}. The displayed total will reflect what was generated.`);
-                    // To force the total to match the user's configuration, you can uncomment the line below
-                    // parsedData.tos.totalRow.noOfItems = totalConfiguredItems; 
                 }
             }
-            // =================================================================
-            // =================== END OF MODIFIED LOGIC =======================
-            // =================================================================
 
             setPreviewData(parsedData);
             showToast("Exam and TOS generated successfully!", "success");

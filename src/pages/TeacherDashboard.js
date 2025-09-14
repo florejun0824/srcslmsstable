@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -78,7 +77,7 @@ const TeacherDashboard = () => {
   const [isBetaWarningModalOpen, setIsBetaWarningModalOpen] = useState(false);
   const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState([]);
   const [reloadKey, setReloadKey] = useState(0);
-    // ... (all useEffect hooks remain the same) ...
+
     useEffect(() => {
         if (userProfile && messages.length === 0) {
             setMessages([ { sender: 'ai', text: `Hello, ${userProfile?.firstName}! I'm your AI assistant. How can I help you today?` } ]);
@@ -91,10 +90,12 @@ const TeacherDashboard = () => {
         const teacherId = user.uid || user.id;
         if (!teacherId) { setLoading(false); setError("User ID not found."); return; }
 
+        // ✅ MODIFIED: Added the 'courses' query to the real-time listeners.
         const realTimeQueries = [
             { query: query(collection(db, "subjectCategories"), orderBy("name")), setter: setCourseCategories },
             { query: query(collection(db, "classes"), where("teacherId", "==", teacherId)), setter: setClasses },
             { query: query(collection(db, "teacherAnnouncements"), orderBy("createdAt", "desc")), setter: setTeacherAnnouncements },
+            { query: query(collection(db, "courses"), orderBy("createdAt", "asc")), setter: setCourses }, // This is the new real-time listener
         ];
 
         const unsubscribers = realTimeQueries.map(({ query, setter }) =>
@@ -106,7 +107,12 @@ const TeacherDashboard = () => {
                 setError("Failed to load dashboard data in real-time."); 
             })
         );
+        
+        // All data is now real-time, so we can set loading to false after listeners are attached.
+        setLoading(false);
 
+        // ❌ REMOVED: The old one-time fetch function is no longer needed.
+        /*
         const fetchGlobalData = async () => {
             try {
                 const coursesQuery = query(collection(db, "courses"));
@@ -122,7 +128,9 @@ const TeacherDashboard = () => {
         };
 
         fetchGlobalData();
+        */
 
+        // Cleanup function remains the same
         return () => { unsubscribers.forEach(unsub => unsub()); };
     }, [user]);
 
@@ -147,6 +155,7 @@ const TeacherDashboard = () => {
         }
     }, [activeView, showToast]);
 
+    // ... (rest of the file is unchanged)
     const handleCreateUnit = async (unitData) => {
         if (!unitData || !unitData.subjectId) {
             showToast("Missing data to create the unit.", "error");
@@ -200,7 +209,6 @@ const TeacherDashboard = () => {
                 transaction.delete(unitRef);
             });
             
-            // ✅ MODIFIED: Standardized to serverTimestamp and ensured all related classes are updated.
             const batch = writeBatch(db);
             const relatedClasses = classes.filter(c => c.subjectId === subjectId);
             relatedClasses.forEach(c => {
@@ -245,7 +253,6 @@ const TeacherDashboard = () => {
 	    try {
 	        await addDoc(collection(db, collectionName), announcementData);
 
-	        // ✅ MODIFIED: Standardized to serverTimestamp for accuracy
 	        if (audience === 'students' && classId) {
 	            await updateDoc(doc(db, "classes", classId), {
 	                contentLastUpdatedAt: serverTimestamp()
@@ -264,7 +271,7 @@ const TeacherDashboard = () => {
         const newMessages = [...messages, { sender: 'user', text: userMessage }];
         setMessages(newMessages);
         setIsAiThinking(true);
-        const conversationHistory = newMessages.map(msg => `${msg.sender === 'user' ? 'user' : 'model'}: ${msg.text}`).join('\n');
+        const conversationHistory = newMessages.map(msg => `${msg.sender === 'user' ? 'model' : 'model'}: ${msg.text}`).join('\n');
         const lmsKnowledge = `You are an AI assistant for a Learning Management System (LMS) named SRCS Learning Portal, used by teachers. The developer is Florejun Flores. When asked about the LMS, refer to this knowledge. Otherwise, act as a general helpful AI. Knowledge Base: Teachers can manage classes (create, edit, archive, delete), organize content into courses/subjects and then units/lessons, generate quizzes, lessons, and Google Slides presentations with AI, post announcements to students or other teachers, manage students in classes (including importing from other classes), and edit their own profile/password.`;
         const prompt = `${lmsKnowledge}\n\n${conversationHistory}`;
         try {
@@ -313,7 +320,6 @@ const TeacherDashboard = () => {
 	            createdAt: serverTimestamp(),
 	        });
 
-	        // ✅ MODIFIED: Standardized to serverTimestamp
 	        if (subjectId) {
                 const batch = writeBatch(db);
 	            const relatedClasses = classes.filter(c => c.subjectId === subjectId);
@@ -451,7 +457,6 @@ const TeacherDashboard = () => {
                  showToast(`Deletion for type "${type}" is not implemented.`, "warning");
             }
             
-            // ✅ ADDED: After collecting all classes that need updates, add them to the batch.
             classesToUpdate.forEach(classId => {
                 const classRef = doc(db, "classes", classId);
                 batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
@@ -478,7 +483,6 @@ const TeacherDashboard = () => {
     const activeClasses = classes.filter(c => !c.isArchived);
     const archivedClasses = classes.filter(c => c.isArchived);
 
-    // ... (all other handler functions remain the same) ...
     const handleViewChange = (view) => {
         if (activeView === view) { setReloadKey(prevKey => prevKey + 1); }
         else { setActiveView(view); setSelectedCategory(null); setIsSidebarOpen(false); }
