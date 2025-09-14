@@ -1,5 +1,10 @@
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// ES modules don't have a global __dirname. This creates a compatible version.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Use current timestamp as version
 const version = new Date().toISOString();
