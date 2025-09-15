@@ -100,10 +100,8 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
 	            index === pageIndex
 	                ? {
 	                    ...page,
-	                    content: {
-	                        labels: Array.isArray(finalizedContent?.labels) ? finalizedContent.labels : [],
-	                        generatedImageUrl: finalizedContent?.generatedImageUrl || "",
-	                    },
+	                    // Use the complete finalizedContent object directly
+	                    content: finalizedContent,
 	                }
 	                : page
 	        );

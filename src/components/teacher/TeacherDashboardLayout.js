@@ -70,6 +70,7 @@ const TeacherDashboardLayout = (props) => {
         isDeleteModalOpen, setIsDeleteModalOpen, handleConfirmDelete, deleteTarget, handleInitiateDelete,
         handleCreateUnit,
         courses,
+        onUpdateLesson, // ✅ NEW: Receive onUpdateLesson prop
         ...rest
     } = props;
     
@@ -163,6 +164,7 @@ const TeacherDashboardLayout = (props) => {
 		                        handleEditCategory={handleEditCategory} 
 		                        onAddSubjectClick={handleAddSubjectWithCategory} 
 		                        handleInitiateDelete={handleInitiateDelete} 
+		                        onUpdateLesson={onUpdateLesson} // ✅ FIXED: Pass the prop down
 		                    />
 		                );
 		            case 'studentManagement': 

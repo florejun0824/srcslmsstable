@@ -57,32 +57,33 @@ const sanitizeLessonsJson = (aiResponse) => {
                 : `Page ${pageIdx + 1}`;
 
             if (p.type === "diagram-data") {
-              if (typeof p.content === "object") {
-                return {
-                  title: baseTitle,
-                  type: "diagram-data",
-                  content: {
-                    htmlContent:
-                      typeof p.content.htmlContent === "string"
-                        ? p.content.htmlContent
-                        : undefined,
-                    generatedImageUrl:
-                      typeof p.content.generatedImageUrl === "string"
-                        ? p.content.generatedImageUrl
-                        : undefined,
-                    labels: Array.isArray(p.content.labels)
-                      ? p.content.labels
-                      : [],
-                  },
-                };
-              } else if (typeof p.content === "string") {
-                return {
-                  title: baseTitle,
-                  type: "text",
-                  content: p.content,
-                };
-              }
+              const content = typeof p.content === "object" ? p.content : {};
+
+              return {
+                title: baseTitle,
+                type: "diagram-data",
+                content: {
+                  htmlContent:
+                    typeof content.htmlContent === "string"
+                      ? content.htmlContent
+                      : undefined,
+                  generatedImageUrl:
+                    typeof content.generatedImageUrl === "string"
+                      ? content.generatedImageUrl
+                      : undefined,
+                  // ✅ support both single and multiple images
+                  imageUrls: Array.isArray(content.imageUrls)
+                    ? content.imageUrls.filter((url) => typeof url === "string")
+                    : content.imageUrls && typeof content.imageUrls === "string"
+                    ? [content.imageUrls]
+                    : [],
+                  labels: Array.isArray(content.labels)
+                    ? content.labels.filter((l) => typeof l === "string")
+                    : [],
+                },
+              };
             }
+
             return {
               title: baseTitle,
               content: typeof p.content === "string" ? p.content : "",

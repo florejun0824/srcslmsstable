@@ -1,7 +1,7 @@
 // src/components/teacher/EditLessonModal.js
 
 import React, { useState, useEffect, useRef } from 'react';
-import { db } from '../../services/firebase'; // ✅ removed updateLesson
+import { db } from '../../services/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import {
     Dialog, DialogPanel, Title, Button, TextInput, Textarea, TabGroup, TabList, Tab, TabPanels, TabPanel
@@ -174,15 +174,19 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                         try {
                             contentToUse = JSON.parse(page.content);
                         } catch (e) {
-                            contentToUse = { labels: [], generatedImageUrl: page.content || '' };
+                            contentToUse = { labels: [], imageUrls: page.content ? [page.content] : [] };
                         }
                     } else if (typeof page.content === 'object' && page.content !== null) {
                         contentToUse = {
                             labels: Array.isArray(page.content.labels) ? page.content.labels : [],
-                            generatedImageUrl: page.content.generatedImageUrl || '',
+                            imageUrls: Array.isArray(page.content.imageUrls)
+                                ? page.content.imageUrls
+                                : page.content.generatedImageUrl
+                                ? [page.content.generatedImageUrl]
+                                : [],
                         };
                     } else {
-                        contentToUse = { labels: [], generatedImageUrl: '' };
+                        contentToUse = { labels: [], imageUrls: [] };
                     }
                 }
 
@@ -212,7 +216,7 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
         if (field === 'type') {
             pageData.type = value;
             if (value === 'diagram-data') {
-                pageData.content = { labels: [], generatedImageUrl: '' };
+                pageData.content = { labels: [], imageUrls: [] };
             } else {
                 pageData.content = '';
             }
@@ -220,8 +224,8 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
             let newContent = { ...pageData.content };
             if (field === 'diagram_labels') {
                 newContent.labels = value.split(',').map(label => label.trim()).filter(Boolean);
-            } else if (field === 'generatedImageUrl') {
-                newContent.generatedImageUrl = value;
+            } else if (field === 'imageUrls') {
+                newContent.imageUrls = value;
             }
             pageData.content = newContent;
         } else {
@@ -262,7 +266,7 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                         ...page,
                         content: {
                             labels: Array.isArray(page.content?.labels) ? page.content.labels : [],
-                            generatedImageUrl: page.content?.generatedImageUrl || ""
+                            imageUrls: Array.isArray(page.content?.imageUrls) ? page.content.imageUrls : []
                         }
                     };
                 }
@@ -395,37 +399,65 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                     {/* Image tab */}
                                     <TabPanel className="h-full">
                                         <div className="space-y-4 h-full">
-                                            <TextInput placeholder="Image URL e.g., https://path/to/image.png" value={activePage.content?.generatedImageUrl || ''} onValueChange={(val) => handlePageChange('generatedImageUrl', val)} />
-                                            <TextInput placeholder="Labels (comma-separated) e.g., Cell Wall, Nucleus" value={Array.isArray(activePage.content?.labels) ? activePage.content.labels.join(', ') : ''} onValueChange={(val) => handlePageChange('diagram_labels', val)} />
-                                            <p className="text-xs text-gray-500 mt-1">Labels can be positioned interactively in the lesson view.</p>
+                                            <div className="space-y-2">
+                                                {Array.isArray(activePage.content?.imageUrls) &&
+                                                    activePage.content.imageUrls.map((url, idx) => (
+                                                        <div key={idx} className="flex gap-2 items-center">
+                                                            <TextInput
+                                                                placeholder={`Image URL #${idx + 1}`}
+                                                                value={url}
+                                                                onValueChange={(val) => {
+                                                                    const newUrls = [...activePage.content.imageUrls];
+                                                                    newUrls[idx] = val;
+                                                                    handlePageChange('imageUrls', newUrls);
+                                                                }}
+                                                                className="flex-1"
+                                                            />
+                                                            <Button
+                                                                variant="light"
+                                                                color="red"
+                                                                icon={TrashIcon}
+                                                                onClick={() => {
+                                                                    const newUrls = activePage.content.imageUrls.filter((_, i) => i !== idx);
+                                                                    handlePageChange('imageUrls', newUrls);
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                <Button
+                                                    icon={PlusCircleIcon}
+                                                    variant="light"
+                                                    onClick={() => handlePageChange('imageUrls', [...(activePage.content?.imageUrls || []), ''])}
+                                                >
+                                                    Add Image
+                                                </Button>
+                                            </div>
+                                            <TextInput
+                                                placeholder="Labels (comma-separated)"
+                                                value={Array.isArray(activePage.content?.labels) ? activePage.content.labels.join(', ') : ''}
+                                                onValueChange={(val) => handlePageChange('diagram_labels', val)}
+                                            />
                                         </div>
                                     </TabPanel>
+
+                                    {/* Video tab */}
                                     <TabPanel className="h-full">
-                                        <TextInput placeholder="Video URL e.g., https://youtube.com/watch?v=..." value={activePage.content || ''} onValueChange={(val) => handlePageChange('content', val)} />
+                                        <TextInput
+                                            placeholder="Video URL (YouTube, Vimeo, etc.)"
+                                            value={typeof activePage.content === 'string' ? activePage.content : ''}
+                                            onValueChange={(val) => handlePageChange('content', val)}
+                                        />
                                     </TabPanel>
                                 </TabPanels>
-                           </TabGroup>
+                            </TabGroup>
                         </div>
                     </div>
                 </div>
 
-                {error && <p className="text-red-500 text-sm mt-4 text-center">{error}</p>}
-
-                <div className="flex-shrink-0 flex justify-end gap-2 mt-6 pt-4 border-t border-gray-200">
-                    <Button
-                        onClick={onClose}
-                        disabled={loading}
-                        className="bg-gradient-to-r from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800 rounded-lg shadow-md transition-all duration-200"
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={handleUpdateLesson}
-                        disabled={loading}
-                        className="bg-gradient-to-r from-blue-500 to-blue-700 text-white hover:from-blue-600 hover:to-blue-800 rounded-lg shadow-md transition-all duration-200"
-                    >
-                        {loading ? 'Saving...' : 'Save Changes'}
-                    </Button>
+                {error && <div className="text-red-500 text-sm mb-4">{error}</div>}
+                <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
+                    <Button variant="secondary" onClick={onClose}>Cancel</Button>
+                    <Button variant="primary" onClick={handleUpdateLesson} loading={loading}>Save Changes</Button>
                 </div>
             </DialogPanel>
         </Dialog>
