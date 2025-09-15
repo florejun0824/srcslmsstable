@@ -61,6 +61,44 @@ const tryParseJson = (jsonString) => {
     }
 };
 
+// Helper function to round percentages and ensure they sum to 100
+const roundPercentagesToSum100 = (breakdown) => {
+    if (!breakdown || breakdown.length === 0) {
+        return [];
+    }
+
+    const percentages = breakdown.map((item, index) => {
+        const value = parseFloat(item.weightPercentage);
+        return {
+            originalIndex: index,
+            value: value,
+            floorValue: Math.floor(value),
+            remainder: value - Math.floor(value),
+        };
+    });
+
+    const sumOfFloors = percentages.reduce((sum, p) => sum + p.floorValue, 0);
+    let remainderToDistribute = 100 - sumOfFloors;
+
+    percentages.sort((a, b) => b.remainder - a.remainder);
+
+    for (let i = 0; i < remainderToDistribute; i++) {
+        if (percentages[i]) {
+           percentages[i].floorValue += 1;
+        }
+    }
+
+    percentages.sort((a, b) => a.originalIndex - b.originalIndex);
+
+    const updatedBreakdown = breakdown.map((item, index) => ({
+        ...item,
+        weightPercentage: `${percentages[index].floorValue}%`,
+    }));
+
+    return updatedBreakdown;
+};
+
+
 const translations = {
     'English': {
         'multiple_choice': 'Instructions: Choose the letter of the best answer.',
@@ -166,7 +204,6 @@ const generateExamQuestionsMarkdown = (questions, language) => {
                  markdown += `${questionsOfType[0].instruction || t[type]}\n\n`;
             }
 
-            // ✅ ADDED: Specific markdown generation for the Identification type
             if (type === 'identification') {
                 const choices = questionsOfType[0]?.choicesBox;
                 if (choices && choices.length > 0) {
@@ -186,17 +223,12 @@ const generateExamQuestionsMarkdown = (questions, language) => {
 
                 const maxRows = Math.max(allColumnA.length, allColumnB.length);
                 for (let i = 0; i < maxRows; i++) {
-                    const itemA = allColumnA[i] || '';
-                    const itemB = allColumnB[i] || '';
+                    const itemA = (allColumnA[i] || '').replace(/^[a-zA-Z0-9]+\.\s*/, '');
+                    const itemB = (allColumnB[i] || '').replace(/^[a-zA-Z0-9]+\.\s*/, '');
 
-                    const colAItem = itemA && /^\d+\.\s/.test(itemA)
-                        ? itemA
-                        : (itemA ? `${firstQuestionNumber + i}. ${itemA}` : '');
-
-                    const colBItem = itemB && /^[a-zA-Z]\.\s/.test(itemB)
-                        ? itemB
-                        : (itemB ? `${String.fromCharCode(97 + i)}. ${itemB}` : '');
-
+                    const colAItem = itemA ? `${firstQuestionNumber + i}. ${itemA}` : '';
+                    const colBItem = itemB ? `${String.fromCharCode(97 + i)}. ${itemB}` : '';
+                    
                     const colCItem = allColumnA[i] ? `${firstQuestionNumber + i}. ______` : '';
                     markdown += `| ${colAItem} | ${colBItem} | ${colCItem} |\n`;
                 }
@@ -380,7 +412,7 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 	    "examQuestions": [
 	        { "questionNumber": 1, "type": "multiple_choice", "instruction": "...", "question": "...", "options": ["...", "...", "...", "..."], "correctAnswer": "...", "explanation": "...", "difficulty": "Easy", "bloomLevel": "Remembering" },
             { "questionNumber": 11, "type": "matching_type_v2", "instruction": "...", "columnA": ["...", "..."], "columnB": ["...", "..."], "correctAnswers": {"A": "1", "B": "2"}, "difficulty": "Average", "bloomLevel": "Understanding" },
-            { "questionNumber": 21, "type": "identification", "instruction": "...", "question": "...", "choicesBox": ["Answer1", "Answer2", "Distractor"], "correctAnswer": "Answer1", "difficulty": "Average", "bloomLevel": "Understanding" },
+            { "questionNumber": 21, "type": "identification", "instruction": "...", "question": "The powerhouse of the cell.", "choicesBox": ["Mitochondria", "Nucleus", "Ribosome"], "correctAnswer": "Mitochondria", "difficulty": "Average", "bloomLevel": "Understanding" },
 	        { "questionNumber": 31, "type": "essay", "instruction": "...", "question": "...", "rubric": [ {"criteria": "...", "points": 0} ], "difficulty": "Difficult", "bloomLevel": "Creating" }
 	    ]
 	}
@@ -397,16 +429,19 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 	**CRITICAL GENERATION RULES (NON-NEGOTIABLE):**
 	
 	1.  **TOS COMPETENCIES (ABSOLUTE REQUIREMENT):** You MUST use the exact learning competencies provided in the "INPUT DATA" section for the \`competencyBreakdown\` in the TOS. Each competency from the input list MUST correspond to one row in the \`competencyBreakdown\` array. DO NOT invent, paraphrase, or create your own competencies.
-	2.  **LANGUAGE:** ALL generated text (instructions, questions, options, etc.) MUST be in the specified language: **${language}**.
-	3.  **DIFFICULTY DISTRIBUTION (STRICT):** You must strictly adhere to the following percentages for the total number of items: Easy: 60%, Average: 30%, Difficult: 10%. If the calculation results in a non-whole number, round down. Any remaining items must be added to the 'Easy' category.
-	4.  **TOS VERTICAL DISTRIBUTION:** For EACH competency row, you MUST distribute its 'No. of Items' across the 'Easy', 'Average', and 'Difficult' columns, adhering as closely as possible to the 60-30-10 ratio.
-	5.  **OPTION ORDERING (MANDATORY):** For ALL multiple-choice type questions, you MUST order the strings within the "options" array from SHORTEST to LONGEST based on character count. This rule overrides all other ordering conventions.
-	6.  **ESSAY QUESTION GENERATION (ABSOLUTE RULE):** If the test includes an "Essay", you MUST generate **EXACTLY ONE (1)** single "miss universe" style essay question. It must be a single, standalone prompt without follow-up questions or parts (e.g., no 'Part A, Part B'). The number range provided (e.g., '31-35') corresponds to the TOTAL POINTS for that single question's rubric.
-	7.  **ESSAY PLACEMENT IN TOS (STRICT OVERRIDE):** If an Essay question exists, you MUST place its entire item number range (e.g., "31-35") in the 'difficultItems' column of the TOS. **This rule is an absolute override and must be followed even if it conflicts with the 60-30-10 vertical distribution rule.**
-    8.  **IDENTIFICATION TYPE (STRICT):** If the test structure includes 'Identification', group all identification questions together. For this entire group, you MUST generate a single \`choicesBox\` array containing all the correct answers plus EXACTLY ONE extra distractor. This \`choicesBox\` array must be included in the JSON for the *first* identification question only. The choices in the box MUST NOT have any number or letter prefixes.
-	9.  **MATCHING TYPE:** Group ALL items for a matching type into a SINGLE question object. 'columnA' should contain the questions, and 'columnB' the answers plus ONE extra distractor.
-	10. **TOS & NUMBERING:** For Matching Types, the 'itemNumbers' in the TOS must be a sequential list (e.g., "11-15").
-	11. **CONTENT ADHERENCE:** All questions must be strictly based on the provided **Lesson Content**. Do not use external knowledge.
+    2.  **ITEM CALCULATION (STRICT FORMULA):** For each competency, the 'noOfItems' MUST be calculated with the formula: \`(weightPercentage / 100) * Total Items\`. You must then adjust the rounded numbers so their sum exactly equals the 'Total Items'. Use the Largest Remainder Method for this adjustment to ensure perfect accuracy.
+	3.  **LANGUAGE:** ALL generated text (instructions, questions, options, etc.) MUST be in the specified language: **${language}**.
+	4.  **DIFFICULTY DISTRIBUTION (STRICT):** You must strictly adhere to the following percentages for the total number of items: Easy: 60%, Average: 30%, Difficult: 10%. If the calculation results in a non-whole number, round down. Any remaining items must be added to the 'Easy' category.
+	5.  **TOS VERTICAL DISTRIBUTION:** For EACH competency row, you MUST distribute its 'No. of Items' across the 'Easy', 'Average', and 'Difficult' columns, adhering as closely as possible to the 60-30-10 ratio.
+	6.  **QUESTION CLARITY & CONCISENESS:** All questions and multiple-choice options should be clear, unambiguous, and as concise as possible. Avoid overly long sentences in options when a shorter phrasing would suffice.
+	7.  **ESSAY QUESTION GENERATION (ABSOLUTE RULE):** If the test includes an "Essay", you MUST generate **EXACTLY ONE (1)** single "miss universe" style essay question. It must be a single, standalone prompt without follow-up questions or parts (e.g., no 'Part A, Part B'). The number range provided (e.g., '31-35') corresponds to the TOTAL POINTS for that single question's rubric.
+	8.  **ESSAY PLACEMENT IN TOS (STRICT OVERRIDE):** If an Essay question exists, you MUST place its entire item number range (e.g., "31-35") in the 'difficultItems' column of the TOS. **This rule is an absolute override and must be followed even if it conflicts with the 60-30-10 vertical distribution rule.**
+    9.  **IDENTIFICATION TYPE (STRICT):** If 'Identification' is included, group all items together. Generate a single \`choicesBox\` array for the group containing all correct answers plus ONE extra distractor. This array goes in the JSON for the *first* identification item only. Choices MUST NOT have prefixes. **Crucially, the "question" field for each item MUST be a descriptive statement or definition, NOT a question.** (e.g., "The powerhouse of the cell." NOT "What is the powerhouse of the cell?").
+	10. **MATCHING TYPE:** Group ALL items for a matching type into a SINGLE question object. 'columnA' should contain the questions, and 'columnB' the answers plus ONE extra distractor.
+	11. **TOS & NUMBERING:** For Matching Types, the 'itemNumbers' in the TOS must be a sequential list (e.g., "11-15").
+	12. **CONTENT ADHERENCE AND PHRASING (ABSOLUTE RULE):** All questions MUST be strictly based on the provided **Lesson Content**. Do not use external knowledge. You are strictly forbidden from using phrases that refer to the source material, such as "According to the lesson," "Based on the text," or "In page 2...". Questions must be phrased generally.
+    
+    // ✅ REMOVED: The complex option ordering rule is removed from the prompt. It will be handled by the code instead for 100% accuracy.
 
 	**Final Check:** Review your generated JSON for syntax errors before outputting.
 	`;
@@ -415,16 +450,29 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
             const jsonText = extractJson(aiResponse);
             const parsedData = tryParseJson(jsonText);
 
-            if (parsedData.tos && parsedData.tos.competencyBreakdown) {
-                const breakdown = parsedData.tos.competencyBreakdown;
+            // ✅ ADDED: Client-side sorting logic to guarantee correct option order.
+            if (parsedData.examQuestions) {
+                parsedData.examQuestions.forEach(question => {
+                    if (question.type === 'multiple_choice' && Array.isArray(question.options)) {
+                        // Sorts all text-based options by length (Pyramid Style).
+                        // This is more robust than asking the AI to do it.
+                        question.options.sort((a, b) => a.length - b.length);
+                    }
+                });
+            }
 
+            if (parsedData.tos && parsedData.tos.competencyBreakdown) {
+                const roundedBreakdown = roundPercentagesToSum100(parsedData.tos.competencyBreakdown);
+                parsedData.tos.competencyBreakdown = roundedBreakdown;
+
+                const breakdown = parsedData.tos.competencyBreakdown;
                 const calculatedTotalHours = breakdown.reduce((sum, row) => sum + Number(row.noOfHours || 0), 0);
                 const calculatedTotalItems = breakdown.reduce((sum, row) => sum + Number(row.noOfItems || 0), 0);
                 
                 parsedData.tos.totalRow = {
                     ...parsedData.tos.totalRow,
                     hours: String(calculatedTotalHours),
-                    weightPercentage: "100.00%",
+                    weightPercentage: "100%",
                     noOfItems: calculatedTotalItems, 
                 };
 
