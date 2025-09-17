@@ -173,7 +173,7 @@ const CoursesView = (props) => {
                                             setTargetUnit(unit);
                                             setShowBetaWarning(true);
                                         }}
-                                        className={`${baseButtonStyles} px-5 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5`}
+                                        className={`${baseButtonStyles} px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5`}
                                         disabled={isAiGenerating}
                                     >
                                         <PresentationChartBarIcon className="w-5 h-5" />

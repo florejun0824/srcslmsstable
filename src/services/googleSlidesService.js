@@ -63,6 +63,43 @@ const findOrCreateFolder = async (folderName, parentFolderId = 'root') => {
     }
 };
 
+const formatNotesToString = (notesObject) => {
+    if (!notesObject || typeof notesObject !== 'object') return typeof notesObject === 'string' ? notesObject : '';
+    const { essentialQuestions, talkingPoints, interactiveElement, slideTiming } = notesObject;
+    const sections = [];
+    if (essentialQuestions) sections.push(`🔵 ESSENTIAL QUESTIONS:\n${essentialQuestions}`);
+    if (talkingPoints) sections.push(`🎙️ TALKING POINTS:\n${talkingPoints}`);
+    if (interactiveElement) sections.push(`🤝 INTERACTIVE ELEMENT:\n${interactiveElement}`);
+    if (slideTiming) sections.push(`⏱️ SUGGESTED TIMING: ${slideTiming}`);
+    return sections.join('\n\n- - -\n\n').trim();
+};
+
+const findShapeByTextTag = (pageElements, tag) => {
+    if (!pageElements) return null;
+    const lowerCaseTag = tag.toLowerCase();
+    for (const el of pageElements) {
+        if (el.shape?.text?.textElements) {
+            let fullText = el.shape.text.textElements.map(textEl => textEl.textRun?.content || "").join("");
+            if (fullText.toLowerCase().includes(lowerCaseTag)) return el;
+        }
+    }
+    return null;
+};
+
+const findSpeakerNotesObjectId = async (presentationId, slideObjectId) => {
+    try {
+        const response = await window.gapi.client.slides.presentations.pages.get({
+            presentationId,
+            pageObjectId: slideObjectId,
+            fields: 'notesPage(notesProperties(speakerNotesObjectId))',
+        });
+        return response.result?.notesPage?.notesProperties?.speakerNotesObjectId || null;
+    } catch (error) {
+        console.error("Error fetching notes page for slide:", slideObjectId, error);
+        return null;
+    }
+};
+
 export const createPresentationFromData = async (slideData, presentationTitle, subjectName, unitName) => {
     try {
         if (!TEMPLATE_ID) throw new Error("Google Slides Template ID is not defined.");
@@ -96,32 +133,9 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
 
         const populateRequests = [];
         
-        const findShapeByTextTag = (pageElements, tag) => {
-            if (!pageElements) return null;
-            const lowerCaseTag = tag.toLowerCase();
-            for (const el of pageElements) {
-                if (el.shape?.text?.textElements) {
-                    let fullText = el.shape.text.textElements.map(textEl => textEl.textRun?.content || "").join("");
-                    if (fullText.toLowerCase().includes(lowerCaseTag)) return el;
-                }
-            }
-            return null;
-        };
-        
-        const formatNotesToString = (notesObject) => {
-            if (!notesObject || typeof notesObject !== 'object') return typeof notesObject === 'string' ? notesObject : '';
-            const { essentialQuestions, talkingPoints, interactiveElement, slideTiming } = notesObject;
-            const sections = [];
-            if (essentialQuestions) sections.push(`🔵 ESSENTIAL QUESTIONS:\n${essentialQuestions}`);
-            if (talkingPoints) sections.push(`🎙️ TALKING POINTS:\n${talkingPoints}`);
-            if (interactiveElement) sections.push(`🤝 INTERACTIVE ELEMENT:\n${interactiveElement}`);
-            if (slideTiming) sections.push(`⏱️ SUGGESTED TIMING: ${slideTiming}`);
-            return sections.join('\n\n- - -\n\n').trim();
-        };
-
-        allSlides.forEach((slide, index) => {
+        for (const [index, slide] of allSlides.entries()) {
             const data = slideData[index];
-            if (!data) return;
+            if (!data) continue;
 
             const titleShape = findShapeByTextTag(slide.pageElements, '{{title}}');
             const bodyShape = findShapeByTextTag(slide.pageElements, '{{body}}');
@@ -150,28 +164,35 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                     populateRequests.push({ updateTextStyle: { objectId: bodyShape.objectId, textRange: { type: 'ALL' }, style: { fontSize: { magnitude: fontSize, unit: 'PT' } }, fields: 'fontSize' } });
                 }
             }
-
-            // This logic programmatically creates a new notes box on every slide.
+            
             const formattedNotes = formatNotesToString(data.notes);
-            if (slide.notesPage && formattedNotes) {
-                const noteBoxId = `notes_textbox_${slide.objectId}`;
-                populateRequests.push({
-                    createShape: {
-                        objectId: noteBoxId,
-                        shapeType: 'TEXT_BOX',
-                        elementProperties: {
-                            pageObjectId: slide.notesPage.objectId,
-                            size: { height: { magnitude: 350, unit: 'PT' }, width: { magnitude: 450, unit: 'PT' } },
-                            transform: { scaleX: 1, scaleY: 1, translateX: 50, translateY: 50, unit: 'PT' }
+            if (formattedNotes) {
+                const speakerNotesObjectId = await findSpeakerNotesObjectId(presentationId, slide.objectId);
+                if (speakerNotesObjectId) {
+                    // **CRITICAL FIX**: Delete existing text before inserting new content.
+                    populateRequests.push({
+                        deleteText: {
+                            objectId: speakerNotesObjectId,
+                            textRange: { type: 'ALL' }
                         }
-                    }
-                });
-                populateRequests.push({ insertText: { objectId: noteBoxId, text: formattedNotes } });
+                    });
+                    populateRequests.push({
+                        insertText: {
+                            objectId: speakerNotesObjectId,
+                            text: formattedNotes,
+                            insertionIndex: 0
+                        }
+                    });
+                }
             }
-        });
+        }
 
         if (populateRequests.length > 0) {
-            await window.gapi.client.slides.presentations.batchUpdate({ presentationId, requests: populateRequests });
+            const batchSize = 500;
+            for (let i = 0; i < populateRequests.length; i += batchSize) {
+                const batch = populateRequests.slice(i, i + batchSize);
+                await window.gapi.client.slides.presentations.batchUpdate({ presentationId, requests: batch });
+            }
         }
 
         sessionStorage.removeItem('googleSlidesData');

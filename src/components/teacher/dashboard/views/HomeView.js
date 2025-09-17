@@ -642,7 +642,7 @@ const HomeView = ({
             <div className="relative z-10 space-y-4 md:space-y-6">
                 <motion.header
                     {...fadeProps}
-                    className="relative p-4 md:p-6 bg-white/60 backdrop-blur-xl rounded-3xl shadow-lg shadow-slate-300/20 border border-white/80 overflow-hidden"
+                    className="relative p-4 md:p-6 bg-white/60 backdrop-blur-xl rounded-3xl shadow-xl shadow-slate-300/25 border border-white/80 overflow-hidden"
                 >
                     {isSpecialBannerActive ? (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full items-center">
@@ -758,15 +758,15 @@ const HomeView = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
                     <motion.div {...fadeProps} transition={{ duration: 0.4, delay: 0.1 }}>
-                        <ClockWidget className="rounded-3xl shadow-lg shadow-slate-300/20 transition-transform transform hover:-translate-y-1 duration-300 ease-in-out hover:shadow-xl hover:shadow-slate-300/30 border border-white/50" />
+                        <ClockWidget className="rounded-3xl shadow-xl shadow-slate-300/25 transition-transform transform hover:-translate-y-2 hover:scale-[1.02] duration-300 ease-in-out hover:shadow-2xl hover:shadow-slate-300/40 border border-white/50" />
                     </motion.div>
                     <motion.div {...fadeProps} transition={{ duration: 0.4, delay: 0.2 }}>
-                        <InspirationCard className="rounded-3xl shadow-lg shadow-slate-300/20 transition-transform transform hover:-translate-y-1 duration-300 ease-in-out hover:shadow-xl hover:shadow-slate-300/30 border border-white/50" />
+                        <InspirationCard className="rounded-3xl shadow-xl shadow-slate-300/25 transition-transform transform hover:-translate-y-2 hover:scale-[1.02] duration-300 ease-in-out hover:shadow-2xl hover:shadow-slate-300/40 border border-white/50" />
                     </motion.div>
                     <motion.div
                         {...fadeProps}
                         transition={{ duration: 0.4, delay: 0.3 }}
-                        className="bg-white/60 backdrop-blur-xl p-6 rounded-3xl shadow-lg shadow-slate-300/20 flex items-center justify-center flex-col text-center cursor-pointer transition-transform transform hover:-translate-y-1 duration-300 ease-in-out border border-white/50"
+                        className="bg-white/60 backdrop-blur-xl p-6 rounded-3xl shadow-xl shadow-slate-300/25 flex items-center justify-center flex-col text-center cursor-pointer transition-transform transform hover:-translate-y-2 hover:scale-[1.02] duration-300 ease-in-out border border-white/50 hover:shadow-2xl hover:shadow-slate-300/40"
                         onClick={() => setIsScheduleModalOpen(true)}
                     >
                         <CalendarDays className="h-10 w-10 text-sky-500 mb-2" />
@@ -776,7 +776,7 @@ const HomeView = ({
                     <motion.div
                         {...fadeProps}
                         transition={{ duration: 0.4, delay: 0.4 }}
-                        className="cursor-pointer transition-transform transform hover:-translate-y-1 duration-300 ease-in-out hover:shadow-xl hover:shadow-slate-300/30"
+                        className="cursor-pointer transition-transform transform hover:-translate-y-2 hover:scale-[1.02] duration-300 ease-in-out hover:shadow-2xl hover:shadow-slate-300/40"
                         onClick={() => handleViewChange('classes')}
                     >
                         <GradientStatCard
@@ -784,7 +784,7 @@ const HomeView = ({
                             value={activeClasses.length}
                             icon={<GraduationCap />}
                             gradient="from-sky-400 to-cyan-400"
-                            className="rounded-3xl shadow-lg shadow-slate-300/20"
+                            className="rounded-3xl shadow-xl shadow-slate-300/25"
                         />
                     </motion.div>
                 </div>
@@ -793,7 +793,7 @@ const HomeView = ({
                     <motion.div
                         {...fadeProps}
                         transition={{ duration: 0.4 }}
-                        className="lg:col-span-1 p-6 bg-white/60 backdrop-blur-xl rounded-3xl shadow-lg shadow-slate-300/20 hover:shadow-xl hover:shadow-slate-300/30 transition-shadow duration-300 border border-white/50"
+                        className="lg:col-span-1 p-6 bg-white/60 backdrop-blur-xl rounded-3xl shadow-xl shadow-slate-300/25 hover:shadow-2xl hover:shadow-slate-300/40 transition-all duration-300 border border-white/50 transform hover:-translate-y-2 hover:scale-[1.01]"
                     >
                         <div className="flex items-center gap-4 mb-6">
                             <div className="bg-sky-100 p-3 rounded-2xl">
@@ -834,7 +834,7 @@ const HomeView = ({
                                         key={post.id}
                                         {...fadeProps}
                                         transition={{ duration: 0.4, delay: index * 0.05 }}
-                                        className={`bg-white/60 backdrop-blur-lg rounded-3xl shadow-lg shadow-slate-300/20 p-6 relative group transform transition-all duration-300 hover:shadow-xl hover:shadow-slate-300/30 border ${post.isPinned ? 'border-violet-300 ring-2 ring-violet-200/50' : 'border-white/50'}`}
+                                        className={`bg-white/60 backdrop-blur-lg rounded-3xl shadow-xl shadow-slate-300/25 p-6 relative group transform transition-all duration-300 hover:shadow-2xl hover:shadow-slate-300/40 hover:-translate-y-2 hover:scale-[1.01] border ${post.isPinned ? 'border-violet-300 ring-2 ring-violet-200/50' : 'border-white/50'}`}
                                     >
                                         {post.isPinned && (
                                             <div className="absolute top-4 left-4 flex items-center gap-2 text-violet-700 bg-violet-100 px-3 py-1 rounded-full text-xs font-semibold z-10">

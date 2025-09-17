@@ -93,15 +93,12 @@ const LessonPage = ({ page, isEditable, onFinalizeDiagram, isFinalizing }) => {
       setLabels(initialLabels);
 
       let urls = [];
-      if (Array.isArray(pageContent?.imageUrls)) {
-        urls = pageContent.imageUrls.slice();
-      } else if (
-        pageContent?.imageUrls &&
-        typeof pageContent.imageUrls === "string"
-      ) {
-        urls = [pageContent.imageUrls];
-      } else if (pageContent?.generatedImageUrl) {
-        urls = [pageContent.generatedImageUrl];
+      if (pageContent?.imageUrls && Array.isArray(pageContent.imageUrls) && pageContent.imageUrls.length > 0) {
+          // Use the array if it exists and has images
+          urls = pageContent.imageUrls.filter(url => typeof url === 'string' && url.trim() !== '');
+      } else if (pageContent?.generatedImageUrl && typeof pageContent.generatedImageUrl === 'string' && pageContent.generatedImageUrl.trim() !== '') {
+          // Fallback to the single generated URL if the array is empty or missing
+          urls = [pageContent.generatedImageUrl];
       }
 
       const initialImages =
