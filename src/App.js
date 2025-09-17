@@ -144,12 +144,20 @@ export default function App() {
     };
   }, []); // Run this effect only once on mount
 
+  // ✅ REVISED AND MORE RELIABLE SOLUTION
   const handleEnter = () => {
     if (waitingWorker) {
+      // Tell the new service worker to take over.
       waitingWorker.postMessage({ type: 'SKIP_WAITING' });
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
+
+      // Directly reload the page after a brief delay.
+      // This forces the update without relying on the 'controllerchange' event.
+      setTimeout(() => {
         window.location.reload();
-      }, { once: true });
+      }, 100); // 100ms is enough time for the message to be processed.
+    } else {
+      // Fallback for safety, in case the button is shown without a waiting worker.
+      window.location.reload();
     }
   };
 
