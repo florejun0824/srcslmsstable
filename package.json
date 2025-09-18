@@ -8,7 +8,6 @@
     "@capacitor/app": "^7.0.1",
     "@capacitor/core": "^7.4.2",
     "@capacitor/splash-screen": "^7.0.1",
-    "@craco/craco": "^7.1.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@google/genai": "^1.11.0",
@@ -24,10 +23,10 @@
     "@phosphor-icons/react": "^2.1.10",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
-    "@tailwindcss/postcss": "^4.1.11",
     "@tremor/react": "^3.18.7",
     "@types/katex": "^0.16.7",
     "axios": "^1.10.0",
+    "buffer": "^6.0.3",
     "chart.js": "^4.5.0",
     "date-fns": "^4.1.0",
     "dexie": "^4.2.0",
@@ -71,7 +70,6 @@
     "react-masonry-css": "^1.0.16",
     "react-quill": "^2.0.0",
     "react-router-dom": "^6.24.1",
-    "react-scripts": "5.0.1",
     "react-to-print": "^3.1.1",
     "react-window": "^2.1.0",
     "rehype-katex": "^7.0.1",
@@ -88,54 +86,22 @@
   },
   "scripts": {
     "prebuild": "node scripts/write-version.js",
-    "start": "npx craco start",
-    "build": "craco build",
+    "dev": "vite",
+	"build": "NODE_OPTIONS=--max-old-space-size=4096 vite build",
+    "preview": "vite preview",
     "set:building": "node scripts/set-building.js",
-    "set:ready": "node scripts/set-ready.js",
-    "proxy": "http://localhost:5001",
-    "test": "craco test"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+    "set:ready": "node scripts/set-ready.js"
   },
   "devDependencies": {
-    "@babel/core": "^7.28.0",
-    "@babel/preset-env": "^7.28.0",
-    "@babel/preset-react": "^7.27.1",
     "@capacitor/cli": "^7.4.2",
-    "@tailwindcss/line-clamp": "^0.4.4",
-    "@tailwindcss/typography": "^0.5.16",
-    "assert": "^2.1.0",
-    "autoprefixer": "^10.4.19",
-    "babel-loader": "^10.0.0",
-    "browserify-zlib": "^0.2.0",
-    "buffer": "^6.0.3",
-    "crypto-browserify": "^3.12.1",
-    "gh-pages": "^6.3.0",
-    "https-browserify": "^1.0.0",
-    "node-polyfill-webpack-plugin": "^4.1.0",
-    "os-browserify": "^0.3.0",
-    "path-browserify": "^1.0.1",
-    "postcss": "^8.4.38",
-    "process": "^0.11.10",
-    "stream-browserify": "^3.0.0",
-    "stream-http": "^3.2.0",
-    "tailwindcss": "^3.4.4",
-    "url": "^0.11.4"
+    "@tailwindcss/line-clamp": "^0.4.2",
+    "@tailwindcss/typography": "^0.5.10",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.21",
+    "pkg-dir": "^8.0.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
+    "vite": "^5.3.1",
+    "vite-plugin-node-polyfills": "^0.24.0"
   }
 }

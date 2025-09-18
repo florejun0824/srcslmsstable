@@ -136,7 +136,6 @@ const reactionIconsHomeView = {
   },
 };
 
-
 const ANNOUNCEMENT_TRUNCATE_LENGTH = 300;
 
 const HomeView = ({

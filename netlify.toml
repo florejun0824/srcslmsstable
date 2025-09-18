@@ -1,4 +1,12 @@
 [build]
   command = "npm run build"
-  publish = "build"
-  functions = "netlify/functions"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"                # use LTS Node (lighter than v22)
+  NODE_OPTIONS = "--max-old-space-size=6144" # give Netlify 6GB RAM for build
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

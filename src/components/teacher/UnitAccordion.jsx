@@ -40,22 +40,39 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { marked } from 'marked';
 import { useToast } from '../../contexts/ToastContext';
-import htmlToDocx from 'html-to-docx';
-import pdfMake from "pdfmake/build/pdfmake";
-import pdfFonts from "pdfmake/build/vfs_fonts";
+import htmlToDocx from 'html-to-docx-ts';
 import AddLessonModal from './AddLessonModal';
 import AddQuizModal from './AddQuizModal';
 import EditLessonModal from './EditLessonModal';
 import ViewLessonModal from './ViewLessonModal';
 import EditUnitModal from './EditUnitModal';
-import EditQuizModal from './EditQuizModal';
+import EditQuizModal from './EditQuizModal.jsx';
 import ViewQuizModal from './ViewQuizModal';
 import AiQuizModal from './AiQuizModal';
 import AiGenerationHub from './AiGenerationHub';
 import Spinner from '../common/Spinner';
 import htmlToPdfmake from 'html-to-pdfmake';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, PageOrientation, ImageRun, Numbering, Header, Footer } from "docx";
+import {
+    Document,
+    Packer,
+    Paragraph,
+    TextRun,
+    HeadingLevel,
+    AlignmentType,
+    PageOrientation,
+    ImageRun,
+    Numbering,
+    Header,
+    Footer,
+} from "docx";
 import { saveAs } from "file-saver";
+
+// ✅ VITE FIX: Properly configure pdfmake with its virtual file system (VFS) for fonts.
+// Vite handles these legacy UMD modules differently than Webpack.
+import pdfMake from "pdfmake/build/pdfmake";
+import pdfFonts from "pdfmake/build/vfs_fonts";
+pdfMake.vfs = pdfFonts;
+
 
 // ... (All helper functions like fetchImageAsBase64, markdownToDocx, etc. remain unchanged) ...
 async function fetchImageAsBase64(url) {
@@ -142,7 +159,7 @@ function markdownToDocx(content) {
     });
     return paragraphs;
 }
-pdfMake.vfs = pdfFonts.pdfMake.vfs;
+
 const convertSvgStringToPngDataUrl = (svgString) => {
     return new Promise((resolve, reject) => {
         let correctedSvgString = svgString;
@@ -244,7 +261,6 @@ const AddContentButton = ({ onAddLesson, onAddQuiz }) => {
         </button>
     );
 };
-// ✅ UI/UX: Complete redesign of the lesson/quiz list item for a modern, mobile-friendly look.
 function SortableContentItem({ item, isReordering, ...props }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: item.id,
@@ -793,7 +809,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	                                    </div>
 
 	                                    <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
-	                                        {/* ✅ Show Generate PPT button if provided */}
+	                                        {/* Show Generate PPT button if provided */}
 	                                        {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
 
 	                                        <button 
@@ -893,7 +909,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             <AddLessonModal isOpen={addLessonModalOpen} onClose={() => setAddLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject?.id} setIsAiGenerating={setIsAiGenerating} />
             <AddQuizModal isOpen={addQuizModalOpen} onClose={() => setAddQuizModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject?.id} />
             <EditLessonModal isOpen={editLessonModalOpen} onClose={() => setEditLessonModalOpen(false)} lesson={selectedLesson} />
-            {/* ✅ FIXED: Pass onUpdateLesson prop */}
+            {/* FIXED: Pass onUpdateLesson prop */}
             <ViewLessonModal isOpen={viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={selectedLesson} onUpdate={onUpdateLesson} />
             {selectedQuiz && (<EditQuizModal isOpen={editQuizModalOpen} onClose={() => setEditQuizModalOpen(false)} quiz={selectedQuiz} onEditQuiz={() => { setEditQuizModalOpen(false); }} />)}
             <ViewQuizModal isOpen={viewQuizModalOpen} onClose={() => setViewQuizModalOpen(false)} quiz={selectedQuiz} userProfile={userProfile} isTeacherView={true} />

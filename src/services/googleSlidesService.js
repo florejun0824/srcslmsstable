@@ -1,8 +1,15 @@
-const CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
-const API_KEY = process.env.REACT_APP_GOOGLE_API_KEY;
-const TEMPLATE_ID = process.env.REACT_APP_GOOGLE_SLIDES_TEMPLATE_ID;
-const DISCOVERY_DOCS = ["https://slides.googleapis.com/$discovery/rest?version=v1", "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
-const SCOPES = "https://www.googleapis.com/auth/presentations https://www.googleapis.com/auth/drive";
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
+const TEMPLATE_ID = import.meta.env.VITE_GOOGLE_SLIDES_TEMPLATE_ID;
+
+const DISCOVERY_DOCS = [
+  "https://slides.googleapis.com/$discovery/rest?version=v1",
+  "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"
+];
+
+const SCOPES =
+  "https://www.googleapis.com/auth/presentations https://www.googleapis.com/auth/drive";
+
 
 let gapiInited = false;
 let gisInited = false;

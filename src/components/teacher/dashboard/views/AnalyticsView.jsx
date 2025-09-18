@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../../../services/firebase';
 import { Bar } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.jsx';
 import { FaExclamationTriangle, FaChartBar, FaClock } from 'react-icons/fa';
 
-// Register Chart.js components
+// Register Chart.jsx components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 const AnalyticsView = ({ classes, userProfile }) => {

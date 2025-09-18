@@ -1,13 +1,10 @@
 /* src/index.css */
+@import "react-datepicker/dist/react-datepicker.css";
 
 /* 1. Tailwind Directives (Must be at the top) */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* 2. Library Imports */
-@import "react-datepicker/dist/react-datepicker.css";
-
 
 /* ==========================================================================
    Spinner Component Styles (iOS 18 Glass Background + Original Animation)
