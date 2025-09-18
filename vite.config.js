@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     nodePolyfills({
-      protocolImports: true, // allow "node:crypto"
+      protocolImports: true,
     }),
   ],
   resolve: {
@@ -31,5 +31,16 @@ export default defineConfig({
   },
   define: {
     global: "globalThis",
+  },
+  build: {
+    rollupOptions: {
+      external: [
+        "buffer",
+        "process",
+        "stream",
+        "crypto",
+        "util",
+      ],
+    },
   },
 });
