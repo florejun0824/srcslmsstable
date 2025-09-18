@@ -1,0 +1,12 @@
+Enhanced Loading Time and Performance
+Enhanced AI automation across the LMS
+Creating Learning Guide and Learning Plan now added Scaffolding options to ensure continuity of lessons and no redundancy will be commited
+Added Exam and TOS Generator Feature
+Added an option to export quizzes to pdf
+Learning Plans can now be exported as docx or pdf
+Improved DOCX export with proper table styling
+Enhanced UI Philosophy
+Added auto-refresh banner when new version is available
+Offline-Online Synching of Lessons and Quizzes for students
+Memory Leaks Fixes
+Support for Uploading Pdf in Add Lesson to generate new lesson.

@@ -1,0 +1,4 @@
+{
+  "version": "2025-09-18T08:31:27.687Z",
+  "whatsNew": "Enhanced Loading Time and Performance\nEnhanced AI automation across the LMS\nCreating Learning Guide and Learning Plan now added Scaffolding options to ensure continuity of lessons and no redundancy will be commited\nAdded Exam and TOS Generator Feature\nAdded an option to export quizzes to pdf\nLearning Plans can now be exported as docx or pdf\nImproved DOCX export with proper table styling\nEnhanced UI Philosophy\nAdded auto-refresh banner when new version is available\nOffline-Online Synching of Lessons and Quizzes for students\nMemory Leaks Fixes\nSupport for Uploading Pdf in Add Lesson to generate new lesson."
+}
