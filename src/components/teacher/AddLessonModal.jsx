@@ -18,9 +18,12 @@ import { callGeminiWithLimitCheck } from '../../services/aiService';
 import LessonPage from './LessonPage';
 import ContentRenderer from '../teacher/ContentRenderer';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `${process.env.PUBLIC_URL}/pdfjs/pdf.worker.min.js`;
+// Set the worker source for pdfjs-dist in a Vite-compatible way
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+
 
 const BoldIcon = (props) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props} className="w-5 h-5">
