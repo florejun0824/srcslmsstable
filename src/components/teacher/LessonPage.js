@@ -93,12 +93,20 @@ const LessonPage = ({ page, isEditable, onFinalizeDiagram, isFinalizing }) => {
       setLabels(initialLabels);
 
       let urls = [];
-      if (pageContent?.imageUrls && Array.isArray(pageContent.imageUrls) && pageContent.imageUrls.length > 0) {
-          // Use the array if it exists and has images
-          urls = pageContent.imageUrls.filter(url => typeof url === 'string' && url.trim() !== '');
-      } else if (pageContent?.generatedImageUrl && typeof pageContent.generatedImageUrl === 'string' && pageContent.generatedImageUrl.trim() !== '') {
-          // Fallback to the single generated URL if the array is empty or missing
-          urls = [pageContent.generatedImageUrl];
+      if (
+        pageContent?.imageUrls &&
+        Array.isArray(pageContent.imageUrls) &&
+        pageContent.imageUrls.length > 0
+      ) {
+        urls = pageContent.imageUrls.filter(
+          (url) => typeof url === "string" && url.trim() !== ""
+        );
+      } else if (
+        pageContent?.generatedImageUrl &&
+        typeof pageContent.generatedImageUrl === "string" &&
+        pageContent.generatedImageUrl.trim() !== ""
+      ) {
+        urls = [pageContent.generatedImageUrl];
       }
 
       const initialImages =
@@ -663,86 +671,33 @@ const LessonPage = ({ page, isEditable, onFinalizeDiagram, isFinalizing }) => {
     }
 
     default: {
-      // handle other content formats (mermaid/legacy diagram JSON) and fallback to ContentRenderer
-      if (typeof page.content === "string" && page.content.trim().startsWith("mermaid")) {
-        const body = page.content.replace(/^mermaid\s*/, "").trim();
+      // ✅ FIX: This logic is now simplified to trust ContentRenderer
+      const content = page.content;
+      const shouldRenderTitle = page.title && page.title.trim() !== "";
 
-        if (body.startsWith("{") || body.startsWith("[")) {
-          try {
-            const parsed = JSON.parse(body);
-            if (parsed.generatedImageUrl) {
-              return (
-                <div className="my-6 p-4 border-2 border-dashed rounded-lg bg-slate-50 select-none">
-                  {shouldRenderTitle && (
-                    <h4 className="text-xl font-bold text-slate-700 mb-2">
-                      {page.title}
-                    </h4>
-                  )}
+      // First, handle finalized diagram objects which are not part of a larger text block
+      if (content && typeof content === 'object' && content.generatedImageUrl) {
+          return (
+              <div className="my-6">
+                  {shouldRenderTitle && <h4 className="font-semibold text-gray-700 mb-2">{page.title}</h4>}
                   <img
-                    src={parsed.generatedImageUrl}
-                    alt="Lesson Diagram"
-                    className="w-full h-auto rounded-md shadow-md bg-gray-200"
-                    draggable="false"
+                      src={content.generatedImageUrl}
+                      alt="Lesson Diagram"
+                      className="w-full h-auto rounded-md shadow-md bg-gray-200"
                   />
-                </div>
-              );
-            }
-          } catch (e) {
-            console.error("Failed to parse legacy diagram JSON:", e);
-          }
-        }
-
-        return (
-          <div className="mb-6 last:mb-0">
-            {shouldRenderTitle && (
-              <h4 className="font-semibold text-gray-700 mb-2">{page.title}</h4>
-            )}
-            <ContentRenderer text={body} />
-          </div>
-        );
+              </div>
+          );
       }
 
-      if (typeof page.content === "string") {
-        const trimmed = page.content.trim();
-        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-          try {
-            const parsed = JSON.parse(trimmed);
-            if (parsed.generatedImageUrl) {
-              return (
-                <div className="my-6 p-4 border-2 border-dashed rounded-lg bg-slate-50 select-none">
-                  {shouldRenderTitle && (
-                    <h4 className="text-xl font-bold text-slate-700 mb-2">
-                      {page.title}
-                    </h4>
-                  )}
-                  <img
-                    src={parsed.generatedImageUrl}
-                    alt="Lesson Diagram"
-                    className="w-full h-auto rounded-md shadow-md bg-gray-200"
-                    draggable="false"
-                  />
-                </div>
-              );
-            }
-          } catch (e) {
-            console.error("Failed to parse JSON content:", e);
-          }
-        }
-      }
-
-      let contentToRender = "";
-      if (typeof page.content === 'string') {
-          contentToRender = page.content;
-      } else if (page.content && typeof page.content === 'object') {
-          contentToRender = "```json\n" + JSON.stringify(page.content, null, 2) + "\n```";
-      }
+      // For everything else (markdown strings, etc.), convert to string and pass to the robust renderer
+      const contentString = (typeof content === 'string') ? content : JSON.stringify(content, null, 2);
 
       return (
         <div className="mb-6 last:mb-0">
           {shouldRenderTitle && (
             <h4 className="font-semibold text-gray-700 mb-2">{page.title}</h4>
           )}
-          <ContentRenderer text={contentToRender} />
+          <ContentRenderer text={contentString} />
         </div>
       );
     }

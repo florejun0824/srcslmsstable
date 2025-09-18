@@ -13,6 +13,7 @@ import {
     CheckCircleIcon
 } from '@heroicons/react/24/solid';
 import LessonPage from './LessonPage';
+import ContentRenderer from './ContentRenderer'; // Import ContentRenderer
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
@@ -100,7 +101,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
 	            index === pageIndex
 	                ? {
 	                    ...page,
-	                    // Use the complete finalizedContent object directly
 	                    content: finalizedContent,
 	                }
 	                : page
@@ -205,7 +205,10 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                                             {objectives.map((objective, index) => (
                                                 <motion.li key={index} variants={objectiveItemVariants} className="flex items-start gap-3">
                                                     <CheckCircleIcon className="h-5 w-5 text-red-500 flex-shrink-0 mt-1" />
-                                                    <span>{objective}</span>
+                                                    {/* ✅ FIX: Use ContentRenderer to process markdown instead of a plain span */}
+                                                    <div className="flex-1">
+                                                      <ContentRenderer text={objective} />
+                                                    </div>
                                                 </motion.li>
                                             ))}
                                         </ul>

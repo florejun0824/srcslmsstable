@@ -1,8 +1,8 @@
-// src/components/teacher/AddLesson-Modal.js
+// AddLessonModal.js
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { db } from '../../services/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, onSnapshot, getDocs, doc } from 'firebase/firestore';
 import {
     Dialog, DialogPanel, Title, Button, TextInput, Textarea, TabGroup, TabList, Tab, TabPanels, TabPanel
 } from '@tremor/react';
@@ -10,31 +10,28 @@ import {
     DocumentArrowUpIcon, DocumentTextIcon, XMarkIcon, SparklesIcon,
     CheckCircleIcon, DocumentPlusIcon, ArrowUturnLeftIcon, PlusCircleIcon,
     TrashIcon, BookOpenIcon, PhotoIcon, VideoCameraIcon, Bars3Icon,
-    CodeBracketIcon, LinkIcon, QueueListIcon, PaintBrushIcon, ChatBubbleLeftRightIcon
+    CodeBracketIcon, LinkIcon, QueueListIcon, PaintBrushIcon, ChatBubbleLeftRightIcon,
+    ChevronRightIcon
 } from '@heroicons/react/24/outline';
 import mammoth from 'mammoth';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import LessonPage from './LessonPage';
-import ContentRenderer from '../teacher/ContentRenderer'; // Assuming this component can render raw HTML
+import ContentRenderer from '../teacher/ContentRenderer';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-
-// Use legacy PDF.js build
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
-// This requires `pdf.worker.min.js` to be in your `public/pdfjs/` directory.
 pdfjsLib.GlobalWorkerOptions.workerSrc = `${process.env.PUBLIC_URL}/pdfjs/pdf.worker.min.js`;
 
-// --- Custom Icons for Markdown Toolbar ---
 const BoldIcon = (props) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props} className="w-5 h-5">
       <path d="M7 5v14h7c2.21 0 4-1.79 4-4s-1.79-4-4-4h-4m4 0H7" />
     </svg>
-  );
+);
 const ItalicIcon = (props) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props} className="w-5 h-5">
       <path d="M10 5l-4 14h3l4-14h-3z" />
     </svg>
-  );
+);
 const H1Icon = (props) => (
     <svg viewBox="0 0 24 24" fill="currentColor" {...props} className="w-5 h-5">
         <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fontSize="12" fontWeight="bold">H1</text>
@@ -51,8 +48,6 @@ const H3Icon = (props) => (
     </svg>
 );
 
-
-// --- Helper Functions (Shared) ---
 const chunkText = (text, chunkSize = 8000) => {
   const chunks = [];
   let i = 0;
@@ -63,41 +58,445 @@ const chunkText = (text, chunkSize = 8000) => {
   return chunks;
 };
 
-const sanitizeLessonsJson = (aiResponse) => {
-  try {
-    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON object found in AI response.");
-    let parsed = JSON.parse(jsonMatch[0]);
-    if (!parsed.lessons || !Array.isArray(parsed.lessons)) {
-      throw new Error('JSON response does not contain a "lessons" array.');
-    }
-    return parsed.lessons.map((lesson, lessonIdx) => ({
-      lessonTitle: typeof lesson.lessonTitle === "string" && lesson.lessonTitle.length > 0 ? lesson.lessonTitle : `Untitled Lesson ${lessonIdx + 1}`,
-      learningObjectives: Array.isArray(lesson.learningObjectives) ? lesson.learningObjectives.filter((obj) => typeof obj === "string") : [],
-      pages: Array.isArray(lesson.pages) ? lesson.pages.map((p, pageIdx) => {
-            const baseTitle = typeof p.title === "string" && p.title.length > 0 ? p.title : `Page ${pageIdx + 1}`;
-            if (p.type === "diagram-data") {
-              const content = typeof p.content === "object" ? p.content : {};
-              return {
-                title: baseTitle,
-                type: "diagram-data",
-                content: {
-                  htmlContent: typeof content.htmlContent === "string" ? content.htmlContent : undefined,
-                  generatedImageUrl: typeof content.generatedImageUrl === "string" ? content.generatedImageUrl : undefined,
-                  imageUrls: Array.isArray(content.imageUrls) ? content.imageUrls.filter((url) => typeof url === "string") : (content.imageUrls && typeof content.imageUrls === "string" ? [content.imageUrls] : []),
-                  labels: Array.isArray(content.labels) ? content.labels.filter((l) => typeof l === "string") : [],
-                },
-              };
+const sanitizeLessonsJson = (aiResponse, { lenient = true, debug = false } = {}) => {
+  const dbg = (...args) => { if (debug) console.debug('[sanitizeLessonsJson]', ...args); };
+
+  // Helpers
+  const stripBom = (s) => s.replace(/^\uFEFF/, '');
+  const stripMarkdownFences = (s) => s.replace(/```(?:json)?/gi, ''); // removes fences; we'll also remove remaining ticks later
+  const normalizeSmartQuotes = (s) => s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+  const removeControlChars = (s) => s.replace(/[\u0000-\u001F]+/g, ' ');
+  const removeComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n\r]*/g, '');
+  const removeTrailingCommas = (s) => s.replace(/,\s*([}\]])/g, '$1');
+  const fixBackslashes = (s) => s.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\'); // doubles invalid single backslashes
+
+  // Find balanced JSON-like substrings (handles nested braces/brackets and quoted strings)
+  function findBalancedCandidates(text) {
+    const out = [];
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (ch !== '{' && ch !== '[') continue;
+      let stack = [ch];
+      let inString = false;
+      let quoteChar = null;
+
+      for (let j = i + 1; j < text.length; j++) {
+        const c = text[j];
+
+        if (inString) {
+          if (c === '\\') {
+            j++; // skip escaped char
+            continue;
+          }
+          if (c === quoteChar) {
+            inString = false;
+            quoteChar = null;
+          }
+          continue;
+        } else {
+          if (c === '"' || c === "'") {
+            inString = true;
+            quoteChar = c;
+            continue;
+          }
+          if (c === '{' || c === '[') {
+            stack.push(c);
+            continue;
+          }
+          if (c === '}' || c === ']') {
+            const top = stack.pop();
+            if (!top) break; // mismatch
+            if ((top === '{' && c !== '}') || (top === '[' && c !== ']')) break; // mismatch
+            if (stack.length === 0) {
+              out.push(text.slice(i, j + 1));
+              i = j; // advance outer pointer to skip over this block
+              break;
             }
-            return { title: baseTitle, content: typeof p.content === "string" ? p.content : "", type: p.type || "text" };
-          })
-        : [],
-    }));
-  } catch (err) {
-    console.error("sanitizeLessonsJson failed:", err);
-    return [{ lessonTitle: "Error Parsing Response", pages: [{ title: "Parsing Error", content: "⚠️ The AI response could not be parsed properly. Please check the AI model or regenerate." }] }];
+          }
+        }
+      }
+    }
+    return out;
   }
+
+  // Try JSON.parse with progressive repairs
+  function tryParseWithRepairs(candidate) {
+    // Attempt direct parse first
+    try {
+      return { parsed: JSON.parse(candidate), repaired: false, finalString: candidate };
+    } catch (e) {
+      dbg('direct parse failed, will attempt repairs');
+    }
+
+    // Repair passes (applied cumulatively)
+    let s = candidate;
+    const repairs = [];
+    // 1: normalize smart quotes
+    s = normalizeSmartQuotes(s);
+    repairs.push('smart-quotes');
+    // 2: remove Markdown triple-backticks just in case
+    s = stripMarkdownFences(s);
+    repairs.push('md-fences');
+    // 3: remove C-style comments and // comments
+    s = removeComments(s);
+    repairs.push('comments-removed');
+    // 4: fix invalid backslashes
+    s = fixBackslashes(s);
+    repairs.push('backslashes-fixed');
+    // 5: remove trailing commas in objects/arrays
+    s = removeTrailingCommas(s);
+    repairs.push('trailing-commas-removed');
+    // 6: remove control chars
+    s = removeControlChars(s);
+    repairs.push('control-chars-removed');
+
+    // One more try
+    try {
+      return { parsed: JSON.parse(s), repaired: repairs, finalString: s };
+    } catch (e2) {
+      dbg('repairs failed to parse candidate:', repairs, e2);
+      return { parsed: null, repaired: repairs, finalString: s, error: e2 };
+    }
+  }
+
+  // Recursively search for a lessons array in an object
+  function findLessonsRecursively(obj, seen = new Set()) {
+    if (!obj || typeof obj !== 'object') return null;
+    if (seen.has(obj)) return null;
+    seen.add(obj);
+
+    if (Array.isArray(obj.lessons) && obj.lessons.length > 0) return obj.lessons;
+    // common alternate keys
+    for (const altKey of ['data', 'items', 'content', 'results']) {
+      if (Array.isArray(obj[altKey]) && obj[altKey].length > 0) {
+        // heuristic: check if items look like lessons
+        const sample = obj[altKey][0];
+        if (sample && typeof sample === 'object' && (sample.title || sample.lessonTitle || sample.pages)) {
+          return obj[altKey];
+        }
+      }
+    }
+
+    for (const k of Object.keys(obj)) {
+      try {
+        const v = obj[k];
+        const found = findLessonsRecursively(v, seen);
+        if (found) return found;
+      } catch (err) {
+        // ignore
+      }
+    }
+    return null;
+  }
+
+  // Heuristic: find the first array of objects that looks like lessons (title/pages)
+  function findLessonLikeArray(obj, seen = new Set()) {
+    if (!obj || typeof obj !== 'object') return null;
+    if (seen.has(obj)) return null;
+    seen.add(obj);
+
+    for (const k of Object.keys(obj)) {
+      const v = obj[k];
+      if (Array.isArray(v) && v.length > 0 && typeof v[0] === 'object') {
+        // check if elements have lesson-like keys
+        const sample = v[0];
+        if (sample.title || sample.lessonTitle || sample.pages || sample.learningObjectives) return v;
+      }
+      if (typeof v === 'object') {
+        const nested = findLessonLikeArray(v, seen);
+        if (nested) return nested;
+      }
+    }
+    return null;
+  }
+
+  // Normalize learningObjectives: accept string, array, or bullet list text
+  function normalizeObjectives(raw) {
+    if (!raw) return [];
+    if (Array.isArray(raw)) {
+      return raw.map(x => (typeof x === 'string' ? x.trim() : (x && x.text ? String(x.text).trim() : null))).filter(Boolean);
+    }
+    if (typeof raw === 'string') {
+      const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      // drop heading lines like "Learning Objectives:"
+      const cleaned = lines.map(l => l.replace(/^[-*•\d\.\)\s]+/, '').trim()).filter(Boolean);
+      return cleaned.length ? cleaned : [raw.trim()];
+    }
+    return [];
+  }
+
+  // Normalize a single page object
+  function normalizePage(rawPage, pageIdx) {
+    if (!rawPage) return { title: `Page ${pageIdx + 1}`, type: 'text', content: '' };
+
+    // If page is a plain string, make it a text page
+    if (typeof rawPage === 'string') {
+      return { title: `Page ${pageIdx + 1}`, type: 'text', content: rawPage };
+    }
+
+    // Extract title-like fields
+    const title = (rawPage.title || rawPage.heading || rawPage.pageTitle || rawPage.name || `Page ${pageIdx + 1}`);
+    let type = rawPage.type || rawPage.kind || 'text';
+
+    let content = rawPage.content ?? rawPage.body ?? rawPage.text ?? '';
+
+    // If content looks like an object serialized into a string, try parse
+    if (typeof content === 'string') {
+      const trimmed = content.trim();
+      if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+        try {
+          content = JSON.parse(trimmed);
+        } catch (e) {
+          // attempt cleaned parse
+          try {
+            const repaired = removeComments(normalizeSmartQuotes(trimmed));
+            const repaired2 = fixBackslashes(removeTrailingCommas(removeControlChars(repaired)));
+            content = JSON.parse(repaired2);
+          } catch (e2) {
+            // leave content as string if still unparseable
+            dbg('page.content string looks JSON but unable to parse; leaving raw string.');
+          }
+        }
+      }
+    }
+
+    // If content is object with imageUrls or htmlContent, force diagram-data
+    if (typeof content === 'object' && (content.imageUrls || content.htmlContent || content.labels)) {
+      type = 'diagram-data';
+    }
+
+    // Normalize imageUrls if comma-separated string
+    if (type === 'diagram-data' && typeof content === 'object') {
+      if (typeof content.imageUrls === 'string') {
+        content.imageUrls = content.imageUrls.split(',').map(u => u.trim()).filter(Boolean);
+      } else if (!Array.isArray(content.imageUrls)) {
+        content.imageUrls = [];
+      }
+      if (!Array.isArray(content.labels)) content.labels = [];
+      // ensure htmlContent is a string or undefined
+      if (content.htmlContent && typeof content.htmlContent !== 'string') {
+        content.htmlContent = String(content.htmlContent);
+      }
+    }
+
+    return { title: String(title), type: String(type), content: (content === undefined ? '' : content) };
+  }
+
+  // Normalize lesson object
+  function normalizeLesson(rawLesson, idx) {
+    // If a lesson is just a string, make it a single-page lesson
+    if (typeof rawLesson === 'string') {
+      return {
+        lessonTitle: `Untitled Lesson ${idx + 1}`,
+        learningObjectives: [],
+        pages: [{ title: 'Content', type: 'text', content: rawLesson }],
+      };
+    }
+
+    const lessonTitle = rawLesson.lessonTitle || rawLesson.title || rawLesson.name || `Untitled Lesson ${idx + 1}`;
+    const learningObjectives = normalizeObjectives(rawLesson.learningObjectives ?? rawLesson.objectives ?? rawLesson.learningTargets ?? rawLesson.targets);
+
+    // pages could be array, a single object, or text
+    let pagesRaw = rawLesson.pages ?? rawLesson.contentPages ?? rawLesson.sections ?? null;
+
+    if (!pagesRaw) {
+      // maybe the lesson has a single "content" field
+      if (rawLesson.content || rawLesson.body || rawLesson.text) {
+        pagesRaw = [{ title: 'Content', content: rawLesson.content ?? rawLesson.body ?? rawLesson.text }];
+      } else {
+        pagesRaw = []; // will create defaults below
+      }
+    }
+
+    if (!Array.isArray(pagesRaw) && pagesRaw && typeof pagesRaw === 'object') {
+      // Sometimes AI returns an object of pages keyed by numbers - convert to array
+      pagesRaw = Object.values(pagesRaw);
+    }
+
+    const pages = (Array.isArray(pagesRaw) ? pagesRaw : []).map((p, i) => normalizePage(p, i)).filter(Boolean);
+
+    // If there are zero pages but the lesson has a 'content' string, add it
+    if (pages.length === 0 && rawLesson.content && typeof rawLesson.content === 'string') {
+      pages.push({ title: 'Content', type: 'text', content: rawLesson.content });
+    }
+
+    // If still no pages, create a placeholder page
+    if (pages.length === 0) {
+      pages.push({ title: 'Page 1', type: 'text', content: '' });
+    }
+
+    return {
+      lessonTitle: String(lessonTitle),
+      learningObjectives,
+      pages,
+    };
+  }
+
+  // Start of main routine
+  if (!aiResponse || typeof aiResponse !== 'string') {
+    throw new Error('sanitizeLessonsJson expects the AI response as a string.');
+  }
+
+  let raw = String(aiResponse);
+  raw = stripBom(raw);
+  raw = normalizeSmartQuotes(raw);
+  raw = stripMarkdownFences(raw); // remove triple-backticks markers
+  raw = raw.trim();
+
+  dbg('initial raw preview:', raw.slice(0, 400));
+
+  // Find candidate JSON substrings
+  let candidates = findBalancedCandidates(raw);
+
+  // If nothing found, fallback to the whole string (maybe it's pure JSON but with weird wrappers)
+  if (!candidates || candidates.length === 0) {
+    dbg('no balanced candidates found, attempting to treat full string as candidate');
+    candidates = [raw];
+  } else {
+    dbg('found', candidates.length, 'candidates; using them to attempt parse');
+  }
+
+  const parseResults = [];
+
+  for (const candidate of candidates) {
+    // try direct and repaired parse
+    const res = tryParseWithRepairs(candidate);
+    if (res.parsed) {
+      parseResults.push({ parsed: res.parsed, repaired: res.repaired, finalString: res.finalString });
+    } else {
+      dbg('candidate could not be parsed even with repairs');
+    }
+  }
+
+  if (parseResults.length === 0) {
+    // final attempt: try a last-ditch cleanup on the whole raw text and parse
+    dbg('no successful parse yet; attempting last-ditch cleanup on full response');
+    let last = raw;
+    last = removeComments(last);
+    last = fixBackslashes(last);
+    last = removeTrailingCommas(last);
+    last = removeControlChars(last);
+    try {
+      const parsed = JSON.parse(last);
+      parseResults.push({ parsed, repaired: 'last-ditch', finalString: last });
+    } catch (err) {
+      dbg('last-ditch parse failed', err);
+    }
+  }
+
+  if (parseResults.length === 0) {
+    console.error('sanitizeLessonsJson: no parseable JSON found. preview:', raw.slice(0, 500));
+    throw new Error('The AI returned no parseable JSON. Check console for a preview.');
+  }
+
+  // Choose the best parsed result by heuristic (prefer object with lessons array, then array, then others)
+  let best = null;
+  let bestScore = -Infinity;
+
+  for (const r of parseResults) {
+    const p = r.parsed;
+    let score = 0;
+    if (p && typeof p === 'object') {
+      if (Array.isArray(p)) score += 900;
+      if (p.lessons && Array.isArray(p.lessons)) score += 1000 + p.lessons.length;
+      // nested search
+      const nestedLessons = findLessonsRecursively(p);
+      if (nestedLessons) score += 800 + nestedLessons.length;
+      // check if object itself looks like an array-of-lessons wrapped as object
+      const possibleArray = findLessonLikeArray(p);
+      if (possibleArray) score += 700 + possibleArray.length;
+      // minor boost if it has typical keys
+      if (p.unit || p.unitOverview || p.learningTargets) score += 50;
+    }
+    if (score > bestScore) { bestScore = score; best = r; }
+  }
+
+  dbg('chosen parse result with score', bestScore, 'repaired:', best.repaired);
+
+  let parsed = best.parsed;
+
+  // If parsed is an array (root is lessons array), wrap it
+  if (Array.isArray(parsed)) {
+    dbg('root is array; wrapping as { lessons: parsed }');
+    parsed = { lessons: parsed };
+  }
+
+  // If there is no lessons[], search recursively
+  if (!parsed.lessons || !Array.isArray(parsed.lessons)) {
+    const nested = findLessonsRecursively(parsed);
+    if (nested) {
+      dbg('found nested lessons array');
+      parsed = { lessons: nested };
+    } else {
+      // search for lesson-like array heuristically
+      const heuristic = findLessonLikeArray(parsed);
+      if (heuristic) {
+        dbg('found heuristic lesson-like array, using it as lessons');
+        parsed = { lessons: heuristic };
+      }
+    }
+  }
+
+  if (!parsed.lessons || !Array.isArray(parsed.lessons) || parsed.lessons.length === 0) {
+    // If we get here still nothing, and lenient is true, attempt to find any object with pages -> transform to single lesson per object (best-effort)
+    if (lenient) {
+      dbg('no lessons array; trying lenient recovery by scanning for objects that look like lessons');
+      const recovered = [];
+      function scanForLessonObjects(obj) {
+        if (!obj || typeof obj !== 'object') return;
+        if (Array.isArray(obj)) {
+          for (const x of obj) scanForLessonObjects(x);
+          return;
+        }
+        // object that has pages or a title or content
+        if ((obj.pages && Array.isArray(obj.pages)) || obj.title || obj.lessonTitle || obj.content) {
+          recovered.push(obj);
+        } else {
+          for (const k of Object.keys(obj)) {
+            try { scanForLessonObjects(obj[k]); } catch (e) {}
+          }
+        }
+      }
+      scanForLessonObjects(best.parsed);
+      if (recovered.length > 0) {
+        parsed = { lessons: recovered };
+      }
+    }
+
+    if (!parsed.lessons || !Array.isArray(parsed.lessons) || parsed.lessons.length === 0) {
+      console.error('sanitizeLessonsJson: unable to locate lessons array after all recovery attempts. preview:', best.finalString.slice(0, 500));
+      throw new Error('The AI returned JSON but no lesson-like array could be recovered.');
+    }
+  }
+
+  // At this point we have parsed.lessons as an array (hopefully)
+  const rawLessons = parsed.lessons;
+
+  // Normalize each lesson; keep partially valid lessons (do not hard-fail) unless there are zero final lessons
+  const sanitized = [];
+  for (let i = 0; i < rawLessons.length; i++) {
+    try {
+      const normalized = normalizeLesson(rawLessons[i], i);
+      // Drop trivial empty lessons (no pages & empty title) when lenient
+      if (!normalized.lessonTitle && (!normalized.pages || normalized.pages.length === 0)) {
+        if (!lenient) throw new Error('Empty lesson');
+        continue;
+      }
+      sanitized.push(normalized);
+    } catch (err) {
+      dbg(`skipping malformed lesson at index ${i}:`, err);
+      if (!lenient) throw err;
+    }
+  }
+
+  if (!sanitized || sanitized.length === 0) {
+    throw new Error('No usable lessons could be recovered from AI response.');
+  }
+
+  dbg('sanitization complete; returning', sanitized.length, 'lesson(s)');
+  return sanitized;
 };
+
 
 const reorder = (list, startIndex, endIndex) => {
     const result = Array.from(list);
@@ -105,9 +504,6 @@ const reorder = (list, startIndex, endIndex) => {
     result.splice(endIndex, 0, removed);
     return result;
 };
-
-
-// --- UI Components for different modes ---
 
 function ModeSelection({ onSelect }) {
   return (
@@ -153,6 +549,72 @@ function AiLessonGenerator({ onClose, onBack, unitId, subjectId }) {
     const [progressMessage, setProgressMessage] = useState('');
     const [selectedLessonIndex, setSelectedLessonIndex] = useState(0);
     const [selectedPageIndex, setSelectedPageIndex] = useState(0);
+    
+    const [subjectContext, setSubjectContext] = useState(null);
+    const [scaffoldLessonIds, setScaffoldLessonIds] = useState(new Set());
+    const [expandedScaffoldUnits, setExpandedScaffoldUnits] = useState(new Set());
+    const [existingLessonCount, setExistingLessonCount] = useState(0);
+
+    useEffect(() => {
+        if (subjectId) {
+            const fetchFullSubjectContext = async () => {
+                try {
+                    const unitsQuery = query(collection(db, 'units'), where('subjectId', '==', subjectId));
+                    const unitsSnapshot = await getDocs(unitsQuery);
+                    const unitsData = unitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                    const lessonsQuery = query(collection(db, 'lessons'), where('subjectId', '==', subjectId));
+                    const lessonsSnapshot = await getDocs(lessonsQuery);
+                    const lessonsData = lessonsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                    setSubjectContext({ units: unitsData, lessons: lessonsData });
+                } catch (error) {
+                    console.error("Error fetching subject context:", error);
+                    setError("Could not scan existing subject content.");
+                }
+            };
+            fetchFullSubjectContext();
+        }
+    }, [subjectId]);
+
+    useEffect(() => {
+        if (unitId) {
+            const lessonsQuery = query(collection(db, 'lessons'), where('unitId', '==', unitId));
+            const unsubscribe = onSnapshot(lessonsQuery, (snapshot) => {
+                setExistingLessonCount(snapshot.size);
+            });
+            return () => unsubscribe();
+        }
+    }, [unitId]);
+
+    const scaffoldInfo = useMemo(() => {
+        if (scaffoldLessonIds.size === 0 || !subjectContext) return { summary: '' };
+        const relevantScaffoldLessons = subjectContext.lessons.filter(lesson => scaffoldLessonIds.has(lesson.id));
+        const summary = relevantScaffoldLessons.map(lesson => {
+            const pageContentSample = lesson.pages.map(p => p.content).join(' ').substring(0, 200);
+            return `- Lesson Title: "${lesson.title}"\n  - Key Concepts/Activities Summary: ${pageContentSample}...`;
+        }).join('\n');
+        return { summary };
+    }, [scaffoldLessonIds, subjectContext]);
+
+    const handleToggleUnitExpansion = (unitId) => {
+        const newSet = new Set(expandedScaffoldUnits);
+        if (newSet.has(unitId)) newSet.delete(unitId);
+        else newSet.add(unitId);
+        setExpandedScaffoldUnits(newSet);
+    };
+
+    const handleUnitCheckboxChange = (lessonsInUnit) => {
+        const lessonIdsInUnit = lessonsInUnit.map(l => l.id);
+        const currentlySelectedInUnit = lessonIdsInUnit.filter(id => scaffoldLessonIds.has(id));
+        const newSet = new Set(scaffoldLessonIds);
+        if (currentlySelectedInUnit.length === lessonIdsInUnit.length) {
+            lessonIdsInUnit.forEach(id => newSet.delete(id));
+        } else {
+            lessonIdsInUnit.forEach(id => newSet.add(id));
+        }
+        setScaffoldLessonIds(newSet);
+    };
 
     const handleFileChange = (e) => {
         if (e.target.files.length > 0) {
@@ -209,10 +671,47 @@ function AiLessonGenerator({ onClose, onBack, unitId, subjectId }) {
             });
             const processedChunks = await Promise.all(processingPromises);
             const combinedText = processedChunks.join('\n\n');
-
+            
             setProgressMessage('Step 3 of 3: Structuring final lessons...');
-	           const finalPrompt = `
+
+            let existingSubjectContextString = "No other lessons exist yet.";
+            if (subjectContext && subjectContext.lessons.length > 0) {
+                existingSubjectContextString = subjectContext.units
+                    .sort((a, b) => (a.order || 0) - (b.order || 0))
+                    .map(unit => {
+                        const lessonsInUnit = subjectContext.lessons
+                            .filter(lesson => lesson.unitId === unit.id)
+                            .sort((a, b) => (a.order || 0) - (b.order || 0))
+                            .map(lesson => `  - Lesson: ${lesson.title}`)
+                            .join('\n');
+                        return `Unit: ${unit.title}\n${lessonsInUnit}`;
+                    }).join('\n\n');
+            }
+
+            const scaffoldingInstruction = `
+            **PRIMARY ANALYSIS TASK (NON-NEGOTIABLE):** Before generating anything, you MUST act as a curriculum continuity expert. Your most critical task is to meticulously analyze all the provided context below to prevent any topical repetition.
+
+            ---
+            ### CONTEXT: PREVIOUSLY COVERED MATERIAL
+            This section contains all topics from lessons that already exist. You are strictly forbidden from re-teaching these specific concepts.
+
+            **1. User-Selected Prerequisite Lessons:**
+            ${scaffoldInfo.summary || "No specific prerequisite lessons were selected."}
+
+            **2. Other Lessons Existing in this Subject:**
+            ${existingSubjectContextString}
+            ---
+
+            ### YOUR GENERATION RULES (ABSOLUTE)
+            1.  **DO NOT REPEAT:** You are strictly forbidden from creating a lesson, activity, or assessment question that covers the same learning objectives or keywords mentioned in the context above.
+            2.  **IDENTIFY THE GAP:** Your new lesson(s) must address a logical "next step" or a knowledge gap that is not covered by the existing material. The new lessons MUST start from Lesson number ${existingLessonCount + 1}.
+            3.  **BUILD A BRIDGE:** If appropriate, your introduction should briefly reference a concept from a prerequisite lesson to create a smooth transition, but it must immediately move into new material.
+            `;
+            
+	        const finalPrompt = `
 	        You are an expert curriculum designer and bestselling textbook author. 
+	        ${scaffoldingInstruction}
+
 	        Take the processed text and structure it into a **unit with lessons**, following the NON-NEGOTIABLE textbook chapter sequence.
 
 	        =============================
@@ -223,9 +722,8 @@ function AiLessonGenerator({ onClose, onBack, unitId, subjectId }) {
 	             • Learning Targets (clear bullet points).  
 	           - Nothing else.  
 	           - IMPORTANT: The Unit Overview MUST NEVER be numbered. Do not call it Lesson 0 or Lesson 1. Always exactly "Unit Overview".
-	        2. **Learning Objectives** - MUST be the first page of every lesson.  
-	           - Use the "learningObjectives" array in JSON.  
-	           - Objectives must be: specific, measurable, and student-friendly.
+	        2. **Learning Objectives** - For every lesson, you MUST populate the \`learningObjectives\` array in the JSON with specific, measurable, and student-friendly objectives.  
+	           - CRITICAL: You MUST NOT create a separate page titled "Learning Objectives"; the array is the only place they should appear.
 	        3. **Engaging Introduction** - MUST NOT use "Engaging Introduction" as the page title.  
 	           - Instead, give it a **thematic, captivating subheader title** (e.g., "Why Water Shapes Our World", "The Hidden Power of Atoms").  
 	           - Content must hook attention with a story, real-world example, or surprising fact.  
@@ -266,7 +764,6 @@ function AiLessonGenerator({ onClose, onBack, unitId, subjectId }) {
 	            - Includes both the uploaded file (if applicable) and additional credible references.  
 	            - The \`title\` MUST be exactly "References".
    
-
 	        =============================
 	        STYLE & OUTPUT RULES
 	        =============================
@@ -275,6 +772,11 @@ function AiLessonGenerator({ onClose, onBack, unitId, subjectId }) {
 	        - Table of Contents Handling:  
 	          • If the source text includes a clear "Table of Contents", the lesson/page structure MUST follow the order of topics listed there.  
 	          • If the source text does NOT include a TOC, generate exactly ONE lesson, following the full textbook structure above.
+			
+	        **CRITICAL QUOTE ESCAPING (NON-NEGOTIABLE):**
+	        - Any double quotes (") used inside a string value (like in "content" or "title") MUST be escaped with a backslash (\\").
+	        - **CORRECT EXAMPLE:** \`"content": "He said, \\"This is the correct way.\\""\`
+	        - **INCORRECT EXAMPLE:** \`"content": "He said, "This is the incorrect way.""\`
 
 	        **CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
 	        - You MUST use LaTeX for all mathematical equations, variables, and chemical formulas.
@@ -294,6 +796,9 @@ function AiLessonGenerator({ onClose, onBack, unitId, subjectId }) {
 	          • For **headings**, use Markdown hashes (e.g., \`### Complementary Angles\`).
 	          • For **key terms**, you MUST make them bold with asterisks (e.g., \`**complementary**\`).
 	          • For **callouts, notes, or tips**, you MUST use Markdown blockquotes (\`>\`).
+	          • For **inline code, technical terms, or short quoted phrases**, you MUST use Markdown's backticks (\`\`). Do NOT use double quotes for this purpose.
+	             - **CORRECT:** The Latin phrase is \`per centum\`.
+	             - **INCORRECT:** The Latin phrase is "per centum".
 	          • **Example for a Tip:**
 	            \`> **Tip:** To find the complement of any given angle, subtract its measure from $90\\degree$.\`
    
@@ -310,13 +815,12 @@ function AiLessonGenerator({ onClose, onBack, unitId, subjectId }) {
 	              ]
 	            },
 	            {
-	              "lessonTitle": "Lesson 1: How Plants Turn Sunlight into Food",
+	              "lessonTitle": "Lesson ${existingLessonCount + 1}: How Plants Turn Sunlight into Food",
 	              "learningObjectives": [
 	                "Explain how photosynthesis works",
 	                "Identify the role of chlorophyll in the process"
 	              ],
 	              "pages": [
-	                { "title": "Learning Objectives", "content": "..." },
 	                { "title": "Why Plants Are Nature's Solar Panels", "content": "Engaging intro..." },
 	                { "title": "Let's Get Started", "content": "..." },
 	                { "title": "Capturing Sunlight", "content": "..." },
@@ -338,34 +842,35 @@ function AiLessonGenerator({ onClose, onBack, unitId, subjectId }) {
 	        ${combinedText}
 	        `;
 
-	           const aiResponse = await callGeminiWithLimitCheck(finalPrompt);
-	           const lessonsArray = sanitizeLessonsJson(aiResponse);
+	        const aiResponse = await callGeminiWithLimitCheck(finalPrompt);
+	        const lessonsArray = sanitizeLessonsJson(aiResponse);
 
-	           // ✅ Numbering logic: skip Unit Overview
-	           let lessonCounter = 1;
-	           const numberedLessons = lessonsArray.map((lesson) => {
-	             if (lesson.lessonTitle.toLowerCase().includes('unit overview')) {
-	               return { ...lesson, lessonTitle: 'Unit Overview' };
-	             }
-	             const newTitle = `Lesson ${lessonCounter}: ${lesson.lessonTitle.replace(
-	               /^Lesson\s*\d+:\s*/i,
-	               ''
-	             )}`;
-	             lessonCounter++;
-	             return { ...lesson, lessonTitle: newTitle };
-	           });
+	        let lessonCounter = existingLessonCount + 1;
+	        const numberedLessons = lessonsArray.map((lesson) => {
+	            if (lesson.lessonTitle.toLowerCase().includes('unit overview')) {
+	                return { ...lesson, lessonTitle: 'Unit Overview' };
+	            }
+	            const baseTitle = lesson.lessonTitle.replace(/^Lesson\s*\d*:\s*/i, '');
+                const newTitle = `Lesson ${lessonCounter}: ${baseTitle}`;
+	            lessonCounter++;
+	            return { ...lesson, lessonTitle: newTitle };
+	        });
 
-	           setPreviewLessons(numberedLessons);
-	           setSelectedLessonIndex(0);
-	           setSelectedPageIndex(0);
-	         } catch (err) {
-	           console.error('Lesson generation error:', err);
-	           setError(err.message || 'Failed to generate lessons. Please try again.');
-	         } finally {
-	           setIsProcessing(false);
-	           setProgressMessage('');
-	         }
-	       };
+	        setPreviewLessons(numberedLessons);
+	        setSelectedLessonIndex(0);
+	        setSelectedPageIndex(0);
+
+        } catch (err) {
+            console.error('Lesson generation error:', err);
+            setError(err.message.includes('overloaded')
+                ? 'The AI service is currently busy. Please try again in a moment.'
+                : 'The AI returned an invalid response. Please try regenerating.'
+            );
+        } finally {
+            setIsProcessing(false);
+            setProgressMessage('');
+        }
+    };
     
     const handleSaveLesson = async () => {
         if (previewLessons.length === 0 || !unitId || !subjectId) {
@@ -380,8 +885,10 @@ function AiLessonGenerator({ onClose, onBack, unitId, subjectId }) {
                     unitId,
                     subjectId,
                     pages: lesson.pages,
+                    objectives: lesson.learningObjectives || [],
+                    contentType: "studentLesson",
                     createdAt: serverTimestamp(),
-                    order: index,
+                    order: existingLessonCount + index,
                 })
             );
             await Promise.all(savePromises);
@@ -397,6 +904,13 @@ function AiLessonGenerator({ onClose, onBack, unitId, subjectId }) {
     const selectedLesson = previewLessons[selectedLessonIndex];
     const selectedPage = selectedLesson?.pages[selectedPageIndex];
 
+    const objectivesAsMarkdown = useMemo(() => {
+        if (!selectedLesson?.learningObjectives?.length) {
+            return null;
+        }
+        return selectedLesson.learningObjectives.map(obj => `* ${obj}`).join('\n');
+    }, [selectedLesson]);
+
     return (
         <div className="flex flex-col h-full">
             <div className="flex-shrink-0 pb-4 border-b border-slate-900/10">
@@ -410,7 +924,7 @@ function AiLessonGenerator({ onClose, onBack, unitId, subjectId }) {
             </div>
 
             <div className="flex-grow pt-4 overflow-hidden flex flex-col md:flex-row gap-6">
-                <div className="w-full md:w-1/3 flex flex-col gap-4">
+                <div className="w-full md:w-1/3 flex flex-col gap-4 overflow-y-auto pr-2">
                     {isProcessing ? (
                         <div className="w-full flex-grow flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-200/50">
                             <p className="text-sm font-semibold text-slate-700">{progressMessage}</p>
@@ -447,7 +961,88 @@ function AiLessonGenerator({ onClose, onBack, unitId, subjectId }) {
                             </div>
                         )
                     )}
-                    <Button onClick={handleGenerateLesson} disabled={!file || isProcessing} size="lg" className="w-full justify-center font-semibold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg hover:shadow-indigo-500/40 transition-shadow rounded-xl" icon={SparklesIcon}>
+
+                    <div className="space-y-2">
+                        <h3 className="text-base font-semibold text-slate-700">Scaffolding (Optional)</h3>
+                        <div className="bg-white/60 p-3 rounded-xl max-h-[18rem] overflow-y-auto border border-slate-300/70">
+                            <p className="text-xs text-slate-500 mb-3">Explicitly select lessons for the AI to build upon.</p>
+                            {subjectContext && subjectContext.units.length > 0 ? (
+                                subjectContext.units
+                                    .slice()
+                                    .sort((a, b) => {
+                                        const getUnitNumber = (title) => {
+                                            if (!title) return Infinity;
+                                            const match = title.match(/\d+/);
+                                            return match ? parseInt(match[0], 10) : Infinity;
+                                        };
+                                        const numA = getUnitNumber(a.title);
+                                        const numB = getUnitNumber(b.title);
+                                        if (numA === numB) {
+                                            return a.title.localeCompare(b.title);
+                                        }
+                                        return numA - numB;
+                                    })
+                                    .map(unit => {
+                                    const lessonsInUnit = subjectContext.lessons.filter(lesson => lesson.unitId === unit.id);
+                                    if (lessonsInUnit.length === 0) return null;
+
+                                    const selectedCount = lessonsInUnit.filter(l => scaffoldLessonIds.has(l.id)).length;
+                                    const isAllSelected = selectedCount > 0 && selectedCount === lessonsInUnit.length;
+                                    const isPartiallySelected = selectedCount > 0 && selectedCount < lessonsInUnit.length;
+                                    const isExpanded = expandedScaffoldUnits.has(unit.id);
+
+                                    return (
+                                        <div key={unit.id} className="pt-2 first:pt-0">
+                                            <div className="flex items-center bg-slate-100 p-2 rounded-md">
+                                                <button onClick={() => handleToggleUnitExpansion(unit.id)} className="p-1">
+                                                    <ChevronRightIcon className={`h-4 w-4 text-slate-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                                                </button>
+                                                <input
+                                                    type="checkbox"
+                                                    id={`scaffold-unit-${unit.id}`}
+                                                    checked={isAllSelected}
+                                                    ref={el => { if(el) el.indeterminate = isPartiallySelected; }}
+                                                    onChange={() => handleUnitCheckboxChange(lessonsInUnit)}
+                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ml-2"
+                                                />
+                                                <label htmlFor={`scaffold-unit-${unit.id}`} className="ml-2 flex-1 text-sm font-semibold text-slate-700 cursor-pointer">
+                                                    {unit.title}
+                                                </label>
+                                            </div>
+
+                                            {isExpanded && (
+                                                <div className="pl-6 pt-2 space-y-2">
+                                                    {lessonsInUnit.map(lesson => (
+                                                        <div key={lesson.id} className="flex items-center">
+                                                            <input
+                                                                type="checkbox"
+                                                                id={`scaffold-lesson-${lesson.id}`}
+                                                                checked={scaffoldLessonIds.has(lesson.id)}
+                                                                onChange={() => {
+                                                                    const newSet = new Set(scaffoldLessonIds);
+                                                                    if (newSet.has(lesson.id)) newSet.delete(lesson.id);
+                                                                    else newSet.add(lesson.id);
+                                                                    setScaffoldLessonIds(newSet);
+                                                                }}
+                                                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                            />
+                                                            <label htmlFor={`scaffold-lesson-${lesson.id}`} className="ml-2 block text-sm text-slate-800">
+                                                                {lesson.title}
+                                                            </label>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <p className="text-sm text-slate-400">Scanning subject content...</p>
+                            )}
+                        </div>
+                    </div>
+
+                    <Button onClick={handleGenerateLesson} disabled={!file || isProcessing} size="lg" className="w-full justify-center font-semibold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg hover:shadow-indigo-500/40 transition-shadow rounded-xl mt-auto" icon={SparklesIcon}>
                         {previewLessons.length > 0 ? 'Regenerate Lessons' : 'Generate Lessons'}
                     </Button>
                 </div>
@@ -465,25 +1060,57 @@ function AiLessonGenerator({ onClose, onBack, unitId, subjectId }) {
                                     ))}
                                 </div>
                             </div>
-                            <div className="w-full md:w-2/3 flex-grow bg-white/80 rounded-xl flex flex-col overflow-hidden border border-white/50">
-                                {selectedLesson && (
-                                    <>
-                                        <div className="flex-shrink-0 p-4 border-b border-slate-900/10">
-                                            <h3 className="text-lg font-bold text-slate-900 truncate">{selectedLesson.lessonTitle}</h3>
-                                            <div className="flex space-x-2 mt-2 -mb-2 pb-2 overflow-x-auto">
-                                                {selectedLesson.pages.map((page, index) => (
-                                                    <button key={index} onClick={() => setSelectedPageIndex(index)} className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${selectedPageIndex === index ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}>
-                                                        {page.title}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        <div className="p-6 flex-grow overflow-y-auto prose max-w-none prose-slate">
-                                            {selectedPage ? <LessonPage page={selectedPage} isEditable={false} /> : <p>Select a page to view its content.</p>}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+								  <div className="w-full md:w-2/3 flex-grow bg-white/80 rounded-xl flex flex-col overflow-hidden border border-white/50 min-h-0">
+								    {selectedLesson && (
+								      <>
+								        {/* Header: lesson title + objectives + page tabs */}
+								        <div className="flex-shrink-0 p-4 border-b border-slate-900/10">
+								          <h3 className="text-lg font-bold text-slate-900 truncate">
+								            {selectedLesson.lessonTitle}
+								          </h3>
+
+								          {objectivesAsMarkdown && (
+								            <div className="my-2 p-3 bg-indigo-50 border-l-4 border-indigo-300 rounded-r-lg">
+								              <p className="font-semibold mb-1 text-indigo-900">
+								                Learning Objectives
+								              </p>
+								              <div className="prose prose-sm max-w-none prose-indigo text-indigo-800">
+								                <ContentRenderer text={objectivesAsMarkdown} />
+								              </div>
+								            </div>
+								          )}
+
+								          <div className="flex space-x-2 mt-2 -mb-2 pb-2 overflow-x-auto">
+								            {selectedLesson.pages.map((page, index) => (
+								              <button
+								                key={index}
+								                onClick={() => setSelectedPageIndex(index)}
+								                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+								                  selectedPageIndex === index
+								                    ? "bg-indigo-600 text-white"
+								                    : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+								                }`}
+								              >
+								                {page.title}
+								              </button>
+								            ))}
+								          </div>
+								        </div>
+
+								        {/* Scrollable content area */}
+								        <div className="flex-grow min-h-0 overflow-y-auto p-6">
+								          <div className="prose max-w-none prose-slate">
+								            {selectedPage ? (
+								              <LessonPage page={selectedPage} isEditable={false} />
+								            ) : (
+								              <p>Select a page to view its content.</p>
+								            )}
+								          </div>
+								        </div>
+								      </>
+								    )}
+								  </div>
+                       
                         </div>
                     ) : (
                         <div className="m-auto text-center">
@@ -499,15 +1126,12 @@ function AiLessonGenerator({ onClose, onBack, unitId, subjectId }) {
                 {error && <p className="text-red-500 text-sm mr-auto">{error}</p>}
                 <Button className="bg-white/60 text-slate-700 border-slate-300/70 hover:bg-white/90 hover:border-slate-400 rounded-xl" onClick={onClose}>Cancel</Button>
                 <Button onClick={handleSaveLesson} loading={saving} disabled={saving || previewLessons.length === 0 || isProcessing} className="font-semibold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg hover:shadow-indigo-500/40 transition-shadow rounded-xl">
-                    {saving ? 'Saving...' : `Save ${previewLessons.length} Lessons`}
+                    {saving ? 'Saving...' : `Save ${previewLessons.length} Lesson(s)`}
                 </Button>
             </div>
         </div>
     );
 }
-
-
-// --- Components for Advanced Manual Creator ---
 
 const StrictModeDroppable = ({ children, ...props }) => {
     const [enabled, setEnabled] = useState(false);
@@ -528,7 +1152,6 @@ const PageTypeIcon = ({ type, isActive }) => {
     }
 };
 
-// **UPDATED**: Using the auto-sizing editor from EditLessonModal.js
 const MarkdownEditor = ({ value, onValueChange }) => {
     const textareaRef = useRef(null);
     const [showColorPicker, setShowColorPicker] = useState(false);
@@ -795,9 +1418,7 @@ function ManualLessonCreator({ onClose, onBack, unitId, subjectId }) {
                 </div>
             </div>
 
-            {/* **UPDATED**: Main grid layout with min-h-0 for proper flex behavior */}
             <div className="flex-grow grid grid-cols-12 gap-6 pt-4 min-h-0">
-                {/* Left column for pages list */}
                 <div className="col-span-4 lg:col-span-3 flex flex-col">
                     <h3 className="text-base font-semibold text-slate-700 mb-3 px-1">Pages</h3>
                     <div className="flex-grow overflow-y-auto pr-2 -mr-2">
@@ -833,11 +1454,9 @@ function ManualLessonCreator({ onClose, onBack, unitId, subjectId }) {
                     </div>
                 </div>
 
-                {/* **UPDATED**: Right column with min-h-0 to allow child scroll container to work */}
                 <div className="col-span-8 lg:col-span-9 flex flex-col min-h-0 pl-6 border-l border-slate-900/10">
                     <h4 className="text-base font-semibold text-slate-700 mb-3">Editing: <span className="text-indigo-600">{activePage.title || `Page ${activePageIndex + 1}`}</span></h4>
                     
-                    {/* **UPDATED**: Added a single scroll container for the entire right panel */}
                     <div className="flex-grow min-h-0 overflow-auto">
                         <div className="space-y-4 flex flex-col p-1 min-h-0">
                             <TextInput placeholder="Page Title" value={activePage.title} onValueChange={(val) => handlePageChange('title', val)} className="rounded-xl"/>
@@ -850,16 +1469,13 @@ function ManualLessonCreator({ onClose, onBack, unitId, subjectId }) {
                                 </TabList>
                                 <TabPanels className="pt-4 flex flex-col min-h-0">
                                     <TabPanel className="flex flex-col min-h-0">
-                                        {/* **UPDATED**: New layout for editor and preview to prevent internal scrollbars */}
                                         <div className="flex flex-col xl:flex-row gap-4 min-h-0">
-                                            {/* Editor (left half) */}
                                             <div className="flex-1 min-h-0">
                                                 <MarkdownEditor
                                                     value={typeof activePage.content === 'string' ? activePage.content : ''}
                                                     onValueChange={(val) => handlePageChange('content', val)}
                                                 />
                                             </div>
-                                            {/* Preview (right half) */}
                                             <div className="flex-1 min-h-0">
                                                 <div className="w-full h-full border border-slate-300/80 rounded-xl bg-white/80 p-6 prose max-w-none prose-slate">
                                                     <ContentRenderer text={typeof activePage.content === 'string' ? activePage.content : ''} />
@@ -902,8 +1518,6 @@ function ManualLessonCreator({ onClose, onBack, unitId, subjectId }) {
     );
 }
 
-
-// --- Main Modal Component ---
 export default function AddLessonModal({ isOpen, onClose, unitId, subjectId }) {
     const [creationMode, setCreationMode] = useState(null);
 
