@@ -2,7 +2,3 @@
   command = "npm run build"
   publish = "build"
   functions = "netlify/functions"
-
-[build.environment]
-  NODE_OPTIONS = "--max-old-space-size=6144"
-  GENERATE_SOURCEMAP = "false"
