@@ -1,61 +1,58 @@
-// src/components/teacher/TeacherDashboardLayout.js
-
-import React, { useState } from 'react';
-import {
-    FaHouse, FaUserGroup, FaBook, FaBookOpen, FaUser, FaShieldHalved, FaArrowRightFromBracket
-} from 'react-icons/fa6';
-import { Bars3Icon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { getDocs, writeBatch, doc, where, query, collection } from 'firebase/firestore'; 
+import React, { useState, Suspense, lazy } from 'react';
+import { FaHouse, FaUserGroup, FaBook, FaBookOpen, FaUser, FaShieldHalved, FaArrowRightFromBracket } from 'react-icons/fa6';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { getDocs, writeBatch, doc, where, query, collection } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
 import { CSSTransition, SwitchTransition } from 'react-transition-group';
 
-// Import child components
+// --- VITE OPTIMIZATION: Import non-essential components dynamically ---
+
+// Child components that are always visible or very small
 import Spinner from '../common/Spinner';
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
-import AdminDashboard from '../../pages/AdminDashboard';
-import AiGenerationHub from './AiGenerationHub';
-import ChatDialog from './ChatDialog';
 import AnimatedRobot from './dashboard/widgets/AnimatedRobot';
-import HomeView from './dashboard/views/HomeView';
-import ClassesView from './dashboard/views/ClassesView';
-import CoursesView from './dashboard/views/CoursesView';
-import StudentManagementView from './dashboard/views/StudentManagementView';
-import ProfileView from './dashboard/views/ProfileView';
-import SubjectDetailView from './SubjectDetailView';
 
-// Import all modals
-import ArchivedClassesModal from './ArchivedClassesModal';
-import EditProfileModal from './EditProfileModal';
-import ChangePasswordModal from './ChangePasswordModal';
-import CreateCategoryModal from './CreateCategoryModal';
-import EditCategoryModal from './EditCategoryModal';
-import CreateClassModal from './CreateClassModal';
-import CreateCourseModal from './CreateCourseModal';
-import ClassOverviewModal from './ClassOverviewModal';
-import EditClassModal from '../common/EditClassModal';
-import AddUnitModal from './AddUnitModal';
-import EditUnitModal from './EditUnitModal';
-import AddLessonModal from './AddLessonModal';
-import AddQuizModal from './AddQuizModal';
-import DeleteUnitModal from './DeleteUnitModal';
-import EditLessonModal from './EditLessonModal';
-import ViewLessonModal from './ViewLessonModal';
-import ShareMultipleLessonsModal from './ShareMultipleLessonsModal';
-import DeleteConfirmationModal from './DeleteConfirmationModal';
-import EditSubjectModal from './EditSubjectModal';
-import DeleteSubjectModal from './DeleteSubjectModal';
+// Lazy load Main Views (only one is visible at a time)
+const AdminDashboard = lazy(() => import('../../pages/AdminDashboard'));
+const HomeView = lazy(() => import('./dashboard/views/HomeView'));
+const ClassesView = lazy(() => import('./dashboard/views/ClassesView'));
+const CoursesView = lazy(() => import('./dashboard/views/CoursesView'));
+const StudentManagementView = lazy(() => import('./dashboard/views/StudentManagementView'));
+const ProfileView = lazy(() => import('./dashboard/views/ProfileView'));
 
-// Helper component for the AI loading overlay
-const GlobalAiSpinner = ({ isGenerating, text }) => {
-    if (!isGenerating) return null;
-    return (
-        <div className="fixed inset-0 bg-black/50 z-[9999] flex flex-col justify-center items-center backdrop-blur-md">
-            <Spinner />
-            <p className="text-white text-lg mt-4 font-semibold">{text || "AI is working its magic..."}</p>
-        </div>
-    );
-};
+// Lazy load Floating UI / Dialogs
+const AiGenerationHub = lazy(() => import('./AiGenerationHub'));
+const ChatDialog = lazy(() => import('./ChatDialog'));
+
+// Lazy load ALL Modals
+const ArchivedClassesModal = lazy(() => import('./ArchivedClassesModal'));
+const EditProfileModal = lazy(() => import('./EditProfileModal'));
+const ChangePasswordModal = lazy(() => import('./ChangePasswordModal'));
+const CreateCategoryModal = lazy(() => import('./CreateCategoryModal'));
+const EditCategoryModal = lazy(() => import('./EditCategoryModal'));
+const CreateClassModal = lazy(() => import('./CreateClassModal'));
+const CreateCourseModal = lazy(() => import('./CreateCourseModal'));
+const ClassOverviewModal = lazy(() => import('./ClassOverviewModal'));
+const EditClassModal = lazy(() => import('../common/EditClassModal'));
+const AddUnitModal = lazy(() => import('./AddUnitModal'));
+const EditUnitModal = lazy(() => import('./EditUnitModal'));
+const AddLessonModal = lazy(() => import('./AddLessonModal'));
+const AddQuizModal = lazy(() => import('./AddQuizModal'));
+const DeleteUnitModal = lazy(() => import('./DeleteUnitModal'));
+const EditLessonModal = lazy(() => import('./EditLessonModal'));
+const ViewLessonModal = lazy(() => import('./ViewLessonModal'));
+const ShareMultipleLessonsModal = lazy(() => import('./ShareMultipleLessonsModal'));
+const DeleteConfirmationModal = lazy(() => import('./DeleteConfirmationModal'));
+const EditSubjectModal = lazy(() => import('./EditSubjectModal'));
+const DeleteSubjectModal = lazy(() => import('./DeleteSubjectModal'));
+
+// Helper component for loading states
+const LoadingFallback = () => (
+    <div className="w-full h-full flex justify-center items-center p-20">
+        <Spinner />
+    </div>
+);
 
 // Main Layout Component
 const TeacherDashboardLayout = (props) => {
@@ -78,7 +75,6 @@ const TeacherDashboardLayout = (props) => {
     const { showToast } = useToast();
     const [preselectedCategoryForCourseModal, setPreselectedCategoryForCourseModal] = useState(null);
     
-    // --- Core Logic for Category and Course Management ---
     const handleRenameCategory = async (newName) => {
         const oldName = categoryToEdit?.name;
         if (!oldName || !newName || oldName === newName) {
@@ -116,7 +112,6 @@ const TeacherDashboardLayout = (props) => {
         rest.setCreateCourseModalOpen(true);
     };
     
-    // --- Navigation Items ---
     const navItems = [
         { view: 'home', text: 'Home', icon: FaHouse, color: 'text-orange-500' },
         { view: 'studentManagement', text: 'Students', icon: FaUserGroup, color: 'text-blue-500' },
@@ -128,9 +123,8 @@ const TeacherDashboardLayout = (props) => {
         navItems.push({ view: 'admin', text: 'Admin', icon: FaShieldHalved, color: 'text-gray-500' });
     }
     
-    // --- Main Content Renderer ---
     const renderMainContent = () => {
-        if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
+        if (loading) return <LoadingFallback />;
         if (error) {
             return (
                 <div className="bg-red-100 border border-red-300 text-red-800 p-4 rounded-lg shadow-md m-4">
@@ -142,39 +136,39 @@ const TeacherDashboardLayout = (props) => {
             );
         }
 		switch (activeView) {
-		            case 'home': 
-		                return <HomeView key={`${reloadKey}-home`} userProfile={userProfile} handleViewChange={handleViewChange} {...rest} />;
-		            case 'classes': 
-		                return <ClassesView key={`${reloadKey}-classes`} {...rest} />;
-		            case 'courses': 
-		                return (
-		                    <CoursesView 
-		                        key={`${reloadKey}-courses`} 
-		                        {...rest} 
-		                        userProfile={userProfile} 
-		                        activeSubject={activeSubject} 
-		                        isAiGenerating={isAiGenerating} 
-		                        setIsAiGenerating={setIsAiGenerating}
-		                        setIsAiHubOpen={setIsAiHubOpen} 
-		                        activeUnit={activeUnit} 
-		                        onSetActiveUnit={onSetActiveUnit} 
-		                        courses={courses} 
-		                        courseCategories={courseCategories} 
-		                        handleEditCategory={handleEditCategory} 
-		                        onAddSubjectClick={handleAddSubjectWithCategory} 
-		                        handleInitiateDelete={handleInitiateDelete} 
-		                    />
-		                );
-		            case 'studentManagement': 
-		                return <StudentManagementView key={`${reloadKey}-sm`} {...rest} />;
-		            case 'profile': 
-		                return <ProfileView key={`${reloadKey}-profile`} user={user} userProfile={userProfile} logout={logout} {...rest} />;
-		            case 'admin': 
-		                return <div key={`${reloadKey}-admin`} className="p-4 sm:p-6 text-gray-800"><AdminDashboard /></div>;
-		            default: 
-		                return <HomeView key={`${reloadKey}-default`} userProfile={userProfile} handleViewChange={handleViewChange} {...rest} />;
-		        }
-		    };
+            case 'home': 
+                return <HomeView key={`${reloadKey}-home`} userProfile={userProfile} handleViewChange={handleViewChange} {...rest} />;
+            case 'classes': 
+                return <ClassesView key={`${reloadKey}-classes`} {...rest} />;
+            case 'courses': 
+                return (
+                    <CoursesView 
+                        key={`${reloadKey}-courses`} 
+                        {...rest} 
+                        userProfile={userProfile} 
+                        activeSubject={activeSubject} 
+                        isAiGenerating={isAiGenerating} 
+                        setIsAiGenerating={setIsAiGenerating}
+                        setIsAiHubOpen={setIsAiHubOpen} 
+                        activeUnit={activeUnit} 
+                        onSetActiveUnit={onSetActiveUnit} 
+                        courses={courses} 
+                        courseCategories={courseCategories} 
+                        handleEditCategory={handleEditCategory} 
+                        onAddSubjectClick={handleAddSubjectWithCategory} 
+                        handleInitiateDelete={handleInitiateDelete} 
+                    />
+                );
+            case 'studentManagement': 
+                return <StudentManagementView key={`${reloadKey}-sm`} {...rest} />;
+            case 'profile': 
+                return <ProfileView key={`${reloadKey}-profile`} user={user} userProfile={userProfile} logout={logout} {...rest} />;
+            case 'admin': 
+                return <div key={`${reloadKey}-admin`} className="p-4 sm:p-6 text-gray-800"><AdminDashboard /></div>;
+            default: 
+                return <HomeView key={`${reloadKey}-default`} userProfile={userProfile} handleViewChange={handleViewChange} {...rest} />;
+        }
+    };
 
     return (
         <>
@@ -225,54 +219,54 @@ const TeacherDashboardLayout = (props) => {
                 <main className="flex-1 w-full max-w-screen-2xl mx-auto px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8">
                     <SwitchTransition mode="out-in">
                         <CSSTransition key={activeView} timeout={300} classNames="view-fade">
-                            <div className="h-full w-full">
+                            <Suspense fallback={<LoadingFallback />}>
                                 {renderMainContent()}
-                            </div>
+                            </Suspense>
                         </CSSTransition>
                     </SwitchTransition>
                 </main>
             </div>
             
-            {/* --- FLOATING UI & MODALS --- */}
-            <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} subjectId={activeSubject?.id} unitId={activeUnit?.id} />
-            <CSSTransition in={!isChatOpen} timeout={300} classNames="animated-robot" unmountOnExit><AnimatedRobot onClick={() => setIsChatOpen(true)} /></CSSTransition>
-            <ChatDialog isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} messages={messages} onSendMessage={handleAskAiWrapper} isAiThinking={isAiThinking} userFirstName={userProfile?.firstName} />
-            <GlobalAiSpinner isGenerating={isAiGenerating} text="Crafting content..." />
-            
-            {/* --- All Modals Rendered Here --- */}
-            <ArchivedClassesModal isOpen={rest.isArchivedModalOpen} onClose={() => rest.setIsArchivedModalOpen(false)} archivedClasses={rest.archivedClasses} onUnarchive={rest.handleUnarchiveClass} onDelete={(classId) => rest.handleDeleteClass(classId, true)} />
-            <EditProfileModal isOpen={rest.isEditProfileModalOpen} onClose={() => rest.setEditProfileModalOpen(false)} userProfile={userProfile} onUpdate={rest.handleUpdateProfile} />
-            <ChangePasswordModal isOpen={rest.isChangePasswordModalOpen} onClose={() => rest.setChangePasswordModalOpen(false)} onSubmit={rest.handleChangePassword} />
-            <CreateCategoryModal isOpen={rest.isCreateCategoryModalOpen} onClose={() => rest.setCreateCategoryModalOpen(false)} teacherId={user?.uid || user?.id} />
-            
-            {categoryToEdit && <EditCategoryModal isOpen={isEditCategoryModalOpen} onClose={() => setIsEditCategoryModalOpen(false)} categoryName={categoryToEdit.name} onSave={handleRenameCategory} />}
+            {/* --- FLOATING UI & MODALS (WRAPPED IN SUSPENSE) --- */}
+            <Suspense fallback={<LoadingFallback />}>
+                {isAiHubOpen && <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} subjectId={activeSubject?.id} unitId={activeUnit?.id} />}
+                <CSSTransition in={!isChatOpen} timeout={300} classNames="animated-robot" unmountOnExit><AnimatedRobot onClick={() => setIsChatOpen(true)} /></CSSTransition>
+                {isChatOpen && <ChatDialog isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} messages={messages} onSendMessage={handleAskAiWrapper} isAiThinking={isAiThinking} userFirstName={userProfile?.firstName} />}
+                
+                {/* --- All Modals Rendered Here --- */}
+                {rest.isArchivedModalOpen && <ArchivedClassesModal isOpen={rest.isArchivedModalOpen} onClose={() => rest.setIsArchivedModalOpen(false)} archivedClasses={rest.archivedClasses} onUnarchive={rest.handleUnarchiveClass} onDelete={(classId) => rest.handleDeleteClass(classId, true)} />}
+                {rest.isEditProfileModalOpen && <EditProfileModal isOpen={rest.isEditProfileModalOpen} onClose={() => rest.setEditProfileModalOpen(false)} userProfile={userProfile} onUpdate={rest.handleUpdateProfile} />}
+                {rest.isChangePasswordModalOpen && <ChangePasswordModal isOpen={rest.isChangePasswordModalOpen} onClose={() => rest.setChangePasswordModalOpen(false)} onSubmit={rest.handleChangePassword} />}
+                {rest.isCreateCategoryModalOpen && <CreateCategoryModal isOpen={rest.isCreateCategoryModalOpen} onClose={() => rest.setCreateCategoryModalOpen(false)} teacherId={user?.uid || user?.id} />}
+                
+                {isEditCategoryModalOpen && categoryToEdit && <EditCategoryModal isOpen={isEditCategoryModalOpen} onClose={() => setIsEditCategoryModalOpen(false)} categoryName={categoryToEdit.name} onSave={handleRenameCategory} />}
 
-            <CreateClassModal isOpen={rest.isCreateClassModalOpen} onClose={() => rest.setCreateClassModalOpen(false)} teacherId={user?.uid || user?.id} />
-            <CreateCourseModal isOpen={rest.isCreateCourseModalOpen} onClose={() => { rest.setCreateCourseModalOpen(false); setPreselectedCategoryForCourseModal(null); }} teacherId={user?.uid || user?.id} courseCategories={courseCategories} preselectedCategory={preselectedCategoryForCourseModal} />
-            <ClassOverviewModal isOpen={rest.classOverviewModal.isOpen} onClose={() => rest.setClassOverviewModal({ isOpen: false, data: null })} classData={rest.classOverviewModal.data} courses={courses} onRemoveStudent={rest.handleRemoveStudentFromClass} />
-            <EditClassModal isOpen={rest.isEditClassModalOpen} onClose={() => rest.setEditClassModalOpen(false)} classData={rest.classToEdit} />
-            <AddUnitModal isOpen={rest.isAddUnitModalOpen} onClose={() => rest.setAddUnitModalOpen(false)} subjectId={activeSubject?.id} onCreateUnit={handleCreateUnit} />
-            {rest.selectedUnit && <EditUnitModal isOpen={rest.editUnitModalOpen} onClose={() => rest.setEditUnitModalOpen(false)} unit={rest.selectedUnit} />}
-            
-            {/* ✅ FIXED: explicitly pass props.setIsAiGenerating */}
-            {rest.selectedUnit && (
-              <AddLessonModal
-                isOpen={rest.addLessonModalOpen}
-                onClose={() => rest.setAddLessonModalOpen(false)}
-                unitId={rest.selectedUnit?.id}
-                subjectId={activeSubject?.id}
-                setIsAiGenerating={props.setIsAiGenerating}
-              />
-            )}
+                {rest.isCreateClassModalOpen && <CreateClassModal isOpen={rest.isCreateClassModalOpen} onClose={() => rest.setCreateClassModalOpen(false)} teacherId={user?.uid || user?.id} />}
+                {rest.isCreateCourseModalOpen && <CreateCourseModal isOpen={rest.isCreateCourseModalOpen} onClose={() => { rest.setCreateCourseModalOpen(false); setPreselectedCategoryForCourseModal(null); }} teacherId={user?.uid || user?.id} courseCategories={courseCategories} preselectedCategory={preselectedCategoryForCourseModal} />}
+                {rest.classOverviewModal.isOpen && <ClassOverviewModal isOpen={rest.classOverviewModal.isOpen} onClose={() => rest.setClassOverviewModal({ isOpen: false, data: null })} classData={rest.classOverviewModal.data} courses={courses} onRemoveStudent={rest.handleRemoveStudentFromClass} />}
+                {rest.isEditClassModalOpen && <EditClassModal isOpen={rest.isEditClassModalOpen} onClose={() => rest.setEditClassModalOpen(false)} classData={rest.classToEdit} />}
+                {rest.isAddUnitModalOpen && <AddUnitModal isOpen={rest.isAddUnitModalOpen} onClose={() => rest.setAddUnitModalOpen(false)} subjectId={activeSubject?.id} onCreateUnit={handleCreateUnit} />}
+                {rest.editUnitModalOpen && rest.selectedUnit && <EditUnitModal isOpen={rest.editUnitModalOpen} onClose={() => rest.setEditUnitModalOpen(false)} unit={rest.selectedUnit} />}
+                
+                {rest.addLessonModalOpen && rest.selectedUnit && (
+                  <AddLessonModal
+                    isOpen={rest.addLessonModalOpen}
+                    onClose={() => rest.setAddLessonModalOpen(false)}
+                    unitId={rest.selectedUnit?.id}
+                    subjectId={activeSubject?.id}
+                    setIsAiGenerating={props.setIsAiGenerating}
+                  />
+                )}
 
-            {rest.selectedUnit && <AddQuizModal isOpen={rest.addQuizModalOpen} onClose={() => rest.setAddQuizModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} />}
-            {rest.selectedUnit && <DeleteUnitModal isOpen={rest.deleteUnitModalOpen} onClose={() => rest.setDeleteUnitModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} />}
-            {rest.selectedLesson && <EditLessonModal isOpen={rest.editLessonModalOpen} onClose={() => rest.setEditLessonModalOpen(false)} lesson={rest.selectedLesson} />}
-            {rest.selectedLesson && <ViewLessonModal isOpen={rest.viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={rest.selectedLesson} />}
-            {activeSubject && (<ShareMultipleLessonsModal isOpen={rest.isShareContentModalOpen} onClose={() => rest.setShareContentModalOpen(false)} subject={activeSubject} />)}
-            <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleConfirmDelete} deletingItemType={deleteTarget?.type} />
-            <EditSubjectModal isOpen={rest.isEditSubjectModalOpen} onClose={() => rest.setEditSubjectModalOpen(false)} subject={rest.subjectToActOn} />
-            <DeleteSubjectModal isOpen={rest.isDeleteSubjectModalOpen} onClose={() => rest.setDeleteSubjectModalOpen(false)} subject={rest.subjectToActOn} />
+                {rest.addQuizModalOpen && rest.selectedUnit && <AddQuizModal isOpen={rest.addQuizModalOpen} onClose={() => rest.setAddQuizModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} />}
+                {rest.deleteUnitModalOpen && rest.selectedUnit && <DeleteUnitModal isOpen={rest.deleteUnitModalOpen} onClose={() => rest.setDeleteUnitModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} />}
+                {rest.editLessonModalOpen && rest.selectedLesson && <EditLessonModal isOpen={rest.editLessonModalOpen} onClose={() => rest.setEditLessonModalOpen(false)} lesson={rest.selectedLesson} />}
+                {rest.viewLessonModalOpen && rest.selectedLesson && <ViewLessonModal isOpen={rest.viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={rest.selectedLesson} />}
+                {rest.isShareContentModalOpen && activeSubject && (<ShareMultipleLessonsModal isOpen={rest.isShareContentModalOpen} onClose={() => rest.setShareContentModalOpen(false)} subject={activeSubject} />)}
+                {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleConfirmDelete} deletingItemType={deleteTarget?.type} />}
+                {rest.isEditSubjectModalOpen && <EditSubjectModal isOpen={rest.isEditSubjectModalOpen} onClose={() => rest.setEditSubjectModalOpen(false)} subject={rest.subjectToActOn} />}
+                {rest.isDeleteSubjectModalOpen && <DeleteSubjectModal isOpen={rest.isDeleteSubjectModalOpen} onClose={() => rest.setDeleteSubjectModalOpen(false)} subject={rest.subjectToActOn} />}
+            </Suspense>
 
             {/* --- MOBILE FOOTER --- */}
             <footer className="fixed bottom-4 left-4 right-4 z-50 lg:hidden">

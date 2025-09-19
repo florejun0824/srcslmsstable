@@ -17,6 +17,7 @@ export default defineConfig({
       stream: "stream-browserify",
       crypto: "crypto-browserify",
       util: "util",
+      '@': path.resolve(__dirname, './src'), // <-- This is the safe line we are adding
     },
   },
   optimizeDeps: {

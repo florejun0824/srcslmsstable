@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import ContentRenderer from "./ContentRenderer";
 import {
   CheckCircleIcon,
+
   ArrowUturnLeftIcon,
   PlusIcon,
   MinusIcon,
@@ -518,7 +519,7 @@ const LessonPage = ({ page, isEditable, onFinalizeDiagram, isFinalizing }) => {
             </div>
 
             {/* Layer 2: SVG for lines */}
-            <svg className="absolute top-0 left-0 w-full h-full overflow-visible" style={{ zIndex: 2 }}>
+            <svg className="absolute top-0 left-0 w-full h-full overflow-visible" style={{ zIndex: 2, pointerEvents: 'none' }}>
               {labels.map(
                 (label, index) =>
                   (label.isPlaced || !isEditing) && (
@@ -670,26 +671,35 @@ const LessonPage = ({ page, isEditable, onFinalizeDiagram, isFinalizing }) => {
       );
     }
 
+    // ✅ FIX: Add a new case specifically for the finalized 'diagram' type
+    case "diagram": {
+        const content = page.content;
+        // Ensure content is an object with the URL we need
+        if (content && typeof content === 'object' && content.generatedImageUrl) {
+            return (
+                <div className="my-6">
+                    {shouldRenderTitle && <h4 className="font-semibold text-gray-700 mb-2">{page.title}</h4>}
+                    <img
+                        src={content.generatedImageUrl}
+                        alt="Lesson Diagram"
+                        className="w-full h-auto rounded-md shadow-md bg-gray-200"
+                    />
+                </div>
+            );
+        }
+        // Fallback if the data is malformed
+        return (
+            <div className="my-6 p-4 border rounded bg-yellow-50 text-yellow-700">
+                Invalid diagram format.
+            </div>
+        );
+    }
+
     default: {
-      // ✅ FIX: This logic is now simplified to trust ContentRenderer
       const content = page.content;
       const shouldRenderTitle = page.title && page.title.trim() !== "";
-
-      // First, handle finalized diagram objects which are not part of a larger text block
-      if (content && typeof content === 'object' && content.generatedImageUrl) {
-          return (
-              <div className="my-6">
-                  {shouldRenderTitle && <h4 className="font-semibold text-gray-700 mb-2">{page.title}</h4>}
-                  <img
-                      src={content.generatedImageUrl}
-                      alt="Lesson Diagram"
-                      className="w-full h-auto rounded-md shadow-md bg-gray-200"
-                  />
-              </div>
-          );
-      }
-
-      // For everything else (markdown strings, etc.), convert to string and pass to the robust renderer
+      
+      // The default case now only handles strings. All special objects have their own cases.
       const contentString = (typeof content === 'string') ? content : JSON.stringify(content, null, 2);
 
       return (

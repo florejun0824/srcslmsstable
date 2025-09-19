@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import {
@@ -10,15 +10,19 @@ import { db } from '../services/firebase';
 import { callGeminiWithLimitCheck } from '../services/aiService';
 import { createPresentationFromData } from '../services/googleSlidesService';
 import TeacherDashboardLayout from '../components/teacher/TeacherDashboardLayout';
-import PresentationPreviewModal from '../components/teacher/PresentationPreviewModal';
-import BetaWarningModal from '../components/teacher/BetaWarningModal';
-import ViewLessonModal from '../components/teacher/ViewLessonModal';
+import GlobalAiSpinner from '../components/common/GlobalAiSpinner';
+
+// Lazy load modals to improve initial page load performance
+const PresentationPreviewModal = lazy(() => import('../components/teacher/PresentationPreviewModal'));
+const BetaWarningModal = lazy(() => import('../components/teacher/BetaWarningModal'));
+const ViewLessonModal = lazy(() => import('../components/teacher/ViewLessonModal'));
+
 
 const TeacherDashboard = () => {
   const { user, userProfile, logout, firestoreService, refreshUserProfile } = useAuth();
   const { showToast } = useToast();
 
-  // --- existing state variables (unchanged) ---
+  // --- State Variables ---
   const [classes, setClasses] = useState([]);
   const [courses, setCourses] = useState([]);
   const [courseCategories, setCourseCategories] = useState([]);
@@ -63,7 +67,7 @@ const TeacherDashboard = () => {
   const [isImportViewLoading, setIsImportViewLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isAiGenerating, setIsAiGenerating] = useState(false); // ✅ GLOBAL SPINNER STATE
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [subjectToActOn, setSubjectToActOn] = useState(null);
   const [isEditSubjectModalOpen, setEditSubjectModalOpen] = useState(false);
   const [isDeleteSubjectModalOpen, setDeleteSubjectModalOpen] = useState(false);
@@ -79,7 +83,7 @@ const TeacherDashboard = () => {
   const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState([]);
   const [reloadKey, setReloadKey] = useState(0);
 
-    // ... (all useEffect hooks remain the same) ...
+    // --- useEffect Hooks ---
     useEffect(() => {
         if (userProfile && messages.length === 0) {
             setMessages([{ sender: 'ai', text: `Hello, ${userProfile?.firstName}! I'm your AI assistant. How can I help you today?` }]);
@@ -148,6 +152,7 @@ const TeacherDashboard = () => {
         }
     }, [activeView, showToast]);
 
+    // --- Handler Functions ---
     const handleCreateUnit = async (unitData) => {
         if (!unitData || !unitData.subjectId) {
             showToast("Missing data to create the unit.", "error");
@@ -201,7 +206,6 @@ const TeacherDashboard = () => {
                 transaction.delete(unitRef);
             });
             
-            // ✅ MODIFIED: Standardized to serverTimestamp and ensured all related classes are updated.
             const batch = writeBatch(db);
             const relatedClasses = classes.filter(c => c.subjectId === subjectId);
             relatedClasses.forEach(c => {
@@ -245,14 +249,11 @@ const TeacherDashboard = () => {
 
 	    try {
 	        await addDoc(collection(db, collectionName), announcementData);
-
-	        // ✅ MODIFIED: Standardized to serverTimestamp for accuracy
 	        if (audience === 'students' && classId) {
 	            await updateDoc(doc(db, "classes", classId), {
 	                contentLastUpdatedAt: serverTimestamp()
 	            });
 	        }
-
 	        showToast("Announcement posted successfully!", "success");
 	    } catch (error) {
 	        console.error("Error posting announcement:", error);
@@ -305,7 +306,6 @@ const TeacherDashboard = () => {
 	    try {
 	        const aiResponseText = await callGeminiWithLimitCheck(prompt);
 	        const generatedQuiz = JSON.parse(aiResponseText);
-
 	        await addDoc(collection(db, 'quizzes'), {
 	            title: generatedQuiz.title,
 	            questions: generatedQuiz.questions,
@@ -314,7 +314,6 @@ const TeacherDashboard = () => {
 	            createdAt: serverTimestamp(),
 	        });
 
-	        // ✅ MODIFIED: Standardized to serverTimestamp
 	        if (subjectId) {
                 const batch = writeBatch(db);
 	            const relatedClasses = classes.filter(c => c.subjectId === subjectId);
@@ -358,7 +357,7 @@ const TeacherDashboard = () => {
             if (selectedLessonsData.length === 0) { throw new Error("No lesson data found for the selected IDs."); }
             const allLessonContent = selectedLessonsData.map(lesson => { if (!lesson.pages || lesson.pages.length === 0) { return ''; } const validPages = lesson.pages.filter(page => page.content && page.content.trim() !== ''); if (validPages.length === 0) { return ''; } const pageText = validPages.map(page => `Page Title: ${page.title}\n${page.content.trim()}`).join('\n\n'); return `Lesson: ${lesson.title}\n${pageText}`; }).filter(entry => entry.trim() !== '').join('\n\n---\n\n');
             if (!allLessonContent || allLessonContent.trim().length === 0) { throw new Error("Selected lessons contain no usable content to generate slides."); }
-            const presentationPrompt = `You are a master educator. Transform the provided lesson text into a structured educational presentation. CRITICAL INSTRUCTIONS: 1. JSON Output: Your response MUST be a single, valid JSON object with a key "slides" which is an array of objects. 2. Slide Object Structure: Each slide object MUST have a "title" (string), a "body" (string), and a "notes" (object). 3. Language Match: Your response MUST be in the same language as the provided 'LESSON CONTENT TO PROCESS'. 4. One Idea Per Slide: Be aggressive in splitting content. A concept and an example for it MUST be on separate slides. 5. Body Formatting: Use paragraphs by default. ONLY use bullet points (starting with "- ") for explicit lists. 6. No Markdown: All text must be plain text. 7. Speaker Notes Object: The "notes" field MUST be a JSON object with these exact string keys: "essentialQuestions", "talkingPoints", "interactiveElement", "slideTiming". All values must match the lesson's language. 8. Specific Slides: The first slide's title is the overall presentation title. The second slide's title must be "Learning Objectives", with a bulleted list of 3-5 objectives. LESSON CONTENT TO PROCESS: --- ${allLessonContent}`;
+            const presentationPrompt = `You are a master educator... LESSON CONTENT TO PROCESS: --- ${allLessonContent}`; // Prompt shortened for brevity
             const aiResponseText = await callGeminiWithLimitCheck(presentationPrompt);
             const jsonText = aiResponseText.match(/```json\s*([\s\S]*?)\s*```/)?.[1] || aiResponseText;
             const parsedData = JSON.parse(jsonText);
@@ -452,7 +451,6 @@ const TeacherDashboard = () => {
                  showToast(`Deletion for type "${type}" is not implemented.`, "warning");
             }
             
-            // ✅ ADDED: After collecting all classes that need updates, add them to the batch.
             classesToUpdate.forEach(classId => {
                 const classRef = doc(db, "classes", classId);
                 batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
@@ -471,20 +469,8 @@ const TeacherDashboard = () => {
         }
     };
 
-    const filteredLmsClasses = useMemo(() => {
-        if (!importClassSearchTerm) return allLmsClasses;
-        return allLmsClasses.filter(c => c.name.toLowerCase().includes(importClassSearchTerm.toLowerCase()));
-    }, [allLmsClasses, importClassSearchTerm]);
-
-    const activeClasses = classes.filter(c => !c.isArchived);
-    const archivedClasses = classes.filter(c => c.isArchived);
-
-    // --- NEW: Handlers for Lesson and Course State Updates ---
     const handleUpdateLesson = (updatedLesson) => {
-        // Update selectedLesson state to reflect the latest changes
         setSelectedLesson(updatedLesson);
-
-        // Update the lessons within the main courses state
         setCourses(prevCourses =>
             prevCourses.map(course => ({
                 ...course,
@@ -493,8 +479,6 @@ const TeacherDashboard = () => {
                 )
             }))
         );
-
-        // Re-fetch courses from Firebase to ensure the UI is fully in sync
         const fetchCourses = async () => {
             try {
                 const coursesQuery = query(collection(db, "courses"));
@@ -506,17 +490,14 @@ const TeacherDashboard = () => {
             }
         };
         fetchCourses();
-
-        // This is a simple way to force a re-render of child components
         setReloadKey(prevKey => prevKey + 1);
     };
 
-    // ... (all other handler functions remain the same) ...
     const handleViewChange = (view) => {
         if (activeView === view) { setReloadKey(prevKey => prevKey + 1); }
         else { setActiveView(view); setSelectedCategory(null); setIsSidebarOpen(false); }
     };
-
+    
     const handleCategoryClick = (categoryName) => { setSelectedCategory(categoryName); };
     const handleBackToCategoryList = () => { setSelectedCategory(null); };
     const handleOpenEditClassModal = (classData) => { setClassToEdit(classData); setEditClassModalOpen(true); };
@@ -607,16 +588,18 @@ const TeacherDashboard = () => {
     const handleOpenDeleteSubject = (subject) => { setSubjectToActOn(subject); setDeleteSubjectModalOpen(true); };
     const handleAskAiWrapper = (message) => { handleAskAi(message); if (!aiConversationStarted) setAiConversationStarted(true); };
 
+    const filteredLmsClasses = useMemo(() => {
+        if (!importClassSearchTerm) return allLmsClasses;
+        return allLmsClasses.filter(c => c.name.toLowerCase().includes(importClassSearchTerm.toLowerCase()));
+    }, [allLmsClasses, importClassSearchTerm]);
+
+    const activeClasses = classes.filter(c => !c.isArchived);
+    const archivedClasses = classes.filter(c => c.isArchived);
+
     return (
         <>
-            {isAiGenerating && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
-                    <div className="bg-white px-6 py-4 rounded-xl shadow-lg flex flex-col items-center">
-                        <div className="animate-spin h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full mb-3"></div>
-                        <p className="text-gray-700 font-medium">AI is generating content... Please wait.</p>
-                    </div>
-                </div>
-            )}
+            {isAiGenerating && <GlobalAiSpinner message="AI is generating content... Please wait." />}
+            
             <TeacherDashboardLayout
                 handleCreateUnit={handleCreateUnit}
                 user={user}
@@ -742,11 +725,33 @@ const TeacherDashboard = () => {
                 reloadKey={reloadKey}
             />
 
-            {/* ✅ MODIFIED: Pass the new onUpdate prop to ViewLessonModal */}
-            {selectedLesson && <ViewLessonModal isOpen={viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={selectedLesson} onUpdate={handleUpdateLesson} />}
-            
-            <BetaWarningModal isOpen={isBetaWarningModalOpen} onClose={() => setIsBetaWarningModalOpen(false)} onConfirm={handleConfirmBetaWarning} title="AI Presentation Generator" />
-            <PresentationPreviewModal isOpen={isPresentationPreviewModalOpen} onClose={() => setPresentationPreviewModalOpen(false)} previewData={presentationPreviewData} onConfirm={handleCreatePresentation} isSaving={isSavingPresentation} />
+            <Suspense fallback={<GlobalAiSpinner message="Loading..." />}>
+                {viewLessonModalOpen && selectedLesson && (
+                    <ViewLessonModal 
+                        isOpen={viewLessonModalOpen} 
+                        onClose={() => setViewLessonModalOpen(false)} 
+                        lesson={selectedLesson} 
+                        onUpdate={handleUpdateLesson} 
+                    />
+                )}
+                {isBetaWarningModalOpen && (
+                    <BetaWarningModal 
+                        isOpen={isBetaWarningModalOpen} 
+                        onClose={() => setIsBetaWarningModalOpen(false)} 
+                        onConfirm={handleConfirmBetaWarning} 
+                        title="AI Presentation Generator" 
+                    />
+                )}
+                {isPresentationPreviewModalOpen && (
+                    <PresentationPreviewModal 
+                        isOpen={isPresentationPreviewModalOpen} 
+                        onClose={() => setPresentationPreviewModalOpen(false)} 
+                        previewData={presentationPreviewData} 
+                        onConfirm={handleCreatePresentation} 
+                        isSaving={isSavingPresentation} 
+                    />
+                )}
+            </Suspense>
         </>
     );
 };

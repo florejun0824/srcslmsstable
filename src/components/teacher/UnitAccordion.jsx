@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Suspense, lazy } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../../services/firebase';
 import { collection, query, where, onSnapshot, writeBatch, doc } from 'firebase/firestore';
@@ -41,15 +41,6 @@ import { CSS } from '@dnd-kit/utilities';
 import { marked } from 'marked';
 import { useToast } from '../../contexts/ToastContext';
 import htmlToDocx from 'html-to-docx-ts';
-import AddLessonModal from './AddLessonModal';
-import AddQuizModal from './AddQuizModal';
-import EditLessonModal from './EditLessonModal';
-import ViewLessonModal from './ViewLessonModal';
-import EditUnitModal from './EditUnitModal';
-import EditQuizModal from './EditQuizModal.jsx';
-import ViewQuizModal from './ViewQuizModal';
-import AiQuizModal from './AiQuizModal';
-import AiGenerationHub from './AiGenerationHub';
 import Spinner from '../common/Spinner';
 import htmlToPdfmake from 'html-to-pdfmake';
 import {
@@ -67,14 +58,25 @@ import {
 } from "docx";
 import { saveAs } from "file-saver";
 
-// ✅ VITE FIX: Properly configure pdfmake with its virtual file system (VFS) for fonts.
-// Vite handles these legacy UMD modules differently than Webpack.
+// VITE FIX: Properly configure pdfmake with its virtual file system (VFS) for fonts.
 import pdfMake from "pdfmake/build/pdfmake";
 import pdfFonts from "pdfmake/build/vfs_fonts";
 pdfMake.vfs = pdfFonts;
 
 
-// ... (All helper functions like fetchImageAsBase64, markdownToDocx, etc. remain unchanged) ...
+// Lazy load modals for better code splitting and initial load performance
+const AddLessonModal = lazy(() => import('./AddLessonModal'));
+const AddQuizModal = lazy(() => import('./AddQuizModal'));
+const EditLessonModal = lazy(() => import('./EditLessonModal'));
+const ViewLessonModal = lazy(() => import('./ViewLessonModal'));
+const EditUnitModal = lazy(() => import('./EditUnitModal'));
+const EditQuizModal = lazy(() => import('./EditQuizModal.jsx'));
+const ViewQuizModal = lazy(() => import('./ViewQuizModal'));
+const AiQuizModal = lazy(() => import('./AiQuizModal'));
+const AiGenerationHub = lazy(() => import('./AiGenerationHub'));
+
+
+// Helper Functions
 async function fetchImageAsBase64(url) {
   const res = await fetch(url);
   const blob = await res.blob();
@@ -85,10 +87,12 @@ async function fetchImageAsBase64(url) {
     reader.readAsDataURL(blob);
   });
 }
+
 async function fetchImage(url) {
     const response = await fetch(url);
     return await response.arrayBuffer();
 }
+
 function markdownToDocx(content) {
     const tokens = marked.lexer(content || "");
     let paragraphs = [];
@@ -207,6 +211,8 @@ const convertSvgStringToPngDataUrl = (svgString) => {
         img.src = dataUri;
     });
 };
+
+// UI Components
 const MenuPortal = ({ children, menuStyle, onClose }) => {
     const menuRef = useRef(null);
     useEffect(() => {
@@ -218,6 +224,7 @@ const MenuPortal = ({ children, menuStyle, onClose }) => {
     }, [onClose]);
     return createPortal(<div ref={menuRef} style={menuStyle} className="fixed bg-white rounded-md shadow-lg z-[5000] border"><div className="py-1" onClick={onClose}>{children}</div></div>, document.body);
 };
+
 const ActionMenu = ({ children }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [menuStyle, setMenuStyle] = useState({});
@@ -243,6 +250,7 @@ const ActionMenu = ({ children }) => {
         </>
     );
 };
+
 const MenuItem = ({ icon: Icon, text, onClick, disabled = false, loading = false }) => (
     <button onClick={onClick} disabled={disabled || loading} className="flex items-center w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
         <Icon className={`h-5 w-5 mr-3 ${loading ? 'animate-spin' : ''}`} />
@@ -261,6 +269,7 @@ const AddContentButton = ({ onAddLesson, onAddQuiz }) => {
         </button>
     );
 };
+
 function SortableContentItem({ item, isReordering, ...props }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: item.id,
@@ -339,6 +348,7 @@ function SortableContentItem({ item, isReordering, ...props }) {
         </div>
     );
 }
+
 function SortableUnitCard(props) {
     const { unit, onSelect, onEdit, onDelete, onOpenAiHub, visuals } = props;
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
@@ -365,6 +375,7 @@ function SortableUnitCard(props) {
         </div>
     );
 }
+
 const customSort = (a, b) => {
     const orderA = a.order;
     const orderB = b.order;
@@ -378,6 +389,7 @@ const customSort = (a, b) => {
     return timeA - timeB;
 };
 
+// Main Component
 export default function UnitAccordion({ subject, onInitiateDelete, userProfile, isAiGenerating, setIsAiGenerating, activeUnit, onSetActiveUnit, selectedLessons, onLessonSelect, renderGeneratePptButton, onUpdateLesson }) {
     const [units, setUnits] = useState([]);
     const [allLessons, setAllLessons] = useState([]);
@@ -495,7 +507,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         }
 	}
 	
-    // ... (All export functions like handleExportDocx, handleExportUlpAsPdf, etc. remain unchanged) ...
 	const handleExportDocx = async (lesson) => {
 	    if (isExportingRef.current) return;
 	    isExportingRef.current = true;
@@ -548,140 +559,141 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        setExportingLessonId(null);
 	    }
 	};
-		const handleExportUlpAsPdf = async (lesson) => {
-		    if (exportingLessonId) return;
-		    setExportingLessonId(lesson.id);
-		    showToast("Preparing PDF...", "info");
+    
+    const handleExportUlpAsPdf = async (lesson) => {
+        if (exportingLessonId) return;
+        setExportingLessonId(lesson.id);
+        showToast("Preparing PDF...", "info");
 
-		    try {
-		        const pdfStyles = {
-		            coverTitle: { fontSize: 32, bold: true, margin: [0, 0, 0, 15] },
-		            coverSub: { fontSize: 18, italics: true, color: '#555555' },
-		            pageTitle: { fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] },
-		            default: {
-		                fontSize: 9,
-		                lineHeight: 1.15,
-		                color: '#333333',
-		                alignment: 'justify'
-		            }
-		        };
+        try {
+            const pdfStyles = {
+                coverTitle: { fontSize: 32, bold: true, margin: [0, 0, 0, 15] },
+                coverSub: { fontSize: 18, italics: true, color: '#555555' },
+                pageTitle: { fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] },
+                default: {
+                    fontSize: 9,
+                    lineHeight: 1.15,
+                    color: '#333333',
+                    alignment: 'justify'
+                }
+            };
 
-		        const lessonTitle = lesson.lessonTitle || lesson.title;
-		        const subjectTitle = subject?.title || "SRCS Learning Portal";
+            const lessonTitle = lesson.lessonTitle || lesson.title;
+            const subjectTitle = subject?.title || "SRCS Learning Portal";
 
-		        let lessonContent = [];
-		        for (const page of lesson.pages) {
-		            const cleanTitle = page.title.replace(/^page\s*\d+\s*[:-]?\s*/i, "");
+            let lessonContent = [];
+            for (const page of lesson.pages) {
+                const cleanTitle = page.title.replace(/^page\s*\d+\s*[:-]?\s*/i, "");
 
-		            if (cleanTitle) {
-		                lessonContent.push({ text: cleanTitle, style: 'pageTitle' });
-		            }
-            
-		            const html = marked.parse(page.content || '');
-		            const convertedContent = htmlToPdfmake(html, { defaultStyles: pdfStyles.default });
-            
-		            lessonContent.push(convertedContent);
-		        }
+                if (cleanTitle) {
+                    lessonContent.push({ text: cleanTitle, style: 'pageTitle' });
+                }
+        
+                const html = marked.parse(page.content || '');
+                const convertedContent = htmlToPdfmake(html, { defaultStyles: pdfStyles.default });
+        
+                lessonContent.push(convertedContent);
+            }
 
-				const docDefinition = {
-				    pageSize: "Folio",
-				    pageMargins: [72, 100, 72, 100],
-				    header: {
-				        margin: [0, 20, 0, 0],
-				        stack: [{ image: "headerImg", width: 450, alignment: "center" }]
-				    },
-				    footer: {
-				        margin: [0, 0, 0, 20],
-				        stack: [{ image: "footerImg", width: 450, alignment: "center" }]
-				    },
-				    defaultStyle: pdfStyles.default,
-				    styles: pdfStyles,
-				    content: [
-				        {
-				            stack: [
-				                { text: lessonTitle, style: "coverTitle" },
-				                { text: subjectTitle, style: "coverSub" }
-				            ],
-				            alignment: "center",
-				            margin: [0, 200, 0, 0],
-				            pageBreak: "after"
-				        },
-				        {
-				            stack: lessonContent,
-				            margin: [0, 0, 0, 0],
-				            width: "auto",
-				            alignment: "justify"
-				        }
-				    ],
-				    images: {
-				        headerImg: "https://i.ibb.co/xt5CY6GY/header-port.png",
-				        footerImg: "https://i.ibb.co/kgrMBfDr/Footer.png"
-				    }
-				};
+            const docDefinition = {
+                pageSize: "Folio",
+                pageMargins: [72, 100, 72, 100],
+                header: {
+                    margin: [0, 20, 0, 0],
+                    stack: [{ image: "headerImg", width: 450, alignment: "center" }]
+                },
+                footer: {
+                    margin: [0, 0, 0, 20],
+                    stack: [{ image: "footerImg", width: 450, alignment: "center" }]
+                },
+                defaultStyle: pdfStyles.default,
+                styles: pdfStyles,
+                content: [
+                    {
+                        stack: [
+                            { text: lessonTitle, style: "coverTitle" },
+                            { text: subjectTitle, style: "coverSub" }
+                        ],
+                        alignment: "center",
+                        margin: [0, 200, 0, 0],
+                        pageBreak: "after"
+                    },
+                    {
+                        stack: lessonContent,
+                        margin: [0, 0, 0, 0],
+                        width: "auto",
+                        alignment: "justify"
+                    }
+                ],
+                images: {
+                    headerImg: "https://i.ibb.co/xt5CY6GY/header-port.png",
+                    footerImg: "https://i.ibb.co/kgrMBfDr/Footer.png"
+                }
+            };
 
-		        pdfMake.createPdf(docDefinition).download(`${lessonTitle}.pdf`, () => {
-		            setExportingLessonId(null);
-		        });
+            pdfMake.createPdf(docDefinition).download(`${lessonTitle}.pdf`, () => {
+                setExportingLessonId(null);
+            });
 
-		    } catch (error) {
-		        console.error("Failed to export PDF:", error);
-		        showToast("An error occurred while creating the PDF.", "error");
-		        setExportingLessonId(null);
-		    }
-		};
-		
-		const handleExportUlpAsDocx = async (lesson) => {
-		  if (exportingLessonId) return;
-		  setExportingLessonId(lesson.id);
-		  showToast("Preparing Word Document...", "info");
+        } catch (error) {
+            console.error("Failed to export PDF:", error);
+            showToast("An error occurred while creating the PDF.", "error");
+            setExportingLessonId(null);
+        }
+    };
+    
+    const handleExportUlpAsDocx = async (lesson) => {
+      if (exportingLessonId) return;
+      setExportingLessonId(lesson.id);
+      showToast("Preparing Word Document...", "info");
 
-		  try {
-		    const lessonTitle = lesson.lessonTitle || lesson.title;
-		    const page = lesson.pages[0];
-		    let ulpHtmlContent = page?.content || "";
+      try {
+        const lessonTitle = lesson.lessonTitle || lesson.title;
+        const page = lesson.pages[0];
+        let ulpHtmlContent = page?.content || "";
 
-		    ulpHtmlContent = ulpHtmlContent.replace(
-		      /<tr>(\s*<td[^>]*>Learning Focus<\/td>\s*<td[^>]*>Learning Process<\/td>\s*)<\/tr>/i,
-		      `<tr style="font-weight:bold; color:white;">
-		        <td bgcolor="#374151" style="padding:8px; width:108px;">Learning Focus</td>
-		        <td bgcolor="#374151" style="padding:8px;">Learning Process</td>
-		      </tr>`
-		    );
-		    ulpHtmlContent = ulpHtmlContent.replace(
-		      /<td/gi,
-		      (match, offset, full) =>
-		        offset < full.indexOf("Learning Focus")
-		          ? match
-		          : match.includes("width:")
-		            ? match
-		            : `${match} style="width:108px;"`
-		    );
+        ulpHtmlContent = ulpHtmlContent.replace(
+          /<tr>(\s*<td[^>]*>Learning Focus<\/td>\s*<td[^>]*>Learning Process<\/td>\s*)<\/tr>/i,
+          `<tr style="font-weight:bold; color:white;">
+            <td bgcolor="#374151" style="padding:8px; width:108px;">Learning Focus</td>
+            <td bgcolor="#374151" style="padding:8px;">Learning Process</td>
+          </tr>`
+        );
+        ulpHtmlContent = ulpHtmlContent.replace(
+          /<td/gi,
+          (match, offset, full) =>
+            offset < full.indexOf("Learning Focus")
+              ? match
+              : match.includes("width:")
+                ? match
+                : `${match} style="width:108px;"`
+        );
 
-		    const headerBase64 = await fetchImageAsBase64("https://i.ibb.co/xt5CY6GY/header-port.png");
-		    const footerBase64 = await fetchImageAsBase64("https://i.ibb.co/kgrMBfDr/Footer.png");
-		    const fileBuffer = await htmlToDocx(ulpHtmlContent, null, {
-		      table: { row: { cantSplit: false } },
-		      page: {
-		        size: { width: 12240, height: 18720 },
-		        margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
-		      },
-		      header: {
-		        default: `<div style="text-align:center;"><img src="${headerBase64}" style="width:450px;"/></div>`
-		      },
-		      footer: {
-		        default: `<div style="text-align:center;"><img src="${footerBase64}" style="width:450px;"/></div>`
-		      }
-		    });
+        const headerBase64 = await fetchImageAsBase64("https://i.ibb.co/xt5CY6GY/header-port.png");
+        const footerBase64 = await fetchImageAsBase64("https://i.ibb.co/kgrMBfDr/Footer.png");
+        const fileBuffer = await htmlToDocx(ulpHtmlContent, null, {
+          table: { row: { cantSplit: false } },
+          page: {
+            size: { width: 12240, height: 18720 },
+            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
+          },
+          header: {
+            default: `<div style="text-align:center;"><img src="${headerBase64}" style="width:450px;"/></div>`
+          },
+          footer: {
+            default: `<div style="text-align:center;"><img src="${footerBase64}" style="width:450px;"/></div>`
+          }
+        });
 
-		    saveAs(fileBuffer, `${lessonTitle}.docx`);
-		    setExportingLessonId(null);
+        saveAs(fileBuffer, `${lessonTitle}.docx`);
+        setExportingLessonId(null);
 
-		  } catch (error) {
-		    console.error("Failed to export DOCX:", error);
-		    showToast("An error occurred while creating the Word document.", "error");
-		    setExportingLessonId(null);
-		  }
-		};
+      } catch (error) {
+        console.error("Failed to export DOCX:", error);
+        showToast("An error occurred while creating the Word document.", "error");
+        setExportingLessonId(null);
+      }
+    };
     
 	const handleExportAtgPdf = (lesson) => {
 	    if (exportingLessonId) return;
@@ -772,6 +784,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        setExportingLessonId(null);
 	    }
 	};
+
     const unitVisuals = [
         { icon: RectangleStackIcon, color: 'from-blue-500 to-sky-500' },
         { icon: BookOpenIcon, color: 'from-green-500 to-emerald-500' },
@@ -786,134 +799,135 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     }, [activeUnit, allLessons, allQuizzes]);
 
 	return (
-	        <>
-	            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-	                {activeUnit ? (
-	                    (() => {
-	                        const isLoading = !allLessons || !allQuizzes;
-	                        return (
-	                            <div>
-	                                {/* Back to all units */}
-	                                <button
-	                                    onClick={() => { onSetActiveUnit(null); setIsReordering(false); }}
-	                                    className="flex items-center gap-1.5 mb-4 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
-	                                >
-	                                    <ChevronLeftIcon className="w-4 h-4" />
-	                                    <span>Back to All Units</span>
-	                                </button>
+        <>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                {activeUnit ? (
+                    (() => {
+                        const isLoading = !allLessons || !allQuizzes;
+                        return (
+                            <div>
+                                {/* Back to all units */}
+                                <button
+                                    onClick={() => { onSetActiveUnit(null); setIsReordering(false); }}
+                                    className="flex items-center gap-1.5 mb-4 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                                >
+                                    <ChevronLeftIcon className="w-4 h-4" />
+                                    <span>Back to All Units</span>
+                                </button>
 
-	                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-	                                    <div className="min-w-0">
-	                                        <h2 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">{activeUnit.title}</h2>
-	                                        <p className="mt-1 text-sm text-slate-600">Structure the learning path for this unit.</p>
-	                                    </div>
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+                                    <div className="min-w-0">
+                                        <h2 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">{activeUnit.title}</h2>
+                                        <p className="mt-1 text-sm text-slate-600">Structure the learning path for this unit.</p>
+                                    </div>
 
-	                                    <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
-	                                        {/* Show Generate PPT button if provided */}
-	                                        {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
+                                    <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
+                                        {/* Show Generate PPT button if provided */}
+                                        {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
 
-	                                        <button 
-	                                            onClick={() => setIsReordering(prev => !prev)} 
-	                                            className={`font-semibold px-4 py-2 rounded-full transition-all text-sm ${
-	                                                isReordering
-	                                                    ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
-	                                                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-slate-300'
-	                                            }`}
-	                                        >
-	                                            {isReordering ? 'Done' : 'Reorder'}
-	                                        </button>
+                                        <button 
+                                            onClick={() => setIsReordering(prev => !prev)} 
+                                            className={`font-semibold px-4 py-2 rounded-full transition-all text-sm ${
+                                                isReordering
+                                                    ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
+                                                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-slate-300'
+                                            }`}
+                                        >
+                                            {isReordering ? 'Done' : 'Reorder'}
+                                        </button>
 
-	                                        <AddContentButton
-	                                            onAddLesson={() => handleOpenUnitModal(setAddLessonModalOpen, activeUnit)}
-	                                            onAddQuiz={() => handleOpenUnitModal(setAddQuizModalOpen, activeUnit)}
-	                                        />
-	                                    </div>
-	                                </div>
+                                        <AddContentButton
+                                            onAddLesson={() => handleOpenUnitModal(setAddLessonModalOpen, activeUnit)}
+                                            onAddQuiz={() => handleOpenUnitModal(setAddQuizModalOpen, activeUnit)}
+                                        />
+                                    </div>
+                                </div>
 
-	                                {isLoading ? (
-	                                    <div className="w-full flex justify-center items-center p-20"><Spinner /></div>
-	                                ) : unifiedContent.length > 0 ? (
-	                                    <div className={`p-1 sm:p-2 md:p-4 rounded-2xl ${
-	                                        isReordering ? 'bg-indigo-50 ring-2 ring-indigo-300 ring-offset-2' : 'bg-slate-100'
-	                                    }`}>
-	                                        <SortableContext items={unifiedContent.map(item => item.id)} strategy={verticalListSortingStrategy}>
-	                                            {unifiedContent.map(item => (
-	                                                <SortableContentItem
-	                                                    key={item.id}
-	                                                    item={item}
-	                                                    isReordering={isReordering}
-	                                                    onView={() =>
-	                                                        item.type === 'lesson'
-	                                                            ? handleOpenLessonModal(setViewLessonModalOpen, item)
-	                                                            : handleOpenQuizModal(setViewQuizModalOpen, item)
-	                                                    }
-	                                                    onEdit={() =>
-	                                                        item.type === 'lesson'
-	                                                            ? handleOpenLessonModal(setEditLessonModalOpen, item)
-	                                                            : handleEditQuiz(item)
-	                                                    }
-	                                                    onDelete={() =>
-	                                                        onInitiateDelete(item.type, item.id, item.title, item.subjectId)
-	                                                    }
-	                                                    onGenerateQuiz={() => handleOpenAiQuizModal(item)}
-	                                                    onExport={handleExportDocx}
-	                                                    onExportUlpPdf={handleExportUlpAsPdf}
-	                                                    onExportAtgPdf={handleExportAtgPdf}
-	                                                    onExportUlpDocx={handleExportUlpAsDocx}
-	                                                    onExportPdf={handleExportLessonPdf}
-	                                                    exportingLessonId={exportingLessonId}
-	                                                    selectedLessons={selectedLessons}
-	                                                    onLessonSelect={onLessonSelect}
-	                                                    isAiGenerating={isAiGenerating}
-	                                                />
-	                                            ))}
-	                                        </SortableContext>
-	                                    </div>
-	                                ) : (
-	                                    <div className="text-center py-16 bg-white/70 backdrop-blur-sm rounded-2xl border border-dashed ring-1 ring-black/5 shadow-lg">
-	                                        <RectangleStackIcon className="mx-auto h-12 w-12 text-gray-400" />
-	                                        <h3 className="mt-2 text-lg font-semibold text-gray-800">This unit is empty</h3>
-	                                        <p className="mt-1 text-sm text-gray-500">Add a lesson or a quiz to get started.</p>
-	                                    </div>
-	                                )}
-	                            </div>
-	                        );
-	                    })()
-	                ) : (
-	                    units.length > 0 ? (
-	                        <SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}>
-	                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-	                                {units.map((unit, index) => (
-	                                    <SortableUnitCard 
-	                                        key={unit.id}
-	                                        unit={unit}
-	                                        onSelect={onSetActiveUnit}
-	                                        onEdit={(unitToEdit) => handleOpenUnitModal(setEditUnitModalOpen, unitToEdit)}
-	                                        onDelete={(unitToDelete) => onInitiateDelete('unit', unitToDelete.id, unitToDelete.title, unitToDelete.subjectId)}
-	                                        onOpenAiHub={handleOpenAiHub}
-	                                        visuals={unitVisuals[index % unitVisuals.length]}
-	                                    />
-	                                ))}
-	                            </div>
-	                        </SortableContext>
-	                    ) : (
-	                        <p className="text-center text-gray-500 py-10">
-	                            No units in this subject yet. Add one to get started!
-	                        </p>
-	                    )
-	                )}
-	            </DndContext>
-
-            <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} unitId={unitForAi?.id} subjectId={subject?.id} />
-            <EditUnitModal isOpen={editUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={selectedUnit} />
-            <AddLessonModal isOpen={addLessonModalOpen} onClose={() => setAddLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject?.id} setIsAiGenerating={setIsAiGenerating} />
-            <AddQuizModal isOpen={addQuizModalOpen} onClose={() => setAddQuizModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject?.id} />
-            <EditLessonModal isOpen={editLessonModalOpen} onClose={() => setEditLessonModalOpen(false)} lesson={selectedLesson} />
-            {/* FIXED: Pass onUpdateLesson prop */}
-            <ViewLessonModal isOpen={viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={selectedLesson} onUpdate={onUpdateLesson} />
-            {selectedQuiz && (<EditQuizModal isOpen={editQuizModalOpen} onClose={() => setEditQuizModalOpen(false)} quiz={selectedQuiz} onEditQuiz={() => { setEditQuizModalOpen(false); }} />)}
-            <ViewQuizModal isOpen={viewQuizModalOpen} onClose={() => setViewQuizModalOpen(false)} quiz={selectedQuiz} userProfile={userProfile} isTeacherView={true} />
-            <AiQuizModal isOpen={aiQuizModalOpen} onClose={() => setAiQuizModalOpen(false)} unitId={lessonForAiQuiz?.id} subjectId={lessonForAiQuiz?.subjectId} lesson={lessonForAiQuiz} />
+                                {isLoading ? (
+                                    <div className="w-full flex justify-center items-center p-20"><Spinner /></div>
+                                ) : unifiedContent.length > 0 ? (
+                                    <div className={`p-1 sm:p-2 md:p-4 rounded-2xl ${
+                                        isReordering ? 'bg-indigo-50 ring-2 ring-indigo-300 ring-offset-2' : 'bg-slate-100'
+                                    }`}>
+                                        <SortableContext items={unifiedContent.map(item => item.id)} strategy={verticalListSortingStrategy}>
+                                            {unifiedContent.map(item => (
+                                                <SortableContentItem
+                                                    key={item.id}
+                                                    item={item}
+                                                    isReordering={isReordering}
+                                                    onView={() =>
+                                                        item.type === 'lesson'
+                                                            ? handleOpenLessonModal(setViewLessonModalOpen, item)
+                                                            : handleOpenQuizModal(setViewQuizModalOpen, item)
+                                                    }
+                                                    onEdit={() =>
+                                                        item.type === 'lesson'
+                                                            ? handleOpenLessonModal(setEditLessonModalOpen, item)
+                                                            : handleEditQuiz(item)
+                                                    }
+                                                    onDelete={() =>
+                                                        onInitiateDelete(item.type, item.id, item.title, item.subjectId)
+                                                    }
+                                                    onGenerateQuiz={() => handleOpenAiQuizModal(item)}
+                                                    onExport={handleExportDocx}
+                                                    onExportUlpPdf={handleExportUlpAsPdf}
+                                                    onExportAtgPdf={handleExportAtgPdf}
+                                                    onExportUlpDocx={handleExportUlpAsDocx}
+                                                    onExportPdf={handleExportLessonPdf}
+                                                    exportingLessonId={exportingLessonId}
+                                                    selectedLessons={selectedLessons}
+                                                    onLessonSelect={onLessonSelect}
+                                                    isAiGenerating={isAiGenerating}
+                                                />
+                                            ))}
+                                        </SortableContext>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-16 bg-white/70 backdrop-blur-sm rounded-2xl border border-dashed ring-1 ring-black/5 shadow-lg">
+                                        <RectangleStackIcon className="mx-auto h-12 w-12 text-gray-400" />
+                                        <h3 className="mt-2 text-lg font-semibold text-gray-800">This unit is empty</h3>
+                                        <p className="mt-1 text-sm text-gray-500">Add a lesson or a quiz to get started.</p>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()
+                ) : (
+                    units.length > 0 ? (
+                        <SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {units.map((unit, index) => (
+                                    <SortableUnitCard 
+                                        key={unit.id}
+                                        unit={unit}
+                                        onSelect={onSetActiveUnit}
+                                        onEdit={(unitToEdit) => handleOpenUnitModal(setEditUnitModalOpen, unitToEdit)}
+                                        onDelete={(unitToDelete) => onInitiateDelete('unit', unitToDelete.id, unitToDelete.title, unitToDelete.subjectId)}
+                                        onOpenAiHub={handleOpenAiHub}
+                                        visuals={unitVisuals[index % unitVisuals.length]}
+                                    />
+                                ))}
+                            </div>
+                        </SortableContext>
+                    ) : (
+                        <p className="text-center text-gray-500 py-10">
+                            No units in this subject yet. Add one to get started!
+                        </p>
+                    )
+                )}
+            </DndContext>
+            
+            <Suspense fallback={<Spinner />}>
+                {isAiHubOpen && <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} unitId={unitForAi?.id} subjectId={subject?.id} />}
+                {editUnitModalOpen && <EditUnitModal isOpen={editUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={selectedUnit} />}
+                {addLessonModalOpen && <AddLessonModal isOpen={addLessonModalOpen} onClose={() => setAddLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject?.id} setIsAiGenerating={setIsAiGenerating} />}
+                {addQuizModalOpen && <AddQuizModal isOpen={addQuizModalOpen} onClose={() => setAddQuizModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject?.id} />}
+                {editLessonModalOpen && <EditLessonModal isOpen={editLessonModalOpen} onClose={() => setEditLessonModalOpen(false)} lesson={selectedLesson} />}
+                {viewLessonModalOpen && <ViewLessonModal isOpen={viewLessonModalOpen} onClose={() => setViewLessonModalOpen(false)} lesson={selectedLesson} onUpdate={onUpdateLesson} />}
+                {editQuizModalOpen && selectedQuiz && (<EditQuizModal isOpen={editQuizModalOpen} onClose={() => setEditQuizModalOpen(false)} quiz={selectedQuiz} onEditQuiz={() => { setEditQuizModalOpen(false); }} />)}
+                {viewQuizModalOpen && <ViewQuizModal isOpen={viewQuizModalOpen} onClose={() => setViewQuizModalOpen(false)} quiz={selectedQuiz} userProfile={userProfile} isTeacherView={true} />}
+                {aiQuizModalOpen && <AiQuizModal isOpen={aiQuizModalOpen} onClose={() => setAiQuizModalOpen(false)} unitId={lessonForAiQuiz?.id} subjectId={lessonForAiQuiz?.subjectId} lesson={lessonForAiQuiz} />}
+            </Suspense>
         </>
     );
 }
