@@ -1,20 +1,26 @@
 // src/components/student/StudentClassDetailView.js
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '../../services/firebase';
 import { collection, query, getDocs, orderBy, where, documentId } from 'firebase/firestore';
 import Spinner from '../common/Spinner';
-// ✅ REMOVED: ViewLessonModal is no longer rendered here
 import AnnouncementViewModal from '../common/AnnouncementViewModal';
 import { useAuth } from '../../contexts/AuthContext';
-import { MegaphoneIcon, BookOpenIcon, ArrowLeftIcon, SparklesIcon, ArrowRightIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
+import { 
+    MegaphoneIcon, 
+    BookOpenIcon, 
+    ArrowLeftIcon, 
+    SparklesIcon, 
+    ArrowRightIcon, 
+    ChevronDownIcon, 
+    ChevronUpIcon 
+} from '@heroicons/react/24/outline';
 
 const UnitPillHeader = ({ title, isCollapsed, onClick }) => (
     <button
         onClick={onClick}
         className="w-full flex justify-between items-center py-2 group"
     >
-        <span className="bg-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wide px-3 py-1 rounded-full">
+        <span className="bg-neumorphic-base px-3 py-1 rounded-full shadow-neumorphic-inset text-xs font-bold uppercase tracking-wide text-slate-700">
             {title}
         </span>
         {isCollapsed ? (
@@ -25,38 +31,36 @@ const UnitPillHeader = ({ title, isCollapsed, onClick }) => (
     </button>
 );
 
-// ✅ MODIFIED: The component now accepts `setLessonToView` as a prop
 const StudentClassDetailView = ({ selectedClass, onBack, setLessonToView }) => {
     const { userProfile } = useAuth();
     const [activeTab, setActiveTab] = useState('announcements');
     const [announcements, setAnnouncements] = useState([]);
     const [lessonsByUnit, setLessonsByUnit] = useState({});
     const [loading, setLoading] = useState(true);
-    // ✅ REMOVED: Local state for the modal is no longer needed
-    // const [viewLessonData, setViewLessonData] = useState(null);
     const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
     const [collapsedUnits, setCollapsedUnits] = useState(new Set());
 
     const toggleUnitCollapse = (unitTitle) => {
         setCollapsedUnits(prev => {
             const newSet = new Set(prev);
-            if (newSet.has(unitTitle)) {
-                newSet.delete(unitTitle);
-            } else {
-                newSet.add(unitTitle);
-            }
+            if (newSet.has(unitTitle)) newSet.delete(unitTitle);
+            else newSet.add(unitTitle);
             return newSet;
         });
     };
 
     const fetchData = useCallback(async () => {
-        // ... fetchData logic remains the same
         if (!selectedClass?.id) { setLoading(false); return; }
         setLoading(true);
         try {
-            const annQuery = query(collection(db, "studentAnnouncements"), where("classId", "==", selectedClass.id), orderBy("createdAt", "desc"));
+            const annQuery = query(
+                collection(db, "studentAnnouncements"), 
+                where("classId", "==", selectedClass.id), 
+                orderBy("createdAt", "desc")
+            );
             const annSnap = await getDocs(annQuery);
             setAnnouncements(annSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
             const postsQuery = query(collection(db, `classes/${selectedClass.id}/posts`), orderBy('createdAt', 'desc'));
             const postsSnap = await getDocs(postsQuery);
             let allLessonsFromPosts = [];
@@ -66,11 +70,13 @@ const StudentClassDetailView = ({ selectedClass, onBack, setLessonToView }) => {
                     allLessonsFromPosts.push(...postData.lessons);
                 }
             });
+
             const uniqueLessonsMap = new Map();
             allLessonsFromPosts.forEach(lesson => {
                 uniqueLessonsMap.set(lesson.id, lesson);
             });
             const fetchedLessons = Array.from(uniqueLessonsMap.values());
+
             fetchedLessons.sort((a, b) => {
                 const orderA = a.order ?? Infinity;
                 const orderB = b.order ?? Infinity;
@@ -79,43 +85,45 @@ const StudentClassDetailView = ({ selectedClass, onBack, setLessonToView }) => {
                 const numB = parseInt(b.title.match(/\d+/)?.[0] || 0, 10);
                 return numA - numB;
             });
-            const uniqueUnitIds = new Set([...fetchedLessons.map(lesson => lesson.unitId).filter(Boolean)]);
+
+            const uniqueUnitIds = new Set(fetchedLessons.map(l => l.unitId).filter(Boolean));
             const unitsMap = new Map();
             if (uniqueUnitIds.size > 0) {
                 const unitsQuery = query(collection(db, 'units'), where(documentId(), 'in', Array.from(uniqueUnitIds)));
                 const unitsSnap = await getDocs(unitsQuery);
                 unitsSnap.forEach(doc => unitsMap.set(doc.id, doc.data().title));
             }
+
             const groupedLessons = {};
             fetchedLessons.forEach(lesson => {
                 const unitTitle = unitsMap.get(lesson.unitId) || 'Uncategorized';
-                if (!groupedLessons[unitTitle]) { groupedLessons[unitTitle] = []; }
+                if (!groupedLessons[unitTitle]) groupedLessons[unitTitle] = [];
                 groupedLessons[unitTitle].push(lesson);
             });
+
             setLessonsByUnit(groupedLessons);
-            const allUnitTitles = new Set(Object.keys(groupedLessons));
-            setCollapsedUnits(allUnitTitles);
-        } catch (error) {
-            console.error("Failed to fetch class details:", error);
+            setCollapsedUnits(new Set(Object.keys(groupedLessons)));
+        } catch (err) {
+            console.error("Failed to fetch class details:", err);
         } finally {
             setLoading(false);
         }
     }, [selectedClass]);
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-    
+    useEffect(() => { fetchData(); }, [fetchData]);
+
     const getTabClasses = (tabName) => `
-        flex items-center justify-center flex-1 gap-2 px-4 py-2 font-medium text-sm rounded-lg transition-all duration-200 ease-in-out
-        ${activeTab === tabName ? 'bg-white text-red-600 shadow-sm' : 'text-slate-700 hover:text-red-600'}
+        flex items-center justify-center flex-1 gap-2 px-4 py-2 font-medium text-sm rounded-xl transition-all duration-200
+        ${activeTab === tabName 
+            ? 'bg-neumorphic-base text-red-600 shadow-neumorphic-inset' 
+            : 'text-slate-700 hover:text-red-600 hover:shadow-neumorphic-inset'}
     `;
-    
+
     const renderContent = () => {
         if (loading) return <div className="flex justify-center p-10"><Spinner /></div>;
-        
+
         const EmptyState = ({ icon: Icon, text, subtext }) => (
-            <div className="text-center py-16 px-4 bg-slate-100/50 rounded-2xl shadow-inner border border-slate-200/80">
+            <div className="text-center py-16 px-4 bg-neumorphic-base rounded-2xl shadow-neumorphic">
                 <Icon className="h-16 w-16 mb-4 text-slate-300 mx-auto" />
                 <p className="text-xl font-semibold text-slate-600">{text}</p>
                 <p className="mt-2 text-md text-slate-400">{subtext}</p>
@@ -135,23 +143,30 @@ const StudentClassDetailView = ({ selectedClass, onBack, setLessonToView }) => {
                                     onClick={() => toggleUnitCollapse(unitTitle)}
                                 />
                                 {!collapsedUnits.has(unitTitle) && (
-                                    <div className="mt-1 bg-white/60 backdrop-blur-3xl rounded-2xl shadow-lg-floating-md border border-slate-200/50 overflow-hidden">
+                                    <div className="mt-2 bg-neumorphic-base rounded-2xl shadow-neumorphic">
                                         {lessonsByUnit[unitTitle].map(lesson => (
-                                            // ✅ MODIFIED: onClick now calls the prop from the parent
-                                            <LessonListItemForStudent key={lesson.id} lesson={lesson} onClick={() => setLessonToView(lesson)} />
+                                            <LessonListItemForStudent 
+                                                key={lesson.id} 
+                                                lesson={lesson} 
+                                                onClick={() => setLessonToView(lesson)} 
+                                            />
                                         ))}
                                     </div>
                                 )}
                             </div>
                         ))}
                     </div>
-                ) : <EmptyState icon={BookOpenIcon} text="No lessons are available yet." subtext="Your teacher will post lessons here." />;
+                ) : <EmptyState icon={BookOpenIcon} text="No lessons available yet." subtext="Your teacher will post lessons here." />;
             case 'announcements':
             default:
                 return announcements.length > 0 ? (
-                    <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar bg-white/60 backdrop-blur-3xl rounded-2xl shadow-lg-floating-md border border-slate-200/50 overflow-hidden">
+                    <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar bg-neumorphic-base rounded-2xl shadow-neumorphic">
                         {announcements.map(announcement => (
-                            <AnnouncementListItemForStudent key={announcement.id} announcement={announcement} onClick={() => setSelectedAnnouncement(announcement)} />
+                            <AnnouncementListItemForStudent 
+                                key={announcement.id} 
+                                announcement={announcement} 
+                                onClick={() => setSelectedAnnouncement(announcement)} 
+                            />
                         ))}
                     </div>
                 ) : <EmptyState icon={MegaphoneIcon} text="No announcements for this class." subtext="Important updates will appear here." />;
@@ -160,18 +175,19 @@ const StudentClassDetailView = ({ selectedClass, onBack, setLessonToView }) => {
 
     return (
         <>
-            <div className="bg-white/70 backdrop-blur-3xl p-6 sm:p-8 rounded-3xl shadow-lg-floating-md border border-slate-200/50 max-w-4xl mx-auto animate-scale-in">
+            <div className="bg-neumorphic-base p-6 sm:p-8 rounded-3xl shadow-neumorphic max-w-4xl mx-auto animate-scale-in">
                 <button
                     onClick={onBack}
                     className="flex items-center text-red-600 hover:text-red-700 transition-colors mb-5 font-semibold text-sm group"
                 >
-                    <ArrowLeftIcon className="h-4 w-4 mr-1 group-hover:-translate-x-0.5 transition-transform" /> Back to All Classes
+                    <ArrowLeftIcon className="h-4 w-4 mr-1 group-hover:-translate-x-0.5 transition-transform" /> 
+                    Back to All Classes
                 </button>
                 <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">{selectedClass.name}</h1>
                 <p className="text-base sm:text-lg text-slate-500 mb-8">{selectedClass.gradeLevel} - {selectedClass.section}</p>
                 
-                <div className="bg-slate-200/70 rounded-xl flex items-center mb-6 p-1">
-                    <nav className="flex flex-1 space-x-1">
+                <div className="bg-neumorphic-base rounded-xl flex items-center mb-6 p-1 shadow-neumorphic-inset">
+                    <nav className="flex flex-1 space-x-2">
                         <button onClick={() => setActiveTab('announcements')} className={getTabClasses('announcements')}>
                             <MegaphoneIcon className="h-5 w-5" />
                             <span>Announcements</span>
@@ -185,17 +201,22 @@ const StudentClassDetailView = ({ selectedClass, onBack, setLessonToView }) => {
                 <div>{renderContent()}</div>
             </div>
 
-            {/* ✅ REMOVED: The local instance of ViewLessonModal is gone. The global one in StudentDashboard will handle it. */}
-            <AnnouncementViewModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} />
+            <AnnouncementViewModal 
+                isOpen={!!selectedAnnouncement} 
+                onClose={() => setSelectedAnnouncement(null)} 
+                announcement={selectedAnnouncement} 
+            />
         </>
     );
 };
 
-// --- Sub-components (unchanged) ---
-
+// --- Sub-components ---
 const LessonListItemForStudent = ({ lesson, onClick }) => (
-    <div className="group p-3 bg-transparent hover:bg-black/5 transition-colors duration-200 cursor-pointer flex items-center space-x-3 border-b border-slate-900/10 last:border-b-0" onClick={onClick}>
-        <div className="flex-shrink-0 p-2 rounded-full bg-sky-100 group-hover:bg-sky-200 transition-colors">
+    <div 
+        className="group p-3 bg-transparent hover:shadow-neumorphic-inset transition-all duration-200 cursor-pointer flex items-center space-x-3 rounded-xl"
+        onClick={onClick}
+    >
+        <div className="flex-shrink-0 p-2 rounded-full bg-neumorphic-base shadow-neumorphic-inset">
             <SparklesIcon className="h-5 w-5 text-sky-600" />
         </div>
         <div className="flex-1 min-w-0">
@@ -209,10 +230,15 @@ const LessonListItemForStudent = ({ lesson, onClick }) => (
 );
 
 const AnnouncementListItemForStudent = ({ announcement, onClick }) => {
-    const formattedDate = announcement.createdAt?.toDate ? announcement.createdAt.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A';
+    const formattedDate = announcement.createdAt?.toDate 
+        ? announcement.createdAt.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) 
+        : 'N/A';
     return (
-        <div className="group p-4 bg-transparent hover:bg-black/5 transition-colors duration-200 cursor-pointer flex items-center space-x-4 border-b border-slate-900/10 last:border-b-0" onClick={onClick}>
-            <div className="flex-shrink-0 p-2.5 rounded-full bg-blue-100 group-hover:bg-blue-200 transition-colors">
+        <div 
+            className="group p-4 bg-transparent hover:shadow-neumorphic-inset transition-all duration-200 cursor-pointer flex items-center space-x-4 rounded-xl"
+            onClick={onClick}
+        >
+            <div className="flex-shrink-0 p-2.5 rounded-full bg-neumorphic-base shadow-neumorphic-inset">
                 <MegaphoneIcon className="h-6 w-6 text-blue-600" />
             </div>
             <div className="flex-1 min-w-0">

@@ -1,6 +1,6 @@
 // src/components/student/StudentQuizzesTab.js
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Spinner from '../common/Spinner';
 import {
     AcademicCapIcon,
@@ -14,21 +14,49 @@ import {
 } from '@heroicons/react/24/solid';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingContent, userProfile }) => {
+const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingContent }) => {
     const [quizFilter, setQuizFilter] = useState('active');
     const [collapsedGroups, setCollapsedGroups] = useState(new Set());
-    
+    const [allCollapsed, setAllCollapsed] = useState(true);
+
+    // Normalize quizzes so attempted ones move to completed
+    const normalizeQuizzes = (quizzes) => {
+        const active = [];
+        const completed = [];
+        const overdue = quizzes.overdue || [];
+
+        (quizzes.active || []).forEach((quiz) => {
+            if (quiz.attemptsTaken > 0) {
+                completed.push({ ...quiz, status: 'completed' });
+            } else {
+                active.push(quiz);
+            }
+        });
+
+        (quizzes.completed || []).forEach((quiz) => {
+            completed.push({ ...quiz, status: 'completed' });
+        });
+
+        return { active, completed, overdue };
+    };
+
+    const normalizedQuizzes = normalizeQuizzes(quizzes);
+
     const onQuizClick = (quiz) => {
-        if (quiz.status === 'pending_sync' || quizFilter === 'completed') {
-            return;
-        }
+        const hasAttemptsLeft =
+            quiz.attemptsTaken === 'N/A' || quiz.attemptsTaken < 3;
+
+        if (quiz.status === 'pending_sync' || !hasAttemptsLeft) return;
         handleTakeQuizClick(quiz);
     };
 
     const SegmentButton = ({ label, filterName }) => (
         <button
             onClick={() => setQuizFilter(filterName)}
-            className={`flex-1 capitalize py-2 px-3 text-sm font-semibold rounded-lg transition-all duration-300 focus:outline-none ${quizFilter === filterName ? 'bg-white text-red-600 shadow-sm' : 'bg-transparent text-slate-600'}`}
+            className={`flex-1 capitalize py-2 px-3 text-sm font-semibold rounded-xl transition-all duration-300 
+                        ${quizFilter === filterName 
+                            ? 'bg-neumorphic-base shadow-neumorphic-inset text-red-600' 
+                            : 'text-slate-600 hover:text-red-600 hover:shadow-neumorphic-inset'}`}
         >
             {label}
         </button>
@@ -36,14 +64,26 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
 
     const EmptyState = ({ icon: Icon, text, subtext }) => (
         <div className="text-center py-20 px-4">
-            <Icon className="h-16 w-16 mb-4 text-gray-300 mx-auto" />
-            <p className="text-lg font-semibold text-gray-700">{text}</p>
-            <p className="mt-1 text-sm text-gray-500">{subtext}</p>
+            <Icon className="h-16 w-16 mb-4 text-slate-300 mx-auto" />
+            <p className="text-lg font-semibold text-slate-700">{text}</p>
+            <p className="mt-1 text-sm text-slate-500">{subtext}</p>
         </div>
     );
 
+    // Collapse all groups by default whenever filter/quizzes change
+    useEffect(() => {
+        const quizzesToDisplay = normalizedQuizzes[quizFilter] || [];
+        const groups = quizzesToDisplay.reduce((acc, quiz) => {
+            const className = quiz.className || 'General';
+            const unitName = (units.find(u => u.id === quiz.unitId)?.title) || 'Uncategorized';
+            acc.push(`${className}-${unitName}`);
+            return acc;
+        }, []);
+        setCollapsedGroups(new Set(groups));
+        setAllCollapsed(true);
+    }, [quizzes, quizFilter, units]);
+
     const GroupedQuizList = ({ quizzesToDisplay, onQuizClick, emptyStateProps }) => {
-        // Show empty state only if not loading and the list is empty
         if (quizzesToDisplay.length === 0 && !isFetchingContent) {
             return <EmptyState {...emptyStateProps} />;
         }
@@ -65,45 +105,64 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
             <div className="space-y-6">
                 {sortedClassNames.map(className => (
                     <div key={className}>
-                        <h2 className="text-xl font-bold text-gray-800 mb-2 px-2">{className}</h2>
+                        <h2 className="text-lg font-bold text-slate-800 mb-2 px-2">{className}</h2>
                         <div className="space-y-2">
-                            {Object.keys(quizzesByClassAndUnit[className]).sort((a, b) => {
-                                const numA = parseInt(a.match(/\d+/)?.[0] || 0, 10);
-                                const numB = parseInt(b.match(/\d+/)?.[0] || 0, 10);
-                                return numA - numB;
-                            }).map(unitName => {
-                                const groupKey = `${className}-${unitName}`;
-                                const isCollapsed = collapsedGroups.has(groupKey);
-                                return (
-                                    <div key={groupKey} className="bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden">
-                                        <button
-                                            className="w-full flex justify-between items-center p-2.5 hover:bg-gray-50 transition-colors"
-                                            onClick={() => {
-                                                setCollapsedGroups(prev => {
-                                                    const newSet = new Set(prev);
-                                                    if (newSet.has(groupKey)) newSet.delete(groupKey);
-                                                    else newSet.add(groupKey);
-                                                    return newSet;
-                                                });
-                                            }}
+                            {Object.keys(quizzesByClassAndUnit[className])
+                                .sort((a, b) => {
+                                    const numA = parseInt(a.match(/\d+/)?.[0] || 0, 10);
+                                    const numB = parseInt(b.match(/\d+/)?.[0] || 0, 10);
+                                    return numA - numB;
+                                })
+                                .map(unitName => {
+                                    const groupKey = `${className}-${unitName}`;
+                                    const isCollapsed = collapsedGroups.has(groupKey);
+                                    return (
+                                        <div
+                                            key={groupKey}
+                                            className="bg-neumorphic-base rounded-2xl shadow-neumorphic overflow-hidden"
                                         >
-                                            <h3 className="text-sm font-medium text-gray-600 text-left">{unitName}</h3>
-                                            {isCollapsed ? <ChevronDownIcon className="h-5 w-5 text-gray-400" /> : <ChevronUpIcon className="h-5 w-5 text-gray-400" />}
-                                        </button>
-                                        <AnimatePresence>
-                                            {!isCollapsed && (
-                                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2, ease: 'easeInOut' }} className="overflow-hidden">
-                                                    <div>
-                                                        {quizzesByClassAndUnit[className][unitName].map(quiz => (
-                                                            <QuizListItem key={quiz.id} quiz={quiz} onClick={() => onQuizClick(quiz)} />
-                                                        ))}
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                );
-                            })}
+                                            <button
+                                                className="w-full flex justify-between items-center p-2.5 text-slate-600 hover:text-red-600 transition-all"
+                                                onClick={() => {
+                                                    setCollapsedGroups(prev => {
+                                                        const newSet = new Set(prev);
+                                                        if (newSet.has(groupKey)) newSet.delete(groupKey);
+                                                        else newSet.add(groupKey);
+                                                        return newSet;
+                                                    });
+                                                }}
+                                            >
+                                                <h3 className="text-sm font-medium text-slate-700 text-left">{unitName}</h3>
+                                                {isCollapsed ? (
+                                                    <ChevronDownIcon className="h-5 w-5 text-slate-400" />
+                                                ) : (
+                                                    <ChevronUpIcon className="h-5 w-5 text-slate-400" />
+                                                )}
+                                            </button>
+                                            <AnimatePresence>
+                                                {!isCollapsed && (
+                                                    <motion.div
+                                                        initial={{ height: 0, opacity: 0 }}
+                                                        animate={{ height: 'auto', opacity: 1 }}
+                                                        exit={{ height: 0, opacity: 0 }}
+                                                        transition={{ duration: 0.2, ease: 'easeInOut' }}
+                                                        className="overflow-hidden"
+                                                    >
+                                                        <div>
+                                                            {quizzesByClassAndUnit[className][unitName].map(quiz => (
+                                                                <QuizListItem
+                                                                    key={quiz.id}
+                                                                    quiz={quiz}
+                                                                    onClick={() => onQuizClick(quiz)}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
+                                    );
+                                })}
                         </div>
                     </div>
                 ))}
@@ -111,22 +170,63 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
         );
     };
 
-    const quizzesToDisplay = quizzes[quizFilter] || [];
+    const quizzesToDisplay = normalizedQuizzes[quizFilter] || [];
     const emptyStateProps = {
-        active: { icon: ClipboardDocumentCheckIcon, text: "No Active Quizzes", subtext: "New quizzes from your teacher will appear here." },
-        completed: { icon: CheckCircleIcon, text: "No Completed Quizzes", subtext: "Once you complete a quiz, it will appear here." },
-        overdue: { icon: ExclamationTriangleIcon, text: "No Overdue Quizzes", subtext: "You have no quizzes past their deadline." }
+        active: {
+            icon: ClipboardDocumentCheckIcon,
+            text: 'No Active Quizzes',
+            subtext: 'New quizzes from your teacher will appear here.'
+        },
+        completed: {
+            icon: CheckCircleIcon,
+            text: 'No Completed Quizzes',
+            subtext: 'Once you attempt a quiz, it will appear here.'
+        },
+        overdue: {
+            icon: ExclamationTriangleIcon,
+            text: 'No Overdue Quizzes',
+            subtext: 'You have no quizzes past their deadline.'
+        }
     }[quizFilter];
 
+    const toggleAll = () => {
+        if (allCollapsed) {
+            setCollapsedGroups(new Set()); // expand all
+            setAllCollapsed(false);
+        } else {
+            const groups = quizzesToDisplay.map(quiz => {
+                const className = quiz.className || 'General';
+                const unitName = (units.find(u => u.id === quiz.unitId)?.title) || 'Uncategorized';
+                return `${className}-${unitName}`;
+            });
+            setCollapsedGroups(new Set(groups)); // collapse all
+            setAllCollapsed(true);
+        }
+    };
+
     return (
-        <div className="bg-gray-50 min-h-screen font-sans">
+        <div className="bg-neumorphic-base min-h-screen font-sans">
             <div className="p-4 space-y-6">
-                <div className="px-2">
-                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">My Quizzes</h1>
-                    <p className="text-base text-gray-500">View your active, completed, and overdue quizzes.</p>
+                {/* Header */}
+                <div className="px-2 flex justify-between items-center">
+                    <div>
+                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">My Quizzes</h1>
+                        <p className="text-sm sm:text-base text-slate-500">
+                            View your active, completed, and overdue quizzes.
+                        </p>
+                    </div>
+                    {quizzesToDisplay.length > 0 && (
+                        <button
+                            onClick={toggleAll}
+                            className="px-3 py-1.5 text-sm rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset text-red-600 font-semibold transition-all"
+                        >
+                            {allCollapsed ? 'Expand All' : 'Collapse All'}
+                        </button>
+                    )}
                 </div>
 
-                <div className="bg-gray-200/70 rounded-xl p-1">
+                {/* Filter Buttons */}
+                <div className="bg-neumorphic-base rounded-xl p-1 shadow-neumorphic-inset">
                     <nav className="flex space-x-1">
                         <SegmentButton label="Active" filterName="active" />
                         <SegmentButton label="Completed" filterName="completed" />
@@ -134,24 +234,21 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
                     </nav>
                 </div>
 
-                {/* --- UI GLITCH FIX --- */}
-                {/* The 'relative' class is added to this container. */}
+                {/* Content */}
                 <div className="min-h-[400px] relative">
-                    {/* The loading indicator is now an overlay, preventing the list from disappearing during re-fetch. */}
                     <AnimatePresence>
                         {isFetchingContent && (
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="absolute inset-0 bg-gray-50/70 backdrop-blur-sm flex justify-center items-center z-10 rounded-xl"
+                                className="absolute inset-0 bg-neumorphic-base/80 flex justify-center items-center z-10 rounded-xl"
                             >
                                 <Spinner />
                             </motion.div>
                         )}
                     </AnimatePresence>
-                    
-                    {/* The list is always rendered, showing stale data until the new data is available. */}
+
                     <GroupedQuizList
                         quizzesToDisplay={quizzesToDisplay}
                         onQuizClick={onQuizClick}
@@ -164,28 +261,41 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
 };
 
 const QuizListItem = ({ quiz, onClick }) => {
+    const hasAttemptsLeft =
+        quiz.attemptsTaken === 'N/A' || quiz.attemptsTaken < 3;
+
     const statusInfo = {
-        active: { icon: AcademicCapIcon, color: "text-blue-500", label: "Take Quiz" },
-        completed: { icon: CheckCircleIcon, color: "text-green-500", label: "Review" },
-        overdue: { icon: ExclamationTriangleIcon, color: "text-red-500", label: "Submit Late" },
-        pending_sync: { icon: CloudArrowUpIcon, color: "text-slate-500", label: "Syncing..." }
+        active: { icon: AcademicCapIcon, color: 'text-blue-500', label: 'Take Quiz' },
+        completed: { 
+            icon: CheckCircleIcon, 
+            color: hasAttemptsLeft ? 'text-blue-500' : 'text-slate-400', 
+            label: hasAttemptsLeft ? 'Take Quiz' : 'No Attempts Left' 
+        },
+        overdue: { icon: ExclamationTriangleIcon, color: 'text-red-500', label: 'Submit Late' },
+        pending_sync: { icon: CloudArrowUpIcon, color: 'text-slate-500', label: 'Syncing...' }
     };
+
     const { icon: Icon, color, label } = statusInfo[quiz.status || 'active'];
 
     return (
-        <div onClick={onClick} className="group p-4 bg-white hover:bg-gray-50 transition-colors duration-200 cursor-pointer flex items-center space-x-4 border-b border-gray-200/80 last:border-b-0">
-            <Icon className={`h-8 w-8 flex-shrink-0 ${color}`} />
+        <div
+            onClick={hasAttemptsLeft ? onClick : undefined}
+            className={`group p-3 sm:p-4 bg-neumorphic-base rounded-xl shadow-neumorphic transition-all duration-200 
+                       flex items-center space-x-3 sm:space-x-4 mb-2
+                       ${hasAttemptsLeft ? 'cursor-pointer hover:shadow-neumorphic-inset' : 'cursor-not-allowed opacity-60'}`}
+        >
+            <Icon className={`h-7 w-7 sm:h-8 sm:w-8 flex-shrink-0 ${color}`} />
             <div className="flex-1 min-w-0">
-                <h2 className="text-base font-semibold text-gray-800 truncate">{quiz.title}</h2>
-                <p className="text-sm text-gray-500 mt-0.5">
-                    {quiz.attemptsTaken === 'N/A' 
-                        ? 'Available Offline' 
-                        : (quiz.attemptsTaken > 0 ? `Attempt ${quiz.attemptsTaken + 1} of 3` : `3 Attempts`)}
+                <h2 className="text-sm sm:text-base font-semibold text-slate-800 truncate">{quiz.title}</h2>
+                <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                    {quiz.attemptsTaken === 'N/A'
+                        ? 'Available Offline'
+                        : `Attempt ${Math.min(quiz.attemptsTaken + 1, 3)} of 3`}
                 </p>
             </div>
-            <div className="flex items-center gap-2 text-gray-400 group-hover:text-red-600 transition-colors">
-                <span className="text-sm font-semibold hidden sm:block">{label}</span>
-                <ChevronRightIcon className="h-5 w-5" />
+            <div className="flex items-center gap-2 text-slate-400 group-hover:text-red-600 transition-colors">
+                <span className="text-xs sm:text-sm font-semibold hidden sm:block">{label}</span>
+                {hasAttemptsLeft && <ChevronRightIcon className="h-4 w-4 sm:h-5 sm:w-5" />}
             </div>
         </div>
     );

@@ -7,7 +7,6 @@ const StudentLessonDetailModal = ({ isOpen, onClose, lesson, onTakeQuiz, hasTake
     const [activeTab, setActiveTab] = useState('pages');
     const [activePage, setActivePage] = useState(0);
 
-    // Reset view when modal is opened or lesson changes
     useEffect(() => {
         setActivePage(0);
         if (lesson?.pages?.length > 0) {
@@ -24,63 +23,114 @@ const StudentLessonDetailModal = ({ isOpen, onClose, lesson, onTakeQuiz, hasTake
             {/* Header Buttons */}
             <div className="flex justify-end space-x-2 mb-4">
                 {lesson?.studyGuideUrl && (
-                    <a href={lesson.studyGuideUrl} target="_blank" rel="noopener noreferrer" className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors">
+                    <a
+                        href={lesson.studyGuideUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-green-500 text-white px-4 py-2 rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset transition-all"
+                    >
                         Download Study Guide
                     </a>
                 )}
             </div>
 
             {/* Tab Navigation */}
-            <div className="border-b border-gray-200 mb-4">
-                <button onClick={() => setActiveTab('pages')} className={`py-2 px-4 rounded-t-lg ${activeTab === 'pages' ? 'border-b-2 border-blue-500 font-semibold text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>
+            <div className="flex border-b border-slate-200 mb-4">
+                <button
+                    onClick={() => setActiveTab('pages')}
+                    className={`py-2 px-4 rounded-t-xl transition-all ${
+                        activeTab === 'pages'
+                            ? 'bg-neumorphic-base shadow-neumorphic-inset font-semibold text-blue-700'
+                            : 'text-slate-600 hover:text-blue-600 hover:shadow-neumorphic-inset'
+                    }`}
+                >
                     Pages
                 </button>
-                <button onClick={() => setActiveTab('quizzes')} className={`py-2 px-4 rounded-t-lg ${activeTab === 'quizzes' ? 'border-b-2 border-blue-500 font-semibold text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>
+                <button
+                    onClick={() => setActiveTab('quizzes')}
+                    className={`py-2 px-4 rounded-t-xl transition-all ${
+                        activeTab === 'quizzes'
+                            ? 'bg-neumorphic-base shadow-neumorphic-inset font-semibold text-blue-700'
+                            : 'text-slate-600 hover:text-blue-600 hover:shadow-neumorphic-inset'
+                    }`}
+                >
                     Quizzes
                 </button>
             </div>
 
             {/* Tab Content */}
-            <div className="mt-4 max-h-[60vh] overflow-y-auto p-2">
+            <div className="mt-4 max-h-[60vh] overflow-y-auto p-2 custom-scrollbar">
                 {activeTab === 'pages' && (
                     totalPages > 0 ? (
-                        <div>
-                            {/* This is the container that was missing its closing tag */}
-                            <div className="p-4 border border-gray-200 rounded-lg shadow-sm bg-white min-h-[30vh]">
-                                <h4 className="font-bold text-xl text-gray-800 mb-2">{lesson.pages[activePage].title}</h4>
-                                <div className="mt-2 prose max-w-none">
-                                    <ContentRenderer text={lesson.pages[activePage].content} />
-                                </div>
-                                <div className="flex justify-between items-center mt-4 pt-4 border-t">
-                                    <button onClick={() => setActivePage(p => p - 1)} disabled={activePage === 0} className="flex items-center bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                                        <ChevronLeft size={20} className="mr-1" /> Previous
-                                    </button>
-                                    <span className="text-gray-600 font-medium">Page {activePage + 1} of {totalPages}</span>
-                                    <button onClick={() => setActivePage(p => p + 1)} disabled={activePage >= totalPages - 1} className="flex items-center bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                                        Next <ChevronRight size={20} className="ml-1" />
-                                    </button>
-                                </div>
-                            </div> 
+                        <div className="p-4 rounded-2xl bg-neumorphic-base shadow-neumorphic min-h-[30vh]">
+                            <h4 className="font-bold text-xl text-slate-800 mb-2">
+                                {lesson.pages[activePage].title}
+                            </h4>
+                            <div className="mt-2 prose max-w-none">
+                                <ContentRenderer text={lesson.pages[activePage].content} />
+                            </div>
+
+                            {/* Pagination Controls */}
+                            <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-200">
+                                <button
+                                    onClick={() => setActivePage(p => p - 1)}
+                                    disabled={activePage === 0}
+                                    className="flex items-center px-4 py-2 rounded-xl bg-neumorphic-base shadow-neumorphic 
+                                               hover:shadow-neumorphic-inset text-slate-700 transition-all
+                                               disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <ChevronLeft size={20} className="mr-1" /> Previous
+                                </button>
+
+                                <span className="text-slate-600 font-medium">
+                                    Page {activePage + 1} of {totalPages}
+                                </span>
+
+                                <button
+                                    onClick={() => setActivePage(p => p + 1)}
+                                    disabled={activePage >= totalPages - 1}
+                                    className="flex items-center px-4 py-2 rounded-xl bg-neumorphic-base shadow-neumorphic 
+                                               hover:shadow-neumorphic-inset text-slate-700 transition-all
+                                               disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Next <ChevronRight size={20} className="ml-1" />
+                                </button>
+                            </div>
                         </div>
                     ) : (
-                        <p className="text-gray-500 text-center py-8">This lesson has no pages.</p>
+                        <p className="text-slate-500 text-center py-8">This lesson has no pages.</p>
                     )
                 )}
 
                 {activeTab === 'quizzes' && (
                     <div>
-                        {lesson?.quizzes?.length > 0 ? lesson.quizzes.map(quiz => (
-                            <div key={quiz.id} className="p-4 border border-gray-200 rounded-lg mb-3 flex justify-between items-center bg-white">
-                                <div>
-                                    <p className="font-semibold text-gray-700">{quiz.title}</p>
-                                    <p className="text-xs text-gray-500">Attempts: {getAttemptsCount(quiz.id)}/3</p>
+                        {lesson?.quizzes?.length > 0 ? (
+                            lesson.quizzes.map(quiz => (
+                                <div
+                                    key={quiz.id}
+                                    className="p-4 mb-3 rounded-2xl bg-neumorphic-base shadow-neumorphic 
+                                               flex justify-between items-center"
+                                >
+                                    <div>
+                                        <p className="font-semibold text-slate-700">{quiz.title}</p>
+                                        <p className="text-xs text-slate-500">
+                                            Attempts: {getAttemptsCount(quiz.id)}/3
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => onTakeQuiz(quiz)}
+                                        className={`px-4 py-2 rounded-xl transition-all shadow-neumorphic 
+                                                    ${hasTakenQuiz(quiz.id)
+                                                        ? 'bg-slate-300 text-slate-600 cursor-not-allowed'
+                                                        : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+                                        disabled={hasTakenQuiz(quiz.id)}
+                                    >
+                                        {hasTakenQuiz(quiz.id) ? 'Completed' : 'Take Quiz'}
+                                    </button>
                                 </div>
-                                <button onClick={() => onTakeQuiz(quiz)} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors disabled:bg-gray-400" disabled={hasTakenQuiz(quiz.id)}>
-                                    {hasTakenQuiz(quiz.id) ? 'Completed' : 'Take Quiz'}
-                                </button>
-                            </div>
-                        )) : (
-                            <p className="text-gray-500 text-center py-8">This lesson has no quizzes.</p>
+                            ))
+                        ) : (
+                            <p className="text-slate-500 text-center py-8">This lesson has no quizzes.</p>
                         )}
                     </div>
                 )}
