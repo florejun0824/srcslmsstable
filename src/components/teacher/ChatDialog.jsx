@@ -41,7 +41,7 @@ const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking }) 
         }
     };
 
-    const chatbotProfilePic = 'https://i.ibb.co/x8PrqMXN/chatbot-2.png';
+    const chatbotProfilePic = 'https://i.ibb.co/Y4WNBnxS/ai-girl.png';
 
     return (
         <CSSTransition

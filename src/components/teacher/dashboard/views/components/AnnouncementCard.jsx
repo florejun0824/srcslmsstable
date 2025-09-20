@@ -139,7 +139,8 @@ const AnnouncementCard = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.4 }}
-            className={`bg-white/60 backdrop-blur-lg rounded-3xl shadow-xl shadow-slate-300/25 p-6 relative group transform transition-all duration-300 hover:shadow-2xl hover:shadow-slate-300/40 hover:-translate-y-2 hover:scale-[1.01] border ${post.isPinned ? 'border-violet-300 ring-2 ring-violet-200/50' : 'border-white/50'}`}
+            // MODIFIED: Applied a gradient background and colored shadow to match the new theme.
+            className={`bg-gradient-to-br from-white/70 to-violet-100/50 backdrop-blur-lg rounded-3xl shadow-xl shadow-violet-300/20 p-6 relative group transform transition-all duration-300 hover:shadow-2xl hover:shadow-violet-300/30 hover:-translate-y-2 hover:scale-[1.01] border ${post.isPinned ? 'border-violet-300 ring-2 ring-violet-200/50' : 'border-white/70'}`}
         >
             {post.isPinned && (
                 <div className="absolute top-4 left-4 flex items-center gap-2 text-violet-700 bg-violet-100 px-3 py-1 rounded-full text-xs font-semibold z-10">
@@ -267,7 +268,8 @@ const AnnouncementCard = ({
                                     visible: { transition: { staggerChildren: 0.05 } },
                                     hidden: { transition: { staggerChildren: 0.05, staggerDirection: -1 } }
                                 }}
-                                className="absolute bottom-full mb-2 bg-white/80 backdrop-blur-md rounded-full shadow-xl p-2 flex space-x-1 z-50 border border-slate-200/50"
+                                // MODIFIED: Updated reaction picker to match the card's glassmorphism style.
+                                className="absolute bottom-full mb-2 bg-white/60 backdrop-blur-md rounded-full shadow-xl p-2 flex space-x-1 z-50 border border-white/70"
                                 onMouseEnter={handleReactionOptionsMouseEnter} // Keep open when mouse moves to options
                                 onMouseLeave={handleReactionOptionsMouseLeave}
                             >

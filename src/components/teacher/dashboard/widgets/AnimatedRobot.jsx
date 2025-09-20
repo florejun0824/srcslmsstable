@@ -6,70 +6,56 @@ const AnimatedRobot = ({ onClick }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [position, setPosition] = useState({ top: 0, left: 0 });
     const [offset, setOffset] = useState({ x: 0, y: 0 });
-    const dragStartedAt = useRef({ x: 0, y: 0 });
+    const dragStartRef = useRef({ x: 0, y: 0 });
 
     // --- DIMENSIONS ---
-    const BUTTON_WIDTH_DESKTOP = 80;
-    const BUTTON_HEIGHT_DESKTOP = 80;
-    const BUTTON_WIDTH_MOBILE = 65;
-    const BUTTON_HEIGHT_MOBILE = 65;
+    const BUTTON_WIDTH_DESKTOP = 60;
+    const BUTTON_HEIGHT_DESKTOP = 60;
+    const BUTTON_WIDTH_MOBILE = 52;
+    const BUTTON_HEIGHT_MOBILE = 52;
 
-    const getCurrentButtonDimensions = useCallback(() => {
+    const getButtonDimensions = useCallback(() => {
         return window.innerWidth <= 768
             ? { width: BUTTON_WIDTH_MOBILE, height: BUTTON_HEIGHT_MOBILE }
             : { width: BUTTON_WIDTH_DESKTOP, height: BUTTON_HEIGHT_DESKTOP };
     }, []);
 
     const getInitialPosition = useCallback(() => {
-        const { width, height } = getCurrentButtonDimensions();
-        const margin = window.innerWidth <= 768 ? 20 : 40; // Smaller margin on mobile
+        const { width, height } = getButtonDimensions();
+        // FIXED: Increased bottom margin to prevent overlap with docks
+        const margin = window.innerWidth <= 768 ? 80 : 90;
         return {
             top: window.innerHeight - height - margin,
-            left: window.innerWidth - width - margin,
+            left: window.innerWidth - width - (margin / 2), // Also adjust horizontal margin slightly
         };
-    }, [getCurrentButtonDimensions]);
+    }, [getButtonDimensions]);
     
     // --- POSITIONING & DRAG LOGIC ---
     useEffect(() => {
         setPosition(getInitialPosition());
     }, [getInitialPosition]);
 
-    const handleInteractionEnd = useCallback(() => {
-        if (isDragging) {
-            setIsDragging(false);
-        }
-    }, [isDragging]);
-
-    const handleInteractionMove = useCallback((clientX, clientY) => {
-        if (!isDragging || !buttonRef.current) return;
-        const { width, height } = getCurrentButtonDimensions();
-        const newLeft = clientX - offset.x;
-        const newTop = clientY - offset.y;
-        
-        const boundedLeft = Math.min(Math.max(0, newLeft), window.innerWidth - width);
-        const boundedTop = Math.min(Math.max(0, newTop), window.innerHeight - height);
-        setPosition({ top: boundedTop, left: boundedLeft });
-    }, [isDragging, offset, getCurrentButtonDimensions]);
-
     const handleInteractionStart = useCallback((clientX, clientY) => {
-        if (buttonRef.current) {
-            setIsDragging(true);
-            dragStartedAt.current = { x: clientX, y: clientY };
-            const rect = buttonRef.current.getBoundingClientRect();
-            setOffset({ x: clientX - rect.left, y: clientY - rect.top });
-        }
+        if (!buttonRef.current) return;
+        
+        dragStartRef.current = { x: clientX, y: clientY };
+        const rect = buttonRef.current.getBoundingClientRect();
+        setOffset({
+            x: clientX - rect.left,
+            y: clientY - rect.top,
+        });
+        setIsDragging(true);
     }, []);
 
     const handleClick = useCallback((e) => {
-        const currentX = e.clientX || dragStartedAt.current.x;
-        const currentY = e.clientY || dragStartedAt.current.y;
+        const currentX = e.clientX || dragStartRef.current.x;
+        const currentY = e.clientY || dragStartRef.current.y;
         
-        const dx = Math.abs(currentX - dragStartedAt.current.x);
-        const dy = Math.abs(currentY - dragStartedAt.current.y);
+        const dx = Math.abs(currentX - dragStartRef.current.x);
+        const dy = Math.abs(currentY - dragStartRef.current.y);
 
-        // Only trigger click if it wasn't a significant drag
         if (dx < 5 && dy < 5) {
-            onClick(e); // This now correctly calls the function from the parent
+            onClick(e);
         }
     }, [onClick]);
 
@@ -78,28 +64,47 @@ const AnimatedRobot = ({ onClick }) => {
     const handleTouchStart = (e) => {
         if (e.touches.length > 0) handleInteractionStart(e.touches[0].clientX, e.touches[0].clientY);
     };
-    const handleMouseMove = (e) => { e.preventDefault(); handleInteractionMove(e.clientX, e.clientY); };
-    const handleTouchMove = (e) => { e.preventDefault(); if (e.touches.length > 0) handleInteractionMove(e.touches[0].clientX, e.touches[0].clientY); };
 
+    // New, more robust useEffect for handling drag listeners
     useEffect(() => {
+        // These functions are defined inside the effect, so they always have the latest state.
+        const handleMouseMove = (e) => {
+            const newLeft = e.clientX - offset.x;
+            const newTop = e.clientY - offset.y;
+            const { width, height } = getButtonDimensions();
+            
+            const boundedLeft = Math.min(Math.max(0, newLeft), window.innerWidth - width);
+            const boundedTop = Math.min(Math.max(0, newTop), window.innerHeight - height);
+            
+            setPosition({ top: boundedTop, left: boundedLeft });
+        };
+        
+        const handleTouchMove = (e) => {
+            if (e.touches.length > 0) {
+                handleMouseMove(e.touches[0]);
+            }
+        };
+
+        const handleMouseUp = () => {
+            setIsDragging(false);
+        };
+
+        // Only add the 'move' and 'up' listeners when we are actually dragging.
         if (isDragging) {
             window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleInteractionEnd);
             window.addEventListener('touchmove', handleTouchMove, { passive: false });
-            window.addEventListener('touchend', handleInteractionEnd);
-        } else {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleInteractionEnd);
-            window.removeEventListener('touchmove', handleTouchMove);
-            window.removeEventListener('touchend', handleInteractionEnd);
+            window.addEventListener('mouseup', handleMouseUp);
+            window.addEventListener('touchend', handleMouseUp);
         }
+
+        // The cleanup function will remove the listeners when dragging stops.
         return () => {
             window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleInteractionEnd);
             window.removeEventListener('touchmove', handleTouchMove);
-            window.removeEventListener('touchend', handleInteractionEnd);
+            window.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('touchend', handleMouseUp);
         };
-    }, [isDragging, handleMouseMove, handleInteractionEnd, handleTouchMove]);
+    }, [isDragging, offset, getButtonDimensions]); // Effect depends on these values
 
     useEffect(() => {
         const handleResize = () => setPosition(getInitialPosition());
@@ -111,8 +116,8 @@ const AnimatedRobot = ({ onClick }) => {
 
     const buttonStyle = {
         position: 'fixed',
-        width: `${window.innerWidth <= 768 ? BUTTON_WIDTH_MOBILE : BUTTON_WIDTH_DESKTOP}px`,
-        height: `${window.innerWidth <= 768 ? BUTTON_HEIGHT_MOBILE : BUTTON_HEIGHT_DESKTOP}px`,
+        width: `${getButtonDimensions().width}px`,
+        height: `${getButtonDimensions().height}px`,
         top: `${position.top}px`,
         left: `${position.left}px`,
         transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease',
@@ -126,11 +131,12 @@ const AnimatedRobot = ({ onClick }) => {
             onMouseDown={handleMouseDown}
             onTouchStart={handleTouchStart}
             style={buttonStyle}
+            aria-label="Open AI Chat"
         >
             <div className="aurora-background" />
             <div className="button-content">
                 <img
-                    src="https://i.ibb.co/x8PrqMXN/chatbot-2.png"
+                    src="https://i.ibb.co/Y4WNBnxS/ai-girl.png"
                     alt="Chatbot"
                     className="floating-icon-image"
                 />

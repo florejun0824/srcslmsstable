@@ -69,7 +69,8 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, activeClasses, handle
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <motion.div
                 {...fadeProps}
-                className="lg:col-span-1 p-6 bg-white/60 backdrop-blur-xl rounded-3xl shadow-xl shadow-slate-300/25 hover:shadow-2xl hover:shadow-slate-300/40 transition-all duration-300 border border-white/50 transform hover:-translate-y-2 hover:scale-[1.01]"
+                // MODIFIED: Replaced bg-white/60 with a subtle gradient and a colored shadow for the aurora effect.
+                className="lg:col-span-1 p-6 bg-gradient-to-br from-white/70 to-sky-100/50 backdrop-blur-xl rounded-3xl shadow-xl shadow-sky-300/20 hover:shadow-2xl hover:shadow-sky-300/30 transition-all duration-300 border border-white/70 transform hover:-translate-y-2 hover:scale-[1.01]"
             >
                 <div className="flex items-center gap-4 mb-6">
                     <div className="bg-sky-100 p-3 rounded-2xl">
@@ -113,9 +114,10 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, activeClasses, handle
                         <motion.div
                             key="no-announcements"
                             {...fadeProps}
-                            className="text-center text-slate-400 py-12 border-2 border-dashed border-sky-200 rounded-3xl bg-sky-50/50"
+                            // MODIFIED: Updated the placeholder to have a gradient background and improved text contrast.
+                            className="text-center text-slate-500 py-12 border-2 border-dashed border-sky-200/80 rounded-3xl bg-gradient-to-br from-sky-50/50 to-violet-50/50"
                         >
-                            <Megaphone className="w-12 h-12 mx-auto text-slate-300 mb-4" />
+                            <Megaphone className="w-12 h-12 mx-auto text-slate-400 mb-4" />
                             <p className="text-lg font-semibold">No new announcements.</p>
                             <p className="text-sm">Be the first to post an update!</p>
                         </motion.div>

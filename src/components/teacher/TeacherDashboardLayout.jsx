@@ -1,19 +1,27 @@
 import React, { useState, Suspense, lazy } from 'react';
-import { FaHouse, FaUserGroup, FaBook, FaBookOpen, FaUser, FaShieldHalved, FaArrowRightFromBracket } from 'react-icons/fa6';
+
+// --- LIBRARIES ---
+import { motion } from 'framer-motion';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { IconHome, IconUsers, IconSchool, IconCategory, IconUserCircle, IconShieldCog, IconPower } from '@tabler/icons-react';
+
+// --- FIREBASE & SERVICES ---
 import { getDocs, writeBatch, doc, where, query, collection } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+
+// --- CONTEXTS ---
 import { useToast } from '../../contexts/ToastContext';
+
+// --- UI & ANIMATION ---
 import { CSSTransition, SwitchTransition } from 'react-transition-group';
 
-// --- VITE OPTIMIZATION: Import non-essential components dynamically ---
-
-// Child components that are always visible or very small
+// --- CORE COMPONENTS (Always visible or small) ---
 import Spinner from '../common/Spinner';
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
 import AnimatedRobot from './dashboard/widgets/AnimatedRobot';
+import ParticleBackground from './ParticleBackground'; // --- IMPORT THE NEW COMPONENT ---
 
-// Lazy load Main Views (only one is visible at a time)
+// --- LAZY-LOADED VIEWS (Code-split for performance) ---
 const AdminDashboard = lazy(() => import('../../pages/AdminDashboard'));
 const HomeView = lazy(() => import('./dashboard/views/HomeView'));
 const ClassesView = lazy(() => import('./dashboard/views/ClassesView'));
@@ -21,11 +29,11 @@ const CoursesView = lazy(() => import('./dashboard/views/CoursesView'));
 const StudentManagementView = lazy(() => import('./dashboard/views/StudentManagementView'));
 const ProfileView = lazy(() => import('./dashboard/views/ProfileView'));
 
-// Lazy load Floating UI / Dialogs
+// --- LAZY-LOADED UI (Dialogs) ---
 const AiGenerationHub = lazy(() => import('./AiGenerationHub'));
 const ChatDialog = lazy(() => import('./ChatDialog'));
 
-// Lazy load ALL Modals
+// --- LAZY-LOADED UI (Modals) ---
 const ArchivedClassesModal = lazy(() => import('./ArchivedClassesModal'));
 const EditProfileModal = lazy(() => import('./EditProfileModal'));
 const ChangePasswordModal = lazy(() => import('./ChangePasswordModal'));
@@ -46,6 +54,7 @@ const ShareMultipleLessonsModal = lazy(() => import('./ShareMultipleLessonsModal
 const DeleteConfirmationModal = lazy(() => import('./DeleteConfirmationModal'));
 const EditSubjectModal = lazy(() => import('./EditSubjectModal'));
 const DeleteSubjectModal = lazy(() => import('./DeleteSubjectModal'));
+
 
 // Helper component for loading states
 const LoadingFallback = () => (
@@ -74,7 +83,8 @@ const TeacherDashboardLayout = (props) => {
     const [isEditCategoryModalOpen, setIsEditCategoryModalOpen] = useState(false);
     const { showToast } = useToast();
     const [preselectedCategoryForCourseModal, setPreselectedCategoryForCourseModal] = useState(null);
-    
+    const [hoveredIconIndex, setHoveredIconIndex] = useState(null);
+
     const handleRenameCategory = async (newName) => {
         const oldName = categoryToEdit?.name;
         if (!oldName || !newName || oldName === newName) {
@@ -111,17 +121,26 @@ const TeacherDashboardLayout = (props) => {
         setPreselectedCategoryForCourseModal(categoryName);
         rest.setCreateCourseModalOpen(true);
     };
-    
+
     const navItems = [
-        { view: 'home', text: 'Home', icon: FaHouse, color: 'text-orange-500' },
-        { view: 'studentManagement', text: 'Students', icon: FaUserGroup, color: 'text-blue-500' },
-        { view: 'classes', text: 'Classes', icon: FaBookOpen, color: 'text-green-500' },
-        { view: 'courses', text: 'Subjects', icon: FaBook, color: 'text-purple-500' },
-        { view: 'profile', text: 'Profile', icon: FaUser, color: 'text-pink-500' },
+        { view: 'home', text: 'Home', icon: IconHome, gradient: 'from-rose-500 to-pink-500' },
+        { view: 'studentManagement', text: 'Students', icon: IconUsers, gradient: 'from-sky-500 to-cyan-400' },
+        { view: 'classes', text: 'Classes', icon: IconSchool, gradient: 'from-emerald-500 to-green-400' },
+        { view: 'courses', text: 'Subjects', icon: IconCategory, gradient: 'from-violet-500 to-purple-500' },
+        { view: 'profile', text: 'Profile', icon: IconUserCircle, gradient: 'from-amber-500 to-yellow-400' },
     ];
     if (userProfile?.role === 'admin') {
-        navItems.push({ view: 'admin', text: 'Admin', icon: FaShieldHalved, color: 'text-gray-500' });
+        navItems.push({ view: 'admin', text: 'Admin', icon: IconShieldCog, gradient: 'from-slate-500 to-slate-600' });
     }
+    
+    const getScale = (index) => {
+        if (hoveredIconIndex === null) return 1;
+        const distance = Math.abs(hoveredIconIndex - index);
+        if (distance === 0) return 1.25;
+        if (distance === 1) return 1.1;
+        if (distance === 2) return 1.05;
+        return 1;
+    };
     
     const renderMainContent = () => {
         if (loading) return <LoadingFallback />;
@@ -169,7 +188,7 @@ const TeacherDashboardLayout = (props) => {
                 return <HomeView key={`${reloadKey}-default`} userProfile={userProfile} handleViewChange={handleViewChange} {...rest} />;
         }
     };
-
+    
     return (
         <>
             <style>{`
@@ -184,38 +203,24 @@ const TeacherDashboardLayout = (props) => {
             `}</style>
             
             <div className="min-h-screen flex flex-col bg-slate-100 font-sans antialiased text-gray-800">
-                {/* --- HEADER --- */}
-                <header className="sticky top-0 z-50 p-3 bg-white/75 backdrop-blur-xl border-b border-slate-900/10">
-                    <div className="mx-auto max-w-screen-2xl flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="Logo" className="w-10 h-10 rounded-full" />
-                            <span className="hidden md:block font-bold text-xl text-gray-800">SRCS Learning Portal</span>
+                
+                <header className="sticky top-0 z-40 p-3 bg-white/75 backdrop-blur-xl border-b border-slate-900/10 lg:hidden">
+                    <div className="flex items-center justify-between">
+                         <div className="flex items-center gap-3">
+                            <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="Logo" className="w-9 h-9 rounded-full" />
+                            <span className="font-bold text-lg text-gray-800">SRCS Portal</span>
                         </div>
-                        
-                        <nav className="hidden lg:flex items-center justify-center gap-2 p-1 bg-slate-200/70 rounded-full">
-                            {navItems.map(item => (
-                                <button key={item.view} onClick={() => handleViewChange(item.view)} className={`group flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 text-sm font-semibold ${activeView === item.view ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>
-                                    <item.icon className={`h-5 w-5 transition-colors ${activeView === item.view ? item.color : 'text-gray-500 group-hover:text-gray-800'}`} />
-                                    {item.text}
-                                </button>
-                            ))}
-                        </nav>
-
                         <div className="flex items-center gap-2">
-                            <div onClick={() => handleViewChange('profile')} className="flex items-center gap-2 cursor-pointer p-1 rounded-full transition-colors hover:bg-slate-200/80" title="View Profile">
-                                <div className="relative w-9 h-9 rounded-full overflow-hidden flex items-center justify-center bg-slate-200">
-                                    {userProfile?.photoURL ? (<img src={userProfile.photoURL} alt="Profile" className="w-full h-full object-cover" />) : (<UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="sm" />)}
-                                </div>
-                                <span className="hidden lg:block font-medium text-gray-700 pr-2">{userProfile?.firstName || 'Profile'}</span>
+                           <div onClick={() => handleViewChange('profile')} className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center bg-slate-200">
+                                {userProfile?.photoURL ? (<img src={userProfile.photoURL} alt="Profile" className="w-full h-full object-cover" />) : (<UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="sm" />)}
                             </div>
-                            <button onClick={logout} className="p-2.5 rounded-full hover:bg-red-500/10 text-red-600 transition-colors" title="Logout">
-                                <FaArrowRightFromBracket className="h-5 w-5" />
+                             <button onClick={logout} className="p-2.5 rounded-full text-red-600" title="Logout">
+                                <IconPower size={22} />
                             </button>
                         </div>
                     </div>
                 </header>
 
-                {/* --- MAIN CONTENT AREA --- */}
                 <main className="flex-1 w-full max-w-screen-2xl mx-auto px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8">
                     <SwitchTransition mode="out-in">
                         <CSSTransition key={activeView} timeout={300} classNames="view-fade">
@@ -227,37 +232,24 @@ const TeacherDashboardLayout = (props) => {
                 </main>
             </div>
             
-            {/* --- FLOATING UI & MODALS (WRAPPED IN SUSPENSE) --- */}
-            <Suspense fallback={<LoadingFallback />}>
+             <Suspense fallback={null}>
+                <CSSTransition in={!isChatOpen} timeout={300} classNames="animated-robot" unmountOnExit>
+                    <AnimatedRobot onClick={() => setIsChatOpen(true)} />
+                </CSSTransition>
                 {isAiHubOpen && <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} subjectId={activeSubject?.id} unitId={activeUnit?.id} />}
-                <CSSTransition in={!isChatOpen} timeout={300} classNames="animated-robot" unmountOnExit><AnimatedRobot onClick={() => setIsChatOpen(true)} /></CSSTransition>
                 {isChatOpen && <ChatDialog isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} messages={messages} onSendMessage={handleAskAiWrapper} isAiThinking={isAiThinking} userFirstName={userProfile?.firstName} />}
-                
-                {/* --- All Modals Rendered Here --- */}
                 {rest.isArchivedModalOpen && <ArchivedClassesModal isOpen={rest.isArchivedModalOpen} onClose={() => rest.setIsArchivedModalOpen(false)} archivedClasses={rest.archivedClasses} onUnarchive={rest.handleUnarchiveClass} onDelete={(classId) => rest.handleDeleteClass(classId, true)} />}
                 {rest.isEditProfileModalOpen && <EditProfileModal isOpen={rest.isEditProfileModalOpen} onClose={() => rest.setEditProfileModalOpen(false)} userProfile={userProfile} onUpdate={rest.handleUpdateProfile} />}
-                {rest.isChangePasswordModalOpen && <ChangePasswordModal isOpen={rest.isChangePasswordModalOpen} onClose={() => rest.setChangePasswordModalOpen(false)} onSubmit={rest.handleChangePassword} />}
-                {rest.isCreateCategoryModalOpen && <CreateCategoryModal isOpen={rest.isCreateCategoryModalOpen} onClose={() => rest.setCreateCategoryModalOpen(false)} teacherId={user?.uid || user?.id} />}
-                
+                <ChangePasswordModal isOpen={rest.isChangePasswordModalOpen} onClose={() => rest.setChangePasswordModalOpen(false)} onSubmit={rest.handleChangePassword} />
+                <CreateCategoryModal isOpen={rest.isCreateCategoryModalOpen} onClose={() => rest.setCreateCategoryModalOpen(false)} teacherId={user?.uid || user?.id} />
                 {isEditCategoryModalOpen && categoryToEdit && <EditCategoryModal isOpen={isEditCategoryModalOpen} onClose={() => setIsEditCategoryModalOpen(false)} categoryName={categoryToEdit.name} onSave={handleRenameCategory} />}
-
-                {rest.isCreateClassModalOpen && <CreateClassModal isOpen={rest.isCreateClassModalOpen} onClose={() => rest.setCreateClassModalOpen(false)} teacherId={user?.uid || user?.id} />}
-                {rest.isCreateCourseModalOpen && <CreateCourseModal isOpen={rest.isCreateCourseModalOpen} onClose={() => { rest.setCreateCourseModalOpen(false); setPreselectedCategoryForCourseModal(null); }} teacherId={user?.uid || user?.id} courseCategories={courseCategories} preselectedCategory={preselectedCategoryForCourseModal} />}
+                <CreateClassModal isOpen={rest.isCreateClassModalOpen} onClose={() => rest.setCreateClassModalOpen(false)} teacherId={user?.uid || user?.id} />
+                <CreateCourseModal isOpen={rest.isCreateCourseModalOpen} onClose={() => { rest.setCreateCourseModalOpen(false); setPreselectedCategoryForCourseModal(null); }} teacherId={user?.uid || user?.id} courseCategories={courseCategories} preselectedCategory={preselectedCategoryForCourseModal} />
                 {rest.classOverviewModal.isOpen && <ClassOverviewModal isOpen={rest.classOverviewModal.isOpen} onClose={() => rest.setClassOverviewModal({ isOpen: false, data: null })} classData={rest.classOverviewModal.data} courses={courses} onRemoveStudent={rest.handleRemoveStudentFromClass} />}
                 {rest.isEditClassModalOpen && <EditClassModal isOpen={rest.isEditClassModalOpen} onClose={() => rest.setEditClassModalOpen(false)} classData={rest.classToEdit} />}
                 {rest.isAddUnitModalOpen && <AddUnitModal isOpen={rest.isAddUnitModalOpen} onClose={() => rest.setAddUnitModalOpen(false)} subjectId={activeSubject?.id} onCreateUnit={handleCreateUnit} />}
                 {rest.editUnitModalOpen && rest.selectedUnit && <EditUnitModal isOpen={rest.editUnitModalOpen} onClose={() => rest.setEditUnitModalOpen(false)} unit={rest.selectedUnit} />}
-                
-                {rest.addLessonModalOpen && rest.selectedUnit && (
-                  <AddLessonModal
-                    isOpen={rest.addLessonModalOpen}
-                    onClose={() => rest.setAddLessonModalOpen(false)}
-                    unitId={rest.selectedUnit?.id}
-                    subjectId={activeSubject?.id}
-                    setIsAiGenerating={props.setIsAiGenerating}
-                  />
-                )}
-
+                {rest.addLessonModalOpen && rest.selectedUnit && (<AddLessonModal isOpen={rest.addLessonModalOpen} onClose={() => rest.setAddLessonModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} setIsAiGenerating={props.setIsAiGenerating}/>)}
                 {rest.addQuizModalOpen && rest.selectedUnit && <AddQuizModal isOpen={rest.addQuizModalOpen} onClose={() => rest.setAddQuizModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} />}
                 {rest.deleteUnitModalOpen && rest.selectedUnit && <DeleteUnitModal isOpen={rest.deleteUnitModalOpen} onClose={() => rest.setDeleteUnitModalOpen(false)} unitId={rest.selectedUnit?.id} subjectId={activeSubject?.id} />}
                 {rest.editLessonModalOpen && rest.selectedLesson && <EditLessonModal isOpen={rest.editLessonModalOpen} onClose={() => rest.setEditLessonModalOpen(false)} lesson={rest.selectedLesson} />}
@@ -268,14 +260,63 @@ const TeacherDashboardLayout = (props) => {
                 {rest.isDeleteSubjectModalOpen && <DeleteSubjectModal isOpen={rest.isDeleteSubjectModalOpen} onClose={() => rest.setDeleteSubjectModalOpen(false)} subject={rest.subjectToActOn} />}
             </Suspense>
 
-            {/* --- MOBILE FOOTER --- */}
+            <div className="fixed bottom-4 left-0 right-0 z-50 hidden lg:flex justify-between items-end px-6 pointer-events-none">
+                <div className="pointer-events-auto">
+                    <div className="relative flex items-center gap-3 bg-white/30 backdrop-blur-xl rounded-2xl shadow-2xl shadow-black/20 border border-white/20 p-3 overflow-hidden">
+                        <ParticleBackground className="absolute inset-0 z-0" />
+                        <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="Logo" className="w-10 h-10 rounded-full relative z-10" />
+                        <span className="font-semibold text-lg text-slate-800 relative z-10">SRCS Learning Portal</span>
+                    </div>
+                </div>
+
+                <nav onMouseLeave={() => setHoveredIconIndex(null)} className="flex items-end h-24 p-2 bg-black/10 backdrop-blur-xl rounded-2xl shadow-2xl shadow-black/20 border border-white/20 pointer-events-auto">
+                    {navItems.map((item, index) => {
+                        const isActive = activeView === item.view;
+                        return (
+                             <motion.div
+                                key={item.view}
+                                onMouseEnter={() => setHoveredIconIndex(index)}
+                                className="relative group flex flex-col items-center"
+                                animate={{ scale: getScale(index) }}
+                                transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                            >
+                                <span className="absolute bottom-full mb-3 w-max bg-slate-800 text-white text-xs font-semibold rounded-md px-2.5 py-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none transform group-hover:scale-100 scale-90">
+                                    {item.text}
+                                </span>
+                                <button
+                                    onClick={() => handleViewChange(item.view)}
+                                    className={`relative w-16 h-16 flex items-center justify-center rounded-[30%] bg-gradient-to-br ${item.gradient} shadow-lg transition-all duration-300 mx-1.5 ring-0 hover:brightness-110 ${isActive ? 'ring-2 ring-white/90' : ''}`}
+                                    aria-label={item.text}
+                                >
+                                    <item.icon size={36} className="text-white/90" />
+                                </button>
+                            </motion.div>
+                        );
+                    })}
+                </nav>
+
+                <div className="pointer-events-auto">
+                    <div className="flex items-center gap-2 bg-white/30 backdrop-blur-xl rounded-2xl shadow-2xl shadow-black/20 border border-white/20 p-2">
+                        <div onClick={() => handleViewChange('profile')} className="flex items-center gap-2 cursor-pointer p-1 rounded-xl transition-colors hover:bg-black/5">
+                            <div className="relative w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-slate-200">
+                                {userProfile?.photoURL ? (<img src={userProfile.photoURL} alt="Profile" className="w-full h-full object-cover" />) : (<UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="md" />)}
+                            </div>
+                            <span className="font-semibold text-slate-800 pr-2">{userProfile?.firstName || 'Profile'}</span>
+                        </div>
+                        <button onClick={logout} className="p-3 rounded-xl hover:bg-red-500/80 text-red-500 hover:text-white transition-colors group" title="Logout">
+                            <IconPower size={22} className="transition-transform duration-300 group-hover:scale-110 group-hover:rotate-90" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <footer className="fixed bottom-4 left-4 right-4 z-50 lg:hidden">
-                <div className="mx-auto max-w-md bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-900/10 p-2 flex justify-around items-center">
+                 <div className="mx-auto max-w-md bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-900/10 p-2 flex justify-around items-center">
                     {navItems.map(item => {
                         const isActive = activeView === item.view;
                         return (
                             <button key={item.view} onClick={() => handleViewChange(item.view)} className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all duration-300 ${isActive ? 'bg-indigo-100/70' : 'hover:bg-slate-100'}`}>
-                                <item.icon className={`h-6 w-6 mb-0.5 ${isActive ? 'text-indigo-600' : 'text-gray-500'}`} />
+                                <item.icon className={`mb-0.5 ${isActive ? 'text-indigo-600' : 'text-gray-500'}`} size={24}/>
                                 <span className={`text-xs font-medium ${isActive ? 'text-indigo-600' : 'text-gray-500'}`}>{item.text}</span>
                             </button>
                         );
