@@ -5,7 +5,7 @@ Added Exam and TOS Generator Feature
 Added an option to export quizzes to pdf
 Learning Plans can now be exported as docx or pdf
 Improved DOCX export with proper table styling
-Enhanced UI Philosophy
+New UI Design
 Added auto-refresh banner when new version is available
 Offline-Online Synching of Lessons and Quizzes for students
 Memory Leaks Fixes
