@@ -42,7 +42,6 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate }) => 
 
             showToast("Availability updated successfully!", "success");
 
-            // ✅ FIX: Send the updated information back to the parent component.
             onUpdate({
                 id: post.id,
                 availableFrom: Timestamp.fromDate(availableFrom),
@@ -88,7 +87,6 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate }) => 
 
             showToast("Post deleted successfully!", "success");
             
-            // ✅ FIX: Send the deletion information back to the parent component.
             onUpdate({ id: post.id, isDeleted: true });
             onClose();
         } catch (error) {
@@ -103,40 +101,40 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate }) => 
         <Modal isOpen={isOpen} onClose={onClose} title="Edit Content Availability">
             <div className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Available From</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Available From</label>
                     <DatePicker
                         selected={availableFrom}
                         onChange={(date) => setAvailableFrom(date)}
                         showTimeSelect
-                        dateFormat="MMMM d, yy h:mm aa"
-                        className="w-full p-2 border border-gray-300 rounded-md"
+                        dateFormat="MMMM d, yyyy h:mm aa"
+                        className="w-full p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Available Until</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Available Until</label>
                     <DatePicker
                         selected={availableUntil}
                         onChange={(date) => setAvailableUntil(date)}
                         showTimeSelect
                         dateFormat="MMMM d, yyyy h:mm aa"
-                        className="w-full p-2 border border-gray-300 rounded-md"
+                        className="w-full p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
                     />
                 </div>
 
                 <div className="flex justify-between items-center pt-4">
                     <button
                         onClick={handleDelete}
-                        className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-md shadow-sm hover:bg-red-500 disabled:opacity-50"
+                        className="px-4 py-2 text-sm font-semibold text-red-600 bg-neumorphic-base rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50"
                         disabled={isSubmitting}
                     >
                         Delete Post
                     </button>
                     
                     <div className="flex justify-end gap-2">
-                        <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50" disabled={isSubmitting}>
+                        <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50" disabled={isSubmitting}>
                             Cancel
                         </button>
-                        <button onClick={handleUpdate} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-md shadow-sm hover:bg-blue-500 disabled:opacity-50" disabled={isSubmitting}>
+                        <button onClick={handleUpdate} className="px-4 py-2 text-sm font-semibold text-blue-700 bg-gradient-to-br from-sky-100 to-blue-200 rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50" disabled={isSubmitting}>
                             {isSubmitting ? 'Saving...' : 'Save Changes'}
                         </button>
                     </div>

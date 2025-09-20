@@ -2,12 +2,11 @@ import React, { useState } from 'react';
 import { useToast } from '../../contexts/ToastContext';
 import { db } from '../../services/firebase';
 import { collection, addDoc } from 'firebase/firestore';
-import Modal from '../common/Modal'; // Ensure this points to the new Modal component
+import Modal from '../common/Modal';
 import { ChevronUpDownIcon } from '@heroicons/react/24/solid';
 
-// This helper function generates a random 6-character alphanumeric code.
 const generateClassCode = () => {
-    const chars = 'ABCDEFGHIJKLMNPQRSTUVWXYZ123456789'; // Omitted O and 0
+    const chars = 'ABCDEFGHIJKLMNPQRSTUVWXYZ123456789';
     let result = '';
     for (let i = 0; i < 6; i++) {
         result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -54,14 +53,13 @@ const CreateClassModal = ({ isOpen, onClose, teacherId }) => {
         }
     };
 
-    // Common classes for a consistent iOS-style input field
-    const inputClasses = "w-full p-4 mt-2 bg-gray-500/10 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-800 placeholder:text-gray-400";
+    const inputClasses = "w-full p-3 mt-2 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0 placeholder:text-slate-500";
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Create a New Class">
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
-                    <label htmlFor="className" className="block text-sm font-semibold text-gray-600">Class Name</label>
+                    <label htmlFor="className" className="block text-sm font-semibold text-slate-600">Class Name</label>
                     <input
                         type="text"
                         id="className"
@@ -73,7 +71,7 @@ const CreateClassModal = ({ isOpen, onClose, teacherId }) => {
                     />
                 </div>
                 <div>
-                    <label htmlFor="section" className="block text-sm font-semibold text-gray-600">Section</label>
+                    <label htmlFor="section" className="block text-sm font-semibold text-slate-600">Section</label>
                     <input
                         type="text"
                         id="section"
@@ -85,26 +83,27 @@ const CreateClassModal = ({ isOpen, onClose, teacherId }) => {
                     />
                 </div>
                 <div className="relative">
-                    <label htmlFor="gradeLevel" className="block text-sm font-semibold text-gray-600">Grade Level</label>
-                    <select
-                        id="gradeLevel"
-                        value={gradeLevel}
-                        onChange={(e) => setGradeLevel(e.target.value)}
-                        className={`${inputClasses} appearance-none pr-10`} // Remove default arrow
-                        required
-                    >
-                        {gradeLevels.map(level => <option key={level} value={level}>{level}</option>)}
-                    </select>
-                    {/* Custom chevron icon for the select dropdown */}
-                    <div className="pointer-events-none absolute inset-y-0 right-0 top-6 flex items-center px-4">
-                        <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
+                    <label htmlFor="gradeLevel" className="block text-sm font-semibold text-slate-600">Grade Level</label>
+                    <div className="relative mt-2">
+                        <select
+                            id="gradeLevel"
+                            value={gradeLevel}
+                            onChange={(e) => setGradeLevel(e.target.value)}
+                            className={`${inputClasses} appearance-none pr-10`}
+                            required
+                        >
+                            {gradeLevels.map(level => <option key={level} value={level}>{level}</option>)}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4">
+                            <ChevronUpDownIcon className="h-5 w-5 text-slate-400" />
+                        </div>
                     </div>
                 </div>
                 <div className="pt-4">
                     <button 
                         type="submit" 
                         disabled={isSubmitting} 
-                        className="w-full p-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:transform-none"
+                        className="w-full p-3 bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 font-bold rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50"
                     >
                         {isSubmitting ? 'Creating...' : 'Create Class'}
                     </button>

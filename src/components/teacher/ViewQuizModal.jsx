@@ -34,7 +34,6 @@ const shuffleArray = (array) => {
     return newArray;
 };
 
-// ✅ FIX: Updated props to accept onComplete for submissions
 export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userProfile, classId, isTeacherView = false }) {
     const [currentQ, setCurrentQ] = useState(0);
     const [userAnswers, setUserAnswers] = useState({});
@@ -123,11 +122,12 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
 	            score: correctCount,
 	            totalItems: shuffledQuestions.length,
 	            attemptNumber: attemptsTaken + 1,
+                submittedAt: new Date(), // ADDED: Critical timestamp for offline and online sync
 	        };
             
 	        await queueQuizSubmission(submissionData);
             
-            setLatestSubmission({ ...submissionData, submittedAt: new Date() });
+	        setLatestSubmission({ ...submissionData }); // MODIFIED: Ensure local state has the timestamp too
             setAttemptsTaken(prev => prev + 1);
 
 	        showToast(
@@ -141,11 +141,10 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                 syncOfflineSubmissions();
             }
             
-            // ✅ FIX: Call the new onComplete prop for successful submissions.
             if (onComplete) {
                 onComplete();
             } else {
-                onClose(); // Fallback to original onClose if onComplete is not provided
+                onClose();
             }
 
 	    } catch (error) {
@@ -402,7 +401,6 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
     
     const handleStayInQuiz = () => setShowWarningModal(false);
 
-    // ✅ FIX: This now correctly calls onClose, which does NOT modify the quiz list state.
     const handleLeaveQuiz = async () => {
         await issueWarning();
         setShowWarningModal(false);
@@ -410,56 +408,56 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
     };
     
 	const renderQuestion = () => {
-	        const question = shuffledQuestions[currentQ];
-	        if(!question) return null;
-	        const isDisabled = currentQuestionAttempted || isTeacherView;
-	        return (
-	            <div>
-	                <div className="font-medium text-lg sm:text-xl text-slate-800 mb-4 sm:mb-6">
-	                    <ContentRenderer text={question.question || question.text} />
-	                </div>
-	                {question.type === 'multiple-choice' ? (
-	                    <div className="space-y-3">
-	                        {question.options.map((option, idx) => (
-	                            <label key={idx} className={`flex items-center space-x-4 p-3 sm:p-4 rounded-xl border-2 transition-all duration-200
-	                                ${isDisabled ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed' : 'bg-white/80 border-gray-200 hover:bg-blue-500/10 hover:border-blue-300 cursor-pointer'}`}>
-	                                <input type="radio" name={`question-${currentQ}`} checked={userAnswers[currentQ] === idx} onChange={() => handleAnswer(idx)} disabled={isDisabled}
-	                                    className="form-radio h-5 w-5 text-blue-600 border-gray-300 focus:ring-blue-500" />
-	                                <span className="text-sm sm:text-base text-slate-700"><ContentRenderer text={option.text || option} /></span>
-	                            </label>
-	                        ))}
-	                    </div>
-	                ) : question.type === 'true-false' ? (
-	                    <div className="space-y-3">
-	                        {[true, false].map((value) => (
-	                            <button
-	                                key={String(value)}
-	                                onClick={() => handleAnswer(value)}
-	                                disabled={isDisabled}
-	                                className={`flex w-full items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all duration-200 text-sm sm:text-base font-semibold
-	                                    ${isDisabled
-	                                        ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
-	                                        : 'bg-white/80 border-gray-200 hover:bg-blue-500/10 hover:border-blue-300 cursor-pointer'
-	                                    }
-	                                    ${userAnswers[currentQ] === value ? 'bg-blue-500/20 border-blue-400' : ''}`
-	                                }
-	                            >
-	                                {String(value).charAt(0).toUpperCase() + String(value).slice(1)}
-	                            </button>
-	                        ))}
-	                    </div>
-	                ) : (
-	                    <>
-	                        <TextInput placeholder="Type your answer" value={userAnswers[currentQ] || ''} onChange={e => setUserAnswers({ ...userAnswers, [currentQ]: e.target.value })} disabled={isDisabled}
-	                            className="w-full p-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 disabled:bg-slate-100" />
-	                        {!isDisabled && (question.type === 'identification' || question.type === 'exactAnswer') && (
-	                            <Button onClick={() => handleAnswer(userAnswers[currentQ] || '')} className="mt-4 w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all duration-300">Submit Answer</Button>
-	                        )}
-	                    </>
-	                )}
-	            </div>
-	        );
-	    };
+        const question = shuffledQuestions[currentQ];
+        if(!question) return null;
+        const isDisabled = currentQuestionAttempted || isTeacherView;
+        return (
+            <div>
+                <div className="font-medium text-lg sm:text-xl text-slate-800 mb-4 sm:mb-6">
+                    <ContentRenderer text={question.question || question.text} />
+                </div>
+                {question.type === 'multiple-choice' ? (
+                    <div className="space-y-3">
+                        {question.options.map((option, idx) => (
+                            <label key={idx} className={`flex items-center space-x-4 p-3 sm:p-4 rounded-xl border-2 transition-all duration-200
+                                ${isDisabled ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed' : 'bg-white/80 border-gray-200 hover:bg-blue-500/10 hover:border-blue-300 cursor-pointer'}`}>
+                                <input type="radio" name={`question-${currentQ}`} checked={userAnswers[currentQ] === idx} onChange={() => handleAnswer(idx)} disabled={isDisabled}
+                                    className="form-radio h-5 w-5 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                                <span className="text-sm sm:text-base text-slate-700"><ContentRenderer text={option.text || option} /></span>
+                            </label>
+                        ))}
+                    </div>
+                ) : question.type === 'true-false' ? (
+                    <div className="space-y-3">
+                        {[true, false].map((value) => (
+                            <button
+                                key={String(value)}
+                                onClick={() => handleAnswer(value)}
+                                disabled={isDisabled}
+                                className={`flex w-full items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all duration-200 text-sm sm:text-base font-semibold
+                                    ${isDisabled
+                                        ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
+                                        : 'bg-white/80 border-gray-200 hover:bg-blue-500/10 hover:border-blue-300 cursor-pointer'
+                                    }
+                                    ${userAnswers[currentQ] === value ? 'bg-blue-500/20 border-blue-400' : ''}`
+                                }
+                            >
+                                {String(value).charAt(0).toUpperCase() + String(value).slice(1)}
+                            </button>
+                        ))}
+                    </div>
+                ) : (
+                    <>
+                        <TextInput placeholder="Type your answer" value={userAnswers[currentQ] || ''} onChange={e => setUserAnswers({ ...userAnswers, [currentQ]: e.target.value })} disabled={isDisabled}
+                            className="w-full p-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 disabled:bg-slate-100" />
+                        {!isDisabled && (question.type === 'identification' || question.type === 'exactAnswer') && (
+                            <Button onClick={() => handleAnswer(userAnswers[currentQ] || '')} className="mt-4 w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all duration-300">Submit Answer</Button>
+                        )}
+                    </>
+                )}
+            </div>
+        );
+    };
     
     const renderQuestionFeedback = () => {
         const question = shuffledQuestions[currentQ];

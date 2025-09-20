@@ -1,4 +1,3 @@
-// src/components/teacher/QuizScoresModal.js
 import React, { useState, useMemo } from 'react';
 import Modal from '../common/Modal';
 import {
@@ -15,13 +14,13 @@ import {
 import { Button } from '@tremor/react';
 
 const StatCard = ({ icon: Icon, title, value, color }) => (
-    <div className={`flex-1 bg-gradient-to-br from-white to-${color}-50 p-4 rounded-xl shadow-sm border border-${color}-200 flex items-center gap-4`}>
-        <div className={`w-12 h-12 rounded-full flex items-center justify-center bg-${color}-100`}>
+    <div className={`flex-1 bg-neumorphic-base p-4 rounded-xl shadow-neumorphic flex items-center gap-4`}>
+        <div className={`w-12 h-12 rounded-full flex items-center justify-center bg-neumorphic-base shadow-neumorphic-inset`}>
             <Icon className={`w-6 h-6 text-${color}-600`} />
         </div>
         <div>
-            <p className="text-sm font-medium text-gray-600">{title}</p>
-            <p className="text-2xl font-bold text-gray-800">{value}</p>
+            <p className="text-sm font-medium text-slate-600">{title}</p>
+            <p className="text-2xl font-bold text-slate-800">{value}</p>
         </div>
     </div>
 );
@@ -30,7 +29,7 @@ const ScoreBadge = ({ score, totalItems, isLate = false }) => {
     let colorClasses = 'bg-gray-100 text-gray-700';
     let displayScore = '—';
 
-    if (score !== null) {
+    if (score !== null && score !== undefined) {
         const percentage = (score / totalItems) * 100;
         if (percentage >= 90) colorClasses = 'bg-green-100 text-green-800';
         else if (percentage >= 70) colorClasses = 'bg-yellow-100 text-yellow-800';
@@ -39,7 +38,7 @@ const ScoreBadge = ({ score, totalItems, isLate = false }) => {
     }
 
     return (
-        <div className={`flex items-center justify-center gap-2 ${score !== null ? 'flex-col' : ''}`}>
+        <div className="flex items-center justify-center gap-2 flex-col">
             <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${colorClasses}`}>
                 {displayScore}
             </span>
@@ -101,8 +100,8 @@ const QuizScoresModal = ({ isOpen, onClose, quiz, classData, quizScores, quizLoc
                 aValue = a.highestScore;
                 bValue = b.highestScore;
             } else if (sortConfig.key === 'name') {
-                aValue = a.firstName.toLowerCase();
-                bValue = b.firstName.toLowerCase();
+                aValue = (a.firstName || '').toLowerCase();
+                bValue = (b.firstName || '').toLowerCase();
             } else if (sortConfig.key === 'status') {
                 const statusOrder = { 'Completed': 2, 'Locked': 1, 'Not Started': 0 };
                 aValue = statusOrder[a.status];
@@ -130,10 +129,10 @@ const QuizScoresModal = ({ isOpen, onClose, quiz, classData, quizScores, quizLoc
     };
 
     const getSortIcon = (key) => {
-        if (sortConfig.key !== key) return <ChevronDownIcon className="w-4 h-4 text-gray-400 invisible group-hover:visible" />;
+        if (sortConfig.key !== key) return <ChevronDownIcon className="w-4 h-4 text-slate-400 invisible group-hover:visible" />;
         return sortConfig.direction === 'ascending' 
-            ? <ArrowUpIcon className="w-4 h-4 text-blue-600" /> 
-            : <ArrowDownIcon className="w-4 h-4 text-blue-600" />;
+            ? <ArrowUpIcon className="w-4 h-4 text-sky-600" /> 
+            : <ArrowDownIcon className="w-4 h-4 text-sky-600" />;
     };
 
     const submissions = quizScores.filter(s => s.quizId === quiz?.id);
@@ -143,25 +142,22 @@ const QuizScoresModal = ({ isOpen, onClose, quiz, classData, quizScores, quizLoc
         return Math.max(...studentAttempts.map(a => a.score));
     });
 
-    const averageScore = highestScoresPerStudent.length > 0 ? highestScoresPerStudent.reduce((acc, s) => acc + s, 0) / highestScoresPerStudent.length : 0;
+    const averageScore = highestScoresPerStudent.length > 0 ? (highestScoresPerStudent.reduce((acc, s) => acc + s, 0) / highestScoresPerStudent.length) / quiz.questions.length * 100 : 0;
     const completedCount = uniqueStudentsWithScores.length;
-    const highestScore = highestScoresPerStudent.length > 0 ? Math.max(...highestScoresPerStudent) : 0;
+    const highestScore = highestScoresPerStudent.length > 0 ? Math.max(...highestScoresPerStudent) / quiz.questions.length * 100 : 0;
     const totalStudents = classData?.students?.length || 0;
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={`Scores for "${quiz?.title}"`} size="6xl">
             <div className="flex flex-col gap-6">
-                {/* Header with summary stats */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <StatCard icon={UsersIcon} title="Completion Rate" value={`${completedCount} / ${totalStudents}`} color="blue" />
                     <StatCard icon={AcademicCapIcon} title="Average Score" value={`${averageScore.toFixed(1)}%`} color="teal" />
                     <StatCard icon={ChartBarIcon} title="Highest Score" value={`${highestScore.toFixed(1)}%`} color="purple" />
                 </div>
 
-                {/* Main Content Area with new header and scrollable list */}
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-lg">
-                    {/* Header with gradient and sort controls */}
-                    <div className="grid grid-cols-12 gap-4 px-4 py-3 border-b-2 border-blue-200 text-left text-sm font-bold text-gray-600 bg-gradient-to-r from-blue-50 to-white rounded-t-xl">
+                <div className="bg-neumorphic-base p-4 rounded-xl shadow-neumorphic">
+                    <div className="grid grid-cols-12 gap-4 px-4 py-3 border-b-2 border-neumorphic-shadow-dark/30 text-left text-sm font-bold text-slate-600 rounded-t-xl">
                         <button onClick={() => requestSort('name')} className="col-span-4 group flex items-center gap-2"><span>Student Name</span> {getSortIcon('name')}</button>
                         <button onClick={() => requestSort('status')} className="col-span-3 group flex items-center gap-2"><span>Status</span> {getSortIcon('status')}</button>
                         <div className="col-span-3 grid grid-cols-3">
@@ -171,12 +167,11 @@ const QuizScoresModal = ({ isOpen, onClose, quiz, classData, quizScores, quizLoc
                         </div>
                         <div className="col-span-2 text-right">Actions</div>
                     </div>
-                    {/* Student List */}
-                    <div className="space-y-2 mt-2 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
+                    <div className="space-y-1 mt-2 max-h-[50vh] overflow-y-auto pr-2">
                         {processedStudentData.length > 0 ? (
                             processedStudentData.map(student => (
-                                <div key={student.id} className="grid grid-cols-12 gap-4 items-center bg-gray-50 p-3 rounded-lg shadow-sm border border-gray-100">
-                                    <div className="col-span-4 font-semibold text-gray-800">{student.firstName} {student.lastName}</div>
+                                <div key={student.id} className="grid grid-cols-12 gap-4 items-center p-3 rounded-lg transition-shadow hover:shadow-neumorphic-inset">
+                                    <div className="col-span-4 font-semibold text-slate-800">{student.firstName} {student.lastName}</div>
                                     <div className="col-span-3"><StatusPill status={student.status} /></div>
                                     <div className="col-span-3 grid grid-cols-3">
                                         {[1, 2, 3].map(attemptNum => {
@@ -186,7 +181,7 @@ const QuizScoresModal = ({ isOpen, onClose, quiz, classData, quizScores, quizLoc
                                                     {attempt ? (
                                                         <ScoreBadge score={attempt.score} totalItems={attempt.totalItems} isLate={attempt.isLate} />
                                                     ) : (
-                                                        <span className="text-gray-400 text-xs">—</span>
+                                                        <span className="text-slate-400 text-xs">—</span>
                                                     )}
                                                 </div>
                                             );
@@ -194,21 +189,19 @@ const QuizScoresModal = ({ isOpen, onClose, quiz, classData, quizScores, quizLoc
                                     </div>
                                     <div className="col-span-2 flex justify-end">
                                         {student.isLocked && (
-                                            <Button
-                                                size="xs"
+                                            <button
                                                 onClick={() => onUnlockQuiz(quiz.id, student.id)}
-                                                color="red"
-                                                variant="secondary"
+                                                className="px-3 py-1 text-xs font-semibold text-red-600 bg-neumorphic-base rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
                                                 title={`Unlock quiz for ${student.firstName}`}
                                             >
                                                 Unlock
-                                            </Button>
+                                            </button>
                                         )}
                                     </div>
                                 </div>
                             ))
                         ) : (
-                            <div className="text-center py-8 text-gray-500">No students found in this class.</div>
+                            <div className="text-center py-8 text-slate-500">No students found in this class.</div>
                         )}
                     </div>
                 </div>

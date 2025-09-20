@@ -1,7 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
 
-// ✅ RESPONSIVE: A simple hook to check for screen size.
-// This helps decide which layout to use.
 const useIsMobile = (breakpoint = 768) => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < breakpoint);
 
@@ -21,14 +19,11 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
   const [visible, setVisible] = useState(true);
   const [typedText, setTypedText] = useState("");
   const [dontShowAgain, setDontShowAgain] = useState(false);
-  const [currentStep, setCurrentStep] = useState("welcome"); // 'welcome' or 'whatsNew'
-  const isMobile = useIsMobile(); // Use the hook to get screen status
+  const [currentStep, setCurrentStep] = useState("welcome");
+  const isMobile = useIsMobile();
 
-  // Memoized messages (unchanged)
   const welcomeMessage = useMemo(() => 
-    `// Welcome to the new update
-("You are now running Version ${versionInfo.version}");
-("May your journey be filled with wisdom.");`, 
+    `// Welcome to the new update\n("You are now running Version ${versionInfo.version}");\n("May your journey be filled with wisdom.");`, 
     [versionInfo.version]
   );
 
@@ -38,14 +33,11 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
       .filter((line) => line.trim() !== "")
       .map(line => `("${line}");`)
       .join("\n");
-    return `// Here is what's new in this version
-${notes}
-("Have a Blessed Day!");`;
+    return `// Here is what's new in this version\n${notes}\n("Have a Blessed Day!");`;
   }, [versionInfo.whatsNew]);
 
   const currentMessage = currentStep === "welcome" ? welcomeMessage : whatsNewMessage;
 
-  // Typing effect (unchanged)
   useEffect(() => {
     setTypedText("");
     let i = 0;
@@ -73,159 +65,53 @@ ${notes}
 
   if (!visible) return null;
 
-  // ✅ RESPONSIVE: Define conditional styles based on screen size.
-  const containerStyle = {
-    display: "flex",
-    alignItems: "center", // Center vertically on mobile
-    gap: isMobile ? "20px" : "28px",
-    maxWidth: "1000px",
-    padding: "20px",
-    flexDirection: isMobile ? "column" : "row", // Stack on mobile
-    justifyContent: isMobile ? "center" : "flex-end", // Adjust justification
-  };
-
-  const imageStyle = {
-    height: isMobile ? "250px" : "500px", // Smaller image on mobile
-    objectFit: "contain",
-    filter: "drop-shadow(0 0 15px rgba(0,255,200,0.6))",
-    marginBottom: isMobile ? "-20px" : "0", // Pull text box up on mobile
-  };
-
-  const textBoxStyle = {
-    position: "relative",
-    background: "#1e1e1e",
-    border: "2px solid #3c3c3c",
-    borderRadius: "8px",
-    padding: "20px",
-    width: isMobile ? "90vw" : "520px", // Full width on mobile
-    maxWidth: "520px", // Max width for larger mobile screens
-    minHeight: "300px",
-    fontFamily: `"Fira Code", monospace`,
-    fontSize: isMobile ? "13px" : "14px", // Slightly smaller font on mobile
-    color: "#d4d4d4",
-    boxShadow: "0 4px 16px rgba(0,0,0,0.6)",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-  };
-
-  const speechBubbleArrowStyle = isMobile ? {
-    // Arrow on top for mobile
-    position: "absolute",
-    top: "-18px",
-    left: "50%",
-    transform: "translateX(-50%)",
-    width: 0,
-    height: 0,
-    borderLeft: "12px solid transparent",
-    borderRight: "12px solid transparent",
-    borderBottom: "18px solid #1e1e1e",
-  } : {
-    // Arrow on the left for desktop
-    position: "absolute",
-    left: "-18px",
-    top: "50px",
-    width: 0,
-    height: 0,
-    borderTop: "12px solid transparent",
-    borderBottom: "12px solid transparent",
-    borderRight: "18px solid #1e1e1e",
-  };
-
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.85)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 13000,
-        overflowY: "auto", // Allow scrolling on small screens
-      }}
-    >
-      {/* ✅ RESPONSIVE: Applied conditional styles */}
-      <div style={containerStyle}>
-        <img src="/characters/guide.png" alt="Guide" style={imageStyle} />
-        <div style={textBoxStyle}>
-          <pre style={{ margin: 0, whiteSpace: "pre-wrap", flexGrow: 1 }}>{typedText}</pre>
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-[13000] overflow-y-auto p-4">
+      <div className={`flex items-center gap-7 max-w-5xl ${isMobile ? 'flex-col justify-center' : 'flex-row justify-end'}`}>
+        <img 
+            src="/characters/guide.png" 
+            alt="Guide" 
+            className="object-contain drop-shadow-[0_0_15px_rgba(0,255,200,0.6)]"
+            style={{ height: isMobile ? '250px' : '500px', marginBottom: isMobile ? '-20px' : '0' }}
+        />
+        <div className="relative bg-neumorphic-base rounded-2xl p-5 w-[90vw] max-w-lg min-h-[300px] font-mono text-sm text-slate-700 shadow-neumorphic flex flex-col justify-between">
+          <pre className="m-0 whitespace-pre-wrap flex-grow">{typedText}</pre>
           
           <div>
-            <div
-              style={{
-                borderRadius: "12px",
-                overflow: "hidden",
-                border: "1px solid #3c3c3c",
-                background: "#2a2a2a",
-                marginTop: "16px",
-                padding: "12px 16px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <span style={{ fontSize: "13px", color: "#bbb" }}>
+            <div className="rounded-xl overflow-hidden bg-neumorphic-base shadow-neumorphic-inset mt-4 p-3 flex items-center justify-between">
+              <span className="text-sm text-slate-600 font-semibold">
                 Do not show again
               </span>
-              <div style={{ position: "relative", width: "50px", height: "28px", flexShrink: 0 }}>
+              <label htmlFor="dont-show-again" className="relative w-[50px] h-[28px] flex-shrink-0 cursor-pointer">
                 <input
                   type="checkbox"
+                  id="dont-show-again"
                   checked={dontShowAgain}
                   onChange={(e) => setDontShowAgain(e.target.checked)}
-                  style={{
-                    opacity: 0,
-                    width: "100%",
-                    height: "100%",
-                    margin: 0,
-                    position: "absolute",
-                    cursor: "pointer",
-                    zIndex: 2,
-                  }}
+                  className="sr-only peer"
                 />
-                <span style={{
-                  position: "absolute",
-                  inset: 0,
-                  backgroundColor: dontShowAgain ? "#34c759" : "#555",
-                  borderRadius: "14px",
-                  transition: "background-color 0.25s",
-                }} />
-                <span style={{
-                  position: "absolute",
-                  top: "2px",
-                  left: dontShowAgain ? "26px" : "2px",
-                  width: "24px",
-                  height: "24px",
-                  borderRadius: "50%",
-                  background: "#fff",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                  transition: "left 0.25s",
-                  zIndex: 1,
-                }} />
-              </div>
+                <span className="absolute inset-0 bg-neumorphic-base shadow-neumorphic-inset rounded-full peer-checked:bg-gradient-to-br peer-checked:from-sky-100 peer-checked:to-blue-200 transition-colors" />
+                <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-neumorphic-base shadow-neumorphic transition-transform peer-checked:translate-x-full`} />
+              </label>
             </div>
 
             <button
               onClick={handleNextOrClose}
-              style={{
-                marginTop: "16px",
-                background: "#007acc",
-                border: "none",
-                borderRadius: "6px",
-                padding: "10px 16px", // Slightly more padding for touch targets
-                color: "#fff",
-                fontWeight: "600",
-                cursor: "pointer",
-                fontFamily: `"Fira Code", monospace`,
-                boxShadow: "0 2px 6px rgba(0,0,0,0.5)",
-                width: "100%",
-              }}
+              className="mt-4 w-full p-3 font-semibold rounded-xl transition-shadow bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
             >
               {currentStep === "welcome" ? "Next" : "Okay"}
             </button>
           </div>
-          {/* ✅ RESPONSIVE: Applied conditional styles */}
-          <div style={speechBubbleArrowStyle} />
+          <div 
+            className="absolute"
+            style={isMobile ? {
+                top: '-18px', left: '50%', transform: 'translateX(-50%)', width: 0, height: 0,
+                borderLeft: '12px solid transparent', borderRight: '12px solid transparent', borderBottom: '18px solid #F0F2F5'
+            } : {
+                left: '-18px', top: '50px', width: 0, height: 0,
+                borderTop: '12px solid transparent', borderBottom: '12px solid transparent', borderRight: '18px solid #F0F2F5'
+            }}
+          />
         </div>
       </div>
     </div>

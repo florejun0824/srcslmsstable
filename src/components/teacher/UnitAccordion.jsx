@@ -58,7 +58,6 @@ import {
 } from "docx";
 import { saveAs } from "file-saver";
 
-// VITE FIX: Properly configure pdfmake with its virtual file system (VFS) for fonts.
 import pdfMake from "pdfmake/build/pdfmake";
 import pdfFonts from "pdfmake/build/vfs_fonts";
 pdfMake.vfs = pdfFonts;
@@ -222,7 +221,7 @@ const MenuPortal = ({ children, menuStyle, onClose }) => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [onClose]);
-    return createPortal(<div ref={menuRef} style={menuStyle} className="fixed bg-white rounded-md shadow-lg z-[5000] border"><div className="py-1" onClick={onClose}>{children}</div></div>, document.body);
+    return createPortal(<div ref={menuRef} style={menuStyle} className="fixed bg-neumorphic-base rounded-md shadow-neumorphic z-[5000]"><div className="py-1" onClick={onClose}>{children}</div></div>, document.body);
 };
 
 const ActionMenu = ({ children }) => {
@@ -243,7 +242,7 @@ const ActionMenu = ({ children }) => {
     };
     return (
         <>
-            <div role="button" tabIndex={0} ref={iconRef} onClick={handleToggle} onPointerDown={(e) => e.stopPropagation()} className="p-2 text-gray-500 hover:text-gray-900 rounded-full cursor-pointer hover:bg-gray-200/60">
+            <div role="button" tabIndex={0} ref={iconRef} onClick={handleToggle} onPointerDown={(e) => e.stopPropagation()} className="p-2 text-slate-500 hover:text-slate-900 rounded-full cursor-pointer transition-shadow hover:shadow-neumorphic-inset">
                 <EllipsisVerticalIcon className="h-5 w-5" />
             </div>
             {isOpen && <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>{children}</MenuPortal>}
@@ -252,7 +251,7 @@ const ActionMenu = ({ children }) => {
 };
 
 const MenuItem = ({ icon: Icon, text, onClick, disabled = false, loading = false }) => (
-    <button onClick={onClick} disabled={disabled || loading} className="flex items-center w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
+    <button onClick={onClick} disabled={disabled || loading} className="flex items-center w-full px-4 py-2 text-sm text-left text-slate-700 rounded-lg hover:shadow-neumorphic-inset disabled:opacity-50 disabled:cursor-not-allowed">
         <Icon className={`h-5 w-5 mr-3 ${loading ? 'animate-spin' : ''}`} />
         <span>{text}</span>
     </button>
@@ -262,7 +261,7 @@ const AddContentButton = ({ onAddLesson, onAddQuiz }) => {
     return (
         <button 
             onClick={onAddLesson}
-            className="flex items-center gap-2 text-sm font-semibold bg-blue-600 text-white py-2 px-4 rounded-full shadow-sm hover:bg-blue-700 transition-all"
+            className="flex items-center gap-2 text-sm font-semibold bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 py-2 px-4 rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
         >
             <PlusIcon className="w-5 h-5" />
             Add Lesson
@@ -280,26 +279,24 @@ function SortableContentItem({ item, isReordering, ...props }) {
     
     const isLesson = item.type === 'lesson';
     const Icon = isLesson ? DocumentTextIcon : ClipboardDocumentListIcon;
-    const itemTypeLabel = isLesson ? "Lesson" : "Quiz";
-    const iconColor = isLesson ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600';
-    const hoverColor = isLesson ? 'hover:text-blue-700' : 'hover:text-purple-700';
+    const iconColor = isLesson ? 'text-blue-600' : 'text-purple-600';
 
     return (
         <div ref={setNodeRef} style={style} {...attributes} className="mb-3 touch-none"> 
-            <div className={`w-full flex items-center p-3 bg-white rounded-2xl shadow-md border border-slate-200/80 transition-all duration-200 ${isReordering ? 'ring-2 ring-indigo-500' : 'hover:shadow-lg hover:border-slate-300'}`}>
+            <div className={`w-full flex items-center p-3 bg-neumorphic-base rounded-2xl shadow-neumorphic transition-all duration-200 ${isReordering ? 'ring-2 ring-sky-400' : 'hover:shadow-neumorphic-inset'}`}>
                 {isReordering && (
                     <button {...listeners} className="p-2 rounded-full text-slate-500 hover:text-slate-700 cursor-grab flex-shrink-0" title="Drag to reorder">
                         <Bars3Icon className="w-5 h-5" />
                     </button>
                 )}
                 
-                <div className={`h-12 w-12 flex-shrink-0 rounded-full flex items-center justify-center ${iconColor} mx-3`}>
-                    <Icon className="h-6 w-6" />
+                <div className={`h-12 w-12 flex-shrink-0 rounded-full flex items-center justify-center bg-neumorphic-base shadow-neumorphic-inset mx-3`}>
+                    <Icon className={`h-6 w-6 ${iconColor}`} />
                 </div>
                 
                 <div className="flex-grow min-w-0">
                     <h4 
-                        className={`font-semibold text-slate-800 leading-tight transition-colors line-clamp-2 ${!isReordering ? 'cursor-pointer ' + hoverColor : 'cursor-default'}`}
+                        className={`font-semibold text-slate-800 leading-tight line-clamp-2 ${!isReordering ? 'cursor-pointer hover:text-sky-600' : 'cursor-default'}`}
                         onClick={() => !isReordering && props.onView()}
                     >
                         {item.title || 'Untitled'}
@@ -308,40 +305,15 @@ function SortableContentItem({ item, isReordering, ...props }) {
                 
                 <div className="flex items-center gap-1 ml-4 flex-shrink-0">
                     <ActionMenu>
-                      <MenuItem 
-                        icon={PencilIcon} 
-                        text={isLesson ? "Edit Lesson" : "Edit Quiz"} 
-                        onClick={props.onEdit} 
-                      />
+                      <MenuItem icon={PencilIcon} text={isLesson ? "Edit Lesson" : "Edit Quiz"} onClick={props.onEdit} />
                       {isLesson && (
                         <>
-                            <MenuItem 
-                              icon={props.exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} 
-                              text={props.exportingLessonId === item.id ? "Exporting..." : "Export as PDF"} 
-                              onClick={() => props.onExportPdf(item)} 
-                              loading={props.exportingLessonId === item.id} 
-                            />
-                            <MenuItem 
-                              icon={props.exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} 
-                              text={props.exportingLessonId === item.id ? "Exporting..." : "Export as .docx"} 
-                              onClick={() => props.onExport(item)} 
-                              loading={props.exportingLessonId === item.id} 
-                            />
+                            <MenuItem icon={props.exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={props.exportingLessonId === item.id ? "Exporting..." : "Export as PDF"} onClick={() => props.onExportPdf(item)} loading={props.exportingLessonId === item.id} />
+                            <MenuItem icon={props.exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={props.exportingLessonId === item.id ? "Exporting..." : "Export as .docx"} onClick={() => props.onExport(item)} loading={props.exportingLessonId === item.id} />
                         </>
                       )}
-                      {isLesson && (
-                        <MenuItem 
-                          icon={SparklesIcon} 
-                          text="AI Generate Quiz" 
-                          onClick={props.onGenerateQuiz} 
-                          disabled={props.isAiGenerating} 
-                        />
-                      )}
-                      <MenuItem 
-                        icon={TrashIcon} 
-                        text={isLesson ? "Delete Lesson" : "Delete Quiz"} 
-                        onClick={props.onDelete} 
-                      />
+                      {isLesson && <MenuItem icon={SparklesIcon} text="AI Generate Quiz" onClick={props.onGenerateQuiz} disabled={props.isAiGenerating} />}
+                      <MenuItem icon={TrashIcon} text={isLesson ? "Delete Lesson" : "Delete Quiz"} onClick={props.onDelete} />
                     </ActionMenu>
                 </div>
             </div>
@@ -356,21 +328,21 @@ function SortableUnitCard(props) {
         data: { type: 'unit' }
     });
     const style = { transform: CSS.Transform.toString(transform), transition };
-    const { icon: Icon, color } = visuals;
+    const { icon: Icon, gradient, iconColor } = visuals;
     return (
         <div ref={setNodeRef} style={style} {...attributes} className="touch-none">
-            <div onClick={() => onSelect(unit)} className={`group relative p-6 rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between h-full bg-gradient-to-br ${color}`}>
-                <button {...listeners} className="absolute top-3 left-3 p-1.5 text-white/50 hover:text-white cursor-grab opacity-50 group-hover:opacity-100 transition-opacity" title="Drag to reorder"><ArrowsUpDownIcon className="h-5 w-5" /></button>
+            <div onClick={() => onSelect(unit)} className={`group relative p-6 rounded-2xl shadow-neumorphic transition-shadow duration-300 cursor-pointer overflow-hidden flex flex-col justify-between h-full bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset`}>
+                <button {...listeners} className="absolute top-3 left-3 p-1.5 text-slate-500 hover:text-slate-800 cursor-grab opacity-50 group-hover:opacity-100 transition-opacity" title="Drag to reorder"><ArrowsUpDownIcon className="h-5 w-5" /></button>
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={(e) => { e.stopPropagation(); onOpenAiHub(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white" title="AI Tools for this unit"><SparklesIcon className="w-5 h-5" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); onEdit(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white" title="Edit Unit"><PencilIcon className="w-5 h-5" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); onDelete(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white" title="Delete Unit"><TrashIcon className="w-5 h-5" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); onOpenAiHub(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 text-slate-700 shadow-neumorphic hover:shadow-neumorphic-inset" title="AI Tools for this unit"><SparklesIcon className="w-5 h-5" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); onEdit(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 text-slate-700 shadow-neumorphic hover:shadow-neumorphic-inset" title="Edit Unit"><PencilIcon className="w-5 h-5" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 text-red-600 shadow-neumorphic hover:shadow-neumorphic-inset" title="Delete Unit"><TrashIcon className="w-5 h-5" /></button>
                 </div>
                 <div className="relative z-10">
-                    <div className="mb-4 p-3 bg-white/20 rounded-lg inline-block"><Icon className="w-8 h-8 text-white" /></div>
-                    <h2 className="text-lg font-bold text-white">{unit.title}</h2>
+                    <div className="mb-4 p-3 bg-neumorphic-base rounded-lg inline-block shadow-neumorphic-inset"><Icon className={`w-8 h-8 ${iconColor}`} /></div>
+                    <h2 className="text-lg font-bold text-slate-800">{unit.title}</h2>
                 </div>
-                <p className="relative z-10 text-white/80 text-sm mt-2">Select to view content</p>
+                <p className="relative z-10 text-slate-600 text-sm mt-2">Select to view content</p>
             </div>
         </div>
     );
@@ -784,12 +756,12 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        setExportingLessonId(null);
 	    }
 	};
-
-    const unitVisuals = [
-        { icon: RectangleStackIcon, color: 'from-blue-500 to-sky-500' },
-        { icon: BookOpenIcon, color: 'from-green-500 to-emerald-500' },
-        { icon: QueueListIcon, color: 'from-purple-500 to-violet-500' },
-    ];
+    
+    const unitVisuals = useMemo(() => [
+        { icon: RectangleStackIcon, gradient: 'from-white to-blue-50', iconColor: 'text-blue-500' },
+        { icon: BookOpenIcon, gradient: 'from-white to-green-50', iconColor: 'text-green-500' },
+        { icon: QueueListIcon, gradient: 'from-white to-purple-50', iconColor: 'text-purple-500' },
+    ], []);
     
     const unifiedContent = useMemo(() => {
         if (!activeUnit) return [];
@@ -806,87 +778,61 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                         const isLoading = !allLessons || !allQuizzes;
                         return (
                             <div>
-                                {/* Back to all units */}
                                 <button
                                     onClick={() => { onSetActiveUnit(null); setIsReordering(false); }}
-                                    className="flex items-center gap-1.5 mb-4 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                                    className="flex items-center gap-1.5 mb-6 text-sm font-semibold text-slate-600 p-2 rounded-lg hover:shadow-neumorphic-inset"
                                 >
                                     <ChevronLeftIcon className="w-4 h-4" />
                                     <span>Back to All Units</span>
                                 </button>
-
                                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                                     <div className="min-w-0">
                                         <h2 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">{activeUnit.title}</h2>
                                         <p className="mt-1 text-sm text-slate-600">Structure the learning path for this unit.</p>
                                     </div>
-
                                     <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
-                                        {/* Show Generate PPT button if provided */}
                                         {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
-
                                         <button 
                                             onClick={() => setIsReordering(prev => !prev)} 
-                                            className={`font-semibold px-4 py-2 rounded-full transition-all text-sm ${
-                                                isReordering
-                                                    ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
-                                                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-slate-300'
+                                            className={`font-semibold px-4 py-2 rounded-full transition-all text-sm shadow-neumorphic hover:shadow-neumorphic-inset ${
+                                                isReordering ? 'bg-sky-600 text-white' : 'bg-neumorphic-base text-slate-700'
                                             }`}
                                         >
                                             {isReordering ? 'Done' : 'Reorder'}
                                         </button>
-
                                         <AddContentButton
                                             onAddLesson={() => handleOpenUnitModal(setAddLessonModalOpen, activeUnit)}
                                             onAddQuiz={() => handleOpenUnitModal(setAddQuizModalOpen, activeUnit)}
                                         />
                                     </div>
                                 </div>
-
                                 {isLoading ? (
                                     <div className="w-full flex justify-center items-center p-20"><Spinner /></div>
                                 ) : unifiedContent.length > 0 ? (
-                                    <div className={`p-1 sm:p-2 md:p-4 rounded-2xl ${
-                                        isReordering ? 'bg-indigo-50 ring-2 ring-indigo-300 ring-offset-2' : 'bg-slate-100'
+                                    <div className={`p-1 sm:p-2 md:p-4 rounded-2xl transition-colors ${
+                                        isReordering ? 'bg-sky-50' : 'bg-neumorphic-base shadow-neumorphic-inset'
                                     }`}>
                                         <SortableContext items={unifiedContent.map(item => item.id)} strategy={verticalListSortingStrategy}>
                                             {unifiedContent.map(item => (
                                                 <SortableContentItem
-                                                    key={item.id}
-                                                    item={item}
-                                                    isReordering={isReordering}
-                                                    onView={() =>
-                                                        item.type === 'lesson'
-                                                            ? handleOpenLessonModal(setViewLessonModalOpen, item)
-                                                            : handleOpenQuizModal(setViewQuizModalOpen, item)
-                                                    }
-                                                    onEdit={() =>
-                                                        item.type === 'lesson'
-                                                            ? handleOpenLessonModal(setEditLessonModalOpen, item)
-                                                            : handleEditQuiz(item)
-                                                    }
-                                                    onDelete={() =>
-                                                        onInitiateDelete(item.type, item.id, item.title, item.subjectId)
-                                                    }
+                                                    key={item.id} item={item} isReordering={isReordering}
+                                                    onView={() => item.type === 'lesson' ? handleOpenLessonModal(setViewLessonModalOpen, item) : handleOpenQuizModal(setViewQuizModalOpen, item)}
+                                                    onEdit={() => item.type === 'lesson' ? handleOpenLessonModal(setEditLessonModalOpen, item) : handleEditQuiz(item)}
+                                                    onDelete={() => onInitiateDelete(item.type, item.id, item.title, item.subjectId)}
                                                     onGenerateQuiz={() => handleOpenAiQuizModal(item)}
-                                                    onExport={handleExportDocx}
-                                                    onExportUlpPdf={handleExportUlpAsPdf}
-                                                    onExportAtgPdf={handleExportAtgPdf}
-                                                    onExportUlpDocx={handleExportUlpAsDocx}
-                                                    onExportPdf={handleExportLessonPdf}
-                                                    exportingLessonId={exportingLessonId}
-                                                    selectedLessons={selectedLessons}
-                                                    onLessonSelect={onLessonSelect}
-                                                    isAiGenerating={isAiGenerating}
+                                                    onExport={handleExportDocx} onExportUlpPdf={handleExportUlpAsPdf} onExportAtgPdf={handleExportAtgPdf}
+                                                    onExportUlpDocx={handleExportUlpAsDocx} onExportPdf={handleExportLessonPdf}
+                                                    exportingLessonId={exportingLessonId} selectedLessons={selectedLessons}
+                                                    onLessonSelect={onLessonSelect} isAiGenerating={isAiGenerating}
                                                 />
                                             ))}
                                         </SortableContext>
                                     </div>
                                 ) : (
-                                    <div className="text-center py-16 bg-white/70 backdrop-blur-sm rounded-2xl border border-dashed ring-1 ring-black/5 shadow-lg">
-                                        <RectangleStackIcon className="mx-auto h-12 w-12 text-gray-400" />
-                                        <h3 className="mt-2 text-lg font-semibold text-gray-800">This unit is empty</h3>
-                                        <p className="mt-1 text-sm text-gray-500">Add a lesson or a quiz to get started.</p>
+                                    <div className="text-center py-16 bg-neumorphic-base rounded-2xl shadow-neumorphic-inset">
+                                        <RectangleStackIcon className="mx-auto h-12 w-12 text-slate-400" />
+                                        <h3 className="mt-2 text-lg font-semibold text-slate-800">This unit is empty</h3>
+                                        <p className="mt-1 text-sm text-slate-500">Add a lesson or a quiz to get started.</p>
                                     </div>
                                 )}
                             </div>
@@ -910,7 +856,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                             </div>
                         </SortableContext>
                     ) : (
-                        <p className="text-center text-gray-500 py-10">
+                        <p className="text-center text-slate-500 py-10">
                             No units in this subject yet. Add one to get started!
                         </p>
                     )

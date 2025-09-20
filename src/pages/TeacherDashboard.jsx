@@ -546,12 +546,23 @@ const TeacherDashboard = () => {
         catch (error) { showToast("Failed to update announcement.", "error"); }
     };
 
-    const handleDeleteTeacherAnn = async (id) => {
-        if (window.confirm("Delete this announcement?")) {
-            await deleteDoc(doc(db, 'teacherAnnouncements', id));
-            showToast("Announcement deleted.", "success");
-        }
-    };
+	const handleDeleteTeacherAnn = async (id) => {
+	    if (window.confirm("Delete this announcement?")) {
+	        try {
+	            await deleteDoc(doc(db, 'teacherAnnouncements', id));
+            
+	            // ADD THIS LINE:
+	            setTeacherAnnouncements(prevAnnouncements => 
+	                prevAnnouncements.filter(announcement => announcement.id !== id)
+	            );
+
+	            showToast("Announcement deleted.", "success");
+	        } catch (error) {
+	            console.error("Error deleting announcement:", error);
+	            showToast("Failed to delete announcement.", "error");
+	        }
+	    }
+	};
 
     const handleTogglePinAnnouncement = async (announcementId, currentStatus) => {
         if (userProfile?.role !== 'admin') { showToast("Permission denied.", "error"); return; }

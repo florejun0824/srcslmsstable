@@ -22,15 +22,15 @@ const ProfileView = ({
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                {/* User Info Card (Left) - This section is already well-aligned with the design. */}
                 <div className="lg:col-span-1 space-y-6">
-                    <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-800">
-                        <div className="relative inline-block mb-4 w-32 h-32 rounded-full overflow-hidden border-2 border-slate-200">
+                    <div className="bg-neumorphic-base rounded-2xl shadow-neumorphic p-8 text-center text-slate-800">
+                        {/* MODIFIED: Added shadow-neumorphic-inset to the outer container for the pressed-in effect */}
+                        <div className="relative inline-block mb-4 w-32 h-32 rounded-full p-1 bg-neumorphic-base shadow-neumorphic-inset">
                             {userProfile?.photoURL ? (
                                 <img
                                     src={userProfile.photoURL}
                                     alt={`${userProfile?.firstName} ${userProfile?.lastName}`}
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-cover rounded-full"
                                 />
                             ) : (
                                 <UserInitialsAvatar
@@ -45,7 +45,7 @@ const ProfileView = ({
                         </h2>
                         <p className="mt-1 text-base text-slate-500 font-medium capitalize">{userProfile?.role}</p>
                     </div>
-                    <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-200">
+                    <div className="bg-neumorphic-base rounded-2xl shadow-neumorphic divide-y divide-neumorphic-shadow-dark/30">
                         <div className="flex items-center gap-4 p-4">
                             <EnvelopeIcon className="w-6 h-6 text-slate-500" />
                             <div className="flex-grow">
@@ -63,20 +63,17 @@ const ProfileView = ({
                     </div>
                 </div>
 
-                {/* **MODIFICATION START** - Account Actions Card (Right) */}
                 <div className="lg:col-span-2 space-y-6">
                     <h2 className="text-xl font-bold text-slate-800 px-2">Account Actions</h2>
                     
-                    {/* This new "Control Surface" container gives a recessed, tangible feel. */}
-                    <div className="bg-slate-100 rounded-2xl p-6 shadow-inner">
+                    <div className="bg-neumorphic-base rounded-2xl p-6 shadow-neumorphic-inset">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            {/* Edit Profile Tile with refined hover effects */}
                             <button 
                                 onClick={() => setEditProfileModalOpen(true)} 
-                                className="group text-left bg-white rounded-xl border border-slate-200 p-6 space-y-4 transition-all duration-300 hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-600/20 hover:-translate-y-1.5"
+                                className="group text-left bg-neumorphic-base rounded-xl shadow-neumorphic p-6 space-y-4 transition-shadow duration-300 hover:shadow-neumorphic-inset"
                             >
-                                <div className="p-3 bg-blue-500 rounded-lg inline-block">
-                                    <UserCircleIcon className="w-7 h-7 text-white" />
+                                <div className="p-3 bg-neumorphic-base shadow-neumorphic-inset rounded-lg inline-block">
+                                    <UserCircleIcon className="w-7 h-7 text-sky-600" />
                                 </div>
                                 <div>
                                     <p className="font-semibold text-slate-800 text-lg">Edit Profile</p>
@@ -84,13 +81,12 @@ const ProfileView = ({
                                 </div>
                             </button>
                             
-                            {/* Change Password Tile with refined hover effects */}
                             <button 
                                 onClick={() => setChangePasswordModalOpen(true)} 
-                                className="group text-left bg-white rounded-xl border border-slate-200 p-6 space-y-4 transition-all duration-300 hover:border-purple-500 hover:shadow-2xl hover:shadow-purple-600/20 hover:-translate-y-1.5"
+                                className="group text-left bg-neumorphic-base rounded-xl shadow-neumorphic p-6 space-y-4 transition-shadow duration-300 hover:shadow-neumorphic-inset"
                             >
-                                <div className="p-3 bg-purple-500 rounded-lg inline-block">
-                                    <KeyIcon className="w-7 h-7 text-white" />
+                                <div className="p-3 bg-neumorphic-base shadow-neumorphic-inset rounded-lg inline-block">
+                                    <KeyIcon className="w-7 h-7 text-purple-600" />
                                 </div>
                                 <div>
                                     <p className="font-semibold text-slate-800 text-lg">Change Password</p>
@@ -100,15 +96,13 @@ const ProfileView = ({
                         </div>
                     </div>
 
-                    {/* Logout Button remains separate as a primary, distinct action */}
                     <div className="pt-4">
-                        <button onClick={logout} className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white border border-slate-200 rounded-xl transition-all duration-300 text-red-500 font-semibold hover:bg-red-500 hover:text-white hover:shadow-lg hover:shadow-red-500/20 active:scale-95">
+                        <button onClick={logout} className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-neumorphic-base rounded-xl transition-shadow duration-300 text-red-600 font-semibold shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset">
                             <ArrowLeftOnRectangleIcon className="w-6 h-6" />
                             <span>Logout</span>
                         </button>
                     </div>
                 </div>
-                {/* **MODIFICATION END** */}
             </div>
         </div>
     );

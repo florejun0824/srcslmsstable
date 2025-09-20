@@ -1,4 +1,3 @@
-// src/components/teacher/GenerateReportModal.js
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogPanel } from '@tremor/react';
 import { useToast } from '../../contexts/ToastContext';
@@ -31,8 +30,6 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
     const [sortOption, setSortOption] = useState('gender-lastName');
     const [collapsedUnits, setCollapsedUnits] = useState(new Set());
 
-    // ✅ FIX: Safely access all array props by providing a default empty array `[]`.
-    // This prevents the "Cannot read properties of undefined (reading 'length')" crash.
     const students = classData?.students || [];
     const quizzes = availableQuizzes || [];
     const scores = quizScores || [];
@@ -90,8 +87,7 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
             setSelectedQuizIds(prev => [...new Set([...prev, ...quizIdsInThisUnit])]);
         }
     };
-
-    // ... (All styling objects like commonBorderStyle, topHeaderStyle, etc. remain unchanged) ...
+    
     const commonBorderStyle = {
         top: { style: "thin", color: { auto: 1 } },
         bottom: { style: "thin", color: { auto: 1 } },
@@ -153,15 +149,12 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
         border: commonBorderStyle
     };
 
-
     const handleGenerate = () => {
         if (selectedQuizIds.length === 0) {
             return showToast("Please select at least one quiz to include in the report.", "error");
         }
 
         const selectedQuizzes = quizzes.filter(q => selectedQuizIds.includes(q.id));
-
-        // ✅ FIX: Use the safe 'students' constant.
         let sortedStudents = [...students];
         
         sortedStudents.sort((a, b) => {
@@ -178,7 +171,6 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
             return (a.lastName || '').localeCompare(b.lastName || '');
         });
 
-        // ... (rest of the handleGenerate function is unchanged, but now uses safe variables like 'scores' and 'posts') ...
         const workbook = XLSX.utils.book_new();
         const worksheet = {};
         worksheet['!ref'] = 'A1';
@@ -355,31 +347,31 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
                     initial="hidden"
                     animate="visible"
                     exit="exit"
-                    className="w-full max-w-2xl rounded-2xl bg-slate-50/80 backdrop-blur-2xl flex flex-col overflow-hidden ring-1 ring-black/10 shadow-2xl"
+                    className="w-full max-w-2xl rounded-2xl bg-neumorphic-base flex flex-col overflow-hidden shadow-neumorphic"
                     style={{ maxHeight: '90vh' }}
                 >
-                    <header className="flex items-center justify-between p-5 border-b border-black/10 flex-shrink-0">
+                    <header className="flex items-center justify-between p-5 border-b border-neumorphic-shadow-dark/30 flex-shrink-0">
                         <div className="flex items-center gap-3">
-                            <DocumentChartBarIcon className="h-6 w-6 text-indigo-600" />
-                            <h3 className="text-xl font-bold text-gray-900">
+                            <DocumentChartBarIcon className="h-6 w-6 text-sky-600" />
+                            <h3 className="text-xl font-bold text-slate-900">
                                 Generate Score Report
                             </h3>
                         </div>
-                        <button onClick={handleClose} className="p-1 rounded-full text-gray-500 hover:bg-black/10 transition-colors">
+                        <button onClick={handleClose} className="p-2 rounded-full text-slate-500 hover:shadow-neumorphic-inset transition-colors">
                             <XMarkIcon className="h-5 w-5" />
                         </button>
                     </header>
 
-                    <div className="flex-grow p-6 overflow-y-auto custom-scrollbar space-y-6">
-                        <div className="bg-white p-5 rounded-xl border border-black/10 shadow-sm">
-                            <label className="flex items-center text-lg font-bold text-gray-800 mb-4">
-                                <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center mr-3">1</span>
+                    <div className="flex-grow p-6 overflow-y-auto space-y-6">
+                        <div className="bg-neumorphic-base p-5 rounded-xl shadow-neumorphic">
+                            <label className="flex items-center text-lg font-bold text-slate-800 mb-4">
+                                <span className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-200 to-blue-300 text-blue-700 text-sm font-bold flex items-center justify-center mr-3 shadow-neumorphic">1</span>
                                 Select Quizzes
                             </label>
                             {quizzes.length === 0 ? (
-                                <p className="text-gray-500 text-sm px-2 py-4 text-center">No quizzes have been shared with this class yet.</p>
+                                <p className="text-slate-500 text-sm px-2 py-4 text-center">No quizzes have been shared with this class yet.</p>
                             ) : (
-                                <div className="space-y-2 max-h-72 overflow-y-auto custom-scrollbar -mr-2 pr-2">
+                                <div className="space-y-2 max-h-72 overflow-y-auto -mr-2 pr-2">
                                     {sortedUnitKeys.map(unitDisplayName => {
                                         const quizzesInThisUnit = quizzesByUnit[unitDisplayName] || [];
                                         const quizIdsInThisUnit = quizzesInThisUnit.map(q => q.id);
@@ -387,8 +379,8 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
                                         const someSelected = quizIdsInThisUnit.some(id => selectedQuizIds.includes(id)) && !allSelected;
 
                                         return (
-                                            <div key={unitDisplayName} className="bg-slate-50 rounded-lg border border-slate-200/80">
-                                                <button className="flex items-center justify-between w-full p-3 font-semibold text-sm text-gray-700 hover:bg-slate-100 transition-colors" onClick={() => toggleUnitCollapse(unitDisplayName)}>
+                                            <div key={unitDisplayName} className="bg-neumorphic-base rounded-lg shadow-neumorphic-inset">
+                                                <button className="flex items-center justify-between w-full p-3 font-semibold text-sm text-slate-700 hover:bg-slate-200/50 transition-colors" onClick={() => toggleUnitCollapse(unitDisplayName)}>
                                                     <div className="flex items-center">
                                                         <input
                                                             type="checkbox"
@@ -396,23 +388,23 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
                                                             onChange={() => handleUnitSelectionToggle(unitDisplayName, quizzesByUnit)}
                                                             ref={el => el && (el.indeterminate = someSelected)}
                                                             onClick={(e) => e.stopPropagation()}
-                                                            className="h-4 w-4 rounded text-indigo-600 border-gray-300 focus:ring-indigo-500 mr-3"
+                                                            className="h-4 w-4 rounded text-sky-600 border-slate-300 focus:ring-sky-500 mr-3"
                                                         />
                                                         {unitDisplayName}
                                                     </div>
-                                                    {collapsedUnits.has(unitDisplayName) ? <ChevronDownIcon className="h-5 w-5 text-gray-400" /> : <ChevronUpIcon className="h-5 w-5 text-gray-400" />}
+                                                    {collapsedUnits.has(unitDisplayName) ? <ChevronDownIcon className="h-5 w-5 text-slate-400" /> : <ChevronUpIcon className="h-5 w-5 text-slate-400" />}
                                                 </button>
                                                 {!collapsedUnits.has(unitDisplayName) && (
-                                                    <div className="p-2 border-t border-slate-200/80">
+                                                    <div className="p-2 border-t border-neumorphic-shadow-dark/30">
                                                         {quizzesInThisUnit.sort((a,b) => a.title.localeCompare(b.title)).map(quiz => (
-                                                            <label key={quiz.id} className={`flex items-center p-2 rounded-md cursor-pointer transition-colors text-sm ${selectedQuizIds.includes(quiz.id) ? 'bg-indigo-100/60' : 'hover:bg-slate-100/80'}`}>
+                                                            <label key={quiz.id} className={`flex items-center p-2 rounded-md cursor-pointer transition-colors text-sm ${selectedQuizIds.includes(quiz.id) ? 'bg-sky-100/60' : 'hover:bg-slate-200/50'}`}>
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={selectedQuizIds.includes(quiz.id)}
                                                                     onChange={() => handleQuizSelection(quiz.id)}
-                                                                    className="h-4 w-4 rounded text-indigo-600 border-gray-300 focus:ring-indigo-500 mr-3"
+                                                                    className="h-4 w-4 rounded text-sky-600 border-slate-300 focus:ring-sky-500 mr-3"
                                                                 />
-                                                                <span className="text-gray-800">{quiz.title}</span>
+                                                                <span className="text-slate-800">{quiz.title}</span>
                                                             </label>
                                                         ))}
                                                     </div>
@@ -424,35 +416,37 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
                             )}
                         </div>
                         
-                        <div className="bg-white p-5 rounded-xl border border-black/10 shadow-sm">
-                             <label className="flex items-center text-lg font-bold text-gray-800 mb-4">
-                                <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center mr-3">2</span>
+                        <div className="bg-neumorphic-base p-5 rounded-xl shadow-neumorphic">
+                             <label className="flex items-center text-lg font-bold text-slate-800 mb-4">
+                                <span className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-200 to-blue-300 text-blue-700 text-sm font-bold flex items-center justify-center mr-3 shadow-neumorphic">2</span>
                                 Sort Students By
                             </label>
-                            <div className="p-1 bg-slate-100 rounded-full flex gap-1">
-                                <label className={`w-full text-center cursor-pointer py-2 px-3 rounded-full font-semibold text-sm transition-all ${sortOption === 'gender-lastName' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-white/50'}`}>
-                                    <input type="radio" name="sortOption" value="gender-lastName" checked={sortOption === 'gender-lastName'} onChange={e => setSortOption(e.target.value)} className="hidden" />
-                                    Gender, then Last Name
+                            <div className="p-1 bg-neumorphic-base rounded-full flex gap-1 shadow-neumorphic-inset">
+                                <label className={`relative w-full text-center cursor-pointer py-2 px-3 rounded-full font-semibold text-sm transition-all`}>
+                                    <input type="radio" name="sortOption" value="gender-lastName" checked={sortOption === 'gender-lastName'} onChange={e => setSortOption(e.target.value)} className="sr-only" />
+                                    {sortOption === 'gender-lastName' && <motion.div layoutId="sort-pill" className="absolute inset-0 bg-neumorphic-base shadow-neumorphic rounded-full" />}
+                                    <span className={`relative transition-colors ${sortOption === 'gender-lastName' ? 'text-sky-700' : 'text-slate-500'}`}>Gender, then Last Name</span>
                                 </label>
-                                <label className={`w-full text-center cursor-pointer py-2 px-3 rounded-full font-semibold text-sm transition-all ${sortOption === 'gender-firstName' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-white/50'}`}>
-                                    <input type="radio" name="sortOption" value="gender-firstName" checked={sortOption === 'gender-firstName'} onChange={e => setSortOption(e.target.value)} className="hidden" />
-                                    Gender, then First Name
+                                <label className={`relative w-full text-center cursor-pointer py-2 px-3 rounded-full font-semibold text-sm transition-all`}>
+                                    <input type="radio" name="sortOption" value="gender-firstName" checked={sortOption === 'gender-firstName'} onChange={e => setSortOption(e.target.value)} className="sr-only" />
+                                    {sortOption === 'gender-firstName' && <motion.div layoutId="sort-pill" className="absolute inset-0 bg-neumorphic-base shadow-neumorphic rounded-full" />}
+                                    <span className={`relative transition-colors ${sortOption === 'gender-firstName' ? 'text-sky-700' : 'text-slate-500'}`}>Gender, then First Name</span>
                                 </label>
                             </div>
                         </div>
                     </div>
 
-                    <footer className="flex justify-end gap-3 p-4 bg-slate-50/50 border-t border-black/10 flex-shrink-0">
-                        <button onClick={handleClose} className="px-5 py-2.5 bg-white text-gray-800 rounded-lg font-semibold text-sm hover:bg-slate-200 transition-colors ring-1 ring-inset ring-slate-300 shadow-sm">
+                    <footer className="flex justify-end gap-3 p-4 bg-neumorphic-base border-t border-neumorphic-shadow-dark/30 flex-shrink-0">
+                        <button onClick={handleClose} className="px-5 py-2.5 bg-neumorphic-base text-slate-800 rounded-lg font-semibold text-sm transition-shadow shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset">
                             Cancel
                         </button>
                         <button
                             onClick={handleGenerate}
                             disabled={selectedQuizIds.length === 0}
-                            className={`px-5 py-2.5 text-white rounded-lg font-semibold text-sm transition-all shadow-md active:scale-95
+                            className={`px-5 py-2.5 rounded-lg font-semibold text-sm transition-all active:shadow-neumorphic-inset
                                 ${selectedQuizIds.length === 0
-                                    ? 'bg-gray-300 cursor-not-allowed'
-                                    : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                                    ? 'bg-neumorphic-base shadow-neumorphic-inset text-slate-400 cursor-not-allowed'
+                                    : 'bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 shadow-neumorphic hover:shadow-neumorphic-inset'}`}
                         >
                             Generate Report
                         </button>

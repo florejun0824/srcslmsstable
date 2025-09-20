@@ -1,27 +1,19 @@
 import React, { useState, Suspense, lazy } from 'react';
-
-// --- LIBRARIES ---
-import { motion } from 'framer-motion';
+import { CSSTransition, SwitchTransition } from 'react-transition-group';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { IconHome, IconUsers, IconSchool, IconCategory, IconUserCircle, IconShieldCog, IconPower } from '@tabler/icons-react';
 
-// --- FIREBASE & SERVICES ---
+// FIREBASE & SERVICES
 import { getDocs, writeBatch, doc, where, query, collection } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-
-// --- CONTEXTS ---
 import { useToast } from '../../contexts/ToastContext';
 
-// --- UI & ANIMATION ---
-import { CSSTransition, SwitchTransition } from 'react-transition-group';
-
-// --- CORE COMPONENTS (Always visible or small) ---
+// CORE COMPONENTS
 import Spinner from '../common/Spinner';
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
 import AnimatedRobot from './dashboard/widgets/AnimatedRobot';
-import ParticleBackground from './ParticleBackground'; // --- IMPORT THE NEW COMPONENT ---
 
-// --- LAZY-LOADED VIEWS (Code-split for performance) ---
+// LAZY-LOADED VIEWS
 const AdminDashboard = lazy(() => import('../../pages/AdminDashboard'));
 const HomeView = lazy(() => import('./dashboard/views/HomeView'));
 const ClassesView = lazy(() => import('./dashboard/views/ClassesView'));
@@ -29,11 +21,9 @@ const CoursesView = lazy(() => import('./dashboard/views/CoursesView'));
 const StudentManagementView = lazy(() => import('./dashboard/views/StudentManagementView'));
 const ProfileView = lazy(() => import('./dashboard/views/ProfileView'));
 
-// --- LAZY-LOADED UI (Dialogs) ---
+// LAZY-LOADED UI (MODALS)
 const AiGenerationHub = lazy(() => import('./AiGenerationHub'));
 const ChatDialog = lazy(() => import('./ChatDialog'));
-
-// --- LAZY-LOADED UI (Modals) ---
 const ArchivedClassesModal = lazy(() => import('./ArchivedClassesModal'));
 const EditProfileModal = lazy(() => import('./EditProfileModal'));
 const ChangePasswordModal = lazy(() => import('./ChangePasswordModal'));
@@ -55,6 +45,71 @@ const DeleteConfirmationModal = lazy(() => import('./DeleteConfirmationModal'));
 const EditSubjectModal = lazy(() => import('./EditSubjectModal'));
 const DeleteSubjectModal = lazy(() => import('./DeleteSubjectModal'));
 
+// --- DESKTOP HEADER COMPONENT ---
+const DesktopHeader = ({ activeView, handleViewChange, userProfile, logout }) => {
+    const navItems = [
+        { view: 'home', text: 'Home', icon: IconHome },
+        { view: 'studentManagement', text: 'Students', icon: IconUsers },
+        { view: 'classes', text: 'Classes', icon: IconSchool },
+        { view: 'courses', text: 'Subjects', icon: IconCategory },
+        { view: 'profile', text: 'Profile', icon: IconUserCircle },
+    ];
+    if (userProfile?.role === 'admin') {
+        navItems.push({ view: 'admin', text: 'Admin', icon: IconShieldCog });
+    }
+
+    return (
+        <div className="w-full flex items-center justify-between gap-4">
+            <div className="p-2 bg-neumorphic-base rounded-2xl shadow-neumorphic flex items-center gap-3 flex-shrink-0">
+                <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="Logo" className="w-9 h-9 rounded-full" />
+                <span className="font-bold text-slate-800 pr-2 hidden xl:inline">SRCS Learning Portal</span>
+            </div>
+
+            <nav className="w-full max-w-xl p-2 bg-neumorphic-base rounded-3xl shadow-neumorphic flex justify-center items-center gap-2">
+                {navItems.map((item) => {
+                    const isActive = activeView === item.view;
+                    return (
+                        <button
+                            key={item.view}
+                            onClick={() => handleViewChange(item.view)}
+                            className={`group relative flex-1 flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-200 ${
+                                isActive
+                                    ? 'shadow-neumorphic-inset'
+                                    : 'hover:shadow-neumorphic-inset active:shadow-neumorphic-inset'
+                            }`}
+                            aria-label={item.text}
+                        >
+                            <item.icon
+                                size={28}
+                                className={`transition-colors duration-200 ${
+                                    isActive ? 'text-sky-600' : 'text-slate-500 group-hover:text-slate-700'
+                                }`}
+                            />
+                            <span className={`mt-1 text-xs font-semibold transition-colors duration-200 ${
+                                isActive ? 'text-sky-600' : 'text-slate-500 group-hover:text-slate-700'
+                            }`}>
+                                {item.text}
+                            </span>
+                        </button>
+                    );
+                })}
+            </nav>
+
+            <div className="p-2 bg-neumorphic-base rounded-2xl shadow-neumorphic flex items-center gap-2 flex-shrink-0">
+                <div onClick={() => handleViewChange('profile')} className="flex items-center gap-2 cursor-pointer p-1 rounded-xl transition-shadow hover:shadow-neumorphic-inset">
+                    <div className="relative w-9 h-9 rounded-lg overflow-hidden flex items-center justify-center bg-slate-200">
+                        {userProfile?.photoURL ? (<img src={userProfile.photoURL} alt="Profile" className="w-full h-full object-cover" />) : (<UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="md" />)}
+                    </div>
+                    <span className="font-semibold text-slate-700 pr-1 hidden xl:inline">{userProfile?.firstName || 'Profile'}</span>
+                </div>
+                <button onClick={logout} className="p-2.5 rounded-xl text-red-500 transition-shadow hover:shadow-neumorphic-inset" title="Logout">
+                    <IconPower size={22} />
+                </button>
+            </div>
+        </div>
+    );
+};
+// --- END OF HEADER COMPONENT ---
 
 // Helper component for loading states
 const LoadingFallback = () => (
@@ -84,7 +139,7 @@ const TeacherDashboardLayout = (props) => {
     const { showToast } = useToast();
     const [preselectedCategoryForCourseModal, setPreselectedCategoryForCourseModal] = useState(null);
     const [hoveredIconIndex, setHoveredIconIndex] = useState(null);
-
+    
     const handleRenameCategory = async (newName) => {
         const oldName = categoryToEdit?.name;
         if (!oldName || !newName || oldName === newName) {
@@ -202,26 +257,37 @@ const TeacherDashboardLayout = (props) => {
                 .animated-robot-exit-active { opacity: 0; transform: scale(0.5) translateY(50px); transition: all 300ms cubic-bezier(0.34, 1.56, 0.64, 1); }
             `}</style>
             
-            <div className="min-h-screen flex flex-col bg-slate-100 font-sans antialiased text-gray-800">
+            <div className="min-h-screen flex flex-col bg-neumorphic-base font-sans antialiased text-gray-800">
                 
-                <header className="sticky top-0 z-40 p-3 bg-white/75 backdrop-blur-xl border-b border-slate-900/10 lg:hidden">
+                <header className="sticky top-0 z-40 p-2 bg-neumorphic-base shadow-neumorphic lg:hidden">
                     <div className="flex items-center justify-between">
-                         <div className="flex items-center gap-3">
+                         <div className="flex items-center gap-2">
                             <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="Logo" className="w-9 h-9 rounded-full" />
                             <span className="font-bold text-lg text-gray-800">SRCS Portal</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                           <div onClick={() => handleViewChange('profile')} className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center bg-slate-200">
-                                {userProfile?.photoURL ? (<img src={userProfile.photoURL} alt="Profile" className="w-full h-full object-cover" />) : (<UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="sm" />)}
+                        <div className="flex items-center gap-1">
+                           <div onClick={() => handleViewChange('profile')} className="p-1 rounded-full cursor-pointer hover:shadow-neumorphic-inset">
+                                {userProfile?.photoURL ? (<img src={userProfile.photoURL} alt="Profile" className="w-9 h-9 object-cover rounded-full" />) : (<UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="sm" />)}
                             </div>
-                             <button onClick={logout} className="p-2.5 rounded-full text-red-600" title="Logout">
+                             <button onClick={logout} className="p-2.5 rounded-full text-red-500 hover:shadow-neumorphic-inset" title="Logout">
                                 <IconPower size={22} />
                             </button>
                         </div>
                     </div>
                 </header>
 
-                <main className="flex-1 w-full max-w-screen-2xl mx-auto px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8">
+                <div className="hidden lg:block sticky top-0 z-30 bg-neumorphic-base px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
+                    <div className="w-full max-w-screen-2xl mx-auto">
+                        <DesktopHeader
+                            activeView={activeView}
+                            handleViewChange={handleViewChange}
+                            userProfile={userProfile}
+                            logout={logout}
+                        />
+                    </div>
+                </div>
+                
+                <main className="flex-1 w-full max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8">
                     <SwitchTransition mode="out-in">
                         <CSSTransition key={activeView} timeout={300} classNames="view-fade">
                             <Suspense fallback={<LoadingFallback />}>
@@ -236,6 +302,7 @@ const TeacherDashboardLayout = (props) => {
                 <CSSTransition in={!isChatOpen} timeout={300} classNames="animated-robot" unmountOnExit>
                     <AnimatedRobot onClick={() => setIsChatOpen(true)} />
                 </CSSTransition>
+                
                 {isAiHubOpen && <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} subjectId={activeSubject?.id} unitId={activeUnit?.id} />}
                 {isChatOpen && <ChatDialog isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} messages={messages} onSendMessage={handleAskAiWrapper} isAiThinking={isAiThinking} userFirstName={userProfile?.firstName} />}
                 {rest.isArchivedModalOpen && <ArchivedClassesModal isOpen={rest.isArchivedModalOpen} onClose={() => rest.setIsArchivedModalOpen(false)} archivedClasses={rest.archivedClasses} onUnarchive={rest.handleUnarchiveClass} onDelete={(classId) => rest.handleDeleteClass(classId, true)} />}
@@ -260,64 +327,14 @@ const TeacherDashboardLayout = (props) => {
                 {rest.isDeleteSubjectModalOpen && <DeleteSubjectModal isOpen={rest.isDeleteSubjectModalOpen} onClose={() => rest.setDeleteSubjectModalOpen(false)} subject={rest.subjectToActOn} />}
             </Suspense>
 
-            <div className="fixed bottom-4 left-0 right-0 z-50 hidden lg:flex justify-between items-end px-6 pointer-events-none">
-                <div className="pointer-events-auto">
-                    <div className="relative flex items-center gap-3 bg-white/30 backdrop-blur-xl rounded-2xl shadow-2xl shadow-black/20 border border-white/20 p-3 overflow-hidden">
-                        <ParticleBackground className="absolute inset-0 z-0" />
-                        <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="Logo" className="w-10 h-10 rounded-full relative z-10" />
-                        <span className="font-semibold text-lg text-slate-800 relative z-10">SRCS Learning Portal</span>
-                    </div>
-                </div>
-
-                <nav onMouseLeave={() => setHoveredIconIndex(null)} className="flex items-end h-24 p-2 bg-black/10 backdrop-blur-xl rounded-2xl shadow-2xl shadow-black/20 border border-white/20 pointer-events-auto">
-                    {navItems.map((item, index) => {
-                        const isActive = activeView === item.view;
-                        return (
-                             <motion.div
-                                key={item.view}
-                                onMouseEnter={() => setHoveredIconIndex(index)}
-                                className="relative group flex flex-col items-center"
-                                animate={{ scale: getScale(index) }}
-                                transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-                            >
-                                <span className="absolute bottom-full mb-3 w-max bg-slate-800 text-white text-xs font-semibold rounded-md px-2.5 py-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none transform group-hover:scale-100 scale-90">
-                                    {item.text}
-                                </span>
-                                <button
-                                    onClick={() => handleViewChange(item.view)}
-                                    className={`relative w-16 h-16 flex items-center justify-center rounded-[30%] bg-gradient-to-br ${item.gradient} shadow-lg transition-all duration-300 mx-1.5 ring-0 hover:brightness-110 ${isActive ? 'ring-2 ring-white/90' : ''}`}
-                                    aria-label={item.text}
-                                >
-                                    <item.icon size={36} className="text-white/90" />
-                                </button>
-                            </motion.div>
-                        );
-                    })}
-                </nav>
-
-                <div className="pointer-events-auto">
-                    <div className="flex items-center gap-2 bg-white/30 backdrop-blur-xl rounded-2xl shadow-2xl shadow-black/20 border border-white/20 p-2">
-                        <div onClick={() => handleViewChange('profile')} className="flex items-center gap-2 cursor-pointer p-1 rounded-xl transition-colors hover:bg-black/5">
-                            <div className="relative w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-slate-200">
-                                {userProfile?.photoURL ? (<img src={userProfile.photoURL} alt="Profile" className="w-full h-full object-cover" />) : (<UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="md" />)}
-                            </div>
-                            <span className="font-semibold text-slate-800 pr-2">{userProfile?.firstName || 'Profile'}</span>
-                        </div>
-                        <button onClick={logout} className="p-3 rounded-xl hover:bg-red-500/80 text-red-500 hover:text-white transition-colors group" title="Logout">
-                            <IconPower size={22} className="transition-transform duration-300 group-hover:scale-110 group-hover:rotate-90" />
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <footer className="fixed bottom-4 left-4 right-4 z-50 lg:hidden">
-                 <div className="mx-auto max-w-md bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-900/10 p-2 flex justify-around items-center">
+            <footer className="sticky bottom-0 z-50 p-2 bg-neumorphic-base shadow-neumorphic lg:hidden">
+                 <div className="flex justify-around items-center">
                     {navItems.map(item => {
                         const isActive = activeView === item.view;
                         return (
-                            <button key={item.view} onClick={() => handleViewChange(item.view)} className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all duration-300 ${isActive ? 'bg-indigo-100/70' : 'hover:bg-slate-100'}`}>
-                                <item.icon className={`mb-0.5 ${isActive ? 'text-indigo-600' : 'text-gray-500'}`} size={24}/>
-                                <span className={`text-xs font-medium ${isActive ? 'text-indigo-600' : 'text-gray-500'}`}>{item.text}</span>
+                            <button key={item.view} onClick={() => handleViewChange(item.view)} className={`flex-1 flex flex-col items-center justify-center py-2 rounded-xl transition-all duration-300 ${isActive ? 'shadow-neumorphic-inset' : 'hover:shadow-neumorphic-inset'}`}>
+                                <item.icon className={`mb-0.5 transition-colors ${isActive ? 'text-sky-600' : 'text-gray-500'}`} size={24}/>
+                                <span className={`text-xs font-semibold transition-colors ${isActive ? 'text-sky-600' : 'text-gray-500'}`}>{item.text}</span>
                             </button>
                         );
                     })}

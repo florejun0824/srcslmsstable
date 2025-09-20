@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Image as ImageIcon, X as XIcon, Users, GraduationCap } from "lucide-react";
+import { Image as ImageIcon, X as XIcon, Users, GraduationCap, ChevronDown } from "lucide-react";
 
 const CreateAnnouncement = ({ classes, onPost }) => {
   const [content, setContent] = useState("");
@@ -26,14 +26,10 @@ const CreateAnnouncement = ({ classes, onPost }) => {
     setAudience("teachers");
   };
 
-  const inputStyle =
-    "w-full p-3 border border-zinc-200/90 bg-zinc-100/80 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent text-zinc-800 transition placeholder-zinc-500";
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Content text area */}
       <textarea
-        className={`${inputStyle} resize-none text-base`}
+        className="w-full p-3 border-none ring-0 focus:ring-1 focus:ring-sky-400 rounded-lg bg-neumorphic-base text-slate-800 resize-none shadow-neumorphic placeholder:text-slate-500 text-base transition"
         rows="3"
         placeholder="Share a new announcement..."
         value={content}
@@ -43,22 +39,22 @@ const CreateAnnouncement = ({ classes, onPost }) => {
       {audience === "teachers" && (
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <ImageIcon className="w-5 h-5 text-zinc-400 flex-shrink-0" />
+            <ImageIcon className="w-5 h-5 text-slate-400 flex-shrink-0" />
             <input
               id="photoURL"
               type="text"
-              className={`${inputStyle} py-2 text-sm`}
+              className="w-full p-2 border-none ring-0 focus:ring-1 focus:ring-sky-400 rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic placeholder:text-slate-500 text-sm transition"
               placeholder="Optional: Paste an image URL..."
               value={photoURL}
               onChange={(e) => setPhotoURL(e.target.value)}
             />
           </div>
           {photoURL && (
-            <div className="relative group">
+            <div className="relative group p-2 rounded-xl bg-neumorphic-base shadow-neumorphic">
               <img
                 src={photoURL}
                 alt="Preview"
-                className="rounded-xl max-h-52 w-full object-cover border border-zinc-200"
+                className="rounded-lg max-h-52 w-full object-cover"
                 onError={(e) => {
                   e.target.onerror = null;
                   e.target.style.display = "none";
@@ -68,7 +64,7 @@ const CreateAnnouncement = ({ classes, onPost }) => {
               <button
                 type="button"
                 onClick={() => setPhotoURL("")}
-                className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1.5 shadow-md hover:bg-black/80 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                className="absolute top-3 right-3 bg-neumorphic-base text-slate-600 rounded-full p-1.5 shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
                 aria-label="Remove photo"
               >
                 <XIcon className="w-4 h-4" />
@@ -78,57 +74,63 @@ const CreateAnnouncement = ({ classes, onPost }) => {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-4 items-center pt-3 border-t border-zinc-200/80">
+      <div className="flex flex-col sm:flex-row gap-4 items-center pt-3 border-t border-neumorphic-shadow-dark/30">
         <div className="w-full">
           <label
             htmlFor="audience"
-            className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-1.5"
+            className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 mb-1.5"
           >
-            <Users className="w-4 h-4 text-zinc-500" /> Audience
+            <Users className="w-4 h-4 text-slate-500" /> Audience
           </label>
-          <select
-            id="audience"
-            className={inputStyle}
-            value={audience}
-            onChange={(e) => setAudience(e.target.value)}
-          >
-            <option value="teachers">All Teachers</option>
-            <option value="students">Students in a Class</option>
-          </select>
+          <div className="relative w-full p-2 rounded-xl bg-neumorphic-base shadow-neumorphic focus-within:ring-1 focus-within:ring-sky-400 transition">
+             <select
+                id="audience"
+                className="w-full bg-transparent border-none text-slate-800 focus:ring-0 appearance-none"
+                value={audience}
+                onChange={(e) => setAudience(e.target.value)}
+              >
+                <option value="teachers">All Teachers</option>
+                <option value="students">Students in a Class</option>
+              </select>
+              <ChevronDown className="w-5 h-5 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
         </div>
 
         {audience === "students" && (
           <div className="w-full">
             <label
               htmlFor="class"
-              className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-1.5"
+              className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 mb-1.5"
             >
-              <GraduationCap className="w-4 h-4 text-zinc-500" /> Class
+              <GraduationCap className="w-4 h-4 text-slate-500" /> Class
             </label>
-            <select
-              id="class"
-              className={inputStyle}
-              value={classId}
-              onChange={(e) => setClassId(e.target.value)}
-              required
-            >
-              <option value="" disabled>
-                Select a class...
-              </option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+             <div className="relative w-full p-2 rounded-xl bg-neumorphic-base shadow-neumorphic focus-within:ring-1 focus-within:ring-sky-400 transition">
+                <select
+                    id="class"
+                    className="w-full bg-transparent border-none text-slate-800 focus:ring-0 appearance-none"
+                    value={classId}
+                    onChange={(e) => setClassId(e.target.value)}
+                    required
+                >
+                    <option value="" disabled>
+                        Select a class...
+                    </option>
+                    {classes.map((c) => (
+                        <option key={c.id} value={c.id}>
+                        {c.name}
+                        </option>
+                    ))}
+                </select>
+                <ChevronDown className="w-5 h-5 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
           </div>
         )}
       </div>
 
-      {/* Post button */}
       <button
         type="submit"
-        className="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-blue-600/30 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/20 active:scale-[0.98] transition-all duration-200 disabled:bg-blue-400 disabled:shadow-none"
+        // MODIFIED: Removed gradient and colored text for a uniform, monochromatic look.
+        className="w-full py-3 px-4 rounded-xl font-semibold text-sky-600 bg-neumorphic-base shadow-neumorphic transition-all duration-200 hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:shadow-neumorphic-inset disabled:opacity-60 disabled:cursor-not-allowed"
         disabled={!content.trim() && !photoURL.trim()}
       >
         Post Announcement

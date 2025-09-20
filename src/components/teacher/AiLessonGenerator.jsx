@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../../services/firebase';
-// --- FIX #1: Import `addDoc` from Firestore ---
 import { collection, query, where, getDocs, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { sanitizeLessonsJson } from './sanitizeLessonText';
 
 import { Dialog } from '@headlessui/react';
-import { ArrowUturnLeftIcon, DocumentArrowUpIcon, DocumentTextIcon, XMarkIcon, SparklesIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { ArrowUturnLeftIcon, DocumentArrowUpIcon, DocumentTextIcon, XMarkIcon, SparklesIcon, ChevronRightIcon, CheckIcon } from '@heroicons/react/24/solid';
 import Spinner from '../common/Spinner';
 import LessonPage from './LessonPage';
 import mammoth from 'mammoth';
+import { marked } from 'marked'; // ADDED: Import the missing 'marked' library
 
 // PDF processing setup
 import * as pdfjsLib from 'pdfjs-dist';
@@ -152,9 +152,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         try {
             setProgressMessage('Step 1 of 3: Reading and extracting text...');
             let extractedText = await extractTextFromFile(file);
-
-            // --- FIX #2: Sanitize unsupported characters before sending to AI ---
-            extractedText = extractedText.replace(/₱/g, 'PHP '); // Replace peso sign
+            extractedText = extractedText.replace(/₱/g, 'PHP ');
 
             setProgressMessage('Step 2 of 3: Processing document with AI...');
             const textChunks = chunkText(extractedText);
@@ -399,40 +397,35 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const selectedPage = selectedLesson?.pages[selectedPageIndex];
 
     const objectivesAsMarkdown = useMemo(() => {
-        if (!selectedLesson?.learningObjectives?.length) {
-            return null;
-        }
+        if (!selectedLesson?.learningObjectives?.length) return null;
         return selectedLesson.learningObjectives.map(obj => `* ${obj}`).join('\n');
     }, [selectedLesson]);
 
     return (
         <div className="flex flex-col h-full">
-            <div className="flex-shrink-0 pb-4 border-b border-slate-900/10">
+            <div className="flex-shrink-0 pb-4 border-b border-neumorphic-shadow-dark/20">
                 <div className="flex justify-between items-center mb-2">
                     <Dialog.Title as="h3" className="text-2xl font-bold text-slate-800">Generate with AI</Dialog.Title>
-                    <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg">
+                    <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-slate-600 rounded-lg hover:shadow-neumorphic-inset">
                         <ArrowUturnLeftIcon className="w-4 h-4" />
                         Back
                     </button>
                 </div>
                  <p className="text-slate-500">
-                    Upload a document (PDF, DOCX, TXT) and AI will structure it into a full unit.
+                    Upload a document and AI will structure it into a full unit.
                 </p>
             </div>
 
             <div className="flex-grow pt-4 overflow-hidden flex flex-col md:flex-row gap-6">
                 <div className="w-full md:w-1/3 flex flex-col gap-4 overflow-y-auto pr-2">
                     {isProcessing ? (
-                        <div className="w-full flex-grow flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-200/50">
+                        <div className="w-full flex-grow flex flex-col items-center justify-center p-4 rounded-2xl bg-neumorphic-base shadow-neumorphic-inset">
                             <Spinner/>
                             <p className="text-sm font-semibold text-slate-700 mt-4">{progressMessage}</p>
-                            <div className="mt-3 h-2 w-full bg-slate-300/50 rounded-full overflow-hidden">
-                                <div className="h-2 bg-gradient-to-r from-indigo-500 to-blue-500 rounded-full animate-pulse w-full"></div>
-                            </div>
                         </div>
                     ) : (
                         !file ? (
-                            <label htmlFor="file-upload" className="relative flex-grow block w-full rounded-2xl border-2 border-dashed border-slate-300 p-8 text-center hover:border-indigo-400 cursor-pointer transition-colors duration-300 bg-slate-200/30">
+                            <label htmlFor="file-upload" className="relative flex-grow block w-full rounded-2xl p-8 text-center cursor-pointer transition-shadow duration-300 bg-neumorphic-base shadow-neumorphic-inset hover:shadow-neumorphic">
                                 <div className="flex flex-col items-center justify-center h-full">
                                     <DocumentArrowUpIcon className="mx-auto h-16 w-16 text-slate-400" />
                                     <span className="mt-4 block text-sm font-semibold text-slate-700">
@@ -445,15 +438,15 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                 <input id="file-upload" name="file-upload" type="file" className="sr-only" accept=".pdf,.docx,.txt" onChange={handleFileChange} />
                             </label>
                         ) : (
-                            <div className="relative w-full flex-grow rounded-2xl border border-slate-300/70 bg-white/60 p-4 shadow-sm flex flex-col justify-center">
+                            <div className="relative w-full flex-grow rounded-2xl p-4 shadow-neumorphic flex flex-col justify-center">
                                 <div className="flex items-center gap-4">
-                                    <DocumentTextIcon className="h-12 w-12 text-indigo-600 flex-shrink-0" />
+                                    <DocumentTextIcon className="h-12 w-12 text-sky-600 flex-shrink-0" />
                                     <div className="overflow-hidden">
                                         <p className="truncate font-semibold text-slate-800">{file.name}</p>
                                         <p className="text-sm text-slate-500">{Math.round(file.size / 1024)} KB</p>
                                     </div>
                                 </div>
-                                <button onClick={removeFile} className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-slate-200/80 transition-colors">
+                                <button onClick={removeFile} className="absolute top-3 right-3 p-1.5 rounded-full hover:shadow-neumorphic-inset transition-colors">
                                     <XMarkIcon className="h-5 w-5 text-slate-500" />
                                 </button>
                             </div>
@@ -462,52 +455,23 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
                     <div className="space-y-2">
                         <h3 className="text-base font-semibold text-slate-700">Scaffolding (Optional)</h3>
-                        <div className="bg-white/60 p-3 rounded-xl max-h-[18rem] overflow-y-auto border border-slate-300/70">
+                        <div className="bg-neumorphic-base p-3 rounded-xl max-h-[18rem] overflow-y-auto shadow-neumorphic-inset">
                             <p className="text-xs text-slate-500 mb-3">Explicitly select lessons for the AI to build upon.</p>
                             {subjectContext && subjectContext.units.length > 0 ? (
-                                subjectContext.units
-                                    .slice()
-                                    .sort((a, b) => {
-                                        const getUnitNumber = (title) => {
-                                            if (!title) return Infinity;
-                                            const match = title.match(/\d+/);
-                                            return match ? parseInt(match[0], 10) : Infinity;
-                                        };
-                                        const numA = getUnitNumber(a.title);
-                                        const numB = getUnitNumber(b.title);
-                                        if (numA === numB) {
-                                            return a.title.localeCompare(b.title);
-                                        }
-                                        return numA - numB;
-                                    })
-                                    .map(unit => {
+                                subjectContext.units.slice().sort((a,b) => (a.order || 0) - (b.order || 0)).map(unit => {
                                     const lessonsInUnit = subjectContext.lessons.filter(lesson => lesson.unitId === unit.id);
                                     if (lessonsInUnit.length === 0) return null;
-
                                     const selectedCount = lessonsInUnit.filter(l => scaffoldLessonIds.has(l.id)).length;
                                     const isAllSelected = selectedCount > 0 && selectedCount === lessonsInUnit.length;
                                     const isPartiallySelected = selectedCount > 0 && selectedCount < lessonsInUnit.length;
                                     const isExpanded = expandedScaffoldUnits.has(unit.id);
-
                                     return (
                                         <div key={unit.id} className="pt-2 first:pt-0">
-                                            <div className="flex items-center bg-slate-100 p-2 rounded-md">
-                                                <button onClick={() => handleToggleUnitExpansion(unit.id)} className="p-1">
-                                                    <ChevronRightIcon className={`h-4 w-4 text-slate-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                                                </button>
-                                                <input
-                                                    type="checkbox"
-                                                    id={`scaffold-unit-${unit.id}`}
-                                                    checked={isAllSelected}
-                                                    ref={el => { if(el) el.indeterminate = isPartiallySelected; }}
-                                                    onChange={() => handleUnitCheckboxChange(lessonsInUnit)}
-                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ml-2"
-                                                />
-                                                <label htmlFor={`scaffold-unit-${unit.id}`} className="ml-2 flex-1 text-sm font-semibold text-slate-700 cursor-pointer">
-                                                    {unit.title}
-                                                </label>
+                                            <div className="flex items-center p-2 rounded-md">
+                                                <button onClick={() => handleToggleUnitExpansion(unit.id)} className="p-1"><ChevronRightIcon className={`h-4 w-4 text-slate-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`} /></button>
+                                                <input type="checkbox" id={`scaffold-unit-${unit.id}`} checked={isAllSelected} ref={el => { if(el) el.indeterminate = isPartiallySelected; }} onChange={() => handleUnitCheckboxChange(lessonsInUnit)} className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 ml-2" />
+                                                <label htmlFor={`scaffold-unit-${unit.id}`} className="ml-2 flex-1 text-sm font-semibold text-slate-700 cursor-pointer">{unit.title}</label>
                                             </div>
-
                                             {isExpanded && (
                                                 <div className="pl-6 pt-2 space-y-2">
                                                     {lessonsInUnit.map(lesson => (
@@ -534,73 +498,53 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                         </div>
                                     );
                                 })
-                            ) : (
-                                <p className="text-sm text-slate-400">Scanning subject content...</p>
-                            )}
+                            ) : (<p className="text-sm text-slate-400">Scanning subject content...</p>)}
                         </div>
                     </div>
 
-                    <button onClick={handleGenerateLesson} disabled={!file || isProcessing} className="w-full flex items-center justify-center font-semibold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg hover:shadow-indigo-500/40 transition-shadow rounded-xl py-3 mt-auto disabled:bg-slate-400 disabled:shadow-none">
+                    <button onClick={handleGenerateLesson} disabled={!file || isProcessing} className="w-full flex items-center justify-center font-semibold bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 rounded-xl py-3 mt-auto shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-60">
                         <SparklesIcon className="w-5 h-5 mr-2" />
                         {previewLessons.length > 0 ? 'Regenerate Lessons' : 'Generate Lessons'}
                     </button>
                 </div>
                 
-                <div className="w-full md:w-2/3 flex flex-col bg-slate-200/50 rounded-2xl p-3 overflow-hidden">
+                <div className="w-full md:w-2/3 flex flex-col bg-neumorphic-base rounded-2xl p-3 shadow-neumorphic-inset overflow-hidden">
                     {previewLessons.length > 0 ? (
                         <div className="flex-grow flex flex-col md:flex-row gap-3 overflow-hidden">
                             <div className="w-full md:w-1/3 flex-shrink-0 flex flex-col">
                                 <h4 className="p-2 text-sm font-semibold text-slate-600">Generated Lessons</h4>
                                 <div className="flex-grow overflow-y-auto pr-1 space-y-1.5">
                                     {previewLessons.map((lesson, index) => (
-                                        <button key={index} onClick={() => { setSelectedLessonIndex(index); setSelectedPageIndex(0); }} className={`w-full text-left p-3 rounded-xl transition-all duration-300 ${selectedLessonIndex === index ? 'bg-white shadow-lg ring-2 ring-indigo-500/50' : 'bg-white/60 hover:bg-white/90 hover:shadow-md'}`}>
+                                        <button key={index} onClick={() => { setSelectedLessonIndex(index); setSelectedPageIndex(0); }} className={`w-full text-left p-3 rounded-xl transition-all duration-300 ${selectedLessonIndex === index ? 'bg-white shadow-neumorphic ring-2 ring-sky-300' : 'bg-neumorphic-base shadow-neumorphic hover:shadow-neumorphic-inset'}`}>
                                             <span className="font-semibold text-slate-800">{lesson.lessonTitle}</span>
                                         </button>
                                     ))}
                                 </div>
                             </div>
-                             <div className="w-full md:w-2/3 flex-grow bg-white/80 rounded-xl flex flex-col overflow-hidden border border-white/50 min-h-0">
+                             <div className="w-full md:w-2/3 flex-grow bg-neumorphic-base rounded-xl flex flex-col overflow-hidden shadow-neumorphic min-h-0">
                                 {selectedLesson && (
                                   <>
-                                    <div className="flex-shrink-0 p-4 border-b border-slate-900/10">
-                                      <h3 className="text-lg font-bold text-slate-900 truncate">
-                                        {selectedLesson.lessonTitle}
-                                      </h3>
-
-                                      {objectivesAsMarkdown && (
-                                        <div className="my-2 p-3 bg-indigo-50 border-l-4 border-indigo-300 rounded-r-lg">
-                                          <p className="font-semibold mb-1 text-indigo-900">
-                                            Learning Objectives
-                                          </p>
-                                          <div className="prose prose-sm max-w-none prose-indigo text-indigo-800">
-                                                <ContentRenderer text={objectivesAsMarkdown} />
+                                    <div className="flex-shrink-0 p-4 border-b border-neumorphic-shadow-dark/20">
+                                      <h3 className="text-lg font-bold text-slate-900 truncate">{selectedLesson.lessonTitle}</h3>
+                                      {objectivesAsMarkdown && ( <div className="my-2 p-3 bg-sky-50 border-l-4 border-sky-300 rounded-r-lg">
+                                          <p className="font-semibold mb-1 text-sky-900">Learning Objectives</p>
+                                          <div className="prose prose-sm max-w-none prose-sky text-sky-800">
+                                            <LessonPage page={{ content: objectivesAsMarkdown }} isEditable={false} />
                                           </div>
-                                        </div>
-                                      )}
-
+                                        </div>)}
                                       <div className="flex space-x-2 mt-2 -mb-2 pb-2 overflow-x-auto">
                                         {selectedLesson.pages.map((page, index) => (
                                           <button
                                             key={index}
                                             onClick={() => setSelectedPageIndex(index)}
-                                            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                                              selectedPageIndex === index
-                                                ? "bg-indigo-600 text-white"
-                                                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
-                                            }`}
-                                          >
-                                            {page.title}
-                                          </button>
+                                            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${selectedPageIndex === index ? "bg-sky-600 text-white shadow-neumorphic" : "bg-neumorphic-base text-slate-600 shadow-neumorphic hover:shadow-neumorphic-inset"}`}
+                                          >{page.title}</button>
                                         ))}
                                       </div>
                                     </div>
                                     <div className="flex-grow min-h-0 overflow-y-auto p-6">
                                       <div className="prose max-w-none prose-slate">
-                                        {selectedPage ? (
-                                          <LessonPage page={selectedPage} isEditable={false} />
-                                        ) : (
-                                          <p>Select a page to view its content.</p>
-                                        )}
+                                        {selectedPage ? <LessonPage page={selectedPage} isEditable={false} /> : <p>Select a page to view its content.</p>}
                                       </div>
                                     </div>
                                   </>
@@ -617,10 +561,10 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 </div>
             </div>
 
-            <div className="flex-shrink-0 flex justify-end items-center gap-3 pt-6 mt-4 border-t border-slate-900/10">
+            <div className="flex-shrink-0 flex justify-end items-center gap-3 pt-6 mt-4 border-t border-neumorphic-shadow-dark/20">
                 {error && <p className="text-red-500 text-sm mr-auto">{error}</p>}
-                <button className="px-4 py-2 bg-white/60 text-slate-700 border border-slate-300/70 hover:bg-white/90 hover:border-slate-400 rounded-xl" onClick={onClose}>Cancel</button>
-                <button onClick={handleSaveLesson} disabled={saving || previewLessons.length === 0 || isProcessing} className="px-4 py-2 font-semibold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg hover:shadow-indigo-500/40 transition-shadow rounded-xl disabled:bg-slate-400 disabled:shadow-none">
+                <button className="px-4 py-2 bg-neumorphic-base text-slate-700 rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset" onClick={onClose}>Cancel</button>
+                <button onClick={handleSaveLesson} disabled={saving || previewLessons.length === 0 || isProcessing} className="px-4 py-2 font-semibold bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset disabled:opacity-60">
                     {saving ? 'Saving...' : `Save ${previewLessons.length} Lesson(s)`}
                 </button>
             </div>

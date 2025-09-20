@@ -1,6 +1,4 @@
-// Spinner.js - Corrected to fix the import syntax error
-
-import React, { useState, useEffect } from 'react'; // FIXED: Corrected and combined the React import statement
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Fun, encouraging messages to display while loading
@@ -15,19 +13,9 @@ const loadingMessages = [
   'Enhancing the experience...',
 ];
 
-/**
- * CONCEPT: "Dynamic Pill" Spinner
- * An iOS next-gen inspired loading indicator with a fluid, glassmorphism pill design,
- * layered rotating arcs, and a subtle "breathing" animation. It's built to be as
- * performant as possible to resist freezing during heavy processing.
- *
- * @param {object} props - The component props.
- * @param {boolean} [props.isLoading=true] - Set to false to hide the spinner.
- */
 const Spinner = ({ isLoading = true }) => {
   const [message, setMessage] = useState(loadingMessages[0]);
 
-  // Cycle through messages while the spinner is active
   useEffect(() => {
     if (isLoading) {
       const interval = setInterval(() => {
@@ -36,7 +24,7 @@ const Spinner = ({ isLoading = true }) => {
           const nextIndex = (currentIndex + 1) % loadingMessages.length;
           return loadingMessages[nextIndex];
         });
-      }, 2500); // Change message every 2.5 seconds
+      }, 2500);
 
       return () => clearInterval(interval);
     }
@@ -45,34 +33,31 @@ const Spinner = ({ isLoading = true }) => {
   return (
     <AnimatePresence>
       {isLoading && (
-        // Full-screen overlay with a soft blur
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.4 }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-gray-900/10 backdrop-blur-md font-sans"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/10 backdrop-blur-sm font-sans"
           role="status"
           aria-live="polite"
         >
-          {/* "Dynamic Pill" container */}
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
-            animate={{
-              scale: 1,
-              opacity: 1,
-            }}
+            animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
             transition={{ type: 'spring', damping: 20, stiffness: 150 }}
-            className="flex w-[320px] items-center gap-4 rounded-full border border-white/50 bg-white/70 p-4 shadow-2xl backdrop-blur-2xl"
+            className="flex w-[320px] items-center gap-4 rounded-full bg-neumorphic-base p-4 shadow-neumorphic"
           >
-            {/* Layered, multi-color arc spinners */}
             <div className="relative h-16 w-16 flex-shrink-0">
-              <img
-                src="https://i.ibb.co/XfJ8scGX/1.png"
-                alt="School Logo"
-                className="absolute inset-2 h-12 w-12 rounded-full object-cover shadow-md"
-              />
+              {/* MODIFIED: The container for the logo now has the "pressed in" shadow effect */}
+              <div className="absolute inset-2 h-12 w-12 rounded-full bg-neumorphic-base shadow-neumorphic-inset flex items-center justify-center">
+                  <img
+                    src="https://i.ibb.co/XfJ8scGX/1.png"
+                    alt="School Logo"
+                    className="h-10 w-10 rounded-full object-cover"
+                  />
+              </div>
               <motion.svg
                 viewBox="0 0 100 100"
                 className="absolute inset-0"
@@ -121,9 +106,8 @@ const Spinner = ({ isLoading = true }) => {
               </motion.svg>
             </div>
 
-            {/* Text Content */}
             <div className="flex flex-col overflow-hidden">
-              <p className="font-bold text-gray-800">SRCS Learning Portal</p>
+              <p className="font-bold text-slate-800">SRCS Learning Portal</p>
               <AnimatePresence mode="wait">
                 <motion.p
                   key={message}
@@ -131,7 +115,7 @@ const Spinner = ({ isLoading = true }) => {
                   animate={{ y: 0, opacity: 1 }}
                   exit={{ y: -10, opacity: 0 }}
                   transition={{ duration: 0.3 }}
-                  className="text-sm text-gray-600"
+                  className="text-sm text-slate-600"
                 >
                   {message}
                 </motion.p>

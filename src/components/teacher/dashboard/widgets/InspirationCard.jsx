@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LightBulbIcon } from '@heroicons/react/24/outline';
 
-const InspirationCard = () => {
+const InspirationCard = ({ className }) => {
     const [quote, setQuote] = useState({ text: 'Loading...', author: '', color: 'gray' });
 
     useEffect(() => {
@@ -22,27 +22,27 @@ const InspirationCard = () => {
     }, []);
 
     const colorStyles = {
-        blue: { border: 'border-blue-500', text: 'text-blue-500', bg: 'bg-blue-100' },
-        green: { border: 'border-green-500', text: 'text-green-500', bg: 'bg-green-100' },
-        purple: { border: 'border-purple-500', text: 'text-purple-500', bg: 'bg-purple-100' },
-        red: { border: 'border-red-500', text: 'text-red-500', bg: 'bg-red-100' },
-        indigo: { border: 'border-indigo-500', text: 'text-indigo-500', bg: 'bg-indigo-100' },
-        pink: { border: 'border-pink-500', text: 'text-pink-500', bg: 'bg-pink-100' },
-        gray: { border: 'border-gray-500', text: 'text-gray-500', bg: 'bg-gray-100' },
+        blue: { text: 'text-blue-500' },
+        green: { text: 'text-green-500' },
+        purple: { text: 'text-purple-500' },
+        red: { text: 'text-red-500' },
+        indigo: { text: 'text-indigo-500' },
+        pink: { text: 'text-pink-500' },
+        gray: { text: 'text-gray-500' },
     };
     const currentColors = colorStyles[quote.color] || colorStyles.gray;
 
     return (
-        <div className={`bg-white p-6 rounded-xl shadow-lg h-full flex flex-col justify-center border-l-4 ${currentColors.border}`}>
+        <div className={`p-6 h-full flex flex-col justify-center ${className}`}>
             <div className="flex items-start gap-4">
-                <div className={`p-3 rounded-full ${currentColors.bg}`}>
+                <div className="p-3 bg-neumorphic-base rounded-full shadow-neumorphic-inset">
                     <LightBulbIcon className={`w-7 h-7 ${currentColors.text}`} />
                 </div>
                 <div>
-                    <p className="font-bold text-gray-800">Inspiration for the Day</p>
+                    <p className="font-bold text-slate-800">Inspiration for the Day</p>
                     <blockquote className="mt-1">
-                        <p className="text-gray-600 text-sm">"{quote.text}"</p>
-                        <cite className="block text-right not-italic text-xs text-gray-500 mt-2">- {quote.author}</cite>
+                        <p className="text-slate-600 text-sm">"{quote.text}"</p>
+                        <cite className="block text-right not-italic text-xs text-slate-500 mt-2">- {quote.author}</cite>
                     </blockquote>
                 </div>
             </div>

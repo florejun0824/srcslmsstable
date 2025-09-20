@@ -1,4 +1,6 @@
 import React, { useState, createContext, useContext } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/24/solid';
 
 const ToastContext = createContext();
 
@@ -8,20 +10,35 @@ export const ToastProvider = ({ children }) => {
     const [toast, setToast] = useState(null);
 
     const showToast = (message, type = 'success') => {
-        setToast({ message, type });
+        const id = new Date().getTime();
+        setToast({ id, message, type });
         setTimeout(() => setToast(null), 3000);
     };
-
-    const toastBgColor = toast?.type === 'success' ? 'bg-green-500' : 'bg-red-500';
-
+    
     return (
         <ToastContext.Provider value={{ showToast }}>
             {children}
-            {toast && 
-                <div className={`fixed bottom-5 right-5 p-4 rounded-lg text-white shadow-lg z-[200] transition-opacity duration-300 ${toastBgColor}`}>
-                    {toast.message}
-                </div>
-            }
+            <AnimatePresence>
+                {toast && 
+                    <motion.div
+                        key={toast.id}
+                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                        className="fixed bottom-5 right-5 z-[200]"
+                    >
+                        <div className="bg-neumorphic-base shadow-neumorphic p-4 rounded-xl flex items-center gap-3">
+                            {toast.type === 'success' ? (
+                                <CheckCircleIcon className="w-6 h-6 text-green-500" />
+                            ) : (
+                                <ExclamationCircleIcon className="w-6 h-6 text-red-500" />
+                            )}
+                            <span className="font-semibold text-slate-700">{toast.message}</span>
+                        </div>
+                    </motion.div>
+                }
+            </AnimatePresence>
         </ToastContext.Provider>
     );
 };

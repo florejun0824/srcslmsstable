@@ -69,17 +69,19 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, activeClasses, handle
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <motion.div
                 {...fadeProps}
-                // MODIFIED: Replaced bg-white/60 with a subtle gradient and a colored shadow for the aurora effect.
-                className="lg:col-span-1 p-6 bg-gradient-to-br from-white/70 to-sky-100/50 backdrop-blur-xl rounded-3xl shadow-xl shadow-sky-300/20 hover:shadow-2xl hover:shadow-sky-300/30 transition-all duration-300 border border-white/70 transform hover:-translate-y-2 hover:scale-[1.01]"
+                // MODIFIED: Replaced all glassmorphism styles with the Neumorphic "popped up" card style.
+                className="lg:col-span-1 p-6 bg-neumorphic-base rounded-3xl shadow-neumorphic"
             >
                 <div className="flex items-center gap-4 mb-6">
-                    <div className="bg-sky-100 p-3 rounded-2xl">
+                    {/* MODIFIED: The icon container is now a "pressed in" element. */}
+                    <div className="bg-neumorphic-base p-3 rounded-2xl shadow-neumorphic-inset">
                         <Megaphone className="w-6 h-6 text-sky-500" />
                     </div>
                     <div>
                         <h2 className="text-xl font-bold text-slate-800">Create Announcement</h2>
                     </div>
                 </div>
+                {/* NOTE: The <CreateAnnouncement /> component will need its internal styles updated to be transparent against its new parent. */}
                 <CreateAnnouncement classes={activeClasses} onPost={handleCreateAnnouncement} />
             </motion.div>
 
@@ -114,8 +116,8 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, activeClasses, handle
                         <motion.div
                             key="no-announcements"
                             {...fadeProps}
-                            // MODIFIED: Updated the placeholder to have a gradient background and improved text contrast.
-                            className="text-center text-slate-500 py-12 border-2 border-dashed border-sky-200/80 rounded-3xl bg-gradient-to-br from-sky-50/50 to-violet-50/50"
+                            // MODIFIED: The placeholder is now a "pressed in" card to look like an empty slot.
+                            className="text-center text-slate-500 py-12 rounded-3xl bg-neumorphic-base shadow-neumorphic-inset"
                         >
                             <Megaphone className="w-12 h-12 mx-auto text-slate-400 mb-4" />
                             <p className="text-lg font-semibold">No new announcements.</p>

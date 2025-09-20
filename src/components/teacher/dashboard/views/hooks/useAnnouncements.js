@@ -46,7 +46,7 @@ export const useAnnouncements = (initialAnnouncements, showToast) => {
     const handleDeleteTeacherAnn = useCallback(async (id) => {
         if (window.confirm("Are you sure you want to delete this announcement?")) {
             try {
-                await deleteDoc(doc(db, 'teacher_announcements', id));
+                await deleteDoc(doc(db, 'teacherAnnouncements', id));
                 showToast("Announcement deleted.", "info");
             } catch (error) {
                 console.error("Error deleting announcement:", error);

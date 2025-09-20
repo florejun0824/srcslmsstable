@@ -1,12 +1,11 @@
-import React, 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '../../../../services/firebase';
-import { doc, onSnapshot, collection, query, where, orderBy, getDocs, setDoc, deleteDoc, addDoc } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, orderBy, getDocs, addDoc } from 'firebase/firestore';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { PiThumbsUpFill, PiHeartFill, PiSmileyStickerFill, PiStarFill, PiSmileySadFill, PiAngryFill, PiHeartbeatFill } from 'react-icons/pi';
 import UserInitialsAvatar from '../../../common/UserInitialsAvatar';
 import Spinner from '../../../common/Spinner';
 
-// --- ADDED: Definition for reaction icons ---
 const reactionIcons = {
     like: { component: PiThumbsUpFill, color: 'text-blue-500' },
     heart: { component: PiHeartFill, color: 'text-red-500' },
@@ -21,12 +20,7 @@ const userProfileCache = new Map();
 
 const formatTimestamp = (timestamp) => {
     if (!timestamp) return 'N/A';
-    let date;
-    if (timestamp?.toDate) {
-        date = timestamp.toDate();
-    } else {
-        date = new Date(timestamp);
-    }
+    const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleString();
 };
 
@@ -39,7 +33,7 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
     const [loading, setLoading] = useState(true);
     const [newComment, setNewComment] = useState("");
 
-    const fetchUsers = React.useCallback(async (userIds) => {
+    const fetchUsers = useCallback(async (userIds) => {
         const idsToFetch = [...new Set(userIds.filter(id => id && !userProfileCache.has(id)))];
         if (idsToFetch.length === 0) {
             setUsersMap(Object.fromEntries(userProfileCache));
@@ -63,10 +57,11 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
         }
     }, []);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (!announcementId) return;
         setLoading(true);
 
+        // Ensure this collection path is correct
         const unsubAnnouncement = onSnapshot(doc(db, 'teacherAnnouncements', announcementId), (doc) => {
             if (doc.exists()) {
                 const annData = { id: doc.id, ...doc.data() };
@@ -78,8 +73,6 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
             setLoading(false);
         });
         
-        // Note: The original timestamp field in your comments query was 'timestamp'. 
-        // If your Firestore field is 'createdAt', you should change 'timestamp' to 'createdAt' here.
         const commentsQuery = query(collection(db, `teacherAnnouncements/${announcementId}/comments`), orderBy('timestamp', 'asc'));
         const unsubComments = onSnapshot(commentsQuery, (snapshot) => {
             const fetchedComments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -114,7 +107,7 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
         const commentData = {
             text: newComment,
             userId: currentUserProfile.id,
-            timestamp: new Date(), // Using 'timestamp' to match the query above
+            timestamp: new Date(),
         };
 
         try {
@@ -125,12 +118,8 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
         }
     };
 
-    // --- ADDED: Helper function to render the reaction icons ---
     const renderReactionIcons = (reactionsObj) => {
-        if (!reactionsObj || Object.keys(reactionsObj).length === 0) {
-            return null;
-        }
-        // Count unique reactions
+        if (!reactionsObj || Object.keys(reactionsObj).length === 0) return null;
         const counts = {};
         Object.values(reactionsObj).forEach(type => {
             counts[type] = (counts[type] || 0) + 1;
@@ -139,7 +128,6 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
 
         return (
             <div className="flex items-center">
-                {/* Map over unique reactions */}
                 {sortedUniqueReactions.map(([type], index) => {
                     const reaction = reactionIcons[type];
                     if (!reaction) return null;
@@ -148,7 +136,7 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
                     return (
                         <div
                             key={type}
-                            className={`relative w-7 h-7 flex items-center justify-center rounded-full bg-zinc-100 ring-2 ring-white ${index > 0 ? '-ml-2' : ''}`}
+                            className={`relative w-7 h-7 flex items-center justify-center rounded-full bg-neumorphic-base shadow-neumorphic-inset ring-2 ring-neumorphic-base ${index > 0 ? '-ml-2' : ''}`}
                             style={{ zIndex }}
                         >
                             <IconComponent className={`text-xl ${reaction.color}`} />
@@ -159,40 +147,38 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
         );
     };
 
-
     if (loading) {
-        return <div className="flex items-center justify-center h-screen"><Spinner /></div>;
+        return <div className="flex items-center justify-center h-screen bg-neumorphic-base"><Spinner /></div>;
     }
 
     if (!announcement) {
-        return <div className="p-8 text-center">Announcement not found. <button onClick={onBack} className="text-blue-500">Go Back</button></div>;
+        return <div className="p-8 text-center bg-neumorphic-base min-h-screen">Announcement not found. <button onClick={onBack} className="text-sky-600">Go Back</button></div>;
     }
     
     const author = usersMap[announcement.teacherId];
 
     return (
-        <div className="bg-zinc-50 min-h-screen">
-            <header className="sticky top-0 bg-white/80 backdrop-blur-lg shadow-sm z-10 p-4 flex items-center">
-                <button onClick={onBack} className="p-2 rounded-full hover:bg-zinc-200">
-                    <ArrowLeftIcon className="h-6 w-6" />
+        <div className="bg-neumorphic-base min-h-screen">
+            <header className="sticky top-0 bg-neumorphic-base shadow-neumorphic z-10 p-4 flex items-center">
+                <button onClick={onBack} className="p-2 rounded-full bg-neumorphic-base shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset">
+                    <ArrowLeftIcon className="h-6 w-6 text-slate-700" />
                 </button>
-                <h1 className="text-xl font-bold ml-4">Announcement</h1>
+                <h1 className="text-xl font-bold text-slate-800 ml-4">Announcement</h1>
             </header>
             
             <main className="p-4">
-                <div className="bg-white rounded-xl shadow-md p-5">
+                <div className="bg-neumorphic-base rounded-xl shadow-neumorphic p-5">
                     <div className="flex items-center space-x-3 mb-4">
                         <UserInitialsAvatar user={author} size="w-12 h-12" />
                         <div>
-                            <p className="font-bold">{author ? `${author.firstName} ${author.lastName}` : '...'}</p>
-                            <p className="text-sm text-zinc-500">{formatTimestamp(announcement.createdAt)}</p>
+                            <p className="font-bold text-slate-800">{author ? `${author.firstName} ${author.lastName}` : '...'}</p>
+                            <p className="text-sm text-slate-500">{formatTimestamp(announcement.createdAt)}</p>
                         </div>
                     </div>
-                    <p className="text-zinc-800 whitespace-pre-wrap">{announcement.content}</p>
+                    <p className="text-slate-700 whitespace-pre-wrap">{announcement.content}</p>
                     {announcement.photoURL && <img src={announcement.photoURL} alt="Announcement" className="mt-4 rounded-lg max-h-[50vh] w-full object-contain" />}
 
-                    {/* --- ADDED: JSX to display the reactions and counts --- */}
-                    <div className="mt-4 pt-3 border-t border-zinc-200 flex justify-between items-center text-sm text-zinc-600">
+                    <div className="mt-4 pt-3 border-t border-neumorphic-shadow-dark/30 flex justify-between items-center text-sm text-slate-600">
                         <div className="flex items-center space-x-2">
                             {renderReactionIcons(reactions)}
                             {Object.keys(reactions).length > 0 && (
@@ -202,26 +188,24 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
                     </div>
                 </div>
 
-                {/* Comments Section */}
                 <div className="mt-6">
-                    <h2 className="text-lg font-bold mb-4">Comments ({comments.length})</h2>
+                    <h2 className="text-lg font-bold text-slate-800 mb-4">Comments ({comments.length})</h2>
                      <div className="space-y-4">
                         {comments.map(comment => {
                              const commentAuthor = usersMap[comment.userId];
                             return (
                                 <div key={comment.id} className="flex items-start space-x-3">
                                     <UserInitialsAvatar user={commentAuthor} size="w-10 h-10" />
-                                    <div className="bg-white rounded-xl p-3 flex-1 shadow-sm">
-                                        <p className="font-semibold text-sm">{commentAuthor ? `${commentAuthor.firstName} ${commentAuthor.lastName}` : '...'}</p>
-                                        <p className="text-sm mt-1">{comment.text}</p>
-                                        <p className="text-xs text-zinc-400 mt-2">{formatTimestamp(comment.timestamp)}</p>
+                                    <div className="bg-neumorphic-base rounded-xl p-3 flex-1 shadow-neumorphic">
+                                        <p className="font-semibold text-sm text-slate-800">{commentAuthor ? `${commentAuthor.firstName} ${commentAuthor.lastName}` : '...'}</p>
+                                        <p className="text-sm text-slate-600 mt-1">{comment.text}</p>
+                                        <p className="text-xs text-slate-400 mt-2">{formatTimestamp(comment.timestamp)}</p>
                                     </div>
                                 </div>
                             )
                         })}
                     </div>
 
-                    {/* Post Comment Form */}
                     <form onSubmit={handlePostComment} className="mt-6 flex items-start space-x-3">
                          <UserInitialsAvatar user={currentUserProfile} size="w-10 h-10" />
                          <div className="flex-1">
@@ -229,10 +213,16 @@ const ViewAnnouncement = ({ announcementId, currentUserProfile, onBack }) => {
                                 value={newComment}
                                 onChange={(e) => setNewComment(e.target.value)}
                                 placeholder="Add a comment..."
-                                className="w-full border-zinc-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full border-none rounded-xl shadow-neumorphic-inset bg-neumorphic-base focus:ring-0 placeholder:text-slate-500 text-slate-800"
                                 rows="3"
                             ></textarea>
-                            <button type="submit" className="mt-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-full hover:bg-blue-700 transition disabled:opacity-50" disabled={!newComment.trim()}>Post Comment</button>
+                            <button 
+                                type="submit" 
+                                className="mt-2 px-6 py-2 bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 font-semibold rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-60 disabled:shadow-neumorphic-inset" 
+                                disabled={!newComment.trim()}
+                            >
+                                Post Comment
+                            </button>
                          </div>
                     </form>
                 </div>

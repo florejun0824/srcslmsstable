@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-// ✅ REMOVED: All firestore imports are gone as this component no longer handles DB logic.
 import Modal from '../common/Modal';
 
-// ✅ ADDED: Now accepts the 'onCreateUnit' function as a prop.
 export default function AddUnitModal({ isOpen, onClose, subjectId, onCreateUnit }) {
     const [unitTitle, setUnitTitle] = useState('');
     const [loading, setLoading] = useState(false);
@@ -20,17 +18,14 @@ export default function AddUnitModal({ isOpen, onClose, subjectId, onCreateUnit 
         setLoading(true);
         setError('');
 
-        // ✅ MODIFIED: Instead of writing to the DB, it calls the parent function.
-        // The parent (TeacherDashboard) now handles the transaction and closing the modal.
         try {
             const unitData = {
                 title: unitTitle,
                 subjectId: subjectId,
-                createdAt: new Date(), // Timestamp will be converted by the parent
+                createdAt: new Date(),
             };
             await onCreateUnit(unitData);
         } catch (err) {
-            // The parent function will show a toast, but we can log here too.
             console.error("Error callback in AddUnitModal:", err);
             setError("An unexpected error occurred.");
         } finally {
@@ -44,8 +39,6 @@ export default function AddUnitModal({ isOpen, onClose, subjectId, onCreateUnit 
         onClose();
     };
 
-    const inputClasses = "w-full p-4 mt-2 bg-gray-500/10 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-800 placeholder:text-gray-400";
-
     return (
         <Modal 
             isOpen={isOpen} 
@@ -55,13 +48,13 @@ export default function AddUnitModal({ isOpen, onClose, subjectId, onCreateUnit 
         >
             <form onSubmit={(e) => { e.preventDefault(); handleAddUnit(); }} className="space-y-6">
                 <div>
-                    <label htmlFor="unit-title" className="block text-sm font-semibold text-gray-600">Unit Title</label>
+                    <label htmlFor="unit-title" className="block text-sm font-semibold text-slate-600">Unit Title</label>
                     <input
                         id="unit-title"
                         value={unitTitle}
                         onChange={(e) => setUnitTitle(e.target.value)}
                         placeholder="e.g., Unit 1: The Cell"
-                        className={inputClasses}
+                        className="w-full p-3 mt-2 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0 placeholder:text-slate-500"
                         aria-invalid={!!error}
                         aria-describedby="unit-error"
                     />
@@ -69,13 +62,13 @@ export default function AddUnitModal({ isOpen, onClose, subjectId, onCreateUnit 
                 </div>
                 
                 <div className="pt-4 flex justify-end gap-3">
-                    <button type="button" onClick={handleClose} disabled={loading} className="px-5 py-3 text-base font-medium text-slate-700 bg-slate-200/70 rounded-xl hover:bg-slate-300 transition-all disabled:opacity-50">
+                    <button type="button" onClick={handleClose} disabled={loading} className="px-5 py-2.5 text-base font-semibold text-slate-700 bg-neumorphic-base rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50">
                         Cancel
                     </button>
                     <button 
                         type="submit" 
                         disabled={loading || !unitTitle.trim()}
-                        className="flex items-center justify-center gap-2 px-5 py-3 text-base font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:transform-none"
+                        className="flex items-center justify-center gap-2 px-5 py-2.5 text-base font-bold text-blue-700 bg-gradient-to-br from-sky-100 to-blue-200 rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50"
                     >
                         {loading ? 'Adding...' : 'Add Unit'}
                     </button>

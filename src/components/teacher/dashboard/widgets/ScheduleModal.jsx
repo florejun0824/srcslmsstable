@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { XMarkIcon, PlusCircleIcon, PencilSquareIcon, TrashIcon, CalendarDaysIcon, ListBulletIcon, DocumentPlusIcon, UserIcon, ClockIcon, Bars3BottomLeftIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PencilSquareIcon, TrashIcon, CalendarDaysIcon, ListBulletIcon, UserIcon, ClockIcon, Bars3BottomLeftIcon } from '@heroicons/react/24/outline';
 
-// iOS Next Gen (iOS 26) UI Philosophy Refactor
+// Neumorphed Schedule Modal
 const ScheduleModal = ({ isOpen, onClose, userRole, scheduleActivities, onAddActivity, onUpdateActivity, onDeleteActivity }) => {
     const [title, setTitle] = useState('');
     const [startDate, setStartDate] = useState('');
@@ -17,7 +17,6 @@ const ScheduleModal = ({ isOpen, onClose, userRole, scheduleActivities, onAddAct
 
     useEffect(() => {
         if (!isOpen) {
-            // Reset state with a slight delay to allow exit animation
             setTimeout(() => {
                 setTitle(''); setStartDate(''); setEndDate(''); setTime('');
                 setDescription(''); setInCharge(''); setEditingActivity(null);
@@ -80,51 +79,44 @@ const ScheduleModal = ({ isOpen, onClose, userRole, scheduleActivities, onAddAct
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-lg flex justify-center items-start z-50 p-4 overflow-y-auto font-sans">
+                <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex justify-center items-start z-50 p-4 overflow-y-auto font-sans">
                     <motion.div 
                         variants={modalVariants}
                         initial="hidden"
                         animate="visible"
                         exit="exit"
-                        className="relative bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl ring-1 ring-black/5 dark:ring-white/10 rounded-3xl shadow-2xl p-6 md:p-8 w-full max-w-3xl mt-10 mb-8"
+                        className="relative bg-neumorphic-base rounded-3xl shadow-neumorphic p-6 md:p-8 w-full max-w-3xl mt-10 mb-8"
                     >
-                        {/* Header */}
                         <div className="flex justify-between items-center pb-4 mb-6">
-                            <h2 className="text-3xl font-bold text-gray-900 dark:text-white text-center flex-1">School Schedule</h2>
-                            <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition">
-                                <XMarkIcon className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+                            <h2 className="text-3xl font-bold text-slate-800 text-center flex-1">School Schedule</h2>
+                            <button onClick={onClose} className="absolute top-6 right-6 p-2 bg-neumorphic-base rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset">
+                                <XMarkIcon className="w-6 h-6 text-slate-600" />
                             </button>
                         </div>
 
-                        {/* ✨ Animated Segmented Control */}
                         {isAdmin && (
-                            <div className="w-full bg-black/5 dark:bg-white/5 rounded-xl p-1 flex gap-1 mb-6">
+                            <div className="w-full bg-neumorphic-base rounded-xl p-1 flex gap-1 mb-6 shadow-neumorphic-inset">
                                 {tabs.map(tab => (
                                     <button
                                         key={tab.id}
                                         onClick={() => {
                                             setActiveTab(tab.id);
-                                            if (tab.id === 'add' && editingActivity) {
-                                                // Don't cancel edit when clicking the 'Edit' tab
-                                            } else if (tab.id === 'view' && editingActivity) {
-                                                handleCancelEdit();
-                                            } else {
-                                                clearForm();
-                                            }
+                                            if (tab.id === 'add' && editingActivity) {} 
+                                            else if (tab.id === 'view' && editingActivity) { handleCancelEdit(); } 
+                                            else { clearForm(); }
                                         }}
-                                        className="relative flex-1 py-2.5 px-4 text-center font-semibold text-sm rounded-lg transition-colors text-gray-800 dark:text-gray-200 focus:outline-none"
+                                        className="relative flex-1 py-2.5 px-4 text-center font-semibold text-sm rounded-lg transition-colors focus:outline-none"
                                     >
                                         {activeTab === tab.id && (
-                                            <motion.div layoutId="active-pill" className="absolute inset-0 bg-white dark:bg-zinc-700 rounded-lg shadow-md" transition={{ type: 'spring', duration: 0.6 }}/>
+                                            <motion.div layoutId="active-pill" className="absolute inset-0 bg-gradient-to-br from-sky-200 to-blue-300 rounded-lg shadow-neumorphic" transition={{ type: 'spring', duration: 0.6 }}/>
                                         )}
-                                        <span className="relative z-10">{tab.label}</span>
+                                        <span className={`relative z-10 transition-colors ${activeTab === tab.id ? 'text-blue-700' : 'text-slate-500'}`}>{tab.label}</span>
                                     </button>
                                 ))}
                             </div>
                         )}
                         
                         <AnimatePresence mode="wait">
-                            {/* ADD/EDIT FORM VIEW */}
                             {isAdmin && activeTab === 'add' && (
                                 <motion.div key="add-edit-form" variants={tabContentVariants} initial="hidden" animate="visible" exit="exit">
                                     <form onSubmit={handleSubmit} className="space-y-4">
@@ -139,41 +131,40 @@ const ScheduleModal = ({ isOpen, onClose, userRole, scheduleActivities, onAddAct
                                         </div>
                                         <SmartInput as="textarea" icon={<Bars3BottomLeftIcon />} label="Description (Optional)" value={description} onChange={setDescription} />
                                         <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4">
-                                            <button type="button" onClick={handleCancelEdit} className="w-full sm:w-auto px-6 py-3 bg-transparent text-gray-800 dark:text-zinc-200 font-semibold rounded-xl hover:bg-gray-500/10 active:scale-[0.98] transition">Cancel</button>
-                                            <button type="submit" className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-500 active:scale-[0.98] transition shadow-lg shadow-blue-500/20">{editingActivity ? 'Update Activity' : 'Add Activity'}</button>
+                                            <button type="button" onClick={handleCancelEdit} className="w-full sm:w-auto px-6 py-3 bg-neumorphic-base text-slate-700 font-semibold rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset">Cancel</button>
+                                            <button type="submit" className="w-full sm:w-auto px-6 py-3 bg-gradient-to-br from-sky-200 to-blue-300 text-blue-700 font-semibold rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset">{editingActivity ? 'Update Activity' : 'Add Activity'}</button>
                                         </div>
                                     </form>
                                 </motion.div>
                             )}
 
-                            {/* SCHEDULE LIST VIEW */}
                             {activeTab === 'view' && (
                                 <motion.div key="view-list" variants={tabContentVariants} initial="hidden" animate="visible" exit="exit" className="max-h-[60vh] overflow-y-auto pr-2 -mr-2">
                                     {sortedActivities.length > 0 ? (
-                                        <ul className="space-y-1">
+                                        <ul className="space-y-2">
                                             {sortedActivities.map(activity => (
-                                                <li key={activity.id} className="group flex items-start gap-4 p-4 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
-                                                    <div className="flex-shrink-0 mt-1 w-8 h-8 flex items-center justify-center bg-blue-100 dark:bg-blue-900/50 rounded-full">
-                                                        <CalendarDaysIcon className="w-5 h-5 text-blue-600 dark:text-blue-300" />
+                                                <li key={activity.id} className="group flex items-start gap-4 p-4 rounded-xl transition-shadow hover:shadow-neumorphic-inset">
+                                                    <div className="flex-shrink-0 mt-1 w-8 h-8 flex items-center justify-center bg-neumorphic-base rounded-full shadow-neumorphic-inset">
+                                                        <CalendarDaysIcon className="w-5 h-5 text-sky-600" />
                                                     </div>
                                                     <div className="flex-1">
-                                                        <h4 className="font-semibold text-lg text-gray-900 dark:text-white">{activity.title}</h4>
-                                                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{activity.startDate} to {activity.endDate} {activity.time !== 'N/A' && ` at ${activity.time}`}</p>
-                                                        <p className="text-sm text-gray-600 dark:text-gray-400">In-charge: <span className="font-medium text-gray-800 dark:text-gray-200">{activity.inCharge}</span></p>
-                                                        {activity.description && <p className="text-sm text-gray-500 dark:text-gray-400/80 mt-2">{activity.description}</p>}
+                                                        <h4 className="font-semibold text-lg text-slate-800">{activity.title}</h4>
+                                                        <p className="text-sm text-slate-600 mt-1">{activity.startDate} to {activity.endDate} {activity.time !== 'N/A' && ` at ${activity.time}`}</p>
+                                                        <p className="text-sm text-slate-600">In-charge: <span className="font-medium text-slate-800">{activity.inCharge}</span></p>
+                                                        {activity.description && <p className="text-sm text-slate-500 mt-2">{activity.description}</p>}
                                                     </div>
                                                     {isAdmin && (
-                                                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <button onClick={() => handleEditClick(activity)} className="p-2 rounded-full hover:bg-gray-500/10" title="Edit"><PencilSquareIcon className="w-5 h-5 text-gray-500 dark:text-gray-300" /></button>
-                                                            <button onClick={() => onDeleteActivity(activity.id)} className="p-2 rounded-full hover:bg-gray-500/10" title="Delete"><TrashIcon className="w-5 h-5 text-rose-500" /></button>
+                                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button onClick={() => handleEditClick(activity)} className="p-2 rounded-full hover:shadow-neumorphic-inset" title="Edit"><PencilSquareIcon className="w-5 h-5 text-slate-500" /></button>
+                                                            <button onClick={() => onDeleteActivity(activity.id)} className="p-2 rounded-full hover:shadow-neumorphic-inset" title="Delete"><TrashIcon className="w-5 h-5 text-rose-500" /></button>
                                                         </div>
                                                     )}
                                                 </li>
                                             ))}
                                         </ul>
                                     ) : (
-                                        <div className="text-center text-gray-400 dark:text-zinc-500 py-16">
-                                            <ListBulletIcon className="w-16 h-16 mx-auto text-gray-300 dark:text-zinc-600 mb-3" />
+                                        <div className="text-center text-slate-500 py-16">
+                                            <ListBulletIcon className="w-16 h-16 mx-auto text-slate-400 mb-3" />
                                             <p className="text-lg font-semibold">No Scheduled Activities</p>
                                             <p className="text-sm">Admins can add a new activity using the tab above.</p>
                                         </div>
@@ -188,21 +179,21 @@ const ScheduleModal = ({ isOpen, onClose, userRole, scheduleActivities, onAddAct
     );
 };
 
-// Smart Context Input Component
+// Neumorphed Smart Input Component
 const SmartInput = ({ icon, label, value, onChange, type = 'text', as = 'input', required = false }) => {
     const commonProps = {
         value: value,
         onChange: (e) => onChange(e.target.value),
-        className: "w-full rounded-xl border-0 bg-gray-500/10 py-3 pl-10 pr-4 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 transition",
+        className: "w-full rounded-xl border-none bg-neumorphic-base py-3 pl-11 pr-4 text-slate-800 placeholder:text-slate-500 focus:ring-0 shadow-neumorphic-inset transition",
         required: required
     };
     const InputComponent = as;
     return (
         <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1.5">{label}</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
             <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                    {React.cloneElement(icon, { className: 'h-5 w-5 text-gray-400 dark:text-zinc-500' })}
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                    {React.cloneElement(icon, { className: 'h-5 w-5 text-slate-400' })}
                 </div>
                 <InputComponent type={type} {...commonProps} />
             </div>

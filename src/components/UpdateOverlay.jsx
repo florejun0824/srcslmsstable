@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 
 // Hook to detect mobile screens
 const useIsMobile = (breakpoint = 768) => {
@@ -73,155 +74,66 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  // --- Precompute content strings ---
   const systemStatusText =
     "SYSTEM STATUS: ONLINE\n" +
     "INITIATING CRITICAL UPDATE...\n" +
     "[" + new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString() + "]";
 
-  const processingText = "> Processing: " + currentFile + "\n" + "> Estimated completion: " + formatTime(timeLeft);
-
-  // --- Styles ---
-  const containerStyle = {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '30px',
-    maxWidth: '800px',
-    width: '90%',
-    padding: isMobile ? '20px' : '40px',
-    background: 'rgba(0,255,192,0.05)',
-    border: '2px solid #00ffc0',
-    borderRadius: '12px',
-    boxShadow: '0 0 30px rgba(0,255,192,0.3)',
-    position: 'relative',
-  };
-
-  const imageStyle = {
-    height: isMobile ? '140px' : '180px',
-    objectFit: 'contain',
-    filter: 'drop-shadow(0 0 10px rgba(0,255,192,0.8))',
-    marginBottom: '20px',
-  };
-
-  const completeHeaderStyle = {
-    margin: '0 0 20px 0',
-    whiteSpace: 'pre-wrap',
-    color: '#00ffc0',
-    fontSize: isMobile ? '16px' : '18px',
-  };
-
-  const buttonStyle = {
-    background: 'linear-gradient(45deg, #00ffc0, #00cc99)',
-    border: '2px solid #00ffc0',
-    borderRadius: '8px',
-    padding: isMobile ? '12px 24px' : '15px 30px',
-    color: '#000',
-    fontWeight: '700',
-    cursor: 'pointer',
-    fontFamily: `"Fira Code", monospace`,
-    boxShadow: '0 0 15px rgba(0,255,192,0.7)',
-    fontSize: isMobile ? '16px' : '18px',
-    transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-    textTransform: 'uppercase',
-  };
+  const processingText = `> Processing: ${currentFile}\n> Estimated completion: ${formatTime(timeLeft)}`;
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 20000,
-        fontFamily: `"Fira Code", monospace`,
-        color: '#00ffc0',
-        overflow: 'hidden',
-        fontSize: '14px',
-      }}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage: 'radial-gradient(#00ffc033 1px, transparent 1px)',
-          backgroundSize: '20px 20px',
-          opacity: 0.1,
-        }}
-      />
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-[20000] font-mono text-slate-700 overflow-hidden text-sm">
+        <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 150 }}
+            className="flex flex-col items-center gap-6 max-w-2xl w-[90%] p-6 md:p-10 bg-neumorphic-base rounded-2xl shadow-neumorphic relative"
+        >
+            <img src="/characters/guide 2.png" alt="Update Assistant" className="h-36 md:h-44 object-contain drop-shadow-[0_0_10px_rgba(0,255,192,0.8)] mb-4" />
 
-      <div style={containerStyle}>
-        <img src="/characters/guide 2.png" alt="Update Assistant" style={imageStyle} />
+            <div className="w-full text-left">
+                {status === 'building' ? (
+                    <>
+                        <pre className="m-0 mb-2.5 whitespace-pre-wrap text-sky-600 text-xs">
+                            {systemStatusText}
+                        </pre>
 
-        <div style={{ width: '100%', textAlign: 'left', marginBottom: '20px' }}>
-          {status === 'building' ? (
-            <>
-              <pre style={{ margin: '0 0 10px 0', whiteSpace: 'pre-wrap', color: '#00ffc0' }}>
-                {systemStatusText}
-              </pre>
+                        <div className="bg-neumorphic-base shadow-neumorphic-inset p-4 rounded-lg mb-4 min-h-[80px] flex items-center">
+                            <pre className="m-0 whitespace-pre-wrap leading-snug text-slate-600 text-xs md:text-sm">
+                                {processingText}
+                            </pre>
+                        </div>
 
-              <div
-                style={{
-                  background: '#0a0a0a',
-                  border: '1px solid #00ffc0',
-                  padding: '15px',
-                  borderRadius: '6px',
-                  marginBottom: '15px',
-                  minHeight: '80px',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: '1.4', color: '#00ffc0', fontSize: isMobile ? '12px' : '14px' }}>
-                  {processingText}
-                </pre>
-              </div>
+                        <div className="w-full bg-neumorphic-base shadow-neumorphic-inset rounded-full h-3 overflow-hidden">
+                            <div
+                                style={{ width: `${progress}%` }}
+                                className="h-full bg-gradient-to-r from-sky-200 to-blue-300 rounded-full shadow-neumorphic transition-all duration-1000 ease-linear"
+                            />
+                        </div>
 
-              <div style={{ width: '100%', background: '#3c3c3c', borderRadius: '4px', height: '12px', overflow: 'hidden' }}>
-                <div
-                  style={{
-                    width: progress + "%",
-                    height: '100%',
-                    background: 'linear-gradient(90deg, #00ffc0, #00cc99)',
-                    transition: 'width 2.7s linear',
-                    boxShadow: '0 0 8px rgba(0,255,192,0.5)',
-                    borderRadius: '4px',
-                  }}
-                />
-              </div>
-
-              <p style={{ marginTop: '10px', textAlign: 'center', color: '#00cc99', fontSize: '12px' }}>
-                {progress + "% Complete - " + message}
-              </p>
-            </>
-          ) : (
-            <div style={{ textAlign: 'center' }}>
-              <pre style={completeHeaderStyle}>
-                {"UPDATE COMPLETE.\nNEW SYSTEM VERSION DEPLOYED."}
-              </pre>
-              <p style={{ margin: '0 0 30px 0', color: '#00cc99', fontSize: isMobile ? '14px' : '16px' }}>
-                Ready for launch. Press 'Enter' to experience the latest features.
-              </p>
-              <button
-                onClick={onEnter}
-                style={buttonStyle}
-                onMouseEnter={e => {
-                  e.currentTarget.style.transform = 'scale(1.05)';
-                  e.currentTarget.style.boxShadow = '0 0 25px rgba(0,255,192,1)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.boxShadow = '0 0 15px rgba(0,255,192,0.7)';
-                }}
-              >
-                Enter
-              </button>
+                        <p className="mt-2.5 text-center text-slate-500 text-xs">
+                            {`${progress}% Complete - ${message}`}
+                        </p>
+                    </>
+                ) : (
+                    <div className="text-center">
+                        <pre className="m-0 mb-5 whitespace-pre-wrap text-green-600 font-semibold text-base md:text-lg">
+                            {"UPDATE COMPLETE.\nNEW SYSTEM VERSION DEPLOYED."}
+                        </pre>
+                        <p className="m-0 mb-8 text-slate-600 text-sm md:text-base">
+                            Ready for launch. Press 'Enter' to experience the latest features.
+                        </p>
+                        <button
+                            onClick={onEnter}
+                            className="w-full p-4 font-bold text-lg rounded-xl transition-shadow bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
+                        >
+                            Enter
+                        </button>
+                    </div>
+                )}
             </div>
-          )}
-        </div>
-      </div>
+        </motion.div>
     </div>
   );
 }

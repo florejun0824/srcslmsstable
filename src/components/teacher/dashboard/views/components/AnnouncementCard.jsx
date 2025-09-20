@@ -1,11 +1,9 @@
 import React, { useState, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Pencil, Trash2, Pin, MessageCircle, ThumbsUp } from 'lucide-react';
-import UserInitialsAvatar from '../../../../../components/common/UserInitialsAvatar'; // Adjusted path for new structure
+import UserInitialsAvatar from '../../../../../components/common/UserInitialsAvatar';
 
-// DEV NOTE: This object is used for displaying reaction icons.
-// For better code organization, it's recommended to move this to a shared file,
-// e.g., 'src/utils/constants.js', and import it here and in other components that might need it.
+// Original reaction icons for mapping text to actual emoji characters and their associated colors/labels
 const reactionIconsHomeView = {
   like: { component: (props) => (<span {...props}>👍</span>), label: 'Like', color: 'text-blue-500' },
   heart: { component: (props) => (<span {...props}>❤️</span>), label: 'Love', color: 'text-red-500' },
@@ -16,14 +14,15 @@ const reactionIconsHomeView = {
   care: { component: (props) => (<span {...props}>🤗</span>), label: 'Care', color: 'text-pink-500' },
 };
 
+// Themed reaction icons for the picker. These will be neumorphed.
 const themedReactionIcons = {
-  like: { component: (props) => <span className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-sky-300 to-blue-500 text-white shadow-lg shadow-sky-300/40 hover:scale-110 hover:shadow-sky-400/50 transition-all duration-200" {...props}>👍</span>, label: 'Like' },
-  heart: { component: (props) => <span className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-rose-300 to-red-500 text-white shadow-lg shadow-rose-300/40 hover:scale-110 hover:shadow-rose-400/50 transition-all duration-200" {...props}>❤️</span>, label: 'Love' },
-  haha: { component: (props) => <span className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-amber-200 to-yellow-400 text-black shadow-lg shadow-amber-300/40 hover:scale-110 hover:shadow-amber-400/50 transition-all duration-200" {...props}>😂</span>, label: 'Haha' },
-  wow: { component: (props) => <span className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-yellow-200 to-orange-400 text-black shadow-lg shadow-yellow-300/40 hover:scale-110 hover:shadow-yellow-400/50 transition-all duration-200" {...props}>😮</span>, label: 'Wow' },
-  sad: { component: (props) => <span className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-sky-200 to-slate-400 text-white shadow-lg shadow-sky-300/40 hover:scale-110 hover:shadow-sky-400/50 transition-all duration-200" {...props}>😢</span>, label: 'Sad' },
-  angry: { component: (props) => <span className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-rose-500 to-red-700 text-white shadow-lg shadow-rose-400/40 hover:scale-110 hover:shadow-rose-500/50 transition-all duration-200" {...props}>😡</span>, label: 'Angry' },
-  care: { component: (props) => <span className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-fuchsia-300 to-pink-500 text-white shadow-lg shadow-fuchsia-300/40 hover:scale-110 hover:shadow-fuchsia-400/50 transition-all duration-200" {...props}>🤗</span>, label: 'Care' },
+  like: { emoji: '👍', label: 'Like' },
+  heart: { emoji: '❤️', label: 'Love' },
+  haha: { emoji: '😂', label: 'Haha' },
+  wow: { emoji: '😮', label: 'Wow' },
+  sad: { emoji: '😢', label: 'Sad' },
+  angry: { emoji: '😡', label: 'Angry' },
+  care: { emoji: '🤗', label: 'Care' },
 };
 
 const ANNOUNCEMENT_TRUNCATE_LENGTH = 300;
@@ -33,7 +32,7 @@ const AnnouncementCard = ({
     userProfile,
     authorProfile,
     postReactions,
-    usersMap, // Needed for reaction count display
+    usersMap,
     isEditing,
     editingText,
     isExpanded,
@@ -119,7 +118,8 @@ const AnnouncementCard = ({
                         return (
                             <div
                                 key={index}
-                                className={`relative w-6 h-6 flex items-center justify-center rounded-full bg-white ring-2 ring-white ${index > 0 ? '-ml-2' : ''}`}
+                                // MODIFIED: Apply subtle neumorphic inset to reaction count emojis
+                                className={`relative w-6 h-6 flex items-center justify-center rounded-full bg-neumorphic-base shadow-neumorphic-inset ring-2 ring-neumorphic-base ${index > 0 ? '-ml-2' : ''}`}
                                 style={{ zIndex: 3 - index }}
                             >
                                 <Icon className="text-xl" />
@@ -139,11 +139,14 @@ const AnnouncementCard = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.4 }}
-            // MODIFIED: Applied a gradient background and colored shadow to match the new theme.
-            className={`bg-gradient-to-br from-white/70 to-violet-100/50 backdrop-blur-lg rounded-3xl shadow-xl shadow-violet-300/20 p-6 relative group transform transition-all duration-300 hover:shadow-2xl hover:shadow-violet-300/30 hover:-translate-y-2 hover:scale-[1.01] border ${post.isPinned ? 'border-violet-300 ring-2 ring-violet-200/50' : 'border-white/70'}`}
+            // MODIFIED: All main cards now consistently use shadow-neumorphic (popped out).
+            // This ensures a cleaner, uniform look for all announcements.
+            className={`bg-neumorphic-base rounded-3xl p-6 relative group transition-shadow duration-300 shadow-neumorphic`}
         >
             {post.isPinned && (
-                <div className="absolute top-4 left-4 flex items-center gap-2 text-violet-700 bg-violet-100 px-3 py-1 rounded-full text-xs font-semibold z-10">
+                // MODIFIED: Pinned indicator pill now has a subtle `shadow-neumorphic` instead of `inset`.
+                // It still looks distinct but doesn't change the main card's bulge.
+                <div className="absolute top-4 left-4 flex items-center gap-2 text-sky-700 bg-neumorphic-base shadow-neumorphic px-3 py-1 rounded-full text-xs font-semibold z-10">
                     <Pin className="w-3 h-3" />
                     <span>Pinned</span>
                 </div>
@@ -157,17 +160,17 @@ const AnnouncementCard = ({
                     <p className="text-xs text-slate-500">{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString() : ''}</p>
                 </div>
                 {canModify && (
-                    <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-white/50 backdrop-blur-sm rounded-full p-1">
+                    <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-neumorphic-base shadow-neumorphic rounded-full p-1">
                          {userProfile?.role === 'admin' && (
-                            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); onTogglePin(post.id, post.isPinned); }} className={`p-2 rounded-full hover:bg-gray-100 transition ${post.isPinned ? 'text-violet-500' : 'text-slate-500'}`} title={post.isPinned ? "Unpin Announcement" : "Pin Announcement"}>
+                            <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); onTogglePin(post.id, post.isPinned); }} className={`p-2 rounded-full hover:shadow-neumorphic-inset transition-shadow ${post.isPinned ? 'text-sky-500' : 'text-slate-500'}`} title={post.isPinned ? "Unpin Announcement" : "Pin Announcement"}>
                                 <Pin className="w-5 h-5" />
                             </motion.button>
                         )}
-                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); onStartEdit(post); }} className="p-2 rounded-full hover:bg-gray-100 transition" title="Edit Announcement">
-                            <Pencil className="w-5 h-5 text-slate-500" />
+                        <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); onStartEdit(post); }} className="p-2 rounded-full text-slate-500 hover:shadow-neumorphic-inset transition-shadow" title="Edit Announcement">
+                            <Pencil className="w-5 h-5" />
                         </motion.button>
-                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); onDelete(post.id); }} className="p-2 rounded-full hover:bg-gray-100 transition" title="Delete Announcement">
-                            <Trash2 className="w-5 h-5 text-red-500" />
+                        <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); onDelete(post.id); }} className="p-2 rounded-full text-red-500 hover:shadow-neumorphic-inset transition-shadow" title="Delete Announcement">
+                            <Trash2 className="w-5 h-5" />
                         </motion.button>
                     </div>
                 )}
@@ -176,15 +179,15 @@ const AnnouncementCard = ({
             {isEditing ? (
                 <>
                     <textarea
-                        className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-slate-50 text-slate-800 resize-none mb-4"
+                        className="w-full p-3 border-none ring-0 focus:ring-0 rounded-lg bg-neumorphic-base text-slate-800 resize-none mb-4 shadow-neumorphic-inset"
                         rows="5"
                         value={editingText}
                         onChange={(e) => onTextChange(e.target.value)}
                         onClick={(e) => e.stopPropagation()}
                     />
                     <div className="flex justify-end gap-2">
-                        <button className="px-4 py-2 rounded-full font-semibold bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors" onClick={(e) => { e.stopPropagation(); onCancelEdit(); }}>Cancel</button>
-                        <button className="px-4 py-2 rounded-full font-semibold text-white bg-sky-600 hover:bg-sky-700 transition-all duration-300 shadow-lg shadow-sky-500/30 hover:shadow-xl hover:shadow-sky-500/20" onClick={(e) => { e.stopPropagation(); onSave(); }}>Save</button>
+                        <button className="px-5 py-2 rounded-full font-semibold text-slate-700 bg-neumorphic-base shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset" onClick={(e) => { e.stopPropagation(); onCancelEdit(); }}>Cancel</button>
+                        <button className="px-5 py-2 rounded-full font-semibold text-sky-600 bg-neumorphic-base shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset" onClick={(e) => { e.stopPropagation(); onSave(); }}>Save</button>
                     </div>
                 </>
             ) : (
@@ -228,7 +231,7 @@ const AnnouncementCard = ({
                 </div>
             )}
 
-            <div className="flex justify-around items-center pt-3 mt-4 border-t border-slate-200/80">
+            <div className="flex justify-around items-center pt-3 mt-4 border-t border-neumorphic-shadow-dark/30">
                 <div
                     className="relative"
                     onMouseEnter={handleReactionOptionsMouseEnter}
@@ -238,9 +241,8 @@ const AnnouncementCard = ({
                     onTouchMove={handleTouchMove}
                 >
                     <motion.button
-                        whileHover={{ y: -2 }}
                         whileTap={{ scale: 0.95 }}
-                        className={`flex items-center space-x-2 py-2 px-4 rounded-full transition-colors duration-200 w-full justify-center ${currentUserReaction ? reactionColor : 'text-slate-600'} hover:bg-slate-100/80`}
+                        className={`flex items-center space-x-2 py-2 px-4 rounded-full transition-all duration-200 w-full justify-center ${currentUserReaction ? reactionColor : 'text-slate-600'} hover:shadow-neumorphic-inset`}
                         onClick={() => onToggleReaction(post.id, 'like')} // Default toggle is 'like'
                     >
                         {currentUserReaction ? (
@@ -268,26 +270,26 @@ const AnnouncementCard = ({
                                     visible: { transition: { staggerChildren: 0.05 } },
                                     hidden: { transition: { staggerChildren: 0.05, staggerDirection: -1 } }
                                 }}
-                                // MODIFIED: Updated reaction picker to match the card's glassmorphism style.
-                                className="absolute bottom-full mb-2 bg-white/60 backdrop-blur-md rounded-full shadow-xl p-2 flex space-x-1 z-50 border border-white/70"
-                                onMouseEnter={handleReactionOptionsMouseEnter} // Keep open when mouse moves to options
+                                className="absolute bottom-full mb-2 bg-neumorphic-base rounded-full shadow-neumorphic p-2 flex space-x-1 z-50"
+                                onMouseEnter={handleReactionOptionsMouseEnter}
                                 onMouseLeave={handleReactionOptionsMouseLeave}
                             >
-                                {Object.entries(themedReactionIcons).map(([type, { component: IconComponent, label }]) => (
-                                    <motion.button
+                                {Object.entries(themedReactionIcons).map(([type, { emoji, label }]) => (
+                                    <motion.div
                                         key={type}
                                         variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
-                                        whileHover={{ scale: 1.3, y: -8 }}
                                         whileTap={{ scale: 0.9 }}
-                                        transition={{ type: "spring", stiffness: 400, damping: 10 }}
                                         className="p-1 rounded-full group/reaction relative"
                                         onClick={() => handleReactionOptionClick(type)}
                                     >
-                                        <IconComponent className="text-4xl" />
+                                        {/* MODIFIED: Emoji reaction buttons are now Neumorphic with inset on hover. */}
+                                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-neumorphic-base transition-shadow duration-200 cursor-pointer hover:shadow-neumorphic-inset">
+                                            <span className="text-2xl">{emoji}</span>
+                                        </div>
                                         <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs font-semibold px-2 py-1 rounded-md opacity-0 group-hover/reaction:opacity-100 transition-opacity whitespace-nowrap">
                                             {label}
                                         </div>
-                                    </motion.button>
+                                    </motion.div>
                                 ))}
                             </motion.div>
                         )}
@@ -295,9 +297,8 @@ const AnnouncementCard = ({
                 </div>
 
                 <motion.button
-                    whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.95 }}
-                    className="flex items-center space-x-2 py-2 px-4 rounded-full text-slate-600 hover:bg-slate-100 transition-colors duration-200"
+                    className="flex items-center space-x-2 py-2 px-4 rounded-full text-slate-600 transition-shadow hover:shadow-neumorphic-inset"
                     onClick={() => onViewComments(post)}
                 >
                     <MessageCircle className="h-5 w-5" />
