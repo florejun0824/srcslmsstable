@@ -771,6 +771,7 @@ const TeacherDashboard = () => {
                         onClose={() => setViewLessonModalOpen(false)} 
                         lesson={selectedLesson} 
                         onUpdate={handleUpdateLesson} 
+						userRole={user?.role} // ✅ FIX: Pass the user's role to the modal
                     />
                 )}
                 {isBetaWarningModalOpen && (

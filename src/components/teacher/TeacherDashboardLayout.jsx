@@ -625,13 +625,7 @@ const TeacherDashboardLayout = (props) => {
                         lesson={rest.selectedLesson}
                     />
                 )}
-                {rest.viewLessonModalOpen && rest.selectedLesson && (
-                    <ViewLessonModal
-                        isOpen={rest.viewLessonModalOpen}
-                        onClose={() => setViewLessonModalOpen(false)}
-                        lesson={rest.selectedLesson}
-                    />
-                )}
+                
                 {rest.isShareContentModalOpen && activeSubject && (
                     <ShareMultipleLessonsModal
                         isOpen={rest.isShareContentModalOpen}

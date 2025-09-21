@@ -8,7 +8,7 @@ import {
   ChevronRightIcon,
   ChevronLeftIcon
 } from '@heroicons/react/24/outline';
-import ViewLessonModal from '../teacher/ViewLessonModal';
+import ViewLessonModal from './StudentViewLessonModal';
 
 // --- Empty State (Neumorphic) ---
 const EmptyState = ({ icon: Icon, text, subtext }) => (
