@@ -82,37 +82,37 @@ const AdminBannerEditModal = ({ isOpen, onClose, currentImageUrl, currentStartDa
         <AnimatePresence>
             {isOpen && (
                 <Dialog static as="div" className="relative z-50 font-sans" open={isOpen} onClose={onClose}>
+                    {/* Neumorphic Design Changes: Removed backdrop-blur for a clean overlay */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/50 backdrop-blur-md"
+                        className="fixed inset-0 bg-black/50"
                     />
 
                     <div className="fixed inset-0 w-screen overflow-y-auto">
                         <div className="flex min-h-full items-center justify-center p-4">
+                            {/* Neumorphic Design Changes: Replaced glassmorphism with neumorphic styles */}
                             <motion.div
                                 variants={modalVariants}
                                 initial="hidden"
                                 animate="visible"
                                 exit="exit"
                                 as={Dialog.Panel}
-                                className="relative w-full max-w-md transform overflow-hidden rounded-3xl bg-white/70 p-6 text-left align-middle shadow-2xl ring-1 ring-black/5 backdrop-blur-2xl transition-all dark:bg-zinc-800/70 dark:ring-white/10"
+                                className="relative w-full max-w-md transform overflow-hidden rounded-3xl bg-neumorphic-base p-6 text-left align-middle shadow-neumorphic"
                             >
-                                <div className="absolute top-0 left-1/2 -translate-x-1/2 p-4">
-                                    <div className="w-10 h-1.5 rounded-full bg-gray-400 dark:bg-zinc-600" />
-                                </div>
-                                <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 dark:hover:text-white transition-colors">
-                                    <XMarkIcon className="h-6 w-6" />
+                                <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-neumorphic-base text-slate-500 rounded-full shadow-neumorphic active:shadow-neumorphic-inset transition-all">
+                                    <XMarkIcon className="h-5 w-5" />
                                 </button>
                                 
-                                <Dialog.Title as="h3" className="pt-6 text-2xl font-semibold text-center text-gray-900 dark:text-white">
+                                <Dialog.Title as="h3" className="text-2xl font-semibold text-center text-slate-800">
                                     Edit Banner
                                 </Dialog.Title>
-                                <p className="text-center text-sm text-gray-600 dark:text-zinc-400 mt-1 mb-6">Update the primary promotional banner.</p>
+                                <p className="text-center text-sm text-slate-500 mt-1 mb-6">Update the primary promotional banner.</p>
 
                                 <div className="space-y-4">
-                                    <div className="w-full aspect-video bg-gray-500/10 rounded-xl flex items-center justify-center overflow-hidden ring-1 ring-inset ring-black/5">
+                                    {/* Neumorphic Design Changes: Image preview is now inset */}
+                                    <div className="w-full aspect-video bg-neumorphic-base rounded-2xl flex items-center justify-center overflow-hidden shadow-neumorphic-inset">
                                         {imageUrl && !imgLoadError ? (
                                             <img
                                                 src={imageUrl}
@@ -121,90 +121,81 @@ const AdminBannerEditModal = ({ isOpen, onClose, currentImageUrl, currentStartDa
                                                 onError={() => setImgLoadError(true)}
                                             />
                                         ) : (
-                                            <div className="flex flex-col items-center text-gray-400 dark:text-zinc-500">
+                                            <div className="flex flex-col items-center text-slate-400">
                                                 <PhotoIcon className="h-10 w-10" />
                                                 <span className="text-xs mt-2 font-medium">{imgLoadError ? "Image Failed to Load" : "Preview"}</span>
                                             </div>
                                         )}
                                     </div>
                                     
+                                    {/* Neumorphic Design Changes: Input fields are now inset */}
                                     <div>
-                                        <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1.5">
+                                        <label htmlFor="imageUrl" className="block text-sm font-medium text-slate-600 mb-1.5">
                                             Image URL
                                         </label>
                                         <div className="relative">
                                             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                                                <PhotoIcon className="h-5 w-5 text-gray-400 dark:text-zinc-500" />
+                                                <PhotoIcon className="h-5 w-5 text-slate-400" />
                                             </div>
                                             <input
                                                 id="imageUrl"
                                                 type="url"
                                                 value={imageUrl}
                                                 onChange={(e) => { setImageUrl(e.target.value); setImgLoadError(false); }}
-                                                className="w-full rounded-xl border-0 bg-gray-500/10 py-3 pl-10 pr-4 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 transition"
+                                                className="w-full rounded-xl border-none bg-neumorphic-base shadow-neumorphic-inset py-3 pl-10 pr-4 text-slate-800 placeholder:text-slate-400 focus:outline-none"
                                             />
                                         </div>
                                     </div>
 
-                                    {/* Date Inputs */}
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1.5">
-                                                Display From (Optional)
+                                            <label htmlFor="startDate" className="block text-sm font-medium text-slate-600 mb-1.5">
+                                                Display From
                                             </label>
-                                            <div className="relative">
-                                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                                                    <CalendarDaysIcon className="h-5 w-5 text-gray-400 dark:text-zinc-500" />
-                                                </div>
-                                                <input
-                                                    id="startDate"
-                                                    type="datetime-local"
-                                                    value={startDate}
-                                                    onChange={(e) => setStartDate(e.target.value)}
-                                                    className="w-full rounded-xl border-0 bg-gray-500/10 py-3 pl-10 pr-2 text-gray-900 dark:text-white dark:placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 transition"
-                                                />
-                                            </div>
+                                            <input
+                                                id="startDate"
+                                                type="datetime-local"
+                                                value={startDate}
+                                                onChange={(e) => setStartDate(e.target.value)}
+                                                className="w-full rounded-xl border-none bg-neumorphic-base shadow-neumorphic-inset py-3 px-4 text-slate-800 focus:outline-none"
+                                            />
                                         </div>
                                         <div>
-                                            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1.5">
-                                                Display Until (Optional)
+                                            <label htmlFor="endDate" className="block text-sm font-medium text-slate-600 mb-1.5">
+                                                Display Until
                                             </label>
-                                            <div className="relative">
-                                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                                                    <CalendarDaysIcon className="h-5 w-5 text-gray-400 dark:text-zinc-500" />
-                                                </div>
-                                                <input
-                                                    id="endDate"
-                                                    type="datetime-local"
-                                                    value={endDate}
-                                                    onChange={(e) => setEndDate(e.target.value)}
-                                                    className="w-full rounded-xl border-0 bg-gray-500/10 py-3 pl-10 pr-2 text-gray-900 dark:text-white dark:placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 transition"
-                                                />
-                                            </div>
+                                            <input
+                                                id="endDate"
+                                                type="datetime-local"
+                                                value={endDate}
+                                                onChange={(e) => setEndDate(e.target.value)}
+                                                className="w-full rounded-xl border-none bg-neumorphic-base shadow-neumorphic-inset py-3 px-4 text-slate-800 focus:outline-none"
+                                            />
                                         </div>
                                     </div>
                                     
                                     {error && (
-                                        <div className="flex items-center space-x-2 text-red-500 dark:text-red-400 bg-red-500/10 p-3 rounded-xl ring-1 ring-inset ring-red-500/20">
+                                        <div className="flex items-center space-x-2 text-red-600 bg-neumorphic-base p-3 rounded-xl shadow-neumorphic">
                                             <ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
                                             <p className="text-sm font-medium">{error}</p>
                                         </div>
                                     )}
                                 </div>
-
-                                <div className="mt-8 space-y-3">
+                                
+                                {/* Neumorphic Design Changes: Buttons are now extruded with a pressed effect */}
+                                <div className="mt-8 grid grid-cols-2 gap-4">
+                                    <button
+                                        onClick={onClose}
+                                        className="w-full rounded-xl bg-neumorphic-base px-4 py-3 text-base font-semibold text-slate-700 shadow-neumorphic active:shadow-neumorphic-inset transition-all hover:text-slate-900"
+                                    >
+                                        Cancel
+                                    </button>
                                     <button
                                         onClick={handleSave}
                                         disabled={isSaving}
-                                        className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-base font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white/80 dark:focus:ring-offset-zinc-800/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-[0.98]"
+                                        className="w-full rounded-xl bg-neumorphic-base px-4 py-3 text-base font-semibold text-primary-700 shadow-neumorphic active:shadow-neumorphic-inset transition-all hover:text-primary-600 disabled:opacity-60"
                                     >
                                         {isSaving ? 'Saving...' : 'Save Changes'}
-                                    </button>
-                                    <button
-                                        onClick={onClose}
-                                        className="w-full rounded-xl bg-transparent px-4 py-3 text-base font-semibold text-gray-800 dark:text-zinc-200 hover:bg-gray-500/10 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-white/80 dark:focus:ring-offset-zinc-800/80 transition-all duration-200 active:scale-[0.98]"
-                                    >
-                                        Cancel
                                     </button>
                                 </div>
                             </motion.div>

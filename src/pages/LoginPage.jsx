@@ -3,7 +3,14 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { AcademicCapIcon, BriefcaseIcon, AtSymbolIcon, LockClosedIcon } from '@heroicons/react/24/solid';
+import { 
+    AcademicCapIcon, 
+    BriefcaseIcon, 
+    AtSymbolIcon, 
+    LockClosedIcon,
+    EyeIcon,          // <-- Added
+    EyeSlashIcon      // <-- Added
+} from '@heroicons/react/24/solid';
 import RoleDock from '../components/common/RoleDock';
 
 const HeliosBackground = () => (
@@ -21,6 +28,7 @@ const LoginPage = () => {
   const { showToast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // <-- State for password visibility
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
@@ -93,19 +101,30 @@ const LoginPage = () => {
               />
             </div>
 
-            {/* Password */}
+            {/* Password with View Icon */}
             <div className="relative">
               <LockClosedIcon className="absolute top-1/2 -translate-y-1/2 left-4 w-5 h-5 text-gray-400" />
               <input
-                className="w-full bg-gray-100 h-14 pl-12 pr-4 text-gray-800 placeholder:text-gray-500 rounded-2xl 
+                className="w-full bg-gray-100 h-14 pl-12 pr-12 text-gray-800 placeholder:text-gray-500 rounded-2xl 
                            shadow-neumorphic focus:outline-none focus:ring-2 focus:ring-teal-300 transition-all duration-300"
                 id="password"
-                type="password"
+                type={showPassword ? 'text' : 'password'} // <-- Toggles input type
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)} // <-- Toggles state on click
+                className="absolute top-1/2 -translate-y-1/2 right-4 text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                {showPassword ? (
+                  <EyeSlashIcon className="w-5 h-5" />
+                ) : (
+                  <EyeIcon className="w-5 h-5" />
+                )}
+              </button>
             </div>
 
             {/* Error */}

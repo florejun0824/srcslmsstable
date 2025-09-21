@@ -4,7 +4,7 @@ import { db } from '../../services/firebase';
 import { collection, query, getDocs, orderBy, where, documentId } from 'firebase/firestore';
 import Spinner from '../common/Spinner';
 import AnnouncementViewModal from '../common/AnnouncementViewModal';
-import ViewLessonModal from '../teacher/ViewLessonModal';   // 🔹 Added
+import ViewLessonModal from './StudentViewLessonModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
     MegaphoneIcon, 
@@ -19,16 +19,18 @@ import {
 const UnitPillHeader = ({ title, isCollapsed, onClick }) => (
     <button
         onClick={onClick}
-        className="w-full flex justify-between items-center py-2 group"
+        className="w-full flex justify-between items-center p-2 group"
     >
-        <span className="bg-neumorphic-base px-3 py-1 rounded-full shadow-neumorphic-inset text-xs font-bold uppercase tracking-wide text-slate-700">
+        <span className="bg-neumorphic-base px-4 py-2 rounded-full shadow-neumorphic text-xs font-bold uppercase tracking-wider text-slate-700 transition-transform group-hover:scale-105">
             {title}
         </span>
-        {isCollapsed ? (
-            <ChevronDownIcon className="h-5 w-5 text-slate-400 group-hover:text-slate-600" />
-        ) : (
-            <ChevronUpIcon className="h-5 w-5 text-slate-400 group-hover:text-slate-600" />
-        )}
+        <div className="p-2 bg-neumorphic-base rounded-full shadow-neumorphic group-hover:shadow-neumorphic-inset transition-shadow duration-200">
+            {isCollapsed ? (
+                <ChevronDownIcon className="h-5 w-5 text-slate-500" />
+            ) : (
+                <ChevronUpIcon className="h-5 w-5 text-slate-500" />
+            )}
+        </div>
     </button>
 );
 
@@ -40,8 +42,6 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
     const [loading, setLoading] = useState(true);
     const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
     const [collapsedUnits, setCollapsedUnits] = useState(new Set());
-
-    // 🔹 New state for lesson viewer modal
     const [lessonToView, setLessonToView] = useState(null);
 
     const toggleUnitCollapse = (unitTitle) => {
@@ -115,12 +115,14 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
     }, [selectedClass]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
-
+    
+    // Updated tab styling logic
     const getTabClasses = (tabName) => `
-        flex items-center justify-center flex-1 gap-2 px-4 py-2 font-medium text-sm rounded-xl transition-all duration-200
+        flex items-center justify-center flex-1 gap-2 px-4 py-3 font-semibold text-sm rounded-xl transition-all duration-200
         ${activeTab === tabName 
-            ? 'bg-neumorphic-base text-red-600 shadow-neumorphic-inset' 
-            : 'text-slate-700 hover:text-red-600 hover:shadow-neumorphic-inset'}
+            ? 'bg-neumorphic-base text-red-600 shadow-neumorphic-inset' // Active tab is "pressed in"
+            : 'bg-neumorphic-base text-slate-700 shadow-neumorphic hover:text-red-600 active:shadow-neumorphic-inset' // Inactive tab is "popped out"
+        }
     `;
 
     const renderContent = () => {
@@ -180,17 +182,18 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
     return (
         <>
             <div className="bg-neumorphic-base p-6 sm:p-8 rounded-3xl shadow-neumorphic max-w-4xl mx-auto animate-scale-in">
+                {/* Updated "Back" button with popped out style */}
                 <button
                     onClick={onBack}
-                    className="flex items-center text-red-600 hover:text-red-700 transition-colors mb-5 font-semibold text-sm group"
+                    className="flex items-center bg-neumorphic-base text-red-600 font-semibold text-sm px-4 py-2 rounded-xl shadow-neumorphic active:shadow-neumorphic-inset transition-all mb-5 group hover:text-red-700"
                 >
-                    <ArrowLeftIcon className="h-4 w-4 mr-1 group-hover:-translate-x-0.5 transition-transform" /> 
+                    <ArrowLeftIcon className="h-4 w-4 mr-2 group-hover:-translate-x-0.5 transition-transform" /> 
                     Back to All Classes
                 </button>
                 <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">{selectedClass.name}</h1>
                 <p className="text-base sm:text-lg text-slate-500 mb-8">{selectedClass.gradeLevel} - {selectedClass.section}</p>
                 
-                <div className="bg-neumorphic-base rounded-xl flex items-center mb-6 p-1 shadow-neumorphic-inset">
+                <div className="bg-neumorphic-base rounded-xl flex items-center mb-6 p-1.5 shadow-neumorphic-inset">
                     <nav className="flex flex-1 space-x-2">
                         <button onClick={() => setActiveTab('announcements')} className={getTabClasses('announcements')}>
                             <MegaphoneIcon className="h-5 w-5" />
