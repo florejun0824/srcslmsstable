@@ -2,14 +2,13 @@
 
 import React, { useState } from 'react';
 import { Dialog } from '@headlessui/react';
-import { SparklesIcon } from '@heroicons/react/24/outline'; // Using a more appropriate icon for AI features
+import { SparklesIcon } from '@heroicons/react/24/outline';
 
 export default function BetaWarningModal({ isOpen, onClose, onConfirm, title }) {
     const [neverShowAgain, setNeverShowAgain] = useState(false);
 
     if (!isOpen) return null;
 
-    // This handler now passes the checkbox state back to the parent component.
     const handleConfirm = () => {
         if (onConfirm) {
             onConfirm(neverShowAgain);
@@ -17,26 +16,37 @@ export default function BetaWarningModal({ isOpen, onClose, onConfirm, title }) 
     };
 
     return (
-        <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-black/70 backdrop-blur-md" aria-hidden="true" />
-            
-            {/* Revamped Panel with modern styling and animations */}
-            <Dialog.Panel className="relative bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 ease-in-out">
+        <Dialog
+            open={isOpen}
+            onClose={onClose}
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4"
+        >
+            {/* Backdrop */}
+            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" aria-hidden="true" />
+
+            {/* Neumorphic Panel */}
+            <Dialog.Panel className="relative bg-neumorphic-base p-8 rounded-3xl shadow-neumorphic w-full max-w-md transform transition-all duration-300 ease-in-out">
                 <div className="text-center">
-                    <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg mb-4">
+                    {/* Icon */}
+                    <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-neumorphic-base shadow-neumorphic-inset text-amber-500 mb-6">
                         <SparklesIcon className="h-8 w-8" aria-hidden="true" />
                     </div>
-                    
-                    <Dialog.Title as="h3" className="text-2xl font-bold leading-6 text-gray-900">
+
+                    {/* Title */}
+                    <Dialog.Title
+                        as="h3"
+                        className="text-2xl font-bold leading-6 text-slate-800"
+                    >
                         {title || 'Beta Feature Warning'}
                     </Dialog.Title>
-                    
-                    <div className="mt-4">
-                        <p className="text-md text-gray-600">
+
+                    {/* Message */}
+                    <div className="mt-4 space-y-2">
+                        <p className="text-md text-slate-600">
                             You're using an AI-powered feature that's still in its Beta phase.
                         </p>
-                        <p className="mt-2 text-md text-gray-600">
-                            While the AI is quite capable, please be sure to review all generated content for accuracy before use.
+                        <p className="text-md text-slate-600">
+                            Please review all generated content carefully before use.
                         </p>
                     </div>
                 </div>
@@ -49,26 +59,29 @@ export default function BetaWarningModal({ isOpen, onClose, onConfirm, title }) 
                         type="checkbox"
                         checked={neverShowAgain}
                         onChange={(e) => setNeverShowAgain(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        className="h-4 w-4 rounded bg-neumorphic-base shadow-neumorphic-inset border-none focus:ring-0 cursor-pointer"
                     />
-                    <label htmlFor="never-show-again" className="ml-2 block text-sm text-gray-700 select-none">
-                        Understood, don't show this message again.
+                    <label
+                        htmlFor="never-show-again"
+                        className="ml-2 block text-sm text-slate-700 select-none cursor-pointer"
+                    >
+                        Understood, don't show this again
                     </label>
                 </div>
 
-                {/* Revamped action buttons */}
+                {/* Action buttons */}
                 <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="w-full inline-flex justify-center rounded-lg border border-gray-300 bg-white px-4 py-3 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200"
+                        className="px-5 py-3 rounded-xl bg-neumorphic-base shadow-neumorphic text-slate-700 font-semibold hover:shadow-neumorphic-inset transition"
                     >
                         Cancel
                     </button>
                     <button
                         type="button"
                         onClick={handleConfirm}
-                        className="w-full inline-flex justify-center rounded-lg border border-transparent bg-indigo-600 px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200"
+                        className="px-5 py-3 rounded-xl bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 font-semibold shadow-neumorphic hover:shadow-neumorphic-inset transition"
                     >
                         Agree & Continue
                     </button>

@@ -136,17 +136,19 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         }
     };
 
+    // NOTE: The custom shadow values (e.g., shadow-[...]) are used to create the neumorphic effect.
+    // They define a light shadow from the top-left and a dark shadow from the bottom-right.
     return (
         <Dialog open={isOpen} onClose={handleClose} className="relative z-50">
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" />
+            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" aria-hidden="true" />
             <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-                <Dialog.Panel className="relative flex flex-col w-full h-full max-w-5xl max-h-[90vh] rounded-2xl bg-zinc-50/90 backdrop-blur-2xl border border-white/20 shadow-xl">
+                <Dialog.Panel className="relative flex flex-col w-full h-full max-w-5xl max-h-[90vh] rounded-2xl bg-slate-200 shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff] border border-slate-300/50">
                     <button
                         onClick={handleClose}
-                        className="absolute top-4 right-4 p-1.5 rounded-full text-zinc-500 bg-zinc-200/80 hover:bg-zinc-300/80 z-10"
+                        className="absolute top-4 right-4 p-2 rounded-full text-slate-600 bg-slate-200 shadow-[3px_3px_6px_#bdc1c6,-3px_-3px_6px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_3px_3px_6px_#bdc1c6,inset_-3px_-3px_6px_#ffffff] transition-shadow duration-150 z-10"
                         aria-label="Close"
                     >
-                        <XMarkIcon className="w-5 w-5" />
+                        <XMarkIcon className="w-5 h-5" />
                     </button>
                     <Suspense fallback={<LoadingFallback />}>
                         {renderCurrentStep()}

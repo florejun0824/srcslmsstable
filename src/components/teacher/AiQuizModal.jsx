@@ -1,24 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogPanel, Title, Button, NumberInput, Textarea, Subtitle } from '@tremor/react';
+import { Dialog, DialogPanel, Title, Subtitle } from '@tremor/react';
 import { SparklesIcon, ArrowUturnLeftIcon, CheckCircleIcon, LanguageIcon, ListBulletIcon, HashtagIcon, ClipboardDocumentListIcon, XMarkIcon, DocumentArrowDownIcon } from '@heroicons/react/24/solid';
 import { db } from '../../services/firebase';
 import { doc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable'; // <-- FIX: Changed import
+import autoTable from 'jspdf-autotable';
 import QuizLoadingScreen from './QuizLoadingScreen';
 import ContentRenderer from './ContentRenderer';
 
-// Helper for futuristic segmented control buttons
+// Neumorphic styles helper for segmented controls
 const getSegmentedButtonClasses = (isActive) => {
-    const baseClasses = "flex-1 rounded-xl py-2.5 px-3 text-sm font-semibold transition-all duration-300 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black/10";
+    const baseClasses = "flex-1 rounded-lg py-2.5 px-3 text-sm font-semibold transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 ring-offset-2 ring-offset-slate-200 ring-sky-500";
     if (isActive) {
-        return `${baseClasses} bg-white/90 text-blue-600 shadow-lg scale-105`;
+        return `${baseClasses} bg-slate-200 text-sky-600 shadow-[3px_3px_6px_#bdc1c6,-3px_-3px_6px_#ffffff] scale-100`;
     }
-    return `${baseClasses} bg-transparent text-gray-700 hover:bg-white/50`;
+    return `${baseClasses} bg-transparent text-slate-600 hover:bg-slate-200/50`;
 };
 
+// Neumorphic input field styles
+const inputBaseStyles = "bg-slate-200 rounded-xl shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] focus:outline-none focus:ring-2 focus:ring-sky-500 placeholder:text-slate-400 border-none";
+
+// Neumorphic button styles
+const btnBase = "w-full inline-flex items-center justify-center px-4 py-3 text-sm font-semibold rounded-xl transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-200";
+const btnExtruded = `shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff]`;
+const btnDisabled = "disabled:text-slate-400 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff]";
 
 export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson }) {
     const { showToast } = useToast();
@@ -35,38 +42,25 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
 
     useEffect(() => {
         if (isOpen) {
-            setStep(1);
-            setItemCount(10);
-            setQuizType('multiple-choice');
-            setLanguage('English');
+            setStep(1); setItemCount(10); setQuizType('multiple-choice'); setLanguage('English');
             setDistribution({ 'multiple-choice': 10, 'true-false': 0, 'identification': 0 });
-            setRevisionPrompt('');
-            setIsGenerating(false);
-            setGeneratedQuiz(null);
-            setError('');
-            setKeyPoints('');
+            setRevisionPrompt(''); setIsGenerating(false); setGeneratedQuiz(null); setError(''); setKeyPoints('');
         }
     }, [isOpen]);
 
     useEffect(() => {
         if (quizType !== 'mixed') {
             const newDistribution = { 'multiple-choice': 0, 'true-false': 0, 'identification': 0 };
-            newDistribution[quizType] = itemCount;
-            setDistribution(newDistribution);
+            newDistribution[quizType] = itemCount; setDistribution(newDistribution);
         } else {
             setDistribution({ 'multiple-choice': itemCount, 'true-false': 0, 'identification': 0 });
         }
     }, [itemCount, quizType]);
 
-
     const handleDistributionChange = (type, value) => {
         const newDistribution = { ...distribution, [type]: value };
         const total = Object.values(newDistribution).reduce((sum, val) => sum + val, 0);
-        if (total > itemCount) {
-            setError(`The total number of items (${total}) cannot exceed ${itemCount}.`);
-        } else {
-            setError('');
-        }
+        setError(total > itemCount ? `The total number of items (${total}) cannot exceed ${itemCount}.` : '');
         setDistribution(newDistribution);
     };
 
@@ -140,7 +134,6 @@ You MUST order the choices in the "options" array according to the following log
         return prompt;
     };
 
-
     const handleGenerate = async (isRevision = false) => {
         if (!lesson) {
             showToast("No lesson selected to generate a quiz from.", "error");
@@ -199,12 +192,12 @@ You MUST order the choices in the "options" array according to the following log
             const newQuizTitle = `Quiz: ${cleanedLessonTitle}`;
 
             const quizRef = doc(collection(db, 'quizzes'));
-            
+
             await setDoc(quizRef, {
                 ...generatedQuiz,
                 title: newQuizTitle,
                 language: language,
-                unitId: lesson.unitId || unitId, 
+                unitId: lesson.unitId || unitId,
                 subjectId,
                 lessonId: lesson.id,
                 createdAt: serverTimestamp(),
@@ -245,7 +238,7 @@ You MUST order the choices in the "options" array according to the following log
             } else if (q.type === 'identification') {
                 correctAnswerText = q.correctAnswer;
             }
-            
+
             quizBody.push([i + 1, questionContent]);
             answerKey.push([i + 1, correctAnswerText]);
         });
@@ -255,7 +248,6 @@ You MUST order the choices in the "options" array according to the following log
         doc.setFontSize(11);
         doc.setTextColor(100);
 
-        // FIX: Changed function call
         autoTable(doc, {
             head: [['#', 'Question']],
             body: quizBody,
@@ -268,8 +260,7 @@ You MUST order the choices in the "options" array according to the following log
         doc.addPage();
         doc.setFontSize(18);
         doc.text('Answer Key', 14, 22);
-        
-        // FIX: Changed function call
+
         autoTable(doc, {
             head: [['#', 'Correct Answer']],
             body: answerKey,
@@ -281,139 +272,92 @@ You MUST order the choices in the "options" array according to the following log
         doc.save(`${generatedQuiz.title}.pdf`);
         showToast("Quiz exported as PDF.", "success");
     };
-    
-    const renderStepContent = () => {
-        const questionTypes = [
-            { id: 'multiple-choice', name: 'Multiple Choice' },
-            { id: 'true-false', name: 'True/False' },
-            { id: 'identification', name: 'Identification' },
-            { id: 'mixed', name: 'Mixed' },
-        ];
 
+    const renderStepContent = () => {
+        const questionTypes = [{ id: 'multiple-choice', name: 'Multiple Choice' }, { id: 'true-false', name: 'True/False' }, { id: 'identification', name: 'Identification' }, { id: 'mixed', name: 'Mixed' }];
         switch (step) {
             case 1:
-                const totalDistributed = Object.values(distribution).reduce((sum, val) => sum + val, 0);
+                const totalDistributed = Object.values(distribution).reduce((s, v) => s + v, 0);
                 return (
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                         <div className="text-center">
-                            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white/80 shadow-lg">
-                                <ClipboardDocumentListIcon className="h-9 w-9 text-blue-500" aria-hidden="true" />
+                            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-200 shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff]">
+                                <ClipboardDocumentListIcon className="h-9 w-9 text-sky-500" />
                             </div>
-                            <Title className="mt-5 text-3xl font-bold text-gray-900">AI Quiz Generator</Title>
-                            <p className="mt-2 text-base text-gray-600">
-                                For: <span className="font-semibold text-gray-800">{lesson?.title}</span>
-                            </p>
+                            <Title className="mt-4 text-2xl font-bold text-slate-800">AI Quiz Generator</Title>
+                            <p className="mt-1 text-sm text-slate-500">For: <span className="font-semibold text-slate-700">{lesson?.title}</span></p>
                         </div>
-                        
                         <div className="space-y-4">
-                            {/* --- Settings Groups --- */}
-                            <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/30 shadow-lg p-5 space-y-5">
-                               <div>
-                                    <label className="text-sm font-medium text-gray-600 flex items-center mb-3">
-                                        <LanguageIcon className="h-5 w-5 mr-2" /> Language
-                                    </label>
-                                    <div className="flex space-x-2 bg-black/5 p-1 rounded-xl">
-                                        <button type="button" onClick={() => setLanguage('English')} className={getSegmentedButtonClasses(language === 'English')}>English</button>
-                                        <button type="button" onClick={() => setLanguage('Filipino')} className={getSegmentedButtonClasses(language === 'Filipino')}>Filipino</button>
-                                    </div>
-                               </div>
-                               <div className="flex items-center justify-between">
-                                    <label htmlFor="item-count" className="text-sm font-medium text-gray-600 flex items-center">
-                                        <HashtagIcon className="h-5 w-5 mr-2" /> Number of Items
-                                    </label>
-                                    <NumberInput id="item-count" value={itemCount} onValueChange={setItemCount} min={1} max={50} className="max-w-[100px]" />
-                               </div>
-                            </div>
-                            <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/30 shadow-lg p-5">
-                                <label className="text-sm font-medium text-gray-600 flex items-center mb-3">
-                                    <ListBulletIcon className="h-5 w-5 mr-2" /> Question Type
-                                </label>
-                                <div className="grid grid-cols-2 gap-2 bg-black/5 p-1 rounded-xl">
-                                    {questionTypes.map((type) => (
-                                        <button key={type.id} type="button" onClick={() => setQuizType(type.id)} className={getSegmentedButtonClasses(quizType === type.id)}>
-                                            {type.name}
-                                        </button>
-                                    ))}
+                            <div className="p-5 rounded-2xl shadow-[inset_3px_3px_7px_#bdc1c6,inset_-3px_-3px_7px_#ffffff] space-y-5">
+                                <div>
+                                    <label className="text-sm font-medium text-slate-700 flex items-center mb-2"><LanguageIcon className="h-5 w-5 mr-2" />Language</label>
+                                    <div className={`flex space-x-1 p-1 rounded-xl ${inputBaseStyles}`}><button onClick={() => setLanguage('English')} className={getSegmentedButtonClasses(language === 'English')}>English</button><button onClick={() => setLanguage('Filipino')} className={getSegmentedButtonClasses(language === 'Filipino')}>Filipino</button></div>
                                 </div>
+                                <div className="flex items-center justify-between">
+                                    <label className="text-sm font-medium text-slate-700 flex items-center"><HashtagIcon className="h-5 w-5 mr-2" />Number of Items</label>
+                                    <input type="number" value={itemCount} onChange={(e) => setItemCount(Math.max(1, Math.min(50, parseInt(e.target.value, 10) || 1)))} className={`max-w-[100px] text-center ${inputBaseStyles} py-2.5`} />
+                                </div>
+                            </div>
+                            <div className="p-5 rounded-2xl shadow-[inset_3px_3px_7px_#bdc1c6,inset_-3px_-3px_7px_#ffffff]">
+                                <label className="text-sm font-medium text-slate-700 flex items-center mb-2"><ListBulletIcon className="h-5 w-5 mr-2" />Question Type</label>
+                                <div className={`grid grid-cols-2 gap-1 p-1 rounded-xl ${inputBaseStyles}`}>{questionTypes.map((t) => (<button key={t.id} onClick={() => setQuizType(t.id)} className={getSegmentedButtonClasses(quizType === t.id)}>{t.name}</button>))}</div>
                             </div>
                         </div>
-
-                        {quizType === 'mixed' && (
-                             <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/30 shadow-lg p-5 space-y-4">
-                                <h3 className="text-base font-semibold text-gray-800">Item Distribution</h3>
-                                <p className="text-sm text-gray-600">Total must equal {itemCount}.</p>
-                                <div className="grid grid-cols-3 gap-3">
-                                    {['Multiple Choice', 'True/False', 'Identification'].map(type => {
-                                        const typeKey = type.toLowerCase().replace(' ', '-');
-                                        return (
-                                            <div key={typeKey}>
-                                                <label className="text-xs font-medium text-gray-500">{type}</label>
-                                                <NumberInput value={distribution[typeKey]} onValueChange={v => handleDistributionChange(typeKey, v)} min={0} className="mt-1.5"/>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                                {(totalDistributed !== itemCount) && (
-                                    <p className="text-sm font-medium text-center text-amber-800 bg-amber-300/50 p-2.5 rounded-lg">Current total: {totalDistributed} of {itemCount}</p>
-                                )}
+                        {quizType === 'mixed' && (<div className="p-5 rounded-2xl shadow-[inset_3px_3px_7px_#bdc1c6,inset_-3px_-3px_7px_#ffffff] space-y-4">
+                            <h3 className="text-base font-semibold text-slate-800">Item Distribution</h3>
+                            <div className="grid grid-cols-3 gap-3">
+                                {['Multiple Choice', 'True/False', 'Identification'].map(type => {
+                                    const key = type.toLowerCase().replace(' ', '-');
+                                    return (<div key={key}><label className="text-xs font-medium text-slate-500">{type}</label><input type="number" value={distribution[key]} onChange={(e) => handleDistributionChange(key, Math.max(0, parseInt(e.target.value, 10) || 0))} className={`w-full mt-1.5 text-center ${inputBaseStyles} py-2.5`} /></div>);
+                                })}
                             </div>
-                        )}
+                            {(totalDistributed !== itemCount) && (<p className="text-sm font-medium text-center text-amber-800 bg-amber-200 p-2.5 rounded-lg shadow-[inset_1px_1px_2px_#e6c589,inset_-1px_-1px_2px_#ffffd3]">Current total: {totalDistributed} of {itemCount}</p>)}
+                        </div>)}
                     </div>
                 );
-                
+
             case 3:
                 return (
-                    <div className="flex flex-col h-full">
-                        <Title className="text-3xl font-bold">Preview & Revise</Title>
-                        <Subtitle className="mt-1">Review the generated quiz below.</Subtitle>
-                        <div className="mt-4 p-2 -mx-4 overflow-y-auto flex-grow">
-                             <h3 className="font-bold text-xl mb-3 text-gray-800 px-2">{generatedQuiz?.title}</h3>
-                             <div className="space-y-3">
-                                {generatedQuiz?.questions.map((q, i) => (
-                                    <div key={i} className="text-sm p-4 bg-white/60 backdrop-blur-lg rounded-xl border border-white/30 shadow-md">
-                                        <div className="font-semibold text-gray-900 flex items-start">
-                                            <span className="mr-2.5 text-gray-500">{i + 1}.</span>
-                                            <ContentRenderer text={q.text} />
-                                        </div>
-                                        <div className="mt-3 flex items-center space-x-2">
-                                            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-800">{q.type}</span>
-                                            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-800">{q.difficulty}</span>
-                                        </div>
-                                        
-                                        <div className="mt-4 pl-6">
-                                            {q.type === 'multiple-choice' && q.options && (
-                                                <ul className="list-disc list-outside space-y-1.5 text-gray-700">
-                                                    {q.options.map((option) => (
-                                                        <li key={option.text} className={option.isCorrect ? 'font-semibold text-green-700' : ''}>
-                                                            <ContentRenderer text={option.text} />
-                                                            {option.isCorrect && <span className="text-green-500 ml-1.5">✓</span>}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                            {(q.type === 'true-false' || q.type === 'identification') && (
-                                                <p className="text-gray-700">
-                                                    Answer: <span className="font-semibold text-green-700"><ContentRenderer text={String(q.correctAnswer)}/></span>
-                                                </p>
-                                            )}
-                                            {q.explanation && (
-                                                <div className="mt-4 p-3 bg-sky-500/10 border-l-4 border-sky-300 text-sky-900 rounded-r-lg">
-                                                    <p className="font-bold text-xs tracking-wider uppercase">Explanation</p>
-                                                    <p className="text-sm italic mt-1"><ContentRenderer text={q.explanation} /></p>
-                                                </div>
-                                            )}
-                                        </div>
+                     <div className="flex flex-col h-full">
+                        <Title className="text-2xl font-bold text-slate-800">Preview & Revise</Title>
+                        <Subtitle className="mt-1 text-slate-500">Review the generated quiz below.</Subtitle>
+                        <div className="mt-4 -mx-2 px-2 overflow-y-auto flex-grow space-y-4">
+                            <h3 className="font-bold text-xl text-slate-800">{generatedQuiz?.title}</h3>
+                            {generatedQuiz?.questions.map((q, i) => (
+                                <div key={i} className="p-4 bg-slate-200 rounded-xl shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff]">
+                                    <p className="font-semibold text-slate-900 leading-relaxed"><span className="text-slate-500 mr-2">{i + 1}.</span><ContentRenderer text={q.text} /></p>
+                                    <div className="mt-3 flex items-center space-x-2"><span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-200 shadow-[inset_1px_1px_2px_#bdc1c6,inset_-1px_-1px_2px_#ffffff] text-sky-700">{q.type}</span><span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-200 shadow-[inset_1px_1px_2px_#bdc1c6,inset_-1px_-1px_2px_#ffffff] text-purple-700">{q.difficulty}</span></div>
+                                    <div className="mt-3 pl-6 text-sm">
+                                        {q.type === 'multiple-choice' && q.options && (
+                                            <ul className="list-disc list-outside space-y-1.5 text-slate-700">
+                                                {q.options.map((option) => (
+                                                    <li key={option.text} className={option.isCorrect ? 'font-semibold text-green-700' : ''}>
+                                                        <ContentRenderer text={option.text} />
+                                                        {option.isCorrect && <span className="text-green-500 ml-1.5">✓</span>}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                        {(q.type === 'true-false' || q.type === 'identification') && (
+                                            <p className="text-slate-700">
+                                                Answer: <span className="font-semibold text-green-700"><ContentRenderer text={String(q.correctAnswer)}/></span>
+                                            </p>
+                                        )}
+                                        {q.explanation && (
+                                            <div className="mt-4 p-3 bg-slate-200 border-l-4 border-sky-300 text-sky-900 rounded-r-lg shadow-[inset_2px_2px_4px_#d1d9e6,inset_-2px_-2px_4px_#ffffff]">
+                                                <p className="font-bold text-xs tracking-wider uppercase">Explanation</p>
+                                                <p className="text-sm italic mt-1"><ContentRenderer text={q.explanation} /></p>
+                                            </div>
+                                        )}
                                     </div>
-                                ))}
-                             </div>
+                                </div>
+                            ))}
                         </div>
-                        <div className="mt-6 space-y-2 flex-shrink-0">
-                            <label className="text-sm font-medium text-gray-700">Request Changes (Optional)</label>
-                            <Textarea placeholder="e.g., Make question 3 harder..." value={revisionPrompt} onChange={e => setRevisionPrompt(e.target.value)} />
-                            <div className="flex justify-end pt-1">
-                                <Button icon={ArrowUturnLeftIcon} variant="light" onClick={() => handleGenerate(true)} disabled={isGenerating}>
-                                    Regenerate
-                                </Button>
+                        <div className="mt-6 flex-shrink-0">
+                            <label className="text-sm font-medium text-slate-700">Request Changes (Optional)</label>
+                            <textarea placeholder="e.g., Make question 3 harder..." value={revisionPrompt} onChange={e => setRevisionPrompt(e.target.value)} className={`w-full mt-1.5 text-sm ${inputBaseStyles} p-3 min-h-[60px]`} />
+                            <div className="flex justify-end pt-2">
+                                <button onClick={() => handleGenerate(true)} disabled={isGenerating} className={`${btnBase} w-auto bg-slate-200 text-slate-700 ${btnExtruded} ${btnDisabled}`}><ArrowUturnLeftIcon className="h-4 w-4 mr-2" />Regenerate</button>
                             </div>
                         </div>
                     </div>
@@ -421,45 +365,27 @@ You MUST order the choices in the "options" array according to the following log
             case 4:
                 return (
                     <div className="text-center p-8 flex flex-col items-center justify-center h-full">
-                        <CheckCircleIcon className="h-24 w-24 text-green-500 mx-auto mb-6" />
-                        <Title className="text-3xl font-bold">Quiz Saved!</Title>
-                        <p className="text-gray-600 mt-2 max-w-xs">The quiz is now available in your content library.</p>
+                        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-slate-200 mb-6 shadow-[inset_5px_5px_10px_#bdc1c6,inset_-5px_-5px_10px_#ffffff]"><CheckCircleIcon className="h-12 w-12 text-green-500" /></div>
+                        <Title className="text-3xl font-bold text-slate-800">Quiz Saved!</Title>
+                        <p className="text-slate-600 mt-2 max-w-xs">The quiz is now available in your content library.</p>
                     </div>
                 );
-            default:
-                return null;
+            default: return null;
         }
     };
 
     const renderButtons = () => {
-        const baseButtonClasses = "w-full h-14 text-base font-semibold border-none rounded-2xl transition-transform duration-200 ease-in-out hover:scale-[1.03] active:scale-[0.98]";
-        
-        if (step === 4) {
-            return <Button onClick={onClose} className={`${baseButtonClasses} bg-gray-800 hover:bg-gray-900 text-white`}>Close</Button>;
-        }
-        if (step === 3) {
-            return (
-                <div className="grid grid-cols-3 gap-3">
-                    <Button variant="secondary" onClick={() => setStep(1)} className="h-14 text-base rounded-2xl">Back</Button>
-                    <Button icon={DocumentArrowDownIcon} variant="light" onClick={handleExportPdf} className="h-14 text-base rounded-2xl">Export PDF</Button>
-                    <Button icon={CheckCircleIcon} onClick={handleSaveQuiz} disabled={isGenerating} className="h-14 text-base rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white">Save Quiz</Button>
-                </div>
-            );
-        }
+        if (step === 4) return <button onClick={onClose} className={`${btnBase} bg-slate-700 hover:bg-slate-800 text-white ${btnExtruded}`}>Close</button>;
+        if (step === 3) return (
+            <div className="grid grid-cols-3 gap-3">
+                <button onClick={() => setStep(1)} className={`${btnBase} bg-slate-200 text-slate-700 ${btnExtruded}`}>Back</button>
+                <button onClick={handleExportPdf} className={`${btnBase} bg-slate-200 text-slate-700 ${btnExtruded}`}>Export PDF</button>
+                <button onClick={handleSaveQuiz} disabled={isGenerating} className={`${btnBase} bg-sky-500 hover:bg-sky-600 text-white ${btnExtruded} ${btnDisabled}`}>Save Quiz</button>
+            </div>
+        );
         if (step === 1) {
-            const totalDistributed = Object.values(distribution).reduce((sum, val) => sum + val, 0);
-            const isConfigInvalid = quizType === 'mixed' && totalDistributed !== itemCount;
-            return (
-                <Button 
-                    icon={SparklesIcon} 
-                    onClick={() => handleGenerate(false)} 
-                    loading={isGenerating}
-                    disabled={isConfigInvalid}
-                    className={`${baseButtonClasses} bg-gradient-to-r from-blue-500 to-indigo-600 text-white focus-visible:ring-indigo-400 disabled:bg-gray-300 disabled:bg-none`}
-                >
-                    Generate Quiz
-                </Button>
-            );
+            const isInvalid = quizType === 'mixed' && Object.values(distribution).reduce((s, v) => s + v, 0) !== itemCount;
+            return <button onClick={() => handleGenerate(false)} disabled={isInvalid || isGenerating} className={`${btnBase} bg-sky-500 hover:bg-sky-600 text-white ${btnExtruded} disabled:bg-slate-200 ${btnDisabled}`}><SparklesIcon className="h-5 w-5 mr-2" />Generate Quiz</button>;
         }
         return null;
     };
@@ -467,43 +393,18 @@ You MUST order the choices in the "options" array according to the following log
     if (!isOpen) return null;
 
     return (
-        <>
-            <style>
-                {`.tremor-dropdown-menu { z-index: 9999 !important; }`}
-            </style>
-            <Dialog open={isOpen} onClose={onClose} className="relative z-50">
-                <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-                <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-                    <DialogPanel className="max-w-lg w-full bg-gray-200/50 backdrop-blur-2xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] transition-all border border-white/20 relative"> {/* Added relative positioning */}
-                        
-                        {/* Close Button */}
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/60 backdrop-blur-md text-gray-700 hover:bg-white/90 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-100"
-                        >
-                            <XMarkIcon className="h-6 w-6" aria-hidden="true" />
-                            <span className="sr-only">Close</span>
-                        </button>
-
-                        <div className="flex-1 overflow-y-auto p-6">
-                            {isGenerating ? (
-                                <QuizLoadingScreen />
-                            ) : (
-                                renderStepContent()
-                            )}
-                            {error && !isGenerating && (
-                                <p className="text-sm text-red-800 mt-4 text-center bg-red-300/50 p-3 rounded-lg">{error}</p>
-                            )}
-                        </div>
-                        {!isGenerating && (
-                            <div className="flex-shrink-0 px-6 py-5 bg-black/5">
-                                {renderButtons()}
-                            </div>
-                        )}
-                    </DialogPanel>
-                </div>
-            </Dialog>
-        </>
+        <Dialog open={isOpen} onClose={onClose} className="relative z-50">
+            <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm" aria-hidden="true" />
+            <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
+                <DialogPanel className="max-w-lg w-full bg-slate-200 rounded-3xl shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff] flex flex-col max-h-[90vh] transition-all relative">
+                    <button onClick={onClose} className={`absolute top-4 right-4 z-10 h-10 w-10 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 ${btnExtruded}`}><XMarkIcon className="h-6 w-6" /></button>
+                    <div className="flex-1 overflow-y-auto p-8 pt-12">
+                        {isGenerating ? <QuizLoadingScreen /> : renderStepContent()}
+                        {error && !isGenerating && <p className="text-sm text-red-800 mt-4 text-center bg-red-200 p-3 rounded-lg shadow-[inset_1px_1px_2px_#d9b8b8,inset_-1px_-1px_2px_#ffffff]">{error}</p>}
+                    </div>
+                    {!isGenerating && <div className="flex-shrink-0 px-6 py-5 bg-slate-200/50 border-t border-slate-300/70">{renderButtons()}</div>}
+                </DialogPanel>
+            </div>
+        </Dialog>
     );
 }

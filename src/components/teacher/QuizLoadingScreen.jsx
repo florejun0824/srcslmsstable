@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SparklesIcon } from '@heroicons/react/24/solid';
 
-// The engaging loading messages are retained
 const loadingMessages = [
   "Analyzing key concepts from the lesson...",
   "Formulating challenging questions...",
@@ -16,16 +15,14 @@ const loadingMessages = [
 export default function QuizLoadingScreen() {
   const [messageIndex, setMessageIndex] = useState(0);
 
-  // Effect for cycling through the loading messages
   useEffect(() => {
     const messageInterval = setInterval(() => {
       setMessageIndex((prevIndex) => (prevIndex + 1) % loadingMessages.length);
-    }, 2500); // Change message every 2.5 seconds
+    }, 2500);
 
     return () => clearInterval(messageInterval);
   }, []);
 
-  // Configuration for the animated sparkles
   const sparkles = [
     { id: 1, x: -35, y: -35, scale: 0.7, delay: 0 },
     { id: 2, x: 35, y: -20, scale: 0.5, delay: 0.3 },
@@ -35,12 +32,12 @@ export default function QuizLoadingScreen() {
   ];
 
   return (
-    <div className="flex min-h-[350px] flex-col items-center justify-center space-y-8 p-10 text-center font-sans bg-transparent">
+    <div className="flex min-h-[350px] flex-col items-center justify-center space-y-8 p-10 text-center font-sans bg-slate-200">
       
-      {/* Magical Burst Icon Animation */}
-      <div className="relative flex h-28 w-28 items-center justify-center">
+      {/* Neumorphic Inset Icon Animation */}
+      <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-slate-200 shadow-[inset_5px_5px_10px_#bdc1c6,inset_-5px_-5px_10px_#ffffff]">
         {/* Central Icon */}
-        <SparklesIcon className="h-16 w-16 text-sky-500 dark:text-sky-400" />
+        <SparklesIcon className="h-16 w-16 text-sky-500" />
         
         {/* Emitted Sparkles */}
         {sparkles.map((sparkle) => (
@@ -61,17 +58,17 @@ export default function QuizLoadingScreen() {
               ease: "easeInOut"
             }}
           >
-            <SparklesIcon className="h-6 w-6 text-sky-400 dark:text-sky-300 opacity-70" />
+            <SparklesIcon className="h-6 w-6 text-sky-400 opacity-70" />
           </motion.div>
         ))}
       </div>
 
-      {/* Loading Text with Fluid Transitions */}
+      {/* Loading Text */}
       <div className="max-w-md">
-        <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200">
+        <h3 className="text-2xl font-bold text-slate-800">
           Generating Your Quiz
         </h3>
-        <div className="mt-3 h-6 text-base text-slate-600 dark:text-slate-400">
+        <div className="mt-3 h-6 text-base text-slate-600">
           <AnimatePresence mode="wait">
             <motion.p
               key={messageIndex}

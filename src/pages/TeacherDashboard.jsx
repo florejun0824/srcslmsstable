@@ -357,7 +357,35 @@ const TeacherDashboard = () => {
             if (selectedLessonsData.length === 0) { throw new Error("No lesson data found for the selected IDs."); }
             const allLessonContent = selectedLessonsData.map(lesson => { if (!lesson.pages || lesson.pages.length === 0) { return ''; } const validPages = lesson.pages.filter(page => page.content && page.content.trim() !== ''); if (validPages.length === 0) { return ''; } const pageText = validPages.map(page => `Page Title: ${page.title}\n${page.content.trim()}`).join('\n\n'); return `Lesson: ${lesson.title}\n${pageText}`; }).filter(entry => entry.trim() !== '').join('\n\n---\n\n');
             if (!allLessonContent || allLessonContent.trim().length === 0) { throw new Error("Selected lessons contain no usable content to generate slides."); }
-            const presentationPrompt = `You are a master educator... LESSON CONTENT TO PROCESS: --- ${allLessonContent}`; // Prompt shortened for brevity
+			const presentationPrompt = `
+			You are a master educator and presentation designer. 
+			Your task is to generate a structured presentation preview from lesson content.
+
+			⚠️ IMPORTANT: 
+			- Respond ONLY with a single valid JSON object.
+			- Do NOT include explanations, notes, markdown fences, or extra text.
+			- Follow the exact schema below.
+
+			SCHEMA:
+			{
+			  "slides": [
+			    {
+			      "title": "string - short, engaging slide title",
+			      "body": "string - main content of the slide, concise but clear",
+			      "notes": {
+			        "talkingPoints": "string - bullet points the teacher can say",
+			        "interactiveElement": "string - suggested activity, question, or visual",
+			        "slideTiming": "string - recommended time in minutes"
+			      }
+			    }
+			  ]
+			}
+
+			LESSON CONTENT TO PROCESS:
+			---
+			${allLessonContent}
+			`;
+            
             const aiResponseText = await callGeminiWithLimitCheck(presentationPrompt);
             const jsonText = aiResponseText.match(/```json\s*([\s\S]*?)\s*```/)?.[1] || aiResponseText;
             const parsedData = JSON.parse(jsonText);

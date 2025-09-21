@@ -18,26 +18,6 @@ import { doc, updateDoc, setDoc, serverTimestamp  } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
 
-async function markLessonCompleted() {
-  if (!studentId || !currentLesson?.id) {
-    console.error("Missing studentId or lessonId for progress update");
-    return;
-  }
-
-  const progressRef = doc(db, "lessonProgress", `${studentId}_${currentLesson.id}`);
-
-  await setDoc(progressRef, {
-    studentId,
-    lessonId: currentLesson.id,
-    classId: currentLesson.classId,
-    unitId: currentLesson.unitId,
-    completed: true,
-    completedAt: new Date(),
-    pagesRead: currentLesson.pages?.length || 0,
-    totalPages: currentLesson.pages?.length || 0,
-    overdue: false
-  }, { merge: true });
-}
 
 const modalVariants = {
     hidden: { opacity: 0, scale: 0.98 },
@@ -57,7 +37,8 @@ const objectiveItemVariants = {
     visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 150, damping: 20 } },
 };
 
-export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, className }) {
+// ✅ FIX 1: Accept `userRole` and `studentId` props.
+export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, className, userRole, studentId }) {
     const [currentPage, setCurrentPage] = useState(0);
     const [currentLesson, setCurrentLesson] = useState(lesson);
     const { showToast } = useToast();
@@ -76,30 +57,39 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
     const objectivesLabel = currentLesson?.language === 'Filipino' ? "Mga Layunin sa Pagkatuto" : "Learning Objectives";
     const progressPercentage = totalPages > 0 ? ((currentPage + 1) / totalPages) * 100 : 0;
 
-	const markAsCompleted = async (studentId) => {
-	    try {
-	        const progressRef = doc(db, "lessonProgress", `${studentId}_${currentLesson.id}`);
+	// ✅ FIX 2: Define the `markAsCompleted` function inside the component.
+    const markAsCompleted = async () => {
+        // Prevent action if not a student or if IDs are missing.
+        if (userRole !== 'student' || !studentId || !currentLesson?.id) {
+            console.error("Missing studentId or lessonId for progress update.");
+            return;
+        }
 
-	        await setDoc(progressRef, {
-	            studentId,
-	            lessonId: currentLesson.id,
-	            classId: currentLesson.classId || null,
-	            unitId: currentLesson.unitId || null,
-	            pagesRead: currentLesson.pages?.length || 0,
-	            totalPages: currentLesson.pages?.length || 0,
-	            completed: true,
-	            completedAt: serverTimestamp()
-	        }, { merge: true });
+        try {
+            const progressRef = doc(db, "lessonProgress", `${studentId}_${currentLesson.id}`);
 
-	        showToast("Lesson marked as completed!", "success");
+            await setDoc(progressRef, {
+                studentId: studentId,
+                lessonId: currentLesson.id,
+                classId: currentLesson.classId || null,
+                unitId: currentLesson.unitId || null,
+                pagesRead: currentLesson.pages?.length || 0,
+                totalPages: currentLesson.pages?.length || 0,
+                completed: true,
+                completedAt: serverTimestamp()
+            }, { merge: true });
 
-	        // 🔑 Notify parent (LessonsByUnitView) so it moves tab immediately
-	        if (onUpdate) onUpdate({ ...currentLesson, completed: true });
-	    } catch (error) {
-	        console.error("Error marking lesson as completed:", error);
-	        showToast("Failed to mark lesson as completed.", "error");
-	    }
-	};
+            showToast("Lesson marked as completed!", "success");
+
+            // Notify the parent component so the UI can update immediately.
+            if (onUpdate) {
+                onUpdate({ ...currentLesson, completed: true });
+            }
+        } catch (error) {
+            console.error("Error marking lesson as completed:", error);
+            showToast("Failed to save your progress.", "error");
+        }
+    };
 
     const goToNextPage = useCallback(() => {
         if (currentPage < totalPages - 1) {
@@ -132,7 +122,8 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
     }, [isOpen, goToNextPage, goToPreviousPage]);
 
     const handleFinalizeDiagram = async (pageIndex, finalizedContent) => {
-        if (isFinalizing) return;
+        if (userRole !== 'teacher' || isFinalizing) return;
+        
         setIsFinalizing(true);
         showToast("Finalizing diagram...", "info");
 
@@ -159,10 +150,11 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
 
     if (!isOpen || !currentLesson) return null;
     const pageData = pages[currentPage];
+    
+    const isTeacher = userRole === 'teacher';
 
     return (
         <Dialog open={isOpen} onClose={onClose} className={`fixed inset-0 z-50 flex items-center justify-center font-sans ${className}`}>
-            {/* Darkened overlay */}
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -180,24 +172,21 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                 exit="exit"
                 className="relative bg-neumorphic-base rounded-2xl shadow-neumorphic w-full max-w-5xl z-10 flex flex-col h-full md:h-[90vh] md:max-h-[700px] overflow-hidden"
             >
-                {/* Progress Bar */}
                 <div className="w-full bg-slate-200 h-1.5 flex-shrink-0 rounded-full shadow-inner">
                     <div className="bg-red-600 h-1.5 rounded-full transition-all duration-500 ease-out" style={{ width: `${progressPercentage}%` }} />
                 </div>
 
-                {/* Neumorphic Header */}
                 <header className="flex justify-between items-center p-4 sm:p-5 bg-neumorphic-base shadow-neumorphic-inset flex-shrink-0 z-10 rounded-t-2xl">
                     <div className="flex items-center gap-3 overflow-hidden">
                         <Dialog.Title className="text-lg sm:text-xl font-bold text-slate-800 truncate">
                             {lessonTitle}
                         </Dialog.Title>
-                        {currentLesson.studyGuideUrl && (
+                        {currentLesson.studyGuideUrl && userRole === 'student' && (
                             <a
                                 href={currentLesson.studyGuideUrl}
                                 download
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                onClick={markAsCompleted} // ✅ Mark as completed when study guide is downloaded
                                 className="inline-flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 
                                            bg-neumorphic-base rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset transition-all"
                             >
@@ -215,7 +204,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                     </button>
                 </header>
 
-                {/* Lesson Pages */}
                 <main ref={contentRef} className="flex-grow overflow-y-auto custom-scrollbar bg-neumorphic-base p-4 sm:p-8">
                     <div className="w-full max-w-3xl mx-auto flex-grow">
                         <AnimatePresence initial={false} mode="wait">
@@ -254,7 +242,7 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                                 {pageData ? (
                                     <LessonPage
                                         page={pageData}
-                                        isEditable={true}
+                                        isEditable={isTeacher}
                                         onFinalizeDiagram={(finalizedContent) => handleFinalizeDiagram(currentPage, finalizedContent)}
                                         isFinalizing={isFinalizing}
                                     />
@@ -271,7 +259,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                     </div>
                 </main>
                 
-                {/* Neumorphic Footer */}
                 <footer className="flex justify-between items-center p-4 bg-neumorphic-base shadow-neumorphic-inset flex-shrink-0 z-10 rounded-b-2xl">
                     <div className="flex items-center gap-2">
                         <button
@@ -296,13 +283,17 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                         {totalPages > 0 ? `Page ${currentPage + 1} / ${totalPages}` : 'No Pages'}
                     </span>
 
+                    {/* ✅ FIX 3: Update the onClick handler logic. */}
                     <button
                         onClick={async () => {
                             if (currentPage < totalPages - 1) {
                                 goToNextPage();
                             } else {
-                                await markAsCompleted(); // ✅ Mark as completed when finishing last page
-                                onClose();
+                                // Only mark as complete for students.
+                                if (userRole === 'student') {
+                                    await markAsCompleted();
+                                }
+                                onClose(); // This will now be called correctly.
                             }
                         }}
                         className={`flex items-center justify-center gap-2 px-4 py-2.5 sm:px-5 rounded-full text-white font-semibold transition-all shadow-md active:scale-95

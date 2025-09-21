@@ -1,12 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react'; // FIX: Imported useState
 import { collection, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
 import LessonPage from './LessonPage';
-import { ArrowPathIcon, ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import { Dialog } from '@headlessui/react';
 
-export default function PreviewScreen({ subject, unit, guideData, generationResult, onBackToEdit, onClose }) {
+export default function PreviewScreen({ subject, unit, generationResult, onBackToEdit, onClose, onBackToGeneration }) {
     const { showToast } = useToast();
     const [selectedLessonIndex, setSelectedLessonIndex] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
@@ -23,13 +23,16 @@ export default function PreviewScreen({ subject, unit, guideData, generationResu
         setIsSaving(true);
         try {
             const batch = writeBatch(db);
-            let order = 0; 
+            // Find the highest existing order number for lessons in this unit to append the new ones.
+            // This is a simplified approach. A more robust solution might involve a Firestore query.
+            let order = unit.lessonCount || 0; 
 
             lessonsToPreview.forEach((lesson) => {
                 const newLessonRef = doc(collection(db, 'lessons'));
                 batch.set(newLessonRef, {
-                    title: lesson.lesson_title,
-                    lessonTitle: lesson.lesson_title,
+                    // FIX: Using lessonTitle consistent with generation prompt
+                    title: lesson.lessonTitle, 
+                    lessonTitle: lesson.lessonTitle,
                     unitId: unit.id,
                     subjectId: subject.id,
                     pages: lesson.pages || [],
@@ -51,14 +54,19 @@ export default function PreviewScreen({ subject, unit, guideData, generationResu
             setIsSaving(false);
         }
     };
+    
+    // Reusable neumorphic button styles
+    const btnBase = "inline-flex items-center justify-center px-5 py-2.5 text-sm font-medium rounded-xl transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-200 focus:ring-sky-500";
+    const btnExtruded = `bg-slate-200 shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff]`;
+    const btnDisabled = "disabled:text-slate-400 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff]";
 
     return (
-        <div className="flex flex-col h-full">
-            <header className="flex-shrink-0 p-6 text-center border-b border-gray-200">
-                <Dialog.Title as="h2" className="text-xl font-bold text-gray-900">
+        <div className="flex flex-col h-full bg-slate-200 rounded-2xl">
+            <header className="flex-shrink-0 p-6 text-center">
+                <Dialog.Title as="h2" className="text-xl font-bold text-slate-800">
                     Preview & Save Learning Guide
                 </Dialog.Title>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-slate-500 mt-1">
                     Review the AI-generated lessons below. You can save them or go back to regenerate.
                 </p>
             </header>
@@ -72,14 +80,15 @@ export default function PreviewScreen({ subject, unit, guideData, generationResu
                                 <button 
                                     key={index} 
                                     onClick={() => setSelectedLessonIndex(index)}
-                                    className={`w-full text-left p-3 rounded-xl transition-all duration-200 ${selectedLessonIndex === index ? 'bg-white shadow-md ring-2 ring-indigo-500/50' : 'bg-white/60 hover:bg-white/90 hover:shadow-sm'}`}
+                                    className={`w-full text-left p-3 rounded-xl transition-all duration-200 ${selectedLessonIndex === index ? 'shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff] ring-2 ring-sky-500/80' : 'bg-slate-200 shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff]'}`}
                                 >
-                                    <p className="font-semibold text-gray-800 truncate">{lesson.lesson_title}</p>
-                                    <p className="text-xs text-gray-500">{lesson.pages?.length || 0} pages</p>
+                                    {/* FIX: Using lessonTitle consistent with generation prompt */}
+                                    <p className="font-semibold text-slate-800 truncate">{lesson.lessonTitle}</p>
+                                    <p className="text-xs text-slate-500">{lesson.pages?.length || 0} pages</p>
                                 </button>
                             ))
                         ) : (
-                            <div className="text-center text-gray-500 pt-10">
+                            <div className="text-center text-slate-500 pt-10">
                                 <p>No lessons were generated.</p>
                                 {generationResult.failedLessonNumber && <p className="text-sm mt-2">Generation failed at Lesson {generationResult.failedLessonNumber}.</p>}
                             </div>
@@ -87,46 +96,47 @@ export default function PreviewScreen({ subject, unit, guideData, generationResu
                     </div>
                 </div>
 
-                <div className="w-full md:w-2/3 bg-white rounded-xl border overflow-y-auto">
+                <div className="w-full md:w-2/3 bg-slate-200 rounded-xl shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff] overflow-y-auto">
                     {selectedLesson ? (
-                        <div className="p-6 prose max-w-none">
+                        <div className="p-6 prose prose-slate max-w-none">
                             {selectedLesson.pages.map((page, index) => (
-                                <div key={index} className="mb-8 pb-8 border-b last:border-b-0">
-                                     <h3 className="font-bold text-lg mb-2">{page.page_title}</h3>
+                                <div key={index} className="mb-8 pb-8 border-b border-slate-300/70 last:border-b-0">
+                                     {/* FIX: Using page.title consistent with generation prompt */}
+                                     {page.title && <h3 className="font-bold text-lg mb-2">{page.title}</h3>}
                                      <LessonPage page={page} isEditable={false} />
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <div className="flex items-center justify-center h-full text-gray-500">
+                        <div className="flex items-center justify-center h-full text-slate-500">
                             <p>Select a lesson from the left to preview its content.</p>
                         </div>
                     )}
                 </div>
             </main>
             
-            <footer className="flex-shrink-0 p-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <footer className="flex-shrink-0 p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <button 
                     onClick={onBackToEdit} 
                     disabled={isSaving} 
-                    className="btn-secondary-ios"
+                    className={`${btnBase} ${btnExtruded} text-slate-700 ${btnDisabled}`}
                 >
                     Back to Edit
                 </button>
                 <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                     {generationResult.failedLessonNumber && (
                         <button 
-                            onClick={onBackToGeneration} 
-                            className="btn-primary-ios flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600"
+                            onClick={() => onBackToGeneration(generationResult.failedLessonNumber)} 
+                            className={`${btnBase} bg-amber-400 text-amber-900 font-semibold shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff]`}
                         >
-                            <ArrowPathIcon className="h-5 w-5" />
+                            <ArrowPathIcon className="h-5 w-5 mr-2" />
                             Retry from Lesson {generationResult.failedLessonNumber}
                         </button>
                     )}
                     <button 
                         onClick={handleSave} 
-                        className="btn-primary-ios"
-                        disabled={!isValidPreview || isSaving || !!generationResult.failedLessonNumber}
+                        className={`${btnBase} ${btnExtruded} text-sky-600 font-semibold ${btnDisabled}`}
+                        disabled={!isValidPreview || isSaving}
                     >
                         {isSaving ? 'Saving...' : `Accept & Save ${lessonsToPreview.length} Lesson(s)`}
                     </button>

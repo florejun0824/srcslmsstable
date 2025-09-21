@@ -1,3 +1,4 @@
+// src/components/.../CoursesView.js
 import React, { useState, useEffect } from 'react';
 import { db } from '../../../../services/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -32,9 +33,7 @@ const CoursesView = (props) => {
     const [units, setUnits] = useState([]);
     const [allLessonsForSubject, setAllLessonsForSubject] = useState([]);
     const [isLoadingUnitsAndLessons, setIsLoadingUnitsAndLessons] = useState(false);
-    const [showBetaWarning, setShowBetaWarning] = useState(false);
     const [showLessonPicker, setShowLessonPicker] = useState(false);
-    const [targetUnit, setTargetUnit] = useState(null);
 
     const baseButtonStyles = "font-semibold rounded-xl transition-shadow duration-200 active:shadow-neumorphic-inset disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-neumorphic-inset flex items-center gap-2";
     const primaryButton = `${baseButtonStyles} px-5 py-2.5 bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 shadow-neumorphic hover:shadow-neumorphic-inset`;
@@ -113,107 +112,176 @@ const CoursesView = (props) => {
     const commonContainerClasses = "min-h-screen p-6 bg-neumorphic-base";
     const windowContainerClasses = "bg-neumorphic-base rounded-3xl p-8 shadow-neumorphic w-full max-w-7xl mx-auto my-12 transition-all duration-500";
 
-    if (activeSubject) {
-        return (
-            <div className={commonContainerClasses}>
-                <div className={`${windowContainerClasses} bg-gradient-to-br from-white to-slate-50`}>
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-3">
-                        <div className="flex items-center gap-3">
-                            <button onClick={() => { setActiveSubject(null); if (onSetActiveUnit) { onSetActiveUnit(null); } }} className={secondaryButton}>
-                                <ArrowUturnLeftIcon className="w-5 h-5" />
-                                Back to Subjects
-                            </button>
-                            <h2 className="text-xl font-bold text-slate-800 tracking-tight">{activeSubject.title}</h2>
-                            <button onClick={() => handleOpenEditSubject(activeSubject)} className={iconButton} title="Edit Subject Name"><PencilSquareIcon className="w-5 h-5" /></button>
-                            <button onClick={() => handleOpenDeleteSubject(activeSubject)} className={destructiveIconButton} title="Delete Subject"><TrashIcon className="w-5 h-5" /></button>
-                        </div>
-                        <div className="flex gap-3 flex-wrap">
-                            <button onClick={() => setShareContentModalOpen(true)} className={secondaryButton}><ShareIcon className="w-5 h-5" />Send Lesson</button>
-                            <button onClick={() => setAddUnitModalOpen(true)} className={primaryButton}><PlusCircleIcon className="w-5 h-5" />Add Unit</button>
-                            <button onClick={() => setIsAiHubOpen(true)} className={primaryButton}><SparklesIcon className="w-5 h-5" />AI Tools</button>
-                        </div>
-                    </div>
-                    <div>
-                        {isLoadingUnitsAndLessons ? (
-                            <div className="flex justify-center items-center py-10"><Spinner /><p className="ml-4 text-slate-500">Loading content...</p></div>
-                        ) : (
-                            <UnitAccordion
-                                subject={activeSubject}
-                                onInitiateDelete={handleInitiateDelete}
-                                userProfile={userProfile}
-                                isAiGenerating={isAiGenerating}
-                                setIsAiGenerating={setIsAiGenerating}
-                                activeUnit={activeUnit}
-                                onSetActiveUnit={onSetActiveUnit}
-                                selectedLessons={selectedLessons}
-                                onLessonSelect={handleLessonSelect}
-                                units={units}
-                                allLessonsForSubject={allLessonsForSubject}
-                                handleGenerateQuizForLesson={handleGenerateQuizForLesson}
-                                renderGeneratePptButton={(unit) => (
-                                    // MODIFIED: Removed the size-overriding classes to match other primary buttons.
-                                    <button
-                                        onClick={() => { setSelectedLessons(new Set()); setTargetUnit(unit); setShowBetaWarning(true); }}
-                                        className={primaryButton}
-                                        disabled={isAiGenerating}
-                                    >
-                                        <PresentationChartBarIcon className="w-5 h-5" />
-                                        <span>Generate PPT</span>
-                                    </button>
-                                )}
-                            />
-                        )}
-                    </div>
-                </div>
-                {showBetaWarning && (
-                    <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-50 p-4">
-                        <div className="bg-gradient-to-br from-white to-slate-100 rounded-2xl shadow-neumorphic w-full max-w-md p-6">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h3 className="text-lg font-semibold text-slate-800">⚠️ Beta Feature</h3>
-                                    <p className="mt-2 text-sm text-slate-600">The AI Presentation Generator is currently in Beta. You’ll be able to pick lessons from the unit you selected.</p>
-                                </div>
-                                <button onClick={() => { setShowBetaWarning(false); setTargetUnit(null); }} className={iconButton}>✕</button>
-                            </div>
-                            <div className="mt-4 flex justify-end gap-3">
-                                <button onClick={() => { setShowBetaWarning(false); setTargetUnit(null); }} className={secondaryButton}>Cancel</button>
-                                <button onClick={() => { setShowBetaWarning(false); setShowLessonPicker(true); }} className={primaryButton}>Continue</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                {showLessonPicker && targetUnit && (
-                    <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-50 p-4">
-                        <div className="bg-gradient-to-br from-white to-slate-100 rounded-3xl shadow-neumorphic w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
-                          <div className="px-6 py-4 border-b border-neumorphic-shadow-dark/30 flex justify-between items-center">
-                            <div>
-                              <h2 className="text-lg font-bold text-slate-800">Select Lessons</h2>
-                              <p className="text-sm text-slate-600 mt-1">From unit: <span className="font-medium">{targetUnit.title}</span></p>
-                            </div>
-                            <button onClick={() => { setShowLessonPicker(false); setTargetUnit(null); }} className={iconButton}>✕</button>
-                          </div>
-                          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-                            {allLessonsForSubject.filter((lesson) => lesson.unitId === targetUnit.id).map((lesson) => (
-                                <label key={lesson.id} className={`flex items-center justify-between p-4 rounded-2xl transition-all cursor-pointer bg-neumorphic-base ${selectedLessons.has(lesson.id) ? 'shadow-neumorphic-inset' : 'shadow-neumorphic'}`}>
-                                  <div className="min-w-0">
-                                    <div className="text-slate-800 font-medium truncate">{lesson.title}</div>
-                                    {lesson.subtitle && <div className="text-xs text-slate-500 mt-1 truncate">{lesson.subtitle}</div>}
-                                  </div>
-                                  <input type="checkbox" checked={selectedLessons.has(lesson.id)} onChange={() => handleLessonSelect(lesson.id)} className="sr-only" />
-                                </label>
-                            ))}
-                            {allLessonsForSubject.filter((l) => l.unitId === targetUnit.id).length === 0 && (<p className="text-center text-slate-500 py-6">No lessons available in this unit.</p>)}
-                          </div>
-                          <div className="px-6 py-4 border-t border-neumorphic-shadow-dark/30 flex justify-end gap-3">
-                            <button onClick={() => { setShowLessonPicker(false); setTargetUnit(null); }} className={secondaryButton}>Cancel</button>
-                            <button onClick={() => { setShowLessonPicker(false); handleGeneratePresentationClick(); setTargetUnit(null); }} className={primaryButton} disabled={selectedLessons.size === 0}>Generate</button>
-                          </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-        );
-    }
+	if (activeSubject) {
+	    return (
+	        <div className={commonContainerClasses}>
+	            <div className={`${windowContainerClasses} bg-gradient-to-br from-white to-slate-50`}>
+	                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-3">
+	                    <div className="flex items-center gap-3">
+	                        <button
+	                            onClick={() => {
+	                                setActiveSubject(null);
+	                                if (onSetActiveUnit) {
+	                                    onSetActiveUnit(null);
+	                                }
+	                            }}
+	                            className={secondaryButton}
+	                        >
+	                            <ArrowUturnLeftIcon className="w-5 h-5" />
+	                            Back to Subjects
+	                        </button>
+	                        <h2 className="text-xl font-bold text-slate-800 tracking-tight">
+	                            {activeSubject.title}
+	                        </h2>
+	                        <button
+	                            onClick={() => handleOpenEditSubject(activeSubject)}
+	                            className={iconButton}
+	                            title="Edit Subject Name"
+	                        >
+	                            <PencilSquareIcon className="w-5 h-5" />
+	                        </button>
+	                        <button
+	                            onClick={() => handleOpenDeleteSubject(activeSubject)}
+	                            className={destructiveIconButton}
+	                            title="Delete Subject"
+	                        >
+	                            <TrashIcon className="w-5 h-5" />
+	                        </button>
+	                    </div>
+	                    <div className="flex gap-3 flex-wrap">
+	                        <button onClick={() => setShareContentModalOpen(true)} className={secondaryButton}>
+	                            <ShareIcon className="w-5 h-5" />Send Lesson
+	                        </button>
+	                        <button onClick={() => setAddUnitModalOpen(true)} className={primaryButton}>
+	                            <PlusCircleIcon className="w-5 h-5" />Add Unit
+	                        </button>
+	                        <button onClick={() => setIsAiHubOpen(true)} className={primaryButton}>
+	                            <SparklesIcon className="w-5 h-5" />AI Tools
+	                        </button>
+	                    </div>
+	                </div>
+	                <div>
+	                    {isLoadingUnitsAndLessons ? (
+	                        <div className="flex justify-center items-center py-10">
+	                            <Spinner />
+	                            <p className="ml-4 text-slate-500">Loading content...</p>
+	                        </div>
+	                    ) : (
+	                        <UnitAccordion
+	                            subject={activeSubject}
+	                            onInitiateDelete={handleInitiateDelete}
+	                            userProfile={userProfile}
+	                            isAiGenerating={isAiGenerating}
+	                            setIsAiGenerating={setIsAiGenerating}
+	                            activeUnit={activeUnit}
+	                            onSetActiveUnit={onSetActiveUnit}
+	                            selectedLessons={selectedLessons}
+	                            onLessonSelect={handleLessonSelect}
+	                            units={units}
+	                            allLessonsForSubject={allLessonsForSubject}
+	                            handleGenerateQuizForLesson={handleGenerateQuizForLesson}
+	                            renderGeneratePptButton={(unit) => (
+	                                <button
+	                                    onClick={() => {
+	                                        setSelectedLessons(new Set());
+	                                        setShowLessonPicker(true);
+	                                    }}
+	                                    className={primaryButton}
+	                                    disabled={isAiGenerating}
+	                                >
+	                                    <PresentationChartBarIcon className="w-5 h-5" />
+	                                    <span>Generate PPT</span>
+	                                </button>
+	                            )}
+	                        />
+	                    )}
+	                </div>
+	            </div>
+
+	            {/* Lesson Picker Modal */}
+	            {showLessonPicker && activeUnit && (
+	                <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-50 p-4">
+	                    <div className="bg-gradient-to-br from-white to-slate-100 rounded-3xl shadow-neumorphic w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+	                        <div className="px-6 py-4 border-b border-neumorphic-shadow-dark/30 flex justify-between items-center">
+	                            <div>
+	                                <h2 className="text-lg font-bold text-slate-800">Select Lessons</h2>
+	                                <p className="text-sm text-slate-600 mt-1">
+	                                    From unit: <span className="font-medium">{activeUnit.title}</span>
+	                                </p>
+	                            </div>
+	                            <button onClick={() => setShowLessonPicker(false)} className={iconButton}>✕</button>
+	                        </div>
+
+	                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+	                            {allLessonsForSubject
+	                                .filter((lesson) => lesson.unitId === activeUnit.id)
+	                                .sort((a, b) =>
+	                                    a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })
+	                                )
+	                                .map((lesson) => (
+	                                    <label
+	                                        key={lesson.id}
+	                                        className={`flex items-center justify-between p-4 rounded-2xl transition-all cursor-pointer bg-neumorphic-base ${
+	                                            selectedLessons.has(lesson.id)
+	                                                ? 'shadow-neumorphic-inset'
+	                                                : 'shadow-neumorphic'
+	                                        }`}
+	                                    >
+	                                        <div className="min-w-0">
+	                                            <div className="text-slate-800 font-medium truncate">{lesson.title}</div>
+	                                            {lesson.subtitle && (
+	                                                <div className="text-xs text-slate-500 mt-1 truncate">
+	                                                    {lesson.subtitle}
+	                                                </div>
+	                                            )}
+	                                        </div>
+	                                        <input
+	                                            type="checkbox"
+	                                            checked={selectedLessons.has(lesson.id)}
+	                                            onChange={() => handleLessonSelect(lesson.id)}
+	                                            className="sr-only"
+	                                        />
+	                                    </label>
+	                                ))}
+
+	                            {allLessonsForSubject.filter((l) => l.unitId === activeUnit.id).length === 0 && (
+	                                <p className="text-center text-slate-500 py-6">
+	                                    No lessons available in this unit.
+	                                </p>
+	                            )}
+	                        </div>
+
+	                        <div className="px-6 py-4 border-t border-neumorphic-shadow-dark/30 flex justify-end gap-3">
+	                            <button onClick={() => setShowLessonPicker(false)} className={secondaryButton}>
+	                                Cancel
+	                            </button>
+	                            <button
+	                                onClick={() => {
+	                                    setShowLessonPicker(false);
+	                                    handleGeneratePresentationClick();
+	                                }}
+	                                className={primaryButton}
+	                                disabled={selectedLessons.size === 0}
+	                            >
+	                                Generate
+	                            </button>
+	                        </div>
+	                    </div>
+	                </div>
+	            )}
+
+	            {/* 🔥 AI Generating Overlay */}
+	            {isAiGenerating && (
+	                <div className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm">
+	                    <div className="bg-neumorphic-base rounded-3xl shadow-neumorphic p-8 flex flex-col items-center space-y-4">
+	                        <Spinner />
+	                        <p className="text-slate-700 font-semibold mt-4">Generating your presentation...</p>
+	                    </div>
+	                </div>
+	            )}
+	        </div>
+	    );
+	}
 
     if (selectedCategory) {
         const categoryCourses = courses.filter(c => c.category === selectedCategory);

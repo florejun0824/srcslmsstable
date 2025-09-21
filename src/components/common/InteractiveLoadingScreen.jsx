@@ -21,9 +21,8 @@ const loadingMessages = [
 
 /**
  * A smaller, iOS-style activity indicator component that stays in place.
- * It consists of 12 rotating bars.
  */
-const IOSActivityIndicator = ({ size = 24, barWidth = 2, barHeight = 6, color = 'rgba(113, 113, 122, 0.7)' }) => {
+const IOSActivityIndicator = ({ size = 24, barWidth = 2, barHeight = 6, color = '#64748b' }) => { // Using slate-500 color
     const rotationDuration = 1.0;
     const numBars = 12;
     const centerOffset = size / 2;
@@ -45,7 +44,7 @@ const IOSActivityIndicator = ({ size = 24, barWidth = 2, barHeight = 6, color = 
                 {Array.from({ length: numBars }).map((_, i) => (
                     <div
                         key={`bar-${i}`}
-                        className="absolute bg-zinc-500 rounded-full"
+                        className="absolute rounded-full"
                         style={{
                             width: barWidth,
                             height: barHeight,
@@ -64,7 +63,7 @@ const IOSActivityIndicator = ({ size = 24, barWidth = 2, barHeight = 6, color = 
 };
 
 /**
- * An interactive loading screen with a futuristic "iOS 26" aesthetic.
+ * An interactive loading screen with a neumorphic aesthetic.
  * @param {object} props The component props.
  * @param {boolean} props.isSaving If true, shows a saving message.
  * @param {{current: number, total: number}} props.lessonProgress The current and total number of lessons.
@@ -89,33 +88,34 @@ const InteractiveLoadingScreen = ({ isSaving = false, lessonProgress = { current
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.05 }}
             transition={{ duration: 0.4, ease: "circOut" }}
-            className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/20"
+            className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-200/70 backdrop-blur-sm"
         >
-            <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center text-center p-8 bg-gray-200/50 border border-white/30 rounded-[2.75rem] backdrop-blur-2xl shadow-2xl shadow-black/10">
+            <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center text-center p-8 bg-slate-200 border border-slate-300/50 rounded-[2.75rem] shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff]">
                 
                 <div className="mb-4">
                     <IOSActivityIndicator size={24} barWidth={2} barHeight={6} />
                 </div>
                 
-                <h2 className="text-2xl font-bold text-zinc-900 mb-2 tracking-tight">
+                <h2 className="text-2xl font-bold text-slate-800 mb-2 tracking-tight">
                     {isSaving ? 'Saving Your Lesson' : `Crafting Materials`}
                 </h2>
 
-                <p className="text-base text-zinc-600 mb-6 px-4">
+                <p className="text-base text-slate-600 mb-6 px-4">
                     {isSaving ? `Securing your new content.` : `Please wait while we generate your material.`}
                 </p>
 
                 {lessonProgress.total > 0 && (
                     <div className="w-full max-w-xs mb-4">
-                        <div className="w-full bg-black/10 rounded-full h-2">
+                        <div className="w-full bg-slate-200 rounded-full h-2 shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff]">
                             <motion.div
-                                className="bg-zinc-600 h-2 rounded-full"
+                                // UPDATE: Added an inset shadow to the progress bar for a 3D effect
+                                className="bg-sky-500 h-2 rounded-full shadow-[inset_1px_1px_2px_#0284c7,inset_-1px_-1px_2px_#38bdf8]"
                                 initial={{ width: 0 }}
                                 animate={{ width: `${progressPercentage}%` }}
                                 transition={{ duration: 0.5, ease: "easeInOut" }}
                             />
                         </div>
-                        <p className="text-xs text-zinc-500 font-medium mt-2">
+                        <p className="text-xs text-slate-500 font-medium mt-2">
                             Step {lessonProgress.current} of {lessonProgress.total}
                         </p>
                     </div>
@@ -129,7 +129,7 @@ const InteractiveLoadingScreen = ({ isSaving = false, lessonProgress = { current
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.4 }}
-                            className="text-sm text-zinc-500 font-medium"
+                            className="text-sm text-slate-500 font-medium"
                         >
                             {currentMessage}
                         </motion.p>

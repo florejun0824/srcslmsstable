@@ -263,11 +263,11 @@ export default function GenerationScreen({ subject, unit, guideData, onGeneratio
     }, [guideData]); // Run generation whenever guideData changes (i.e., when submitted from step 1)
 
     return (
-        <div className="flex flex-col h-full">
-            <header className="flex-shrink-0 p-4 border-b border-gray-200">
+        <div className="flex flex-col h-full bg-slate-200 rounded-2xl">
+            <header className="flex-shrink-0 p-6">
                  <button 
                     onClick={onBack} 
-                    className="inline-flex items-center justify-center rounded-lg border border-transparent bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-300 focus:outline-none"
+                    className="inline-flex items-center justify-center px-4 py-2 bg-slate-200 text-sm font-medium text-slate-700 rounded-xl shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff] transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-200 focus:ring-sky-500"
                  >
                     <ArrowUturnLeftIcon className="h-5 w-5 mr-2" />
                     Back to Topic
