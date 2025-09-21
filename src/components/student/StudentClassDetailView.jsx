@@ -4,6 +4,7 @@ import { db } from '../../services/firebase';
 import { collection, query, getDocs, orderBy, where, documentId } from 'firebase/firestore';
 import Spinner from '../common/Spinner';
 import AnnouncementViewModal from '../common/AnnouncementViewModal';
+import ViewLessonModal from '../teacher/ViewLessonModal';   // 🔹 Added
 import { useAuth } from '../../contexts/AuthContext';
 import { 
     MegaphoneIcon, 
@@ -31,7 +32,7 @@ const UnitPillHeader = ({ title, isCollapsed, onClick }) => (
     </button>
 );
 
-const StudentClassDetailView = ({ selectedClass, onBack, setLessonToView }) => {
+const StudentClassDetailView = ({ selectedClass, onBack }) => {
     const { userProfile } = useAuth();
     const [activeTab, setActiveTab] = useState('announcements');
     const [announcements, setAnnouncements] = useState([]);
@@ -39,6 +40,9 @@ const StudentClassDetailView = ({ selectedClass, onBack, setLessonToView }) => {
     const [loading, setLoading] = useState(true);
     const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
     const [collapsedUnits, setCollapsedUnits] = useState(new Set());
+
+    // 🔹 New state for lesson viewer modal
+    const [lessonToView, setLessonToView] = useState(null);
 
     const toggleUnitCollapse = (unitTitle) => {
         setCollapsedUnits(prev => {
@@ -201,10 +205,16 @@ const StudentClassDetailView = ({ selectedClass, onBack, setLessonToView }) => {
                 <div>{renderContent()}</div>
             </div>
 
+            {/* Modals */}
             <AnnouncementViewModal 
                 isOpen={!!selectedAnnouncement} 
                 onClose={() => setSelectedAnnouncement(null)} 
                 announcement={selectedAnnouncement} 
+            />
+            <ViewLessonModal 
+                isOpen={!!lessonToView} 
+                onClose={() => setLessonToView(null)} 
+                lesson={lessonToView} 
             />
         </>
     );

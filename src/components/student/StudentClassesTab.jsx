@@ -9,6 +9,7 @@ import {
     ArrowRightIcon,
 } from '@heroicons/react/24/solid';
 
+// Icon cycle for visuals
 const classVisuals = [
     { icon: AcademicCapIcon, color: 'text-orange-500' },
     { icon: UserGroupIcon, color: 'text-blue-500' },
@@ -29,7 +30,7 @@ const StudentClassCard = ({ classData, onSelect, visual }) => {
                 <div className="w-10 h-10 flex items-center justify-center rounded-md bg-neumorphic-base shadow-neumorphic-inset">
                     <Icon className={`w-5 h-5 ${color}`} />
                 </div>
-                {/* Class name on same row */}
+                {/* Class name */}
                 <h3 className="text-sm font-bold text-slate-800 truncate flex-1">
                     {classData.name}
                 </h3>
@@ -43,8 +44,8 @@ const StudentClassCard = ({ classData, onSelect, visual }) => {
                 Teacher: {classData.teacherName}
             </Text>
 
-            {/* Footer */}
-            <div className="mt-3 pt-2 border-t border-slate-200/40 flex items-center justify-between">
+            {/* Footer (no lesson count) */}
+            <div className="mt-3 pt-2 border-t border-slate-200/40 flex items-center justify-end">
                 <button
                     onClick={() => onSelect(classData)}
                     className="flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-700 transition-colors"
@@ -52,15 +53,12 @@ const StudentClassCard = ({ classData, onSelect, visual }) => {
                     <span>View</span>
                     <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-1 duration-200" />
                 </button>
-                <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-neumorphic-base shadow-neumorphic-inset text-slate-600">
-                    {classData.lessonsCount || classData.lessons?.length || 0} Lessons
-                </span>
             </div>
         </div>
     );
 };
 
-const StudentClassesTab = ({ classes, onClassSelect }) => {
+const StudentClassesTab = ({ classes = [], onClassSelect }) => {
     if (!classes || classes.length === 0) {
         return (
             <div className="text-center py-12 px-4 bg-neumorphic-base rounded-lg shadow-neumorphic">

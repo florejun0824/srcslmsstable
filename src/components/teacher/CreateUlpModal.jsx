@@ -26,23 +26,93 @@ const extractJson = (text) => {
 
 // A more robust JSON parsing function
 const tryParseJson = (jsonString) => {
+  try {
+    return JSON.parse(jsonString);
+  } catch (error) {
+    console.warn("Standard JSON.parse failed. Attempting to fix.", error);
+
+    let sanitizedString = jsonString
+      // remove markdown fences
+      .replace(/```json|```/g, '')
+      // remove trailing commas before } or ]
+      .replace(/,\s*([}\]])/g, '$1')
+      // ensure property names are wrapped in quotes
+      .replace(/([{,]\s*)([A-Za-z0-9_]+)\s*:/g, '$1"$2":')
+      // replace smart quotes with straight quotes
+      .replace(/[“”]/g, '"')
+      // escape raw newlines/tabs inside strings
+      .replace(/[\u0000-\u001F]+/g, ' ')
+      // fix unescaped backslashes
+      .replace(/\\(?!["\\/bfnrtu])/g, '\\\\')
+      // trim extra whitespace
+      .trim();
+
     try {
-        return JSON.parse(jsonString);
-    } catch (error) {
-        console.warn("Standard JSON.parse failed. Attempting to fix.", error);
-        // Attempt to fix common issues like trailing commas
-        let sanitizedString = jsonString.replace(/,\s*([}\]])/g, '$1');
-        try {
-            return JSON.parse(sanitizedString);
-        } catch (finalError) {
-            console.error("Failed to parse JSON even after sanitization.", finalError);
-            throw new Error("Invalid JSON format received from AI.");
-        }
+      return JSON.parse(sanitizedString);
+    } catch (finalError) {
+      console.error("Failed to parse JSON even after sanitization.", finalError);
+      console.debug("Sanitized JSON string:", sanitizedString.slice(0, 500)); // print first 500 chars for debugging
+      throw new Error("Invalid JSON format received from AI.");
     }
+  }
 };
+
 
 export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId, subjectId }) {
     const { showToast } = useToast();
+
+    // --- Neumorphism style constants (inline) ---
+    // tweak these if you want stronger/weaker effect
+    const NEU_BG = '#eef2f5'; // overall soft background used for cards/inputs
+    const NEU_SHADOW_LIGHT = 'rgba(255,255,255,0.9)';
+    const NEU_SHADOW_DARK = 'rgba(163,177,198,0.35)';
+    const NEU_BORDER = 'rgba(0,0,0,0.04)';
+
+    const NEU_PANEL = {
+        background: NEU_BG,
+        boxShadow: `8px 8px 18px ${NEU_SHADOW_DARK}, -8px -8px 18px ${NEU_SHADOW_LIGHT}`,
+        border: `1px solid ${NEU_BORDER}`,
+        borderRadius: 20,
+    };
+
+    const NEU_CARD = {
+        background: NEU_BG,
+        boxShadow: `6px 6px 12px ${NEU_SHADOW_DARK}, -6px -6px 12px ${NEU_SHADOW_LIGHT}`,
+        border: `1px solid ${NEU_BORDER}`,
+        borderRadius: 12,
+    };
+
+    const NEU_INPUT = {
+        background: NEU_BG,
+        boxShadow: `inset 4px 4px 8px ${NEU_SHADOW_DARK}, inset -4px -4px 8px ${NEU_SHADOW_LIGHT}`,
+        border: `1px solid ${NEU_BORDER}`,
+        borderRadius: 10,
+        padding: '0.5rem 0.75rem',
+    };
+
+    const NEU_BUTTON = {
+        background: NEU_BG,
+        boxShadow: `6px 6px 14px ${NEU_SHADOW_DARK}, -6px -6px 14px ${NEU_SHADOW_LIGHT}`,
+        border: `1px solid ${NEU_BORDER}`,
+        borderRadius: 12,
+        padding: '0.6rem 1rem',
+    };
+
+    const NEU_BUTTON_PRIMARY = {
+        ...NEU_BUTTON,
+        // slightly tinted for primary look while keeping soft UI feel
+        background: 'linear-gradient(180deg, #eef2f8, #e6ebf4)',
+    };
+
+    const NEU_HEADER_ICON = {
+        background: NEU_BG,
+        boxShadow: `4px 4px 10px ${NEU_SHADOW_DARK}, -4px -4px 10px ${NEU_SHADOW_LIGHT}`,
+        borderRadius: 14,
+        padding: 12,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+    };
 
     // --- All state declarations remain the same ---
     const [inputs, setInputs] = useState({
@@ -166,162 +236,207 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         setScaffoldLessonIds(newSet);
     };
 
-    // --- REFACTORED: Helper function to generate individual ULP sections with error handling and retries ---
-    const generateUlpSection = async (type, context, maxRetries = 3) => {
-        let prompt;
-        const iCan = context.language === 'Filipino' ? 'Kaya kong...' : 'I can...';
-        const commonRules = `
-          **Authoritative Inputs:**
-          - Content Standard: ${context.contentStandard}
-          - Performance Standard: ${context.performanceStandard}
-          - Source Lesson Titles: ${context.sourceLessonTitles}
-          - Language: ${context.language}
-          
-          **Rules:**
-          1. Generate ONLY a valid JSON object. Do not include any other text or markdown.
-          2. All generated text content inside the JSON MUST be in ${context.language}.
-          3. Create NEW and ORIGINAL activities. DO NOT directly reference the source content.
-        `;
+	// Schema definitions
+	const ulpSchemas = {
+	  explore: ["type", "lessonsList", "unitOverview", "hookedActivities", "mapOfConceptualChange", "essentialQuestions"],
+	  firmUp: ["type", "code", "competency", "learningTargets", "successIndicators", "inPersonActivity", "onlineActivity", "supportDiscussion", "assessment", "templates"],
+	  deepen: ["type", "code", "competency", "learningTargets", "successIndicators", "inPersonActivity", "onlineActivity", "supportDiscussion", "assessment", "templates"],
+	  transfer: ["type", "code", "competency", "learningTargets", "successIndicators", "inPersonActivity", "onlineActivity"],
+	  synthesis: ["type", "summary"],
+	  performanceTask: ["type", "graspsTask", "rubric"],
+	  values: ["type", "values"],
+	};
 
-        switch (type) {
-            case 'explore':
-                prompt = `
-                    ${commonRules}
-                    Design the "Explore Stage" of a ULP.
-                    
-                    **JSON Output Structure:**
-                    {
-                      "type": "explore",
-                      "lessonsList": "A bulleted or numbered list of the exact source lesson titles provided.",
-                      "unitOverview": "An engaging and catchy overview of the unit's purpose.",
-                      "hookedActivities": "Detailed instructions for 1-2 engaging activities to capture student interest.",
-                      "mapOfConceptualChange": "Detailed instructions for an activity for students to map their knowledge (e.g., K-W-L chart).",
-                      "essentialQuestions": ["An array of 2-5 thought-provoking Essential Questions."]
-                    }
-                `;
-                break;
-            case 'firmUp':
-                prompt = `
-                    ${commonRules}
-                    Design a "Firm-Up (Acquisition)" section for the competency: "${context.competency}" (Code: ${context.code}).
-                    
-                    **JSON Output Structure:**
-                    {
-                      "type": "firmUp",
-                      "code": "${context.code}",
-                      "competency": "${context.competency}",
-                      "learningTargets": ["A '${iCan}' statement.", "Another '${iCan}' statement."],
-                      "successIndicators": ["A specific, observable indicator.", "Another indicator."],
-                      "inPersonActivity": { "instructions": "Detailed instructions...", "materials": "List of materials..." },
-                      "onlineActivity": { "instructions": "Detailed instructions...", "materials": "List of materials..." },
-                      "supportDiscussion": "Questions to check for understanding and an in-depth discussion to support the activity.",
-                      "assessment": { "type": "Multiple Choice | Fill in the blank | Matching Type | Enumeration | Alternative Response | Hands-on operation | Labeling", "content": "The full assessment content..." },
-                      "templates": "Provide full content for any templates/cards mentioned in materials. If none, use an empty string."
-                    }
-                `;
-                break;
-            case 'deepen':
-                prompt = `
-                    ${commonRules}
-                    Design a "Deepen (Meaning-Making)" section for the competency: "${context.competency}" (Code: ${context.code}). At least one activity MUST be a C-E-R task.
-                    
-                    **JSON Output Structure:**
-                    {
-                      "type": "deepen",
-                      "code": "${context.code}",
-                      "competency": "${context.competency}",
-                      "learningTargets": ["A '${iCan}' statement.", "Another '${iCan}' statement."],
-                      "successIndicators": ["A specific, observable indicator.", "Another indicator."],
-                      "inPersonActivity": { "instructions": "Detailed instructions for a meaning-making activity...", "materials": "List of materials..." },
-                      "onlineActivity": { "instructions": "Detailed instructions for an online alternative...", "materials": "List of materials..." },
-                      "supportDiscussion": "A detailed summarization of key concepts, plus in-depth elaboration and probing questions.",
-                      "assessment": { "type": "Short Paragraph | Essay | Critique Writing | Concept Mapping | Journal Writing", "content": "The full assessment content..." },
-                      "templates": "Provide full content for any templates/cards mentioned in materials. If none, use an empty string."
-                    }
-                `;
-                break;
-            case 'transfer':
-                 prompt = `
-                    ${commonRules}
-                    Design a "Transfer" section for the competency: "${context.competency}" (Code: ${context.code}). Focus on applying knowledge to new, real-world situations.
-                    
-                    **JSON Output Structure:**
-                    {
-                      "type": "transfer",
-                      "code": "${context.code}",
-                      "competency": "${context.competency}",
-                      "learningTargets": ["A '${iCan}' statement.", "Another '${iCan}' statement."],
-                      "successIndicators": ["A specific, observable indicator.", "Another indicator."],
-                      "inPersonActivity": { "instructions": "Detailed instructions for a transfer activity...", "materials": "List of materials..." },
-                      "onlineActivity": { "instructions": "Detailed instructions for an online alternative...", "materials": "List of materials..." }
-                    }
-                `;
-                break;
-            case 'synthesis':
-                prompt = `
-                    ${commonRules}
-                    Write a "Final Synthesis" for a ULP. It should be a summary that connects key points across lessons and prepares students for the Performance Task.
-                    
-                    **JSON Output Structure:**
-                    {
-                      "type": "synthesis",
-                      "summary": "The full text of the synthesis."
-                    }
-                `;
-                break;
-            case 'performanceTask':
-                prompt = `
-                    ${commonRules}
-                    Design a detailed GRASPS "Unit Performance Task" based on the overall unit Performance Standard. Include a comprehensive scoring rubric worth 50 Points.
-                    
-                    **JSON Output Structure:**
-                    {
-                      "type": "performanceTask",
-                      "graspsTask": {
-                        "goal": "...", "role": "...", "audience": "...", "situation": "...", "product": "...", "standards": "..."
-                      },
-                      "rubric": [
-                        { "criteria": "Criteria 1 name...", "description": "Description of the criteria...", "points": "Point value (e.g., 10)"},
-                        { "criteria": "Criteria 2 name...", "description": "Description of the criteria...", "points": "Point value (e.g., 15)"}
-                      ]
-                    }
-                `;
-                break;
-             case 'values':
-                prompt = `
-                    ${commonRules}
-                    Analyze the provided standards and infer 2-4 key values (e.g., integrity, stewardship, critical thinking) that can be cultivated.
-                    
-                    **JSON Output Structure:**
-                    {
-                      "type": "values",
-                      "values": [
-                         { "name": "Value Name 1", "description": "A short, engaging overview in ${context.language} explaining how it is reflected in the unit." },
-                         { "name": "Value Name 2", "description": "Another short overview..." }
-                      ]
-                    }
-                `;
-                break;
-            default:
-                return Promise.resolve(null);
-        }
+	// Schema validator
+	const validateUlpJson = (type, jsonObj) => {
+	  const requiredKeys = ulpSchemas[type];
+	  if (!requiredKeys) return true;
 
-        let retries = 0;
-        while (retries < maxRetries) {
-            try {
-                const jsonString = await callGeminiWithLimitCheck(prompt, { maxOutputTokens: 4096 });
-                const parsedJson = tryParseJson(extractJson(jsonString));
-                if (!parsedJson) throw new Error(`Failed to generate valid JSON for section: ${type}`);
-                return parsedJson;
-            } catch (error) {
-                console.error(`Attempt ${retries + 1} for '${type}' failed.`, error);
-                retries++;
-                const backoffDelay = Math.pow(2, retries) * 1000 + (Math.random() * 500); // Exponential backoff + jitter
-                await new Promise(res => setTimeout(res, backoffDelay));
-            }
-        }
-        throw new Error(`Failed to generate section '${type}' after ${maxRetries} retries.`);
-    };
+	  const missing = requiredKeys.filter(key => !(key in jsonObj));
+	  if (missing.length > 0) {
+	    throw new Error(`Invalid JSON for '${type}'. Missing keys: ${missing.join(", ")}`);
+	  }
+	  return true;
+	};
+
+	const generateUlpSection = async (type, context, maxRetries = 3) => {
+	  let prompt;
+	  const iCan = context.language === 'Filipino' ? 'Kaya kong...' : 'I can...';
+
+	  const commonRules = `
+	Authoritative Inputs:
+	- Content Standard: ${context.contentStandard}
+	- Performance Standard: ${context.performanceStandard}
+	- Source Lesson Titles: ${context.sourceLessonTitles}
+	- Language: ${context.language}
+
+	Rules:
+	1. Respond ONLY with a valid JSON object.
+	2. Do not include any explanation, commentary, or markdown formatting.
+	3. Do not use HTML, Markdown, or any formatting tags inside string values. Use plain text only.
+	4. All generated text inside the JSON MUST be in ${context.language}.
+	5. Create NEW and ORIGINAL activities. Do not directly reference the source content.
+	6. Escape all quotes inside string values.
+	7. Replace any newlines or tabs inside string values with spaces.
+	`;
+
+	  switch (type) {
+	    case 'explore':
+	      prompt = `
+	${commonRules}
+	Generate the "Explore Stage" of a ULP.
+
+	JSON Structure:
+	{
+	  "type": "explore",
+	  "lessonsList": "A bulleted or numbered list of the exact source lesson titles provided.",
+	  "unitOverview": "An engaging and catchy overview of the unit's purpose.",
+	  "hookedActivities": "Detailed instructions for 1-2 engaging activities to capture student interest.",
+	  "mapOfConceptualChange": "Detailed instructions for an activity for students to map their knowledge (e.g., K-W-L chart).",
+	  "essentialQuestions": ["An array of 2-5 thought-provoking Essential Questions."]
+	}
+	`;
+	      break;
+
+	    case 'firmUp':
+	      prompt = `
+	${commonRules}
+	Generate the "Firm-Up (Acquisition)" section for the competency: "${context.competency}" (Code: ${context.code}).
+
+	JSON Structure:
+	{
+	  "type": "firmUp",
+	  "code": "${context.code}",
+	  "competency": "${context.competency}",
+	  "learningTargets": ["A '${iCan}' statement.", "Another '${iCan}' statement."],
+	  "successIndicators": ["A specific, observable indicator.", "Another indicator."],
+	  "inPersonActivity": { "instructions": "Detailed plain-text instructions...", "materials": "List of materials in plain text..." },
+	  "onlineActivity": { "instructions": "Detailed plain-text instructions...", "materials": "List of materials in plain text..." },
+	  "supportDiscussion": "Questions to check for understanding and an in-depth discussion, written in plain text.",
+	  "assessment": { "type": "Multiple Choice | Fill in the blank | Matching Type | Enumeration | Alternative Response | Hands-on operation | Labeling", "content": "The full assessment content in plain text..." },
+	  "templates": "Provide full content for any templates/cards mentioned in materials. If none, use an empty string."
+	}
+	`;
+	      break;
+
+	    case 'deepen':
+	      prompt = `
+	${commonRules}
+	Generate the "Deepen (Meaning-Making)" section for the competency: "${context.competency}" (Code: ${context.code}). 
+	At least one activity MUST be a C-E-R task.
+
+	JSON Structure:
+	{
+	  "type": "deepen",
+	  "code": "${context.code}",
+	  "competency": "${context.competency}",
+	  "learningTargets": ["A '${iCan}' statement.", "Another '${iCan}' statement."],
+	  "successIndicators": ["A specific, observable indicator.", "Another indicator."],
+	  "inPersonActivity": { "instructions": "Detailed plain-text instructions for a meaning-making activity...", "materials": "List of materials in plain text..." },
+	  "onlineActivity": { "instructions": "Detailed plain-text instructions for an online alternative...", "materials": "List of materials in plain text..." },
+	  "supportDiscussion": "A detailed summarization of key concepts, plus in-depth elaboration and probing questions, written in plain text.",
+	  "assessment": { "type": "Short Paragraph | Essay | Critique Writing | Concept Mapping | Journal Writing", "content": "The full assessment content in plain text..." },
+	  "templates": "Provide full content for any templates/cards mentioned in materials. If none, use an empty string."
+	}
+	`;
+	      break;
+
+	    case 'transfer':
+	      prompt = `
+	${commonRules}
+	Generate the "Transfer (Application)" section for the competency: "${context.competency}" (Code: ${context.code}).
+
+	JSON Structure:
+	{
+	  "type": "transfer",
+	  "code": "${context.code}",
+	  "competency": "${context.competency}",
+	  "learningTargets": ["A '${iCan}' statement.", "Another '${iCan}' statement."],
+	  "successIndicators": ["A specific, observable indicator.", "Another indicator."],
+	  "inPersonActivity": { "instructions": "Detailed plain-text instructions for a transfer activity...", "materials": "List of materials in plain text..." },
+	  "onlineActivity": { "instructions": "Detailed plain-text instructions for an online alternative...", "materials": "List of materials in plain text..." }
+	}
+	`;
+	      break;
+
+	    case 'synthesis':
+	      prompt = `
+	${commonRules}
+	Generate the "Final Synthesis" for a ULP.
+
+	JSON Structure:
+	{
+	  "type": "synthesis",
+	  "summary": "The full text of the synthesis in plain text."
+	}
+	`;
+	      break;
+
+	    case 'performanceTask':
+	      prompt = `
+	${commonRules}
+	Generate a detailed GRASPS "Unit Performance Task" based on the overall unit Performance Standard. 
+	Include a comprehensive scoring rubric worth 50 Points.
+
+	JSON Structure:
+	{
+	  "type": "performanceTask",
+	  "graspsTask": {
+	    "goal": "Plain text only",
+	    "role": "Plain text only",
+	    "audience": "Plain text only",
+	    "situation": "Plain text only",
+	    "product": "Plain text only",
+	    "standards": "Plain text only"
+	  },
+	  "rubric": [
+	    { "criteria": "Criteria 1 name in plain text", "description": "Description of the criteria in plain text", "points": "Point value (e.g., 10)" },
+	    { "criteria": "Criteria 2 name in plain text", "description": "Description of the criteria in plain text", "points": "Point value (e.g., 15)" }
+	  ]
+	}
+	`;
+	      break;
+
+	    case 'values':
+	      prompt = `
+	${commonRules}
+	Analyze the provided standards and infer 2-4 key values (e.g., integrity, stewardship, critical thinking).
+
+	JSON Structure:
+	{
+	  "type": "values",
+	  "values": [
+	    { "name": "Value Name 1", "description": "A short, engaging overview in ${context.language} explaining how it is reflected in the unit, plain text only." },
+	    { "name": "Value Name 2", "description": "Another short overview in plain text only." }
+	  ]
+	}
+	`;
+	      break;
+
+	    default:
+	      return Promise.resolve(null);
+	  }
+
+	  let retries = 0;
+	  while (retries < maxRetries) {
+	    try {
+	      const jsonString = await callGeminiWithLimitCheck(prompt, { maxOutputTokens: 4096 });
+	      const parsedJson = tryParseJson(extractJson(jsonString));
+	      if (!parsedJson) throw new Error(`Failed to generate valid JSON for section: ${type}`);
+
+	      // Validate against schema
+	      validateUlpJson(type, parsedJson);
+
+	      return parsedJson;
+	    } catch (error) {
+	      console.error(`Attempt ${retries + 1} for '${type}' failed.`, error);
+	      retries++;
+	      const backoffDelay = Math.pow(2, retries) * 1000 + (Math.random() * 500);
+	      await new Promise(res => setTimeout(res, backoffDelay));
+	    }
+	  }
+	  throw new Error(`Failed to generate section '${type}' after ${maxRetries} retries.`);
+	};
 
     // --- NEW: Helper function to assemble the final HTML from components ---
     const assembleUlpFromComponents = (components) => {
@@ -569,13 +684,13 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         } finally { setIsSaving(false); }
     };
     
-    // --- The entire JSX return block remains unchanged ---
+    // --- The entire JSX return block remains the same structurally, with neumorphism inline styles added ---
     return (
         <Dialog open={isOpen} onClose={!isSaving && !isGenerating ? onClose : () => {}} className="relative z-[110]">
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" />
             
             <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-                <Dialog.Panel className="relative bg-zinc-50/90 backdrop-blur-2xl border border-white/20 p-6 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+                <Dialog.Panel style={NEU_PANEL} className="relative p-6 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
                     {(isGenerating || isSaving) && (
                         <div className="absolute inset-0 bg-white/70 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl space-y-3">
                             {isGenerating ? <ProgressIndicator progress={progress} /> : <Spinner />}
@@ -585,15 +700,20 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                     
                     <div className="flex justify-between items-start mb-6 flex-shrink-0">
                         <div className="flex items-center gap-4">
-                            <div className="bg-violet-600 p-3 rounded-xl text-white shadow-lg">
-                                <DocumentChartBarIcon className="h-8 w-8" />
+                            <div style={NEU_HEADER_ICON} aria-hidden="true">
+                                <DocumentChartBarIcon className="h-8 w-8 text-zinc-700" />
                             </div>
                             <div>
                                 <Dialog.Title className="text-xl sm:text-2xl font-bold text-zinc-900">AI PEAC ULP Generator</Dialog.Title>
                                 <p className="text-sm text-zinc-500">Create a ULP that aligns with PEAC standards.</p>
                             </div>
                         </div>
-                        <button onClick={onClose} disabled={isSaving || isGenerating} className="p-1.5 rounded-full text-zinc-500 bg-zinc-200/80 hover:bg-zinc-300/80 flex-shrink-0">
+                        <button
+                            onClick={onClose}
+                            disabled={isSaving || isGenerating}
+                            style={{ ...NEU_BUTTON, padding: 8 }}
+                            className="p-1.5 rounded-full text-zinc-500 bg-zinc-200/80 hover:bg-zinc-300/80 flex-shrink-0"
+                        >
                             <XMarkIcon className="h-5 w-5" />
                         </button>
                     </div>
@@ -605,7 +725,13 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                                     <h3 className="font-bold text-lg text-zinc-700 border-b border-zinc-200 pb-2">Generation Options</h3>
                                     <div>
                                         <label htmlFor="generationTarget" className="block text-sm font-medium text-zinc-600 mb-1.5">Document to Generate</label>
-                                        <select name="generationTarget" value={generationTarget} onChange={(e) => setGenerationTarget(e.target.value)} className="form-input-ios">
+                                        <select
+                                            name="generationTarget"
+                                            value={generationTarget}
+                                            onChange={(e) => setGenerationTarget(e.target.value)}
+                                            className="form-input-ios"
+                                            style={{ ...NEU_INPUT, width: '100%' }}
+                                        >
                                             <option value="teacherGuide">PEAC Unit Learning Plan (ULP)</option>
                                             <option value="studentLesson">Student Learning Guide</option>
                                             <option value="peacAtg">Adaptive Teaching Guide (ATG)</option>
@@ -614,7 +740,13 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                                     <div>
                                         <label htmlFor="language" className="block text-sm font-medium text-zinc-600 mb-1.5">Output Language</label>
                                         <div className="relative">
-                                            <select id="language" value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className="form-input-ios pl-10">
+                                            <select
+                                                id="language"
+                                                value={selectedLanguage}
+                                                onChange={(e) => setSelectedLanguage(e.target.value)}
+                                                className="form-input-ios pl-10"
+                                                style={{ ...NEU_INPUT, width: '100%', paddingLeft: '2.5rem' }}
+                                            >
                                                 <option>English</option><option>Filipino</option>
                                             </select>
                                             <LanguageIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-400" />
@@ -623,20 +755,45 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                                     <h3 className="font-bold text-lg text-zinc-700 border-b border-zinc-200 pt-2 pb-2">Authoritative Inputs</h3>
                                     <div>
                                         <label htmlFor="contentStandard" className="block text-sm font-medium text-zinc-600 mb-1.5">Content Standard</label>
-                                        <textarea id="contentStandard" name="contentStandard" value={inputs.contentStandard} onChange={handleInputChange} className="form-input-ios" rows={3} />
+                                        <textarea
+                                            id="contentStandard"
+                                            name="contentStandard"
+                                            value={inputs.contentStandard}
+                                            onChange={handleInputChange}
+                                            className="form-input-ios"
+                                            rows={3}
+                                            style={{ ...NEU_INPUT, width: '100%', minHeight: 72 }}
+                                        />
                                     </div>
                                     <div>
                                         <label htmlFor="performanceStandard" className="block text-sm font-medium text-zinc-600 mb-1.5">Performance Standard</label>
-                                        <textarea id="performanceStandard" name="performanceStandard" value={inputs.performanceStandard} onChange={handleInputChange} className="form-input-ios" rows={3} />
+                                        <textarea
+                                            id="performanceStandard"
+                                            name="performanceStandard"
+                                            value={inputs.performanceStandard}
+                                            onChange={handleInputChange}
+                                            className="form-input-ios"
+                                            rows={3}
+                                            style={{ ...NEU_INPUT, width: '100%', minHeight: 72 }}
+                                        />
                                     </div>
                                     <div>
                                         <label htmlFor="learningCompetencies" className="block text-sm font-medium text-zinc-600 mb-1.5">Learning Competencies</label>
-                                        <textarea id="learningCompetencies" name="learningCompetencies" placeholder="One competency per line..." value={inputs.learningCompetencies} onChange={handleInputChange} className="form-input-ios" rows={4} />
+                                        <textarea
+                                            id="learningCompetencies"
+                                            name="learningCompetencies"
+                                            placeholder="One competency per line..."
+                                            value={inputs.learningCompetencies}
+                                            onChange={handleInputChange}
+                                            className="form-input-ios"
+                                            rows={4}
+                                            style={{ ...NEU_INPUT, width: '100%', minHeight: 96 }}
+                                        />
                                     </div>
                                 </div>
                                 <div className="space-y-4">
                                      <h3 className="font-bold text-lg text-zinc-700 border-b border-zinc-200 pb-2">Source Content</h3>
-                                    <div className="bg-white/50 p-4 rounded-xl">
+                                    <div style={{ ...NEU_CARD, padding: 16 }}>
                                         <SourceContentSelector
                                             selectedSubjectId={selectedSubjectId}
                                             handleSubjectChange={(e) => { setSelectedSubjectId(e.target.value); setSelectedUnitIds(new Set()); setScaffoldLessonIds(new Set()); }}
@@ -653,7 +810,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                                     </div>
                                     {/* --- MODIFIED: Collapsible and Selectable Scaffold Section --- */}
                                     <h3 className="font-bold text-lg text-zinc-700 border-b border-zinc-200 pt-2 pb-2">Scaffolding (Optional)</h3>
-                                    <div className="bg-white/50 p-4 rounded-xl max-h-64 overflow-y-auto">
+                                    <div style={{ ...NEU_CARD, padding: 16, maxHeight: 256, overflowY: 'auto' }}>
                                         <p className="text-xs text-zinc-500 mb-3">Select previous lessons to build upon. Default view is collapsed.</p>
                                         {unitsForSubject.length > 0 ? (
                                             unitsForSubject.map(unit => {
@@ -667,7 +824,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
 
                                                 return (
                                                     <div key={unit.id} className="pt-2 first:pt-0">
-                                                        <div className="flex items-center bg-zinc-100 p-2 rounded-md">
+                                                        <div className="flex items-center" style={{ background: 'transparent', padding: 8, borderRadius: 8 }}>
                                                             <button onClick={() => handleToggleUnitExpansion(unit.id)} className="p-1">
                                                                 <ChevronRightIcon className={`h-4 w-4 text-zinc-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                                                             </button>
@@ -736,13 +893,30 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                     <div className="pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-zinc-200/80 mt-6">
                         {previewData ? (
                             <>
-                                <button onClick={() => setPreviewData(null)} disabled={isSaving || isGenerating} className="btn-secondary-ios w-full sm:w-auto">Back to Edit</button>
-                                <button onClick={handleSave} disabled={isSaving || isGenerating} className="btn-primary-ios w-full sm:w-auto">
+                                <button
+                                    onClick={() => setPreviewData(null)}
+                                    disabled={isSaving || isGenerating}
+                                    className="btn-secondary-ios w-full sm:w-auto"
+                                    style={{ ...NEU_BUTTON }}
+                                >
+                                    Back to Edit
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    disabled={isSaving || isGenerating}
+                                    className="btn-primary-ios w-full sm:w-auto"
+                                    style={{ ...NEU_BUTTON_PRIMARY }}
+                                >
                                     {isSaving ? 'Saving...' : 'Accept & Save'}
                                 </button>
                             </>
                         ) : (
-                            <button onClick={handleGenerate} disabled={isGenerating || !selectedUnitIds.size} className="btn-primary-ios ml-auto w-full sm:w-auto">
+                            <button
+                                onClick={handleGenerate}
+                                disabled={isGenerating || !selectedUnitIds.size}
+                                className="btn-primary-ios ml-auto w-full sm:w-auto"
+                                style={{ ...NEU_BUTTON_PRIMARY }}
+                            >
                                 {isGenerating ? 'Generating...' : 'Generate Content'}
                             </button>
                         )}
