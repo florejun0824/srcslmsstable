@@ -1,14 +1,16 @@
-import fetch from "node-fetch";
+// netlify/functions/build-status.js
 
 export async function handler() {
   try {
     const { NETLIFY_SITE_ID, NETLIFY_AUTH_TOKEN } = process.env;
 
+    // If credentials are missing, return "unknown" instead of crashing
     if (!NETLIFY_SITE_ID || !NETLIFY_AUTH_TOKEN) {
       return {
-        statusCode: 500,
+        statusCode: 200,
         body: JSON.stringify({
-          error: "Missing Netlify API credentials (NETLIFY_SITE_ID or NETLIFY_AUTH_TOKEN).",
+          status: "unknown",
+          message: "Missing Netlify API credentials (NETLIFY_SITE_ID or NETLIFY_AUTH_TOKEN).",
         }),
       };
     }
@@ -26,13 +28,16 @@ export async function handler() {
     if (!response.ok) {
       return {
         statusCode: response.status,
-        body: JSON.stringify({ error: "Failed to fetch deploys from Netlify API" }),
+        body: JSON.stringify({
+          error: "Failed to fetch deploys from Netlify API",
+        }),
       };
     }
 
     const deploys = await response.json();
     const latestDeploy = deploys[0];
 
+    // Respond with latest deploy status
     return {
       statusCode: 200,
       headers: {
