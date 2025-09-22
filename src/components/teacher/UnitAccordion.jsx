@@ -63,6 +63,60 @@ import pdfFonts from "pdfmake/build/vfs_fonts";
 pdfMake.vfs = pdfFonts;
 
 
+// Font Loading Functions
+async function loadFontToVfs(name, url) {
+  const res = await fetch(url);
+  const buffer = await res.arrayBuffer();
+  const base64 = btoa(
+    new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+  );
+  pdfMake.vfs[name] = base64;
+}
+
+let dejaVuLoaded = false;
+async function registerDejaVuFonts() {
+  if (dejaVuLoaded) return;
+
+  await loadFontToVfs("DejaVuSans.ttf", "/fonts/DejaVuSans.ttf");
+  await loadFontToVfs("DejaVuSans-Bold.ttf", "/fonts/DejaVuSans-Bold.ttf");
+  await loadFontToVfs("DejaVuSans-Oblique.ttf", "/fonts/DejaVuSans-Oblique.ttf");
+  await loadFontToVfs("DejaVuSans-BoldOblique.ttf", "/fonts/DejaVuSans-BoldOblique.ttf");
+
+  pdfMake.fonts = {
+    DejaVu: {
+      normal: "DejaVuSans.ttf",
+      bold: "DejaVuSans-Bold.ttf",
+      italics: "DejaVuSans-Oblique.ttf",
+      bolditalics: "DejaVuSans-BoldOblique.ttf",
+    },
+  };
+
+  dejaVuLoaded = true;
+}
+
+// ✅ CORRECTED: Helper function to process special text characters
+const processLatex = (text) => {
+    if (!text) return '';
+    let processedText = text;
+
+    // Replace custom LaTeX-like commands with unicode characters
+    processedText = processedText.replace(/\\degree/g, '°');
+    processedText = processedText.replace(/\\angle/g, '∠');
+
+    // ✅ ADDED: Handle \vec{...} command for vectors
+    // This finds \vec{...} and applies a combining arrow over each character inside.
+    processedText = processedText.replace(/\\vec\{(.*?)\}/g, (match, content) => {
+        return content.split('').map(char => char + '\u20D7').join('');
+    });
+
+    // Strip out LaTeX math delimiters.
+    processedText = processedText.replace(/\$\$(.*?)\$\$/g, '$1');
+    processedText = processedText.replace(/\$(.*?)\$/g, '$1');
+
+    return processedText;
+};
+
+
 // Lazy load modals for better code splitting and initial load performance
 const AddLessonModal = lazy(() => import('./AddLessonModal'));
 const AddQuizModal = lazy(() => import('./AddQuizModal'));
@@ -201,7 +255,7 @@ const convertSvgStringToPngDataUrl = (svgString) => {
             ctx.drawImage(img, 0, 0, width, height);
             const dataUrl = canvas.toDataURL('image/png');
             if (dataUrl === 'data:,') {
-                 reject(new Error("Canvas generated an empty data URL, the SVG might be invalid."));
+                reject(new Error("Canvas generated an empty data URL, the SVG might be invalid."));
             } else {
                 resolve({ dataUrl, width, height });
             }
@@ -480,66 +534,70 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	}
 	
 	const handleExportDocx = async (lesson) => {
-	    if (isExportingRef.current) return;
-	    isExportingRef.current = true;
-	    setExportingLessonId(lesson.id);
-	    showToast("Generating .docx file...", "info");
-	    try {
-	        let finalHtml = `<h1>${lesson.lessonTitle || lesson.title}</h1>`;
-	        for (const page of lesson.pages) {
-	            const cleanTitle = (page.title || '').replace(/^page\s*\d+\s*[:-]?\s*/i, '');
-                // ✅ FIX: Check if page.content is a string before parsing
-	            const contentString = typeof page.content === 'string' ? page.content : '';
-	            const rawHtml = marked.parse(contentString);
-	            finalHtml += `<h2>${cleanTitle}</h2>` + rawHtml;
-	        }
-	        const tempDiv = document.createElement('div');
-	        tempDiv.innerHTML = finalHtml;
-	        const svgElements = tempDiv.querySelectorAll('svg');
-	        const conversionPromises = Array.from(svgElements).map(async (svg) => {
-	            try {
-	                const svgString = svg.outerHTML;
-	                const result = await convertSvgStringToPngDataUrl(svgString);
-	                const img = document.createElement('img');
-	                img.src = result.dataUrl;
-	                img.width = result.width;
-	                img.height = result.height;
-	                img.style.maxWidth = '100%';
-	                img.style.height = 'auto';
-	                svg.parentNode.replaceChild(img, svg);
-	            } catch (err) {
-	                console.error("Could not convert one of the SVGs:", err);
-	                const errorMsg = document.createElement('p');
-	                errorMsg.style.color = 'red';
-	                errorMsg.innerText = '[Failed to render diagram]';
-	                svg.parentNode.replaceChild(errorMsg, svg);
-	            }
-	        });
-	        await Promise.all(conversionPromises);
-	        const fileBlob = await htmlToDocx(tempDiv.innerHTML, null, { table: { row: { cantSplit: true } }, footer: true, pageNumber: true });
-	        const blobUrl = URL.createObjectURL(fileBlob);
-	        const link = document.createElement('a');
-	        link.href = blobUrl;
-	        link.download = `${lesson.lessonTitle || lesson.title}.docx`;
-	        document.body.appendChild(link);
-	        link.click();
-	        document.body.removeChild(link);
-	        URL.revokeObjectURL(blobUrl);
-	    } catch (error) {
-	        console.error("Failed to export DOCX:", error);
-	        showToast("An error occurred while creating the Word document.", "error");
-	    } finally {
-	        isExportingRef.current = false;
-	        setExportingLessonId(null);
-	    }
-	};
-    
+		    if (isExportingRef.current) return;
+		    isExportingRef.current = true;
+		    setExportingLessonId(lesson.id);
+		    showToast("Generating .docx file...", "info");
+		    try {
+		        let finalHtml = `<h1>${lesson.lessonTitle || lesson.title}</h1>`;
+		        for (const page of lesson.pages) {
+		            const cleanTitle = (page.title || '').replace(/^page\s*\d+\s*[:-]?\s*/i, '');
+	            
+	                // ✅ FIXED: Process the content string before parsing
+	                const contentString = typeof page.content === 'string' ? page.content : '';
+	                const processedContent = processLatex(contentString);
+	                const rawHtml = marked.parse(processedContent);
+	            
+	                finalHtml += `<h2>${cleanTitle}</h2>` + rawHtml;
+		        }
+		        const tempDiv = document.createElement('div');
+		        tempDiv.innerHTML = finalHtml;
+		        const svgElements = tempDiv.querySelectorAll('svg');
+		        const conversionPromises = Array.from(svgElements).map(async (svg) => {
+		            try {
+		                const svgString = svg.outerHTML;
+		                const result = await convertSvgStringToPngDataUrl(svgString);
+		                const img = document.createElement('img');
+		                img.src = result.dataUrl;
+		                img.width = result.width;
+		                img.height = result.height;
+		                img.style.maxWidth = '100%';
+		                img.style.height = 'auto';
+		                svg.parentNode.replaceChild(img, svg);
+		            } catch (err) {
+		                console.error("Could not convert one of the SVGs:", err);
+		                const errorMsg = document.createElement('p');
+		                errorMsg.style.color = 'red';
+		                errorMsg.innerText = '[Failed to render diagram]';
+		                svg.parentNode.replaceChild(errorMsg, svg);
+		            }
+		        });
+		        await Promise.all(conversionPromises);
+		        const fileBlob = await htmlToDocx(tempDiv.innerHTML, null, { table: { row: { cantSplit: true } }, footer: true, pageNumber: true });
+		        const blobUrl = URL.createObjectURL(fileBlob);
+		        const link = document.createElement('a');
+		        link.href = blobUrl;
+		        link.download = `${lesson.lessonTitle || lesson.title}.docx`;
+		        document.body.appendChild(link);
+		        link.click();
+		        document.body.removeChild(link);
+		        URL.revokeObjectURL(blobUrl);
+		    } catch (error) {
+		        console.error("Failed to export DOCX:", error);
+		        showToast("An error occurred while creating the Word document.", "error");
+		    } finally {
+		        isExportingRef.current = false;
+		        setExportingLessonId(null);
+		    }
+		};
     const handleExportUlpAsPdf = async (lesson) => {
         if (exportingLessonId) return;
         setExportingLessonId(lesson.id);
         showToast("Preparing PDF...", "info");
 
         try {
+            await registerDejaVuFonts();
+
             const pdfStyles = {
                 coverTitle: { fontSize: 32, bold: true, margin: [0, 0, 0, 15] },
                 coverSub: { fontSize: 18, italics: true, color: '#555555' },
@@ -581,7 +639,10 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                     margin: [0, 0, 0, 20],
                     stack: [{ image: "footerImg", width: 450, alignment: "center" }]
                 },
-                defaultStyle: pdfStyles.default,
+                defaultStyle: {
+                    font: 'DejaVu',
+                    ...pdfStyles.default
+                },
                 styles: pdfStyles,
                 content: [
                     {
@@ -687,7 +748,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        setExportingLessonId(null);
 	        return;
 	    }
-	    printWindow.document.write(`<html><head><title>${lesson.lessonTitle || lesson.title}</title><style>@media print { @page { size: 8.5in 13in; margin: 1in; } body { margin: 0; font-family: sans-serif; } h1, h2, h3 { page-break-after: avoid; } ul, p { page-break-inside: avoid; } table { width: 100%; border-collapse: collapse; } td, th { border: 1px solid #ccc; padding: 6px; } }</style></head><body>${finalHtml}</body></html>`);
+	    printWindow.document.write(`<html><head><title>${lesson.lessonTitle || lesson.title}</title><style>@media print { @page { size: 8.5in 13in; margin: 1in; } body { margin: 0; font-family: 'DejaVu Sans', sans-serif; } h1, h2, h3 { page-break-after: avoid; } ul, p { page-break-inside: avoid; } table { width: 100%; border-collapse: collapse; } td, th { border: 1px solid #ccc; padding: 6px; } }</style></head><body>${finalHtml}</body></html>`);
 	    printWindow.document.close();
 	    setTimeout(() => { printWindow.focus(); printWindow.print(); setExportingLessonId(null); }, 500);
 	};
@@ -698,10 +759,13 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	    showToast("Preparing PDF...", "info");
 
 	    try {
+            await registerDejaVuFonts();
+
 	        const pdfStyles = {
 	            coverTitle: { fontSize: 32, bold: true, margin: [0, 0, 0, 15] },
 	            coverSub: { fontSize: 18, italics: true, color: '#555555' },
 	            pageTitle: { fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] },
+	            blockquote: { margin: [20, 5, 20, 5], italics: true, color: '#4a4a4a' },
 	            default: {
 	                fontSize: 11,
 	                lineHeight: 1.5,
@@ -712,17 +776,29 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        const lessonTitle = lesson.lessonTitle || lesson.title;
 	        const subjectTitle = subject?.title || "SRCS Learning Portal";
 	        let lessonContent = [];
+
 	        for (const page of lesson.pages) {
 	            const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
 	            if (cleanTitle) {
 	                lessonContent.push({ text: cleanTitle, style: 'pageTitle' });
 	            }
-                // ✅ FIX: Check if page.content is a string before parsing
-	            const contentString = typeof page.content === 'string' ? page.content : '';
-	            const html = marked.parse(contentString);
+
+	            let contentString = typeof page.content === 'string' ? page.content : '';
+                
+                // ✅ FIX 1: Process raw text before parsing markdown
+                contentString = processLatex(contentString);
+
+	            let html = marked.parse(contentString);
+
+                // ✅ FIX 2: Clean up blockquote HTML for proper rendering
+                html = html
+                    .replace(/<blockquote>\s*<p>/g, '<blockquote>')
+                    .replace(/<\/p>\s*<\/blockquote>/g, '</blockquote>');
+
 	            const convertedContent = htmlToPdfmake(html, { defaultStyles: pdfStyles.default });
 	            lessonContent.push(convertedContent);
 	        }
+
 	        const docDefinition = {
 	            pageSize: "A4",
 	            pageMargins: [72, 100, 72, 100],
@@ -734,7 +810,10 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	                margin: [0, 0, 0, 20],
 	                stack: [{ image: "footerImg", width: 450, alignment: "center" }]
 	            },
-	            defaultStyle: pdfStyles.default,
+                defaultStyle: {
+                    font: 'DejaVu',
+                    ...pdfStyles.default,
+                },
 	            styles: pdfStyles,
 	            content: [
 	                {
@@ -749,8 +828,8 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	                ...lessonContent
 	            ],
 	            images: {
-	  		        headerImg: "https://i.ibb.co/xt5CY6GY/header-port.png",
-	  		        footerImg: "https://i.ibb.co/kgrMBfDr/Footer.png"
+	 		        headerImg: "https://i.ibb.co/xt5CY6GY/header-port.png",
+	 		        footerImg: "https://i.ibb.co/kgrMBfDr/Footer.png"
 	            }
 	        };
 	        pdfMake.createPdf(docDefinition).download(`${lessonTitle}.pdf`, () => {

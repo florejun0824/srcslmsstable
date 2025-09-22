@@ -325,7 +325,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                 {question.type === 'multiple-choice' ? (
                     <div className="space-y-3">
                         {question.options.map((option, idx) => (
-                            <label key={idx} className={`relative flex items-center space-x-4 p-4 rounded-2xl transition-all duration-200 bg-neumorphic-base
+                            <label key={idx} className={`relative flex items-center space-x-4 p-3 sm:p-4 rounded-2xl transition-all duration-200 bg-neumorphic-base
                                 ${isDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer active:shadow-neumorphic-inset'}
                                 ${userAnswers[currentQ] === idx ? 'shadow-neumorphic-inset' : 'shadow-neumorphic'}`}>
                                 <input type="radio" name={`question-${currentQ}`} checked={userAnswers[currentQ] === idx} onChange={() => handleAnswer(idx)} disabled={isDisabled} className="sr-only" />
@@ -337,7 +337,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                     <div className="grid grid-cols-2 gap-4">
                         {[true, false].map((value) => (
                             <button key={String(value)} onClick={() => handleAnswer(value)} disabled={isDisabled}
-                                className={`w-full p-4 rounded-2xl text-base font-semibold transition-all duration-200 bg-neumorphic-base
+                                className={`w-full p-3 sm:p-4 rounded-2xl text-base font-semibold transition-all duration-200 bg-neumorphic-base
                                     ${isDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer active:shadow-neumorphic-inset'}
                                     ${userAnswers[currentQ] === value ? 'shadow-neumorphic-inset text-primary-700' : 'shadow-neumorphic text-slate-700'}`}>
                                 {String(value).charAt(0).toUpperCase() + String(value).slice(1)}
@@ -391,16 +391,16 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         );
     };
     const renderResults = () => (
-        <div className="text-center p-8 bg-neumorphic-base rounded-3xl shadow-neumorphic">
+        <div className="text-center p-4 sm:p-8 bg-neumorphic-base rounded-3xl shadow-neumorphic">
             <div className="mx-auto inline-block p-4 rounded-full bg-neumorphic-base shadow-neumorphic-inset mb-4">
-                <CheckCircleIcon className="h-20 w-20 text-green-500" />
+                <CheckCircleIcon className="h-16 w-16 sm:h-20 sm:w-20 text-green-500" />
             </div>
-            <h3 className="text-3xl font-extrabold text-slate-900 mb-2">Quiz Submitted!</h3>
-            <p className="text-xl mt-2 text-slate-700">You scored <strong className="text-green-600 text-3xl">{score}</strong> out of <strong className="text-slate-900 text-3xl">{totalQuestions}</strong></p>
-            {(3 - attemptsTaken) > 0 ? (
-                <p className="text-lg mt-4 text-slate-600">You have <strong>{3 - attemptsTaken}</strong> attempt(s) left.</p>
+            <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-2">Quiz Submitted!</h3>
+            <p className="text-lg sm:text-xl mt-2 text-slate-700">You scored <strong className="text-green-600 text-2xl sm:text-3xl">{score}</strong> out of <strong className="text-slate-900 text-2xl sm:text-3xl">{totalQuestions}</strong></p>
+            {(quiz.maxAttempts - attemptsTaken) > 0 ? (
+                <p className="text-base sm:text-lg mt-4 text-slate-600">You have <strong>{quiz.maxAttempts - attemptsTaken}</strong> attempt(s) left.</p>
             ) : (
-                <p className="text-lg mt-4 text-red-600 font-semibold">You have used all 3 attempts.</p>
+                <p className="text-base sm:text-lg mt-4 text-red-600 font-semibold">You have used all {quiz.maxAttempts} attempts.</p>
             )}
             <button onClick={() => setShowReview(true)} className="mt-8 w-full py-3 rounded-2xl bg-neumorphic-base text-primary-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all">
                 Review Your Answers
@@ -412,7 +412,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         const answersToReview = latestSubmission?.answers || [];
         return (
         <div>
-            <h3 className="text-3xl font-extrabold text-slate-900 mb-4">Review Your Answers</h3>
+            <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-4">Review Your Answers</h3>
             <div className="space-y-2 mt-4 max-h-[60vh] overflow-y-auto pr-2 bg-neumorphic-base p-2 rounded-2xl shadow-neumorphic-inset">
                 {answersToReview.map((answer, index) => (
                     <div key={index} className={`p-4 rounded-2xl bg-neumorphic-base shadow-neumorphic border-l-4 ${answer.isCorrect ? 'border-green-500' : 'border-red-500'}`}>
@@ -518,13 +518,13 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                 <DialogPanel className="relative flex flex-col w-full max-w-lg md:max-w-2xl rounded-3xl bg-neumorphic-base shadow-neumorphic max-h-[90vh]">
                     
                     {/* --- HEADER --- */}
-                    <div className="flex-shrink-0 p-6 md:p-8 pb-4">
+                    <div className="flex-shrink-0 p-4 sm:p-6 pb-4">
                         <button onClick={handleClose} className="absolute top-4 right-4 p-2 rounded-full bg-neumorphic-base text-slate-500 shadow-neumorphic active:shadow-neumorphic-inset transition-all z-10" aria-label="Close">
                             <XMarkIcon className="h-6 w-6" />
                         </button>
                         <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                             <div className="flex-1">
-                                <h2 className="text-3xl font-extrabold text-slate-900 leading-tight pr-8 sm:pr-0">{quiz?.title}</h2>
+                                <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 leading-tight pr-8 sm:pr-0">{quiz?.title}</h2>
                                 {isTeacherView && (
                                     <button onClick={handleExportPdf} className="flex items-center gap-2 mt-3 px-4 py-2 rounded-xl bg-neumorphic-base text-primary-700 font-semibold shadow-neumorphic active:shadow-neumorphic-inset transition-all">
                                         <DocumentArrowDownIcon className="h-5 w-5"/> Export as PDF
@@ -546,16 +546,16 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                     </div>
                     
                     {/* --- CONTENT (Scrollable) --- */}
-                    <div className="flex-grow overflow-y-auto px-6 md:px-8 custom-scrollbar">
+                    <div className="flex-grow overflow-y-auto px-4 sm:px-6 custom-scrollbar">
                         {renderContent()}
                     </div>
 
                     {/* --- FOOTER --- */}
-                    <div className="flex-shrink-0 p-6 md:p-8 pt-4">
+                    <div className="flex-shrink-0 p-4 sm:p-6 pt-4">
                         {/* Student Footer */}
                         {hasAttemptsLeft && score === null && !isLocked && !isTeacherView && currentQuestionAttempted && (
-                            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t border-slate-300">
-                                <div className="text-center">
+                            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t border-slate-300/80">
+                                <div className="text-center sm:text-left">
                                     <span className="text-base font-medium text-slate-600">{`Question ${currentQ + 1} of ${totalQuestions}`}</span>
                                     <span className="block text-xs text-slate-500 mt-1">Attempt {attemptsTaken + 1} of {MAX_WARNINGS}</span>
                                 </div>

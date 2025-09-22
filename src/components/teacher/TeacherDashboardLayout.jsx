@@ -285,6 +285,12 @@ const TeacherDashboardLayout = (props) => {
             icon: IconCategory,
             gradient: 'from-violet-500 to-purple-500',
         },
+		{
+			view: 'analytics',
+			text: 'Analytics',
+			icon: IconChartBar,
+			gradient: 'from-teal-500 to-cyan-500',
+		},
         {
             view: 'profile',
             text: 'Profile',
