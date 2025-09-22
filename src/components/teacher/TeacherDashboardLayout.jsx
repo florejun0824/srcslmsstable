@@ -9,6 +9,7 @@ import {
     IconUserCircle,
     IconShieldCog,
     IconPower,
+	IconChartBar,
 } from '@tabler/icons-react';
 
 // FIREBASE & SERVICES
@@ -28,6 +29,7 @@ const ClassesView = lazy(() => import('./dashboard/views/ClassesView'));
 const CoursesView = lazy(() => import('./dashboard/views/CoursesView'));
 const StudentManagementView = lazy(() => import('./dashboard/views/StudentManagementView'));
 const ProfileView = lazy(() => import('./dashboard/views/ProfileView'));
+const AnalyticsView = lazy(() => import('./dashboard/views/AnalyticsView'));
 
 // LAZY-LOADED UI (MODALS)
 const AiGenerationHub = lazy(() => import('./AiGenerationHub'));
@@ -40,7 +42,7 @@ const EditCategoryModal = lazy(() => import('./EditCategoryModal'));
 const CreateClassModal = lazy(() => import('./CreateClassModal'));
 const CreateCourseModal = lazy(() => import('./CreateCourseModal'));
 const ClassOverviewModal = lazy(() => import('./ClassOverviewModal'));
-const EditClassModal = lazy(() => import('../common/EditClassModal'));
+const EditClassModal = lazy(() => import('./EditClassModal'));
 const AddUnitModal = lazy(() => import('./AddUnitModal'));
 const EditUnitModal = lazy(() => import('./EditUnitModal'));
 const AddLessonModal = lazy(() => import('./AddLessonModal'));
@@ -60,6 +62,7 @@ const DesktopHeader = ({ activeView, handleViewChange, userProfile, setIsLogoutM
         { view: 'studentManagement', text: 'Students', icon: IconUsers },
         { view: 'classes', text: 'Classes', icon: IconSchool },
         { view: 'courses', text: 'Subjects', icon: IconCategory },
+		{ view: 'analytics', icon: IconChartBar, text: 'Analytics' },
         { view: 'profile', text: 'Profile', icon: IconUserCircle },
     ];
     if (userProfile?.role === 'admin') {
@@ -85,7 +88,7 @@ const DesktopHeader = ({ activeView, handleViewChange, userProfile, setIsLogoutM
             </div>
 
             {/* Center: Navigation */}
-            <nav className="w-full max-w-xl p-3 bg-neumorphic-base rounded-3xl shadow-neumorphic flex justify-center items-center gap-3">
+            <nav className="w-full max-w-2xl p-3 bg-neumorphic-base rounded-3xl shadow-neumorphic flex justify-center items-center gap-3">
                 {navItems.map((item) => {
                     const isActive = activeView === item.view;
                     return (
@@ -100,7 +103,7 @@ const DesktopHeader = ({ activeView, handleViewChange, userProfile, setIsLogoutM
                             aria-label={item.text}
                         >
                             <item.icon
-                                size={30}
+                                size={28}
                                 className={`transition-colors duration-200 ${
                                     isActive
                                         ? 'text-sky-600'
@@ -108,7 +111,7 @@ const DesktopHeader = ({ activeView, handleViewChange, userProfile, setIsLogoutM
                                 }`}
                             />
                             <span
-                                className={`mt-1 text-sm font-semibold ${
+                                className={`mt-0.5 text-sm font-semibold ${
                                     isActive
                                         ? 'text-sky-600'
                                         : 'text-slate-500 group-hover:text-slate-700'
@@ -206,6 +209,8 @@ const TeacherDashboardLayout = (props) => {
         handleInitiateDelete,
         handleCreateUnit,
         courses,
+		activeClasses,
+		handleUpdateClass,
         ...rest
     } = props;
 
@@ -326,12 +331,13 @@ const TeacherDashboardLayout = (props) => {
                     <HomeView
                         key={`${reloadKey}-home`}
                         userProfile={userProfile}
+						activeClasses={activeClasses} 
                         handleViewChange={handleViewChange}
                         {...rest}
                     />
                 );
-            case 'classes':
-                return <ClassesView key={`${reloadKey}-classes`} {...rest} />;
+			case 'classes':
+			    return <ClassesView key={`${reloadKey}-classes`} activeClasses={activeClasses} {...rest} />;
             case 'courses':
                 return (
                     <CoursesView
@@ -349,10 +355,11 @@ const TeacherDashboardLayout = (props) => {
                         handleEditCategory={handleEditCategory}
                         onAddSubjectClick={handleAddSubjectWithCategory}
                         handleInitiateDelete={handleInitiateDelete}
+						activeClasses={activeClasses}
                     />
                 );
             case 'studentManagement':
-                return <StudentManagementView key={`${reloadKey}-sm`} {...rest} />;
+                return <StudentManagementView key={`${reloadKey}-sm`} courses={courses} {...rest} />;
             case 'profile':
                 return (
                     <ProfileView
@@ -363,6 +370,14 @@ const TeacherDashboardLayout = (props) => {
                         {...rest}
                     />
                 );
+			case 'analytics':
+			            return (
+			                <AnalyticsView
+			                    key={`${reloadKey}-analytics`}
+			                    activeClasses={activeClasses}
+			                    courses={courses}
+			                />
+			            );
             case 'admin':
                 return (
                     <div
@@ -546,6 +561,7 @@ const TeacherDashboardLayout = (props) => {
                     isOpen={rest.isCreateClassModalOpen}
                     onClose={() => rest.setCreateClassModalOpen(false)}
                     teacherId={user?.uid || user?.id}
+					courses={courses}
                 />
                 <CreateCourseModal
                     isOpen={rest.isCreateCourseModalOpen}
@@ -576,6 +592,8 @@ const TeacherDashboardLayout = (props) => {
                         isOpen={rest.isEditClassModalOpen}
                         onClose={() => rest.setEditClassModalOpen(false)}
                         classData={rest.classToEdit}
+						courses={courses}
+						onUpdate={handleUpdateClass}
                     />
                 )}
                 {rest.isAddUnitModalOpen && (

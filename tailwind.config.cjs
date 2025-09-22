@@ -65,7 +65,7 @@ module.exports = {
           950: '#450A0A',
         },
         // --- Neumorphic UI Colors ---
-        'neumorphic-base': '#F0F2F5', 
+        'neumorphic-base': '#F0F2F5',
         'neumorphic-shadow-dark': '#C8CDD3',
         'neumorphic-shadow-light': '#FFFFFF',
       },
@@ -96,10 +96,8 @@ module.exports = {
         'tremor-input': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
         'tremor-card': '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
         'tremor-dropdown': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-        
-        // --- REFINED NEUMORPHIC SHADOWS ---
-        'neumorphic': '8px 8px 15px #C8CDD3, -8px -8px 15px #FFFFFF',
-        'neumorphic-inset': 'inset 4px 4px 6px #C8CDD3, inset -4px -4px 6px #FFFFFF',
+        'neumorphic': '6px 6px 12px #C8CDD3, -6px -6px 12px #FFFFFF',
+        'neumorphic-inset': 'inset 6px 6px 12px #C8CDD3, inset -6px -6px 12px #FFFFFF',
         'neumorphic-flat-inset': 'inset 2px 2px 4px #C8CDD3, inset -2px -2px 4px #FFFFFF',
       },
       fontFamily: {
@@ -111,13 +109,41 @@ module.exports = {
         "tremor-title": ['1.125rem', { lineHeight: '1.75rem' }],
         "tremor-metric": ['1.875rem', { lineHeight: '2.25rem' }],
       },
+      // Typography plugin customization
+      typography: (theme) => ({
+        DEFAULT: {
+          css: {
+            blockquote: {
+              fontWeight: '500',
+              fontStyle: 'italic',
+              color: theme('colors.slate.600'),
+              borderLeftWidth: '0.25rem',
+              borderLeftColor: theme('colors.sky.400'),
+              quotes: '"\\201C""\\201D""\\2018""\\2019"',
+              paddingLeft: theme('spacing.4'),
+              backgroundColor: theme('colors.neumorphic-base'),
+              paddingTop: theme('spacing.2'),
+              paddingBottom: theme('spacing.2'),
+              paddingRight: theme('spacing.4'),
+              borderRadius: theme('borderRadius.lg'),
+              boxShadow: theme('boxShadow.neumorphic-flat-inset'),
+            },
+            'blockquote p:first-of-type::before': {
+              content: '',
+            },
+            'blockquote p:last-of-type::after': {
+              content: '',
+            },
+          },
+        },
+      }),
     },
   },
   safelist: [
-  'to-blue-50',
-      'to-green-50',
-      'to-amber-50',
-      'to-red-50',
+    'to-blue-50',
+    'to-green-50',
+    'to-amber-50',
+    'to-red-50',
     {
       pattern: /^(bg-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(?:50|100|200|300|400|500|600|700|800|900|950))$/,
       variants: ['hover', 'ui-selected'],

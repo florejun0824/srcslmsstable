@@ -4,14 +4,13 @@ import { useToast } from '../../contexts/ToastContext';
 import { motion } from 'framer-motion';
 import {
     DocumentChartBarIcon,
-    UsersIcon,
-    ClipboardDocumentCheckIcon,
     XMarkIcon,
     ChevronDownIcon,
     ChevronUpIcon
 } from '@heroicons/react/24/outline';
 
-import * as XLSX from 'sheetjs-style';
+// ✅ FIX: use xlsx-js-style instead of sheetjs-style
+import * as XLSX from 'xlsx-js-style';
 
 const dropIn = {
     hidden: { y: "-50px", opacity: 0, scale: 0.95 },
@@ -24,7 +23,17 @@ const dropIn = {
     exit: { y: "50px", opacity: 0, scale: 0.95, transition: { duration: 0.2 } },
 };
 
-export default function GenerateReportModal({ isOpen, onClose, classData, availableQuizzes, quizScores, lessons, units, sharedContentPosts, className }) {
+export default function GenerateReportModal({
+    isOpen,
+    onClose,
+    classData,
+    availableQuizzes,
+    quizScores,
+    lessons,
+    units,
+    sharedContentPosts,
+    className
+}) {
     const { showToast } = useToast();
     const [selectedQuizIds, setSelectedQuizIds] = useState([]);
     const [sortOption, setSortOption] = useState('gender-lastName');
@@ -33,7 +42,6 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
     const students = classData?.students || [];
     const quizzes = availableQuizzes || [];
     const scores = quizScores || [];
-    const lessonContent = lessons || [];
     const unitMap = units || {};
     const posts = sharedContentPosts || [];
 
@@ -58,11 +66,8 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
     const toggleUnitCollapse = (unitTitle) => {
         setCollapsedUnits(prev => {
             const newSet = new Set(prev);
-            if (newSet.has(unitTitle)) {
-                newSet.delete(unitTitle);
-            } else {
-                newSet.add(unitTitle);
-            }
+            if (newSet.has(unitTitle)) newSet.delete(unitTitle);
+            else newSet.add(unitTitle);
             return newSet;
         });
     };
@@ -79,15 +84,22 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
         const quizzesInThisUnit = quizzesByUnit[unitDisplayName] || [];
         const quizIdsInThisUnit = quizzesInThisUnit.map(quiz => quiz.id);
 
-        const allQuizzesSelected = quizIdsInThisUnit.length > 0 && quizIdsInThisUnit.every(quizId => selectedQuizIds.includes(quizId));
+        const allQuizzesSelected =
+            quizIdsInThisUnit.length > 0 &&
+            quizIdsInThisUnit.every(quizId => selectedQuizIds.includes(quizId));
 
         if (allQuizzesSelected) {
-            setSelectedQuizIds(prev => prev.filter(id => !quizIdsInThisUnit.includes(id)));
+            setSelectedQuizIds(prev =>
+                prev.filter(id => !quizIdsInThisUnit.includes(id))
+            );
         } else {
-            setSelectedQuizIds(prev => [...new Set([...prev, ...quizIdsInThisUnit])]);
+            setSelectedQuizIds(prev =>
+                [...new Set([...prev, ...quizIdsInThisUnit])]
+            );
         }
     };
-    
+
+    // --- Excel cell styles ---
     const commonBorderStyle = {
         top: { style: "thin", color: { auto: 1 } },
         bottom: { style: "thin", color: { auto: 1 } },
@@ -149,14 +161,17 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
         border: commonBorderStyle
     };
 
+    // --- Generate Excel ---
     const handleGenerate = () => {
         if (selectedQuizIds.length === 0) {
             return showToast("Please select at least one quiz to include in the report.", "error");
         }
 
-        const selectedQuizzes = quizzes.filter(q => selectedQuizIds.includes(q.id));
+        const selectedQuizzes = quizzes.filter(q =>
+            selectedQuizIds.includes(q.id)
+        );
+
         let sortedStudents = [...students];
-        
         sortedStudents.sort((a, b) => {
             const aGender = a.gender || 'Ungrouped';
             const bGender = b.gender || 'Ungrouped';
@@ -172,7 +187,9 @@ export default function GenerateReportModal({ isOpen, onClose, classData, availa
         });
 
         const workbook = XLSX.utils.book_new();
-        const worksheet = {};
+
+        // ✅ Proper worksheet initialization
+        let worksheet = XLSX.utils.aoa_to_sheet([[]]);
         worksheet['!ref'] = 'A1';
         let rowIndex = 0;
         const addCell = (row, col, value, style) => {

@@ -16,6 +16,7 @@ import GlobalAiSpinner from '../components/common/GlobalAiSpinner';
 const PresentationPreviewModal = lazy(() => import('../components/teacher/PresentationPreviewModal'));
 const BetaWarningModal = lazy(() => import('../components/teacher/BetaWarningModal'));
 const ViewLessonModal = lazy(() => import('../components/teacher/ViewLessonModal'));
+const AnalyticsView = lazy(() => import('../components/teacher/dashboard/views/AnalyticsView'));
 
 
 const TeacherDashboard = () => {
@@ -554,6 +555,17 @@ const TeacherDashboard = () => {
             catch (error) { showToast("Failed to archive class.", "error"); }
         }
     };
+	const handleUpdateClass = async (classId, newData) => {
+	    try {
+	        const classRef = doc(db, "classes", classId);
+	        await updateDoc(classRef, newData);
+	        showToast("Class updated successfully!", "success");
+	        setEditClassModalOpen(false); // Close the modal after a successful update
+	    } catch (error) {
+	        console.error("Error updating class:", error);
+	        showToast("Failed to update class.", "error");
+	    }
+	};
 
     const handleUnarchiveClass = async (classId) => {
         try { await firestoreService.updateClassArchiveStatus(classId, false); showToast("Class restored.", "success"); }
@@ -761,6 +773,7 @@ const TeacherDashboard = () => {
                 handleRemoveStudentFromClass={handleRemoveStudentFromClass}
                 isAiHubOpen={isAiHubOpen}
                 setIsAiHubOpen={setIsAiHubOpen}
+				handleUpdateClass={handleUpdateClass}
                 reloadKey={reloadKey}
             />
 

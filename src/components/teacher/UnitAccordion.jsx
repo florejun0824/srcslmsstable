@@ -487,8 +487,10 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	    try {
 	        let finalHtml = `<h1>${lesson.lessonTitle || lesson.title}</h1>`;
 	        for (const page of lesson.pages) {
-	            const cleanTitle = page.title.replace(/^page\s*\d+\s*[:-]?\s*/i, '');
-	            const rawHtml = marked.parse(page.content || '');
+	            const cleanTitle = (page.title || '').replace(/^page\s*\d+\s*[:-]?\s*/i, '');
+                // ✅ FIX: Check if page.content is a string before parsing
+	            const contentString = typeof page.content === 'string' ? page.content : '';
+	            const rawHtml = marked.parse(contentString);
 	            finalHtml += `<h2>${cleanTitle}</h2>` + rawHtml;
 	        }
 	        const tempDiv = document.createElement('div');
@@ -555,13 +557,14 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 
             let lessonContent = [];
             for (const page of lesson.pages) {
-                const cleanTitle = page.title.replace(/^page\s*\d+\s*[:-]?\s*/i, "");
+                const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
 
                 if (cleanTitle) {
                     lessonContent.push({ text: cleanTitle, style: 'pageTitle' });
                 }
-        
-                const html = marked.parse(page.content || '');
+                
+                const contentString = typeof page.content === 'string' ? page.content : '';
+                const html = marked.parse(contentString);
                 const convertedContent = htmlToPdfmake(html, { defaultStyles: pdfStyles.default });
         
                 lessonContent.push(convertedContent);
@@ -673,8 +676,9 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	    showToast("Preparing PDF for printing...", "info");
 	    let finalHtml = `<h1>${lesson.lessonTitle || lesson.title}</h1>`;
 	    for (const page of lesson.pages) {
-	        const cleanTitle = page.title.replace(/^page\s*\d+\s*[:-]?\s*/i, '');
-	        const rawHtml = marked.parse(page.content || '');
+	        const cleanTitle = (page.title || '').replace(/^page\s*\d+\s*[:-]?\s*/i, '');
+	        const contentString = typeof page.content === 'string' ? page.content : '';
+	        const rawHtml = marked.parse(contentString);
 	        finalHtml += `<h2>${cleanTitle}</h2>` + rawHtml;
 	    }
 	    const printWindow = window.open('', '_blank');
@@ -709,11 +713,13 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        const subjectTitle = subject?.title || "SRCS Learning Portal";
 	        let lessonContent = [];
 	        for (const page of lesson.pages) {
-	            const cleanTitle = page.title.replace(/^page\s*\d+\s*[:-]?\s*/i, "");
+	            const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
 	            if (cleanTitle) {
 	                lessonContent.push({ text: cleanTitle, style: 'pageTitle' });
 	            }
-	            const html = marked.parse(page.content || '');
+                // ✅ FIX: Check if page.content is a string before parsing
+	            const contentString = typeof page.content === 'string' ? page.content : '';
+	            const html = marked.parse(contentString);
 	            const convertedContent = htmlToPdfmake(html, { defaultStyles: pdfStyles.default });
 	            lessonContent.push(convertedContent);
 	        }

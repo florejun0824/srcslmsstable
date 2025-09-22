@@ -24,7 +24,7 @@ const ClassesView = ({
         { icon: ShieldCheckIcon, gradient: 'from-white to-red-50', iconColor: 'text-red-300' },
     ];
 
-    const sortedClasses = [...activeClasses].sort((a, b) => {
+    const sortedClasses = [...(activeClasses || [])].sort((a, b) => {
         const gradeA = parseInt(a.gradeLevel.match(/\d+/));
         const gradeB = parseInt(b.gradeLevel.match(/\d+/));
         if (gradeA < gradeB) return -1;

@@ -56,7 +56,7 @@ const CustomMultiSelect = React.memo(({ title, options, selectedValues, onSelect
 
     return (
         <div className="relative">
-            <button type="button" onClick={onToggle} disabled={disabled} className="flex w-full items-center justify-between p-4 bg-black/5 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 disabled:bg-gray-200/50 disabled:cursor-not-allowed">
+            <button type="button" onClick={onToggle} disabled={disabled} className="flex w-full items-center justify-between p-4 bg-neumorphic-base rounded-xl shadow-neumorphic focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 disabled:bg-gray-200/50 disabled:cursor-not-allowed">
                 <span className="block truncate text-base">{selectedCount > 0 ? `${selectedCount} ${title} Selected` : `Select ${title}`}</span>
                 <ChevronUpDownIcon className={`h-5 w-5 text-gray-400 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -88,7 +88,7 @@ const CustomDateTimePicker = React.memo(({ selectedDate, onDateChange, isClearab
         onDateChange(newDate);
     };
     const timeValue = selectedDate ? `${String(selectedDate.getHours()).padStart(2, '0')}:${String(selectedDate.getMinutes()).padStart(2, '0')}` : '';
-    const inputClasses = "w-full p-4 bg-black/5 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 placeholder:text-gray-500";
+    const inputClasses = "w-full p-4 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 placeholder:text-gray-500";
     
     return (
         <div className="flex flex-col sm:flex-row gap-3">
@@ -109,6 +109,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     const [selectedQuizzes, setSelectedQuizzes] = useState([]);
     const [availableFrom, setAvailableFrom] = useState(new Date());
     const [availableUntil, setAvailableUntil] = useState(null);
+    const [selectedQuarter, setSelectedQuarter] = useState(null); // NEW STATE
     const [loading, setLoading] = useState(false);
     const [contentLoading, setContentLoading] = useState(false);
     const [error, setError] = useState('');
@@ -197,13 +198,17 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
 
     const handleClose = useCallback(() => {
         setSelectedClasses([]); setSelectedLessons([]); setSelectedQuizzes([]);
-        setAvailableFrom(new Date()); setAvailableUntil(null);
+        setAvailableFrom(new Date()); setAvailableUntil(null); setSelectedQuarter(null);
         setError(''); setSuccess(''); setRawLessons([]); setRawQuizzes([]);
         setActiveDropdown(null);
         onClose();
     }, [onClose]);
 
     const handleShare = async () => {
+        if (!selectedQuarter) {
+            setError("Please select a quarter before sharing.");
+            return;
+        }
         if (selectedClasses.length === 0 || (selectedLessons.length === 0 && selectedQuizzes.length === 0)) {
             setError("Please select at least one class and one piece of content.");
             return;
@@ -216,11 +221,11 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
 
             const lessonsToPost = rawLessons
                 .filter(l => selectedLessons.includes(l.id))
-                .map(l => ({ ...l }));
+                .map(l => ({ ...l, quarter: selectedQuarter }));
 
             const quizzesToPost = rawQuizzes
                 .filter(q => selectedQuizzes.includes(q.id))
-                .map(q => ({ ...q }));
+                .map(q => ({ ...q, quarter: selectedQuarter }));
 
             const contentParts = [];
             if (lessonsToPost.length > 0) contentParts.push(`${lessonsToPost.length} lesson(s)`);
@@ -237,6 +242,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                     subjectId: subject.id,
                     availableFrom: Timestamp.fromDate(availableFrom),
                     availableUntil: availableUntil ? Timestamp.fromDate(availableUntil) : null,
+                    quarter: selectedQuarter,
                     lessons: lessonsToPost,
                     quizzes: quizzesToPost,
                 });
@@ -251,7 +257,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         } catch (err) {
             console.error("Error sharing content: ", err);
             setError("An error occurred while sharing. Please try again.");
-        // ✅ FIX: Moved setLoading(false) to a 'finally' block to ensure it always runs.
         } finally {
             setLoading(false);
         }
@@ -259,7 +264,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
 
     const thingsToShareCount = selectedLessons.length + selectedQuizzes.length;
     const primaryButtonStyles = "px-6 py-3 text-base font-semibold text-white bg-blue-600 rounded-full shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all duration-200 disabled:opacity-50 active:scale-95";
-    const secondaryButtonStyles = "px-6 py-3 text-base font-semibold text-gray-900 bg-black/5 rounded-full hover:bg-black/10 transition-all disabled:opacity-50 active:scale-95";
+    const secondaryButtonStyles = "px-6 py-3 text-base font-semibold text-gray-900 bg-neumorphic-base rounded-full shadow-neumorphic hover:text-blue-600 transition-all disabled:opacity-50 active:scale-95";
 
     return (
         <Modal 
@@ -274,11 +279,11 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* --- Left Column: Settings --- */}
                         <div className="space-y-6">
-                            <section className="bg-white/60 p-5 rounded-2xl ring-1 ring-black/5">
+                            <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-3">1. Share With</h3>
                                 <CustomMultiSelect title="Classes" options={classes} selectedValues={selectedClasses} onSelectionChange={(id) => handleSelection(id, 'class')} disabled={contentLoading} isOpen={activeDropdown === 'classes'} onToggle={() => handleToggleDropdown('classes')} />
                             </section>
-                            <section className="bg-white/60 p-5 rounded-2xl ring-1 ring-black/5">
+                            <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-3">2. Set Availability</h3>
                                 <div className="space-y-4">
                                     <div>
@@ -291,10 +296,24 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                     </div>
                                 </div>
                             </section>
+                            <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-3">3. Select Quarter</h3>
+                                <select
+                                    value={selectedQuarter || ""}
+                                    onChange={(e) => setSelectedQuarter(parseInt(e.target.value))}
+                                    className="w-full p-4 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900"
+                                >
+                                    <option value="">-- Select Quarter --</option>
+                                    <option value={1}>Quarter 1</option>
+                                    <option value={2}>Quarter 2</option>
+                                    <option value={3}>Quarter 3</option>
+                                    <option value={4}>Quarter 4</option>
+                                </select>
+                            </section>
                         </div>
                         {/* --- Right Column: Content --- */}
-                        <section className="bg-white/60 p-5 rounded-2xl ring-1 ring-black/5">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-3">3. Choose Content</h3>
+                        <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-3">4. Choose Content</h3>
                             <div className="space-y-4">
                                 <CustomMultiSelect title="Lessons" options={allLessons} selectedValues={selectedLessons} onSelectionChange={(id) => handleSelection(id, 'lesson')} onSelectGroup={(unitName) => handleSelectUnit(unitName, 'lesson')} disabled={contentLoading} isOpen={activeDropdown === 'lessons'} onToggle={() => handleToggleDropdown('lessons')} />
                                 <CustomMultiSelect title="Quizzes" options={allQuizzes} selectedValues={selectedQuizzes} onSelectionChange={(id) => handleSelection(id, 'quiz')} onSelectGroup={(unitName) => handleSelectUnit(unitName, 'quiz')} disabled={contentLoading} isOpen={activeDropdown === 'quizzes'} onToggle={() => handleToggleDropdown('quizzes')} />

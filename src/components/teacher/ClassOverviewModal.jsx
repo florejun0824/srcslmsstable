@@ -460,7 +460,17 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 </div>
             </Modal>
             
-            <GenerateReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} classData={classData} quizScores={quizScores} units={units} sharedContentPosts={sharedContentPosts} className="z-[120]" />
+						 <GenerateReportModal
+						   isOpen={isReportModalOpen}
+						   onClose={() => setIsReportModalOpen(false)}
+						   classData={classData}
+						   availableQuizzes={sharedContentPosts.flatMap(p => p.quizzes || [])}
+						   quizScores={quizScores}
+						   units={units}
+						   sharedContentPosts={sharedContentPosts}
+						   className="z-[120]"
+						 />
+            
             <ViewLessonModal isOpen={!!viewLessonData} onClose={() => setViewLessonData(null)} lesson={viewLessonData} className="z-[120]" />
             <ViewQuizModal isOpen={!!viewQuizData} onClose={() => setViewQuizData(null)} quiz={viewQuizData} userProfile={userProfile} classId={classData?.id} isTeacherView={userProfile.role === 'teacher' || userProfile.role === 'admin'} className="z-[120]" />
             <EditAvailabilityModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} post={postToEdit} classId={classData?.id} onUpdate={handlePostUpdate} className="z-[120]" />

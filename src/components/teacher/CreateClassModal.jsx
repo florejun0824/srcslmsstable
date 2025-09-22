@@ -14,10 +14,12 @@ const generateClassCode = () => {
     return result;
 };
 
-const CreateClassModal = ({ isOpen, onClose, teacherId }) => {
+// Accept 'courses' as a new prop
+const CreateClassModal = ({ isOpen, onClose, teacherId, courses }) => {
     const [className, setClassName] = useState('');
     const [section, setSection] = useState('');
     const [gradeLevel, setGradeLevel] = useState('Grade 7');
+    const [selectedSubjectId, setSelectedSubjectId] = useState(''); // New state variable
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { showToast } = useToast();
 
@@ -40,11 +42,13 @@ const CreateClassModal = ({ isOpen, onClose, teacherId }) => {
                 students: [],
                 classCode: newClassCode,
                 isArchived: false,
+                subjectId: selectedSubjectId, // Save the selected subject ID
             });
             showToast(`Class created successfully! Code: ${newClassCode}`, 'success');
             onClose();
             setClassName('');
             setSection('');
+            setSelectedSubjectId(''); // Reset the state
         } catch (error) {
             console.error("Error creating class: ", error);
             showToast("Failed to create class.", 'error');
@@ -99,6 +103,30 @@ const CreateClassModal = ({ isOpen, onClose, teacherId }) => {
                         </div>
                     </div>
                 </div>
+
+                {/* New Subject Selector Dropdown */}
+                <div className="relative">
+                    <label htmlFor="subject" className="block text-sm font-semibold text-slate-600">Assign Subject</label>
+                    <div className="relative mt-2">
+                        <select
+                            id="subject"
+                            value={selectedSubjectId}
+                            onChange={(e) => setSelectedSubjectId(e.target.value)}
+                            className={`${inputClasses} appearance-none pr-10`}
+                        >
+                            <option value="">No Subject Assigned</option>
+							{courses.sort((a, b) => a.title.localeCompare(b.title)).map((course) => (
+							    <option key={course.id} value={course.id}>
+							        {course.title}
+							    </option>
+							))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4">
+                            <ChevronUpDownIcon className="h-5 w-5 text-slate-400" />
+                        </div>
+                    </div>
+                </div>
+
                 <div className="pt-4">
                     <button 
                         type="submit" 
