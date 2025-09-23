@@ -38,22 +38,20 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedQuiz, setGeneratedQuiz] = useState(null);
     const [error, setError] = useState('');
-    const [keyPoints, setKeyPoints] = useState('');
 
     useEffect(() => {
         if (isOpen) {
             setStep(1); setItemCount(10); setQuizType('multiple-choice'); setLanguage('English');
             setDistribution({ 'multiple-choice': 10, 'true-false': 0, 'identification': 0 });
-            setRevisionPrompt(''); setIsGenerating(false); setGeneratedQuiz(null); setError(''); setKeyPoints('');
+            setRevisionPrompt(''); setIsGenerating(false); setGeneratedQuiz(null); setError('');
         }
     }, [isOpen]);
 
     useEffect(() => {
         if (quizType !== 'mixed') {
             const newDistribution = { 'multiple-choice': 0, 'true-false': 0, 'identification': 0 };
-            newDistribution[quizType] = itemCount; setDistribution(newDistribution);
-        } else {
-            setDistribution({ 'multiple-choice': itemCount, 'true-false': 0, 'identification': 0 });
+            newDistribution[quizType] = itemCount;
+            setDistribution(newDistribution);
         }
     }, [itemCount, quizType]);
 
@@ -83,11 +81,12 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
 
         const lessonContentForPrompt = lesson?.pages?.map(page => `Page Title: ${page.title}\nPage Content: ${page.content}`).join('\n\n') || '';
 
-        let prompt = `You are an expert instructional designer and quiz creator specializing in Bloom's Taxonomy. Your task is to create a quiz about the topic of "${lesson?.title}".
+        let prompt = `You are an expert instructional designer creating curriculum-aligned assessment tools for the Philippine Department of Education (DepEd). Your task is to create a high-quality, academically appropriate quiz on the topic of "${lesson?.title}".
 
-**PRIMARY DIRECTIVE:** Use the provided "KNOWLEDGE SOURCE TEXT" below only to understand the key concepts of the topic.
-        
-**ABSOLUTE RULE:** You MUST NOT create questions that refer to the provided text itself (e.g., "According to the lesson..."). The quiz must be a standalone assessment of the topic.
+**PEDAGOGICAL FRAMEWORK:**
+1.  **DepEd Alignment:** All questions must be academically rigorous, curriculum-relevant, and suitable for a high school academic level. The goal is to assess understanding of key concepts, not to trick the student.
+2.  **KNOWLEDGE SOURCE:** Use the provided text below only to understand the core concepts of the topic.
+3.  **ABSOLUTE RULE:** You MUST NOT create questions that refer to the provided text itself (e.g., "According to the lesson..."). The quiz must be a standalone assessment.
 
 **KNOWLEDGE SOURCE TEXT:**
 ---
@@ -95,44 +94,47 @@ ${lessonContentForPrompt}
 ---
 
 **QUIZ REQUIREMENTS:**
-1.  **CRITICAL LANGUAGE RULE:** You MUST generate the entire quiz, including all questions, choices, and explanations, exclusively in the following language: **${language}**. Do not mix languages under any circumstances.
+1.  **CRITICAL LANGUAGE RULE:** You MUST generate the entire quiz (questions, choices, explanations) exclusively in **${language}**.
+    - If language is **Filipino**, all concepts must be properly contextualized. For 'true-false' questions, the framework is "Tama o Mali".
 2.  **Total Items:** The quiz must have exactly ${itemCount} items.
-3.  **Difficulty Levels (Bloom's Taxonomy):** You must generate questions based on these two difficulty levels, with a 50/50 split between them:
-    - **easy:** Corresponds to the 'Remembering' and 'Understanding' levels. These questions test for recall of facts and basic concepts.
-    - **comprehension:** Corresponds to the 'Applying' and 'Analyzing' levels. These questions require using information in new situations or drawing connections among ideas.
-4.	**Lesson Citing:** Do not explicitly cite the lesson in the quiz.
-5.  **Question Types:**`;
+3.  **Bloom's Taxonomy Levels:** Generate a 50/50 split between these two difficulty levels:
+    - **easy:** (Remembering/Understanding) Tests recall of facts and basic concepts.
+    - **comprehension:** (Applying/Analyzing) Requires using information in new situations or drawing connections among ideas.
+4.  **Question Types:**`;
 
         if (quizType === 'mixed') {
-            prompt += ` The quiz should be a mix of types with the following distribution: ${distribution['multiple-choice']} multiple-choice, ${distribution['true-false']} true/false, and ${distribution['identification']} identification items.\n`;
+            prompt += ` A mix with the following distribution: ${distribution['multiple-choice']} multiple-choice, ${distribution['true-false']} true/false, and ${distribution['identification']} identification items.\n`;
         } else {
-            prompt += ` All questions should be of the type: ${quizType}.\n`;
+            prompt += ` All questions must be of the type: ${quizType}.\n`;
         }
 
         prompt += `
+**QUALITY ASSURANCE CHECKS:**
+1.  **Clarity:** Questions must be clear, concise, and unambiguous.
+2.  **Significance:** Focus on the most important concepts from the lesson. Avoid trivial details.
+3.  **Plausible Distractors:** For multiple-choice, incorrect options must be plausible but definitively wrong.
+4.  **No Opinion Questions:** All questions must have a single, fact-based correct answer.
+
 **JSON OUTPUT FORMAT:**
-Return the response as a a single, valid JSON object. The object must have a "title" and a "questions" array.
+Return the response as a single, valid JSON object with a "title" and a "questions" array.
+- For **multiple-choice** questions, choices in the "options" array MUST be ordered alphabetically (for words) or by length (shortest to longest for phrases).
+- For **true-false** questions, the 'correctAnswer' must be a boolean (true/false). The question type must still be "true-false".
+- For **identification** questions, the 'correctAnswer' must be a string.
 
-**For 'multiple-choice' questions, follow this CRITICAL OPTION ORDERING RULE:**
-You MUST order the choices in the "options" array according to the following logic:
-1.  **Alphabetical:** If the choices are single words.
-2.  **Pyramid Style (Shortest to Longest):** If the choices are sentences or long phrases.
-3.  **Numerical Sequence:** If the choices are numbers.
-4.  **Chronological Order:** If the choices are dates.
-
-**FINAL VALIDATION STEP:** Before creating the final JSON, review every question. If a question violates the **ABSOLUTE RULE** or the **CRITICAL LANGUAGE RULE**, you MUST rewrite it.
+**FINAL VALIDATION:** Before creating the JSON, review every question. If a question violates the **ABSOLUTE RULE**, **CRITICAL LANGUAGE RULE**, or any **QUALITY ASSURANCE CHECKS**, you MUST rewrite it.
 
 ---
 **JSON Schema:**
 - **root**: { "title": string, "questions": array }
-- **question object**: { "text": string, "type": string, "difficulty": string ('easy' or 'comprehension'), "explanation": string, ...other properties based on type }
-- For **multiple-choice**: "options": array of { "text": string, "isCorrect": boolean }, and "correctAnswerIndex": number
-- for **true-false**: "correctAnswer": boolean
-- for **identification**: "correctAnswer": string
+- **question object**: { "text": string, "type": string ("multiple-choice", "true-false", "identification"), "difficulty": string ('easy' or 'comprehension'), "explanation": string, ... }
+- **multiple-choice**: "options": array of { "text": string, "isCorrect": boolean }, "correctAnswerIndex": number
+- **true-false**: "correctAnswer": boolean
+- **identification**: "correctAnswer": string
 ---
 `;
         return prompt;
     };
+
 
     const handleGenerate = async (isRevision = false) => {
         if (!lesson) {
@@ -150,12 +152,6 @@ You MUST order the choices in the "options" array according to the following log
         setIsGenerating(true);
 
         try {
-            if (!isRevision) {
-                const lessonContentForPrompt = lesson.pages.map(page => `Page Title: ${page.title}\nPage Content: ${page.content}`).join('\n\n');
-                const summarizationPrompt = `Read the following text and extract all key facts, definitions, concepts, and important information. Output this information as a neutral, structured list of key points, written exclusively in **${language}**. Do not add any conversational text or mention the source.\n\nSOURCE TEXT:\n---\n${lessonContentForPrompt}\n---\nKEY POINTS:`;
-                setKeyPoints(await callGeminiWithLimitCheck(summarizationPrompt));
-            }
-
             const quizGenerationPrompt = constructPrompt(isRevision);
             const aiText = await callGeminiWithLimitCheck(quizGenerationPrompt);
             const response = JSON.parse(aiText);
@@ -234,7 +230,9 @@ You MUST order the choices in the "options" array according to the following log
                 const correctOption = q.options.find(opt => opt.isCorrect);
                 correctAnswerText = correctOption ? correctOption.text : 'N/A';
             } else if (q.type === 'true-false') {
-                correctAnswerText = String(q.correctAnswer);
+                // Add choices to the PDF body for true-false questions
+                questionContent += language === 'Filipino' ? '\n  a. Tama\n  b. Mali' : '\n  a. True\n  b. False';
+                correctAnswerText = language === 'Filipino' ? (q.correctAnswer ? 'Tama' : 'Mali') : String(q.correctAnswer);
             } else if (q.type === 'identification') {
                 correctAnswerText = q.correctAnswer;
             }
@@ -272,9 +270,25 @@ You MUST order the choices in the "options" array according to the following log
         doc.save(`${generatedQuiz.title}.pdf`);
         showToast("Quiz exported as PDF.", "success");
     };
+    
+    const getTranslatedType = (type) => {
+        if (language !== 'Filipino') return type;
+        switch(type) {
+            case 'multiple-choice': return 'Maramihang Pagpipilian';
+            case 'true-false': return 'Tama o Mali';
+            case 'identification': return 'Pagtukoy';
+            default: return type;
+        }
+    };
 
     const renderStepContent = () => {
         const questionTypes = [{ id: 'multiple-choice', name: 'Multiple Choice' }, { id: 'true-false', name: 'True/False' }, { id: 'identification', name: 'Identification' }, { id: 'mixed', name: 'Mixed' }];
+        const distributionTypes = [
+            { label: 'Multiple Choice', key: 'multiple-choice' },
+            { label: 'True/False', key: 'true-false' },
+            { label: 'Identification', key: 'identification' }
+        ];
+
         switch (step) {
             case 1:
                 const totalDistributed = Object.values(distribution).reduce((s, v) => s + v, 0);
@@ -306,10 +320,17 @@ You MUST order the choices in the "options" array according to the following log
                         {quizType === 'mixed' && (<div className="p-5 rounded-2xl shadow-[inset_3px_3px_7px_#bdc1c6,inset_-3px_-3px_7px_#ffffff] space-y-4">
                             <h3 className="text-base font-semibold text-slate-800">Item Distribution</h3>
                             <div className="grid grid-cols-3 gap-3">
-                                {['Multiple Choice', 'True/False', 'Identification'].map(type => {
-                                    const key = type.toLowerCase().replace(' ', '-');
-                                    return (<div key={key}><label className="text-xs font-medium text-slate-500">{type}</label><input type="number" value={distribution[key]} onChange={(e) => handleDistributionChange(key, Math.max(0, parseInt(e.target.value, 10) || 0))} className={`w-full mt-1.5 text-center ${inputBaseStyles} py-2.5`} /></div>);
-                                })}
+                                {distributionTypes.map(distType => (
+                                    <div key={distType.key}>
+                                        <label className="text-xs font-medium text-slate-500">{distType.label}</label>
+                                        <input 
+                                            type="number" 
+                                            value={distribution[distType.key]} 
+                                            onChange={(e) => handleDistributionChange(distType.key, Math.max(0, parseInt(e.target.value, 10) || 0))} 
+                                            className={`w-full mt-1.5 text-center ${inputBaseStyles} py-2.5`} 
+                                        />
+                                    </div>
+                                ))}
                             </div>
                             {(totalDistributed !== itemCount) && (<p className="text-sm font-medium text-center text-amber-800 bg-amber-200 p-2.5 rounded-lg shadow-[inset_1px_1px_2px_#e6c589,inset_-1px_-1px_2px_#ffffd3]">Current total: {totalDistributed} of {itemCount}</p>)}
                         </div>)}
@@ -326,7 +347,7 @@ You MUST order the choices in the "options" array according to the following log
                             {generatedQuiz?.questions.map((q, i) => (
                                 <div key={i} className="p-4 bg-slate-200 rounded-xl shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff]">
                                     <p className="font-semibold text-slate-900 leading-relaxed"><span className="text-slate-500 mr-2">{i + 1}.</span><ContentRenderer text={q.text} /></p>
-                                    <div className="mt-3 flex items-center space-x-2"><span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-200 shadow-[inset_1px_1px_2px_#bdc1c6,inset_-1px_-1px_2px_#ffffff] text-sky-700">{q.type}</span><span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-200 shadow-[inset_1px_1px_2px_#bdc1c6,inset_-1px_-1px_2px_#ffffff] text-purple-700">{q.difficulty}</span></div>
+                                    <div className="mt-3 flex items-center space-x-2"><span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-200 shadow-[inset_1px_1px_2px_#bdc1c6,inset_-1px_-1px_2px_#ffffff] text-sky-700">{getTranslatedType(q.type)}</span><span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-200 shadow-[inset_1px_1px_2px_#bdc1c6,inset_-1px_-1px_2px_#ffffff] text-purple-700">{q.difficulty}</span></div>
                                     <div className="mt-3 pl-6 text-sm">
                                         {q.type === 'multiple-choice' && q.options && (
                                             <ul className="list-disc list-outside space-y-1.5 text-slate-700">
@@ -338,7 +359,20 @@ You MUST order the choices in the "options" array according to the following log
                                                 ))}
                                             </ul>
                                         )}
-                                        {(q.type === 'true-false' || q.type === 'identification') && (
+                                        {/* FIXED: Display Tama/Mali or True/False as options for preview */}
+                                        {(q.type === 'true-false') && (
+                                            <ul className="list-disc list-outside space-y-1.5 text-slate-700">
+                                                <li className={q.correctAnswer === true ? 'font-semibold text-green-700' : ''}>
+                                                    {language === 'Filipino' ? 'Tama' : 'True'}
+                                                    {q.correctAnswer === true && <span className="text-green-500 ml-1.5">✓</span>}
+                                                </li>
+                                                <li className={q.correctAnswer === false ? 'font-semibold text-green-700' : ''}>
+                                                    {language === 'Filipino' ? 'Mali' : 'False'}
+                                                    {q.correctAnswer === false && <span className="text-green-500 ml-1.5">✓</span>}
+                                                </li>
+                                            </ul>
+                                        )}
+                                        {(q.type === 'identification') && (
                                             <p className="text-slate-700">
                                                 Answer: <span className="font-semibold text-green-700"><ContentRenderer text={String(q.correctAnswer)}/></span>
                                             </p>
@@ -400,7 +434,7 @@ You MUST order the choices in the "options" array according to the following log
                     <button onClick={onClose} className={`absolute top-4 right-4 z-10 h-10 w-10 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 ${btnExtruded}`}><XMarkIcon className="h-6 w-6" /></button>
                     <div className="flex-1 overflow-y-auto p-8 pt-12">
                         {isGenerating ? <QuizLoadingScreen /> : renderStepContent()}
-                        {error && !isGenerating && <p className="text-sm text-red-800 mt-4 text-center bg-red-200 p-3 rounded-lg shadow-[inset_1px_1px_2px_#d9b8b8,inset_-1px_-1px_2px_#ffffff]">{error}</p>}
+                        {error && !isGenerating && <p className="text-sm text-red-800 mt-4 text-center bg-red-200 p-3 rounded-lg shadow-[inset_1px_1px_2px_#d1d9e8,inset_-1px_-1px_2px_#ffffff]">{error}</p>}
                     </div>
                     {!isGenerating && <div className="flex-shrink-0 px-6 py-5 bg-slate-200/50 border-t border-slate-300/70">{renderButtons()}</div>}
                 </DialogPanel>

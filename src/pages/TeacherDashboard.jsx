@@ -421,6 +421,33 @@ const TeacherDashboard = () => {
         setIsDeleteModalOpen(true);
     };
 
+    // ✅ START: ADD THIS HELPER FUNCTION INSIDE YOUR TeacherDashboard COMPONENT
+    /**
+     * Finds and deletes a quiz and all its submissions within a batch operation.
+     * @param {WriteBatch} batch The Firestore WriteBatch to add operations to.
+     * @param {string} quizId The ID of the quiz to delete.
+     */
+    async function deleteQuizAndSubmissions(batch, quizId) {
+        // Query for all student submissions linked to this quiz ID.
+        // IMPORTANT: Verify 'quizSubmissions' is your collection name and 'quizId' is the field name.
+        const submissionsQuery = query(
+            collection(db, 'quizSubmissions'),
+            where('quizId', '==', quizId)
+        );
+        const submissionsSnapshot = await getDocs(submissionsQuery);
+
+        // Add each submission to the batch for deletion.
+        submissionsSnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+
+        // Add the main quiz document to the batch for deletion.
+        batch.delete(doc(db, 'quizzes', quizId));
+        
+        console.log(`Queued deletion for quiz ${quizId} and its ${submissionsSnapshot.size} submissions.`);
+    }
+    // ✅ END: HELPER FUNCTION ADDED
+
     const handleConfirmDelete = async () => {
         if (!deleteTarget) {
             showToast("An error occurred. No item selected for deletion.", "error");
@@ -455,9 +482,14 @@ const TeacherDashboard = () => {
                     const lessonsQuery = query(collection(db, 'lessons'), where('unitId', '==', unitDoc.id));
                     const lessonsSnapshot = await getDocs(lessonsQuery);
                     lessonsSnapshot.forEach(lessonDoc => batch.delete(doc(db, 'lessons', lessonDoc.id)));
+                    
                     const quizzesQuery = query(collection(db, 'quizzes'), where('unitId', '==', unitDoc.id));
                     const quizzesSnapshot = await getDocs(quizzesQuery);
-                    quizzesSnapshot.forEach(quizDoc => batch.delete(doc(db, 'quizzes', quizDoc.id)));
+                    // ✅ MODIFICATION: Instead of just deleting quizzes, we now also delete their submissions.
+                    for (const quizDoc of quizzesSnapshot.docs) {
+                        await deleteQuizAndSubmissions(batch, quizDoc.id);
+                    }
+                    
                     batch.delete(doc(db, 'units', unitDoc.id));
                 }
             };
@@ -473,9 +505,16 @@ const TeacherDashboard = () => {
                 await deleteSubjectContent(id);
                 batch.delete(doc(db, 'courses', id));
                 setActiveSubject(null);
-            } else if (type === 'lesson' || type === 'quiz') {
+            
+            // ✅ MODIFICATION: Separated 'quiz' from 'lesson' to handle it with the new function.
+            } else if (type === 'quiz') {
                 findAndQueueClassUpdates(subjectId);
-                batch.delete(doc(db, type === 'lesson' ? 'lessons' : 'quizzes', id));
+                await deleteQuizAndSubmissions(batch, id);
+
+            } else if (type === 'lesson') {
+                findAndQueueClassUpdates(subjectId);
+                batch.delete(doc(db, 'lessons', id));
+
             } else {
                  showToast(`Deletion for type "${type}" is not implemented.`, "warning");
             }
