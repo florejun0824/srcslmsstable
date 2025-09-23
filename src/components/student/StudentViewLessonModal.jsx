@@ -21,6 +21,8 @@ import htmlToPdfmake from 'html-to-pdfmake';
 import { marked } from 'marked';
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
+pdfMake.vfs = pdfFonts;
+
 
 const modalVariants = {
     hidden: { opacity: 0, scale: 0.98 },
@@ -43,16 +45,57 @@ const objectiveItemVariants = {
     visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 150, damping: 20 } },
 };
 
-// ## NEW: Helper function to process simple LaTeX into Unicode ##
+
+// Font Loading Functions
+async function loadFontToVfs(name, url) {
+  const res = await fetch(url);
+  const buffer = await res.arrayBuffer();
+  const base64 = btoa(
+    new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+  );
+  pdfMake.vfs[name] = base64;
+}
+
+let dejaVuLoaded = false;
+async function registerDejaVuFonts() {
+  if (dejaVuLoaded) return;
+
+  await loadFontToVfs("DejaVuSans.ttf", "/fonts/DejaVuSans.ttf");
+  await loadFontToVfs("DejaVuSans-Bold.ttf", "/fonts/DejaVuSans-Bold.ttf");
+  await loadFontToVfs("DejaVuSans-Oblique.ttf", "/fonts/DejaVuSans-Oblique.ttf");
+  await loadFontToVfs("DejaVuSans-BoldOblique.ttf", "/fonts/DejaVuSans-BoldOblique.ttf");
+
+  pdfMake.fonts = {
+    DejaVu: {
+      normal: "DejaVuSans.ttf",
+      bold: "DejaVuSans-Bold.ttf",
+      italics: "DejaVuSans-Oblique.ttf",
+      bolditalics: "DejaVuSans-BoldOblique.ttf",
+    },
+  };
+
+  dejaVuLoaded = true;
+}
+
+// ✅ CORRECTED: Helper function to process special text characters
 const processLatex = (text) => {
     if (!text) return '';
-    // Replace common symbols
-    let processedText = text.replace(/\\degree/g, '°');
-    
-    // Remove block and inline math delimiters ($ and $$)
+    let processedText = text;
+
+    // Replace custom LaTeX-like commands with unicode characters
+    processedText = processedText.replace(/\\degree/g, '°');
+    processedText = processedText.replace(/\\angle/g, '∠');
+
+    // ✅ ADDED: Handle \vec{...} command for vectors
+    // This finds \vec{...} and applies a combining arrow over each character inside.
+    processedText = processedText.replace(/\\vec\{(.*?)\}/g, (match, content) => {
+        return content.split('').map(char => char + '\u20D7').join('');
+    });
+
+    // Strip out LaTeX math delimiters.
     processedText = processedText.replace(/\$\$(.*?)\$\$/g, '$1');
     processedText = processedText.replace(/\$(.*?)\$/g, '$1');
-    
+
     return processedText;
 };
 
@@ -117,88 +160,94 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
     };
 
     // --- PDF EXPORT FUNCTION ---
-    const handleExportLessonPdf = async (lessonToExport) => {
-        if (exportingLessonId) return;
-        setExportingLessonId(lessonToExport.id);
-        showToast("Preparing PDF...", "info");
+	const handleExportLessonPdf = async (lessonToExport) => {
+	    if (exportingLessonId) return;
+	    setExportingLessonId(lessonToExport.id);
+	    showToast("Preparing PDF...", "info");
 
-        try {
-            const pdfStyles = {
-                coverTitle: { fontSize: 32, bold: true, margin: [0, 0, 0, 15] },
-                coverSub: { fontSize: 18, italics: true, color: '#555555' },
-                pageTitle: { fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] },
-                default: {
-                    fontSize: 11,
-                    lineHeight: 1.5,
-                    color: '#333333',
-                    alignment: 'justify'
-                },
-                // ## NEW: Style definition for blockquotes ##
-                blockquote: {
-                    margin: [20, 5, 20, 5], // [left, top, right, bottom]
-                    italics: true,
-                    color: '#4a4a4a',
-                    background: '#f5f5f5',
-                },
-            };
-            const lessonTitleToExport = lessonToExport.lessonTitle || lessonToExport.title;
-            const subjectTitle = "SRCS Learning Portal"; // Generic fallback as subject is not passed here
-            let lessonContent = [];
+	    try {
+            await registerDejaVuFonts();
 
-            for (const page of lessonToExport.pages) {
-                const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
-                if (cleanTitle) {
-                    lessonContent.push({ text: cleanTitle, style: 'pageTitle' });
-                }
+	        const pdfStyles = {
+	            coverTitle: { fontSize: 32, bold: true, margin: [0, 0, 0, 15] },
+	            coverSub: { fontSize: 18, italics: true, color: '#555555' },
+	            pageTitle: { fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] },
+	            blockquote: { margin: [20, 5, 20, 5], italics: true, color: '#4a4a4a' },
+	            default: {
+	                fontSize: 11,
+	                lineHeight: 1.5,
+	                color: '#333333',
+	                alignment: 'justify'
+	            }
+	        };
+	        const lessonTitleToExport = lessonToExport.lessonTitle || lessonToExport.title;
+	        const subjectTitle = "SRCS Learning Portal"; // Generic fallback
+	        let lessonContent = [];
+
+	        for (const page of lessonToExport.pages) {
+	            const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
+	            if (cleanTitle) {
+	                lessonContent.push({ text: cleanTitle, style: 'pageTitle' });
+	            }
+
+	            let contentString = typeof page.content === 'string' ? page.content : '';
                 
-                // ## MODIFIED: Apply LaTeX processing before parsing ##
-                let contentString = typeof page.content === 'string' ? page.content : '';
-                contentString = processLatex(contentString); // Process for math symbols
+                // ✅ FIX 1: Process raw text before parsing markdown
+                contentString = processLatex(contentString);
 
-                const html = marked.parse(contentString);
-                const convertedContent = htmlToPdfmake(html, { defaultStyles: pdfStyles.default });
-                lessonContent.push(convertedContent);
-            }
+	            let html = marked.parse(contentString);
 
-            const docDefinition = {
-                pageSize: "A4",
-                pageMargins: [72, 100, 72, 100],
-                header: {
-                    margin: [0, 20, 0, 0],
-                    stack: [{ image: "headerImg", width: 450, alignment: "center" }]
+                // ✅ FIX 2: Clean up blockquote HTML for proper rendering
+                html = html
+                    .replace(/<blockquote>\s*<p>/g, '<blockquote>')
+                    .replace(/<\/p>\s*<\/blockquote>/g, '</blockquote>');
+
+	            const convertedContent = htmlToPdfmake(html, { defaultStyles: pdfStyles.default });
+	            lessonContent.push(convertedContent);
+	        }
+
+	        const docDefinition = {
+	            pageSize: "A4",
+	            pageMargins: [72, 100, 72, 100],
+	            header: {
+	                margin: [0, 20, 0, 0],
+	                stack: [{ image: "headerImg", width: 450, alignment: "center" }]
+	            },
+	            footer: {
+	                margin: [0, 0, 0, 20],
+	                stack: [{ image: "footerImg", width: 450, alignment: "center" }]
+	            },
+                defaultStyle: {
+                    font: 'DejaVu',
+                    ...pdfStyles.default,
                 },
-                footer: {
-                    margin: [0, 0, 0, 20],
-                    stack: [{ image: "footerImg", width: 450, alignment: "center" }]
-                },
-                defaultStyle: pdfStyles.default,
-                styles: pdfStyles, // Ensure all styles are available to pdfMake
-                content: [
-                    {
-                        stack: [
-                            { text: lessonTitleToExport, style: "coverTitle" },
-                            { text: subjectTitle, style: "coverSub" }
-                        ],
-                        alignment: "center",
-                        margin: [0, 200, 0, 0],
-                        pageBreak: "after"
-                    },
-                    ...lessonContent
-                ],
-                images: {
-                    headerImg: "https://i.ibb.co/xt5CY6GY/header-port.png",
-                    footerImg: "https://i.ibb.co/kgrMBfDr/Footer.png"
-                }
-            };
-            pdfMake.createPdf(docDefinition).download(`${lessonTitleToExport}.pdf`, () => {
-                setExportingLessonId(null);
-            });
-        } catch (error) {
-            console.error("Failed to export PDF:", error);
-            showToast("An error occurred while creating the PDF.", "error");
-            setExportingLessonId(null);
-        }
-    };
+	            styles: pdfStyles,
+	            content: [
+	                {
+	                    stack: [
+	                        { text: lessonTitleToExport, style: "coverTitle" },
+	                        { text: subjectTitle, style: "coverSub" }
+	                    ],
+	                    alignment: "center",
+	                    margin: [0, 200, 0, 0],
+	                    pageBreak: "after"
+	                },
+	                ...lessonContent
+	            ],
+	            images: {
+	 		        headerImg: "https://i.ibb.co/xt5CY6GY/header-port.png",
+	 		        footerImg: "https://i.ibb.co/kgrMBfDr/Footer.png"
+	            }
+	        };
+	        pdfMake.createPdf(docDefinition).download(`${lessonTitleToExport}.pdf`, () => {
+	            setExportingLessonId(null);
+	        });
+	    } catch (error) {
+	        console.error("Failed to export PDF:", error);
+	        showToast("An error occurred while creating the PDF.", "error");
+	        setExportingLessonId(null);
+	    }
+	};
 
     if (!isOpen || !currentLesson) return null;
 

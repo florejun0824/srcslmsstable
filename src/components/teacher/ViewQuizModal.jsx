@@ -48,7 +48,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
     const shuffleKey = `quizShuffle_${quiz?.id}_${userProfile?.id}`;
     const { showToast } = useToast();
 
-    // All handler functions (issueWarning, etc.) remain unchanged...
+    // All handler functions (issueWarning, handleSubmit, etc.) remain unchanged...
 	const issueWarning = useCallback(async () => {
         if (isTeacherView || isLocked || score !== null || showReview) return;
         try {
@@ -65,7 +65,6 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         } catch (error) { console.error("Failed to issue warning:", error); showToast("Could not process warning. Please proceed.", "error"); }
     }, [warnings, warningKey, quiz, userProfile, classId, isLocked, score, showReview, isTeacherView, showToast]);
 
-    // MODIFIED FUNCTION
 	const handleSubmit = useCallback(async () => {
 	    if (hasSubmitted.current || score !== null || isLocked) return;
 	    hasSubmitted.current = true; justSubmitted.current = true;
@@ -81,11 +80,8 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
 	        } else if (q.type === 'true-false' && userAnswer === q.correctAnswer) { correctCount++; }
 	    });
 
-        // --- START OF ADDED CODE ---
-        // Create a detailed array of answers for analytics
         const detailedAnswers = shuffledQuestions.map((question, index) => {
             const userAnswerIndex = userAnswers[index];
-            
             let selectedAnswerText = 'Not Answered';
             let correctAnswerText = '';
             let isCorrect = false;
@@ -119,11 +115,9 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                 isCorrect: isCorrect
             };
         });
-        // --- END OF ADDED CODE ---
 
 	    setScore(correctCount); localStorage.removeItem(warningKey); localStorage.removeItem(shuffleKey); setWarnings(0);
 	    try {
-            // --- MODIFIED SUBMISSION DATA ---
 			const submissionData = { 
 			    quizId: quiz.id,
 			    quizTitle: quiz.title,
@@ -135,10 +129,9 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
 			    totalItems: shuffledQuestions.length,
 			    attemptNumber: attemptsTaken + 1,
 			    submittedAt: serverTimestamp(),
-			    quarter: quiz.quarter || null   // <-- NEW FIELD
+			    quarter: quiz.quarter || null
 			};
 	        
-            // The queueQuizSubmission function now correctly receives the detailed answers
 	        await queueQuizSubmission(submissionData); 
 	        setLatestSubmission({ ...submissionData }); setAttemptsTaken(prev => prev + 1);
 	        showToast(navigator.onLine ? "✅ Quiz submitted successfully!" : "📡 Quiz saved. It will sync when you’re back online.", "success");
@@ -261,71 +254,50 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         if (currentQ < totalQuestions - 1) { setCurrentQ(prev => prev + 1); } 
         else { handleSubmit(); }
     };
-    const handleReviewLastAttempt = () => { 
-        // This part needs adjustment if you want to review old format submissions
-        if (latestSubmission && latestSubmission.answers) { 
-            // For now, this will not work as expected with the new `detailedAnswers` format.
-            // You would need to map the detailed answers back to a simple index format to display them.
-            // This is a more complex UI change, so we'll leave the submission logic update for now.
-            // setUserAnswers(latestSubmission.answers); 
-        } 
-        setShowReview(true); 
-    };
+    const handleReviewLastAttempt = () => { setShowReview(true); };
     const handleClose = () => { if (isOpen && classId && !isLocked && score === null && !hasSubmitted.current && !isTeacherView) { setShowWarningModal(true); } else { onClose(); } };
     const handleStayInQuiz = () => setShowWarningModal(false);
     const handleLeaveQuiz = async () => { await issueWarning(); setShowWarningModal(false); onClose(); };
 
-    // --- NEW: HANDLER FOR KEYBOARD NAVIGATION ---
+    // Keyboard navigation logic remains unchanged...
     const handleKeyDown = useCallback((event) => {
-        // Disable keyboard nav if quiz is finished, locked, in review, or if typing in an input
-        if (score !== null || isLocked || showReview || document.activeElement.tagName === 'INPUT') {
-            return;
-        }
-
-        // Right Arrow: Go to the next question
+        if (score !== null || isLocked || showReview || document.activeElement.tagName === 'INPUT') return;
         if (event.key === 'ArrowRight') {
             if (isTeacherView) {
                 if (currentQ < totalQuestions - 1) setCurrentQ(prev => prev + 1);
             } else {
-                // Student can only advance after answering the current question
                 if (currentQuestionAttempted) handleNextQuestion();
             }
-        }
-        // Left Arrow: Go to the previous question
-        else if (event.key === 'ArrowLeft') {
+        } else if (event.key === 'ArrowLeft') {
              if (currentQ > 0) {
-                // When going back, reset feedback card for the question being left
                 setQuestionResult(null); 
                 setCurrentQ(prev => prev - 1);
             }
         }
     }, [score, isLocked, showReview, isTeacherView, currentQ, totalQuestions, currentQuestionAttempted, handleNextQuestion]);
 
-    // --- NEW: EFFECT TO ADD/REMOVE KEYBOARD LISTENER ---
     useEffect(() => {
-        if (isOpen) {
-            window.addEventListener('keydown', handleKeyDown);
-        }
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-        };
+        if (isOpen) { window.addEventListener('keydown', handleKeyDown); }
+        return () => { window.removeEventListener('keydown', handleKeyDown); };
     }, [isOpen, handleKeyDown]);
 
 
-    // All render functions remain the same...
+    // --- RENDER FUNCTIONS (MODIFIED FOR MOBILE) ---
     const renderQuestion = () => {
         const question = shuffledQuestions[currentQ];
         if(!question) return null;
         const isDisabled = currentQuestionAttempted || isTeacherView;
         return (
             <div>
-                <div className="font-semibold text-lg sm:text-xl text-slate-800 mb-6 bg-neumorphic-base p-4 rounded-2xl shadow-neumorphic-inset">
+                {/* MODIFIED: Reduced padding, margin and font size for mobile */}
+                <div className="font-semibold text-base sm:text-lg text-slate-800 mb-4 sm:mb-6 bg-neumorphic-base p-3 sm:p-4 rounded-2xl shadow-neumorphic-inset">
                     <ContentRenderer text={question.question || question.text} />
                 </div>
                 {question.type === 'multiple-choice' ? (
                     <div className="space-y-3">
                         {question.options.map((option, idx) => (
-                            <label key={idx} className={`relative flex items-center space-x-4 p-3 sm:p-4 rounded-2xl transition-all duration-200 bg-neumorphic-base
+                            // MODIFIED: Reduced padding and rounded corners for mobile
+                            <label key={idx} className={`relative flex items-center space-x-3 p-3 sm:p-4 rounded-xl sm:rounded-2xl transition-all duration-200 bg-neumorphic-base
                                 ${isDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer active:shadow-neumorphic-inset'}
                                 ${userAnswers[currentQ] === idx ? 'shadow-neumorphic-inset' : 'shadow-neumorphic'}`}>
                                 <input type="radio" name={`question-${currentQ}`} checked={userAnswers[currentQ] === idx} onChange={() => handleAnswer(idx)} disabled={isDisabled} className="sr-only" />
@@ -334,10 +306,11 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                         ))}
                     </div>
                 ) : question.type === 'true-false' ? (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                        {/* MODIFIED: Reduced padding for mobile */}
                         {[true, false].map((value) => (
                             <button key={String(value)} onClick={() => handleAnswer(value)} disabled={isDisabled}
-                                className={`w-full p-3 sm:p-4 rounded-2xl text-base font-semibold transition-all duration-200 bg-neumorphic-base
+                                className={`w-full p-3 sm:p-4 rounded-xl sm:rounded-2xl text-sm sm:text-base font-semibold transition-all duration-200 bg-neumorphic-base
                                     ${isDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer active:shadow-neumorphic-inset'}
                                     ${userAnswers[currentQ] === value ? 'shadow-neumorphic-inset text-primary-700' : 'shadow-neumorphic text-slate-700'}`}>
                                 {String(value).charAt(0).toUpperCase() + String(value).slice(1)}
@@ -365,14 +338,18 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         const userAnswerText = question.type === 'multiple-choice' ? (question.options[userAnswers[currentQ]]?.text ?? 'No Answer') : (userAnswers[currentQ] || 'No answer');
         const correctAnswerText = question.type === 'multiple-choice' ? question.options[question.correctAnswerIndex]?.text : question.correctAnswer;
         return (
-            <div className={`p-6 rounded-3xl bg-neumorphic-base shadow-neumorphic`}>
-                <div className="flex items-center gap-4 mb-4">
-                    <div className={`p-3 rounded-full bg-neumorphic-base ${isCorrect ? 'shadow-neumorphic' : 'shadow-neumorphic-inset'}`}>
-                        {isCorrect ? <CheckCircleIcon className="h-8 w-8 text-green-600" /> : <XCircleIcon className="h-8 w-8 text-red-600" />}
+            // MODIFIED: Reduced padding for mobile
+            <div className={`p-4 sm:p-6 rounded-3xl bg-neumorphic-base shadow-neumorphic`}>
+                <div className="flex items-center gap-3 sm:gap-4 mb-4">
+                    <div className={`p-2 sm:p-3 rounded-full bg-neumorphic-base ${isCorrect ? 'shadow-neumorphic' : 'shadow-neumorphic-inset'}`}>
+                        {/* MODIFIED: Smaller icon for mobile */}
+                        {isCorrect ? <CheckCircleIcon className="h-7 w-7 sm:h-8 sm:w-8 text-green-600" /> : <XCircleIcon className="h-7 w-7 sm:h-8 sm:w-8 text-red-600" />}
                     </div>
-                    <h3 className={`text-2xl font-extrabold ${isCorrect ? 'text-green-800' : 'text-red-800'}`}>{isCorrect ? "Correct!" : "Incorrect"}</h3>
+                    {/* MODIFIED: Smaller header for mobile */}
+                    <h3 className={`text-xl sm:text-2xl font-extrabold ${isCorrect ? 'text-green-800' : 'text-red-800'}`}>{isCorrect ? "Correct!" : "Incorrect"}</h3>
                 </div>
-                <div className="text-base text-slate-700 space-y-2 bg-neumorphic-base p-4 rounded-2xl shadow-neumorphic-inset">
+                {/* MODIFIED: Reduced padding for mobile */}
+                <div className="text-sm sm:text-base text-slate-700 space-y-2 bg-neumorphic-base p-3 sm:p-4 rounded-2xl shadow-neumorphic-inset">
                     <p><span className="font-semibold text-slate-800">Your Answer:</span> <ContentRenderer text={userAnswerText} /></p>
                     {!isCorrect && (<p><span className="font-semibold text-slate-800">Correct Answer:</span> <ContentRenderer text={correctAnswerText} /></p>)}
                 </div>
@@ -382,7 +359,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                             <InformationCircleIcon className="h-6 w-6 text-primary-500 flex-shrink-0 mt-0.5" />
                             <div>
                                 <h4 className="font-semibold text-primary-700 mb-1">Explanation</h4>
-                                <div className="text-base text-slate-700"><ContentRenderer text={question.explanation} /></div>
+                                <div className="text-sm sm:text-base text-slate-700"><ContentRenderer text={question.explanation} /></div>
                             </div>
                         </div>
                     </div>
@@ -391,16 +368,20 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         );
     };
     const renderResults = () => (
+        // MODIFIED: Reduced padding for mobile
         <div className="text-center p-4 sm:p-8 bg-neumorphic-base rounded-3xl shadow-neumorphic">
-            <div className="mx-auto inline-block p-4 rounded-full bg-neumorphic-base shadow-neumorphic-inset mb-4">
-                <CheckCircleIcon className="h-16 w-16 sm:h-20 sm:w-20 text-green-500" />
+            <div className="mx-auto inline-block p-3 sm:p-4 rounded-full bg-neumorphic-base shadow-neumorphic-inset mb-4">
+                {/* MODIFIED: Smaller icon for mobile */}
+                <CheckCircleIcon className="h-14 w-14 sm:h-20 sm:w-20 text-green-500" />
             </div>
-            <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-2">Quiz Submitted!</h3>
-            <p className="text-lg sm:text-xl mt-2 text-slate-700">You scored <strong className="text-green-600 text-2xl sm:text-3xl">{score}</strong> out of <strong className="text-slate-900 text-2xl sm:text-3xl">{totalQuestions}</strong></p>
+            {/* MODIFIED: Smaller header for mobile */}
+            <h3 className="text-xl sm:text-3xl font-extrabold text-slate-900 mb-2">Quiz Submitted!</h3>
+            {/* MODIFIED: Smaller text for mobile */}
+            <p className="text-base sm:text-xl mt-2 text-slate-700">You scored <strong className="text-green-600 text-xl sm:text-3xl">{score}</strong> out of <strong className="text-slate-900 text-xl sm:text-3xl">{totalQuestions}</strong></p>
             {(quiz.maxAttempts - attemptsTaken) > 0 ? (
-                <p className="text-base sm:text-lg mt-4 text-slate-600">You have <strong>{quiz.maxAttempts - attemptsTaken}</strong> attempt(s) left.</p>
+                <p className="text-sm sm:text-lg mt-4 text-slate-600">You have <strong>{quiz.maxAttempts - attemptsTaken}</strong> attempt(s) left.</p>
             ) : (
-                <p className="text-base sm:text-lg mt-4 text-red-600 font-semibold">You have used all {quiz.maxAttempts} attempts.</p>
+                <p className="text-sm sm:text-lg mt-4 text-red-600 font-semibold">You have used all {quiz.maxAttempts} attempts.</p>
             )}
             <button onClick={() => setShowReview(true)} className="mt-8 w-full py-3 rounded-2xl bg-neumorphic-base text-primary-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all">
                 Review Your Answers
@@ -408,15 +389,17 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         </div>
     );
     const renderReview = () => {
-        // NOTE: This review function now uses the `latestSubmission` data directly
         const answersToReview = latestSubmission?.answers || [];
         return (
         <div>
-            <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-4">Review Your Answers</h3>
+            {/* MODIFIED: Smaller header for mobile */}
+            <h3 className="text-xl sm:text-3xl font-extrabold text-slate-900 mb-4">Review Your Answers</h3>
             <div className="space-y-2 mt-4 max-h-[60vh] overflow-y-auto pr-2 bg-neumorphic-base p-2 rounded-2xl shadow-neumorphic-inset">
                 {answersToReview.map((answer, index) => (
-                    <div key={index} className={`p-4 rounded-2xl bg-neumorphic-base shadow-neumorphic border-l-4 ${answer.isCorrect ? 'border-green-500' : 'border-red-500'}`}>
-                        <div className="font-bold text-lg text-slate-800 mb-3 flex items-start">
+                    // MODIFIED: Reduced padding for mobile
+                    <div key={index} className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-neumorphic-base shadow-neumorphic border-l-4 ${answer.isCorrect ? 'border-green-500' : 'border-red-500'}`}>
+                        {/* MODIFIED: Smaller text for mobile */}
+                        <div className="font-bold text-base sm:text-lg text-slate-800 mb-3 flex items-start">
                             <span className="mr-2 pt-1">{answer.isCorrect ? <CheckCircleIcon className="h-5 w-5 text-green-600" /> : <XCircleIcon className="h-5 w-5 text-red-600" />}</span>
                             <ContentRenderer text={answer.questionText} />
                         </div>
@@ -512,19 +495,20 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
 
     return (
         <>
-            <Dialog open={isOpen} onClose={handleClose} static={true} className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <Dialog open={isOpen} onClose={handleClose} static={true} className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4">
                 <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
 
-                <DialogPanel className="relative flex flex-col w-full max-w-lg md:max-w-2xl rounded-3xl bg-neumorphic-base shadow-neumorphic max-h-[90vh]">
+                <DialogPanel className="relative flex flex-col w-full max-w-lg md:max-w-2xl rounded-3xl bg-neumorphic-base shadow-neumorphic max-h-[95vh] sm:max-h-[90vh]">
                     
-                    {/* --- HEADER --- */}
-                    <div className="flex-shrink-0 p-4 sm:p-6 pb-4">
-                        <button onClick={handleClose} className="absolute top-4 right-4 p-2 rounded-full bg-neumorphic-base text-slate-500 shadow-neumorphic active:shadow-neumorphic-inset transition-all z-10" aria-label="Close">
+                    {/* --- HEADER (MODIFIED FOR MOBILE) --- */}
+                    <div className="flex-shrink-0 p-3 sm:p-6 pb-3 sm:pb-4">
+                        <button onClick={handleClose} className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 rounded-full bg-neumorphic-base text-slate-500 shadow-neumorphic active:shadow-neumorphic-inset transition-all z-10" aria-label="Close">
                             <XMarkIcon className="h-6 w-6" />
                         </button>
-                        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-2 sm:gap-4">
                             <div className="flex-1">
-                                <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 leading-tight pr-8 sm:pr-0">{quiz?.title}</h2>
+                                {/* MODIFIED: Smaller header text on mobile */}
+                                <h2 className="text-lg sm:text-2xl font-bold sm:font-extrabold text-slate-900 leading-tight pr-8 sm:pr-0">{quiz?.title}</h2>
                                 {isTeacherView && (
                                     <button onClick={handleExportPdf} className="flex items-center gap-2 mt-3 px-4 py-2 rounded-xl bg-neumorphic-base text-primary-700 font-semibold shadow-neumorphic active:shadow-neumorphic-inset transition-all">
                                         <DocumentArrowDownIcon className="h-5 w-5"/> Export as PDF
@@ -534,7 +518,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                             {!isTeacherView && classId && !isLocked && score === null && (
                                 <div className="flex items-center gap-2 bg-neumorphic-base text-amber-800 px-3 py-1.5 rounded-full shadow-neumorphic-inset flex-shrink-0 self-start sm:self-center">
                                     <ShieldExclamationIcon className="w-5 h-5 text-amber-600"/>
-                                    <span className="text-sm font-semibold">Warnings: {warnings} / {MAX_WARNINGS}</span>
+                                    <span className="text-xs sm:text-sm font-semibold">Warnings: {warnings} / {MAX_WARNINGS}</span>
                                 </div>
                             )}
                         </div>
@@ -545,22 +529,23 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                         )}
                     </div>
                     
-                    {/* --- CONTENT (Scrollable) --- */}
-                    <div className="flex-grow overflow-y-auto px-4 sm:px-6 custom-scrollbar">
+                    {/* --- CONTENT (MODIFIED FOR MOBILE) --- */}
+                    <div className="flex-grow overflow-y-auto px-3 sm:px-6 custom-scrollbar">
                         {renderContent()}
                     </div>
 
-                    {/* --- FOOTER --- */}
-                    <div className="flex-shrink-0 p-4 sm:p-6 pt-4">
-                        {/* Student Footer */}
+                    {/* --- FOOTER (MODIFIED FOR MOBILE) --- */}
+                    <div className="flex-shrink-0 p-3 sm:p-6 pt-3 sm:pt-4">
                         {hasAttemptsLeft && score === null && !isLocked && !isTeacherView && currentQuestionAttempted && (
-                            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t border-slate-300/80">
+                            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-4 pt-3 sm:pt-4 border-t border-slate-300/80">
                                 <div className="text-center sm:text-left">
-                                    <span className="text-base font-medium text-slate-600">{`Question ${currentQ + 1} of ${totalQuestions}`}</span>
+                                    {/* MODIFIED: Smaller text on mobile */}
+                                    <span className="text-sm sm:text-base font-medium text-slate-600">{`Question ${currentQ + 1} of ${totalQuestions}`}</span>
                                     <span className="block text-xs text-slate-500 mt-1">Attempt {attemptsTaken + 1} of {MAX_WARNINGS}</span>
                                 </div>
                                 {currentQ < totalQuestions - 1 ? (
-                                    <button onClick={handleNextQuestion} className="flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-3 rounded-2xl bg-neumorphic-base text-primary-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all">
+                                    // MODIFIED: Smaller button padding on mobile
+                                    <button onClick={handleNextQuestion} className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl bg-neumorphic-base text-primary-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all">
                                         Next <ArrowRightIcon className="h-5 w-5"/>
                                     </button>
                                 ) : (
@@ -571,7 +556,6 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                             </div>
                         )}
 
-                        {/* Teacher Preview Footer */}
                         {isTeacherView && totalQuestions > 0 && (
                             <div className="flex justify-between items-center pt-4 border-t border-slate-300">
                                 <button onClick={() => setCurrentQ(prev => Math.max(0, prev - 1))} disabled={currentQ === 0} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-neumorphic-base text-slate-700 font-semibold shadow-neumorphic active:shadow-neumorphic-inset disabled:opacity-50 transition-all">
