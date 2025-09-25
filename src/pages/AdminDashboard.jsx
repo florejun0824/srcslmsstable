@@ -148,15 +148,86 @@ const AdminDashboard = () => {
   };
 
   const handleGenerateUsers = async (data) => {
-    try {
-      await firestoreService.addMultipleUsers(data);
-      showToast(`${data.length} user(s) generated successfully!`, 'success');
-      setGenerateModalOpen(false);
-      fetchAndGroupUsers();
-    } catch (error) {
-      showToast(`Failed to generate users: ${error.message}`, 'error');
-    }
-  };
+      let usersToCreate = [];
+      const { names, quantity, role, gradeLevel } = data;
+
+      const generatePassword = () => {
+        return Math.random().toString(36).slice(-8);
+      };
+
+      try {
+        if (names) { // Logic for "From Name List"
+          usersToCreate = names.split('\n')
+            .map(name => name.trim())
+            .filter(name => name)
+            .map(fullName => {
+              const nameParts = fullName.split(/\s+/);
+              const firstName = nameParts[0] || 'User';
+              const lastName = nameParts.slice(1).join(' ') || 'Name';
+            
+              // Use the required 'name.surname@srcs.edu' format
+              const email = `${firstName.toLowerCase()}.${lastName.toLowerCase().replace(/\s+/g, '')}@srcs.edu`;
+            
+              const newUser = {
+                firstName,
+                lastName,
+                email,
+                password: generatePassword(),
+                role,
+                createdAt: new Date(),
+              };
+              if (role === 'student' && gradeLevel) {
+                newUser.gradeLevel = gradeLevel;
+              }
+              return newUser;
+            });
+
+        } else if (quantity) { // Logic for "By Quantity"
+          for (let i = 1; i <= quantity; i++) {
+            const num = i.toString().padStart(2, '0');
+          
+            // Determine the first name based on the role
+            let firstName = 'User';
+            if (role === 'student') firstName = 'Student';
+            if (role === 'teacher') firstName = 'Teacher';
+            if (role === 'admin') firstName = 'Admin';
+          
+            const lastName = num;
+
+            // Apply the 'name.surname@srcs.edu' format for all roles
+            const email = `${firstName.toLowerCase()}.${lastName}@srcs.edu`;
+
+            const newUser = {
+              firstName,
+              lastName,
+              email,
+              password: generatePassword(),
+              role,
+              createdAt: new Date(),
+            };
+            if (role === 'student' && gradeLevel) {
+              newUser.gradeLevel = gradeLevel;
+            }
+            usersToCreate.push(newUser);
+          }
+        }
+
+        if (usersToCreate.length === 0) {
+          showToast('No valid users to create.', 'warning');
+          return;
+        }
+      
+        await firestoreService.addMultipleUsers(usersToCreate);
+      
+        showToast(`${usersToCreate.length} user(s) generated successfully!`, 'success');
+        setGenerateModalOpen(false);
+        fetchAndGroupUsers();
+
+      } catch (error) {
+        console.error("🔥 Failed to generate users:", error);
+        showToast(`Failed to generate users: ${error.message}`, 'error');
+      }
+    };
 
   const handleUpdateUser = async (updates) => {
     try {

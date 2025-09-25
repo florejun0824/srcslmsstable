@@ -101,6 +101,9 @@ const TeacherDashboard = () => {
             { query: query(collection(db, "subjectCategories"), orderBy("name")), setter: setCourseCategories },
             { query: query(collection(db, "classes"), where("teacherId", "==", teacherId)), setter: setClasses },
             { query: query(collection(db, "teacherAnnouncements"), orderBy("createdAt", "desc")), setter: setTeacherAnnouncements },
+            // ✅ FIX: Added a real-time listener for the 'courses' collection.
+            // This ensures the subjects list updates automatically when a new subject or category is created.
+            { query: query(collection(db, "courses")), setter: setCourses },
         ];
 
         const unsubscribers = realTimeQueries.map(({ query, setter }) =>
@@ -112,22 +115,9 @@ const TeacherDashboard = () => {
                 setError("Failed to load dashboard data in real-time.");
             })
         );
-
-        const fetchGlobalData = async () => {
-            try {
-                const coursesQuery = query(collection(db, "courses"));
-                const coursesSnapshot = await getDocs(coursesQuery);
-                const coursesData = coursesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setCourses(coursesData);
-            } catch (err) {
-                console.error("Firestore getDocs error:", err);
-                setError("Failed to load courses data.");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchGlobalData();
+        
+        // The one-time fetch for courses is no longer needed, it's now part of the real-time queries.
+        setLoading(false);
 
         return () => { unsubscribers.forEach(unsub => unsub()); };
     }, [user]);

@@ -134,6 +134,12 @@ export const deleteUser = async (userId) => {
 };
 
 export const addMultipleUsers = async (users) => {
+  // ✅ FIX: Add a check to ensure the 'users' parameter is an array.
+  if (!Array.isArray(users)) {
+    const error = new TypeError("Failed to add multiple users: The input must be an array.");
+    console.error(error.message, { received: users });
+    throw error;
+  }
   try {
     const batch = writeBatch(db);
     const usersCollectionRef = collection(db, "users");
@@ -363,7 +369,9 @@ export const updateTeacherInPool = async (teacherId, newData) => {
     if (newData.lastName) allowedFields.lastName = newData.lastName;
 
     if (Object.keys(allowedFields).length > 0) {
-      await updateDoc(teacherRef, allowedFields);
+      // Use setDoc with { merge: true } to create the doc if it's missing,
+      // or update it if it exists. This is an "upsert" operation.
+      await setDoc(teacherRef, allowedFields, { merge: true });
     }
   } catch (err) {
     console.error(`❌ updateTeacherInPool failed for teacherId=${teacherId}`, err);

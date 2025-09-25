@@ -34,7 +34,8 @@ import {
     ChartBarIcon,
     ChevronDownIcon,
     ChevronUpIcon,
-    XMarkIcon
+    XMarkIcon,
+    ClockIcon // Import ClockIcon
 } from '@heroicons/react/24/solid';
 import CreateClassAnnouncementForm from './CreateClassAnnouncementForm';
 import { useAuth } from '../../contexts/AuthContext';
@@ -185,11 +186,13 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         setPostToEdit(post);
         setIsEditModalOpen(true);
     };
-
-    // MODIFIED: This function now also deletes quiz submissions when a quiz is unshared.
+    
     const handleDeleteContentFromPost = async (postId, contentIdToRemove, contentType) => {
         if (!classData?.id) return;
-        if (!window.confirm(`Are you sure you want to unshare this ${contentType}? This will also delete all student submissions for this quiz in this class.`)) return;
+        const confirmMessage = contentType === 'quiz' 
+            ? `Are you sure you want to unshare this quiz? This will also delete all student submissions for this quiz in this class.`
+            : `Are you sure you want to unshare this lesson?`;
+        if (!window.confirm(confirmMessage)) return;
         
         const fieldToUpdate = contentType === 'quiz' ? 'quizzes' : 'lessons';
         
@@ -204,7 +207,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             batch.update(postRef, { [fieldToUpdate]: updatedContent });
             batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
 
-            // ADDED: If it's a quiz, find and delete all related submissions for this class.
             if (contentType === 'quiz') {
                 const submissionsQuery = query(
                     collection(db, 'quizSubmissions'), 
@@ -331,7 +333,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 });
                 return acc;
             }, {});
-            const sortedUnitKeys = Object.keys(quizzesByUnit).sort(customUnitSort);
+            const sortedUnitKeys = Object.keys(quizzesByUnit).sort();
             return (
                 <div className="space-y-6">
                     {sortedUnitKeys.length > 0 ? sortedUnitKeys.map(unitDisplayName => (
@@ -339,8 +341,21 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                             {quizzesByUnit[unitDisplayName].sort((a, b) => a.quizDetails.title.localeCompare(b.quizDetails.title)).map(({ post, quizDetails }) => (
                                 <ListItem key={`${post.id}-${quizDetails.id}`}>
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-bold text-slate-800 text-lg cursor-pointer hover:text-purple-600 transition-colors truncate" onClick={() => setViewQuizData(quizDetails)}>{quizDetails.title}</p>
-                                        <div className="text-sm text-slate-500 mt-1 flex items-center gap-2"><CalendarDaysIcon className="h-4 w-4 text-slate-400" /><span>{post.availableFrom?.toDate().toLocaleString()}</span></div>
+                                        <p 
+                                            className="font-bold text-slate-800 text-lg cursor-pointer hover:text-purple-600 transition-colors truncate" 
+                                            onClick={() => setViewQuizData({ 
+                                                ...quizDetails, 
+                                                settings: post.quizSettings,
+                                                availableFrom: post.availableFrom,
+                                                availableUntil: post.availableUntil
+                                            })}
+                                        >
+                                            {quizDetails.title}
+                                        </p>
+                                        <div className="text-sm text-slate-500 mt-1 flex items-center gap-2">
+                                            <CalendarDaysIcon className="h-4 w-4 text-slate-400" />
+                                            <span>{post.availableFrom?.toDate().toLocaleString()}</span>
+                                        </div>
                                     </div>
                                     <div className="flex space-x-1 flex-shrink-0">
                                         <button onClick={() => handleEditDatesClick(post)} title="Edit Availability" className="p-2 rounded-full text-slate-500 hover:shadow-neumorphic-inset"><PencilSquareIcon className="w-5 h-5" /></button>
@@ -460,16 +475,16 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 </div>
             </Modal>
             
-						 <GenerateReportModal
-						   isOpen={isReportModalOpen}
-						   onClose={() => setIsReportModalOpen(false)}
-						   classData={classData}
-						   availableQuizzes={sharedContentPosts.flatMap(p => p.quizzes || [])}
-						   quizScores={quizScores}
-						   units={units}
-						   sharedContentPosts={sharedContentPosts}
-						   className="z-[120]"
-						 />
+			 <GenerateReportModal
+			   isOpen={isReportModalOpen}
+			   onClose={() => setIsReportModalOpen(false)}
+			   classData={classData}
+			   availableQuizzes={sharedContentPosts.flatMap(p => p.quizzes || [])}
+			   quizScores={quizScores}
+			   units={units}
+			   sharedContentPosts={sharedContentPosts}
+			   className="z-[120]"
+			 />
             
             <ViewLessonModal isOpen={!!viewLessonData} onClose={() => setViewLessonData(null)} lesson={viewLessonData} className="z-[120]" />
             <ViewQuizModal isOpen={!!viewQuizData} onClose={() => setViewQuizData(null)} quiz={viewQuizData} userProfile={userProfile} classId={classData?.id} isTeacherView={userProfile.role === 'teacher' || userProfile.role === 'admin'} className="z-[120]" />

@@ -1,5 +1,3 @@
-// src/components/student/StudentQuizzesTab.js
-
 import React, { useState, useEffect } from 'react';
 import Spinner from '../common/Spinner';
 import {
@@ -10,7 +8,8 @@ import {
     ChevronRightIcon,
     ChevronDownIcon,
     ChevronUpIcon,
-    CloudArrowUpIcon
+    CloudArrowUpIcon,
+    ClockIcon
 } from '@heroicons/react/24/solid';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -19,32 +18,10 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
     const [collapsedGroups, setCollapsedGroups] = useState(new Set());
     const [allCollapsed, setAllCollapsed] = useState(true);
 
-    // Normalize quizzes so attempted ones move to completed
-    const normalizeQuizzes = (quizzes) => {
-        const active = [];
-        const completed = [];
-        const overdue = quizzes.overdue || [];
-
-        (quizzes.active || []).forEach((quiz) => {
-            if (quiz.attemptsTaken > 0) {
-                completed.push({ ...quiz, status: 'completed' });
-            } else {
-                active.push(quiz);
-            }
-        });
-
-        (quizzes.completed || []).forEach((quiz) => {
-            completed.push({ ...quiz, status: 'completed' });
-        });
-
-        return { active, completed, overdue };
-    };
-
-    const normalizedQuizzes = normalizeQuizzes(quizzes);
-
     const onQuizClick = (quiz) => {
+        const maxAttempts = quiz.settings?.maxAttempts ?? 3;
         const hasAttemptsLeft =
-            quiz.attemptsTaken === 'N/A' || quiz.attemptsTaken < 3;
+            quiz.attemptsTaken === 'N/A' || quiz.attemptsTaken < maxAttempts;
 
         if (quiz.status === 'pending_sync' || !hasAttemptsLeft) return;
         handleTakeQuizClick(quiz);
@@ -70,9 +47,8 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
         </div>
     );
 
-    // Collapse all groups by default whenever filter/quizzes change
     useEffect(() => {
-        const quizzesToDisplay = normalizedQuizzes[quizFilter] || [];
+        const quizzesToDisplay = quizzes[quizFilter] || [];
         const groups = quizzesToDisplay.reduce((acc, quiz) => {
             const className = quiz.className || 'General';
             const unitName = (units.find(u => u.id === quiz.unitId)?.title) || 'Uncategorized';
@@ -170,7 +146,7 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
         );
     };
 
-    const quizzesToDisplay = normalizedQuizzes[quizFilter] || [];
+    const quizzesToDisplay = quizzes[quizFilter] || [];
     const emptyStateProps = {
         active: {
             icon: ClipboardDocumentCheckIcon,
@@ -191,7 +167,7 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
 
     const toggleAll = () => {
         if (allCollapsed) {
-            setCollapsedGroups(new Set()); // expand all
+            setCollapsedGroups(new Set());
             setAllCollapsed(false);
         } else {
             const groups = quizzesToDisplay.map(quiz => {
@@ -199,7 +175,7 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
                 const unitName = (units.find(u => u.id === quiz.unitId)?.title) || 'Uncategorized';
                 return `${className}-${unitName}`;
             });
-            setCollapsedGroups(new Set(groups)); // collapse all
+            setCollapsedGroups(new Set(groups));
             setAllCollapsed(true);
         }
     };
@@ -207,7 +183,6 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
     return (
         <div className="bg-neumorphic-base min-h-screen font-sans">
             <div className="p-4 space-y-6">
-                {/* Header */}
                 <div className="px-2 flex justify-between items-center">
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">My Quizzes</h1>
@@ -225,7 +200,6 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
                     )}
                 </div>
 
-                {/* Filter Buttons */}
                 <div className="bg-neumorphic-base rounded-xl p-1 shadow-neumorphic-inset">
                     <nav className="flex space-x-1">
                         <SegmentButton label="Active" filterName="active" />
@@ -234,7 +208,6 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
                     </nav>
                 </div>
 
-                {/* Content */}
                 <div className="min-h-[400px] relative">
                     <AnimatePresence>
                         {isFetchingContent && (
@@ -261,41 +234,64 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
 };
 
 const QuizListItem = ({ quiz, onClick }) => {
+    const maxAttempts = quiz.settings?.maxAttempts ?? 3;
     const hasAttemptsLeft =
-        quiz.attemptsTaken === 'N/A' || quiz.attemptsTaken < 3;
+        quiz.attemptsTaken === 'N/A' || quiz.attemptsTaken < maxAttempts;
 
     const statusInfo = {
         active: { icon: AcademicCapIcon, color: 'text-blue-500', label: 'Take Quiz' },
+        scheduled: { icon: ClockIcon, color: 'text-amber-500', label: 'View Details' },
         completed: { 
             icon: CheckCircleIcon, 
             color: hasAttemptsLeft ? 'text-blue-500' : 'text-slate-400', 
-            label: hasAttemptsLeft ? 'Take Quiz' : 'No Attempts Left' 
+            label: hasAttemptsLeft ? 'Take Again' : 'No Attempts Left' 
         },
         overdue: { icon: ExclamationTriangleIcon, color: 'text-red-500', label: 'Submit Late' },
         pending_sync: { icon: CloudArrowUpIcon, color: 'text-slate-500', label: 'Syncing...' }
     };
 
-    const { icon: Icon, color, label } = statusInfo[quiz.status || 'active'];
+    const { icon: Icon, color, label } = statusInfo[quiz.status];
+    const isScheduled = quiz.status === 'scheduled';
+    const availableDate = quiz.availableFrom?.toDate();
 
     return (
         <div
-            onClick={hasAttemptsLeft ? onClick : undefined}
+            onClick={onClick}
             className={`group p-3 sm:p-4 bg-neumorphic-base rounded-xl shadow-neumorphic transition-all duration-200 
                        flex items-center space-x-3 sm:space-x-4 mb-2
-                       ${hasAttemptsLeft ? 'cursor-pointer hover:shadow-neumorphic-inset' : 'cursor-not-allowed opacity-60'}`}
+                       ${quiz.status !== 'pending_sync' && hasAttemptsLeft ? 'cursor-pointer hover:shadow-neumorphic-inset' : 'cursor-not-allowed opacity-60'}`}
         >
             <Icon className={`h-7 w-7 sm:h-8 sm:w-8 flex-shrink-0 ${color}`} />
             <div className="flex-1 min-w-0">
-                <h2 className="text-sm sm:text-base font-semibold text-slate-800 truncate">{quiz.title}</h2>
+                {/* MODIFICATION START: Added wrapper for title and badges */}
+                <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
+                    <h2 className="text-sm sm:text-base font-semibold text-slate-800 truncate">{quiz.title}</h2>
+                    
+                    {/* New Status Badge */}
+                    {quiz.status === 'active' && <span className="flex-shrink-0 px-2 py-0.5 text-xs font-semibold text-green-800 bg-green-100 rounded-full">ACTIVE</span>}
+                    {quiz.status === 'scheduled' && <span className="flex-shrink-0 px-2 py-0.5 text-xs font-semibold text-amber-800 bg-amber-100 rounded-full">SCHEDULED</span>}
+                    {quiz.status === 'completed' && <span className="flex-shrink-0 px-2 py-0.5 text-xs font-semibold text-slate-800 bg-slate-200 rounded-full">✓ COMPLETED</span>}
+                    {quiz.status === 'overdue' && <span className="flex-shrink-0 px-2 py-0.5 text-xs font-semibold text-red-800 bg-red-100 rounded-full">OVERDUE</span>}
+                    
+                    {/* Existing Exam/Quiz Badge */}
+                    {quiz.isExam ? (
+                        <span className="flex-shrink-0 px-2 py-0.5 text-xs font-bold text-red-100 bg-red-600 rounded-full">EXAM</span>
+                    ) : (
+                        <span className="flex-shrink-0 px-2 py-0.5 text-xs font-semibold text-blue-100 bg-blue-600 rounded-full">QUIZ</span>
+                    )}
+                </div>
+                {/* MODIFICATION END */}
                 <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                    {quiz.attemptsTaken === 'N/A'
-                        ? 'Available Offline'
-                        : `Attempt ${Math.min(quiz.attemptsTaken + 1, 3)} of 3`}
+                    {isScheduled && availableDate
+                        ? `Available on ${availableDate.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${availableDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                        : quiz.attemptsTaken === 'N/A'
+                            ? 'Available Offline'
+                            : `Attempt ${Math.min(quiz.attemptsTaken + 1, maxAttempts)} of ${maxAttempts}`}
                 </p>
             </div>
             <div className="flex items-center gap-2 text-slate-400 group-hover:text-red-600 transition-colors">
                 <span className="text-xs sm:text-sm font-semibold hidden sm:block">{label}</span>
-                {hasAttemptsLeft && <ChevronRightIcon className="h-4 w-4 sm:h-5 sm:w-5" />}
+                {quiz.status !== 'pending_sync' && hasAttemptsLeft && <ChevronRightIcon className="h-4 w-4 sm:h-5 sm:w-5" />}
             </div>
         </div>
     );

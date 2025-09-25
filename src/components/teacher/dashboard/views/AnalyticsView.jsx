@@ -125,6 +125,8 @@ const AnalyticsView = ({ activeClasses }) => {
   const [generatedRemediation, setGeneratedRemediation] = useState(null);
   const [isGeneratingRemediation, setIsGeneratingRemediation] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [expandedRows, setExpandedRows] = useState({});
+  
 
   const selectedClass = activeClasses.find((c) => c.id === selectedClassId);
 
@@ -132,113 +134,261 @@ const AnalyticsView = ({ activeClasses }) => {
   useEffect(() => {
     const analyzeClassData = async () => {
       if (!selectedClass) {
-        setQuizzesInClass([]); setUnitsMap({}); setLessonsMap({}); setAtRiskByQuarter({}); setItemAnalysisData(null); setSelectedQuizId("");
+        setQuizzesInClass([]);
+        setUnitsMap({});
+        setLessonsMap({});
+        setAtRiskByQuarter({});
+        setItemAnalysisData(null);
+        setSelectedQuizId("");
         return;
       }
       setIsLoading(true);
+
       let quizzesData = [];
       if (selectedClass.subjectId) {
-        const q = query(collection(db, "quizzes"), where("subjectId", "==", selectedClass.subjectId));
+        const q = query(
+          collection(db, "quizzes"),
+          where("subjectId", "==", selectedClass.subjectId)
+        );
         const snap = await getDocs(q);
         quizzesData = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       }
-      const unitIds = [...new Set(quizzesData.map((q) => q.unitId).filter(Boolean))];
-      const lessonIds = [...new Set(quizzesData.map((q) => q.lessonId).filter(Boolean))];
-      const [unitsFetched, lessonsFetched] = await Promise.all([fetchUnitsInBatches(unitIds), fetchLessonsInBatches(lessonIds)]);
-      quizzesData = quizzesData.map((q) => ({ ...q, unitDisplayName: q.unitId ? unitsFetched[q.unitId] || "Uncategorized" : "Uncategorized", lessonTitle: q.lessonId ? lessonsFetched[q.lessonId]?.title || "" : "" }));
-      setUnitsMap(unitsFetched); setLessonsMap(lessonsFetched); setQuizzesInClass(quizzesData);
+
+      const unitIds = [
+        ...new Set(quizzesData.map((q) => q.unitId).filter(Boolean)),
+      ];
+      const lessonIds = [
+        ...new Set(quizzesData.map((q) => q.lessonId).filter(Boolean)),
+      ];
+      const [unitsFetched, lessonsFetched] = await Promise.all([
+        fetchUnitsInBatches(unitIds),
+        fetchLessonsInBatches(lessonIds),
+      ]);
+
+      quizzesData = quizzesData.map((q) => ({
+        ...q,
+        unitDisplayName: q.unitId
+          ? unitsFetched[q.unitId] || "Uncategorized"
+          : "Uncategorized",
+        lessonTitle: q.lessonId ? lessonsFetched[q.lessonId]?.title || "" : "",
+      }));
+
+      setUnitsMap(unitsFetched);
+      setLessonsMap(lessonsFetched);
+      setQuizzesInClass(quizzesData);
+
       const quarterGroups = { 1: [], 2: [], 3: [], 4: [] };
       if (selectedClass.students && selectedClass.students.length > 0) {
         for (const student of selectedClass.students) {
-          const studentName = student.firstName && student.lastName ? `${student.firstName} ${student.lastName}` : student.name || student.id || "Unnamed Student";
+          const studentName =
+            student.firstName && student.lastName
+              ? `${student.firstName} ${student.lastName}`
+              : student.name || student.id || "Unnamed Student";
           const studentId = student.id || student.userId || student.uid;
           if (!studentId) continue;
-          const subsQ = query(collection(db, "quizSubmissions"), where("studentId", "==", studentId), where("classId", "==", selectedClassId));
+
+          const subsQ = query(
+            collection(db, "quizSubmissions"),
+            where("studentId", "==", studentId),
+            where("classId", "==", selectedClassId)
+          );
           const subsSnap = await getDocs(subsQ);
+
           const firstAttemptsPerQuiz = {};
           subsSnap.docs.forEach((d) => {
             const data = d.data();
-            const submittedAt = data.submittedAt?.seconds ? data.submittedAt.seconds : new Date(data.submittedAt).getTime() / 1000;
-            if (!firstAttemptsPerQuiz[data.quizId] || submittedAt < firstAttemptsPerQuiz[data.quizId].submittedAt) {
+            const submittedAt = data.submittedAt?.seconds
+              ? data.submittedAt.seconds
+              : new Date(data.submittedAt).getTime() / 1000;
+            if (
+              !firstAttemptsPerQuiz[data.quizId] ||
+              submittedAt < firstAttemptsPerQuiz[data.quizId].submittedAt
+            ) {
               firstAttemptsPerQuiz[data.quizId] = { ...data, submittedAt };
             }
           });
+
           const quarterScores = { 1: [], 2: [], 3: [], 4: [] };
           Object.values(firstAttemptsPerQuiz).forEach((attempt) => {
             const quiz = quizzesData.find((q) => q.id === attempt.quizId);
             const quarter = attempt.quarter || quiz?.quarter;
             if (quarter && [1, 2, 3, 4].includes(quarter)) {
-              const percent = attempt.totalItems > 0 ? (attempt.score / attempt.totalItems) * 100 : 0;
+              const percent =
+                attempt.totalItems > 0
+                  ? (attempt.score / attempt.totalItems) * 100
+                  : 0;
               quarterScores[quarter].push(percent);
             }
           });
+
           Object.keys(quarterScores).forEach((q) => {
             const scores = quarterScores[q];
             if (scores.length > 0) {
               const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-              if (avg < 75) quarterGroups[q].push({ id: studentId, name: studentName, reasons: [`Quarter ${q}: Avg ${avg.toFixed(0)}%`] });
+              if (avg < 75)
+                quarterGroups[q].push({
+                  id: studentId,
+                  name: studentName,
+                  reasons: [`Quarter ${q}: Avg ${avg.toFixed(0)}%`],
+                });
             }
           });
         }
       }
+
       setAtRiskByQuarter(quarterGroups);
       setIsLoading(false);
     };
+
     analyzeClassData();
   }, [selectedClassId, activeClasses]);
+
   useEffect(() => {
     const analyzeQuizData = async () => {
-      if (!selectedQuizId) { setItemAnalysisData(null); setLessonData(null); return; }
+      if (!selectedQuizId) {
+        setItemAnalysisData(null);
+        setLessonData(null);
+        return;
+      }
       setIsLoading(true);
       setAnalysisResult(null);
       setGeneratedRemediation(null);
 
-      const subsQ = query(collection(db, "quizSubmissions"), where("quizId", "==", selectedQuizId), where("classId", "==", selectedClassId));
+      const subsQ = query(
+        collection(db, "quizSubmissions"),
+        where("quizId", "==", selectedQuizId),
+        where("classId", "==", selectedClassId)
+      );
       const subsSnap = await getDocs(subsQ);
       const submissions = subsSnap.docs.map((d) => d.data());
-      if (submissions.length === 0) { setItemAnalysisData([]); setIsLoading(false); return; }
+
+      if (submissions.length === 0) {
+        setItemAnalysisData([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // ✅ keep only first attempts
       const firstAttempts = {};
       submissions.forEach((sub) => {
-        const submittedAt = sub.submittedAt?.seconds ? sub.submittedAt.seconds : new Date(sub.submittedAt).getTime() / 1000;
-        if (!firstAttempts[sub.studentId] || submittedAt < firstAttempts[sub.studentId].submittedAt) {
+        const submittedAt = sub.submittedAt?.seconds
+          ? sub.submittedAt.seconds
+          : new Date(sub.submittedAt).getTime() / 1000;
+        if (
+          !firstAttempts[sub.studentId] ||
+          submittedAt < firstAttempts[sub.studentId].submittedAt
+        ) {
           firstAttempts[sub.studentId] = { ...sub, submittedAt };
         }
       });
       const uniqueSubmissions = Object.values(firstAttempts);
+
+      // --- Analyze answers ---
       const questionAnalysis = {};
       uniqueSubmissions.forEach((submission) => {
         (submission.answers || []).forEach((answer) => {
-          if (answer && answer.questionText) {
-            if (!questionAnalysis[answer.questionText]) questionAnalysis[answer.questionText] = { correct: 0, total: 0 };
-            questionAnalysis[answer.questionText].total++;
-            if (answer.isCorrect) questionAnalysis[answer.questionText].correct++;
+          if (!answer || !answer.questionText) return;
+
+          // Initialize
+          if (!questionAnalysis[answer.questionText]) {
+            questionAnalysis[answer.questionText] = {
+              correct: 0,
+              total: 0,
+              type: answer.questionType || "multiple-choice",
+              breakdown: [],
+            };
           }
+          const qData = questionAnalysis[answer.questionText];
+
+		  if (answer.questionType === "matching-type") {
+		    const prompts = answer.prompts || [];
+
+		    // Count each prompt pair
+		    prompts.forEach((p) => {
+		      const studentChoice = p.userAnswerText || null;
+		      const correctChoice = p.correctAnswerText || null;
+		      const isPairCorrect =
+		        p.userAnswerId && p.userAnswerId === p.correctAnswerId;
+
+		      if (isPairCorrect) qData.correct++;
+		      qData.total++;
+
+		      qData.breakdown.push({
+		        promptId: p.id || p.promptId,
+		        promptText: p.text || p.promptText || "",
+		        studentChoice,
+		        correctChoice,
+		        isCorrect: isPairCorrect,
+		      });
+		    });
+		  } else {
+		    // non-matching → count once
+		    qData.total++;
+		    if (answer.isCorrect) qData.correct++;
+		  }
+
         });
       });
+
+      // --- Summarize results ---
       const results = Object.keys(questionAnalysis).map((question) => {
-        const { correct, total } = questionAnalysis[question];
-        return { question, correct, total, difficulty: total > 0 ? ((correct / total) * 100).toFixed(0) + "%" : "N/A" };
+        const { correct, total, type, breakdown } = questionAnalysis[question];
+        return {
+          question,
+          correct,
+          total,
+          difficulty:
+            total > 0 ? ((correct / total) * 100).toFixed(0) + "%" : "N/A",
+          type,
+          breakdown: type === "matching-type" ? breakdown : undefined,
+        };
       });
+
       setItemAnalysisData(results);
+
+      // --- Load lesson details ---
       const quizDoc = quizzesInClass.find((q) => q.id === selectedQuizId);
       if (quizDoc?.lessonId) {
-        const lessonRef = doc(db, "lessons", quizDoc.lessonId);
-        const lessonSnap = await getDoc(lessonRef);
-        if (lessonSnap.exists()) setLessonData({ id: lessonSnap.id, ...lessonSnap.data() });
-      } else { setLessonData(null); }
+        try {
+          const lessonRef = doc(db, "lessons", quizDoc.lessonId);
+          const lessonSnap = await getDoc(lessonRef);
+          if (lessonSnap.exists()) {
+            setLessonData({ id: lessonSnap.id, ...lessonSnap.data() });
+          } else {
+            setLessonData(null);
+          }
+        } catch (err) {
+          console.error("Error fetching lesson:", err);
+          setLessonData(null);
+        }
+      } else {
+        setLessonData(null);
+      }
+
       setIsLoading(false);
     };
+
     analyzeQuizData();
   }, [selectedQuizId, selectedClassId, quizzesInClass]);
+
+
   useEffect(() => {
     const loadSavedRecs = async () => {
-      if (!selectedClassId) { setSavedRecs([]); return; }
-      const q = query(collection(db, "recommendations"), where("classId", "==", selectedClassId));
+      if (!selectedClassId) {
+        setSavedRecs([]);
+        return;
+      }
+      const q = query(
+        collection(db, "recommendations"),
+        where("classId", "==", selectedClassId)
+      );
       const snap = await getDocs(q);
       setSavedRecs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     };
+
     loadSavedRecs();
   }, [selectedClassId, isSaving]);
+ 
 
 // --- Generate Narrative Analysis ---
   const generateAnalysisReport = async () => {
@@ -752,15 +902,77 @@ const AnalyticsView = ({ activeClasses }) => {
                     <div className="overflow-x-auto bg-neumorphic-base rounded-2xl shadow-neumorphic mb-6">
                       <table className="w-full text-sm text-left">
                         <thead className="text-xs text-slate-700 uppercase bg-neumorphic-base shadow-neumorphic-inset"><tr><th className="px-6 py-3">Question</th><th className="px-6 py-3 text-center">Correct / Total</th><th className="px-6 py-3 text-right">Mastery Level</th></tr></thead>
-                        <tbody>
-                          {itemAnalysisData.map((item, i) => (
-                            <tr key={i} className="border-t border-slate-200">
-                              <td className="px-6 py-4 font-medium text-slate-900">{item.question}</td>
-                              <td className="px-6 py-4 text-center">{item.correct} / {item.total}</td>
-                              <td className="px-6 py-4 font-bold text-right">{item.difficulty}</td>
-                            </tr>
-                          ))}
-                        </tbody>
+					<tbody>
+					  {itemAnalysisData.map((item, i) => {
+					    const isExpanded = expandedRows[i] || false;
+
+					    return (
+					      <React.Fragment key={i}>
+					        <tr className="border-t border-slate-200">
+					          <td className="px-6 py-4 font-medium text-slate-900">
+					            <div className="flex items-center justify-between">
+						<span>
+						  {item.type === "matching-type"
+						    ? "Matching Type Part"
+						    : item.question}
+						</span>
+					              
+					              {item.type === "matching-type" && item.breakdown && (
+					                <button
+					                  onClick={() =>
+					                    setExpandedRows((prev) => ({
+					                      ...prev,
+					                      [i]: !prev[i],
+					                    }))
+					                  }
+					                  className="ml-3 text-xs text-sky-600 hover:underline focus:outline-none"
+					                >
+					                  {isExpanded ? "Hide Details" : "View Details"}
+					                </button>
+					              )}
+					            </div>
+					          </td>
+					          <td className="px-6 py-4 text-center">
+					            {item.correct} / {item.total}
+					          </td>
+					          <td className="px-6 py-4 font-bold text-right">{item.difficulty}</td>
+					        </tr>
+
+					        {/* 🔹 Expandable breakdown row */}
+							{item.type === "matching-type" && item.breakdown && isExpanded && (
+							  <tr className="border-t border-slate-100 bg-slate-50">
+							    <td colSpan={3} className="px-6 py-4">
+							      <div className="text-sm text-slate-700">
+							        <strong>Matching Breakdown:</strong>
+							        <ul className="ml-4 mt-2 space-y-1 list-disc">
+							          {item.breakdown.map((pair, idx) => (
+							            <li
+							              key={idx}
+							              className={pair.isCorrect ? "text-green-600" : "text-red-600"}
+							            >
+							              <span className="font-medium">Prompt:</span>{" "}
+							              {pair.promptText || `#${pair.promptId}`} <br />
+							              <span className="ml-2">
+							                Student → {pair.studentChoice || "No Answer"}
+							              </span>
+							              ,{" "}
+							              <span className="ml-2">
+							                Correct → {pair.correctChoice}
+							              </span>
+							            </li>
+							          ))}
+							        </ul>
+							      </div>
+							    </td>
+							  </tr>
+							)}
+							</React.Fragment>
+							);
+							})}
+							</tbody>
+
+
+
                       </table>
                     </div>
                   ) : (selectedQuizId ? <p className="text-center text-slate-500 mt-8">No submissions found for this quiz.</p> : null)}

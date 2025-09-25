@@ -18,7 +18,8 @@ const StudentDashboard = () => {
     const [myClasses, setMyClasses] = useState([]);
     const [isFetchingClasses, setIsFetchingClasses] = useState(true);
     const [selectedClass, setSelectedClass] = useState(null);
-    const [quizzes, setQuizzes] = useState({ active: [], completed: [], overdue: [] });
+    const [allQuizzes, setAllQuizzes] = useState([]); // Holds all quizzes before categorization
+    const [quizzes, setQuizzes] = useState({ active: [], completed: [], overdue: [] }); // For UI
     const [lessons, setLessons] = useState([]);
     const [units, setUnits] = useState([]);
     const [isFetchingUnits, setIsFetchingUnits] = useState(true);
@@ -122,8 +123,17 @@ const StudentDashboard = () => {
             const allLessonsFromPosts = allPosts.flatMap(post =>
                 (post.lessons || []).map(lesson => ({ ...lesson, className: post.className, classId: post.classId, postId: post.id }))
             );
+            
             const allQuizzesFromPosts = allPosts.flatMap(post =>
-                (post.quizzes || []).map(quiz => ({ ...quiz, className: post.className, classId: post.classId, postId: post.id, deadline: post.availableUntil?.toDate() }))
+                (post.quizzes || []).map(quiz => ({
+                    ...quiz,
+                    className: post.className,
+                    classId: post.classId,
+                    postId: post.id,
+                    availableFrom: post.availableFrom,
+                    availableUntil: post.availableUntil,
+                    settings: post.quizSettings
+                }))
             );
             
 		    const quizIds = allQuizzesFromPosts.map(q => q.id);
@@ -147,34 +157,61 @@ const StudentDashboard = () => {
 		        });
 		    }
 
-		    const categorizedQuizzes = { active: [], completed: [], overdue: [] };
-		    const now = new Date();
-		    allQuizzesFromPosts.forEach(quiz => {
-		        const submissions = submissionsByQuizId.get(quiz.id) || [];
-		        const isCompleted = submissions.length >= 3;
-		        const isOverdue = quiz.deadline && now > quiz.deadline;
-		        const quizItem = { ...quiz, attemptsTaken: submissions.length };
+            const quizzesWithDetails = allQuizzesFromPosts.map(quiz => {
+                const submissions = submissionsByQuizId.get(quiz.id) || [];
+                return { ...quiz, attemptsTaken: submissions.length };
+            });
 
-		        if (isCompleted) {
-		            categorizedQuizzes.completed.push(quizItem);
-		        } else if (isOverdue) {
-		            categorizedQuizzes.overdue.push(quizItem);
-		        } else {
-		            categorizedQuizzes.active.push(quizItem);
-		        }
-		    });
-
+		    setAllQuizzes(quizzesWithDetails);
 		    setLessons(allLessonsFromPosts);
-		    setQuizzes(categorizedQuizzes);
 
 		} catch (error) {
 		    console.error("Error fetching content:", error);
 		    setLessons([]);
-		    setQuizzes({ active: [], completed: [], overdue: [] });
+		    setAllQuizzes([]);
 		} finally {
 		    setIsFetchingContent(false);
 		}
 	}, [userProfile, myClasses, authLoading]);
+
+    useEffect(() => {
+        const categorizeQuizzes = () => {
+            const now = new Date();
+            const categorized = { active: [], completed: [], overdue: [] };
+
+            allQuizzes.forEach(quizItem => {
+                // MODIFICATION: Get maxAttempts and determine if it's an exam
+                const maxAttempts = quizItem.settings?.maxAttempts ?? 3;
+                const isExam = maxAttempts === 1;
+                const isCompleted = quizItem.attemptsTaken >= maxAttempts;
+
+                if (isCompleted) {
+                    categorized.completed.push({ ...quizItem, status: 'completed', isExam });
+                    return;
+                }
+
+                const availableFromDate = quizItem.availableFrom?.toDate();
+                const availableUntilDate = quizItem.availableUntil?.toDate();
+                
+                const isScheduled = availableFromDate && availableFromDate > now;
+                const isOverdue = availableUntilDate && now > availableUntilDate;
+
+                // MODIFICATION: Add isExam flag to all categories
+                if (isOverdue) {
+                    categorized.overdue.push({ ...quizItem, status: 'overdue', isExam });
+                } else if (isScheduled) {
+                    categorized.active.push({ ...quizItem, status: 'scheduled', isExam });
+                } else {
+                    categorized.active.push({ ...quizItem, status: 'active', isExam });
+                }
+            });
+            setQuizzes(categorized);
+        };
+
+        categorizeQuizzes();
+        const intervalId = setInterval(categorizeQuizzes, 30000);
+        return () => clearInterval(intervalId);
+    }, [allQuizzes]);
     
 	useEffect(() => {
 		if (!authLoading && !isFetchingClasses && myClasses.length >= 0) {
@@ -194,29 +231,12 @@ const StudentDashboard = () => {
 	};
 
 	const handleTakeQuizClick = (quiz) => {
-		const now = new Date();
-		const isOverdue = quiz.deadline && now > quiz.deadline;
-		if (isOverdue && !window.confirm("This is a late submission and your teacher will be notified. Continue?")) {
-			return;
-		}
 		setQuizToTake(quiz);
 	};
     
 	const handleQuizSubmit = () => {
 		if (!quizToTake) return;
-		setQuizzes(prevQuizzes => {
-			const newActive = prevQuizzes.active.filter(q => q.id !== quizToTake.id);
-			const newOverdue = prevQuizzes.overdue.filter(q => q.id !== quizToTake.id);
-			const newCompleted = [...prevQuizzes.completed.filter(q => q.id !== quizToTake.id)];
-			const updatedQuiz = { ...quizToTake, attemptsTaken: quizToTake.attemptsTaken + 1 };
-
-			if (updatedQuiz.attemptsTaken >= 3) {
-				newCompleted.push(updatedQuiz);
-			} else {
-				newActive.push(updatedQuiz);
-			}
-			return { active: newActive, completed: newCompleted, overdue: newOverdue };
-		});
+        fetchContent();
 		setQuizToTake(null);
 	};
     

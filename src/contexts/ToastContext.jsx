@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/24/solid';
 
 const ToastContext = createContext();
+let toastRef; // 🔹 global reference
 
 export const useToast = () => useContext(ToastContext);
 
@@ -14,7 +15,10 @@ export const ToastProvider = ({ children }) => {
         setToast({ id, message, type });
         setTimeout(() => setToast(null), 3000);
     };
-    
+
+    // ✅ expose globally
+    toastRef = showToast;
+
     return (
         <ToastContext.Provider value={{ showToast }}>
             {children}
@@ -41,4 +45,13 @@ export const ToastProvider = ({ children }) => {
             </AnimatePresence>
         </ToastContext.Provider>
     );
+};
+
+// 🔹 Export global trigger for non-React files (like services)
+export const triggerToast = (message, type = 'success') => {
+    if (toastRef) {
+        toastRef(message, type);
+    } else {
+        console.warn("Toast system not ready yet.");
+    }
 };
