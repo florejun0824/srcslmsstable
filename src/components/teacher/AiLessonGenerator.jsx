@@ -45,6 +45,10 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const [expandedScaffoldUnits, setExpandedScaffoldUnits] = useState(new Set());
     const [existingLessonCount, setExistingLessonCount] = useState(0);
 
+    // New state for language and grade level
+    const [language, setLanguage] = useState('English');
+    const [gradeLevel, setGradeLevel] = useState('Grade 9');
+
     useEffect(() => {
         if (subjectId) {
             const fetchFullSubjectContext = async () => {
@@ -178,6 +182,15 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                         return `Unit: ${unit.title}\n${lessonsInUnit}`;
                     }).join('\n\n');
             }
+            
+            const languageAndGradeInstruction = `
+            **TARGET AUDIENCE (NON-NEGOTIABLE):**
+            - **Grade Level:** The entire output MUST be tailored for **${gradeLevel}** students. The vocabulary, complexity of concepts, and examples must be perfectly aligned with this academic level to ensure it is understandable and engaging.
+            - **Language:** The entire output MUST be written in **${language}**.
+            ${language === 'Filipino' ? `
+            - **CRITICAL FILIPINO LANGUAGE RULE:** You are strictly forbidden from using English or any form of code-switching (Taglish). The output must be pure, academic Filipino. The terminology used must be aligned with the standards of the Philippines' Department of Education (DepEd) for the specified grade level.
+            ` : ''}
+            `;
 
             const scaffoldingInstruction = `
             **PRIMARY ANALYSIS TASK (NON-NEGOTIABLE):** Before generating anything, you MUST act as a curriculum continuity expert. Your most critical task is to meticulously analyze all the provided context below to prevent any topical repetition.
@@ -201,6 +214,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             
             const finalPrompt = `
             You are an expert curriculum designer and bestselling textbook author. 
+            ${languageAndGradeInstruction}
             ${scaffoldingInstruction}
 
             Take the processed text and structure it into a **unit with lessons**, following the NON-NEGOTIABLE textbook chapter sequence.
@@ -401,6 +415,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         return selectedLesson.learningObjectives.map(obj => `* ${obj}`).join('\n');
     }, [selectedLesson]);
 
+    const gradeLevels = ["Kindergarten", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
+
     return (
         <div className="flex flex-col h-full">
             <div className="flex-shrink-0 pb-4 border-b border-neumorphic-shadow-dark/20">
@@ -453,12 +469,33 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                         )
                     )}
 
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label htmlFor="language" className="block text-sm font-semibold text-slate-700 mb-1">Language</label>
+                            <select id="language" name="language" value={language} onChange={(e) => setLanguage(e.target.value)} className="block w-full rounded-lg border-transparent bg-neumorphic-base shadow-neumorphic-inset focus:border-sky-500 focus:ring-sky-500 text-sm">
+                                <option>English</option>
+                                <option>Filipino</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="gradeLevel" className="block text-sm font-semibold text-slate-700 mb-1">Grade Level</label>
+                            <select id="gradeLevel" name="gradeLevel" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} className="block w-full rounded-lg border-transparent bg-neumorphic-base shadow-neumorphic-inset focus:border-sky-500 focus:ring-sky-500 text-sm">
+                                {gradeLevels.map(level => (
+                                    <option key={level} value={level}>{level}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
                     <div className="space-y-2">
                         <h3 className="text-base font-semibold text-slate-700">Scaffolding (Optional)</h3>
                         <div className="bg-neumorphic-base p-3 rounded-xl max-h-[18rem] overflow-y-auto shadow-neumorphic-inset">
                             <p className="text-xs text-slate-500 mb-3">Explicitly select lessons for the AI to build upon.</p>
                             {subjectContext && subjectContext.units.length > 0 ? (
-                                subjectContext.units.slice().sort((a,b) => (a.order || 0) - (b.order || 0)).map(unit => {
+                                subjectContext.units
+                                    .slice()
+                                    .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }))
+                                    .map(unit => {
                                     const lessonsInUnit = subjectContext.lessons.filter(lesson => lesson.unitId === unit.id);
                                     if (lessonsInUnit.length === 0) return null;
                                     const selectedCount = lessonsInUnit.filter(l => scaffoldLessonIds.has(l.id)).length;
