@@ -238,13 +238,15 @@ export default function GenerationScreen({ subject, unit, guideData, onGeneratio
                 
                 if (singleLessonData && singleLessonData.generated_lessons && singleLessonData.generated_lessons.length > 0) {
                     currentLessons.push(...singleLessonData.generated_lessons);
-                    // Temporarily update preview for user feedback
-                    onGenerationComplete({ previewData: { generated_lessons: [...currentLessons] }, failedLessonNumber: null });
+                    // BUG FIX: Removed the onGenerationComplete call from inside the loop
+                    // It was causing the process to exit after the first lesson.
                 } else {
                     throw new Error(`Received invalid or empty data for lesson ${i}.`);
                 }
             }
         
+            // This is the correct place to call onGenerationComplete for a successful run
+            onGenerationComplete({ previewData: { generated_lessons: currentLessons }, failedLessonNumber: null });
             setLessonProgress({ current: 0, total: 0 });
             showToast("All lessons generated successfully!", "success");
 
