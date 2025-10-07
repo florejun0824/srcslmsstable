@@ -10,7 +10,7 @@ import { ArrowUturnLeftIcon, DocumentArrowUpIcon, DocumentTextIcon, XMarkIcon, S
 import Spinner from '../common/Spinner';
 import LessonPage from './LessonPage';
 import mammoth from 'mammoth';
-import { marked } from 'marked'; // ADDED: Import the missing 'marked' library
+import { marked } from 'marked'; 
 
 // PDF processing setup
 import * as pdfjsLib from 'pdfjs-dist';
@@ -84,12 +84,28 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const scaffoldInfo = useMemo(() => {
         if (scaffoldLessonIds.size === 0 || !subjectContext) return { summary: '' };
         const relevantScaffoldLessons = subjectContext.lessons.filter(lesson => scaffoldLessonIds.has(lesson.id));
+        
         const summary = relevantScaffoldLessons.map(lesson => {
-            const pageContentSample = lesson.pages.map(p => p.content).join(' ').substring(0, 200);
-            return `- Lesson Title: "${lesson.title}"\n  - Key Concepts/Activities Summary: ${pageContentSample}...`;
+            const objectivesSummary = (lesson.objectives && lesson.objectives.length > 0)
+                ? `\n  - Objectives: ${lesson.objectives.join('; ')}`
+                : '';
+            return `- Lesson Title: "${lesson.title}"${objectivesSummary}`;
         }).join('\n');
+        
         return { summary };
     }, [scaffoldLessonIds, subjectContext]);
+
+    // --- FIX 1: Added a function to reset the generator's state ---
+    const resetGeneratorState = () => {
+        setFile(null);
+        setPreviewLessons([]);
+        setError('');
+        setSaving(false);
+        setIsProcessing(false);
+        setProgressMessage('');
+        setSelectedLessonIndex(0);
+        setSelectedPageIndex(0);
+    };
 
     const handleToggleUnitExpansion = (unitId) => {
         const newSet = new Set(expandedScaffoldUnits);
@@ -154,20 +170,13 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         setPreviewLessons([]);
 
         try {
-            setProgressMessage('Step 1 of 3: Reading and extracting text...');
+            setProgressMessage('Step 1 of 2: Reading and extracting text from document...');
             let extractedText = await extractTextFromFile(file);
             extractedText = extractedText.replace(/₱/g, 'PHP ');
 
-            setProgressMessage('Step 2 of 3: Processing document with AI...');
-            const textChunks = chunkText(extractedText);
-            const processingPromises = textChunks.map((chunk) => {
-                const chunkPrompt = `Paraphrase and rewrite the following text to be clear, concise, and original, while preserving its educational meaning. Use Markdown for formatting. Do not add titles, just return the processed text. RAW TEXT: ${chunk}`;
-                return callGeminiWithLimitCheck(chunkPrompt);
-            });
-            const processedChunks = await Promise.all(processingPromises);
-            const combinedText = processedChunks.join('\n\n');
+            const sourceText = extractedText;
             
-            setProgressMessage('Step 3 of 3: Structuring final lessons...');
+            setProgressMessage('Step 2 of 2: Structuring content into lessons with AI...');
 
             let existingSubjectContextString = "No other lessons exist yet.";
             if (subjectContext && subjectContext.lessons.length > 0) {
@@ -213,11 +222,13 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             `;
             
             const finalPrompt = `
-            You are an expert curriculum designer and bestselling textbook author. 
+            You are an expert curriculum designer and bestselling textbook author. Your primary task is to transform the provided source text into a structured, engaging, and pedagogically sound educational unit.
             ${languageAndGradeInstruction}
             ${scaffoldingInstruction}
 
-            Take the processed text and structure it into a **unit with lessons**, following the NON-NEGOTIABLE textbook chapter sequence.
+            **CRITICAL CONTENT FIDELITY RULE (NON-NEGOTIABLE):** Your absolute top priority is to fully and accurately represent the entire source document. Do NOT over-summarize or omit key information, examples, or data points from the source text. The generated lessons should be comprehensive and reflect the full depth of the original material. If the source text is long, you MUST generate more pages or more lessons to cover it completely. Do not truncate the content.
+
+            Your role is to organize and enhance, not to invent new core content. Take the raw source text and structure it into a **unit with lessons**, following the NON-NEGOTIABLE textbook chapter sequence below.
 
             =============================
             STRICT LESSON STRUCTURE
@@ -227,29 +238,29 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                   • Learning Targets (clear bullet points).  
                 - Nothing else.  
                 - IMPORTANT: The Unit Overview MUST NEVER be numbered. Do not call it Lesson 0 or Lesson 1. Always exactly "Unit Overview".
-            2. **Learning Objectives** - For every lesson, you MUST populate the \`learningObjectives\` array in the JSON with specific, measurable, and student-friendly objectives.  
+            2. **Learning Objectives** - For every lesson, you MUST populate the \`learningObjectives\` array in the JSON with specific, measurable, and student-friendly objectives based on the source text.  
                 - CRITICAL: You MUST NOT create a separate page titled "Learning Objectives"; the array is the only place they should appear.
             3. **Engaging Introduction** - MUST NOT use "Engaging Introduction" as the page title.  
                 - Instead, give it a **thematic, captivating subheader title** (e.g., "Why Water Shapes Our World", "The Hidden Power of Atoms").  
-                - Content must hook attention with a story, real-world example, or surprising fact.  
+                - Content must hook attention with a story, real-world example, or surprising fact from the text.  
                 - Tone: engaging, inspiring, but scholarly.  
                 - Always exactly one page.
             4. **Introductory Activity ("Let's Get Started")** - A short warm-up activity.  
                 - Interactive but simple (e.g., quick brainstorm, matching, or short scenario).  
                 - The \`title\` MUST be exactly "Let's Get Started".
             5. **Core Content Sections** - DO NOT limit to a single page.  
-                - Break into **multiple subpages**, each with its own unique \`title\` (a subheader).  
+                - Break the main content from the source text into **multiple subpages**, each with its own unique \`title\` (a subheader).  
                 - Example subpage titles:  
                   • "The Early Stages of the Water Cycle"  
                   • "Evaporation and Condensation"  
                   • "Precipitation and Collection"  
                 - Each subpage must:  
                   • Have a clear, meaningful title.  
-                  • Contain detail-rich explanations with examples, analogies, or visuals.  
+                  • Contain detail-rich explanations with examples, analogies, or visuals, derived directly from the source.  
                 - Flow must be logical across subpages.  
                 - This is the body of the textbook chapter.
             6. **Check for Understanding ("Check for Understanding")** - One short formative activity with 3–4 concept questions or problems.  
-                - Reinforces key knowledge.  
+                - Reinforces key knowledge from the source text.  
                 - The \`title\` MUST be exactly "Check for Understanding".
             7. **Summary ("Lesson Summary")** - Concise recap of the most important points.  
                 - Bullet points or short narrative.  
@@ -342,9 +353,9 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             }
 
             =============================
-            TEXT TO PROCESS
+            SOURCE TEXT TO STRUCTURE
             =============================
-            ${combinedText}
+            ${sourceText}
             `;
 
             const aiResponse = await callGeminiWithLimitCheck(finalPrompt);
@@ -398,7 +409,9 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             );
             await Promise.all(savePromises);
             showToast(`${previewLessons.length} lesson(s) saved successfully!`, 'success');
-            onClose();
+            // --- FIX 1 (cont.): Call the reset function and then close the modal ---
+            resetGeneratorState();
+            onClose(); 
         } catch (err) {
             console.error('Error saving lessons: ', err);
             setError('Failed to save one or more lessons.');
