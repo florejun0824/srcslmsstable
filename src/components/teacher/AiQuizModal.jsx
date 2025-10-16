@@ -4,6 +4,7 @@ import { SparklesIcon, ArrowUturnLeftIcon, CheckCircleIcon, LanguageIcon, ListBu
 import { db } from '../../services/firebase';
 import { doc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
+import { getAllSubjects } from '../../services/firestoreService';
 import { useToast } from '../../contexts/ToastContext';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -38,6 +39,25 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedQuiz, setGeneratedQuiz] = useState(null);
     const [error, setError] = useState('');
+    const [subjects, setSubjects] = useState([]);
+    const [selectedSubject, setSelectedSubject] = useState(null);
+
+    useEffect(() => {
+        const fetchSubjects = async () => {
+            try {
+                const subs = await getAllSubjects();
+                setSubjects(subs);
+                if (subjectId) {
+                    setSelectedSubject(subjectId);
+                }
+            } catch (error) {
+                showToast('Could not fetch subjects.', 'error');
+            }
+        };
+        if (isOpen) {
+            fetchSubjects();
+        }
+    }, [isOpen, subjectId, showToast]);
 
     useEffect(() => {
         if (isOpen) {
@@ -81,9 +101,20 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
 
         const lessonContentForPrompt = lesson?.pages?.map(page => `Page Title: ${page.title}\nPage Content: ${page.content}`).join('\n\n') || '';
 
+        const selectedSubjectData = subjects.find(s => s.id === selectedSubject);
+        const catholicSubjects = ["Christian Social Living 7-10", "Religious Education 11-12"];
+        let perspectiveInstruction = '';
+        if (selectedSubjectData && catholicSubjects.includes(selectedSubjectData.title)) {
+            perspectiveInstruction = `
+                **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. This is non-negotiable. All explanations, examples, and interpretations must align with Catholic teachings, doctrines, and values. You must integrate principles from the Catechism of the Catholic Church, relevant encyclicals, and Sacred Scripture where appropriate.
+                **CRITICAL SOURCE REQUIREMENT (NON-NEGOTIABLE):** For all content and for the "References" section, you MUST prioritize citing and referencing official Catholic sources. This includes, but is not limited to: the **Catechism of the Catholic Church (CCC)**, the **Youth Catechism (Youcat)**, relevant **Apostolic Letters**, **Encyclical Letters**, and documents from Vatican II. Secular sources may be used sparingly, but the core foundation must be these official Church documents.
+            `;
+        }
+
         let prompt = `You are an expert instructional designer creating curriculum-aligned assessment tools for the Philippine Department of Education (DepEd). Your task is to create a high-quality, academically appropriate quiz on the topic of "${lesson?.title}".
 
 **PEDAGOGICAL FRAMEWORK:**
+${perspectiveInstruction}
 1.  **DepEd Alignment:** All questions must be academically rigorous, curriculum-relevant, and suitable for a high school academic level. The goal is to assess understanding of key concepts, not to trick the student.
 2.  **KNOWLEDGE SOURCE:** Use the provided text below only to understand the core concepts of the topic.
 3.  **ABSOLUTE RULE:** You MUST NOT create questions that refer to the provided text itself (e.g., "According to the lesson..."). The quiz must be a standalone assessment.
@@ -310,6 +341,15 @@ Return the response as a single, valid JSON object with a "title" and a "questio
                                 <div className="flex items-center justify-between">
                                     <label className="text-sm font-medium text-slate-700 flex items-center"><HashtagIcon className="h-5 w-5 mr-2" />Number of Items</label>
                                     <input type="number" value={itemCount} onChange={(e) => setItemCount(Math.max(1, Math.min(50, parseInt(e.target.value, 10) || 1)))} className={`max-w-[100px] text-center ${inputBaseStyles} py-2.5`} />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-slate-700 flex items-center mb-2"><ListBulletIcon className="h-5 w-5 mr-2" />Subject</label>
+                                    <select value={selectedSubject || ''} onChange={(e) => setSelectedSubject(e.target.value)} className={`w-full ${inputBaseStyles} py-2.5 px-3`}>
+                                        <option value="" disabled>Select a subject</option>
+                                        {subjects.map(subject => (
+                                            <option key={subject.id} value={subject.id}>{subject.title}</option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
                             <div className="p-5 rounded-2xl shadow-[inset_3px_3px_7px_#bdc1c6,inset_-3px_-3px_7px_#ffffff]">
