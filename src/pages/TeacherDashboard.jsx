@@ -92,34 +92,66 @@ const TeacherDashboard = () => {
     }, [userProfile, messages.length]);
 
     useEffect(() => {
-        if (!user) { setLoading(false); return; }
+        if (!user) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         const teacherId = user.uid || user.id;
-        if (!teacherId) { setLoading(false); setError("User ID not found."); return; }
+        if (!teacherId) {
+            setLoading(false);
+            setError("User ID not found.");
+            return;
+        }
 
-        const realTimeQueries = [
+        const classesQuery = query(collection(db, "classes"), where("teacherId", "==", teacherId));
+        const coursesQuery = query(collection(db, "courses"));
+
+        const unsubClasses = onSnapshot(classesQuery, snapshot => {
+            setClasses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        }, err => {
+            console.error("Firestore (classes) error:", err);
+            setError("Failed to load class data.");
+        });
+
+        const unsubCourses = onSnapshot(coursesQuery, snapshot => {
+            setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        }, err => {
+            console.error("Firestore (courses) error:", err);
+            setError("Failed to load course data.");
+        });
+
+        const otherQueries = [
             { query: query(collection(db, "subjectCategories"), orderBy("name")), setter: setCourseCategories },
-            { query: query(collection(db, "classes"), where("teacherId", "==", teacherId)), setter: setClasses },
             { query: query(collection(db, "teacherAnnouncements"), orderBy("createdAt", "desc")), setter: setTeacherAnnouncements },
-            // ✅ FIX: Added a real-time listener for the 'courses' collection.
-            // This ensures the subjects list updates automatically when a new subject or category is created.
-            { query: query(collection(db, "courses")), setter: setCourses },
         ];
 
-        const unsubscribers = realTimeQueries.map(({ query, setter }) =>
+        const otherUnsubs = otherQueries.map(({ query, setter }) =>
             onSnapshot(query, (snapshot) => {
-                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setter(data);
+                setter(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
             }, (err) => {
                 console.error("Firestore snapshot error:", err);
                 setError("Failed to load dashboard data in real-time.");
             })
         );
         
-        // The one-time fetch for courses is no longer needed, it's now part of the real-time queries.
-        setLoading(false);
+        Promise.all([
+            getDocs(classesQuery),
+            getDocs(coursesQuery),
+            ...otherQueries.map(q => getDocs(q.query))
+        ]).then(() => {
+            setLoading(false);
+        }).catch(err => {
+            console.error("Error during initial data fetch:", err);
+            setError("Failed to load initial data.");
+            setLoading(false);
+        });
 
-        return () => { unsubscribers.forEach(unsub => unsub()); };
+        return () => {
+            unsubClasses();
+            unsubCourses();
+            otherUnsubs.forEach(unsub => unsub());
+        };
     }, [user]);
 
     useEffect(() => {

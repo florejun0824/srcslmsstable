@@ -173,16 +173,15 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
             }
             
             const formattedNotes = formatNotesToString(data.notes);
-            if (formattedNotes) {
-                const speakerNotesObjectId = await findSpeakerNotesObjectId(presentationId, slide.objectId);
-                if (speakerNotesObjectId) {
-                    // **CRITICAL FIX**: Delete existing text before inserting new content.
-                    populateRequests.push({
-                        deleteText: {
-                            objectId: speakerNotesObjectId,
-                            textRange: { type: 'ALL' }
-                        }
-                    });
+            const speakerNotesObjectId = await findSpeakerNotesObjectId(presentationId, slide.objectId);
+            if (speakerNotesObjectId) {
+                populateRequests.push({
+                    deleteText: {
+                        objectId: speakerNotesObjectId,
+                        textRange: { type: 'ALL' }
+                    }
+                });
+                if (formattedNotes) {
                     populateRequests.push({
                         insertText: {
                             objectId: speakerNotesObjectId,
