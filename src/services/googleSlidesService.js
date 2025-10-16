@@ -93,19 +93,6 @@ const findShapeByTextTag = (pageElements, tag) => {
     return null;
 };
 
-const findSpeakerNotesObjectId = async (presentationId, slideObjectId) => {
-    try {
-        const response = await window.gapi.client.slides.presentations.pages.get({
-            presentationId,
-            pageObjectId: slideObjectId,
-            fields: 'notesPage(notesProperties(speakerNotesObjectId))',
-        });
-        return response.result?.notesPage?.notesProperties?.speakerNotesObjectId || null;
-    } catch (error) {
-        console.error("Error fetching notes page for slide:", slideObjectId, error);
-        return null;
-    }
-};
 
 export const createPresentationFromData = async (slideData, presentationTitle, subjectName, unitName) => {
     try {
@@ -135,7 +122,10 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
             await window.gapi.client.slides.presentations.batchUpdate({ presentationId, requests: duplicateRequests });
         }
 
-        const finalPresentation = await window.gapi.client.slides.presentations.get({ presentationId });
+        const finalPresentation = await window.gapi.client.slides.presentations.get({
+            presentationId,
+            fields: 'slides(objectId,pageElements,notesPage(notesProperties(speakerNotesObjectId)))'
+        });
         const allSlides = finalPresentation.result.slides;
 
         const populateRequests = [];
@@ -174,7 +164,7 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
             
             const formattedNotes = formatNotesToString(data.notes);
             if (formattedNotes) {
-                const speakerNotesObjectId = await findSpeakerNotesObjectId(presentationId, slide.objectId);
+                const speakerNotesObjectId = slide.notesPage?.notesProperties?.speakerNotesObjectId;
                 if (speakerNotesObjectId) {
                     // **CRITICAL FIX**: Delete existing text before inserting new content.
                     populateRequests.push({
