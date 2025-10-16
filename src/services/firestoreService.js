@@ -189,6 +189,7 @@ export const updateUserProfile = async (userId, data) => {
 // 🔹 updateUserDetails with Cascade
 // ==============================
 export const updateUserDetails = async (userId, updates) => {
+  const batch = writeBatch(db);
   try {
     const userDocRef = doc(db, 'users', userId);
 
@@ -196,7 +197,7 @@ export const updateUserDetails = async (userId, updates) => {
     if (!oldUserSnap.exists()) throw new Error("User not found.");
     const oldUser = { id: userId, ...oldUserSnap.data() };
 
-    await updateDoc(userDocRef, updates);
+    batch.update(userDocRef, updates);
 
     const { firstName, lastName, role, email } = updates;
     const nameUpdates = {};
@@ -205,14 +206,14 @@ export const updateUserDetails = async (userId, updates) => {
 
     if (role && role !== oldUser.role) {
       if (oldUser.role === 'teacher' && role !== 'teacher') {
-        await removeTeacherFromDocuments(userId);
-        await removeTeacherFromPool(userId);
+        await removeTeacherFromDocuments(batch, userId);
+        await removeTeacherFromPool(batch, userId);
       }
       if (oldUser.role === 'student' && role !== 'student') {
-        await removeStudentFromClasses(userId);
+        await removeStudentFromClasses(batch, userId);
       }
       if (role === 'teacher' && oldUser.role !== 'teacher') {
-        await addTeacherToUnassignedPool({
+        await addTeacherToUnassignedPool(batch, {
           id: userId,
           firstName: firstName || oldUser.firstName || "",
           lastName: lastName || oldUser.lastName || "",
@@ -223,15 +224,16 @@ export const updateUserDetails = async (userId, updates) => {
 
     if (oldUser.role === 'student' || role === 'student') {
       if (Object.keys(nameUpdates).length > 0) {
-        await updateStudentDetailsInClasses(userId, nameUpdates);
+        await updateStudentDetailsInClasses(batch, userId, nameUpdates);
       }
     }
     if (oldUser.role === 'teacher' || role === 'teacher') {
       if (Object.keys(nameUpdates).length > 0) {
-        await updateTeacherDetailsInDocuments(userId, nameUpdates);
-        await updateTeacherInPool(userId, nameUpdates);
+        await updateTeacherDetailsInDocuments(batch, userId, nameUpdates);
+        await updateTeacherInPool(batch, userId, nameUpdates);
       }
     }
+    await batch.commit();
   } catch (err) {
     console.error(`❌ updateUserDetails failed for userId=${userId}`, err);
     throw err;
@@ -241,11 +243,10 @@ export const updateUserDetails = async (userId, updates) => {
 // ==============================
 // 🔹 Student / Teacher Relations
 // ==============================
-export const updateStudentDetailsInClasses = async (studentId, newData) => {
+export const updateStudentDetailsInClasses = async (batch, studentId, newData) => {
   try {
     if (!studentId || !newData) return;
 
-    const batch = writeBatch(db);
     const q = query(collection(db, 'classes'), where('studentIds', 'array-contains', studentId));
     const classesSnapshot = await getDocs(q);
 
@@ -259,17 +260,14 @@ export const updateStudentDetailsInClasses = async (studentId, newData) => {
 
       batch.update(docSnap.ref, { students: updatedStudents });
     });
-
-    await batch.commit();
   } catch (err) {
     console.error(`❌ updateStudentDetailsInClasses failed for studentId=${studentId}`, err);
     throw err;
   }
 };
 
-export const removeStudentFromClasses = async (studentId) => {
+export const removeStudentFromClasses = async (batch, studentId) => {
   try {
-    const batch = writeBatch(db);
     const q = query(collection(db, 'classes'), where('studentIds', 'array-contains', studentId));
     const classesSnapshot = await getDocs(q);
 
@@ -283,19 +281,16 @@ export const removeStudentFromClasses = async (studentId) => {
         studentIds: filteredIds
       });
     });
-
-    await batch.commit();
   } catch (err) {
     console.error(`❌ removeStudentFromClasses failed for studentId=${studentId}`, err);
     throw err;
   }
 };
 
-export const updateTeacherDetailsInDocuments = async (teacherId, newData) => {
+export const updateTeacherDetailsInDocuments = async (batch, teacherId, newData) => {
   try {
     if (!teacherId || !newData) return;
 
-    const batch = writeBatch(db);
     const collectionsToUpdate = ['classes', 'courses', 'teacherAnnouncements'];
 
     for (const coll of collectionsToUpdate) {
@@ -312,17 +307,14 @@ export const updateTeacherDetailsInDocuments = async (teacherId, newData) => {
         }
       });
     }
-
-    await batch.commit();
   } catch (err) {
     console.error(`❌ updateTeacherDetailsInDocuments failed for teacherId=${teacherId}`, err);
     throw err;
   }
 };
 
-export const removeTeacherFromDocuments = async (teacherId) => {
+export const removeTeacherFromDocuments = async (batch, teacherId) => {
   try {
-    const batch = writeBatch(db);
     const collectionsToUpdate = ['classes', 'courses', 'teacherAnnouncements'];
 
     for (const coll of collectionsToUpdate) {
@@ -337,8 +329,6 @@ export const removeTeacherFromDocuments = async (teacherId) => {
         });
       });
     }
-
-    await batch.commit();
   } catch (err) {
     console.error(`❌ removeTeacherFromDocuments failed for teacherId=${teacherId}`, err);
     throw err;
@@ -348,9 +338,9 @@ export const removeTeacherFromDocuments = async (teacherId) => {
 // ==============================
 // 🔹 Teacher Pool Helpers
 // ==============================
-export const addTeacherToUnassignedPool = async (teacherData) => {
+export const addTeacherToUnassignedPool = async (batch, teacherData) => {
   try {
-    await setDoc(doc(db, "teachersPool", teacherData.id), {
+    batch.set(doc(db, "teachersPool", teacherData.id), {
       ...teacherData,
       assigned: false,
       createdAt: new Date()
@@ -361,7 +351,7 @@ export const addTeacherToUnassignedPool = async (teacherData) => {
   }
 };
 
-export const updateTeacherInPool = async (teacherId, newData) => {
+export const updateTeacherInPool = async (batch, teacherId, newData) => {
   try {
     const teacherRef = doc(db, "teachersPool", teacherId);
     const allowedFields = {};
@@ -371,7 +361,7 @@ export const updateTeacherInPool = async (teacherId, newData) => {
     if (Object.keys(allowedFields).length > 0) {
       // Use setDoc with { merge: true } to create the doc if it's missing,
       // or update it if it exists. This is an "upsert" operation.
-      await setDoc(teacherRef, allowedFields, { merge: true });
+      batch.set(teacherRef, allowedFields, { merge: true });
     }
   } catch (err) {
     console.error(`❌ updateTeacherInPool failed for teacherId=${teacherId}`, err);
@@ -379,9 +369,9 @@ export const updateTeacherInPool = async (teacherId, newData) => {
   }
 };
 
-export const removeTeacherFromPool = async (teacherId) => {
+export const removeTeacherFromPool = async (batch, teacherId) => {
   try {
-    await deleteDoc(doc(db, "teachersPool", teacherId));
+    batch.delete(doc(db, "teachersPool", teacherId));
   } catch (err) {
     console.error(`❌ removeTeacherFromPool failed for teacherId=${teacherId}`, err);
     throw err;
