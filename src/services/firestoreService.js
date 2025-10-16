@@ -81,6 +81,16 @@ export const submitQuizAnswers = async (quizId, classId, answers, studentId) => 
   }
 };
 
+export const getAllSubjects = async () => {
+  try {
+    const snapshot = await getDocs(collection(db, 'courses'));
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (err) {
+    console.error("❌ getAllSubjects failed", err);
+    throw err;
+  }
+};
+
 if (typeof window !== "undefined") {
   window.addEventListener("online", async () => {
     const studentId = JSON.parse(localStorage.getItem("userProfile") || "{}").id;
@@ -490,6 +500,7 @@ export const updateUserRole = async (userId, newRole) => {
 // 🔹 DEFAULT EXPORT
 // ==============================
 const firestoreService = {
+  getAllSubjects,
   getUserProfile,
   getAllUsers,
   addUser,

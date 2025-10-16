@@ -21,32 +21,58 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
  * @returns {Promise<string>} The text response from the AI.
  * @throws {Error} Throws an error with message "LIMIT_REACHED" or a generic error if retries fail.
  */
+// --- START: Global state for caching Firestore reads ---
+let usageCache = {
+    callCount: 0,
+    resetMonth: 0,
+    lastChecked: 0,
+};
+const CACHE_DURATION_MS = 60000; // Cache for 60 seconds
+// --- END: Global state ---
+
 export const callGeminiWithLimitCheck = async (prompt, retries = 7, backoff = 3000) => {
-    // 1. Get reference to our tracker document
     const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
-    const usageSnap = await getDoc(usageDocRef);
+    const currentTime = Date.now();
 
-    if (!usageSnap.exists()) {
-        await setDoc(usageDocRef, { callCount: 1, resetMonth: new Date().getMonth() + 1 });
+    // --- START: Optimization Logic ---
+    // 1. Check if cache is valid
+    if (currentTime - usageCache.lastChecked < CACHE_DURATION_MS) {
+        if (usageCache.callCount >= FREE_API_CALL_LIMIT_PER_MONTH) {
+            console.warn("AI monthly limit reached (from cache).");
+            throw new Error("LIMIT_REACHED");
+        }
     } else {
-        let { callCount, resetMonth } = usageSnap.data();
-        const currentMonth = new Date().getMonth() + 1;
+        // 2. Cache is stale, fetch from Firestore
+        const usageSnap = await getDoc(usageDocRef);
+        if (usageSnap.exists()) {
+            const { callCount, resetMonth } = usageSnap.data();
+            const currentMonth = new Date().getMonth() + 1;
 
-        if (resetMonth !== currentMonth) {
-            await updateDoc(usageDocRef, {
-                callCount: 1,
-                resetMonth: currentMonth
-            });
-        } else {
-            if (callCount >= FREE_API_CALL_LIMIT_PER_MONTH) {
-                console.warn("AI monthly limit reached.");
-                throw new Error("LIMIT_REACHED");
+            if (resetMonth !== currentMonth) {
+                // Month has reset, update cache and prepare for a single write operation
+                usageCache = { callCount: 0, resetMonth: currentMonth, lastChecked: currentTime };
+                await updateDoc(usageDocRef, { callCount: 0, resetMonth: currentMonth });
+            } else {
+                // Update cache with fresh data from Firestore
+                usageCache = { callCount, resetMonth, lastChecked: currentTime };
             }
-            await updateDoc(usageDocRef, { callCount: increment(1) });
+        } else {
+            // Document doesn't exist, initialize it and the cache
+            const currentMonth = new Date().getMonth() + 1;
+            usageCache = { callCount: 0, resetMonth: currentMonth, lastChecked: currentTime };
+            await setDoc(usageDocRef, { callCount: 0, resetMonth: currentMonth });
+        }
+
+        if (usageCache.callCount >= FREE_API_CALL_LIMIT_PER_MONTH) {
+            console.warn("AI monthly limit reached (from Firestore).");
+            throw new Error("LIMIT_REACHED");
         }
     }
+    // --- END: Optimization Logic ---
 
-    // 4. If all checks pass, proceed with the API call
+    // 3. Increment cache and perform API call
+    usageCache.callCount += 1;
+
     try {
         const response = await fetch(GEMINI_API_URL, {
             method: 'POST',
@@ -91,6 +117,13 @@ export const callGeminiWithLimitCheck = async (prompt, retries = 7, backoff = 30
         }
 
         const textResponse = data.candidates[0].content.parts[0].text;
+
+        // --- START: Final Write Operation ---
+        // After a successful API call, write the final count back to Firestore.
+        // This is a single write operation per successful call.
+        await updateDoc(usageDocRef, { callCount: increment(1) });
+        // --- END: Final Write Operation ---
+
         // Clean up any stray markdown code block delimiters if the AI includes them
         return textResponse.replace(/```json|```/g, '').trim();
 
@@ -99,16 +132,16 @@ export const callGeminiWithLimitCheck = async (prompt, retries = 7, backoff = 30
         if ((error.status === 429 || error.status === 503) && retries > 0) {
             console.warn(`API Error (${error.status}): ${error.message} Retrying in ${backoff / 1000}s... (${retries} retries left)`);
             
-            await delay(backoff);
+            // Decrement cache count for the retry
+            usageCache.callCount -= 1;
             
-            // Decrement call count only if we are retrying a 429/503 error.
-            // This prevents false positive limit hits during temporary network/API issues.
-            await updateDoc(usageDocRef, { callCount: increment(-1) });
-
+            await delay(backoff);
             return callGeminiWithLimitCheck(prompt, retries - 1, backoff * 2);
         }
 
-        // Re-throw any other errors after logging them
+        // If it's a non-retryable error, revert the optimistic cache increment
+        usageCache.callCount -= 1;
+
         console.error("Error calling AI service:", error);
         throw error;
     }

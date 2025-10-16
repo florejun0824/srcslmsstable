@@ -3,6 +3,7 @@ import { db } from '../../services/firebase';
 import { collection, query, where, getDocs, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
+import { getAllSubjects } from '../../services/firestoreService';
 import { sanitizeLessonsJson } from './sanitizeLessonText';
 
 import { Dialog } from '@headlessui/react';
@@ -48,6 +49,20 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     // New state for language and grade level
     const [language, setLanguage] = useState('English');
     const [gradeLevel, setGradeLevel] = useState('Grade 9');
+    const [subjects, setSubjects] = useState([]);
+    const [selectedSubject, setSelectedSubject] = useState(null);
+
+    useEffect(() => {
+        const fetchSubjects = async () => {
+            try {
+                const subs = await getAllSubjects();
+                setSubjects(subs);
+            } catch (error) {
+                showToast('Could not fetch subjects.', 'error');
+            }
+        };
+        fetchSubjects();
+    }, []);
 
     useEffect(() => {
         if (subjectId) {
@@ -201,6 +216,16 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             ` : ''}
             `;
 
+            const selectedSubjectData = subjects.find(s => s.id === selectedSubject);
+            const catholicSubjects = ["Christian Social Living 7-10", "Religious Education 11-12"];
+            let perspectiveInstruction = '';
+            if (selectedSubjectData && catholicSubjects.includes(selectedSubjectData.title)) {
+                perspectiveInstruction = `
+                    **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. This is non-negotiable. All explanations, examples, and interpretations must align with Catholic teachings, doctrines, and values. You must integrate principles from the Catechism of the Catholic Church, relevant encyclicals, and Sacred Scripture where appropriate.
+                    **CRITICAL SOURCE REQUIREMENT (NON-NEGOTIABLE):** For all content and for the "References" section, you MUST prioritize citing and referencing official Catholic sources. This includes, but is not limited to: the **Catechism of the Catholic Church (CCC)**, the **Youth Catechism (Youcat)**, relevant **Apostolic Letters**, **Encyclical Letters**, and documents from Vatican II. Secular sources may be used sparingly, but the core foundation must be these official Church documents.
+                `;
+            }
+
             const scaffoldingInstruction = `
             **PRIMARY ANALYSIS TASK (NON-NEGOTIABLE):** Before generating anything, you MUST act as a curriculum continuity expert. Your most critical task is to meticulously analyze all the provided context below to prevent any topical repetition.
 
@@ -224,6 +249,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             const finalPrompt = `
             You are an expert curriculum designer and bestselling textbook author. Your primary task is to transform the provided source text into a structured, engaging, and pedagogically sound educational unit.
             ${languageAndGradeInstruction}
+            ${perspectiveInstruction}
             ${scaffoldingInstruction}
 
             **CRITICAL CONTENT FIDELITY RULE (NON-NEGOTIABLE):** Your absolute top priority is to fully and accurately represent the entire source document. Do NOT over-summarize or omit key information, examples, or data points from the source text. The generated lessons should be comprehensive and reflect the full depth of the original material. If the source text is long, you MUST generate more pages or more lessons to cover it completely. Do not truncate the content.
@@ -498,6 +524,16 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                 ))}
                             </select>
                         </div>
+                    </div>
+
+                    <div>
+                        <label htmlFor="subject" className="block text-sm font-semibold text-slate-700 mb-1">Subject</label>
+                        <select id="subject" name="subject" value={selectedSubject || ''} onChange={(e) => setSelectedSubject(e.target.value)} className="block w-full rounded-lg border-transparent bg-neumorphic-base shadow-neumorphic-inset focus:border-sky-500 focus:ring-sky-500 text-sm">
+                            <option value="" disabled>Select a subject</option>
+                            {subjects.map(subject => (
+                                <option key={subject.id} value={subject.id}>{subject.title}</option>
+                            ))}
+                        </select>
                     </div>
 
                     <div className="space-y-2">
