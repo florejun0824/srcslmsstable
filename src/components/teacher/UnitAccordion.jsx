@@ -323,7 +323,7 @@ const AddContentButton = ({ onAddLesson, onAddQuiz }) => {
     );
 };
 
-function SortableContentItem({ item, isReordering, ...props }) {
+const SortableContentItem = React.memo(({ item, isReordering, ...props }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: item.id,
         data: { type: item.type, unitId: item.unitId },
@@ -373,9 +373,9 @@ function SortableContentItem({ item, isReordering, ...props }) {
             </div>
         </div>
     );
-}
+});
 
-function SortableUnitCard(props) {
+const SortableUnitCard = React.memo((props) => {
     const { unit, onSelect, onEdit, onDelete, onOpenAiHub, visuals } = props;
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: unit.id,
@@ -400,7 +400,7 @@ function SortableUnitCard(props) {
             </div>
         </div>
     );
-}
+});
 
 const customSort = (a, b) => {
     const orderA = a.order;
@@ -474,12 +474,12 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         };
     }, [subject?.id]);
 
-    const handleOpenUnitModal = (modalSetter, unit) => { setSelectedUnit(unit); modalSetter(true); };
-    const handleOpenLessonModal = (modalSetter, lesson) => { setSelectedLesson(lesson); modalSetter(true); };
-    const handleOpenQuizModal = (modalSetter, quiz) => { setSelectedQuiz(quiz); modalSetter(true); };
-    const handleEditQuiz = (quizToEdit) => { handleOpenQuizModal(setEditQuizModalOpen, quizToEdit); };
-    const handleOpenAiQuizModal = (lesson) => { setLessonForAiQuiz(lesson); setAiQuizModalOpen(true); };
-    const handleOpenAiHub = (unit) => { setUnitForAi(unit); setIsAiHubOpen(true); };
+    const handleOpenUnitModal = useCallback((modalSetter, unit) => { setSelectedUnit(unit); modalSetter(true); }, []);
+    const handleOpenLessonModal = useCallback((modalSetter, lesson) => { setSelectedLesson(lesson); modalSetter(true); }, []);
+    const handleOpenQuizModal = useCallback((modalSetter, quiz) => { setSelectedQuiz(quiz); modalSetter(true); }, []);
+    const handleEditQuiz = useCallback((quizToEdit) => { handleOpenQuizModal(setEditQuizModalOpen, quizToEdit); }, [handleOpenQuizModal]);
+    const handleOpenAiQuizModal = useCallback((lesson) => { setLessonForAiQuiz(lesson); setAiQuizModalOpen(true); }, []);
+    const handleOpenAiHub = useCallback((unit) => { setUnitForAi(unit); setIsAiHubOpen(true); }, []);
 
 	async function handleDragEnd(event) {
 	    const { active, over } = event;
@@ -533,7 +533,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         }
 	}
 	
-	const handleExportDocx = async (lesson) => {
+	const handleExportDocx = useCallback(async (lesson) => {
 		    if (isExportingRef.current) return;
 		    isExportingRef.current = true;
 		    setExportingLessonId(lesson.id);
@@ -589,8 +589,8 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 		        isExportingRef.current = false;
 		        setExportingLessonId(null);
 		    }
-		};
-    const handleExportUlpAsPdf = async (lesson) => {
+		}, [showToast]);
+    const handleExportUlpAsPdf = useCallback(async (lesson) => {
         if (exportingLessonId) return;
         setExportingLessonId(lesson.id);
         showToast("Preparing PDF...", "info");
@@ -676,9 +676,9 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             showToast("An error occurred while creating the PDF.", "error");
             setExportingLessonId(null);
         }
-    };
+    }, [exportingLessonId, showToast, subject?.title]);
     
-    const handleExportUlpAsDocx = async (lesson) => {
+    const handleExportUlpAsDocx = useCallback(async (lesson) => {
       if (exportingLessonId) return;
       setExportingLessonId(lesson.id);
       showToast("Preparing Word Document...", "info");
@@ -729,9 +729,9 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         showToast("An error occurred while creating the Word document.", "error");
         setExportingLessonId(null);
       }
-    };
+    }, [exportingLessonId, showToast]);
     
-	const handleExportAtgPdf = (lesson) => {
+	const handleExportAtgPdf = useCallback((lesson) => {
 	    if (exportingLessonId) return;
 	    setExportingLessonId(lesson.id);
 	    showToast("Preparing PDF for printing...", "info");
@@ -751,9 +751,9 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	    printWindow.document.write(`<html><head><title>${lesson.lessonTitle || lesson.title}</title><style>@media print { @page { size: 8.5in 13in; margin: 1in; } body { margin: 0; font-family: 'DejaVu Sans', sans-serif; } h1, h2, h3 { page-break-after: avoid; } ul, p { page-break-inside: avoid; } table { width: 100%; border-collapse: collapse; } td, th { border: 1px solid #ccc; padding: 6px; } }</style></head><body>${finalHtml}</body></html>`);
 	    printWindow.document.close();
 	    setTimeout(() => { printWindow.focus(); printWindow.print(); setExportingLessonId(null); }, 500);
-	};
+	}, [exportingLessonId, showToast]);
 
-	const handleExportLessonPdf = async (lesson) => {
+	const handleExportLessonPdf = useCallback(async (lesson) => {
 	    if (exportingLessonId) return;
 	    setExportingLessonId(lesson.id);
 	    showToast("Preparing PDF...", "info");
@@ -840,7 +840,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        showToast("An error occurred while creating the PDF.", "error");
 	        setExportingLessonId(null);
 	    }
-	};
+	}, [exportingLessonId, showToast, subject?.title]);
     
     const unitVisuals = useMemo(() => [
         { icon: RectangleStackIcon, gradient: 'from-white to-blue-50', iconColor: 'text-blue-500' },

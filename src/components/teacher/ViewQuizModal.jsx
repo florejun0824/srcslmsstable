@@ -455,6 +455,42 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         return () => { window.removeEventListener('keydown', handleKeyDown); };
     }, [isOpen, handleKeyDown]);
 
+    useEffect(() => {
+        if (isTeacherView || !isOpen || score !== null || isLocked) return;
+
+        const handleCopyPaste = (e) => {
+            e.preventDefault();
+            showToast("Copying and pasting is disabled during the quiz.", "warning");
+            issueWarning();
+        };
+
+        const devToolsCheck = () => {
+            const widthThreshold = window.outerWidth - window.innerWidth > 160;
+            const heightThreshold = window.outerHeight - window.innerHeight > 160;
+            if (widthThreshold || heightThreshold) {
+                issueWarning();
+            }
+        };
+
+        const intervalId = setInterval(devToolsCheck, 1000);
+
+        const quizRoot = document.querySelector('.quiz-container');
+        if (quizRoot) {
+            quizRoot.addEventListener('copy', handleCopyPaste);
+            quizRoot.addEventListener('paste', handleCopyPaste);
+            quizRoot.addEventListener('cut', handleCopyPaste);
+        }
+
+        return () => {
+            clearInterval(intervalId);
+            if (quizRoot) {
+                quizRoot.removeEventListener('copy', handleCopyPaste);
+                quizRoot.removeEventListener('paste', handleCopyPaste);
+                quizRoot.removeEventListener('cut', handleCopyPaste);
+            }
+        };
+    }, [isOpen, isTeacherView, score, isLocked, issueWarning, showToast]);
+
     const handleConfirmMatchingAnswer = () => {
         const question = shuffledQuestions[currentQ];
         const currentMatches = userAnswers[currentQ] || {};
@@ -829,13 +865,27 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
 
     if (!isOpen) return null;
 
+    const Watermark = () => {
+        if (isTeacherView || !userProfile) return null;
+        const fullName = `${userProfile.firstName} ${userProfile.lastName}`;
+        const watermarkText = Array(20).fill(fullName).join(' ');
+        return (
+            <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
+                <div className="absolute -top-1/4 -left-1/4 w-[200%] h-[200%] text-black/5 text-2xl font-bold whitespace-nowrap transform -rotate-45">
+                    {watermarkText} {watermarkText} {watermarkText}
+                </div>
+            </div>
+        );
+    };
+
     return (
         <>
             <Dialog open={isOpen} onClose={handleClose} static={true} className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4">
                 <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
-                <DialogPanel className="relative flex flex-col w-full max-w-lg md:max-w-3xl rounded-3xl bg-neumorphic-base shadow-neumorphic max-h-[95vh] sm:max-h-[90vh]">
-                    <div className="flex-shrink-0 p-4 pb-3">
-                        <button onClick={handleClose} className="absolute top-4 right-4 p-2 rounded-full bg-neumorphic-base text-slate-500 shadow-neumorphic active:shadow-neumorphic-inset transition-all z-10" aria-label="Close">
+                <DialogPanel className="quiz-container relative flex flex-col w-full max-w-lg md:max-w-3xl rounded-3xl bg-neumorphic-base shadow-neumorphic max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
+                    <Watermark />
+                    <div className="relative z-20 flex-shrink-0 p-4 pb-3">
+                        <button onClick={handleClose} className="absolute top-4 right-4 p-2 rounded-full bg-neumorphic-base text-slate-500 shadow-neumorphic active:shadow-neumorphic-inset transition-all" aria-label="Close">
                             <XMarkIcon className="h-6 w-6" />
                         </button>
                         <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
@@ -861,11 +911,11 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                         )}
                     </div>
                     
-                    <div className="flex-grow overflow-y-auto px-4 sm:px-6 custom-scrollbar">
+                    <div className="relative z-20 flex-grow overflow-y-auto px-4 sm:px-6 custom-scrollbar">
                         {renderContent()}
                     </div>
 
-                    <div className="flex-shrink-0 p-4 pt-3">
+                    <div className="relative z-20 flex-shrink-0 p-4 pt-3">
                         {(hasAttemptsLeft && score === null && !isLocked && !isTeacherView && currentQuestionAttempted) && (
                             <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-slate-300/80">
                                 <div className="text-center sm:text-left">
