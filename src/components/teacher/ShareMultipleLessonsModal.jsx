@@ -127,6 +127,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         enabled: false,
         shuffleQuestions: true,
         lockOnLeave: true,
+        preventScreenCapture: true,
     });
     const [loading, setLoading] = useState(false);
     const [contentLoading, setContentLoading] = useState(false);
@@ -235,7 +236,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         setError(''); setSuccess(''); setRawLessons([]); setRawQuizzes([]);
         setActiveDropdown(null);
         setSendAsExam(false); // MODIFICATION: Reset exam state
-        setQuizSettings({ enabled: false, shuffleQuestions: true, lockOnLeave: true });
+        setQuizSettings({ enabled: false, shuffleQuestions: true, lockOnLeave: true, preventScreenCapture: true });
         onClose();
     }, [onClose]);
 
@@ -272,10 +273,11 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
             if (quizSettings.enabled) {
                 settingsToSave = { ...quizSettings, maxAttempts };
             } else {
-                settingsToSave = { 
-                    enabled: false, 
-                    shuffleQuestions: false, 
+                settingsToSave = {
+                    enabled: false,
+                    shuffleQuestions: false,
                     lockOnLeave: false,
+                    preventScreenCapture: false,
                     maxAttempts
                 };
             }
@@ -416,6 +418,11 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                                 label="Lock on Leaving Quiz Tab/App"
                                                 enabled={quizSettings.lockOnLeave}
                                                 onChange={() => handleQuizSettingsChange('lockOnLeave', !quizSettings.lockOnLeave)}
+                                            />
+                                            <ToggleSwitch
+                                                label="Prevent Screen Recording & Screenshots"
+                                                enabled={quizSettings.preventScreenCapture}
+                                                onChange={() => handleQuizSettingsChange('preventScreenCapture', !quizSettings.preventScreenCapture)}
                                             />
                                         </div>
                                     )}
