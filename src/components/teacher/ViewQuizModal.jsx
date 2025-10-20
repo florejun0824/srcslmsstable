@@ -10,6 +10,7 @@ import Spinner from '../common/Spinner';
 import ContentRenderer from './ContentRenderer';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
+import { PrivacyScreen } from '@capacitor-community/privacy-screen';
 import QuizWarningModal from '../../components/common/QuizWarningModal';
 import localforage from 'localforage';
 import { queueQuizSubmission, syncOfflineSubmissions } from '../../services/offlineSyncService';
@@ -37,6 +38,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
     const [loading, setLoading] = useState(true);
     const [showReview, setShowReview] = useState(false);
     const [warnings, setWarnings] = useState(0);
+    const [devToolWarnings, setDevToolWarnings] = useState(0);
     const [isLocked, setIsLocked] = useState(false);
     const [shuffledQuestions, setShuffledQuestions] = useState([]);
     const hasSubmitted = useRef(false);
@@ -50,6 +52,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
     const [isAvailable, setIsAvailable] = useState(false);
     const [availabilityMessage, setAvailabilityMessage] = useState('');
     const warningKey = `quizWarnings_${quiz?.id}_${userProfile?.id}`;
+    const devToolWarningKey = `devToolWarnings_${quiz?.id}_${userProfile?.id}`;
     const shuffleKey = `quizShuffle_${quiz?.id}_${userProfile?.id}`;
     const { showToast } = useToast();
 
@@ -70,28 +73,44 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         }
     }, [shuffledQuestions]);
 
-    const issueWarning = useCallback(async () => {
+    const issueWarning = useCallback(async (type = 'general') => {
         if (isTeacherView || isLocked || score !== null || showReview || !(quiz?.settings?.lockOnLeave ?? false)) return;
 
         try {
-            const newWarningCount = warnings + 1;
-            setWarnings(newWarningCount);
-            localStorage.setItem(warningKey, newWarningCount.toString());
-            if (newWarningCount >= MAX_WARNINGS) {
-                setIsLocked(true);
-                setShowWarningModal(true);
-                if (navigator.onLine) {
-                    const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
-                    await setDoc(lockRef, { quizId: quiz.id, studentId: userProfile.id, studentName: `${userProfile.firstName} ${userProfile.lastName}`, classId: classId, lockedAt: serverTimestamp(), reason: 'Too many unauthorized attempts to navigate away' });
+            if (type === 'devTools') {
+                const newDevToolWarningCount = devToolWarnings + 1;
+                setDevToolWarnings(newDevToolWarningCount);
+                localStorage.setItem(devToolWarningKey, newDevToolWarningCount.toString());
+
+                if (newDevToolWarningCount >= MAX_WARNINGS) {
+                    setIsLocked(true);
+                    if (navigator.onLine) {
+                        const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
+                        await setDoc(lockRef, { quizId: quiz.id, studentId: userProfile.id, studentName: `${userProfile.firstName} ${userProfile.lastName}`, classId: classId, lockedAt: serverTimestamp(), reason: 'Developer tools opened too many times' });
+                    }
                 }
+                showToast(`Developer tools warning ${newDevToolWarningCount} of ${MAX_WARNINGS}.`, "warning");
             } else {
-                setShowWarningModal(true);
+                const newWarningCount = warnings + 1;
+                setWarnings(newWarningCount);
+                localStorage.setItem(warningKey, newWarningCount.toString());
+
+                if (newWarningCount >= MAX_WARNINGS) {
+                    setIsLocked(true);
+                    setShowWarningModal(true);
+                    if (navigator.onLine) {
+                        const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
+                        await setDoc(lockRef, { quizId: quiz.id, studentId: userProfile.id, studentName: `${userProfile.firstName} ${userProfile.lastName}`, classId: classId, lockedAt: serverTimestamp(), reason: 'Too many unauthorized attempts to navigate away' });
+                    }
+                } else {
+                    setShowWarningModal(true);
+                }
             }
         } catch (error) {
             console.error("Failed to issue warning:", error);
             showToast("Could not process warning. Please proceed.", "error");
         }
-    }, [warnings, warningKey, quiz, userProfile, classId, isLocked, score, showReview, isTeacherView, showToast]);
+    }, [warnings, devToolWarnings, warningKey, devToolWarningKey, quiz, userProfile, classId, isLocked, score, showReview, isTeacherView, showToast]);
 
 	const handleSubmit = useCallback(async () => {
 	    if (hasSubmitted.current || score !== null || isLocked) return;
@@ -194,8 +213,10 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
 
 	    setScore(correctCount);
 	    localStorage.removeItem(warningKey);
+        localStorage.removeItem(devToolWarningKey);
 	    localStorage.removeItem(shuffleKey);
 	    setWarnings(0);
+        setDevToolWarnings(0);
 
 	    try {
 	        const submissionData = {
@@ -240,6 +261,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
 	    classId,
 	    attemptsTaken,
 	    warningKey,
+        devToolWarningKey,
 	    shuffleKey,
 	    isLocked,
 	    showToast,
@@ -253,12 +275,20 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         try {
             let isDbLocked = false; let dbSubmissions = []; let localWarningCount = 0;
             const savedWarnings = localStorage.getItem(warningKey);
+            const savedDevToolWarnings = localStorage.getItem(devToolWarningKey);
             if (savedWarnings) { localWarningCount = parseInt(savedWarnings, 10); }
             if (navigator.onLine) {
                 const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
                 const lockSnap = await getDoc(lockRef);
                 isDbLocked = lockSnap.exists();
-                if (!isDbLocked && localWarningCount >= MAX_WARNINGS) { localStorage.removeItem(warningKey); setWarnings(0); localWarningCount = 0; showToast("Your teacher has unlocked this quiz for you.", "info"); }
+                if (!isDbLocked && (localWarningCount >= MAX_WARNINGS || (savedDevToolWarnings && parseInt(savedDevToolWarnings, 10) >= MAX_WARNINGS))) {
+                    localStorage.removeItem(warningKey);
+                    localStorage.removeItem(devToolWarningKey);
+                    setWarnings(0);
+                    setDevToolWarnings(0);
+                    localWarningCount = 0;
+                    showToast("Your teacher has unlocked this quiz for you.", "info");
+                }
                 const submissionsRef = collection(db, 'quizSubmissions');
                 const q = query(submissionsRef, where("quizId", "==", quiz.id), where("studentId", "==", userProfile.id), where("classId", "==", classId));
                 const querySnapshot = await getDocs(q);
@@ -333,6 +363,11 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                 const savedWarnings = localStorage.getItem(warningKey);
                 const initialWarnings = savedWarnings ? parseInt(savedWarnings, 10) : 0;
                 setWarnings(initialWarnings);
+
+                const savedDevToolWarnings = localStorage.getItem(devToolWarningKey);
+                const initialDevToolWarnings = savedDevToolWarnings ? parseInt(savedDevToolWarnings, 10) : 0;
+                setDevToolWarnings(initialDevToolWarnings);
+
                 fetchSubmission();
 
                 const shouldShuffle = quiz?.settings?.shuffleQuestions ?? false;
@@ -364,7 +399,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         } else { 
             setShowWarningModal(false); 
         }
-    }, [isOpen, quiz, isTeacherView, warningKey, shuffleKey, fetchSubmission]);
+    }, [isOpen, quiz, isTeacherView, warningKey, devToolWarningKey, shuffleKey, fetchSubmission]);
     
     const handleExportPdf = () => {
         if (!quiz?.questions) { showToast("No quiz data to export.", "warning"); return; }
@@ -456,6 +491,26 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
     }, [isOpen, handleKeyDown]);
 
     useEffect(() => {
+        const setPrivacyScreen = async () => {
+            if (Capacitor.isNativePlatform()) {
+                if (isOpen && quiz?.settings?.preventScreenCapture && !isTeacherView) {
+                    await PrivacyScreen.enable();
+                } else {
+                    await PrivacyScreen.disable();
+                }
+            }
+        };
+
+        setPrivacyScreen();
+
+        return () => {
+            if (Capacitor.isNativePlatform()) {
+                PrivacyScreen.disable();
+            }
+        };
+    }, [isOpen, quiz, isTeacherView]);
+
+    useEffect(() => {
         if (isTeacherView || !isOpen || score !== null || isLocked) return;
 
         const handleCopyPaste = (e) => {
@@ -468,7 +523,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
             const widthThreshold = window.outerWidth - window.innerWidth > 160;
             const heightThreshold = window.outerHeight - window.innerHeight > 160;
             if (widthThreshold || heightThreshold) {
-                issueWarning();
+                issueWarning('devTools');
             }
         };
 
@@ -866,7 +921,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
     if (!isOpen) return null;
 
     const Watermark = () => {
-        if (isTeacherView || !userProfile) return null;
+        if (isTeacherView || !userProfile || !quiz?.settings?.preventScreenCapture) return null;
         const fullName = `${userProfile.firstName} ${userProfile.lastName}`;
         const watermarkText = Array(20).fill(fullName).join(' ');
         return (
