@@ -426,9 +426,8 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 		    - Create a \`correctPairs\` object that maps the prompt \`id\` to the correct option \`id\`.
 		    - The entire matching test for a given number range must be a SINGLE JSON object in the \`examQuestions\` array.
 		13. **TOS & NUMBERING:** For Matching Types, the 'itemNumbers' in the TOS must be a sequential list (e.g., "11-15").
-		14. **CONTENT ADHERENCE & TOPIC FIDELITY:** All questions, options, and explanations MUST be derived STRICTLY and SOLELY from the provided **Lesson Content**. DO NOT generate meta-questions about educational theories, Bloom's Taxonomy, or the process of assessment itself. The quiz must test the student on the lesson material, not on pedagogical concepts.
+		14. **CONTENT ADHERENCE & TOPIC FIDELITY:** All questions, options, and explanations MUST be derived STRICTLY and SOLELY from the provided **Lesson Content**. DO NOT generate meta-questions about educational theories, Bloom's Taxonomy, or the process of assessment itself. The quiz must test the student on the lesson material, not on pedagogical concepts. **YOU MUST NOT** use any phrases that refer back to the source material. It is forbidden to use text like "According to the lesson," "Based on the topic," "As mentioned in the content," or any similar citations. The questions must stand on their own, as if in a real exam.
 		15. **BLOOM'S LEVEL FIELD:** The "bloomLevel" field is for classification purposes only. Use it to label the cognitive skill required to answer the question you generated (e.g., Remembering, Applying). DO NOT create questions that ask the student to identify a Bloom's Taxonomy level.
-		16. **ACADEMIC INTEGRITY:** Avoid explicitly citing the lessons or any page on the lesson such as "According to the lesson", "Based on the topic", and others.
 		`;
 		    try {
 		        const aiResponse = await callGeminiWithLimitCheck(prompt);
