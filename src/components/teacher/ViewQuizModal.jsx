@@ -74,10 +74,11 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
     }, [shuffledQuestions]);
 
     const issueWarning = useCallback(async (type = 'general') => {
-        if (isTeacherView || isLocked || score !== null || showReview || !(quiz?.settings?.lockOnLeave ?? false)) return;
+        if (isTeacherView || isLocked || score !== null || showReview) return;
 
         try {
             if (type === 'devTools') {
+                if (!(quiz?.settings?.detectDevTools ?? false)) return;
                 const newDevToolWarningCount = devToolWarnings + 1;
                 setDevToolWarnings(newDevToolWarningCount);
                 localStorage.setItem(devToolWarningKey, newDevToolWarningCount.toString());
@@ -91,6 +92,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                 }
                 showToast(`Developer tools warning ${newDevToolWarningCount} of ${MAX_WARNINGS}.`, "warning");
             } else {
+                if (!(quiz?.settings?.lockOnLeave ?? false)) return;
                 const newWarningCount = warnings + 1;
                 setWarnings(newWarningCount);
                 localStorage.setItem(warningKey, newWarningCount.toString());
@@ -519,15 +521,18 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
             issueWarning();
         };
 
-        const devToolsCheck = () => {
-            const widthThreshold = window.outerWidth - window.innerWidth > 160;
-            const heightThreshold = window.outerHeight - window.innerHeight > 160;
-            if (widthThreshold || heightThreshold) {
-                issueWarning('devTools');
-            }
-        };
-
-        const intervalId = setInterval(devToolsCheck, 1000);
+        let intervalId;
+        const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+        if (!isMobile && (quiz?.settings?.detectDevTools ?? false)) {
+            const devToolsCheck = () => {
+                const widthThreshold = window.outerWidth - window.innerWidth > 160;
+                const heightThreshold = window.outerHeight - window.innerHeight > 160;
+                if (widthThreshold || heightThreshold) {
+                    issueWarning('devTools');
+                }
+            };
+            intervalId = setInterval(devToolsCheck, 1000);
+        }
 
         const quizRoot = document.querySelector('.quiz-container');
         if (quizRoot) {
@@ -537,14 +542,14 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         }
 
         return () => {
-            clearInterval(intervalId);
+            if (intervalId) clearInterval(intervalId);
             if (quizRoot) {
                 quizRoot.removeEventListener('copy', handleCopyPaste);
                 quizRoot.removeEventListener('paste', handleCopyPaste);
                 quizRoot.removeEventListener('cut', handleCopyPaste);
             }
         };
-    }, [isOpen, isTeacherView, score, isLocked, issueWarning, showToast]);
+    }, [isOpen, isTeacherView, score, isLocked, issueWarning, showToast, quiz?.settings?.detectDevTools]);
 
     const handleConfirmMatchingAnswer = () => {
         const question = shuffledQuestions[currentQ];

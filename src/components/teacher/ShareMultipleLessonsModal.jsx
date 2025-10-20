@@ -128,6 +128,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         shuffleQuestions: true,
         lockOnLeave: true,
         preventScreenCapture: true,
+        detectDevTools: true,
     });
     const [loading, setLoading] = useState(false);
     const [contentLoading, setContentLoading] = useState(false);
@@ -236,7 +237,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         setError(''); setSuccess(''); setRawLessons([]); setRawQuizzes([]);
         setActiveDropdown(null);
         setSendAsExam(false); // MODIFICATION: Reset exam state
-        setQuizSettings({ enabled: false, shuffleQuestions: true, lockOnLeave: true, preventScreenCapture: true });
+        setQuizSettings({ enabled: false, shuffleQuestions: true, lockOnLeave: true, preventScreenCapture: true, detectDevTools: true });
         onClose();
     }, [onClose]);
 
@@ -278,6 +279,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                     shuffleQuestions: false,
                     lockOnLeave: false,
                     preventScreenCapture: false,
+                    detectDevTools: false,
                     maxAttempts
                 };
             }
@@ -423,6 +425,11 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                                 label="Prevent Screen Recording & Screenshots"
                                                 enabled={quizSettings.preventScreenCapture}
                                                 onChange={() => handleQuizSettingsChange('preventScreenCapture', !quizSettings.preventScreenCapture)}
+                                            />
+                                            <ToggleSwitch
+                                                label="Detect Developer Tools (Desktop Only)"
+                                                enabled={quizSettings.detectDevTools}
+                                                onChange={() => handleQuizSettingsChange('detectDevTools', !quizSettings.detectDevTools)}
                                             />
                                         </div>
                                     )}
