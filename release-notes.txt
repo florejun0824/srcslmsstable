@@ -1,0 +1,10 @@
+### Performance and Stability
+- Conducted a general audit of the application to identify and address potential memory leaks and performance issues.
+- Ensured that all components with event listeners and timers have proper cleanup functions to prevent memory leaks and improve application stability.
+- Optimized the `UnitAccordion` component by memoizing child components (`SortableContentItem`, `SortableUnitCard`) and wrapping event handlers in `useCallback` to reduce unnecessary re-renders.
+
+### Security and Anti-Cheating Enhancements (Quiz)
+- **Student Watermark:** Added a dynamic watermark with the student's name to the quiz interface to discourage screenshots and unauthorized sharing.
+- **Disabled Copy/Paste:** Implemented a feature to prevent students from copying, pasting, or cutting content during a quiz.
+- **Developer Tools Detection:** Implemented a more robust mechanism to detect when a user opens the browser's developer tools, which now triggers a warning.
+- **Enhanced Quiz Security:** The combination of these features enhances the integrity of the quiz environment without being overly intrusive.

@@ -1,0 +1,12 @@
+{
+  "appId": "com.srcslms.app",
+  "appName": "SRCS LMS",
+  "webDir": "dist",
+  "plugins": {
+    "StatusBar": {
+      "style": "DEFAULT",
+      "visible": false,
+      "overlay": true
+    }
+  }
+}

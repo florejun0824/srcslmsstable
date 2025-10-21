@@ -1,0 +1,137 @@
+/* Spinner.css - Updated with Modal's Background Style */
+
+/* --- Font & Base Styles --- */
+:root {
+  /* --- KEY CHANGES to match the modal's aesthetic --- */
+  /* Darker text to ensure contrast against the new gray background */
+  --text-color: rgb(17, 24, 39); /* text-gray-900 */
+  --text-color-secondary: rgb(55, 65, 81); /* text-gray-700 */
+  --spinner-color: rgb(107, 114, 128); /* text-gray-500 */
+
+  /* Matches the modal's bg-black/40 backdrop */
+  --overlay-bg: rgba(0, 0, 0, 0.4);
+
+  /* Matches the modal's bg-gray-200/60 for a cleaner look */
+  --container-bg: rgba(229, 231, 235, 0.6);
+
+  /* Matches the modal's subtle border-white/20 */
+  --container-border: rgba(255, 255, 255, 0.2);
+}
+
+/* Full-screen overlay */
+.spinner-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--overlay-bg);
+  /* Using a medium blur on the backdrop, similar to the modal */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 9999;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+}
+
+/* Container for all spinner elements */
+.spinner-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--container-bg);
+  border-radius: 20px;
+  border: 1px solid var(--container-border);
+  gap: 1.25rem;
+  padding: 2.5rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  /* --- NEW: Adds a strong blur to the container itself, just like the modal panel --- */
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+/* Style for the school logo */
+.school-logo {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  margin-bottom: 0.5rem;
+}
+
+/* "SRCS LEARNING PORTAL" text (Branding text) */
+.branding-text {
+  color: var(--text-color);
+  font-size: 1.2em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+
+/* --- iOS Spinner Animation --- */
+.ios-spinner {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  margin: 1rem 0;
+}
+
+.ios-spinner div {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 2.5px;
+  height: 10px;
+  background-color: var(--spinner-color);
+  border-radius: 2px;
+  transform-origin: 1.25px 17px;
+  animation: ios-spinner-fade 1.2s ease-in-out infinite;
+}
+
+@keyframes ios-spinner-fade {
+  from { opacity: 1; }
+  to { opacity: 0.15; }
+}
+
+/* Positioning and delay for each of the 12 ticks */
+.ios-spinner div:nth-child(1)  { transform: rotate(0deg);   animation-delay: -1.1s; }
+.ios-spinner div:nth-child(2)  { transform: rotate(30deg);  animation-delay: -1.0s; }
+.ios-spinner div:nth-child(3)  { transform: rotate(60deg);  animation-delay: -0.9s; }
+.ios-spinner div:nth-child(4)  { transform: rotate(90deg);  animation-delay: -0.8s; }
+.ios-spinner div:nth-child(5)  { transform: rotate(120deg); animation-delay: -0.7s; }
+.ios-spinner div:nth-child(6)  { transform: rotate(150deg); animation-delay: -0.6s; }
+.ios-spinner div:nth-child(7)  { transform: rotate(180deg); animation-delay: -0.5s; }
+.ios-spinner div:nth-child(8)  { transform: rotate(210deg); animation-delay: -0.4s; }
+.ios-spinner div:nth-child(9)  { transform: rotate(240deg); animation-delay: -0.3s; }
+.ios-spinner div:nth-child(10) { transform: rotate(270deg); animation-delay: -0.2s; }
+.ios-spinner div:nth-child(11) { transform: rotate(300deg); animation-delay: -0.1s; }
+.ios-spinner div:nth-child(12) { transform: rotate(330deg); animation-delay: 0s; }
+
+
+/* --- Typewriter Text Styles --- */
+.spinner-text-container {
+  color: var(--text-color-secondary);
+  font-size: 1em;
+  font-weight: 400;
+  height: 1.5em;
+  font-family: 'SF Mono', 'Fira Code', 'IBM Plex Mono', monospace;
+}
+
+.typing-cursor {
+  display: inline-block;
+  width: 1px;
+  height: 1em;
+  background-color: var(--text-color-secondary);
+  animation: blink 1s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
