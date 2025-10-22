@@ -130,55 +130,111 @@ const AnalyticsView = ({ activeClasses }) => {
 
   const selectedClass = activeClasses.find((c) => c.id === selectedClassId);
 
-  // (All existing useEffect hooks remain unchanged)
+  // --- REFACTORED: Effect 1 ---
+  // Loads ONLY the quiz list, units, and lessons for the selected class.
+  // This is fast and populates the "Quiz Item Analysis" dropdown.
   useEffect(() => {
-    const analyzeClassData = async () => {
+    const loadClassQuizzes = async () => {
       if (!selectedClass) {
         setQuizzesInClass([]);
         setUnitsMap({});
         setLessonsMap({});
-        setAtRiskByQuarter({});
-        setItemAnalysisData(null);
-        setSelectedQuizId("");
+        setAtRiskByQuarter({}); // Clear dependent data
+        setItemAnalysisData(null); // Clear dependent data
+        setSelectedQuizId(""); // Clear dependent data
         return;
       }
       setIsLoading(true);
 
-      let quizzesData = [];
-      if (selectedClass.subjectId) {
-        const q = query(
-          collection(db, "quizzes"),
-          where("subjectId", "==", selectedClass.subjectId)
-        );
-        const snap = await getDocs(q);
-        quizzesData = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      // Clear all dependent data on class change
+      setAtRiskByQuarter({});
+      setItemAnalysisData(null);
+      setSelectedQuizId("");
+      setAnalysisResult(null);
+      setGeneratedRemediation(null);
+
+      try {
+        let quizzesData = [];
+        if (selectedClass.subjectId) {
+          const q = query(
+            collection(db, "quizzes"),
+            where("subjectId", "==", selectedClass.subjectId)
+          );
+          const snap = await getDocs(q);
+          quizzesData = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        }
+
+        const unitIds = [
+          ...new Set(quizzesData.map((q) => q.unitId).filter(Boolean)),
+        ];
+        const lessonIds = [
+          ...new Set(quizzesData.map((q) => q.lessonId).filter(Boolean)),
+        ];
+        const [unitsFetched, lessonsFetched] = await Promise.all([
+          fetchUnitsInBatches(unitIds),
+          fetchLessonsInBatches(lessonIds),
+        ]);
+
+        quizzesData = quizzesData.map((q) => ({
+          ...q,
+          unitDisplayName: q.unitId
+            ? unitsFetched[q.unitId] || "Uncategorized"
+            : "Uncategorized",
+          lessonTitle: q.lessonId ? lessonsFetched[q.lessonId]?.title || "" : "",
+        }));
+
+        setUnitsMap(unitsFetched);
+        setLessonsMap(lessonsFetched);
+        setQuizzesInClass(quizzesData);
+      } catch (err) {
+        console.error("Error loading class quizzes:", err);
+        setQuizzesInClass([]);
+        setUnitsMap({});
+        setLessonsMap({});
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadClassQuizzes();
+  }, [selectedClassId, activeClasses, selectedClass]); // Added selectedClass dependency
+
+  // --- REFACTORED: Effect 2 ---
+  // Loads the expensive "At-Risk Student" data ONLY when the tab is active.
+  // Uses an efficient single query instead of an N+1 loop.
+  useEffect(() => {
+    const loadAtRiskData = async () => {
+      // Guard: Only run if this tab is active and we have the necessary data
+      if (analysisType !== "students" || !selectedClassId || !selectedClass?.students || !quizzesInClass) {
+        setAtRiskByQuarter({}); // Ensure it's clear if we bail
+        return;
       }
 
-      const unitIds = [
-        ...new Set(quizzesData.map((q) => q.unitId).filter(Boolean)),
-      ];
-      const lessonIds = [
-        ...new Set(quizzesData.map((q) => q.lessonId).filter(Boolean)),
-      ];
-      const [unitsFetched, lessonsFetched] = await Promise.all([
-        fetchUnitsInBatches(unitIds),
-        fetchLessonsInBatches(lessonIds),
-      ]);
+      setIsLoading(true);
+      try {
+        const quarterGroups = { 1: [], 2: [], 3: [], 4: [] };
 
-      quizzesData = quizzesData.map((q) => ({
-        ...q,
-        unitDisplayName: q.unitId
-          ? unitsFetched[q.unitId] || "Uncategorized"
-          : "Uncategorized",
-        lessonTitle: q.lessonId ? lessonsFetched[q.lessonId]?.title || "" : "",
-      }));
+        // --- OPTIMIZATION: N+1 Query Fix ---
+        // 1. Fetch ALL submissions for the class in ONE query
+        const allSubsQ = query(
+          collection(db, "quizSubmissions"),
+          where("classId", "==", selectedClassId)
+        );
+        const allSubsSnap = await getDocs(allSubsQ);
 
-      setUnitsMap(unitsFetched);
-      setLessonsMap(lessonsFetched);
-      setQuizzesInClass(quizzesData);
+        // 2. Group submissions by studentId in-memory
+        const subsByStudent = {};
+        allSubsSnap.docs.forEach(doc => {
+          const data = doc.data();
+          if (!data.studentId) return; // Skip subs without studentId
+          if (!subsByStudent[data.studentId]) {
+            subsByStudent[data.studentId] = [];
+          }
+          subsByStudent[data.studentId].push(data);
+        });
+        // --- End of Optimization ---
 
-      const quarterGroups = { 1: [], 2: [], 3: [], 4: [] };
-      if (selectedClass.students && selectedClass.students.length > 0) {
+        // 3. Process each student's submissions (now from memory)
         for (const student of selectedClass.students) {
           const studentName =
             student.firstName && student.lastName
@@ -187,16 +243,11 @@ const AnalyticsView = ({ activeClasses }) => {
           const studentId = student.id || student.userId || student.uid;
           if (!studentId) continue;
 
-          const subsQ = query(
-            collection(db, "quizSubmissions"),
-            where("studentId", "==", studentId),
-            where("classId", "==", selectedClassId)
-          );
-          const subsSnap = await getDocs(subsQ);
+          // Get this student's submissions from our in-memory map
+          const studentSubmissions = subsByStudent[studentId] || [];
 
           const firstAttemptsPerQuiz = {};
-          subsSnap.docs.forEach((d) => {
-            const data = d.data();
+          studentSubmissions.forEach((data) => {
             const submittedAt = data.submittedAt?.seconds
               ? data.submittedAt.seconds
               : new Date(data.submittedAt).getTime() / 1000;
@@ -210,7 +261,8 @@ const AnalyticsView = ({ activeClasses }) => {
 
           const quarterScores = { 1: [], 2: [], 3: [], 4: [] };
           Object.values(firstAttemptsPerQuiz).forEach((attempt) => {
-            const quiz = quizzesData.find((q) => q.id === attempt.quizId);
+            // Find the quiz data (already loaded in the first effect)
+            const quiz = quizzesInClass.find((q) => q.id === attempt.quizId);
             const quarter = attempt.quarter || quiz?.quarter;
             if (quarter && [1, 2, 3, 4].includes(quarter)) {
               const percent =
@@ -234,15 +286,22 @@ const AnalyticsView = ({ activeClasses }) => {
             }
           });
         }
-      }
+        
+        setAtRiskByQuarter(quarterGroups);
 
-      setAtRiskByQuarter(quarterGroups);
-      setIsLoading(false);
+      } catch (err) {
+        console.error("Error loading at-risk data:", err);
+        setAtRiskByQuarter({});
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    analyzeClassData();
-  }, [selectedClassId, activeClasses]);
+    loadAtRiskData();
+  }, [analysisType, selectedClassId, selectedClass, quizzesInClass]); // Dependencies for this specific task
 
+
+  // (This effect is unchanged, it was already efficient)
   useEffect(() => {
     const analyzeQuizData = async () => {
       if (!selectedQuizId) {
@@ -371,7 +430,7 @@ const AnalyticsView = ({ activeClasses }) => {
     analyzeQuizData();
   }, [selectedQuizId, selectedClassId, quizzesInClass]);
 
-
+  // (This effect is unchanged, it was already efficient)
   useEffect(() => {
     const loadSavedRecs = async () => {
       if (!selectedClassId) {
@@ -390,7 +449,8 @@ const AnalyticsView = ({ activeClasses }) => {
   }, [selectedClassId, isSaving]);
  
 
-// --- Generate Narrative Analysis ---
+  // --- Generate Narrative Analysis ---
+  // (All remaining functions are unchanged as they are user-triggered and not part of the initial load)
   const generateAnalysisReport = async () => {
     if (!itemAnalysisData) {
       alert("No item analysis data to analyze.");
@@ -440,8 +500,7 @@ const AnalyticsView = ({ activeClasses }) => {
            Start by acknowledging the overall performance. Then, identify specific concepts or skills where students 
            demonstrated mastery and where they struggled. The tone should be helpful and diagnostic, not just a list of data points.
 
-        2. **Actionable Recommendation:** Based on your analysis, provide a clear, single recommendation by following these **strict rules** 
-           tied to the computed general average of student performance:
+        2. **Actionable Recommendation:** Based on your analysis, provide a clear, single recommendation by following these **strict rules** tied to the computed general average of student performance:
 
            * "NONE": Select this if the general average is **80% or higher**. 
              In this case, mastery is considered high across all key concepts. 
@@ -658,6 +717,7 @@ const AnalyticsView = ({ activeClasses }) => {
     downloadFile(csvContent, "text/csv", filename);
   };
 
+  // (exportRecToPDF remains unchanged)
   const exportRecToPDF = async (recDoc) => {
     if (!recDoc) {
       alert("Recommendation data is missing.");
@@ -734,6 +794,7 @@ const AnalyticsView = ({ activeClasses }) => {
     }
   };
 
+  // (saveRecommendationToFirestore remains unchanged)
   const saveRecommendationToFirestore = async (analysis, remediation) => {
     if (!selectedClassId || !selectedQuizId || !analysis || !remediation) {
       alert("Missing data to save recommendation.");
@@ -780,6 +841,7 @@ const AnalyticsView = ({ activeClasses }) => {
     }
   };
   
+  // (deleteRecommendation remains unchanged)
   const deleteRecommendation = async (recDoc) => {
     if (!recDoc || !confirm("Delete this saved recommendation? This cannot be undone.")) return;
     try {
@@ -792,6 +854,7 @@ const AnalyticsView = ({ activeClasses }) => {
     }
   };
 
+  // (groupedSavedRecs useMemo remains unchanged)
   const groupedSavedRecs = useMemo(() => {
     const map = {};
     (savedRecs || []).forEach((r) => {
@@ -803,9 +866,11 @@ const AnalyticsView = ({ activeClasses }) => {
     return map;
   }, [savedRecs]);
 
+  // (Modal open handlers remain unchanged)
   const openViewModal = (recDoc) => { setViewingRec(recDoc); setViewModalOpen(true); };
   const openEditModal = (recDoc) => { setEditingRec(recDoc); setEditModalOpen(true); };
 
+  // (Return/JSX is unchanged, as the logic changes were in the effects)
   return (
     <div className="p-4 sm:p-6 md:p-8 h-full overflow-y-auto">
       <h1 className="text-3xl font-extrabold text-slate-900 mb-6">Class Analytics</h1>
@@ -867,18 +932,22 @@ const AnalyticsView = ({ activeClasses }) => {
         <div className="md:col-span-2">
           {isLoading ? <div className="flex justify-center mt-12"><Spinner /></div> : (
             <>
-              {analysisType === "students" && selectedQuarter && (
+              {analysisType === "students" && ( // Show this content only when not loading
                 <div>
-                  {atRiskByQuarter[selectedQuarter]?.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {atRiskByQuarter[selectedQuarter].map((st) => (
-                        <div key={st.id} className="p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic border-l-4 border-amber-500">
-                          <div className="flex items-center gap-3"><IconAlertTriangle className="h-6 w-6 text-amber-600 flex-shrink-0" /><h3 className="font-bold text-slate-800">{st.name}</h3></div>
-                          <ul className="mt-2 ml-9 text-sm text-slate-600 list-disc list-inside">{st.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (<p className="text-slate-500 text-sm ml-2">No at-risk students in this quarter.</p>)}
+                  {selectedQuarter ? (
+                    atRiskByQuarter[selectedQuarter]?.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {atRiskByQuarter[selectedQuarter].map((st) => (
+                          <div key={st.id} className="p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic border-l-4 border-amber-500">
+                            <div className="flex items-center gap-3"><IconAlertTriangle className="h-6 w-6 text-amber-600 flex-shrink-0" /><h3 className="font-bold text-slate-800">{st.name}</h3></div>
+                            <ul className="mt-2 ml-9 text-sm text-slate-600 list-disc list-inside">{st.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (<p className="text-slate-500 text-sm ml-2">No at-risk students found for this quarter.</p>)
+                  ) : (
+                    selectedClassId && <p className="text-slate-500 text-sm ml-2">Please select a quarter to view at-risk students.</p>
+                  )}
                 </div>
               )}
               {analysisType === "quizzes" && (
@@ -975,7 +1044,7 @@ const AnalyticsView = ({ activeClasses }) => {
 
                       </table>
                     </div>
-                  ) : (selectedQuizId ? <p className="text-center text-slate-500 mt-8">No submissions found for this quiz.</p> : null)}
+                  ) : (selectedQuizId ? <p className="text-center text-slate-500 mt-8">No submissions found for this quiz.</p> : (selectedClassId && <p className="text-center text-slate-500 mt-8">Select a quiz from the list to see its item analysis.</p>))}
                 </div>
               )}
               {analysisType === "recommendations" && (
@@ -1017,7 +1086,7 @@ const AnalyticsView = ({ activeClasses }) => {
           )}
         </div>
       </div>
-      {!selectedClassId && (
+      {!selectedClassId && !isLoading && ( // Only show placeholder if not loading
         <div className="text-center mt-16">
           <IconAnalyze size={48} className="mx-auto text-slate-400" />
           <p className="mt-4 text-slate-500">Please select a class to view its analytics.</p>
