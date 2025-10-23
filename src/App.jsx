@@ -29,13 +29,6 @@ import UpdateOverlay from './components/UpdateOverlay';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 import './index.css';
 
-// --- ADDED: Import Capacitor and your plugin ---
-import { Capacitor } from '@capacitor/core';
-// Note: You may need to create this 'plugins.js' file if you haven't
-// See the "Important Note" below
-import { AntiCheatPlugin } from './plugins'; 
-// --- END OF ADDED SECTION ---
-
 const AVERAGE_BUILD_SECONDS = 300; // 5 minutes
 
 const AppRouter = () => {
@@ -82,18 +75,6 @@ const AppRouter = () => {
       }
     };
   }, []);
-
-  // --- ADDED: useEffect to set the user role in the native plugin ---
-  useEffect(() => {
-    // Only run this on native platforms (iOS/Android)
-    if (Capacitor.isNativePlatform() && userProfile && userProfile.role) {
-      console.log(`Setting user role in native plugin: ${userProfile.role}`);
-      // Send the user's role to AntiCheatPlugin.java
-      AntiCheatPlugin.setUserRole({ role: userProfile.role });
-    }
-  }, [userProfile]); // This effect runs every time userProfile changes
-  // --- END OF ADDED SECTION ---
-
 
   if (window.location.pathname === '/test') return <TestPage />;
   if (window.location.pathname === '/create-admin-xyz') return <AdminSignup />;
