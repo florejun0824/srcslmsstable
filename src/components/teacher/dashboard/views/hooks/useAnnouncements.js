@@ -31,7 +31,8 @@ export const useAnnouncements = (initialAnnouncements, showToast) => {
 
     const handleUpdateTeacherAnn = useCallback(async () => {
         if (!editingAnnId) return;
-        const annDocRef = doc(db, 'teacher_announcements', editingAnnId);
+        // MODIFIED: Changed collection path to 'teacherAnnouncements'
+        const annDocRef = doc(db, 'teacherAnnouncements', editingAnnId);
         try {
             await updateDoc(annDocRef, { content: editingAnnText });
             showToast("Announcement updated successfully!", "success");
@@ -46,6 +47,7 @@ export const useAnnouncements = (initialAnnouncements, showToast) => {
     const handleDeleteTeacherAnn = useCallback(async (id) => {
         if (window.confirm("Are you sure you want to delete this announcement?")) {
             try {
+                // This path was already correct
                 await deleteDoc(doc(db, 'teacherAnnouncements', id));
                 showToast("Announcement deleted.", "info");
             } catch (error) {
@@ -56,7 +58,8 @@ export const useAnnouncements = (initialAnnouncements, showToast) => {
     }, [showToast]);
 
     const handleTogglePinAnnouncement = useCallback(async (id, isCurrentlyPinned) => {
-        const annDocRef = doc(db, 'teacher_announcements', id);
+        // MODIFIED: Changed collection path to 'teacherAnnouncements'
+        const annDocRef = doc(db, 'teacherAnnouncements', id);
         try {
             await updateDoc(annDocRef, { isPinned: !isCurrentlyPinned });
             showToast(isCurrentlyPinned ? "Announcement unpinned." : "Announcement pinned!", "success");

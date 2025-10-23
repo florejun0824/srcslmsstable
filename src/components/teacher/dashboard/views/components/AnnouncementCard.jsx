@@ -2,6 +2,7 @@ import React, { useState, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Pencil, Trash2, Pin, MessageCircle, ThumbsUp } from 'lucide-react';
 import UserInitialsAvatar from '../../../../../components/common/UserInitialsAvatar';
+import Linkify from 'react-linkify'; // We still need this
 
 // Original reaction icons for mapping text to actual emoji characters and their associated colors/labels
 const reactionIconsHomeView = {
@@ -26,6 +27,23 @@ const themedReactionIcons = {
 };
 
 const ANNOUNCEMENT_TRUNCATE_LENGTH = 300;
+
+// --- ADDED ---
+// This function will find links and wrap them in an <a> tag
+// with our desired classes (blue color) and target properties (new tab).
+const componentDecorator = (href, text, key) => (
+    <a 
+        href={href} 
+        key={key} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="text-blue-600 hover:underline font-semibold"
+        onClick={(e) => e.stopPropagation()} // Prevents card click when clicking link
+    >
+        {text}
+    </a>
+);
+// --- END OF ADDED SECTION ---
 
 const AnnouncementCard = ({
     post,
@@ -63,6 +81,7 @@ const AnnouncementCard = ({
         ? reactionIconsHomeView[currentUserReaction]
         : { component: ThumbsUp, label: 'Like', color: 'text-slate-600' };
 
+    // ... (rest of the handlers from handleReactionOptionsMouseEnter to formatReactionCount remain unchanged) ...
     // --- Reaction Hover/Touch Handlers ---
     const handleReactionOptionsMouseEnter = () => {
         clearTimeout(hoverTimeoutRef.current);
@@ -139,13 +158,9 @@ const AnnouncementCard = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.4 }}
-            // MODIFIED: All main cards now consistently use shadow-neumorphic (popped out).
-            // This ensures a cleaner, uniform look for all announcements.
             className={`bg-neumorphic-base rounded-3xl p-6 relative group transition-shadow duration-300 shadow-neumorphic`}
         >
             {post.isPinned && (
-                // MODIFIED: Pinned indicator pill now has a subtle `shadow-neumorphic` instead of `inset`.
-                // It still looks distinct but doesn't change the main card's bulge.
                 <div className="absolute top-4 left-4 flex items-center gap-2 text-sky-700 bg-neumorphic-base shadow-neumorphic px-3 py-1 rounded-full text-xs font-semibold z-10">
                     <Pin className="w-3 h-3" />
                     <span>Pinned</span>
@@ -191,11 +206,18 @@ const AnnouncementCard = ({
                     </div>
                 </>
             ) : (
+                // --- MODIFIED SECTION ---
                 post.content && (
                     <p className="text-slate-700 text-base leading-relaxed whitespace-pre-wrap">
-                        {isTruncated && !isExpanded
-                            ? post.content.substring(0, ANNOUNCEMENT_TRUNCATE_LENGTH) + '...'
-                            : post.content}
+                        {isTruncated && !isExpanded ? (
+                            // Truncated view: Still plain text
+                            post.content.substring(0, ANNOUNCEMENT_TRUNCATE_LENGTH) + '...'
+                        ) : (
+                            // Full/Expanded view: Wrap in Linkify and use our new decorator
+                            <Linkify componentDecorator={componentDecorator}>
+                                {post.content}
+                            </Linkify>
+                        )}
                         {isTruncated && (
                             <button
                                 onClick={() => onToggleExpansion(post.id)}
@@ -206,6 +228,7 @@ const AnnouncementCard = ({
                         )}
                     </p>
                 )
+                // --- END OF MODIFIED SECTION ---
             )}
             
             {post.photoURL && !isEditing && (
@@ -282,11 +305,10 @@ const AnnouncementCard = ({
                                         className="p-1 rounded-full group/reaction relative"
                                         onClick={() => handleReactionOptionClick(type)}
                                     >
-                                        {/* MODIFIED: Emoji reaction buttons are now Neumorphic with inset on hover. */}
                                         <div className="flex items-center justify-center w-10 h-10 rounded-full bg-neumorphic-base transition-shadow duration-200 cursor-pointer hover:shadow-neumorphic-inset">
                                             <span className="text-2xl">{emoji}</span>
                                         </div>
-                                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs font-semibold px-2 py-1 rounded-md opacity-0 group-hover/reaction:opacity-100 transition-opacity whitespace-nowrap">
+                                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs font-semibold px-2 py-1 rounded-md opacity-0 group-hover/reaction:opacity-100 transition-opacity whitespace-nowMrap">
                                             {label}
                                         </div>
                                     </motion.div>
