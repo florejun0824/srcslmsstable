@@ -20,6 +20,7 @@ import {
 } from 'firebase/firestore'
 import ReactionsBreakdownModal from './ReactionsBreakdownModal'
 import UserInitialsAvatar from '../../../common/UserInitialsAvatar'
+import Linkify from 'react-linkify' // <-- FIX 1: IMPORTED
 
 const reactionTypes = ['like', 'love', 'haha', 'wow', 'sad', 'angry', 'care']
 
@@ -63,6 +64,21 @@ const reactionIcons = {
   },
 }
 
+// --- FIX 2: ADDED DECORATOR FUNCTION ---
+const componentDecorator = (href, text, key) => (
+  <a
+    href={href}
+    key={key}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-blue-600 hover:underline font-semibold"
+    onClick={(e) => e.stopPropagation()} // Prevents clicks from propagating
+  >
+    {text}
+  </a>
+)
+// --- END OF ADDED SECTION ---
+
 const AnnouncementModal = ({
   isOpen,
   onClose,
@@ -100,6 +116,25 @@ const AnnouncementModal = ({
   const commentsCollectionRef = announcement?.id
     ? collection(db, `teacherAnnouncements/${announcement.id}/comments`)
     : null
+
+  // --- ADDED: Close modal on Escape key press ---
+  useEffect(() => {
+    const handleEsc = (event) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEsc)
+    }
+
+    // Cleanup function
+    return () => {
+      document.removeEventListener('keydown', handleEsc)
+    }
+  }, [isOpen, onClose])
+  // --- END OF ADDED SECTION ---
 
   // Convert timestamp to Date safely
   const convertTimestampToDate = (timestamp) => {
@@ -357,7 +392,7 @@ const AnnouncementModal = ({
     if (!isActive && !isHovered) return null
 
     return (
-      <div className="absolute bottom-full mb-2 left-1 -translate-x-1 bg-neumorphic-base rounded-full shadow-neumorphic p-1 flex gap-1 z-50">
+      <div className="absolute bottom-full mb-2 left-1 -translate-x-1 bg-neumorphic-base rounded-xl shadow-neumorphic p-1 flex flex-wrap gap-1 z-50 w-64">
         {reactionTypes.map((rType) => (
           <button
             key={rType}
@@ -430,11 +465,25 @@ const AnnouncementModal = ({
   const getReplies = (commentId) =>
     comments.filter((comment) => comment.parentId === commentId)
 
+  // --- ADDED: Backdrop click handler ---
+  const handleBackdropClick = (e) => {
+    // Check if the click is on the backdrop itself (e.target)
+    // and not on a child element (which would bubble up to e.currentTarget)
+    if (e.target === e.currentTarget) {
+      onClose()
+    }
+  }
+  // --- END OF ADDED SECTION ---
+
   if (!isOpen || !announcement) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 font-sans">
-      <div className="bg-neumorphic-base rounded-[28px] shadow-neumorphic w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+    // --- MODIFIED: Added onClick for backdrop ---
+    <div
+      className="fixed inset-0 z-[10000] flex items-start justify-center bg-black/30 backdrop-blur-sm px-4 pb-4 pt-12 sm:pt-20 font-sans"
+      onClick={handleBackdropClick} // <-- ADDED
+    >
+      <div className="bg-neumorphic-base rounded-[28px] shadow-neumorphic w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
         {/* Header (not fixed) */}
         <div className="flex items-center justify-center p-4 border-b border-neumorphic-shadow-dark/30 relative">
           <h2 className="text-lg font-semibold text-slate-800 pt-2">
@@ -468,9 +517,12 @@ const AnnouncementModal = ({
             </div>
           </div>
 
+          {/* --- FIX 3: LINKIFY & WORD-BREAK --- */}
           <div className="mb-4 pb-4">
-            <p className="text-slate-700 text-base leading-relaxed whitespace-pre-wrap">
-              {announcement.content}
+            <p className="text-slate-700 text-base leading-relaxed whitespace-pre-wrap break-words">
+              <Linkify componentDecorator={componentDecorator}>
+                {announcement.content}
+              </Linkify>
             </p>
           </div>
 
@@ -605,8 +657,11 @@ const AnnouncementModal = ({
                               </div>
                             </div>
                           ) : (
+                            // --- FIX 3: LINKIFY & WORD-BREAK ---
                             <p className="text-sm text-slate-700 whitespace-pre-wrap mt-1 break-words">
-                              {comment.commentText}
+                              <Linkify componentDecorator={componentDecorator}>
+                                {comment.commentText}
+                              </Linkify>
                             </p>
                           )}
                         </div>
@@ -722,8 +777,11 @@ const AnnouncementModal = ({
                                         </div>
                                       </div>
                                     ) : (
+                                      // --- FIX 3: LINKIFY & WORD-BREAK ---
                                       <p className="text-sm text-slate-700 whitespace-pre-wrap mt-0.5 break-words">
-                                        {reply.commentText}
+                                        <Linkify componentDecorator={componentDecorator}>
+                                          {reply.commentText}
+                                        </Linkify>
                                       </p>
                                     )}
                                   </div>

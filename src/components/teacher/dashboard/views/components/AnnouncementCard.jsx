@@ -208,7 +208,7 @@ const AnnouncementCard = ({
             ) : (
                 // --- MODIFIED SECTION ---
                 post.content && (
-                    <p className="text-slate-700 text-base leading-relaxed whitespace-pre-wrap">
+                    <p className="text-slate-700 text-base leading-relaxed whitespace-pre-wrap break-words">
                         {isTruncated && !isExpanded ? (
                             // Truncated view: Still plain text
                             post.content.substring(0, ANNOUNCEMENT_TRUNCATE_LENGTH) + '...'
