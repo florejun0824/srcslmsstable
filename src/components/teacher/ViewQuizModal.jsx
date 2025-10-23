@@ -497,6 +497,35 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         };
     }, [isOpen, isLocked, score, classId, issueWarning, showReview, isTeacherView, quiz?.settings?.lockOnLeave, hasSubmitted]);
     // --- END OF MODIFICATION ---
+	
+	// --- EXTRA: VISIBILITY CHANGE FOR MOBILE BROWSERS ---
+	useEffect(() => {
+	  const handleVisibilityChange = () => {
+	    const canIssueWarning =
+	      isOpen &&
+	      !hasSubmitted.current &&
+	      !isLocked &&
+	      classId &&
+	      score === null &&
+	      !showReview &&
+	      !isTeacherView &&
+	      (quiz?.settings?.lockOnLeave ?? false);
+
+	    if (document.hidden && canIssueWarning) {
+	      console.log("🚨 Page hidden — likely overlay or chat head opened.");
+	      setIsInfractionActive(true);
+	      issueWarning();
+	    } else if (!document.hidden) {
+	      setIsInfractionActive(false);
+	    }
+	  };
+
+	  document.addEventListener("visibilitychange", handleVisibilityChange);
+	  return () => {
+	    document.removeEventListener("visibilitychange", handleVisibilityChange);
+	  };
+	}, [isOpen, isLocked, score, classId, issueWarning, showReview, isTeacherView, quiz?.settings?.lockOnLeave, hasSubmitted]);
+	// --- END EXTRA ---
 
     // --- MODIFICATION: ADDED CONTINUOUS WARNING TIMER ---
     useEffect(() => {
