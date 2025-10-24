@@ -130,7 +130,8 @@ const StudentManagementView = (props) => {
 
                 {isImportViewLoading ? <Spinner /> : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {(filteredLmsClasses ?? []).length > 0 ? (filteredLmsClasses ?? []).map((c, index) => {
+                        {/* --- MODIFICATION HERE --- */}
+                        {(filteredLmsClasses ?? []).length > 0 ? (filteredLmsClasses ?? []).sort((a, b) => a.gradeLevel.localeCompare(b.gradeLevel, undefined, { numeric: true })).map((c, index) => {
                             const { icon: Icon, color } = classVisuals[index % classVisuals.length];
                             return (
                                 <div key={c.id} onClick={() => setSelectedClassForImport(c)} className="group p-6 rounded-2xl shadow-neumorphic hover:shadow-neumorphic-inset transition-all duration-300 cursor-pointer bg-neumorphic-base">

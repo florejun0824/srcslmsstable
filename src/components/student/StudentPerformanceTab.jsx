@@ -151,7 +151,8 @@ const StudentPerformanceTab = ({ userProfile, classes }) => {
                         </span>
                       </p>
                       <p className="text-xs sm:text-sm text-slate-500 font-medium text-right">
-                        {sub.submittedAt ? new Date(sub.submittedAt.seconds * 1000).toLocaleDateString('en-US', {
+                        {/* --- MODIFICATION HERE --- */}
+                        {sub.submittedAt && typeof sub.submittedAt.toDate === 'function' ? sub.submittedAt.toDate().toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric'

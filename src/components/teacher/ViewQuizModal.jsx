@@ -244,7 +244,9 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
 	            score: correctCount,
 	            totalItems: questionNumbering.totalItems,
 	            attemptNumber: attemptsTaken + 1,
-	            submittedAt: serverTimestamp(),
+                // --- MODIFICATION HERE ---
+	            submittedAt: new Date(), // Changed from serverTimestamp()
+                // -------------------------
 	            quarter: quiz.quarter || null
 	        };
 

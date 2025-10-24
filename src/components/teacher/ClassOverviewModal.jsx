@@ -82,6 +82,10 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const [units, setUnits] = useState({});
     const [collapsedUnits, setCollapsedUnits] = useState(new Set());
     
+    // --- MODIFICATION START ---
+    // Added new state to track all quiz IDs for the lock listener
+    const [classQuizIds, setClassQuizIds] = useState([]);
+
     useEffect(() => {
         if (!isOpen || !classData?.id) {
             setShowAddForm(false); setViewLessonData(null); setViewQuizData(null); setActiveTab('announcements');
@@ -89,25 +93,35 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             setEditingId(null); setEditContent(''); setPostToEdit(null); setIsEditModalOpen(false);
             setIsReportModalOpen(false); setScoresDetailModalOpen(false); setSelectedQuizForScores(null);
             setSelectedAnnouncement(null); setUnits({}); setCollapsedUnits(new Set());
+            setClassQuizIds([]); // Reset quiz IDs
             return;
         }
+    }, [isOpen, classData?.id]);
 
-        setLoading(true);
+    // Listener for Announcements
+    useEffect(() => {
+        if (!isOpen || !classData?.id) return;
         let active = true;
-        const unsubs = [];
-
         const annQuery = query(collection(db, "studentAnnouncements"), where("classId", "==", classData.id), orderBy("createdAt", "desc"));
-        unsubs.push(onSnapshot(annQuery, (snapshot) => {
+        const unsub = onSnapshot(annQuery, (snapshot) => {
             if (!active) return;
             setAnnouncements(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        }, (error) => console.error("Error listening to announcements:", error)));
+        }, (error) => console.error("Error listening to announcements:", error));
+        
+        return () => { active = false; unsub(); };
+    }, [isOpen, classData?.id]);
 
+    // Listener for Posts, Units, and deriving Quiz IDs
+    useEffect(() => {
+        if (!isOpen || !classData?.id) return;
+        let active = true;
         const postsQuery = query(collection(db, `classes/${classData.id}/posts`), orderBy('createdAt', 'desc'));
-        unsubs.push(onSnapshot(postsQuery, async (snapshot) => {
+        const unsub = onSnapshot(postsQuery, async (snapshot) => {
             if (!active) return;
             const allPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setSharedContentPosts(allPosts);
             
+            // Fetch Units
             const allUnitIds = new Set(allPosts.flatMap(post => [...(post.lessons || []).map(l => l.unitId), ...(post.quizzes || []).map(q => q.unitId)]).filter(Boolean));
             if (allUnitIds.size > 0) {
                 const fetchedUnits = await fetchDocsInBatches('units', Array.from(allUnitIds));
@@ -117,32 +131,60 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             } else {
                 if (active) setUnits({});
             }
-
+            
+            // Set Quiz IDs for the lock listener
             const quizIds = Array.from(new Set(allPosts.flatMap(p => (p.quizzes || []).map(q => q.id))));
-            if (quizIds.length > 0) {
-                const locksQuery = query(collection(db, 'quizLocks'), where("classId", "==", classData.id), where("quizId", "in", quizIds));
-                const locksSnap = await getDocs(locksQuery);
-                if (active) setQuizLocks(locksSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-            } else {
-                if (active) setQuizLocks([]);
-            }
-        }, (error) => console.error("Error listening to posts:", error)));
+            if (active) setClassQuizIds(quizIds);
 
+        }, (error) => console.error("Error listening to posts:", error));
+
+        return () => { active = false; unsub(); };
+    }, [isOpen, classData?.id]);
+
+    // Listener for Quiz Scores
+    useEffect(() => {
+        if (!isOpen || !classData?.id) return;
+        setLoading(true);
+        let active = true;
         const scoresQuery = query(collection(db, 'quizSubmissions'), where("classId", "==", classData.id));
-        unsubs.push(onSnapshot(scoresQuery, (snapshot) => {
+        const unsub = onSnapshot(scoresQuery, (snapshot) => {
             if (!active) return;
             setQuizScores(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
             setLoading(false);
         }, (error) => {
             console.error("Error listening to quiz scores:", error);
-            setLoading(false);
-        }));
-
-        return () => {
-            active = false;
-            unsubs.forEach(unsub => unsub());
-        };
+            if (active) setLoading(false);
+        });
+        
+        return () => { active = false; unsub(); };
     }, [isOpen, classData?.id]);
+
+    // REAL-TIME Listener for Quiz Locks
+    useEffect(() => {
+        if (!isOpen || !classData?.id || classQuizIds.length === 0) {
+            setQuizLocks([]);
+            return;
+        }
+
+        // Firestore 'in' queries are limited (currently 30).
+        // If you have more than 30 quizzes, this query will fail.
+        // For now, we assume <= 30 quizzes per class.
+        const locksQuery = query(
+            collection(db, 'quizLocks'), 
+            where("classId", "==", classData.id), 
+            where("quizId", "in", classQuizIds)
+        );
+    
+        const unsub = onSnapshot(locksQuery, (locksSnap) => {
+            setQuizLocks(locksSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        }, (error) => {
+            console.error("Error listening to quiz locks:", error);
+        });
+    
+        return () => unsub();
+    }, [isOpen, classData?.id, classQuizIds]); // Depends on the new quizIds state
+    // --- MODIFICATION END ---
+
 
     const toggleUnitCollapse = (unitTitle) => {
         setCollapsedUnits(prev => {
@@ -178,6 +220,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         try {
             await deleteDoc(doc(db, 'quizLocks', `${quizId}_${studentId}`));
             showToast("Quiz unlocked.", "success");
+            // No local state update needed; onSnapshot will handle it.
         } catch (error) {
             showToast("Failed to unlock quiz.", "error");
         }

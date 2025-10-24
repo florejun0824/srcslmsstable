@@ -12,6 +12,14 @@ import {
 // ✅ FIX: use xlsx-js-style instead of sheetjs-style
 import * as XLSX from 'xlsx-js-style';
 
+// --- MODIFICATION START ---
+// Added Capacitor imports for native file saving
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { FileOpener } from '@capacitor-community/file-opener';
+// --- MODIFICATION END ---
+
+
 const dropIn = {
     hidden: { y: "-50px", opacity: 0, scale: 0.95 },
     visible: {
@@ -161,8 +169,10 @@ export default function GenerateReportModal({
         border: commonBorderStyle
     };
 
-    // --- Generate Excel ---
-    const handleGenerate = () => {
+    // --- MODIFICATION START ---
+    // Made function async and added native saving logic
+    const handleGenerate = async () => {
+    // --- MODIFICATION END ---
         if (selectedQuizIds.length === 0) {
             return showToast("Please select at least one quiz to include in the report.", "error");
         }
@@ -230,7 +240,8 @@ export default function GenerateReportModal({
         let minDate = null;
         let maxDate = null;
         selectedQuizzes.forEach(quiz => {
-            const quizPosts = posts.filter(post => (post.quizIds || []).includes(quiz.id));
+            // --- FIX: Check for quiz in `post.quizzes` not `post.quizIds` ---
+            const quizPosts = posts.filter(post => (post.quizzes || []).some(q => q.id === quiz.id));
             quizPosts.forEach(post => {
                 if (post.availableFrom && post.availableFrom.toDate) {
                     const fromDate = post.availableFrom.toDate();
@@ -330,9 +341,58 @@ export default function GenerateReportModal({
         worksheet['!cols'] = [{ wch: 25 }, { wch: 10 }, ...Array(selectedQuizzes.length * 4).fill({ wch: 15 }), { wch: 15 }, { wch: 15 }];
         worksheet['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rowIndex - 1, c: studentCols - 1 } });
         XLSX.utils.book_append_sheet(workbook, worksheet, "Quiz Scores Report");
-        XLSX.writeFile(workbook, `${classData.name || 'Class'} - Quiz Report.xlsx`);
-        onClose();
+        
+        // --- MODIFICATION START ---
+        // Replaced XLSX.writeFile with native saving logic
+        
+        const fileName = `${classData.name || 'Class'} - Quiz Report.xlsx`;
 
+        try {
+            if (Capacitor.isNativePlatform()) {
+                // --- Native Mobile (Android/iOS) Logic ---
+                
+                // 1. Check permissions
+                let permStatus = await Filesystem.checkPermissions();
+                if (permStatus.publicStorage !== 'granted') {
+                    permStatus = await Filesystem.requestPermissions();
+                }
+                if (permStatus.publicStorage !== 'granted') {
+                    showToast("Storage permission is required to save files.", "error");
+                    console.error("Storage permission not granted.");
+                    return; 
+                }
+
+                // 2. Get file data as base64
+                const base64Data = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+
+                // 3. Write the file
+                const result = await Filesystem.writeFile({
+                    path: fileName,
+                    data: base64Data,
+                    directory: Directory.Documents, // Save to Documents directory
+                    recursive: true
+                });
+
+                // 4. Show toast and open the file
+                showToast("File saved to Documents folder.", "info");
+                await FileOpener.open({
+                    filePath: result.uri,
+                    contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // MIME type for .xlsx
+                });
+
+            } else {
+                // --- Web Browser Logic ---
+                XLSX.writeFile(workbook, fileName);
+                showToast("Report generated successfully.", "success");
+            }
+
+            onClose(); // Close modal *after* successful save
+
+        } catch (error) {
+            console.error("Error generating report:", error);
+            showToast(`Failed to generate report: ${error.message}`, "error");
+        }
+        // --- MODIFICATION END ---
     };
 
     const handleClose = () => {
