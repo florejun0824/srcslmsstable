@@ -16,6 +16,8 @@ if (typeof window !== "undefined") {
 }
 
 import React, { useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core'; // <-- MODIFICATION: ADDED THIS LINE
+import { StatusBar } from '@capacitor/status-bar'; // <-- MODIFICATION: ADDED THIS LINE
 import { useAuth } from './contexts/AuthContext'; 
 import Spinner from './components/common/Spinner';
 import LoginPage from './pages/LoginPage';
@@ -105,6 +107,24 @@ export default function App() {
   const [timeLeft, setTimeLeft] = useState(AVERAGE_BUILD_SECONDS);
   const [waitingWorker, setWaitingWorker] = useState(null);
 
+  // --- MODIFICATION START ---
+  // This hook will run once when the App component loads
+  // to hide the status bar on native mobile devices.
+  useEffect(() => {
+    const hideStatusBar = async () => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await StatusBar.hide();
+        } catch (e) {
+          console.error("Failed to hide status bar", e);
+        }
+      }
+    };
+
+    hideStatusBar();
+  }, []);
+  // --- MODIFICATION END ---
+
   useEffect(() => {
     serviceWorkerRegistration.register({
       onUpdate: registration => {
@@ -155,7 +175,7 @@ export default function App() {
       clearInterval(pollInterval);
       if (countdownInterval) clearInterval(countdownInterval);
     };
-  }, []);
+  }, []); // Note: You had an empty dependency array, which is correct.
 
   const handleEnter = () => {
     if (waitingWorker) {

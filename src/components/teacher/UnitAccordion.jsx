@@ -1,3 +1,4 @@
+// UnitAccordion.jsx
 import React, { useState, useEffect, useRef, useMemo, Suspense, lazy } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../../services/firebase';
@@ -397,17 +398,64 @@ const MenuItem = ({ icon: Icon, text, onClick, disabled = false, loading = false
     </button>
 );
 
+// --- MODIFICATION START ---
+// Replaced the "Add Lesson" button with an "Add Content" dropdown menu
 const AddContentButton = ({ onAddLesson, onAddQuiz }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [menuStyle, setMenuStyle] = useState({});
+    const buttonRef = useRef(null);
+
+    const handleToggle = (e) => {
+        e.stopPropagation();
+        if (!buttonRef.current) return;
+        
+        const btnRect = buttonRef.current.getBoundingClientRect();
+        const style = { 
+            right: `${window.innerWidth - btnRect.right}px`, // Align to the right edge of the button
+            top: `${btnRect.bottom + 8}px`, // Position below the button
+            width: '180px' // Set a reasonable width
+        };
+
+        // Handle case where menu would go off-bottom
+        const spaceBelow = window.innerHeight - btnRect.bottom;
+        if (spaceBelow < 120) { // 120 is approx height of 2 menu items
+             style.top = 'auto';
+             style.bottom = `${window.innerHeight - btnRect.top + 8}px`; // Position above the button
+        }
+        
+        setMenuStyle(style);
+        setIsOpen(prev => !prev);
+    };
+
     return (
-        <button 
-            onClick={onAddLesson}
-            className="flex items-center gap-2 text-sm font-semibold bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 py-2 px-4 rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
-        >
-            <PlusIcon className="w-5 h-5" />
-            Add Lesson
-        </button>
+        <>
+            <button 
+                ref={buttonRef}
+                onClick={handleToggle}
+                onPointerDown={(e) => e.stopPropagation()} // Prevent DND kit from capturing
+                className="flex items-center gap-2 text-sm font-semibold bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 py-2 px-4 rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
+            >
+                <PlusIcon className="w-5 h-5" />
+                Add Content
+            </button>
+            {isOpen && (
+                <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>
+                    <MenuItem 
+                        icon={DocumentTextIcon} // Already imported
+                        text="Add Lesson" 
+                        onClick={onAddLesson} // MenuPortal's onClose will handle closing
+                    />
+                    <MenuItem 
+                        icon={ClipboardDocumentListIcon} // Already imported
+                        text="Add Quiz" 
+                        onClick={onAddQuiz} // MenuPortal's onClose will handle closing
+                    />
+                </MenuPortal>
+            )}
+        </>
     );
 };
+// --- MODIFICATION END ---
 
 function SortableContentItem({ item, isReordering, ...props }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
@@ -1020,7 +1068,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                         <h2 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">{activeUnit.title}</h2>
                                         <p className="mt-1 text-sm text-slate-600">Structure the learning path for this unit.</p>
                                     </div>
-                                    <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
+                                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 flex-shrink-0 self-end sm:self-center">
                                         {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
                                         <button 
                                             onClick={() => setIsReordering(prev => !prev)} 

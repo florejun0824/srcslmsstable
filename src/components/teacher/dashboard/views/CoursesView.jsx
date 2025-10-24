@@ -189,7 +189,7 @@ const CoursesView = (props) => {
 	                                    className={primaryButton}
 	                                    disabled={isAiGenerating}
 	                                >
-	                                    <PresentationChartBarIcon className="w-5 h-5" />
+	                                    <PresentationChartBarIcon className="w-3 h-3" />
 	                                    <span>Generate PPT</span>
 	                                </button>
 	                            )}

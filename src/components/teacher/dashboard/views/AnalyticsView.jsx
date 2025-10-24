@@ -126,6 +126,8 @@ const AnalyticsView = ({ activeClasses }) => {
   const [isGeneratingRemediation, setIsGeneratingRemediation] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
+  const [isClassDropdownOpen, setIsClassDropdownOpen] = useState(false); 
+  const [isQuarterDropdownOpen, setIsQuarterDropdownOpen] = useState(false); // <-- MODIFICATION: ADDED THIS LINE
   
 
   const selectedClass = activeClasses.find((c) => c.id === selectedClassId);
@@ -592,7 +594,7 @@ const AnalyticsView = ({ activeClasses }) => {
       const lessonLanguage = lessonData?.language || "the same language as the original lesson";
       const lessonText = (lessonData.pages || [])
         .map((p) => `${p.title ? p.title + "\n" : ""}${p.content || ""}`)
-        .join("\n\n");
+        img.join("\n\n");
       const weakTopicsString = weakItems
         .map((item) => `- ${item.question} (Difficulty: ${item.difficulty})`)
         .join("\n");
@@ -680,7 +682,7 @@ const AnalyticsView = ({ activeClasses }) => {
       console.error("generateRemediationPlan error", err);
       console.error("Problematic AI Response Text:", rawAiResponse);
       if (err.message === "LIMIT_REACHED") {
-        alert("The monthly limit for AI recommendations has been reached. Please contact support.");
+        alert("The monthly limit for AI recommendations has been. Please contact support.");
       } else {
         alert("An error occurred while generating the remediation plan. The AI response was not valid JSON. Please check the console for details.");
       }
@@ -870,6 +872,15 @@ const AnalyticsView = ({ activeClasses }) => {
   const openViewModal = (recDoc) => { setViewingRec(recDoc); setViewModalOpen(true); };
   const openEditModal = (recDoc) => { setEditingRec(recDoc); setEditModalOpen(true); };
 
+  // --- MODIFICATION: ADDED THIS ARRAY ---
+  const quarterOptions = [
+    { value: "", label: "-- Select Quarter --" },
+    { value: "1", label: "Quarter 1" },
+    { value: "2", label: "Quarter 2" },
+    { value: "3", label: "Quarter 3" },
+    { value: "4", label: "Quarter 4" },
+  ];
+
   // (Return/JSX is unchanged, as the logic changes were in the effects)
   return (
     <div className="p-4 sm:p-6 md:p-8 h-full overflow-y-auto">
@@ -877,35 +888,94 @@ const AnalyticsView = ({ activeClasses }) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Sidebar */}
         <div className="md:col-span-1 space-y-6">
+          {/* --- MODIFICATION START --- */}
+          {/* Replaced native <select> with custom HTML dropdown to fix mobile rendering bug */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-slate-700 mb-2">Select a Class to Analyze</label>
-            {/* --- FIX IS HERE --- */}
-            {/* REMOVED the wrapper <div className="relative"> */}
-            <select 
-              value={selectedClassId} 
-              onChange={(e) => { setSelectedClassId(e.target.value); setSelectedQuizId(""); }} 
-              className="w-full p-3 text-base rounded-xl bg-neumorphic-base shadow-neumorphic-inset focus:outline-none" // <-- FIX: Removed 'pr-10' and 'appearance-none'
-            >
-              <option value="">-- Choose a Class --</option>
-              {activeClasses.map((cls) => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
-            </select>
-            {/* REMOVED the <IconChevronDown ... /> component */}
-            {/* REMOVED the closing </div> */}
-            {/* --- END OF FIX --- */}
+            <div className="border rounded-lg bg-neumorphic-base shadow-neumorphic">
+              <button 
+                onClick={() => setIsClassDropdownOpen(prev => !prev)} 
+                className="w-full flex justify-between items-center px-4 py-3 font-semibold text-slate-700 hover:text-sky-700"
+              >
+                <span className="text-base">
+                  {selectedClass ? selectedClass.name : "-- Choose a Class --"}
+                </span>
+                <IconChevronDown className={`h-5 w-5 transition-transform ${isClassDropdownOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isClassDropdownOpen && (
+                <div className="pl-4 pr-2 pb-2 space-y-1 overflow-y-auto max-h-60">
+                  {/* "Choose a Class" option */}
+                  <button 
+                    onClick={() => {
+                      setSelectedClassId("");
+                      setSelectedQuizId(""); // Clear dependent state
+                      setIsClassDropdownOpen(false); // Close dropdown
+                    }}
+                    className={`block w-full text-left px-3 py-2 rounded-md text-sm transition ${selectedClassId === "" ? "bg-sky-100 text-sky-700 font-semibold" : "hover:bg-slate-100 text-slate-700"}`}
+                  >
+                    -- Choose a Class --
+                  </button>
+                  {/* Map over the active classes */}
+                  {activeClasses.map((cls) => (
+                    <button 
+                      key={cls.id} 
+                      onClick={() => {
+                        setSelectedClassId(cls.id);
+                        setSelectedQuizId(""); // Clear dependent state
+                        setIsClassDropdownOpen(false); // Close dropdown
+                      }}
+                      className={`block w-full text-left px-3 py-2 rounded-md text-sm transition ${selectedClassId === cls.id ? "bg-sky-100 text-sky-700 font-semibold" : "hover:bg-slate-100 text-slate-700"}`}
+                    >
+                      {cls.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
+          {/* --- MODIFICATION END --- */}
+
           <div className="flex flex-col gap-2">
             <button onClick={() => setAnalysisType("students")} className={`px-4 py-2 rounded-xl transition-all shadow-neumorphic ${analysisType === "students" ? "bg-neumorphic-base shadow-neumorphic-inset text-sky-700 font-bold" : "bg-neumorphic-base text-slate-600 hover:text-sky-600"}`}>At-Risk Students</button>
             <button onClick={() => setAnalysisType("quizzes")} className={`px-4 py-2 rounded-xl transition-all shadow-neumorphic ${analysisType === "quizzes" ? "bg-neumorphic-base shadow-neumorphic-inset text-sky-700 font-bold" : "bg-neumorphic-base text-slate-600 hover:text-sky-600"}`}>Quiz Item Analysis</button>
             <button onClick={() => setAnalysisType("recommendations")} className={`px-4 py-2 rounded-xl transition-all shadow-neumorphic ${analysisType === "recommendations" ? "bg-neumorphic-base shadow-neumorphic-inset text-sky-700 font-bold" : "bg-neumorphic-base text-slate-600 hover:text-sky-600"}`}>Recommendations & Remediations</button>
           </div>
+          
+          {/* --- MODIFICATION START --- */}
+          {/* Replaced native <select> with custom HTML dropdown for "Select Quarter" */}
           {analysisType === "students" && (
             <div className="mt-4">
-              <select value={selectedQuarter} onChange={(e) => setSelectedQuarter(e.target.value)} className="w-full p-2 rounded-lg bg-neumorphic-base shadow-neumorphic-inset focus:outline-none text-sm">
-                <option value="">-- Select Quarter --</option>
-                <option value="1">Quarter 1</option><option value="2">Quarter 2</option><option value="3">Quarter 3</option><option value="4">Quarter 4</option>
-              </select>
+              <div className="border rounded-lg bg-neumorphic-base shadow-neumorphic">
+                <button 
+                  onClick={() => setIsQuarterDropdownOpen(prev => !prev)} 
+                  className="w-full flex justify-between items-center px-4 py-3 font-semibold text-slate-700 hover:text-sky-700"
+                >
+                  <span className="text-base">
+                    {(quarterOptions.find(q => q.value === selectedQuarter) || quarterOptions[0]).label}
+                  </span>
+                  <IconChevronDown className={`h-5 w-5 transition-transform ${isQuarterDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+                {isQuarterDropdownOpen && (
+                  <div className="pl-4 pr-2 pb-2 space-y-1 overflow-y-auto max-h-60">
+                    {quarterOptions.map((opt) => (
+                      <button 
+                        key={opt.value} 
+                        onClick={() => {
+                          setSelectedQuarter(opt.value);
+                          setIsQuarterDropdownOpen(false); // Close dropdown
+                        }}
+                        className={`block w-full text-left px-3 py-2 rounded-md text-sm transition ${selectedQuarter === opt.value ? "bg-sky-100 text-sky-700 font-semibold" : "hover:bg-slate-100 text-slate-700"}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
+          {/* --- MODIFICATION END --- */}
+
           {analysisType === "quizzes" && (
             <div className="space-y-2 mt-4">
               {Object.keys(quizzesInClass.reduce((acc, quiz) => {
