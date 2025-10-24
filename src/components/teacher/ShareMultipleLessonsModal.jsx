@@ -69,6 +69,37 @@ const CustomMultiSelect = React.memo(({ title, options, selectedValues, onSelect
     );
 });
 
+// --- MODIFICATION START ---
+// 1. Added a CustomSingleSelect component to fix the native <select> issue on mobile.
+const CustomSingleSelect = React.memo(({ options, selectedValue, onSelectionChange, isOpen, onToggle, placeholder = "Select...", disabled = false }) => {
+    
+    const selectedLabel = options.find(opt => opt.value === selectedValue)?.label || placeholder;
+
+    const renderOptions = () => {
+        return options.map(({ value, label }) => (
+            <li key={value} onClick={() => { onSelectionChange(value); onToggle(); }} className="flex items-center justify-between p-3 hover:bg-blue-500/10 cursor-pointer rounded-lg text-base transition-colors duration-150">
+                <span className="text-gray-800">{label}</span>
+                {selectedValue === value && <CheckIcon className="h-5 w-5 text-blue-600" />}
+            </li>
+        ));
+    };
+
+    return (
+        <div className="relative">
+            <button type="button" onClick={onToggle} disabled={disabled} className="flex w-full items-center justify-between p-4 bg-neumorphic-base rounded-xl shadow-neumorphic focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 disabled:bg-gray-200/50 disabled:cursor-not-allowed">
+                <span className={`block truncate text-base ${selectedValue === null ? 'text-gray-500' : 'text-gray-900'}`}>{selectedLabel}</span>
+                <ChevronUpDownIcon className={`h-5 w-5 text-gray-400 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {isOpen && (
+                <div className="absolute z-20 mt-2 max-h-60 w-full overflow-auto rounded-2xl bg-white/80 backdrop-blur-xl py-2 text-base shadow-xl ring-1 ring-black/5 focus:outline-none p-2">
+                    <ul className="space-y-1">{renderOptions()}</ul>
+                </div>
+            )}
+        </div>
+    );
+});
+// --- MODIFICATION END ---
+
 const CustomDateTimePicker = React.memo(({ selectedDate, onDateChange, isClearable = false, placeholder = "Select date" }) => {
     const handleDateSelect = (date) => {
         if (!date && isClearable) {
@@ -98,7 +129,6 @@ const CustomDateTimePicker = React.memo(({ selectedDate, onDateChange, isClearab
     );
 });
 
-// MODIFICATION: Added a `disabled` prop and corresponding styles
 const ToggleSwitch = ({ label, enabled, onChange, disabled = false }) => (
     <label className={`flex items-center justify-between ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
         <span className="font-medium text-gray-800">{label}</span>
@@ -122,10 +152,8 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     const [availableFrom, setAvailableFrom] = useState(new Date());
     const [availableUntil, setAvailableUntil] = useState(null);
     const [selectedQuarter, setSelectedQuarter] = useState(null);
-    const [sendAsExam, setSendAsExam] = useState(false); // MODIFICATION: New state for exam toggle
+    const [sendAsExam, setSendAsExam] = useState(false);
     
-    // --- THIS IS ALREADY CORRECT (lines 120-127) ---
-    // The state for lockOnLeave is correctly defined here.
     const [quizSettings, setQuizSettings] = useState({
         enabled: false,
         shuffleQuestions: true,
@@ -133,7 +161,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         preventScreenCapture: true,
         detectDevTools: true,
     });
-    // ---------------------------------------------
 
     const [loading, setLoading] = useState(false);
     const [contentLoading, setContentLoading] = useState(false);
@@ -141,11 +168,9 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     const [success, setSuccess] = useState('');
     const [activeDropdown, setActiveDropdown] = useState(null);
 
-    // MODIFICATION: Derived states to determine which toggle to show
     const isExamPossible = selectedQuizzes.length > 0 && selectedLessons.length === 0;
     const isAssignment = selectedLessons.length > 0;
 
-    // MODIFICATION: Reset exam toggle if it's no longer possible
     useEffect(() => {
         if (!isExamPossible) {
             setSendAsExam(false);
@@ -169,7 +194,12 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                     getDocs(query(collection(db, 'quizzes'), where('subjectId', '==', subject.id)))
                 ]);
 
-                setUnits(unitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => (a.order || 0) - (b.order || 0)));
+                // --- MODIFICATION START ---
+                // 2. Changed sorting from `(a.order || 0) - (b.order || 0)` to a numeric-aware title sort.
+                setUnits(unitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                    .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true })));
+                // --- MODIFICATION END ---
+                
                 setRawLessons(lessonsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), value: doc.id, label: doc.data().title })));
                 setRawQuizzes(quizzesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), value: doc.id, label: doc.data().title })));
 
@@ -197,13 +227,26 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     const allQuizzes = useMemo(() => {
         const grouped = {};
         units.forEach(unit => {
-            const items = rawQuizzes.filter(quiz => quiz.unitId === unit.id);
+            // --- MODIFICATION START ---
+            // 3. Added sorting to quizzes within each unit, consistent with lessons.
+            const items = rawQuizzes.filter(quiz => quiz.unitId === unit.id).sort((a, b) => (a.order || 0) - (b.order || 0));
+            // --- MODIFICATION END ---
             if (items.length > 0) grouped[unit.title] = items;
         });
         const uncategorized = rawQuizzes.filter(quiz => !quiz.unitId || !units.some(u => u.id === quiz.unitId));
         if (uncategorized.length > 0) grouped['Uncategorized'] = uncategorized;
         return grouped;
     }, [rawQuizzes, units]);
+
+    // --- MODIFICATION START ---
+    // 4. Defined options for the new CustomSingleSelect.
+    const quarterOptions = [
+        { value: 1, label: 'Quarter 1' },
+        { value: 2, label: 'Quarter 2' },
+        { value: 3, label: 'Quarter 3' },
+        { value: 4, label: 'Quarter 4' },
+    ];
+    // --- MODIFICATION END ---
 
     const handleToggleDropdown = useCallback((dropdownName) => {
         setActiveDropdown(prev => prev === dropdownName ? null : dropdownName);
@@ -241,12 +284,9 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         setAvailableFrom(new Date()); setAvailableUntil(null); setSelectedQuarter(null);
         setError(''); setSuccess(''); setRawLessons([]); setRawQuizzes([]);
         setActiveDropdown(null);
-        setSendAsExam(false); // MODIFICATION: Reset exam state
+        setSendAsExam(false);
         
-        // --- THIS IS ALREADY CORRECT ---
-        // The state is correctly reset on close.
         setQuizSettings({ enabled: false, shuffleQuestions: true, lockOnLeave: true, preventScreenCapture: true, detectDevTools: true });
-        // ------------------------------
 
         onClose();
     }, [onClose]);
@@ -278,8 +318,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
             if (lessonsToPost.length > 0) contentParts.push(`${lessonsToPost.length} lesson(s)`);
             if (quizzesToPost.length > 0) contentParts.push(`${quizzesToPost.length} quiz(zes)`);
 
-            // --- THIS IS ALREADY CORRECT (lines 277-289) ---
-            // This logic correctly reads the state and saves it.
             const maxAttempts = (isExamPossible && sendAsExam) ? 1 : 3;
             let settingsToSave;
             if (quizSettings.enabled) {
@@ -294,7 +332,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                     maxAttempts
                 };
             }
-            // ---------------------------------------------
 
             for (const classId of selectedClasses) {
                 const newPostRef = doc(collection(db, `classes/${classId}/posts`));
@@ -310,7 +347,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                     quarter: selectedQuarter,
                     lessons: lessonsToPost,
                     quizzes: quizzesToPost,
-                    quizSettings: settingsToSave, // This correctly saves the settings
+                    quizSettings: settingsToSave,
                 });
 
                 const classRef = doc(db, "classes", classId);
@@ -350,7 +387,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                 <CustomMultiSelect title="Classes" options={classes} selectedValues={selectedClasses} onSelectionChange={(id) => handleSelection(id, 'class')} disabled={contentLoading} isOpen={activeDropdown === 'classes'} onToggle={() => handleToggleDropdown('classes')} />
                             </section>
 
-                            {/* MODIFICATION START: New "Set Post Type" Section */}
                             <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-3">2. Set Post Type</h3>
                                 <div className='space-y-3'>
@@ -374,7 +410,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                     )}
                                 </div>
                             </section>
-                            {/* MODIFICATION END */}
                             
                             <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-3">3. Set Availability</h3>
@@ -391,17 +426,17 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                             </section>
                             <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-3">4. Select Quarter</h3>
-                                <select
-                                    value={selectedQuarter || ""}
-                                    onChange={(e) => setSelectedQuarter(parseInt(e.target.value))}
-                                    className="w-full p-4 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900"
-                                >
-                                    <option value="">-- Select Quarter --</option>
-                                    <option value={1}>Quarter 1</option>
-                                    <option value={2}>Quarter 2</option>
-                                    <option value={3}>Quarter 3</option>
-                                    <option value={4}>Quarter 4</option>
-                                </select>
+                                {/* --- MODIFICATION START --- */}
+                                {/* 5. Replaced the native <select> with the new CustomSingleSelect component. */}
+                                <CustomSingleSelect
+                                    options={quarterOptions}
+                                    selectedValue={selectedQuarter}
+                                    onSelectionChange={setSelectedQuarter}
+                                    isOpen={activeDropdown === 'quarter'}
+                                    onToggle={() => handleToggleDropdown('quarter')}
+                                    placeholder="-- Select Quarter --"
+                                />
+                                {/* --- MODIFICATION END --- */}
                             </section>
                         </div>
                         {/* --- Right Column: Content --- */}
@@ -429,14 +464,11 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                                 onChange={() => handleQuizSettingsChange('shuffleQuestions', !quizSettings.shuffleQuestions)}
                                             />
                                             
-                                            {/* --- THIS IS ALREADY CORRECT (lines 388-392) --- */}
-                                            {/* This toggle correctly updates the `lockOnLeave` state. */}
                                             <ToggleSwitch
                                                 label="Lock on Leaving Quiz Tab/App"
                                                 enabled={quizSettings.lockOnLeave}
                                                 onChange={() => handleQuizSettingsChange('lockOnLeave', !quizSettings.lockOnLeave)}
                                             />
-                                            {/* ------------------------------------------- */}
 
                                             <ToggleSwitch
                                                 label="Prevent Screen Recording & Screenshots"
