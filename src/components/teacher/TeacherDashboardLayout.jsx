@@ -364,8 +364,9 @@ const TeacherDashboardLayout = (props) => {
 						activeClasses={activeClasses}
                     />
                 );
-            case 'studentManagement':
-                return <StudentManagementView key={`${reloadKey}-sm`} courses={courses} {...rest} />;
+			// This is the FIXED code for TeacherDashboardLayout.jsx
+			case 'studentManagement':
+			    return <StudentManagementView key={`${reloadKey}-sm`} courses={courses} activeClasses={activeClasses} {...rest} />;
             case 'profile':
                 return (
                     <ProfileView

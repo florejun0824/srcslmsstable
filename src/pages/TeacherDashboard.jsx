@@ -302,18 +302,40 @@ const TeacherDashboard = () => {
         } finally { setIsAiThinking(false); }
     };
 
-    const handleRemoveStudentFromClass = async (classId, studentId) => {
-        if (!window.confirm("Are you sure you want to remove this student from the class?")) { return; }
-        try {
-            const classRef = doc(db, "classes", classId);
-            const classDoc = classes.find(c => c.id === classId);
-            if (!classDoc || !classDoc.students) { throw new Error("Class or student list not found."); }
-            const studentToRemove = classDoc.students.find(s => s.id === studentId);
-            if (!studentToRemove) { throw new Error("Student not found in the class list."); }
-            await updateDoc(classRef, { students: arrayRemove(studentToRemove) });
-            showToast("Student removed successfully.", "success");
-        } catch (error) { console.error("Error removing student:", error); showToast("Failed to remove student. Please try again.", "error"); }
-    };
+	// In: TeacherDashboard.jsx
+
+	const handleRemoveStudentFromClass = async (classId, student) => {
+	    // The 'student' parameter is the full student object from the roster
+	    if (!window.confirm(`Are you sure you want to remove ${student.firstName} ${student.lastName} from the class?`)) { 
+	        return; 
+	    }
+    
+	    try {
+	        const classRef = doc(db, "classes", classId);
+	        const classDoc = classes.find(c => c.id === classId);
+
+	        // 1. Find the full student object to remove from the 'students' array (for the teacher roster)
+	        const studentObjectToRemove = classDoc.students.find(s => s.id === student.id);
+        
+	        // 2. Get the student ID string to remove from the 'studentIds' array (for the student's query)
+	        const studentIdToRemove = student.id;
+
+	        if (!studentObjectToRemove) {
+	            console.warn("Student object not found in 'students' array, but will still attempt to remove ID from 'studentIds'.");
+	        }
+
+	        // 3. Update the document, removing from BOTH arrays in one operation
+	        await updateDoc(classRef, { 
+	            students: arrayRemove(studentObjectToRemove), // Removes the object from 'students'
+	            studentIds: arrayRemove(studentIdToRemove)    // Removes the string from 'studentIds'
+	        });
+        
+	        showToast("Student removed successfully.", "success");
+	    } catch (error) { 
+	        console.error("Error removing student:", error); 
+	        showToast("Failed to remove student. Please try again.", "error"); 
+	    }
+	};
 
 	const handleGenerateQuizForLesson = async (lesson, unitId, subjectId) => {
 	    if (isAiGenerating) return;
@@ -682,18 +704,36 @@ const TeacherDashboard = () => {
         else { setStudentsToImport(new Set(studentIdsInSelectedClass)); }
     };
 
-    const handleImportStudents = async () => {
-        if (!importTargetClassId) return showToast("Please select a target class.", "error");
-        if (studentsToImport.size === 0) return showToast("Please select students to import.", "error");
-        setIsImporting(true);
-        try {
-            const studentsToAdd = selectedClassForImport.students.filter(s => studentsToImport.has(s.id));
-            await updateDoc(doc(db, "classes", importTargetClassId), { students: arrayUnion(...studentsToAdd) });
-            showToast(`${studentsToImport.size} student(s) imported successfully!`, 'success');
-            setStudentsToImport(new Set()); setSelectedClassForImport(null); setImportClassSearchTerm(''); setImportTargetClassId('');
-        } catch (err) { console.error("Error importing students:", err); showToast("An error occurred during import.", "error"); }
-        finally { setIsImporting(false); }
-    };
+	const handleImportStudents = async () => {
+	    if (!importTargetClassId) return showToast("Please select a target class.", "error");
+	    if (studentsToImport.size === 0) return showToast("Please select students to import.", "error");
+	    setIsImporting(true);
+	    try {
+	        // 1. Get the full student OBJECTS to add
+	        const studentObjectsToAdd = selectedClassForImport.students.filter(s => studentsToImport.has(s.id));
+        
+	        // 2. Get the corresponding student ID STRINGS
+	        const studentIdsToAdd = studentObjectsToAdd.map(student => student.id);
+
+	        // 3. Update the target class, adding to BOTH arrays
+	        const targetClassRef = doc(db, "classes", importTargetClassId);
+	        await updateDoc(targetClassRef, { 
+	            students: arrayUnion(...studentObjectsToAdd), // For the teacher's roster
+	            studentIds: arrayUnion(...studentIdsToAdd)    // For the student's dashboard query
+	        });
+
+	        showToast(`${studentsToImport.size} student(s) imported successfully!`, 'success');
+	        setStudentsToImport(new Set()); 
+	        setSelectedClassForImport(null); 
+	        setImportClassSearchTerm(''); 
+	        setImportTargetClassId('');
+	    } catch (err) { 
+	        console.error("Error importing students:", err); 
+	        showToast("An error occurred during import.", "error"); 
+	    } finally { 
+	        setIsImporting(false); 
+	    }
+	};
 
     const handleBackToClassSelection = () => { setSelectedClassForImport(null); setStudentsToImport(new Set()); setImportTargetClassId(''); };
     const handleOpenEditSubject = (subject) => { setSubjectToActOn(subject); setEditSubjectModalOpen(true); };

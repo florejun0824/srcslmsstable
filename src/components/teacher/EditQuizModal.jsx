@@ -1,35 +1,44 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import QuizFormModal from './QuizFormModal';
+import QuizFormModal from './QuizFormModal'; // Make sure this path is correct
 import { useToast } from '../../contexts/ToastContext';
 
 const EditQuizModal = ({ isOpen, onClose, quiz }) => {
     const { showToast } = useToast();
+    const [loading, setLoading] = useState(false);
 
-    // --- FIX: Create a deep copy of the quiz data for the form ---
-    // This prevents the form from accidentally modifying the original app state.
-    // useMemo ensures this only runs when the quiz prop changes.
+    // This deep copy is perfect. It prevents the form from
+    // changing the quiz data in your app's state before saving.
     const quizDataForForm = useMemo(() => {
         if (!quiz) return null;
-        // The simplest and safest way to deep-clone a JSON-serializable object.
         return JSON.parse(JSON.stringify(quiz));
     }, [quiz]);
 
-    const handleEditQuiz = async (updatedQuizData) => {
+    const handleEditQuiz = async (quizData) => {
         if (!quiz?.id) {
             showToast("No quiz selected or quiz ID is missing.", "error");
             return;
         }
 
+        // The form passes back just the title and questions
+        const { title, questions } = quizData;
+
+        setLoading(true);
         try {
             const quizRef = doc(db, 'quizzes', quiz.id);
-            await updateDoc(quizRef, updatedQuizData);
+            // Only update the fields that can be changed by the form
+            await updateDoc(quizRef, {
+                title,
+                questions
+            });
             showToast('Quiz updated successfully!', 'success');
             onClose(); // Close the modal on successful update
         } catch (error) {
             console.error('Error updating quiz: ', error);
             showToast(`Error: ${error.message}`, 'error');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -38,9 +47,10 @@ const EditQuizModal = ({ isOpen, onClose, quiz }) => {
             isOpen={isOpen}
             onClose={onClose}
             onSubmit={handleEditQuiz}
-            // Pass the safe, deep-copied data to the form
             initialQuizData={quizDataForForm}
-            title="Edit Quiz"
+            modalTitle="Edit Quiz"
+            submitText="Update Quiz"
+            loading={loading}
         />
     );
 };

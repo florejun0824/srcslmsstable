@@ -4,73 +4,23 @@ import { db } from '../../services/firebase';
 import { collection, doc, getDocs, writeBatch, serverTimestamp, query, where, Timestamp } from 'firebase/firestore';
 import Modal from '../common/Modal';
 import { ChevronUpDownIcon, CheckIcon } from '@heroicons/react/24/solid';
-import PortalDatePicker from '../common/PortalDatePicker';
+// --- MODIFICATION START ---
+// 1. Import the ContentSelectionModal
+import ContentSelectionModal from './ContentSelectionModal';
+// 2. Import the NEW ClassSelectionModal
+import ClassSelectionModal from './ClassSelectionModal';
+// --- MODIFICATION END ---
 
-const GroupCheckbox = React.memo(({ checked, indeterminate, ...props }) => {
-    const ref = React.useRef(null);
-    useEffect(() => {
-        if (ref.current) {
-            ref.current.indeterminate = indeterminate;
-        }
-    }, [indeterminate]);
-    return <input type="checkbox" ref={ref} checked={checked} {...props} className="h-5 w-5 rounded-md border-gray-400/70 text-blue-600 focus:ring-blue-500 cursor-pointer" />;
-});
-
-const CustomMultiSelect = React.memo(({ title, options, selectedValues, onSelectionChange, onSelectGroup, isOpen, onToggle, disabled = false }) => {
-    const selectedCount = selectedValues.length;
-    const isGrouped = !Array.isArray(options);
-
-    const renderOptions = () => {
-        if (!isGrouped) {
-            return options.map(({ value, label }) => (
-                <li key={value} onClick={() => onSelectionChange(value)} className="flex items-center justify-between p-3 hover:bg-blue-500/10 cursor-pointer rounded-lg text-base transition-colors duration-150">
-                    <span className="text-gray-800">{label}</span>
-                    {selectedValues.includes(value) && <CheckIcon className="h-5 w-5 text-blue-600" />}
-                </li>
-            ));
-        }
-        return Object.entries(options).map(([groupName, groupOptions]) => {
-            const groupIds = groupOptions.map(opt => opt.value);
-            const selectedInGroup = groupIds.filter(id => selectedValues.includes(id));
-            const isAllSelected = selectedInGroup.length === groupIds.length && groupIds.length > 0;
-            const isPartiallySelected = selectedInGroup.length > 0 && !isAllSelected;
-
-            return (
-                <div key={groupName}>
-                    {onSelectGroup && (
-                        <div className="flex items-center gap-3 p-2 my-1 bg-gray-100/80 rounded-lg sticky top-0 z-10">
-                            <GroupCheckbox checked={isAllSelected} indeterminate={isPartiallySelected} onChange={() => onSelectGroup(groupName)} />
-                            <label onClick={() => onSelectGroup(groupName)} className="font-semibold text-gray-900 cursor-pointer select-none flex-grow text-sm">{groupName}</label>
-                        </div>
-                    )}
-                    {groupOptions.map(({ value, label }) => (
-                        <li key={value} onClick={() => onSelectionChange(value)} className="flex items-center justify-between p-3 pl-10 hover:bg-blue-500/10 cursor-pointer rounded-lg text-base transition-colors duration-150">
-                            <span className="text-gray-800">{label}</span>
-                            {selectedValues.includes(value) && <CheckIcon className="h-5 w-5 text-blue-600" />}
-                        </li>
-                    ))}
-                </div>
-            );
-        });
-    };
-
-    return (
-        <div className="relative">
-            <button type="button" onClick={onToggle} disabled={disabled} className="flex w-full items-center justify-between p-4 bg-neumorphic-base rounded-xl shadow-neumorphic focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 disabled:bg-gray-200/50 disabled:cursor-not-allowed">
-                <span className="block truncate text-base">{selectedCount > 0 ? `${selectedCount} ${title} Selected` : `Select ${title}`}</span>
-                <ChevronUpDownIcon className={`h-5 w-5 text-gray-400 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {isOpen && (
-                <div className="absolute z-20 mt-2 max-h-60 w-full overflow-auto rounded-2xl bg-white/80 backdrop-blur-xl py-2 text-base shadow-xl ring-1 ring-black/5 focus:outline-none p-2">
-                    <ul className="space-y-1">{renderOptions()}</ul>
-                </div>
-            )}
-        </div>
-    );
-});
 
 // --- MODIFICATION START ---
-// 1. Added a CustomSingleSelect component to fix the native <select> issue on mobile.
+// 3. Moved button styles to top level to be shared
+const primaryButtonStyles = "px-6 py-3 text-base font-semibold text-white bg-blue-600 rounded-full shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all duration-200 disabled:opacity-50 active:scale-95";
+const secondaryButtonStyles = "px-6 py-3 text-base font-semibold text-gray-900 bg-neumorphic-base rounded-full shadow-neumorphic hover:text-blue-600 transition-all disabled:opacity-50 active:scale-95";
+
+// 4. REMOVED the inline ClassSelectionModal component
+// --- MODIFICATION END ---
+
+
 const CustomSingleSelect = React.memo(({ options, selectedValue, onSelectionChange, isOpen, onToggle, placeholder = "Select...", disabled = false }) => {
     
     const selectedLabel = options.find(opt => opt.value === selectedValue)?.label || placeholder;
@@ -91,40 +41,73 @@ const CustomSingleSelect = React.memo(({ options, selectedValue, onSelectionChan
                 <ChevronUpDownIcon className={`h-5 w-5 text-gray-400 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
             {isOpen && (
-                <div className="absolute z-20 mt-2 max-h-60 w-full overflow-auto rounded-2xl bg-white/80 backdrop-blur-xl py-2 text-base shadow-xl ring-1 ring-black/5 focus:outline-none p-2">
+                <div className="absolute z-20 mb-2 bottom-full max-h-60 w-full overflow-auto rounded-2xl bg-white/80 backdrop-blur-xl py-2 text-base shadow-xl ring-1 ring-black/5 focus:outline-none p-2">
                     <ul className="space-y-1">{renderOptions()}</ul>
                 </div>
             )}
         </div>
     );
 });
-// --- MODIFICATION END ---
+
 
 const CustomDateTimePicker = React.memo(({ selectedDate, onDateChange, isClearable = false, placeholder = "Select date" }) => {
-    const handleDateSelect = (date) => {
-        if (!date && isClearable) {
-            onDateChange(null);
+    
+    const handleDateChange = (e) => {
+        const dateValue = e.target.value; // Format: "YYYY-MM-DD"
+        
+        if (!dateValue) {
+            if (isClearable) {
+                onDateChange(null);
+            }
             return;
         }
+
+        const [year, month, day] = dateValue.split('-').map(Number);
         const newDate = new Date(selectedDate || new Date());
-        newDate.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+        newDate.setFullYear(year, month - 1, day);
+        if (!selectedDate) {
+            newDate.setSeconds(0, 0);
+        }
         onDateChange(newDate);
     };
-    const handleTimeSelect = (timeValue) => {
+
+    const handleTimeChange = (e) => {
+        const timeValue = e.target.value; // Format: "HH:MM"
+        
         if (!timeValue) return;
-        const [hours, minutes] = timeValue.split(':');
+
+        const [hours, minutes] = timeValue.split(':').map(Number);
         const newDate = new Date(selectedDate || new Date());
-        newDate.setHours(parseInt(hours, 10));
-        newDate.setMinutes(parseInt(minutes, 10));
+        newDate.setHours(hours, minutes);
+        newDate.setSeconds(0, 0);
         onDateChange(newDate);
     };
-    const timeValue = selectedDate ? `${String(selectedDate.getHours()).padStart(2, '0')}:${String(selectedDate.getMinutes()).padStart(2, '0')}` : '';
+    
+    const dateValue = selectedDate 
+        ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`
+        : '';
+
+    const timeValue = selectedDate 
+        ? `${String(selectedDate.getHours()).padStart(2, '0')}:${String(selectedDate.getMinutes()).padStart(2, '0')}` 
+        : '';
+
     const inputClasses = "w-full p-4 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 placeholder:text-gray-500";
     
     return (
         <div className="flex flex-col sm:flex-row gap-3">
-            <PortalDatePicker className={`${inputClasses} w-full sm:w-2/3`} selected={selectedDate} onSelect={handleDateSelect} placeholder={placeholder} enableClear={isClearable} />
-            <input type="time" value={timeValue} onChange={(e) => handleTimeSelect(e.target.value)} className={`${inputClasses} w-full sm:w-1/3`} />
+            <input 
+                type="date"
+                value={dateValue}
+                onChange={handleDateChange}
+                className={`${inputClasses} w-full sm:w-2/3`}
+                placeholder={placeholder}
+            />
+            <input 
+                type="time" 
+                value={timeValue} 
+                onChange={handleTimeChange} 
+                className={`${inputClasses} w-full sm:w-1/3`} 
+            />
         </div>
     );
 });
@@ -140,6 +123,12 @@ const ToggleSwitch = ({ label, enabled, onChange, disabled = false }) => (
     </label>
 );
 
+const getInitialDateWithZeroSeconds = () => {
+    const now = new Date();
+    now.setSeconds(0, 0);
+    return now;
+};
+
 export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) {
     const { user } = useAuth();
     const [classes, setClasses] = useState([]);
@@ -149,10 +138,14 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     const [selectedClasses, setSelectedClasses] = useState([]);
     const [selectedLessons, setSelectedLessons] = useState([]);
     const [selectedQuizzes, setSelectedQuizzes] = useState([]);
-    const [availableFrom, setAvailableFrom] = useState(new Date());
+    const [availableFrom, setAvailableFrom] = useState(getInitialDateWithZeroSeconds());
     const [availableUntil, setAvailableUntil] = useState(null);
     const [selectedQuarter, setSelectedQuarter] = useState(null);
     const [sendAsExam, setSendAsExam] = useState(false);
+    
+    const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+    const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
+    const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
     
     const [quizSettings, setQuizSettings] = useState({
         enabled: false,
@@ -160,6 +153,8 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         lockOnLeave: true,
         preventScreenCapture: true,
         detectDevTools: true,
+        warnOnPaste: true,
+        preventBackNavigation: true,
     });
 
     const [loading, setLoading] = useState(false);
@@ -194,11 +189,8 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                     getDocs(query(collection(db, 'quizzes'), where('subjectId', '==', subject.id)))
                 ]);
 
-                // --- MODIFICATION START ---
-                // 2. Changed sorting from `(a.order || 0) - (b.order || 0)` to a numeric-aware title sort.
                 setUnits(unitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
                     .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true })));
-                // --- MODIFICATION END ---
                 
                 setRawLessons(lessonsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), value: doc.id, label: doc.data().title })));
                 setRawQuizzes(quizzesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), value: doc.id, label: doc.data().title })));
@@ -227,10 +219,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     const allQuizzes = useMemo(() => {
         const grouped = {};
         units.forEach(unit => {
-            // --- MODIFICATION START ---
-            // 3. Added sorting to quizzes within each unit, consistent with lessons.
             const items = rawQuizzes.filter(quiz => quiz.unitId === unit.id).sort((a, b) => (a.order || 0) - (b.order || 0));
-            // --- MODIFICATION END ---
             if (items.length > 0) grouped[unit.title] = items;
         });
         const uncategorized = rawQuizzes.filter(quiz => !quiz.unitId || !units.some(u => u.id === quiz.unitId));
@@ -238,55 +227,46 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         return grouped;
     }, [rawQuizzes, units]);
 
-    // --- MODIFICATION START ---
-    // 4. Defined options for the new CustomSingleSelect.
     const quarterOptions = [
         { value: 1, label: 'Quarter 1' },
         { value: 2, label: 'Quarter 2' },
         { value: 3, label: 'Quarter 3' },
         { value: 4, label: 'Quarter 4' },
     ];
-    // --- MODIFICATION END ---
 
     const handleToggleDropdown = useCallback((dropdownName) => {
         setActiveDropdown(prev => prev === dropdownName ? null : dropdownName);
     }, []);
 
-    const handleSelection = useCallback((id, type) => {
-        const setters = { class: setSelectedClasses, lesson: setSelectedLessons, quiz: setSelectedQuizzes };
-        setters[type](prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
-    }, []);
+    const handleClassSelectionConfirm = (newSelection) => {
+        setSelectedClasses(newSelection);
+        setIsClassModalOpen(false);
+    };
     
-    const handleSelectUnit = useCallback((unitName, type) => {
-        const sourceData = type === 'lesson' ? allLessons : allQuizzes;
-        const setSelected = type === 'lesson' ? setSelectedLessons : setSelectedQuizzes;
-        const currentSelected = type === 'lesson' ? selectedLessons : selectedQuizzes;
-        const idsInUnit = sourceData[unitName]?.map(item => item.value) || [];
-        if (idsInUnit.length === 0) return;
-        const allSelectedInUnit = idsInUnit.every(id => currentSelected.includes(id));
-        setSelected(prevSelected => {
-            const selectedSet = new Set(prevSelected);
-            if (allSelectedInUnit) {
-                idsInUnit.forEach(id => selectedSet.delete(id));
-            } else {
-                idsInUnit.forEach(id => selectedSet.add(id));
-            }
-            return Array.from(selectedSet);
-        });
-    }, [allLessons, allQuizzes, selectedLessons, selectedQuizzes]);
-
     const handleQuizSettingsChange = (field, value) => {
         setQuizSettings(prev => ({ ...prev, [field]: value }));
     };
 
     const handleClose = useCallback(() => {
         setSelectedClasses([]); setSelectedLessons([]); setSelectedQuizzes([]);
-        setAvailableFrom(new Date()); setAvailableUntil(null); setSelectedQuarter(null);
+        setAvailableFrom(getInitialDateWithZeroSeconds()); 
+        setAvailableUntil(null); setSelectedQuarter(null);
         setError(''); setSuccess(''); setRawLessons([]); setRawQuizzes([]);
         setActiveDropdown(null);
         setSendAsExam(false);
+        setIsClassModalOpen(false);
+        setIsLessonModalOpen(false);
+        setIsQuizModalOpen(false);
         
-        setQuizSettings({ enabled: false, shuffleQuestions: true, lockOnLeave: true, preventScreenCapture: true, detectDevTools: true });
+        setQuizSettings({ 
+            enabled: false, 
+            shuffleQuestions: true, 
+            lockOnLeave: true, 
+            preventScreenCapture: true, 
+            detectDevTools: true,
+            warnOnPaste: true,
+            preventBackNavigation: true,
+        });
 
         onClose();
     }, [onClose]);
@@ -319,6 +299,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
             if (quizzesToPost.length > 0) contentParts.push(`${quizzesToPost.length} quiz(zes)`);
 
             const maxAttempts = (isExamPossible && sendAsExam) ? 1 : 3;
+            
             let settingsToSave;
             if (quizSettings.enabled) {
                 settingsToSave = { ...quizSettings, maxAttempts };
@@ -329,6 +310,8 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                     lockOnLeave: false,
                     preventScreenCapture: false,
                     detectDevTools: false,
+                    warnOnPaste: false,
+                    preventBackNavigation: false,
                     maxAttempts
                 };
             }
@@ -366,140 +349,212 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     };
 
     const thingsToShareCount = selectedLessons.length + selectedQuizzes.length;
-    const primaryButtonStyles = "px-6 py-3 text-base font-semibold text-white bg-blue-600 rounded-full shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all duration-200 disabled:opacity-50 active:scale-95";
-    const secondaryButtonStyles = "px-6 py-3 text-base font-semibold text-gray-900 bg-neumorphic-base rounded-full shadow-neumorphic hover:text-blue-600 transition-all disabled:opacity-50 active:scale-95";
+    
+    const selectButtonStyle = "flex w-full items-center justify-between p-4 bg-neumorphic-base rounded-xl shadow-neumorphic focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 disabled:bg-gray-200/50 disabled:cursor-not-allowed";
 
     return (
-        <Modal 
-            isOpen={isOpen} 
-            onClose={handleClose} 
-            title="Share Content"
-            description={`Share materials from "${subject.title}" to your classes.`}
-            size="5xl"
-        >
-            <div className="relative max-h-[75vh] flex flex-col">
-                <main className="flex-grow overflow-y-auto pr-2 -mr-2">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* --- Left Column: Settings --- */}
-                        <div className="space-y-6">
-                            <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-3">1. Share With</h3>
-                                <CustomMultiSelect title="Classes" options={classes} selectedValues={selectedClasses} onSelectionChange={(id) => handleSelection(id, 'class')} disabled={contentLoading} isOpen={activeDropdown === 'classes'} onToggle={() => handleToggleDropdown('classes')} />
-                            </section>
+        <React.Fragment>
+            <Modal
+                isOpen={isOpen}
+                onClose={handleClose}
+                title="Share Content"
+                description={`Share materials from "${subject.title}" to your classes.`}
+                size="5xl"
+                contentClassName="bg-neumorphic-base"
+            >
+                <div className="relative max-h-[75vh] flex flex-col">
+                    <main className="flex-grow overflow-y-auto pr-2 -mr-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* --- Left Column: Settings --- */}
+                            <div className="space-y-6">
+                                <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">1. Share With</h3>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsClassModalOpen(true)}
+                                        disabled={contentLoading}
+                                        className={selectButtonStyle}
+                                    >
+                                        <span className="block truncate text-base">
+                                            {selectedClasses.length > 0 ? `${selectedClasses.length} Classes Selected` : `Select Classes`}
+                                        </span>
+                                        <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
+                                    </button>
+                                </section>
 
-                            <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-3">2. Set Post Type</h3>
-                                <div className='space-y-3'>
-                                    {isAssignment && (
-                                        <ToggleSwitch
-                                            label="Send as Assignment"
-                                            enabled={true}
-                                            onChange={() => {}}
-                                            disabled={true}
-                                        />
-                                    )}
-                                    {isExamPossible && (
-                                        <ToggleSwitch
-                                            label="Send as Exam (1 Attempt)"
-                                            enabled={sendAsExam}
-                                            onChange={() => setSendAsExam(!sendAsExam)}
-                                        />
-                                    )}
-                                    {!isAssignment && !isExamPossible && (
-                                        <p className="text-sm text-center text-gray-500 pt-2">Select lessons or quizzes to see options.</p>
-                                    )}
-                                </div>
-                            </section>
-                            
-                            <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-3">3. Set Availability</h3>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Available From</label>
-                                        <CustomDateTimePicker selectedDate={availableFrom} onDateChange={setAvailableFrom} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Available Until <span className="font-normal text-gray-500">(Optional)</span></label>
-                                        <CustomDateTimePicker selectedDate={availableUntil} onDateChange={setAvailableUntil} placeholder="No end date" isClearable={true} />
-                                    </div>
-                                </div>
-                            </section>
-                            <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-3">4. Select Quarter</h3>
-                                {/* --- MODIFICATION START --- */}
-                                {/* 5. Replaced the native <select> with the new CustomSingleSelect component. */}
-                                <CustomSingleSelect
-                                    options={quarterOptions}
-                                    selectedValue={selectedQuarter}
-                                    onSelectionChange={setSelectedQuarter}
-                                    isOpen={activeDropdown === 'quarter'}
-                                    onToggle={() => handleToggleDropdown('quarter')}
-                                    placeholder="-- Select Quarter --"
-                                />
-                                {/* --- MODIFICATION END --- */}
-                            </section>
-                        </div>
-                        {/* --- Right Column: Content --- */}
-                        <div className="space-y-6">
-                            <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-3">5. Choose Content</h3>
-                                <div className="space-y-4">
-                                    <CustomMultiSelect title="Lessons" options={allLessons} selectedValues={selectedLessons} onSelectionChange={(id) => handleSelection(id, 'lesson')} onSelectGroup={(unitName) => handleSelectUnit(unitName, 'lesson')} disabled={contentLoading} isOpen={activeDropdown === 'lessons'} onToggle={() => handleToggleDropdown('lessons')} />
-                                    <CustomMultiSelect title="Quizzes" options={allQuizzes} selectedValues={selectedQuizzes} onSelectionChange={(id) => handleSelection(id, 'quiz')} onSelectGroup={(unitName) => handleSelectUnit(unitName, 'quiz')} disabled={contentLoading} isOpen={activeDropdown === 'quizzes'} onToggle={() => handleToggleDropdown('quizzes')} />
-                                </div>
-                            </section>
-                             <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-3">6. Quiz Security</h3>
-                                <div className="space-y-4">
-                                    <ToggleSwitch
-                                        label="Enable Anti-Cheating Features"
-                                        enabled={quizSettings.enabled}
-                                        onChange={() => handleQuizSettingsChange('enabled', !quizSettings.enabled)}
-                                    />
-                                    {quizSettings.enabled && (
-                                        <div className="pl-4 pt-4 mt-4 border-t border-gray-200/80 space-y-3">
+                                <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">2. Set Post Type</h3>
+                                    <div className='space-y-3'>
+                                        {isAssignment && (
                                             <ToggleSwitch
-                                                label="Shuffle Questions"
-                                                enabled={quizSettings.shuffleQuestions}
-                                                onChange={() => handleQuizSettingsChange('shuffleQuestions', !quizSettings.shuffleQuestions)}
+                                                label="Send as Assignment"
+                                                enabled={true}
+                                                onChange={() => { }}
+                                                disabled={true}
                                             />
-                                            
+                                        )}
+                                        {isExamPossible && (
                                             <ToggleSwitch
-                                                label="Lock on Leaving Quiz Tab/App"
-                                                enabled={quizSettings.lockOnLeave}
-                                                onChange={() => handleQuizSettingsChange('lockOnLeave', !quizSettings.lockOnLeave)}
+                                                label="Send as Exam (1 Attempt)"
+                                                enabled={sendAsExam}
+                                                onChange={() => setSendAsExam(!sendAsExam)}
                                             />
+                                        )}
+                                        {!isAssignment && !isExamPossible && (
+                                            <p className="text-sm text-center text-gray-500 pt-2">Select lessons or quizzes to see options.</p>
+                                        )}
+                                    </div>
+                                </section>
 
-                                            <ToggleSwitch
-                                                label="Prevent Screen Recording & Screenshots"
-                                                enabled={quizSettings.preventScreenCapture}
-                                                onChange={() => handleQuizSettingsChange('preventScreenCapture', !quizSettings.preventScreenCapture)}
-                                            />
-                                            <ToggleSwitch
-                                                label="Detect Developer Tools (Desktop Only)"
-                                                enabled={quizSettings.detectDevTools}
-                                                onChange={() => handleQuizSettingsChange('detectDevTools', !quizSettings.detectDevTools)}
-                                            />
+                                <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">3. Set Availability</h3>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Available From</label>
+                                            <CustomDateTimePicker selectedDate={availableFrom} onDateChange={setAvailableFrom} />
                                         </div>
-                                    )}
-                                </div>
-                            </section>
-                        </div>
-                    </div>
-                </main>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Available Until <span className="font-normal text-gray-500">(Optional)</span></label>
+                                            <CustomDateTimePicker selectedDate={availableUntil} onDateChange={setAvailableUntil} placeholder="No end date" isClearable={true} />
+                                        </div>
+                                    </div>
+                                </section>
+                                <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">4. Select Quarter</h3>
+                                    <CustomSingleSelect
+                                        options={quarterOptions}
+                                        selectedValue={selectedQuarter}
+                                        onSelectionChange={setSelectedQuarter}
+                                        isOpen={activeDropdown === 'quarter'}
+                                        onToggle={() => handleToggleDropdown('quarter')}
+                                        placeholder="-- Select Quarter --"
+                                    />
+                                </section>
+                            </div>
+                            {/* --- Right Column: Content --- */}
+                            <div className="space-y-6">
+                                <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">5. Choose Content</h3>
+                                    <div className="space-y-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsLessonModalOpen(true)}
+                                            disabled={contentLoading}
+                                            className={selectButtonStyle}
+                                        >
+                                            <span className="block truncate text-base">
+                                                {selectedLessons.length > 0 ? `${selectedLessons.length} Lessons Selected` : `Select Lessons`}
+                                            </span>
+                                            <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsQuizModalOpen(true)}
+                                            disabled={contentLoading}
+                                            className={selectButtonStyle}
+                                        >
+                                            <span className="block truncate text-base">
+                                                {selectedQuizzes.length > 0 ? `${selectedQuizzes.length} Quizzes Selected` : `Select Quizzes`}
+                                            </span>
+                                            <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
+                                        </button>
+                                    </div>
+                                </section>
+                                <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">6. Quiz Security</h3>
+                                    <div className="space-y-4">
+                                        <ToggleSwitch
+                                            label="Enable Anti-Cheating Features"
+                                            enabled={quizSettings.enabled}
+                                            onChange={() => handleQuizSettingsChange('enabled', !quizSettings.enabled)}
+                                        />
+                                        {quizSettings.enabled && (
+                                            <div className="pl-4 pt-4 mt-4 border-t border-gray-200/80 space-y-3">
+                                                <ToggleSwitch
+                                                    label="Shuffle Questions"
+                                                    enabled={quizSettings.shuffleQuestions}
+                                                    onChange={() => handleQuizSettingsChange('shuffleQuestions', !quizSettings.shuffleQuestions)}
+                                                />
 
-                {/* --- FOOTER --- */}
-                <footer className="flex-shrink-0 pt-5 mt-5 border-t border-gray-200/80">
-                    {error && (<div className="text-center text-red-600 text-sm mb-4 p-3 bg-red-100/70 rounded-xl">{error}</div>)}
-                    {success && (<div className="text-center text-green-600 text-sm mb-4 p-3 bg-green-100/70 rounded-xl">{success}</div>)}
-                    <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
-                        <button type="button" onClick={handleClose} disabled={loading} className={secondaryButtonStyles}>Cancel</button>
-                        <button onClick={handleShare} disabled={loading || contentLoading || thingsToShareCount === 0 || selectedClasses.length === 0} className={primaryButtonStyles}>
-                            {loading ? 'Sharing...' : `Share ${thingsToShareCount > 0 ? `${thingsToShareCount} Item(s)` : ''}`}
-                        </button>
-                    </div>
-                </footer>
-            </div>
-        </Modal>
+                                                <ToggleSwitch
+                                                    label="Lock on Leaving Quiz Tab/App"
+                                                    enabled={quizSettings.lockOnLeave}
+                                                    onChange={() => handleQuizSettingsChange('lockOnLeave', !quizSettings.lockOnLeave)}
+                                                />
+
+                                                <ToggleSwitch
+                                                    label="Prevent Screen Recording & Screenshots"
+                                                    enabled={quizSettings.preventScreenCapture}
+                                                    onChange={() => handleQuizSettingsChange('preventScreenCapture', !quizSettings.preventScreenCapture)}
+                                                />
+                                                <ToggleSwitch
+                                                    label="Detect Developer Tools (Desktop Only)"
+                                                    enabled={quizSettings.detectDevTools}
+                                                    onChange={() => handleQuizSettingsChange('detectDevTools', !quizSettings.detectDevTools)}
+                                                />
+                                                <ToggleSwitch
+                                                    label="Issue Warning on Paste"
+                                                    enabled={quizSettings.warnOnPaste}
+                                                    onChange={() => handleQuizSettingsChange('warnOnPaste', !quizSettings.warnOnPaste)}
+                                                />
+                                                <ToggleSwitch
+                                                    label="Prevent Going Back to Questions"
+                                                    enabled={quizSettings.preventBackNavigation}
+                                                    onChange={() => handleQuizSettingsChange('preventBackNavigation', !quizSettings.preventBackNavigation)}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                    </main>
+
+                    {/* --- FOOTER --- */}
+                    <footer className="flex-shrink-0 pt-5 mt-5 border-t border-black/10">
+                        {error && (<div className="text-center text-red-600 text-sm mb-4 p-3 bg-red-100/70 rounded-xl">{error}</div>)}
+                        {success && (<div className="text-center text-green-600 text-sm mb-4 p-3 bg-green-100/7V rounded-xl">{success}</div>)}
+                        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                            <button type="button" onClick={handleClose} disabled={loading} className={secondaryButtonStyles}>Cancel</button>
+                            <button onClick={handleShare} disabled={loading || contentLoading || thingsToShareCount === 0 || selectedClasses.length === 0} className={primaryButtonStyles}>
+                                {loading ? 'Sharing...' : `Share ${thingsToShareCount > 0 ? `${thingsToShareCount} Item(s)` : ''}`}
+                            </button>
+                        </div>
+                    </footer>
+                </div>
+            </Modal>
+            
+            {/* --- MODIFICATION --- */}
+            {/* This now points to the new, external component */}
+            <ClassSelectionModal
+                isOpen={isClassModalOpen}
+                onClose={() => setIsClassModalOpen(false)}
+                onConfirm={handleClassSelectionConfirm}
+                allClasses={classes}
+                currentSelection={selectedClasses}
+            />
+
+            <ContentSelectionModal
+                isOpen={isLessonModalOpen}
+                onClose={() => setIsLessonModalOpen(false)}
+                onConfirm={(selection) => {
+                    setSelectedLessons(selection);
+                }}
+                title="Select Lessons"
+                options={allLessons}
+                currentSelection={selectedLessons}
+            />
+            <ContentSelectionModal
+                isOpen={isQuizModalOpen}
+                onClose={() => setIsQuizModalOpen(false)}
+                onConfirm={(selection) => {
+                    setSelectedQuizzes(selection);
+                }}
+                title="Select Quizzes"
+                options={allQuizzes}
+                currentSelection={selectedQuizzes}
+            />
+        </React.Fragment>
     );
 }
+
