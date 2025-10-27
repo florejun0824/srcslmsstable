@@ -2023,90 +2023,92 @@ d                                            })}
                         )}
                     </div>
 
-                    {/* Content Area (Scrollable) */}
-                    <div className="relative z-20 flex-grow overflow-y-auto px-4 sm:px-6 py-4 custom-scrollbar">
-                        {renderContent()}
-                    </div>
+						{/* Content Area (Scrollable) */}
+						                    <div className="relative z-20 flex-grow overflow-y-auto px-4 sm:px-6 py-4 custom-scrollbar">
+						                        {renderContent()}
+						                    </div>
 
-                    {/* Footer (Navigation / Submit) */}
-                    <div className="relative z-20 flex-shrink-0 p-4 pt-3 border-t border-slate-300/50">
-                        {/* --- Footer Logic for Student Quiz Taking --- */}
-                        {(!isTeacherView && isAvailable && !isLocked && score === null && !hasSubmitted.current) && (
-                            // Determine if the Next/Submit button should be shown
-                            // Show if an answer has been input/selected/confirmed/saved for the current question
-                            (currentQuestionAttempted || (shuffledQuestions[currentQ]?.type === 'essay' && userAnswers[currentQ]?.trim())) ? (
-                                <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-                                    {/* Info: Question Number & Attempts */}
-                                    <div className="text-center sm:text-left flex-shrink-0">
-                                        <span className="text-sm font-medium text-slate-600">
-                                            {renderQuestionNumber()} ({shuffledQuestions[currentQ]?.points || 0} pts)
-                                            <span className="hidden sm:inline"> / {questionNumbering.totalItems} Total Points</span>
-                                        </span>
-                                        <span className="block text-xs text-slate-500 mt-0.5">Attempt {attemptsTaken + 1} of {maxAttempts}</span>
-                                    </div>
-                                    {/* Action Buttons: Back, Next, Submit */}
-                                    <div className="flex gap-2 w-full sm:w-auto">
-                                         {/* Back Button (if enabled and not first question) */}
-                                         {!(quiz?.settings?.preventBackNavigation) && currentQ > 0 && (
-                                            <button
-                                                onClick={() => {
-                                                    // Reset feedback states when going back
-                                                    setCurrentQuestionAttempted(false);
-                                                    setQuestionResult(null);
-                                                    setMatchingResult(null);
-                                                    setCurrentQ(prev => prev - 1);
-                                                }}
-                                                className="flex items-center justify-center gap-1 w-full sm:w-auto px-4 py-2.5 rounded-xl bg-neumorphic-base text-slate-600 font-semibold shadow-neumorphic active:shadow-neumorphic-inset transition-all"
-                                                aria-label="Previous Question"
-                                            >
-                                                <ArrowLeftIcon className="h-5 w-5"/> Back
-                                            </button>
-                                         )}
-                                        {/* Next / Submit Button */}
-                                        {currentQ < totalQuestions - 1 ? (
-                                            <button
-                                                onClick={handleNextQuestion}
-                                                // Disable Next for essay only if textarea is empty
-                                                disabled={shuffledQuestions[currentQ]?.type === 'essay' && !userAnswers[currentQ]?.trim()}
-                                                className="flex items-center justify-center gap-1 w-full sm:w-auto px-5 py-2.5 rounded-xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all disabled:opacity-50 disabled:text-slate-400 disabled:shadow-neumorphic-inset"
-                                                aria-label="Next Question"
-                                            >
-                                                Next <ArrowRightIcon className="h-5 w-5"/>
-                                            </button>
-                                        ) : (
-                                            <button
-                                                onClick={handleSubmit}
-                                                // Disable Submit for essay only if textarea is empty
-                                                disabled={shuffledQuestions[currentQ]?.type === 'essay' && !userAnswers[currentQ]?.trim()}
-                                                className="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-neumorphic-base text-green-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all disabled:opacity-50 disabled:text-slate-400 disabled:shadow-neumorphic-inset"
-                                                aria-label="Submit Quiz"
-                                            >
-                                                Submit Quiz
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            ) : null // Don't show footer if question hasn't been attempted/confirmed/saved yet
-                        )}
+						                    {/* Footer (Navigation / Submit) */}
+						                    <div className="relative z-20 flex-shrink-0 p-4 pt-3 border-t border-slate-300/50">
+						                        {/* --- Footer Logic for Student Quiz Taking --- */}
+						                        {/* --- MODIFICATION: Added check to hide footer if feedback is active --- */}
+						                        {(!isTeacherView && isAvailable && !isLocked && score === null && !hasSubmitted.current && !questionResult && !matchingResult) && (
+						                        // --- END MODIFICATION ---
+						                            // Determine if the Next/Submit button should be shown
+						                            // Show if an answer has been input/selected/confirmed/saved for the current question
+						                            (currentQuestionAttempted || (shuffledQuestions[currentQ]?.type === 'essay' && userAnswers[currentQ]?.trim())) ? (
+						                                <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+						                                    {/* Info: Question Number & Attempts */}
+						                                    <div className="text-center sm:text-left flex-shrink-0">
+						                                        <span className="text-sm font-medium text-slate-600">
+						                                            {renderQuestionNumber()} ({shuffledQuestions[currentQ]?.points || 0} pts)
+						                                            <span className="hidden sm:inline"> / {questionNumbering.totalItems} Total Points</span>
+						                                        </span>
+						                                        <span className="block text-xs text-slate-500 mt-0.5">Attempt {attemptsTaken + 1} of {maxAttempts}</span>
+						                                    </div>
+						                                    {/* Action Buttons: Back, Next, Submit */}
+						                                    <div className="flex gap-2 w-full sm:w-auto">
+						                                         {/* Back Button (if enabled and not first question) */}
+						                                         {!(quiz?.settings?.preventBackNavigation) && currentQ > 0 && (
+						                                            <button
+						                                                onClick={() => {
+						                                                    // Reset feedback states when going back
+						                                                    setCurrentQuestionAttempted(false);
+						                                                    setQuestionResult(null);
+						                                                    setMatchingResult(null);
+						                                                    setCurrentQ(prev => prev - 1);
+						                                                }}
+						                                                className="flex items-center justify-center gap-1 w-full sm:w-auto px-4 py-2.5 rounded-xl bg-neumorphic-base text-slate-600 font-semibold shadow-neumorphic active:shadow-neumorphic-inset transition-all"
+						                                                aria-label="Previous Question"
+						                                            >
+						                                                <ArrowLeftIcon className="h-5 w-5"/> Back
+						                                            </button>
+						                                         )}
+						                                        {/* Next / Submit Button */}
+						                                        {currentQ < totalQuestions - 1 ? (
+						                                            <button
+						                                                onClick={handleNextQuestion}
+						                                                // Disable Next for essay only if textarea is empty
+						                                                disabled={shuffledQuestions[currentQ]?.type === 'essay' && !userAnswers[currentQ]?.trim()}
+						                                                className="flex items-center justify-center gap-1 w-full sm:w-auto px-5 py-2.5 rounded-xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all disabled:opacity-50 disabled:text-slate-400 disabled:shadow-neumorphic-inset"
+						                                                aria-label="Next Question"
+						                                            >
+						                                                Next <ArrowRightIcon className="h-5 w-5"/>
+						                                            </button>
+						                                        ) : (
+						                                            <button
+						                                                onClick={handleSubmit}
+						                                                // Disable Submit for essay only if textarea is empty
+						                                                disabled={shuffledQuestions[currentQ]?.type === 'essay' && !userAnswers[currentQ]?.trim()}
+						                                                className="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-neumorphic-base text-green-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all disabled:opacity-50 disabled:text-slate-400 disabled:shadow-neumorphic-inset"
+						                                                aria-label="Submit Quiz"
+						                                            >
+						                                                Submit Quiz
+						                                            </button>
+						                                        )}
+						                                    </div>
+						                                </div>
+						                            ) : null // Don't show footer if question hasn't been attempted/confirmed/saved yet
+						                        )}
 
-                        {/* Teacher Preview Footer */}
-                        {isTeacherView && totalQuestions > 0 && (
-                            <div className="flex justify-between items-center">
-                                <button onClick={() => setCurrentQ(prev => Math.max(0, prev - 1))} disabled={currentQ === 0} className="flex items-center gap-1 px-4 py-2 rounded-xl bg-neumorphic-base text-slate-700 font-semibold shadow-neumorphic active:shadow-neumorphic-inset disabled:opacity-50 transition-all" aria-label="Previous Question">
-                                    <ArrowLeftIcon className="h-5 w-5"/>Previous
-                                </button>
-                                <span className="text-xs text-center font-medium text-slate-600">
-                                    {renderQuestionNumber()} ({shuffledQuestions[currentQ]?.points || 0} pts)
-                                    <br/>(Item {currentQ + 1} of {totalQuestions})
-                                </span>
-                                <button onClick={() => setCurrentQ(prev => Math.min(totalQuestions - 1, prev + 1))} disabled={currentQ === totalQuestions - 1} className="flex items-center gap-1 px-4 py-2 rounded-xl bg-neumorphic-base text-slate-700 font-semibold shadow-neumorphic active:shadow-neumorphic-inset disabled:opacity-50 transition-all" aria-label="Next Question">
-                                    Next<ArrowRightIcon className="h-5 w-5"/>
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </DialogPanel>
-            </Dialog>
+						                        {/* Teacher Preview Footer */}
+						                        {isTeacherView && totalQuestions > 0 && (
+						                            <div className="flex justify-between items-center">
+						                                <button onClick={() => setCurrentQ(prev => Math.max(0, prev - 1))} disabled={currentQ === 0} className="flex items-center gap-1 px-4 py-2 rounded-xl bg-neumorphic-base text-slate-700 font-semibold shadow-neumorphic active:shadow-neumorphic-inset disabled:opacity-50 transition-all" aria-label="Previous Question">
+						                                    <ArrowLeftIcon className="h-5 w-5"/>Previous
+						                                </button>
+						                                <span className="text-xs text-center font-medium text-slate-600">
+						                                    {renderQuestionNumber()} ({shuffledQuestions[currentQ]?.points || 0} pts)
+						                                    <br/>(Item {currentQ + 1} of {totalQuestions})
+						                                </span>
+						                                <button onClick={() => setCurrentQ(prev => Math.min(totalQuestions - 1, prev + 1))} disabled={currentQ === totalQuestions - 1} className="flex items-center gap-1 px-4 py-2 rounded-xl bg-neumorphic-base text-slate-700 font-semibold shadow-neumorphic active:shadow-neumorphic-inset disabled:opacity-50 transition-all" aria-label="Next Question">
+						                                    Next<ArrowRightIcon className="h-5 w-5"/>
+						                                </button>
+						                            </div>
+						                        )}
+						                    </div>
+						                </DialogPanel>
+						            </Dialog>
             {/* Warning Modal */}
             <QuizWarningModal isOpen={showWarningModal} warnings={warnings} maxWarnings={MAX_WARNINGS} onStay={handleStayInQuiz} onLeave={handleLeaveQuiz} isLocked={isLocked}/>
         </>
