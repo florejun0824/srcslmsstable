@@ -8,3 +8,6 @@
 - **Disabled Copy/Paste:** Implemented a feature to prevent students from copying, pasting, or cutting content during a quiz.
 - **Developer Tools Detection:** Implemented a more robust mechanism to detect when a user opens the browser's developer tools, which now triggers a warning.
 - **Enhanced Quiz Security:** The combination of these features enhances the integrity of the quiz environment without being overly intrusive.
+
+### Gamification Features
+ - Added Gamification features on students end

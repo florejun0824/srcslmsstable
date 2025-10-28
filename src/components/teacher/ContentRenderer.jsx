@@ -9,6 +9,7 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import 'katex/dist/katex.min.css';
 import mermaid from 'mermaid';
+import { ChevronDownIcon } from '@heroicons/react/24/solid'; // --- ADDED ---
 
 // --- SVG cleaner ---
 const processSvgContent = (svgString) => {
@@ -274,6 +275,40 @@ export default function ContentRenderer({ htmlContent, text }) {
               }
               return <div className="overflow-x-auto my-2" {...props} />;
             },
+
+            // --- ADDED: INTERACTIVE "CLICK TO REVEAL" ---
+            details: ({ node, ...props }) => {
+              // We separate the <summary> from the rest of the content
+              // so we can wrap the content in a styled, inset box.
+              const summaryChild = props.children[0];
+              const contentChildren = props.children.slice(1);
+
+              return (
+                <details 
+                  className="my-4 bg-neumorphic-base rounded-2xl shadow-neumorphic group overflow-hidden" 
+                  {...props}
+                >
+                  {summaryChild}
+                  <div className="p-4 pt-0">
+                    {/* This inset box contains the hidden content */}
+                    <div className="p-4 rounded-xl bg-neumorphic-base shadow-neumorphic-inset prose max-w-full">
+                      {contentChildren}
+                    </div>
+                  </div>
+                </details>
+              );
+            },
+            summary: ({ node, ...props }) => (
+              <summary 
+                className="flex items-center justify-between p-4 cursor-pointer select-none list-none font-semibold text-gray-800 transition-all active:shadow-neumorphic-inset"
+                {...props}
+              >
+                {/* This renders the text inside the summary */}
+                {props.children} 
+                <ChevronDownIcon className="w-5 h-5 text-gray-500 transition-transform duration-200 group-open:rotate-180" />
+              </summary>
+            ),
+            // --- END ADDED ---
           }}
         />
       </div>

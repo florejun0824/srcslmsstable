@@ -7,6 +7,7 @@ const ScoresTab = ({
     quizzes,
     units,
     quizScores, // This prop is crucial for receiving real-time updates
+    sharedContentPosts, // <-- FIX: Added this prop
     setIsReportModalOpen,
     setSelectedQuizForScores,
     setScoresDetailModalOpen,
@@ -41,7 +42,11 @@ const ScoresTab = ({
     };
 
     const handleViewScores = (quiz) => {
-        setSelectedQuizForScores(quiz);
+        // <-- FIX: Find the post to get the 'availableUntil' date -->
+        const post = sharedContentPosts.find(p => p.quizzes?.some(q => q.id === quiz.id));
+        const availableUntil = post?.availableUntil;
+        // <-- FIX: Pass 'availableUntil' along with the quiz data -->
+        setSelectedQuizForScores({ ...quiz, availableUntil });
         setScoresDetailModalOpen(true);
     };
 

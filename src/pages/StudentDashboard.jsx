@@ -158,9 +158,17 @@ const StudentDashboard = () => {
                 });
             }
 
+            // --- MODIFICATION: Pass the post's creation timestamp ---
             const allLessonsFromPosts = allPosts.flatMap(post =>
-                (post.lessons || []).map(lesson => ({ ...lesson, className: post.className, classId: post.classId, postId: post.id }))
+                (post.lessons || []).map(lesson => ({ 
+                    ...lesson, 
+                    className: post.className, 
+                    classId: post.classId, 
+                    postId: post.id,
+                    createdAt: post.createdAt // <-- This is the added line
+                }))
             );
+            // --- END MODIFICATION ---
             
             const allQuizzesFromPosts = allPosts.flatMap(post =>
                 (post.quizzes || []).map(quiz => ({

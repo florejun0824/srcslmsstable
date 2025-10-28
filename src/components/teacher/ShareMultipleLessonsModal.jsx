@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../services/firebase'; 
 import { collection, doc, getDocs, writeBatch, serverTimestamp, query, where, Timestamp } from 'firebase/firestore';
@@ -11,7 +13,6 @@ import ClassStudentSelectionModal from './ClassStudentSelectionModal';
 const primaryButtonStyles = "px-6 py-3 text-base font-semibold text-white bg-blue-600 rounded-full shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all duration-200 disabled:opacity-50 active:scale-95";
 const secondaryButtonStyles = "px-6 py-3 text-base font-semibold text-gray-900 bg-neumorphic-base rounded-full shadow-neumorphic hover:text-blue-600 transition-all disabled:opacity-50 active:scale-95";
 
-// [ The code for CustomSingleSelect, CustomDateTimePicker, and ToggleSwitch remains unchanged ]
 
 const CustomSingleSelect = React.memo(({ options, selectedValue, onSelectionChange, isOpen, onToggle, placeholder = "Select...", disabled = false }) => {
     
@@ -42,67 +43,39 @@ const CustomSingleSelect = React.memo(({ options, selectedValue, onSelectionChan
 });
 
 
+// --- THIS IS THE MODIFIED COMPONENT ---
 const CustomDateTimePicker = React.memo(({ selectedDate, onDateChange, isClearable = false, placeholder = "Select date" }) => {
     
-    const handleDateChange = (e) => {
-        const dateValue = e.target.value; // Format: "YYYY-MM-DD"
-        
-        if (!dateValue) {
-            if (isClearable) {
-                onDateChange(null);
-            }
-            return;
-        }
-
-        const [year, month, day] = dateValue.split('-').map(Number);
-        const newDate = new Date(selectedDate || new Date());
-        newDate.setFullYear(year, month - 1, day);
-        if (!selectedDate) {
-            newDate.setSeconds(0, 0);
-        }
-        onDateChange(newDate);
-    };
-
-    const handleTimeChange = (e) => {
-        const timeValue = e.target.value; // Format: "HH:MM"
-        
-        if (!timeValue) return;
-
-        const [hours, minutes] = timeValue.split(':').map(Number);
-        const newDate = new Date(selectedDate || new Date());
-        newDate.setHours(hours, minutes);
-        newDate.setSeconds(0, 0);
-        onDateChange(newDate);
-    };
-    
-    const dateValue = selectedDate 
-        ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`
-        : '';
-
-    const timeValue = selectedDate 
-        ? `${String(selectedDate.getHours()).padStart(2, '0')}:${String(selectedDate.getMinutes()).padStart(2, '0')}` 
-        : '';
-
     const inputClasses = "w-full p-4 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 placeholder:text-gray-500";
     
     return (
-        <div className="flex flex-col sm:flex-row gap-3">
-            <input 
-                type="date"
-                value={dateValue}
-                onChange={handleDateChange}
-                className={`${inputClasses} w-full sm:w-2/3`}
-                placeholder={placeholder}
-            />
-            <input 
-                type="time" 
-                value={timeValue} 
-                onChange={handleTimeChange} 
-                className={`${inputClasses} w-full sm:w-1/3`} 
+        <div className="w-full">
+            <DatePicker
+                selected={selectedDate}
+                onChange={onDateChange}
+                isClearable={isClearable}
+                placeholderText={placeholder}
+                
+                // --- Configuration for Date & Time ---
+                showTimeSelect
+                timeIntervals={15} // Keep intervals for quick-scrolling
+                dateFormat="yyyy-MM-dd, h:mm aa"
+                
+                // --- THIS IS THE FIX ---
+                // This adds a text box where you can type any exact time (e.g., "9:07 AM")
+                timeInputLabel="Time:" 
+                
+                // --- Styling ---
+                className={inputClasses}
+                
+                // --- Modal Fix ---
+                popperPlacement="bottom-end"
             />
         </div>
     );
 });
+// --- END OF MODIFIED COMPONENT ---
+
 
 const ToggleSwitch = ({ label, enabled, onChange, disabled = false }) => (
     <label className={`flex items-center justify-between ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
@@ -129,7 +102,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     const [rawQuizzes, setRawQuizzes] = useState([]);
     const [units, setUnits] = useState([]);
     
-    // Map<classId, Set<studentId>>
     const [selectionMap, setSelectionMap] = useState(new Map());
 
     const [selectedLessons, setSelectedLessons] = useState([]);
@@ -177,7 +149,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 const classesRef = collection(db, 'classes');
                 const q = query(classesRef, where('teacherId', '==', user.id));
                 const classesSnapshot = await getDocs(q);
-                // Get student count
                 setClasses(classesSnapshot.docs.map(doc => ({ 
                     value: doc.id, 
                     label: `${doc.data().name} (${doc.data().gradeLevel} - ${doc.data().section})`,
@@ -240,7 +211,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         setActiveDropdown(prev => prev === dropdownName ? null : dropdownName);
     }, []);
 
-    // Update handler to accept the new Map
     const handleClassSelectionConfirm = (newSelectionMap) => {
         setSelectionMap(newSelectionMap);
         setIsClassModalOpen(false);
@@ -251,7 +221,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     };
 
     const handleClose = useCallback(() => {
-        // Reset selectionMap
         setSelectionMap(new Map());
         setSelectedLessons([]); 
         setSelectedQuizzes([]);
@@ -282,7 +251,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
             setError("Please select a quarter before sharing.");
             return;
         }
-        // Update validation check
         if (selectionMap.size === 0 || (selectedLessons.length === 0 && selectedQuizzes.length === 0)) {
             setError("Please select at least one class, at least one student, and one piece of content.");
             return;
@@ -324,7 +292,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 };
             }
 
-            // --- FINAL, GUARANTEED FIX: ALWAYS SAVE EXPLICIT LIST ---
             let totalClassesShared = 0;
             for (const [classId, studentSet] of selectionMap.entries()) {
                 
@@ -337,10 +304,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 totalClassesShared++;
                 const newPostRef = doc(collection(db, `classes/${classId}/posts`));
                 
-                // This payload forces the student application to check the array.
-                // targetAudience MUST be "specific" to bypass the faulty "all" logic.
-                // The student application must be fixed to check:
-                // if (post.targetStudentIds.includes(myId)) { display post }
                 batch.set(newPostRef, {
                     title: `New materials for ${subject.title}`,
                     content: `The following are now available: ${contentParts.join(' and ')}.`,
@@ -361,7 +324,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 const classRef = doc(db, "classes", classId);
                 batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
             }
-            // --- END CRITICAL FIX ---
             
             if (totalClassesShared === 0) {
                  setError("No students were selected. Please select at least one student from a class.");
@@ -382,7 +344,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
 
     const thingsToShareCount = selectedLessons.length + selectedQuizzes.length;
     
-    // Update button text logic
     const classButtonText = () => {
         if (selectionMap.size === 0) return "Select Classes & Students";
         
@@ -411,7 +372,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 <div className="relative max-h-[75vh] flex flex-col">
                     <main className="flex-grow overflow-y-auto pr-2 -mr-2">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* --- Left Column: Settings --- */}
                             <div className="space-y-6">
                                 <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
                                     <h3 className="text-lg font-semibold text-gray-900 mb-3">1. Share With</h3>
@@ -428,7 +388,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                     </button>
                                 </section>
 
-                                {/* ... (Sections 2, 3, 4 are unchanged) ... */}
                                 <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
                                     <h3 className="text-lg font-semibold text-gray-900 mb-3">2. Set Post Type</h3>
                                     <div className='space-y-3'>
@@ -479,9 +438,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                 </section>
                             </div>
                             
-                            {/* --- Right Column: Content --- */}
                             <div className="space-y-6">
-                                {/* ... (Sections 5, 6 are unchanged) ... */}
                                 <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
                                     <h3 className="text-lg font-semibold text-gray-900 mb-3">5. Choose Content</h3>
                                     <div className="space-y-4">
@@ -539,7 +496,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                                 <ToggleSwitch
                                                     label="Detect Developer Tools (Desktop Only)"
                                                     enabled={quizSettings.detectDevTools}
-                                                    onChange={() => handleQuizSettingsChange('detectDevTools', !quizGsettings.detectDevTools)}
+                                                    onChange={() => handleQuizSettingsChange('detectDevTools', !quizSettings.detectDevTools)}
                                                 />
                                                 <ToggleSwitch
                                                     label="Issue Warning on Paste"
@@ -552,6 +509,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                                     onChange={() => handleQuizSettingsChange('preventBackNavigation', !quizSettings.preventBackNavigation)}
                                                 />
                                             </div>
+
                                         )}
                                     </div>
                                 </section>
@@ -559,7 +517,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                         </div>
                     </main>
 
-                    {/* --- FOOTER --- */}
                     <footer className="flex-shrink-0 pt-5 mt-5 border-t border-black/10">
                         {error && (<div className="text-center text-red-600 text-sm mb-4 p-3 bg-red-100/70 rounded-xl">{error}</div>)}
                         {success && (<div className="text-center text-green-600 text-sm mb-4 p-3 bg-green-100/7V rounded-xl">{success}</div>)}
@@ -578,8 +535,8 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 onClose={() => setIsClassModalOpen(false)}
                 onConfirm={handleClassSelectionConfirm}
                 allClasses={classes}
-                currentSelectionMap={selectionMap} // Pass the Map
-                db={db} // Pass the db instance for fetching students
+                currentSelectionMap={selectionMap}
+                db={db}
             />
 
 

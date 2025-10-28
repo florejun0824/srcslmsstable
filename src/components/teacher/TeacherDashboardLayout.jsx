@@ -503,7 +503,7 @@ const TeacherDashboardLayout = (props) => {
             {/* Floating Robot & Modals */}
             <Suspense fallback={null}>
                 <CSSTransition
-                    in={!isChatOpen}
+                    in={!isChatOpen && activeView === 'home'}
                     timeout={300}
                     classNames="animated-robot"
                     unmountOnExit

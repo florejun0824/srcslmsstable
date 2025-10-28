@@ -8,7 +8,8 @@ import {
 } from '@tremor/react';
 import {
     PlusCircleIcon, TrashIcon, BookOpenIcon, PhotoIcon, VideoCameraIcon, Bars3Icon,
-    CodeBracketIcon, LinkIcon, QueueListIcon, PaintBrushIcon, ChatBubbleLeftRightIcon
+    CodeBracketIcon, LinkIcon, QueueListIcon, PaintBrushIcon, ChatBubbleLeftRightIcon,
+    ChevronRightIcon // --- ADDED: Icon for the spoiler button ---
 } from '@heroicons/react/24/outline';
 import ContentRenderer from '../teacher/ContentRenderer';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
@@ -133,6 +134,42 @@ const MarkdownEditor = ({ value, onValueChange }) => {
         applyStyle(`\n${blockTextContent}\n`, '', true);
     };
 
+    // --- ADDED: Function to insert the spoiler/details block ---
+    const applySpoiler = () => {
+        const ta = textareaRef.current;
+        if (!ta) return;
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const text = ta.value;
+        const selectedText = text.substring(start, end);
+
+        const title = "Click to reveal"; // Default title
+        const content = selectedText || "Type hidden text here..."; // Placeholder if nothing is selected
+        
+        // Add newlines to ensure it's a block element
+        const spoilerText = `\n<details>\n  \n\n  ${content}\n\n</details>\n`;
+        
+        const newText = `${text.substring(0, start)}${spoilerText}${text.substring(end)}`;
+
+        onValueChange && onValueChange(newText);
+        
+        setTimeout(() => {
+            adjustHeight();
+            ta.focus();
+            if (selectedText) {
+                // If text was selected, place cursor after the new block
+                ta.selectionStart = ta.selectionEnd = start + spoilerText.length;
+            } else {
+                // If no text was selected, select the placeholder "Type hidden text here..."
+                const contentStart = start + spoilerText.indexOf(content);
+                const contentEnd = contentStart + content.length;
+                ta.selectionStart = contentStart;
+                ta.selectionEnd = contentEnd;
+            }
+        }, 0);
+    };
+    // --- END ADDED ---
+
     const applyMarkdown = (syntax) => {
         const ta = textareaRef.current;
         if (!ta) return;
@@ -212,6 +249,11 @@ const MarkdownEditor = ({ value, onValueChange }) => {
                     )}
                 </div>
                 <ToolbarButton icon={ChatBubbleLeftRightIcon} tooltip="Block Quote" onClick={applyBlockQuote} />
+                
+                {/* --- ADDED: Spoiler Button --- */}
+                <ToolbarButton icon={ChevronRightIcon} tooltip="Click to Reveal" onClick={applySpoiler} />
+                {/* --- END ADDED --- */}
+
                 <div className="w-px h-6 bg-neumorphic-shadow-dark/30 mx-1"></div>
                 <ToolbarButton icon={H1Icon} syntax="h1" tooltip="Heading 1" />
                 <ToolbarButton icon={H2Icon} syntax="h2" tooltip="Heading 2" />

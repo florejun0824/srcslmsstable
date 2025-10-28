@@ -178,21 +178,21 @@ const ContentSelectionModal = ({ isOpen, onClose, onConfirm, title, options, cur
                         {groupOptions.map(({ value, label }, index) => {
                             const isSelected = tempSelection.has(value);
                             return (
-                                <li
-                                    key={value}
-                                    onClick={() => handleToggleItem(value)}
-                                    className={`flex items-center justify-between p-4 pl-5 cursor-pointer transition-colors duration-150 ${isSelected ? 'bg-blue-500/10' : 'hover:bg-black/5'} ${index > 0 ? 'border-t border-black/5' : ''}`}
-                                >
-                                    <label htmlFor={`item-${value}`} className="flex items-center gap-4 cursor-pointer w-full">
-                                        <ItemCheckbox
-                                            id={`item-${value}`}
-                                            checked={isSelected}
-                                            readOnly
-                                        />
-                                        <span className="text-gray-800 flex-grow mr-4 select-none">{label}</span>
-                                    </label>
-                                    {isSelected && <CheckIcon className="h-5 w-5 text-blue-600 flex-shrink-0" />}
-                                </li>
+							<li
+							    key={value}
+							    onClick={() => handleToggleItem(value)}
+							    className={`flex items-center justify-between p-4 pl-5 cursor-pointer transition-colors duration-150 ${isSelected ? 'bg-blue-500/10' : 'hover:bg-black/5'} ${index > 0 ? 'border-t border-black/5' : ''}`}
+							>
+							    {/* CHANGED: label -> div, and removed 'cursor-pointer' */}
+							    <div className="flex items-center gap-4 w-full">
+							        <ItemCheckbox
+							            checked={isSelected}
+							            readOnly
+							        />
+							        <span className="text-gray-800 flex-grow mr-4 select-none">{label}</span>
+							    </div>
+							    {isSelected && <CheckIcon className="h-5 w-5 text-blue-600 flex-shrink-0" />}
+							</li>
                             );
                         })}
                     </ul>

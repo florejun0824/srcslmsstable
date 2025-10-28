@@ -1,3 +1,5 @@
+// src/components/teacher/QuizScoresModal.jsx
+
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from '../common/Modal'; // Adjust path if needed
 import {
@@ -10,18 +12,17 @@ import {
     ChevronDownIcon,
     ArrowUpIcon,
     ArrowDownIcon,
-    SparklesIcon, // Added
-    PencilSquareIcon, // Added
-    ClockIcon // Added
+    SparklesIcon,
+    PencilSquareIcon,
+    ClockIcon,
+    DocumentChartBarIcon // Make sure this import is added
 } from '@heroicons/react/24/solid';
 import { ClockIcon as ClockOutlineIcon } from '@heroicons/react/24/outline'; // Added
-import { Button } from '@tremor/react'; // Assuming Tremor Button is used, adjust if not
-// --- NEW IMPORTS ---
-import { collection, query, where, getDocs, doc, updateDoc, writeBatch } from 'firebase/firestore'; // Added writeBatch for potential future use, updateDoc primarily used
-import { db } from '../../services/firebase'; // Adjust path if needed
-import { gradeEssayWithAI } from '../../services/aiService'; // Adjust path if needed
-import { useToast } from '../../contexts/ToastContext'; // Adjust path if needed
-// --- END NEW IMPORTS ---
+import { Button } from '@tremor/react';
+import { collection, query, where, getDocs, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { db } from '../../services/firebase';
+import { gradeEssayWithAI } from '../../services/aiService';
+import { useToast } from '../../contexts/ToastContext';
 
 
 // Helper function for delay
@@ -122,7 +123,17 @@ const StatusPill = ({ status }) => {
 
 
 // Main Modal Component
-const QuizScoresModal = ({ isOpen, onClose, quiz, classData, quizScores, quizLocks, onUnlockQuiz }) => {
+// --- FIX: Add setIsReportModalOpen to the list of destructured props ---
+const QuizScoresModal = ({ 
+    isOpen, 
+    onClose, 
+    quiz, 
+    classData, 
+    quizScores, 
+    quizLocks, 
+    onUnlockQuiz, 
+    setIsReportModalOpen // <-- THIS WAS MISSING
+}) => {
     const { showToast } = useToast();
     // State for table sorting configuration
     const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'ascending' });
@@ -156,6 +167,9 @@ const QuizScoresModal = ({ isOpen, onClose, quiz, classData, quizScores, quizLoc
     const processedStudentData = useMemo(() => {
         // Return empty array if essential data is missing
         if (!classData?.students || !quiz?.id) return [];
+
+        // Get availableUntil from the quiz prop (passed from ScoresTab)
+        const availableUntilDate = quiz?.availableUntil?.toDate();
 
         const allStudents = classData.students.map(student => {
             // Find all attempts by this student for this specific quiz
@@ -198,7 +212,45 @@ const QuizScoresModal = ({ isOpen, onClose, quiz, classData, quizScores, quizLoc
              const attemptsDisplay = Array(maxAttempts).fill(null); // Create array based on maxAttempts
              // Fill the slots with actual attempt data, preserving order
              studentAttempts.slice(0, maxAttempts).forEach((attempt, index) => {
-                 attemptsDisplay[index] = attempt;
+                 
+                 // <-- Helper to safely convert to JS Date -->
+                 const getJsDate = (timestamp) => {
+                     if (!timestamp) {
+                         return null;
+                     }
+                     // Case 1: Firestore Timestamp
+                     if (typeof timestamp.toDate === 'function') {
+                         return timestamp.toDate();
+                     }
+                     // Case 2: Already a JS Date
+                     if (timestamp instanceof Date) {
+                         return timestamp;
+                     }
+                     // Case 3: String or number that can be parsed
+                     try {
+                         const date = new Date(timestamp);
+                         // Check if parsing resulted in a valid date
+                         if (!isNaN(date.getTime())) { 
+                             return date;
+                         }
+                     } catch (e) {
+                         // Parsing failed, will return null
+                     }
+                     // Fallback for unknown types
+                     return null;
+                 };
+
+                 const submissionDate = getJsDate(attempt.submittedAt);
+                 // <-- END Helper -->
+
+                 // Calculate isLate flag for each attempt
+                 const isLate = !!(
+                    availableUntilDate && 
+                    submissionDate && // Use the safely converted date
+                    submissionDate > availableUntilDate // Direct date comparison
+                 );
+                 // Store the attempt data along with the isLate flag
+                 attemptsDisplay[index] = { ...attempt, isLate };
              });
 
             // Calculate total possible points, fallback to quiz data if attempt data missing
@@ -258,7 +310,7 @@ const QuizScoresModal = ({ isOpen, onClose, quiz, classData, quizScores, quizLoc
         });
 
         return allStudents; // Return the processed and sorted array
-    }, [classData?.students, quizScores, quizLocks, quiz?.id, sortConfig, maxAttempts, quiz?.questions]); // Dependencies
+    }, [classData?.students, quizScores, quizLocks, quiz?.id, sortConfig, maxAttempts, quiz?.questions, quiz?.availableUntil]); // Added quiz.availableUntil to dependency array
 
 
     // Function to update sort configuration state
@@ -567,113 +619,129 @@ const QuizScoresModal = ({ isOpen, onClose, quiz, classData, quizScores, quizLoc
 
     // --- Main JSX Render ---
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Scores for "${quiz?.title || 'Quiz'}"`} size="6xl">
-            <div className="flex flex-col gap-6">
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <StatCard icon={UsersIcon} title="Completion Rate" value={`${completedCount} / ${totalStudents}`} color="blue" />
-                    <StatCard icon={AcademicCapIcon} title="Average Score (%)" value={totalPossiblePoints > 0 ? `${averageScorePercent.toFixed(1)}%` : 'N/A'} color="teal" />
-                    <StatCard icon={ChartBarIcon} title="Highest Score (%)" value={totalPossiblePoints > 0 ? `${highestScorePercent.toFixed(1)}%` : 'N/A'} color="purple" />
+        <Modal 
+            isOpen={isOpen} 
+            onClose={onClose} 
+            title="" 
+            size="screen"
+            roundedClass="rounded-2xl"
+            containerClassName="h-full p-4 bg-black/30 backdrop-blur-sm"
+            contentClassName="p-0"
+            showCloseButton={true}
+        >
+            <div className="p-4 md:p-8 bg-neumorphic-base h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl">
+                
+                {/* 1. Header (flex-shrink-0) */}
+                <div className="mb-6 p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex-shrink-0">
+                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">{`Scores for "${quiz?.title || 'Quiz'}"`}</h1>
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                        <StatCard icon={UsersIcon} title="Completion Rate" value={`${completedCount} / ${totalStudents}`} color="blue" />
+                        <StatCard icon={AcademicCapIcon} title="Average Score (%)" value={totalPossiblePoints > 0 ? `${averageScorePercent.toFixed(1)}%` : 'N/A'} color="teal" />
+                        <StatCard icon={ChartBarIcon} title="Highest Score (%)" value={totalPossiblePoints > 0 ? `${highestScorePercent.toFixed(1)}%` : 'N/A'} color="purple" />
+                    </div>
                 </div>
 
-				{/* --- Bulk Grade Button --- */}
-								                 <div className="pt-2"> {/* Container for responsive width */}
-								                     <Button
-								                        onClick={handleBulkGradeEssays}
-								                        disabled={!hasPendingEssaysForThisQuiz || isBulkGrading} // Disabled if no essays OR currently grading
-								                        icon={SparklesIcon}
-								                        // We control all styles via className
-								                        className={`
-								                            w-full sm:w-auto font-semibold transition-all rounded-xl border-none outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-neumorphic-base py-2 px-4
-                            
-								                            ${isBulkGrading 
-								                                // --- LOADING STATE (Gradient) ---
-								                                ? 'text-white bg-gradient-to-r from-blue-400 to-purple-500 shadow-lg opacity-70 cursor-wait animate-pulse' 
-                                
-								                                : hasPendingEssaysForThisQuiz
-								                                    // --- ACTIVE STATE (Gradient) ---
-								                                    ? 'text-white font-bold bg-gradient-to-r from-blue-500 to-purple-600 shadow-lg hover:from-blue-600 hover:to-purple-700 active:shadow-inner active:opacity-90'
-                                    
-								                                    // --- INACTIVE NEUMORPHIC STATE ---
-								                                    // This is the "inset" or "off" look, matching other disabled UI
-								                                    : 'text-slate-500 bg-neumorphic-base shadow-neumorphic-inset cursor-not-allowed'
-								                            }
-								                        `}
-								                     >
-								                        {isBulkGrading ? 'Grading Pending Essays...' : 'Grade Pending Essays'}
-								                     </Button>
-								                 </div>
-								                 {/* --- END Bulk Grade Button --- */}
+				{/* 2. Button Row (flex-shrink-0) */}
+                <div className="flex-shrink-0 mb-6 flex flex-wrap items-center gap-4"> {/* Container for buttons */}
+                    <Button
+                       onClick={handleBulkGradeEssays}
+                       disabled={!hasPendingEssaysForThisQuiz || isBulkGrading}
+                       icon={SparklesIcon}
+                       className={`
+                           w-full sm:w-auto font-semibold transition-all rounded-xl border-none outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-neumorphic-base py-2 px-4
+                           ${isBulkGrading 
+                               ? 'text-white bg-gradient-to-r from-blue-400 to-purple-500 shadow-lg opacity-70 cursor-wait animate-pulse' 
+                               : hasPendingEssaysForThisQuiz
+                                   ? 'text-white font-bold bg-gradient-to-r from-blue-500 to-purple-600 shadow-lg hover:from-blue-600 hover:to-purple-700 active:shadow-inner active:opacity-90'
+                                   : 'text-slate-500 bg-neumorphic-base shadow-neumorphic-inset cursor-not-allowed'
+                           }
+                       `}
+                    >
+                       {isBulkGrading ? 'Grading Pending Essays...' : 'Grade Pending Essays'}
+                    </Button>
+
+                    {/* --- Generate Report Button --- */}
+                    <button
+                        onClick={() => setIsReportModalOpen(true)}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 font-semibold rounded-xl shadow-neumorphic transition-shadow duration-200 hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
+                    >
+                        <DocumentChartBarIcon className="h-5 w-5" />
+                        Generate Report
+                    </button>
+                </div>
+                {/* --- END Button Row --- */}
 
 
-												 {/* Scores Table */}
-												                 <div className="bg-neumorphic-base p-4 rounded-xl shadow-neumorphic overflow-x-auto">
-												                     {/* Table Header */}
-												                     <div className="grid grid-cols-12 gap-4 px-4 py-3 border-b-2 border-slate-300/60 text-left text-xs sm:text-sm font-bold text-slate-600 rounded-t-xl sticky top-0 bg-neumorphic-base z-10 min-w-[700px]">
-												                         {/* Sortable Column Headers */}
-												                         <button onClick={() => requestSort('name')} className="col-span-4 group flex items-center gap-1 hover:text-sky-700 transition-colors"><span>Student Name</span> {getSortIcon('name')}</button>
-												                         <button onClick={() => requestSort('status')} className="col-span-3 group flex items-center gap-1 hover:text-sky-700 transition-colors"><span>Status</span> {getSortIcon('status')}</button>
-												                         {/* Attempt Columns Header */}
-												                         <div className={`col-span-3 grid grid-cols-${maxAttempts} text-center`}>
-												                             {[...Array(maxAttempts)].map((_, i) => (
-												                                 <span key={i} className={`col-span-1 ${maxAttempts > 3 ? 'text-[10px]' : ''}`}>Attempt {i + 1}</span>
-												                             ))}
-												                         </div>
-												                         <div className="col-span-2 text-right">Actions</div>
-												                     </div>
-												                     {/* Table Body (Scrollable) */}
-												                     <div className="mt-1 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
-												                         {processedStudentData.length > 0 ? (
-												                             processedStudentData.map(student => (
-												                                 <div key={student.id} className="grid grid-cols-12 gap-4 items-center p-3 rounded-lg transition-shadow hover:shadow-neumorphic-inset border-b border-slate-200/50 last:border-b-0 min-w-[700px]">
-												                                     {/* Student Name */}
-												                                     <div className="col-span-4 font-semibold text-slate-800 truncate" title={`${student.lastName}, ${student.firstName}`}>{student.lastName}, {student.firstName}</div>
-												                                     {/* Status Pill */}
-												                                     <div className="col-span-3"><StatusPill status={student.status} /></div>
-												                                     {/* Attempts */}
-												                                     <div className={`col-span-3 grid grid-cols-${maxAttempts} gap-1`}>
-												                                         {student.attemptsDisplay.map((attempt, index) => (
-												                                             <div key={index} className="col-span-1 flex justify-center">
-												                                                 {attempt ? (
-												                                                     <ScoreBadge
-												                                                         score={attempt.score}
-												                                                         totalItems={attempt.totalItems} // Use total from the specific attempt
-												                                                         isLate={!!attempt.isLate} // Check if isLate flag exists
-												                                                         status={attempt.status} // Pass status for correct badge display
-												                                                     />
-												                                                 ) : (
-												                                                     <span className="text-slate-400 text-xs">—</span> // Placeholder if no attempt data
-												                                                 )}
-												                                             </div>
-												                                         ))}
-												                                     </div>
-												                                     {/* Actions Column */}
-												                                     <div className="col-span-2 flex justify-end">
-												                                         {/* Unlock Button */}
-												                                         {student.isLocked && onUnlockQuiz && ( // Show only if locked and handler provided
-												                                             <button
-												                                                 onClick={() => quiz?.id && student?.id && onUnlockQuiz(quiz.id, student.id)}
-												                                                 className="px-3 py-1 text-xs font-semibold text-red-600 bg-neumorphic-base rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
-												                                                 title={`Unlock quiz for ${student.firstName}`}
-												                                                 aria-label={`Unlock quiz for ${student.firstName} ${student.lastName}`}
-												                                             >
-												                                                 Unlock
-												                                             </button>
-												                                         )}
-												                                         {/* Placeholder for future actions like "View Details" */}
-												                                         {!student.isLocked && <div className="w-[58px]"></div> /* Keep alignment */}
-												                                     </div>
-												                                 </div>
-												                             ))
-												                         ) : (
-												                             // Empty state message
-												                             <div className="text-center py-8 text-slate-500">No students enrolled in this class yet or no submissions found.</div>
-												                         )}
-												                     </div>
-												                 </div>
-												             </div>
-												         </Modal>
-												     );
-												 };
+                {/* 3. Main content area (flex-1 for expansion, min-h-0 for scrolling) */}
+                <main className="flex-1 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col min-h-0">
+                    {/* Table Header (Sticky) */}
+                    <div className="flex-shrink-0 grid grid-cols-12 gap-4 px-4 py-3 border-b-2 border-slate-300/60 text-left text-xs sm:text-sm font-bold text-slate-600 rounded-t-xl sticky top-0 bg-neumorphic-base z-10 min-w-[700px]">
+                        {/* Sortable Column Headers */}
+                        <button onClick={() => requestSort('name')} className="col-span-4 group flex items-center gap-1 hover:text-sky-700 transition-colors"><span>Student Name</span> {getSortIcon('name')}</button>
+                        <button onClick={() => requestSort('status')} className="col-span-3 group flex items-center gap-1 hover:text-sky-700 transition-colors"><span>Status</span> {getSortIcon('status')}</button>
+                        {/* Attempt Columns Header */}
+                        <div className={`col-span-3 grid grid-cols-${maxAttempts} text-center`}>
+                            {[...Array(maxAttempts)].map((_, i) => (
+                                <span key={i} className={`col-span-1 ${maxAttempts > 3 ? 'text-[10px]' : ''}`}>Attempt {i + 1}</span>
+                            ))}
+                        </div>
+                        <div className="col-span-2 text-right">Actions</div>
+                    </div>
+                    
+                    {/* Table Body (Scrollable) */}
+                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                        {processedStudentData.length > 0 ? (
+                            processedStudentData.map(student => (
+                                <div key={student.id} className="grid grid-cols-12 gap-4 items-center p-3 rounded-lg transition-shadow hover:shadow-neumorphic-inset border-b border-slate-200/50 last:border-b-0 min-w-[700px]">
+                                    {/* Student Name */}
+                                    <div className="col-span-4 font-semibold text-slate-800 truncate" title={`${student.lastName}, ${student.firstName}`}>{student.lastName}, {student.firstName}</div>
+                                    {/* Status Pill */}
+                                    <div className="col-span-3"><StatusPill status={student.status} /></div>
+                                    {/* Attempts */}
+                                    <div className={`col-span-3 grid grid-cols-${maxAttempts} gap-1`}>
+                                        {student.attemptsDisplay.map((attempt, index) => (
+                                            <div key={index} className="col-span-1 flex justify-center">
+                                                {attempt ? (
+                                                    <ScoreBadge
+                                                        score={attempt.score}
+                                                        totalItems={attempt.totalItems} // Use total from the specific attempt
+                                                        isLate={!!attempt.isLate} // This now uses the calculated flag
+                                                        status={attempt.status} // Pass status for correct badge display
+                                                    />
+                                                ) : (
+                                                    <span className="text-slate-400 text-xs">—</span> // Placeholder if no attempt data
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {/* Actions Column */}
+                                    <div className="col-span-2 flex justify-end">
+                                        {/* Unlock Button */}
+                                        {student.isLocked && onUnlockQuiz && ( // Show only if locked and handler provided
+                                            <button
+                                                onClick={() => quiz?.id && student?.id && onUnlockQuiz(quiz.id, student.id)}
+                                                className="px-3 py-1 text-xs font-semibold text-red-600 bg-neumorphic-base rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
+                                                title={`Unlock quiz for ${student.firstName}`}
+                                                aria-label={`Unlock quiz for ${student.firstName} ${student.lastName}`}
+                                            >
+                                                Unlock
+                                            </button>
+                                        )}
+                                        {/* Placeholder for future actions like "View Details" */}
+                                        {!student.isLocked && <div className="w-[58px]"></div> /* Keep alignment */}
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            // Empty state message
+                            <div className="text-center py-8 text-slate-500">No students enrolled in this class yet or no submissions found.</div>
+                        )}
+                    </div>
+                </main>
+            </div>
+        </Modal>
+    );
+};
 
-												 export default QuizScoresModal;
+export default QuizScoresModal;

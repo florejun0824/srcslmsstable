@@ -54,7 +54,7 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
     const [searchTerm, setSearchTerm] = useState('');
     const [loadingClassStudents, setLoadingClassStudents] = useState(null);
 
-    // ... (useEffect for isOpen is unchanged) ...
+    // ... (All logic and useEffects are unchanged) ...
     useEffect(() => {
         if (isOpen) {
             const newMap = new Map();
@@ -70,7 +70,6 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
         }
     }, [isOpen, currentSelectionMap]);
 
-    // --- MODIFICATION 2: Replace the entire useEffect for fetching students ---
     useEffect(() => {
         if (!activeClassId || !db) {
             setStudents([]);
@@ -80,7 +79,6 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
         const fetchStudents = async () => {
             setLoadingStudents(true);
             try {
-                // 1. Get the class document to find the studentIds array
                 const classRef = doc(db, 'classes', activeClassId);
                 const classSnap = await getDoc(classRef);
 
@@ -90,33 +88,25 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
 
                 const studentIds = classSnap.data().studentIds;
                 if (!studentIds || studentIds.length === 0) {
-                    // This is the correct "No Students" condition
                     setStudents([]);
                     setLoadingStudents(false);
                     return;
                 }
 
-                // 2. Fetch student documents from the top-level 'users' collection
-                //    (Change 'users' if your collection is named differently)
                 const usersRef = collection(db, 'users');
                 const studentList = [];
-
-                // Chunk the studentIds array into groups of 30 (Firestore 'in' query limit)
                 const chunks = [];
                 for (let i = 0; i < studentIds.length; i += 30) {
                     chunks.push(studentIds.slice(i, i + 30));
                 }
 
-                // Execute a query for each chunk
                 for (const chunk of chunks) {
                     if (chunk.length === 0) continue;
-                    // Query where the document ID is in our chunk array
                     const q = query(usersRef, where('__name__', 'in', chunk));
                     const snapshot = await getDocs(q);
                     
                     snapshot.docs.forEach(doc => {
                         const data = doc.data();
-                        // Create a displayName consistent with StudentManagementView.jsx
                         const displayName = (data.firstName && data.lastName) 
                                             ? `${data.firstName} ${data.lastName}` 
                                             : (data.displayName || data.email || 'Unknown Student');
@@ -129,7 +119,6 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
                     });
                 }
                 
-                // Sort the final list alphabetically
                 studentList.sort((a, b) => a.displayName.localeCompare(b.displayName));
                 setStudents(studentList);
 
@@ -142,9 +131,7 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
 
         fetchStudents();
     }, [activeClassId, db]);
-    // --- END MODIFICATION 2 ---
 
-    // ... (handleToggleStudent and handleToggleAllStudents are unchanged) ...
     const handleToggleStudent = (studentId) => {
         setTempSelectionMap(prevMap => {
             const newMap = new Map(prevMap);
@@ -184,8 +171,6 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
         });
     };
 
-
-    // --- MODIFICATION 3: Update 'handleToggleClass' to fetch IDs from the class doc ---
     const handleToggleClass = async (classId) => {
         if (loadingClassStudents === classId) return;
 
@@ -211,8 +196,6 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
                     const allStudentIds = students.map(s => s.id);
                     setTempSelectionMap(prev => new Map(prev).set(classId, new Set(allStudentIds)));
                 } else {
-                    // This is the corrected logic:
-                    // Get the class doc and read its 'studentIds' array
                     const classRef = doc(db, 'classes', classId);
                     const classSnap = await getDoc(classRef);
                     if (!classSnap.exists()) throw new Error("Class not found");
@@ -227,9 +210,7 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
             }
         }
     };
-    // --- END MODIFICATION 3 ---
 
-    // ... (handleDone is unchanged) ...
     const handleDone = () => {
         const cleanedMap = new Map();
         for (const [classId, studentSet] of tempSelectionMap.entries()) {
@@ -241,15 +222,14 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
         onClose();
     };
 
-    // ... (filteredClasses useMemo is unchanged) ...
     const filteredClasses = useMemo(() => {
         return allClasses.filter(c => 
             c.label.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [allClasses, searchTerm]);
 
-    // ... (classListContent useMemo is unchanged) ...
     const classListContent = useMemo(() => {
+        // ... (This function is unchanged) ...
         if (filteredClasses.length === 0) {
             return <div className="p-4 text-center text-gray-500">No classes match search.</div>
         }
@@ -293,8 +273,8 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
         });
     }, [filteredClasses, activeClassId, tempSelectionMap, loadingClassStudents]);
 
-    // ... (studentListContent useMemo is unchanged) ...
     const studentListContent = useMemo(() => {
+        // ... (This function is unchanged) ...
         if (loadingStudents) {
             return <StudentListMessage icon={ArrowPathIcon} title="Loading Students..." message="Please wait..." />;
         }
@@ -349,20 +329,26 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
     }, [students, loadingStudents, activeClassId, tempSelectionMap]);
 
 
-    // ... (The main modal return statement is unchanged) ...
     return (
         <Modal 
             isOpen={isOpen} 
             onClose={onClose} 
             title="Select Classes & Students"
             description="Select classes and the specific students you want to share with."
+            // I still recommend reducing this size for a better mobile-first feel
+            // e.g., size="2xl" or size="3xl"
             size="6xl"
             contentClassName="bg-neumorphic-base"
         >
-            <div className="flex flex-col h-[70vh]">
-                <main className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4 min-h-0">
+            {/* --- MODIFICATION 1: Use h-[80vh] for a bit more space --- */}
+            <div className="flex flex-col h-[80vh] md:h-[70vh]">
+                
+                {/* --- MODIFICATION 2: Changed grid to flex, fixed column classes --- */}
+                <main className="flex-grow flex flex-col md:flex-row gap-4 min-h-0">
                     
-                    <div className="md:col-span-1 p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col">
+                    {/* Column 1: Search */}
+                    {/* No flex-grow, it just takes its natural height */}
+                    <div className="w-full md:w-1/3 p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col">
                         <h3 className="text-lg font-semibold mb-3 text-gray-900">Search</h3>
                         <div className="relative">
                             <input 
@@ -381,14 +367,20 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
                         </div>
                     </div>
 
-                    <div className="md:col-span-1 p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col">
+                    {/* Column 2: Class list */}
+                    {/* Added flex-grow and min-h-0 to make it fill height and allow internal scroll */}
+                    <div className="w-full md:w-1/3 p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col flex-grow min-h-0">
                         <h3 className="text-lg font-semibold mb-3 text-gray-900">Class list</h3>
+                        {/* This internal div will now scroll correctly on all screen sizes */}
                         <div className="flex-grow overflow-y-auto space-y-2 -m-1 p-1">
                             {classListContent}
                         </div>
                     </div>
 
-                    <div className="md:col-span-1 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col overflow-hidden">
+                    {/* Column 3: Student list */}
+                    {/* Added flex-grow and min-h-0 to make it fill height and allow internal scroll */}
+                    <div className="w-full md:w-1/3 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col flex-grow min-h-0 overflow-hidden">
+                        {/* studentListContent already contains the scrolling list, this just gives it the height */}
                         {studentListContent}
                     </div>
 
