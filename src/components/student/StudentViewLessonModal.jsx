@@ -1,3 +1,6 @@
+// src/components/teacher/StudentViewLessonModal.jsx
+// MODIFIED TO MATCH TEACHER VIEW STRUCTURE AND ENABLE OBJECTIVES DISPLAY
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog } from '@headlessui/react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,10 +27,9 @@ import pdfFonts from 'pdfmake/build/vfs_fonts';
 pdfMake.vfs = pdfFonts;
 
 // NATIVE FIX: Import Capacitor plugins for native functionality
-import { Capacitor } from '@capacitor/core'; // --- MODIFIED ---
+import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding }from '@capacitor/filesystem';
 import { FileOpener } from '@capacitor-community/file-opener';
-
 
 // NATIVE FIX: Helper to check if running in a native app (Capacitor)
 const isNativePlatform = () => Capacitor.isNativePlatform();
@@ -58,9 +60,6 @@ const nativeSave = async (blob, fileName, mimeType, showToast) => {
     return;
   }
   
-  // --- ✅ MODIFICATION: Using Directory.Documents ---
-  // This is the recommended directory for user-generated files on modern Android
-  // and often has fewer permission issues than Downloads or External root.
   const directory = Directory.Documents; 
 
   try {
@@ -84,11 +83,11 @@ const nativeSave = async (blob, fileName, mimeType, showToast) => {
     const result = await Filesystem.writeFile({
       path: fileName,
       data: base64Data,
-      directory: directory, // --- MODIFIED ---
-      recursive: true // Still include this just in case
+      directory: directory,
+      recursive: true
     });
 
-    showToast(`File saved to Documents folder.`, 'info'); // --- MODIFIED ---
+    showToast(`File saved to Documents folder.`, 'info');
 
     // Now, use FileOpener to open the file with the native OS
     await FileOpener.open({
@@ -113,6 +112,7 @@ const pageTransitionVariants = {
     exit: { opacity: 0, x: -15, transition: { ease: "easeIn", duration: 0.2 } },
 };
 
+// --- ADDED: Container and Item variants for Objectives from ViewLessonModal ---
 const objectivesContainerVariants = {
     visible: { transition: { staggerChildren: 0.07 } },
 };
@@ -121,6 +121,7 @@ const objectiveItemVariants = {
     hidden: { opacity: 0, y: 10 },
     visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 150, damping: 20 } },
 };
+// --- END ADDED ---
 
 
 // Font Loading Functions
@@ -137,9 +138,6 @@ let dejaVuLoaded = false;
 async function registerDejaVuFonts() {
   if (dejaVuLoaded) return;
   
-  // Use relative paths for fonts. 
-  // This works on both localhost and the deployed server (Netlify),
-  // assuming the /fonts folder is in your /public directory.
   try {
     await loadFontToVfs("DejaVuSans.ttf", "/fonts/DejaVuSans.ttf");
     await loadFontToVfs("DejaVuSans-Bold.ttf", "/fonts/DejaVuSans-Bold.ttf");
@@ -158,21 +156,16 @@ async function registerDejaVuFonts() {
     dejaVuLoaded = true;
   } catch (error) {
     console.error("Failed to load custom fonts:", error);
-    // You might want to show a toast error here if loading fails
   }
 }
 
-// ✅ CORRECTED: Helper function to process special text characters
+// Helper function to process special text characters
 const processLatex = (text) => {
     if (!text) return '';
     let processedText = text;
 
-    // Replace custom LaTeX-like commands with unicode characters
     processedText = processedText.replace(/\\degree/g, '°');
     processedText = processedText.replace(/\\angle/g, '∠');
-
-    // ✅ ADDED: Handle \vec{...} command for vectors
-    // This finds \vec{...} and applies a combining arrow over each character inside.
     processedText = processedText.replace(/\\vec\{(.*?)\}/g, (match, content) => {
         return content.split('').map(char => char + '\u20D7').join('');
     });
@@ -185,12 +178,13 @@ const processLatex = (text) => {
 };
 
 
-export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, className }) {
+// --- MODIFIED: Removed onUpdate prop since students don't update lessons ---
+export default function StudentViewLessonModal({ isOpen, onClose, lesson, className }) {
     const [currentPage, setCurrentPage] = useState(0);
     const [currentLesson, setCurrentLesson] = useState(lesson);
     const { showToast } = useToast();
-    const [isFinalizing, setIsFinalizing] = useState(false);
-    const [exportingLessonId, setExportingLessonId] = useState(null); // State for PDF export
+    // --- Removed isFinalizing state as it's not needed for view-only ---
+    const [exportingLessonId, setExportingLessonId] = useState(null);
     const contentRef = useRef(null);
     const lessonPageRef = useRef(null);
 
@@ -205,46 +199,16 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
     const progressPercentage = totalPages > 0 ? ((currentPage + 1) / totalPages) * 100 : 0;
     const pageData = pages[currentPage];
 
+    // --- MODIFIED: Fixed goToPreviousPage logic (was adding 1 instead of subtracting 1) ---
     const goToNextPage = useCallback(() => { if (currentPage < totalPages - 1) { setCurrentPage(prev => prev + 1); if (contentRef.current) contentRef.current.scrollTop = 0; } }, [currentPage, totalPages]);
-    const goToPreviousPage = useCallback(() => { if (currentPage > 0) { setCurrentPage(prev => prev + 1); if (contentRef.current) contentRef.current.scrollTop = 0; } }, [currentPage]);
+    const goToPreviousPage = useCallback(() => { if (currentPage > 0) { setCurrentPage(prev => prev - 1); if (contentRef.current) contentRef.current.scrollTop = 0; } }, [currentPage]);
+    // --- END MODIFIED ---
 
     useEffect(() => { const handleKeyDown = (e) => { if (!isOpen) return; if (e.key === 'ArrowRight') goToNextPage(); else if (e.key === 'ArrowLeft') goToPreviousPage(); }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isOpen, goToNextPage, goToPreviousPage]);
 
-    const handleFinalizeDiagram = async (finalizedContent) => {
-        if (isFinalizing) return;
-        setIsFinalizing(true);
-        showToast("Finalizing diagram...", "info");
-        try {
-            const updatedPages = currentLesson.pages.map((page, index) => index === currentPage ? { ...page, type: 'diagram', content: finalizedContent } : page );
-            const updatedLesson = { ...currentLesson, pages: updatedPages };
-            setCurrentLesson(updatedLesson);
-            await updateDoc(doc(db, 'lessons', currentLesson.id), { pages: updatedPages });
-            showToast("Diagram saved successfully!", "success");
-            if (onUpdate) onUpdate(updatedLesson);
-        } catch (error) {
-            console.error("Error finalizing diagram:", error);
-            showToast("Failed to save the finalized diagram.", "error");
-            setCurrentLesson(lesson);
-        } finally {
-            setIsFinalizing(false);
-        }
-    };
+    // --- Removed handleFinalizeDiagram and handleRevertDiagramToEditable as students can't edit ---
+    // These functions should only exist in the teacher's ViewLessonModal.
 
-    const handleRevertDiagramToEditable = async () => {
-        showToast("Loading editor...", "info");
-        try {
-            const updatedPages = currentLesson.pages.map((page, index) => index === currentPage ? { ...page, type: 'diagram-data' } : page );
-            const updatedLesson = { ...currentLesson, pages: updatedPages };
-            setCurrentLesson(updatedLesson);
-            await updateDoc(doc(db, 'lessons', currentLesson.id), { pages: updatedPages });
-            if (onUpdate) onUpdate(updatedLesson);
-        } catch (error) {
-            console.error("Error reverting diagram:", error);
-            showToast("Could not re-edit the diagram.", "error");
-        }
-    };
-
-    // --- PDF EXPORT FUNCTION ---
 	const handleExportLessonPdf = async (lessonToExport) => {
 	    if (exportingLessonId) return;
 	    setExportingLessonId(lessonToExport.id);
@@ -278,12 +242,10 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
 
 	            let contentString = typeof page.content === 'string' ? page.content : '';
                 
-                // ✅ FIX 1: Process raw text before parsing markdown
                 contentString = processLatex(contentString);
 
 	            let html = marked.parse(contentString);
 
-                // ✅ FIX 2: Clean up blockquote HTML for proper rendering
                 html = html
                     .replace(/<blockquote>\s*<p>/g, '<blockquote>')
                     .replace(/<\/p>\s*<\/blockquote>/g, '</blockquote>');
@@ -374,7 +336,7 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                             <button
                                 onClick={() => handleExportLessonPdf(currentLesson)}
                                 disabled={!!exportingLessonId}
-                                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-full shadow-neumorphic active:shadow-neumorphic-inset transition-shadow duration-150 ease-out whitespace-nowR.Ap disabled:opacity-60 disabled:cursor-not-allowed"
+                                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-full shadow-neumorphic active:shadow-neumorphic-inset transition-shadow duration-150 ease-out whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                                 <ArrowDownTrayIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                                 <span className="hidden sm:inline">
@@ -389,20 +351,22 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                     <div className="w-full max-w-3xl flex-grow">
                         <AnimatePresence initial={false} mode="wait">
                             <motion.div key={currentPage} variants={pageTransitionVariants} initial="hidden" animate="visible" exit="exit" className="w-full min-h-full bg-neumorphic-base rounded-xl shadow-neumorphic p-6 sm:p-8">
+                                {/* --- ADDED: Learning Objectives Display --- */}
                                 {currentPage === 0 && objectives.length > 0 && (
                                     <motion.div variants={objectivesContainerVariants} initial="hidden" animate="visible" className="mb-8 p-5 bg-neumorphic-base rounded-xl shadow-neumorphic-inset">
                                         <h3 className="flex items-center gap-3 text-lg font-bold text-tremor-content-strong mb-4"><ListBulletIcon className="h-6 w-6 text-red-600" />{objectivesLabel}</h3>
                                         <ul className="space-y-3 text-base text-slate-700">{objectives.map((objective, index) => (<motion.li key={index} variants={objectiveItemVariants} className="flex items-start gap-3"><CheckCircleIcon className="h-5 w-5 text-red-500 flex-shrink-0 mt-1" /><div className="flex-1"><ContentRenderer text={objective} /></div></motion.li>))}</ul>
                                     </motion.div>
                                 )}
+                                {/* --- END ADDED --- */}
+
                                 {pageData ? (
                                     <LessonPage
                                         ref={lessonPageRef}
                                         page={pageData}
-                                        isEditable={false}
-                                        onFinalizeDiagram={handleFinalizeDiagram}
-                                        onRevertDiagram={handleRevertDiagramToEditable}
-                                        isFinalizing={isFinalizing}
+                                        isEditable={false} // HARDCODED TO FALSE FOR STUDENTS
+                                        // Removed onFinalizeDiagram and onRevertDiagram
+                                        isFinalizing={false} // HARDCODED TO FALSE
                                     />
                                 ) : (
                                     currentPage === 0 && objectives.length > 0 ? null : ( <div className="flex flex-col items-center justify-center text-center text-slate-500 h-full py-12"><QuestionMarkCircleIcon className="w-16 h-16 text-slate-300 mb-4" /><p className="text-lg font-medium">No content for this page.</p></div>)
@@ -416,8 +380,10 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                         <button onClick={goToPreviousPage} disabled={currentPage === 0} className="p-3 rounded-full text-slate-600 bg-neumorphic-base shadow-neumorphic active:shadow-neumorphic-inset disabled:shadow-none disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-150 ease-out" aria-label="Previous page"><ArrowLeftIcon className="h-5 w-5" /></button>
                         <span className="text-sm font-semibold text-tremor-content whitespace-nowrap">{totalPages > 0 ? `Page ${currentPage + 1} / ${totalPages}` : 'No Pages'}</span>
                     </div>
+                    {/* The middle div is intentionally empty to mimic the teacher's layout 
+                        where the editing buttons would be. */}
                     <div className="flex items-center gap-2 justify-center">
-                        {/* Intentionally empty for layout */}
+                        {/* No editing buttons for students */}
                     </div>
                     <div className="flex justify-end">
                         <button
