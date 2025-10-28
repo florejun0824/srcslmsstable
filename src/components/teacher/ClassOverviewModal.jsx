@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Modal from '../common/Modal';
 import AnnouncementViewModal from '../common/AnnouncementViewModal';
-// ... (rest of imports are unchanged) ...
+import QuizScoresModal from './QuizScoresModal';
 import ScoresTab from './ScoresTab';
 import { db } from '../../services/firebase';
 import {
@@ -44,7 +44,6 @@ import GenerateReportModal from './GenerateReportModal';
 import EditAvailabilityModal from './EditAvailabilityModal';
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
 
-// ... (fetchDocsInBatches function is unchanged) ...
 const fetchDocsInBatches = async (collectionName, ids) => {
     if (!ids || ids.length === 0) return [];
     const chunks = [];
@@ -60,7 +59,6 @@ const fetchDocsInBatches = async (collectionName, ids) => {
 
 
 const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => {
-    // ... (All state hooks are unchanged) ...
     const { userProfile } = useAuth();
     const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState('announcements');
@@ -86,7 +84,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const [selectedLessons, setSelectedLessons] = useState(new Set());
     const [selectedQuizzes, setSelectedQuizzes] = useState(new Set());
 
-    // ... (All useEffect hooks are unchanged) ...
     useEffect(() => {
         if (isOpen && classData?.id) {
             setActiveTab('announcements');
@@ -227,8 +224,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
     }, [activeTab, units, sharedContentPosts, isOpen, classData?.id]);
 
-    // ... (All handler functions: handleTabChange, handleToggleSelection, handleDeleteSelected, etc. are unchanged) ...
-    // [ Omitting handler functions for brevity ]
     const handleTabChange = (tabName) => {
         setActiveTab(tabName);
         setSelectedLessons(new Set());
@@ -496,11 +491,9 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     };
 
     
-    // --- MODIFICATION: Added scroll classes back to each tab's container ---
     const renderContent = () => {
         if (loading && activeTab !== 'announcements') return <div className="text-center py-10 text-slate-500 text-lg">Loading...</div>;
 
-        // ... (EmptyState, customUnitSort, ListItem, UnitGroup components are unchanged) ...
         const EmptyState = ({ icon: Icon, text, subtext }) => (
             <div className="text-center p-12 bg-neumorphic-base rounded-2xl shadow-neumorphic-inset mt-4">
                 <Icon className="h-16 w-16 mb-4 text-slate-300 mx-auto" />
@@ -551,11 +544,11 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             const sortedUnitKeys = Object.keys(lessonsByUnit).sort(customUnitSort);
             const selectedSet = selectedLessons;
 
-            // Added max-h- and overflow-y-auto
             return (
-                <div className="space-y-6 pr-2 max-h-[calc(100vh-450px)] overflow-y-auto custom-scrollbar">
+                // FIX: Removed large h2 headers and ensured single scrolling container.
+                <div className="space-y-6 pr-2 max-h-full overflow-y-auto custom-scrollbar">
                     {sortedUnitKeys.length > 0 ? sortedUnitKeys.map(unitDisplayName => {
-                        // ... (rest of lessons tab logic is unchanged) ...
+                        
                         const lessonsInUnit = lessonsByUnit[unitDisplayName];
                         const lessonIdsInUnit = lessonsInUnit.map(l => l.lessonDetails.id);
                         const isAllSelected = lessonIdsInUnit.length > 0 && lessonIdsInUnit.every(id => selectedSet.has(id));
@@ -600,23 +593,26 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                         </label>
                                         <div className="flex-1 min-w-0" onClick={() => setViewLessonData(lessonDetails)}>
                                             <p className="font-bold text-slate-800 text-lg cursor-pointer hover:text-sky-600 transition-colors truncate">{lessonDetails.title}</p>
-                                            <div className="text-sm text-slate-500 mt-1 flex items-center gap-2"><CalendarDaysIcon className="h-4 w-4 text-slate-400" /><span>Available from: {post.availableFrom?.toDate().toLocaleString() || 'Always'}</span></div>
-                                            {post.availableUntil && <div className="text-sm text-slate-500 flex items-center gap-2"><ClockIcon className="h-4 w-4 text-slate-400" /><span>Until: {post.availableUntil.toDate().toLocaleString()}</span></div>}
                                             
-                                            {(() => {
-                                                let targetText = "Target: All Students";
-                                                if (post.targetAudience === 'all') {
-                                                    targetText = "Target: All Students";
-                                                } else if (post.targetAudience === 'specific') {
-                                                    targetText = `Target: ${post.targetStudentIds?.length || 0} Specific Student(s)`;
-                                                }
-                                                return (
-                                                    <div className="text-sm text-slate-500 flex items-center gap-2 mt-1">
-                                                        <UsersIcon className="h-4 w-4 text-slate-400" />
-                                                        <span>{targetText}</span>
-                                                    </div>
-                                                );
-                                            })()}
+                                            <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap gap-x-3">
+                                                <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
+                                                {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
+                                                
+                                                {(() => {
+                                                    let targetText = "Target: All Students";
+                                                    if (post.targetAudience === 'all') {
+                                                        targetText = "Target: All Students";
+                                                    } else if (post.targetAudience === 'specific') {
+                                                        targetText = `Target: ${post.targetStudentIds?.length || 0} Student(s)`;
+                                                    }
+                                                    return (
+                                                        <span className="flex items-center gap-1">
+                                                            <UsersIcon className="h-3 w-3 text-slate-400" />
+                                                            {targetText}
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </div>
 
                                         </div>
                                         <div className="flex space-x-1 flex-shrink-0">
@@ -644,11 +640,11 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             const sortedUnitKeys = Object.keys(quizzesByUnit).sort(customUnitSort);
             const selectedSet = selectedQuizzes;
 
-            // Added max-h- and overflow-y-auto
             return (
-                <div className="space-y-6 pr-2 max-h-[calc(100vh-450px)] overflow-y-auto custom-scrollbar">
+                // FIX: Removed large h2 headers and ensured single scrolling container.
+                <div className="space-y-6 pr-2 max-h-full overflow-y-auto custom-scrollbar">
                     {sortedUnitKeys.length > 0 ? sortedUnitKeys.map(unitDisplayName => {
-                        // ... (rest of quizzes tab logic is unchanged) ...
+                        
                         const quizzesInUnit = quizzesByUnit[unitDisplayName];
                         const quizIdsInUnit = quizzesInUnit.map(q => q.quizDetails.id);
                         const isAllSelected = quizIdsInUnit.length > 0 && quizIdsInUnit.every(id => selectedSet.has(id));
@@ -705,23 +701,26 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                             >
                                                 {quizDetails.title}
                                             </p>
-                                            <div className="text-sm text-slate-500 mt-1 flex items-center gap-2"><CalendarDaysIcon className="h-4 w-4 text-slate-400" /><span>Available from: {post.availableFrom?.toDate().toLocaleString() || 'Always'}</span></div>
-                                            {post.availableUntil && <div className="text-sm text-slate-500 flex items-center gap-2"><ClockIcon className="h-4 w-4 text-slate-400" /><span>Until: {post.availableUntil.toDate().toLocaleString()}</span></div>}
                                             
-                                            {(() => {
-                                                let targetText = "Target: All Students";
-                                                if (post.targetAudience === 'all') {
-                                                    targetText = "Target: All Students";
-                                                } else if (post.targetAudience === 'specific') {
-                                                    targetText = `Target: ${post.targetStudentIds?.length || 0} Specific Student(s)`;
-                                                }
-                                                return (
-                                                    <div className="text-sm text-slate-500 flex items-center gap-2 mt-1">
-                                                        <UsersIcon className="h-4 w-4 text-slate-400" />
-                                                        <span>{targetText}</span>
-                                                    </div>
-                                                );
-                                            })()}
+                                            <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap gap-x-3">
+                                                <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
+                                                {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
+                                                
+                                                {(() => {
+                                                    let targetText = "Target: All Students";
+                                                    if (post.targetAudience === 'all') {
+                                                        targetText = "Target: All Students";
+                                                    } else if (post.targetAudience === 'specific') {
+                                                        targetText = `Target: ${post.targetStudentIds?.length || 0} Student(s)`;
+                                                    }
+                                                    return (
+                                                        <span className="flex items-center gap-1">
+                                                            <UsersIcon className="h-3 w-3 text-slate-400" />
+                                                            {targetText}
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </div>
 
                                         </div>
                                         <div className="flex space-x-1 flex-shrink-0">
@@ -740,9 +739,9 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             const allQuizzesFromPosts = sharedContentPosts.flatMap(p => p.quizzes || []);
             const allLessonsFromPosts = sharedContentPosts.flatMap(p => p.lessons || []);
             
-            // Added max-h- and overflow-y-auto
             return (
-                 <div className="pr-2 max-h-[calc(100vh-450px)] overflow-y-auto custom-scrollbar">
+                 <div className="pr-2 max-h-full overflow-y-auto custom-scrollbar">
+                    {/* FIX: Removed large h2 headers */}
                     <ScoresTab
                         quizzes={allQuizzesFromPosts}
                         units={units}
@@ -759,9 +758,10 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             );
         }
         if (activeTab === 'students') {
-            // Added max-h- and overflow-y-auto
+            
             return (
-                 <div className="space-y-3 pr-2 max-h-[calc(100vh-450px)] overflow-y-auto custom-scrollbar">
+                 <div className="space-y-3 pr-2 max-h-full overflow-y-auto custom-scrollbar">
+                    {/* FIX: Removed large h2 headers */}
                     {(classData?.students && classData.students.length > 0) ? (
                         <div className="bg-neumorphic-base rounded-2xl shadow-neumorphic-inset p-1">
                             {classData.students.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(student => (
@@ -784,9 +784,9 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             );
         }
         
-        // Added max-h- and overflow-y-auto
         return (
-            <div className="flex flex-col pr-2 max-h-[calc(100vh-450px)] overflow-y-auto custom-scrollbar">
+            <div className="flex flex-col pr-2 max-h-full overflow-y-auto custom-scrollbar">
+                {/* FIX: Removed large h2 headers */}
                 {showAddForm && (<div className="mb-6 flex-shrink-0"><CreateClassAnnouncementForm classId={classData.id} onAnnouncementPosted={() => setShowAddForm(false)} /></div>)}
                 <div className="space-y-4 flex-grow">
                     {announcements.length > 0 ? announcements.map(post => (<AnnouncementListItem key={post.id} post={post} isOwn={userProfile?.id === post.teacherId} onEdit={() => { setEditingId(post.id); setEditContent(post.content); }} onDelete={() => handleDelete(post.id)} isEditing={editingId === post.id} editContent={editContent} onChangeEdit={onChangeEdit} onSaveEdit={() => handleEditSave(post.id)} onCancelEdit={() => setEditingId(null)} onClick={() => setSelectedAnnouncement(post)} />)) : <EmptyState icon={MegaphoneIcon} text="No announcements yet" subtext="Post important updates for your students here." />}
@@ -797,7 +797,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
 
     const tabs = [
-        // ... (Tabs array is unchanged) ...
         { id: 'announcements', name: 'Announcements', icon: MegaphoneIcon },
         { id: 'lessons', name: 'Lessons', icon: BookOpenIcon },
         { id: 'quizzes', name: 'Quizzes', icon: AcademicCapIcon },
@@ -811,17 +810,19 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 isOpen={isOpen}
                 onClose={onClose}
                 title=""
-                size="screen"
+                // FIX 2: Set size="screen" to maximize modal width
+                size="screen" 
                 roundedClass="rounded-2xl"
-                containerClassName="h-full p-4 bg-black/30 backdrop-blur-sm"
+                // Adjusted containerClassName to center the modal content
+                containerClassName="h-full p-4 bg-black/30 backdrop-blur-sm" 
                 contentClassName="p-0"
                 showCloseButton={true}
             >
-                <div className="p-4 md:p-8 bg-neumorphic-base h-full flex flex-col">
+                {/* FIX 3: Set FIXED INTERNAL HEIGHT and max width for clean layout */}
+                <div className="p-4 md:p-8 bg-neumorphic-base h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl">
                     
                     {/* 1. Class Header (flex-shrink-0) */}
                     <div className="mb-6 p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex-shrink-0">
-                        {/* ... (Header content unchanged) ... */}
                         <h1 className="text-3xl font-bold text-slate-900 tracking-tight">{classData?.name || 'Class Details'}</h1>
                         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-3">
                             <p className="text-base text-slate-600">
@@ -843,8 +844,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                     </div>
 
                     {/* 2. Top tab bar (flex-shrink-0) */}
-                    <nav className="flex-shrink-0 flex items-center gap-2 p-2 bg-neumorphic-base rounded-2xl shadow-neumorphic mb-6 overflow-x-auto">
-                        {/* ... (Tab buttons unchanged) ... */}
+                    <nav className="flex-shrink-0 flex items-center gap-2 p-2 bg-neumorphic-base rounded-2xl shadow-neumorphic overflow-x-auto">
                         {tabs.map(tab => (
                             <button
                                 key={tab.id}
@@ -861,11 +861,10 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         ))}
                     </nav>
 
-                    {/* --- MODIFICATION: Removed scroll/flex classes from parent <main> --- */}
-                    <main className="bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col">
+                    {/* 3. Main content area (flex-1 for expansion, min-h-0 for scrolling) */}
+                    <main className="flex-1 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col min-h-0 mt-6">
                         <header className="px-8 pt-8 pb-4 flex-shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80">
-                            {/* ... (Main header content unchanged) ... */}
-                            <h2 className="text-3xl font-bold text-slate-900 capitalize">{activeTab}</h2>
+                            {/* This is the main title now */}
                             
                             <div className="flex items-center gap-3">
                                 {activeTab === 'lessons' && selectedLessons.size > 0 && (
@@ -897,8 +896,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                             </div>
                         </header>
                         
-                        {/* --- MODIFICATION: Removed scroll/flex classes from this div --- */}
-                        <div className="px-8 pb-8 custom-scrollbar">
+                        {/* Scrollable content container */}
+                        <div className="flex-1 px-8 pb-8 custom-scrollbar min-h-0">
                             {renderContent()}
                         </div>
                     </main>

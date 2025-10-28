@@ -54,9 +54,17 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
     };
 
     const fetchData = useCallback(async () => {
-        if (!selectedClass?.id) { setLoading(false); return; }
+        // --- START FIX: Check for userProfile.id and get studentId ---
+        if (!selectedClass?.id || !userProfile?.id) { 
+            setLoading(false); 
+            return; 
+        }
+        
         setLoading(true);
+        const studentId = userProfile.id; // The ID of the current student
+
         try {
+            // 1. Fetch Student Announcements (separate from posts)
             const annQuery = query(
                 collection(db, "studentAnnouncements"), 
                 where("classId", "==", selectedClass.id), 
@@ -65,19 +73,53 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
             const annSnap = await getDocs(annQuery);
             setAnnouncements(annSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
+            // 2. Fetch and FILTER Posts (Lessons/Quizzes)
             const postsQuery = query(collection(db, `classes/${selectedClass.id}/posts`), orderBy('createdAt', 'desc'));
             const postsSnap = await getDocs(postsQuery);
             let allLessonsFromPosts = [];
+            
             postsSnap.forEach(doc => {
                 const postData = doc.data();
-                if (Array.isArray(postData.lessons)) {
-                    allLessonsFromPosts.push(...postData.lessons);
+                
+                // --- CRITICAL FILTERING LOGIC START ---
+                const targetAudience = postData.targetAudience;
+                const targetStudentIds = postData.targetStudentIds || [];
+                
+                let isRecipient = false;
+                
+                if (targetAudience === 'specific') {
+                    // Check if the current student's ID is explicitly listed
+                    isRecipient = targetStudentIds.includes(studentId);
+                } else if (targetAudience === 'all') {
+                    // Targeted to all students in the class
+                    isRecipient = true;
+                } else if (!targetAudience && targetStudentIds.length === 0) {
+                    // Fallback for older posts where targetAudience might be missing
+                    isRecipient = true; 
                 }
+
+                if (isRecipient && Array.isArray(postData.lessons)) {
+                    // Only add lessons from posts intended for this student
+                    // Add class context to the lesson object for display/modal use
+                    allLessonsFromPosts.push(...postData.lessons.map(lesson => ({
+                        ...lesson,
+                        classId: selectedClass.id,
+                        className: selectedClass.name,
+                        postId: doc.id,
+                    })));
+                }
+                // --- CRITICAL FILTERING LOGIC END ---
             });
+            
+            // The rest of the logic remains the same: deduplication, sorting, and grouping.
 
             const uniqueLessonsMap = new Map();
             allLessonsFromPosts.forEach(lesson => {
-                uniqueLessonsMap.set(lesson.id, lesson);
+                // Deduplicate lessons by their ID (if they appeared in multiple posts)
+                // The first instance found will be the one used.
+                if (!uniqueLessonsMap.has(lesson.id)) {
+                    uniqueLessonsMap.set(lesson.id, lesson);
+                }
             });
             const fetchedLessons = Array.from(uniqueLessonsMap.values());
 
@@ -112,7 +154,7 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
         } finally {
             setLoading(false);
         }
-    }, [selectedClass]);
+    }, [selectedClass, userProfile?.id]); // --- FIX: Added userProfile?.id to dependencies ---
 
     useEffect(() => { fetchData(); }, [fetchData]);
     
