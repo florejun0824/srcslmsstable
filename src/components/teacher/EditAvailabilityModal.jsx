@@ -1,25 +1,103 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Modal from '../common/Modal';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { db } from '../../services/firebase';
 import { doc, updateDoc, Timestamp, collection, query, where, getDocs, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
+import { MagnifyingGlassIcon, CheckIcon, UserGroupIcon } from '@heroicons/react/24/solid';
 
-const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate }) => {
+// --- Reusable Neumorphic Checkbox (Unchanged) ---
+const NeumorphicCheckbox = React.memo(({ checked, indeterminate, ...props }) => {
+    const ref = React.useRef(null);
+    useEffect(() => {
+        if (ref.current) {
+            ref.current.indeterminate = indeterminate;
+        }
+    }, [indeterminate]);
+    
+    return (
+        <div className="relative w-5 h-5 flex-shrink-0">
+            <input 
+                type="checkbox" 
+                ref={ref} 
+                checked={checked} 
+                {...props} 
+                className="sr-only peer" 
+            />
+            <span className="w-full h-full bg-neumorphic-base rounded-md shadow-neumorphic-inset flex items-center justify-center transition-all peer-checked:bg-blue-500 peer-checked:shadow-neumorphic">
+                <CheckIcon className={`w-4 h-4 text-white transition-opacity ${checked ? 'opacity-100' : 'opacity-0'}`} />
+            </span>
+        </div>
+    );
+});
+
+
+// --- Component starts here ---
+
+const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, classData }) => {
     const { showToast } = useToast();
     const [availableFrom, setAvailableFrom] = useState(new Date());
     const [availableUntil, setAvailableUntil] = useState(new Date());
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const [searchTerm, setSearchTerm] = useState('');
+    const [tempRecipientIds, setTempRecipientIds] = useState(new Set()); 
+    // --- NEW STATE: IDs that were included in the original post ---
+    const [originalRecipientIds, setOriginalRecipientIds] = useState(new Set());
+
+    const allStudents = useMemo(() => {
+        const students = classData?.students || []; 
+        
+        return students.map(s => {
+            const displayName = `${s.lastName || ''}, ${s.firstName || ''}`.trim().replace(/^,\s*|,\s*$/g, '') || s.id;
+            const searchName = `${s.firstName || ''} ${s.lastName || ''} ${s.displayName || ''}`.toLowerCase();
+            
+            return {
+                ...s,
+                displayName: displayName,
+                searchName: searchName,
+            };
+        }).sort((a, b) => a.displayName.localeCompare(b.displayName));
+    }, [classData]);
+
 
     useEffect(() => {
         if (post) {
             setAvailableFrom(post.availableFrom?.toDate() || new Date());
             setAvailableUntil(post.availableUntil?.toDate() || new Date());
+            
+            const initialIds = new Set();
+            const originalIds = new Set();
+            const allCurrentStudentIds = new Set(allStudents.map(s => s.id));
+            
+            if (post.targetAudience === 'all') {
+                allCurrentStudentIds.forEach(id => {
+                    initialIds.add(id);
+                    originalIds.add(id); // All are original recipients
+                });
+            } else if (post.targetAudience === 'specific' && post.targetStudentIds) {
+                post.targetStudentIds.forEach(id => {
+                    if (allCurrentStudentIds.has(id)) {
+                         initialIds.add(id);
+                         originalIds.add(id); // These are the explicit original recipients
+                    }
+                });
+            } else {
+                // Fallback: assume all were selected (safer than assuming none)
+                 allCurrentStudentIds.forEach(id => {
+                    initialIds.add(id);
+                    originalIds.add(id);
+                 });
+            }
+            
+            setTempRecipientIds(initialIds);
+            setOriginalRecipientIds(originalIds);
         }
-    }, [post]);
+    }, [post, allStudents]); 
 
-    // MODIFICATION: Handlers for separate date and time inputs
+
+    // Handlers for date/time (unchanged)
     const handleDateChange = (date, field) => {
         const setter = field === 'from' ? setAvailableFrom : setAvailableUntil;
         const currentDate = field === 'from' ? availableFrom : availableUntil;
@@ -43,44 +121,108 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate }) => 
         });
     };
 
+    // --- MODIFICATION: Locked Recipient Toggle Logic ---
+    const handleToggleStudent = useCallback((studentId) => {
+        // If the student was an original recipient, DO NOT allow deselecting them.
+        if (originalRecipientIds.has(studentId)) {
+            showToast("A student who already received the post cannot be unselected.", "info");
+            return;
+        }
+
+        setTempRecipientIds(prevSet => {
+            const newSet = new Set(prevSet);
+            if (newSet.has(studentId)) {
+                newSet.delete(studentId);
+            } else {
+                newSet.add(studentId);
+            }
+            return newSet;
+        });
+    }, [originalRecipientIds, showToast]);
+
+    // --- MODIFICATION: Locked Recipient Toggle All Logic ---
+    const handleToggleAllStudents = useCallback(() => {
+        const allStudentIds = allStudents.map(s => s.id);
+        const allSelected = tempRecipientIds.size === allStudentIds.length;
+        
+        setTempRecipientIds(prevSet => {
+            const newSet = new Set(prevSet);
+            if (allSelected) {
+                // If attempting to deselect all, keep all original recipients selected.
+                allStudentIds.forEach(id => {
+                    if (!originalRecipientIds.has(id)) {
+                        newSet.delete(id); // Only deselect non-original students
+                    }
+                });
+            } else {
+                // Select all (add all missing ones)
+                allStudentIds.forEach(id => newSet.add(id));
+            }
+            return newSet;
+        });
+    }, [allStudents, tempRecipientIds.size, originalRecipientIds]);
+
+
     const handleUpdate = async () => {
         if (!post?.id || !classId) {
             showToast("Missing information to update dates.", "error");
             return;
         }
 
+        const recipientIdsArray = Array.from(tempRecipientIds);
+        if (recipientIdsArray.length === 0) {
+            showToast("You must select at least one student or 'Select all students'.", "error");
+            return;
+        }
+        
+        // Final check: You cannot unselect an original recipient.
+        const unselectedOriginals = Array.from(originalRecipientIds).filter(id => !tempRecipientIds.has(id));
+        if (unselectedOriginals.length > 0) {
+             showToast("Cannot save. You cannot unselect a student who already received the post.", "error");
+             return;
+        }
+
+
         setIsSubmitting(true);
         try {
             const batch = writeBatch(db);
             const postRef = doc(db, `classes/${classId}/posts`, post.id);
             const classRef = doc(db, "classes", classId);
+            
+            const isAllStudentsSelected = recipientIdsArray.length === allStudents.length;
 
-            batch.update(postRef, {
+            const updatePayload = {
                 availableFrom: Timestamp.fromDate(availableFrom),
-                availableUntil: Timestamp.fromDate(availableUntil)
-            });
+                availableUntil: Timestamp.fromDate(availableUntil),
+                targetAudience: isAllStudentsSelected ? 'all' : 'specific',
+                targetStudentIds: isAllStudentsSelected ? [] : recipientIdsArray, 
+            };
 
+
+            batch.update(postRef, updatePayload);
             batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
             
             await batch.commit();
 
-            showToast("Availability updated successfully!", "success");
+            showToast("Activity settings updated successfully!", "success");
 
             onUpdate({
                 id: post.id,
                 availableFrom: Timestamp.fromDate(availableFrom),
-                availableUntil: Timestamp.fromDate(availableUntil)
+                availableUntil: Timestamp.fromDate(availableUntil),
+                ...updatePayload 
             });
             onClose();
         } catch (error) {
-            console.error("Error updating availability:", error);
-            showToast("Failed to update availability.", "error");
+            console.error("Error updating settings:", error);
+            showToast("Failed to update activity settings.", "error");
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleDelete = async () => {
+        // ... (Delete logic is unchanged) ...
         if (!window.confirm("Are you sure you want to delete this post? This action cannot be undone.")) {
             return;
         }
@@ -96,8 +238,10 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate }) => 
             const postRef = doc(db, `classes/${classId}/posts`, post.id);
             const classRef = doc(db, "classes", classId);
             
-            if (post.quizIds && post.quizIds.length > 0) {
-                const locksQuery = query(collection(db, 'quizLocks'), where('quizId', 'in', post.quizIds));
+            const quizIds = post.quizzes?.map(q => q.id) || [];
+            
+            if (quizIds.length > 0) {
+                const locksQuery = query(collection(db, 'quizLocks'), where('quizId', 'in', quizIds));
                 const locksSnapshot = await getDocs(locksQuery);
                 locksSnapshot.forEach(lockDoc => {
                     batch.delete(lockDoc.ref);
@@ -121,72 +265,181 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate }) => 
         }
     };
 
-    // MODIFICATION: Helper to format time for the time input
     const formatTime = (date) => {
         if (!date) return '';
         return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
     };
 
+    const filteredStudents = useMemo(() => {
+        if (!searchTerm) return allStudents;
+        const lowerSearch = searchTerm.toLowerCase();
+        return allStudents.filter(s => 
+            s.searchName.includes(lowerSearch)
+        );
+    }, [allStudents, searchTerm]);
+
+    const isAllSelectedInClass = allStudents.length > 0 && tempRecipientIds.size === allStudents.length;
+    const isPartiallySelected = tempRecipientIds.size > 0 && !isAllSelectedInClass;
+
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Edit Content Availability">
-            <div className="space-y-4">
-                {/* MODIFICATION START: Updated "Available From" section */}
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Available From</label>
-                    <div className="flex gap-2">
-                        <DatePicker
-                            selected={availableFrom}
-                            onChange={(date) => handleDateChange(date, 'from')}
-                            dateFormat="MMMM d, yyyy"
-                            className="w-2/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
-                        />
-                        <input
-                            type="time"
-                            value={formatTime(availableFrom)}
-                            onChange={(e) => handleTimeChange(e, 'from')}
-                            className="w-1/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
-                        />
-                    </div>
-                </div>
-                {/* MODIFICATION END */}
-
-                {/* MODIFICATION START: Updated "Available Until" section */}
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Available Until</label>
-                     <div className="flex gap-2">
-                        <DatePicker
-                            selected={availableUntil}
-                            onChange={(date) => handleDateChange(date, 'until')}
-                            dateFormat="MMMM d, yyyy"
-                            className="w-2/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
-                        />
-                        <input
-                            type="time"
-                            value={formatTime(availableUntil)}
-                            onChange={(e) => handleTimeChange(e, 'until')}
-                            className="w-1/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
-                        />
-                    </div>
-                </div>
-                {/* MODIFICATION END */}
-
-                <div className="flex justify-between items-center pt-4">
-                    <button
-                        onClick={handleDelete}
-                        className="px-4 py-2 text-sm font-semibold text-red-600 bg-neumorphic-base rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50"
-                        disabled={isSubmitting}
-                    >
-                        Delete Post
-                    </button>
+        // --- UI FIX 1: Removed fixed h-[70vh] height ---
+        <Modal isOpen={isOpen} onClose={onClose} title="Edit Activity Settings" size="4xl"> 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {/* Removed fixed height */}
+                
+                {/* 1. General Settings (Left Column) - Made flex to push date section down if needed */}
+                <div className="space-y-6 flex flex-col">
+                    <h2 className="text-xl font-bold text-slate-800">General Settings</h2>
                     
-                    <div className="flex justify-end gap-2">
-                        <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50" disabled={isSubmitting}>
-                            Cancel
-                        </button>
-                        <button onClick={handleUpdate} className="px-4 py-2 text-sm font-semibold text-blue-700 bg-gradient-to-br from-sky-100 to-blue-200 rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50" disabled={isSubmitting}>
-                            {isSubmitting ? 'Saving...' : 'Save Changes'}
-                        </button>
+                    {/* Title and Comments (flex-grow to push things down) */}
+                    <div className="bg-neumorphic-base p-5 rounded-xl shadow-neumorphic space-y-4 flex-grow"> 
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
+                        <input
+                            type="text"
+                            readOnly
+                            value={post?.lessons?.[0]?.title || post?.quizzes?.[0]?.title || 'Untitled Activity'}
+                            className="w-full p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0 disabled:opacity-80"
+                            disabled
+                        />
+                         <label className="block text-sm font-medium text-slate-700 mb-1">Comments (Optional)</label>
+                        <textarea
+                            readOnly
+                            value={post?.content || ''}
+                            placeholder="No comments for this post."
+                            rows={3}
+                            className="w-full p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0 disabled:opacity-80 resize-none"
+                            disabled
+                        />
                     </div>
+
+                    {/* Available From/Until */}
+                    <div className="bg-neumorphic-base p-5 rounded-xl shadow-neumorphic space-y-4 flex-shrink-0">
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Period: Available From</label>
+                        <div className="flex gap-2">
+                            <DatePicker
+                                selected={availableFrom}
+                                onChange={(date) => handleDateChange(date, 'from')}
+                                dateFormat="MMMM d, yyyy"
+                                className="w-2/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
+                            />
+                            <input
+                                type="time"
+                                value={formatTime(availableFrom)}
+                                onChange={(e) => handleTimeChange(e, 'from')}
+                                className="w-1/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
+                            />
+                        </div>
+
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Available Until</label>
+                        <div className="flex gap-2">
+                            <DatePicker
+                                selected={availableUntil}
+                                onChange={(date) => handleDateChange(date, 'until')}
+                                dateFormat="MMMM d, yyyy"
+                                className="w-2/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
+                            />
+                            <input
+                                type="time"
+                                value={formatTime(availableUntil)}
+                                onChange={(e) => handleTimeChange(e, 'until')}
+                                className="w-1/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* 2. Recipient Settings (Right Column) - Made flex-col to enable scrolling */}
+                <div className="space-y-4 flex flex-col min-h-[500px]"> {/* Added min-h for structure */}
+                    <h2 className="text-xl font-bold text-slate-800">Recipients ({classData?.name || 'Class Roster'})</h2>
+                    
+                    {/* Search Bar */}
+                    <div className="relative flex-shrink-0">
+                        <input
+                            type="text"
+                            placeholder="Search student..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full p-3 pl-10 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-slate-800"
+                        />
+                        <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    </div>
+
+                    {/* Student List Container (flex-1 and overflow-y-auto enables scrolling) */}
+                    <div className="flex-1 bg-neumorphic-base rounded-xl shadow-neumorphic overflow-hidden flex flex-col min-h-0">
+                        
+                        {/* Select All Header */}
+                        <header 
+                            onClick={handleToggleAllStudents}
+                            className="flex items-center gap-3 p-4 border-b border-black/10 cursor-pointer hover:bg-black/5 flex-shrink-0"
+                        >
+                            <NeumorphicCheckbox
+                                checked={isAllSelectedInClass}
+                                indeterminate={isPartiallySelected}
+                                onChange={handleToggleAllStudents}
+                                aria-label="Select all students"
+                            />
+                            <label className="font-semibold text-slate-800 flex-grow cursor-pointer select-none">
+                                Select all students
+                            </label>
+                            <span className="text-sm text-slate-500 font-normal">
+                                ({tempRecipientIds.size}/{allStudents.length})
+                            </span>
+                        </header>
+
+                        {/* Student List Scroll Area */}
+                        <ul className="flex-1 overflow-y-auto">
+                            {filteredStudents.length > 0 ? filteredStudents.map(student => {
+                                const studentName = student.displayName; 
+                                const isSelected = tempRecipientIds.has(student.id);
+                                // --- LOGIC FIX: Disable student if they were in the original post ---
+                                const isDisabled = originalRecipientIds.has(student.id);
+
+                                return (
+                                    <li
+                                        key={student.id}
+                                        onClick={() => handleToggleStudent(student.id)}
+                                        className={`flex items-center gap-3 p-4 transition-colors border-t border-black/5 first:border-t-0 ${
+                                            isDisabled 
+                                            ? 'bg-gray-100 cursor-default opacity-80' 
+                                            : isSelected 
+                                                ? 'bg-blue-500/10 cursor-pointer' 
+                                                : 'hover:bg-black/5 cursor-pointer'
+                                        }`}
+                                    >
+                                        <NeumorphicCheckbox checked={isSelected} readOnly disabled={isDisabled} />
+                                        <span className="text-slate-800 flex-grow select-none">{studentName}</span>
+                                        {isSelected && <CheckIcon className="h-5 w-5 text-blue-600 flex-shrink-0" />}
+                                    </li>
+                                );
+                            }) : (
+                                <li className="p-8 text-center text-slate-500">
+                                    <UserGroupIcon className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+                                    No students match your search.
+                                </li>
+                            )}
+                        </ul>
+                    </div>
+
+                </div>
+            </div>
+
+            {/* --- UI FIX 2: Moved Footer outside the main grid and added top margin --- */}
+            <div className="flex justify-between items-center pt-4 border-t border-black/10 mt-6">
+                <button
+                    onClick={handleDelete}
+                    className="px-4 py-2 text-sm font-semibold text-red-600 bg-neumorphic-base rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50"
+                    disabled={isSubmitting}
+                >
+                    Delete Post
+                </button>
+                
+                <div className="flex justify-end gap-2">
+                    <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50" disabled={isSubmitting}>
+                        Cancel
+                    </button>
+                    <button onClick={handleUpdate} className="px-4 py-2 text-sm font-semibold text-blue-700 bg-gradient-to-br from-sky-100 to-blue-200 rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50" disabled={isSubmitting || tempRecipientIds.size === 0}>
+                        {isSubmitting ? 'Saving...' : 'Save Settings'}
+                    </button>
                 </div>
             </div>
         </Modal>

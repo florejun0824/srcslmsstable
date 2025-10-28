@@ -1,3 +1,5 @@
+// src/StudentDashboard.jsx
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
@@ -5,12 +7,14 @@ import { collection, query, where, onSnapshot, getDocs, documentId } from 'fireb
 import { useToast } from '../contexts/ToastContext';
 
 import StudentDashboardUI from './StudentDashboardUI';
+// ... (other imports are unchanged) ...
 import JoinClassModal from '../components/student/JoinClassModal';
 import ViewQuizModal from '../components/teacher/ViewQuizModal';
 import ViewLessonModal from '../components/student/ViewLessonModal';
 import Spinner from '../components/common/Spinner';
 
 const StudentDashboard = () => {
+    // ... (state and auth setup is unchanged) ...
     const { userProfile, logout, loading: authLoading } = useAuth();
     const [view, setView] = useState('classes');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -28,6 +32,7 @@ const StudentDashboard = () => {
     const [lessonToView, setLessonToView] = useState(null);
     const { showToast } = useToast();
 
+    // ... (useEffect for classes is unchanged) ...
     useEffect(() => {
         if (authLoading || !userProfile?.id) {
             setIsFetchingClasses(false);
@@ -71,6 +76,7 @@ const StudentDashboard = () => {
         return () => unsubscribe();
     }, [userProfile, authLoading]);
 
+    // ... (useEffect for units is unchanged) ...
     useEffect(() => {
         const fetchUnits = async () => {
             try {
@@ -87,6 +93,7 @@ const StudentDashboard = () => {
         };
         fetchUnits();
     }, []);
+    
     
     const fetchContent = useCallback(async () => {
         if (authLoading || !userProfile?.id) {
@@ -108,14 +115,45 @@ const StudentDashboard = () => {
                 );
                 const classPostResults = await Promise.all(postPromises);
                 
+                const studentId = userProfile.id; // Get student ID once
+
                 classPostResults.forEach(result => {
                     result.snapshot.forEach(doc => {
-                        allPosts.push({
+                        const post = {
                             id: doc.id,
                             ...doc.data(),
                             className: result.className,
                             classId: result.classId,
-                        });
+                        };
+
+                        // --- CRITICAL FILTERING LOGIC ---
+                        const targetAudience = post.targetAudience;
+                        const targetStudentIds = post.targetStudentIds || [];
+                        
+                        let isRecipient = false;
+
+                        // Because the teacher app is now explicitly saving the IDs (targetAudience: "specific")
+                        // we must strictly check if the student's ID is in that list.
+                        if (targetAudience === 'specific') {
+                            isRecipient = targetStudentIds.includes(studentId);
+                        } else {
+                            // If targetAudience is not 'specific' (e.g., old post or "all"), 
+                            // and the targetStudentIds array is empty (meaning everyone), 
+                            // assume the student is included. This is the fallback for old/non-specific posts.
+                            // NOTE: If targetAudience is undefined or "all", we assume inclusion.
+                            isRecipient = targetAudience !== 'specific' && targetStudentIds.length === 0;
+                            
+                            // This part ensures that if a post is missing the new fields, it still shows up
+                            if (!targetAudience && !post.lessons && !post.quizzes) {
+                                // If it's a generic announcement (no content), show it.
+                                isRecipient = true;
+                            }
+                        }
+
+                        if (isRecipient) {
+                            allPosts.push(post);
+                        }
+                        // --- END CRITICAL FILTERING LOGIC ---
                     });
                 });
             }
@@ -174,6 +212,7 @@ const StudentDashboard = () => {
 		}
 	}, [userProfile, myClasses, authLoading]);
 
+    // ... (useEffect for categorizing quizzes is unchanged) ...
     useEffect(() => {
         const categorizeQuizzes = () => {
             const now = new Date();
@@ -287,6 +326,7 @@ const StudentDashboard = () => {
 			/>
 		</>
 	);
+	
 };
 
 export default StudentDashboard;

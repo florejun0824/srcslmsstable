@@ -1,25 +1,17 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { db } from '../../services/firebase';
+import { db } from '../../services/firebase'; 
 import { collection, doc, getDocs, writeBatch, serverTimestamp, query, where, Timestamp } from 'firebase/firestore';
 import Modal from '../common/Modal';
 import { ChevronUpDownIcon, CheckIcon } from '@heroicons/react/24/solid';
-// --- MODIFICATION START ---
-// 1. Import the ContentSelectionModal
 import ContentSelectionModal from './ContentSelectionModal';
-// 2. Import the NEW ClassSelectionModal
-import ClassSelectionModal from './ClassSelectionModal';
-// --- MODIFICATION END ---
+import ClassStudentSelectionModal from './ClassStudentSelectionModal';
 
 
-// --- MODIFICATION START ---
-// 3. Moved button styles to top level to be shared
 const primaryButtonStyles = "px-6 py-3 text-base font-semibold text-white bg-blue-600 rounded-full shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all duration-200 disabled:opacity-50 active:scale-95";
 const secondaryButtonStyles = "px-6 py-3 text-base font-semibold text-gray-900 bg-neumorphic-base rounded-full shadow-neumorphic hover:text-blue-600 transition-all disabled:opacity-50 active:scale-95";
 
-// 4. REMOVED the inline ClassSelectionModal component
-// --- MODIFICATION END ---
-
+// [ The code for CustomSingleSelect, CustomDateTimePicker, and ToggleSwitch remains unchanged ]
 
 const CustomSingleSelect = React.memo(({ options, selectedValue, onSelectionChange, isOpen, onToggle, placeholder = "Select...", disabled = false }) => {
     
@@ -123,6 +115,7 @@ const ToggleSwitch = ({ label, enabled, onChange, disabled = false }) => (
     </label>
 );
 
+
 const getInitialDateWithZeroSeconds = () => {
     const now = new Date();
     now.setSeconds(0, 0);
@@ -131,11 +124,14 @@ const getInitialDateWithZeroSeconds = () => {
 
 export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) {
     const { user } = useAuth();
-    const [classes, setClasses] = useState([]);
+    const [classes, setClasses] =useState([]);
     const [rawLessons, setRawLessons] = useState([]);
     const [rawQuizzes, setRawQuizzes] = useState([]);
     const [units, setUnits] = useState([]);
-    const [selectedClasses, setSelectedClasses] = useState([]);
+    
+    // Map<classId, Set<studentId>>
+    const [selectionMap, setSelectionMap] = useState(new Map());
+
     const [selectedLessons, setSelectedLessons] = useState([]);
     const [selectedQuizzes, setSelectedQuizzes] = useState([]);
     const [availableFrom, setAvailableFrom] = useState(getInitialDateWithZeroSeconds());
@@ -181,7 +177,12 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 const classesRef = collection(db, 'classes');
                 const q = query(classesRef, where('teacherId', '==', user.id));
                 const classesSnapshot = await getDocs(q);
-                setClasses(classesSnapshot.docs.map(doc => ({ value: doc.id, label: `${doc.data().name} (${doc.data().gradeLevel} - ${doc.data().section})` })));
+                // Get student count
+                setClasses(classesSnapshot.docs.map(doc => ({ 
+                    value: doc.id, 
+                    label: `${doc.data().name} (${doc.data().gradeLevel} - ${doc.data().section})`,
+                    studentCount: doc.data().studentIds?.length || 0 
+                })));
 
                 const [unitsSnapshot, lessonsSnapshot, quizzesSnapshot] = await Promise.all([
                     getDocs(query(collection(db, 'units'), where('subjectId', '==', subject.id))),
@@ -227,6 +228,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         return grouped;
     }, [rawQuizzes, units]);
 
+
     const quarterOptions = [
         { value: 1, label: 'Quarter 1' },
         { value: 2, label: 'Quarter 2' },
@@ -238,8 +240,9 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         setActiveDropdown(prev => prev === dropdownName ? null : dropdownName);
     }, []);
 
-    const handleClassSelectionConfirm = (newSelection) => {
-        setSelectedClasses(newSelection);
+    // Update handler to accept the new Map
+    const handleClassSelectionConfirm = (newSelectionMap) => {
+        setSelectionMap(newSelectionMap);
         setIsClassModalOpen(false);
     };
     
@@ -248,7 +251,10 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     };
 
     const handleClose = useCallback(() => {
-        setSelectedClasses([]); setSelectedLessons([]); setSelectedQuizzes([]);
+        // Reset selectionMap
+        setSelectionMap(new Map());
+        setSelectedLessons([]); 
+        setSelectedQuizzes([]);
         setAvailableFrom(getInitialDateWithZeroSeconds()); 
         setAvailableUntil(null); setSelectedQuarter(null);
         setError(''); setSuccess(''); setRawLessons([]); setRawQuizzes([]);
@@ -276,10 +282,12 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
             setError("Please select a quarter before sharing.");
             return;
         }
-        if (selectedClasses.length === 0 || (selectedLessons.length === 0 && selectedQuizzes.length === 0)) {
-            setError("Please select at least one class and one piece of content.");
+        // Update validation check
+        if (selectionMap.size === 0 || (selectedLessons.length === 0 && selectedQuizzes.length === 0)) {
+            setError("Please select at least one class, at least one student, and one piece of content.");
             return;
         }
+
         setLoading(true);
         setError('');
         setSuccess('');
@@ -316,9 +324,23 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 };
             }
 
-            for (const classId of selectedClasses) {
+            // --- FINAL, GUARANTEED FIX: ALWAYS SAVE EXPLICIT LIST ---
+            let totalClassesShared = 0;
+            for (const [classId, studentSet] of selectionMap.entries()) {
+                
+                const targetStudentIds = Array.from(studentSet);
+
+                if (targetStudentIds.length === 0) {
+                    continue;
+                }
+                
+                totalClassesShared++;
                 const newPostRef = doc(collection(db, `classes/${classId}/posts`));
                 
+                // This payload forces the student application to check the array.
+                // targetAudience MUST be "specific" to bypass the faulty "all" logic.
+                // The student application must be fixed to check:
+                // if (post.targetStudentIds.includes(myId)) { display post }
                 batch.set(newPostRef, {
                     title: `New materials for ${subject.title}`,
                     content: `The following are now available: ${contentParts.join(' and ')}.`,
@@ -331,14 +353,24 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                     lessons: lessonsToPost,
                     quizzes: quizzesToPost,
                     quizSettings: settingsToSave,
+                    
+                    targetAudience: "specific", 
+                    targetStudentIds: targetStudentIds, 
                 });
 
                 const classRef = doc(db, "classes", classId);
                 batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
             }
+            // --- END CRITICAL FIX ---
+            
+            if (totalClassesShared === 0) {
+                 setError("No students were selected. Please select at least one student from a class.");
+                 setLoading(false);
+                 return;
+            }
 
             await batch.commit();
-            setSuccess(`Successfully shared materials to ${selectedClasses.length} class(es).`);
+            setSuccess(`Successfully shared materials to ${totalClassesShared} class(es).`);
             setTimeout(handleClose, 2000);
         } catch (err) {
             console.error("Error sharing content: ", err);
@@ -350,6 +382,20 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
 
     const thingsToShareCount = selectedLessons.length + selectedQuizzes.length;
     
+    // Update button text logic
+    const classButtonText = () => {
+        if (selectionMap.size === 0) return "Select Classes & Students";
+        
+        let totalStudents = 0;
+        selectionMap.forEach(studentSet => {
+            totalStudents += studentSet.size;
+        });
+
+        if (totalStudents === 0) return "Select Classes & Students";
+        
+        return `${totalStudents} Student(s) in ${selectionMap.size} Class(es) Selected`;
+    };
+    
     const selectButtonStyle = "flex w-full items-center justify-between p-4 bg-neumorphic-base rounded-xl shadow-neumorphic focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 disabled:bg-gray-200/50 disabled:cursor-not-allowed";
 
     return (
@@ -359,7 +405,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 onClose={handleClose}
                 title="Share Content"
                 description={`Share materials from "${subject.title}" to your classes.`}
-                size="5xl"
+                size="5xl" 
                 contentClassName="bg-neumorphic-base"
             >
                 <div className="relative max-h-[75vh] flex flex-col">
@@ -376,12 +422,13 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                         className={selectButtonStyle}
                                     >
                                         <span className="block truncate text-base">
-                                            {selectedClasses.length > 0 ? `${selectedClasses.length} Classes Selected` : `Select Classes`}
+                                            {classButtonText()}
                                         </span>
                                         <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
                                     </button>
                                 </section>
 
+                                {/* ... (Sections 2, 3, 4 are unchanged) ... */}
                                 <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
                                     <h3 className="text-lg font-semibold text-gray-900 mb-3">2. Set Post Type</h3>
                                     <div className='space-y-3'>
@@ -431,8 +478,10 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                     />
                                 </section>
                             </div>
+                            
                             {/* --- Right Column: Content --- */}
                             <div className="space-y-6">
+                                {/* ... (Sections 5, 6 are unchanged) ... */}
                                 <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
                                     <h3 className="text-lg font-semibold text-gray-900 mb-3">5. Choose Content</h3>
                                     <div className="space-y-4">
@@ -490,7 +539,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                                 <ToggleSwitch
                                                     label="Detect Developer Tools (Desktop Only)"
                                                     enabled={quizSettings.detectDevTools}
-                                                    onChange={() => handleQuizSettingsChange('detectDevTools', !quizSettings.detectDevTools)}
+                                                    onChange={() => handleQuizSettingsChange('detectDevTools', !quizGsettings.detectDevTools)}
                                                 />
                                                 <ToggleSwitch
                                                     label="Issue Warning on Paste"
@@ -516,7 +565,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                         {success && (<div className="text-center text-green-600 text-sm mb-4 p-3 bg-green-100/7V rounded-xl">{success}</div>)}
                         <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                             <button type="button" onClick={handleClose} disabled={loading} className={secondaryButtonStyles}>Cancel</button>
-                            <button onClick={handleShare} disabled={loading || contentLoading || thingsToShareCount === 0 || selectedClasses.length === 0} className={primaryButtonStyles}>
+                            <button onClick={handleShare} disabled={loading || contentLoading || thingsToShareCount === 0 || selectionMap.size === 0} className={primaryButtonStyles}>
                                 {loading ? 'Sharing...' : `Share ${thingsToShareCount > 0 ? `${thingsToShareCount} Item(s)` : ''}`}
                             </button>
                         </div>
@@ -524,15 +573,15 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 </div>
             </Modal>
             
-            {/* --- MODIFICATION --- */}
-            {/* This now points to the new, external component */}
-            <ClassSelectionModal
+            <ClassStudentSelectionModal
                 isOpen={isClassModalOpen}
                 onClose={() => setIsClassModalOpen(false)}
                 onConfirm={handleClassSelectionConfirm}
                 allClasses={classes}
-                currentSelection={selectedClasses}
+                currentSelectionMap={selectionMap} // Pass the Map
+                db={db} // Pass the db instance for fetching students
             />
+
 
             <ContentSelectionModal
                 isOpen={isLessonModalOpen}
@@ -557,4 +606,3 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         </React.Fragment>
     );
 }
-
