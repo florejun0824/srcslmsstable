@@ -16,6 +16,7 @@ import {
     Timestamp,
     onSnapshot,
     getDocs,
+	getDoc,
     serverTimestamp,
     writeBatch
 } from 'firebase/firestore';
@@ -243,78 +244,127 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         });
     };
 
-    const handleDeleteSelected = async (contentType) => {
-        if (!classData?.id) return;
+	const handleDeleteSelected = async (contentType) => {
+	    if (!classData?.id) return;
 
-        const selectedSet = contentType === 'lesson' ? selectedLessons : selectedQuizzes;
-        if (selectedSet.size === 0) return;
+	    const selectedSet = contentType === 'lesson' ? selectedLessons : selectedQuizzes;
+	    if (selectedSet.size === 0) return;
 
-        const fieldToUpdate = contentType === 'quiz' ? 'quizzes' : 'lessons';
-        const confirmMessage = contentType === 'quiz'
-            ? `Are you sure you want to unshare these ${selectedSet.size} quizzes? This will also delete all student submissions for these quizzes in this class.`
-            : `Are you sure you want to unshare these ${selectedSet.size} lessons?`;
-        
-        if (!window.confirm(confirmMessage)) return;
+	    const fieldToUpdate = contentType === 'quiz' ? 'quizzes' : 'lessons';
+	    const confirmMessage =
+	        contentType === 'quiz'
+	            ? `Are you sure you want to unshare these ${selectedSet.size} quizzes? This will also delete all student submissions for these quizzes in this class.`
+	            : `Are you sure you want to unshare these ${selectedSet.size} lessons?`;
 
-        try {
-            const batch = writeBatch(db);
-            const classRef = doc(db, "classes", classData.id);
-            const removedQuizIds = new Set();
-            
-            for (const post of sharedContentPosts) {
-                const currentContent = post[fieldToUpdate] || [];
-                if (currentContent.length === 0) continue;
+	    if (!window.confirm(confirmMessage)) return;
 
-                const contentToKeep = currentContent.filter(item => {
-                    const isSelected = selectedSet.has(item.id);
-                    if (isSelected && contentType === 'quiz') {
-                        removedQuizIds.add(item.id);
-                    }
-                    return !isSelected;
-                });
+	    try {
+	        const batch = writeBatch(db);
+	        const classRef = doc(db, 'classes', classData.id);
+	        const removedQuizIds = new Set();
 
-                if (contentToKeep.length < currentContent.length) {
-                    const postRef = doc(db, 'classes', classData.id, 'posts', post.id);
-                    batch.update(postRef, { [fieldToUpdate]: contentToKeep });
-                }
-            }
+	        // --- MAIN DELETE LOOP ---
+	        for (const post of sharedContentPosts) {
+	            const currentContent = post[fieldToUpdate] || [];
+	            if (currentContent.length === 0) continue;
 
-            if (contentType === 'quiz' && removedQuizIds.size > 0) {
-                const quizIdArray = Array.from(removedQuizIds);
-                const MAX_IN_CLAUSE = 30;
-                for (let i = 0; i < quizIdArray.length; i += MAX_IN_CLAUSE) {
-                    const chunk = quizIdArray.slice(i, i + MAX_IN_CLAUSE);
-                    if (chunk.length === 0) continue;
-                    
-                    const submissionsQuery = query(
-                        collection(db, 'quizSubmissions'),
-                        where('quizId', 'in', chunk),
-                        where('classId', '==', classData.id)
-                    );
-                    const submissionsSnapshot = await getDocs(submissionsQuery);
-                    submissionsSnapshot.forEach(submissionDoc => {
-                        batch.delete(submissionDoc.ref);
-                    });
-                }
-            }
+	            const contentToKeep = currentContent.filter((item) => {
+	                const isSelected = selectedSet.has(item.id);
+	                if (isSelected && contentType === 'quiz') {
+	                    removedQuizIds.add(item.id);
+	                }
+	                return !isSelected;
+	            });
 
-            batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
+	            if (contentToKeep.length < currentContent.length) {
+	                const postRef = doc(db, 'classes', classData.id, 'posts', post.id);
+	                batch.update(postRef, { [fieldToUpdate]: contentToKeep });
+	            }
+	        }
 
-            await batch.commit();
+	        // --- DELETE QUIZ SUBMISSIONS IF QUIZZES ARE REMOVED ---
+	        if (contentType === 'quiz' && removedQuizIds.size > 0) {
+	            const quizIdArray = Array.from(removedQuizIds);
+	            const MAX_IN_CLAUSE = 30;
+	            for (let i = 0; i < quizIdArray.length; i += MAX_IN_CLAUSE) {
+	                const chunk = quizIdArray.slice(i, i + MAX_IN_CLAUSE);
+	                if (chunk.length === 0) continue;
 
-            showToast(`${selectedSet.size} ${contentType}(s) and associated data removed.`, "success");
-            
-            if (contentType === 'lesson') {
-                setSelectedLessons(new Set());
-            } else {
-                setSelectedQuizzes(new Set());
-            }
+	                const submissionsQuery = query(
+	                    collection(db, 'quizSubmissions'),
+	                    where('quizId', 'in', chunk),
+	                    where('classId', '==', classData.id)
+	                );
+	                const submissionsSnapshot = await getDocs(submissionsQuery);
+	                submissionsSnapshot.forEach((submissionDoc) => {
+	                    batch.delete(submissionDoc.ref);
+	                });
+	            }
+	        }
 
-        } catch (error) {
-            console.error(`Error unsharing selected ${contentType}s:`, error);
-            showToast(`Failed to unshare selected ${contentType}s. Error: ${error.message}`, "error");
-        }
-    };
+	        // --- UPDATE CLASS TIMESTAMP ---
+	        batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
+
+	        // --- COMMIT MAIN DELETION ---
+	        await batch.commit();
+
+	        // --- CLEANUP (BATCHED): Remove deleted lessons from students' completedLessons (XP unchanged) ---
+	        if (contentType === 'lesson') {
+	            const deletedLessonIds = Array.from(selectedSet);
+	            const studentIds = (classData.students || []).map((s) => s.id);
+	            const cleanupBatch = writeBatch(db);
+
+	            try {
+	                for (const studentId of studentIds) {
+	                    const userRef = doc(db, 'users', studentId);
+	                    const userSnap = await getDoc(userRef);
+	                    if (!userSnap.exists()) continue;
+
+	                    const userData = userSnap.data();
+	                    const completed = userData.completedLessons || [];
+	                    const hasDeletedLesson = completed.some((id) =>
+	                        deletedLessonIds.includes(id)
+	                    );
+
+	                    if (hasDeletedLesson) {
+	                        const updatedCompleted = completed.filter(
+	                            (id) => !deletedLessonIds.includes(id)
+	                        );
+	                        cleanupBatch.update(userRef, { completedLessons: updatedCompleted });
+	                    }
+	                }
+
+	                await cleanupBatch.commit();
+	                showToast(
+	                    `${selectedSet.size} ${contentType}(s) and associated student records cleaned.`,
+	                    'success'
+	                );
+	            } catch (err) {
+	                console.error('Error cleaning up completedLessons (batch):', err);
+	                showToast(
+	                    `${selectedSet.size} ${contentType}(s) removed, but cleanup failed: ${err.message}`,
+	                    'error'
+	                );
+	            }
+
+	            // Clear selected lessons
+	            setSelectedLessons(new Set());
+	        } else {
+	            // For quizzes only
+	            showToast(
+	                `${selectedSet.size} ${contentType}(s) and associated data removed.`,
+	                'success'
+	            );
+	            setSelectedQuizzes(new Set());
+	        }
+	    } catch (error) {
+	        console.error(`Error unsharing selected ${contentType}s:`, error);
+	        showToast(
+	            `Failed to unshare selected ${contentType}s. Error: ${error.message}`,
+	            'error'
+	        );
+	    }
+	};
 
     const handleUnlockQuiz = async (quizId, studentId) => {
         if (!window.confirm("Are you sure you want to unlock this quiz?")) return;
@@ -330,49 +380,91 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         setIsEditModalOpen(true);
     };
 
-    const handleDeleteContentFromPost = async (postId, contentIdToRemove, contentType) => {
-        if (!classData?.id) return;
-        const confirmMessage = contentType === 'quiz'
-            ? `Are you sure you want to unshare this quiz? This will also delete all student submissions for this quiz in this class.`
-            : `Are you sure you want to unshare this lesson?`;
-        if (!window.confirm(confirmMessage)) return;
+	const handleDeleteContentFromPost = async (postId, contentIdToRemove, contentType) => {
+	    if (!classData?.id) return;
 
-        const fieldToUpdate = contentType === 'quiz' ? 'quizzes' : 'lessons';
+	    const confirmMessage =
+	        contentType === 'quiz'
+	            ? `Are you sure you want to unshare this quiz? This will also delete all student submissions for this quiz in this class.`
+	            : `Are you sure you want to unshare this lesson?`;
 
-        try {
-            const batch = writeBatch(db);
-            const postRef = doc(db, 'classes', classData.id, 'posts', postId);
-            const classRef = doc(db, "classes", classData.id);
+	    if (!window.confirm(confirmMessage)) return;
 
-            const postToUpdate = sharedContentPosts.find(p => p.id === postId);
-            if (!postToUpdate) throw new Error("Post not found");
+	    const fieldToUpdate = contentType === 'quiz' ? 'quizzes' : 'lessons';
 
-            const currentContent = postToUpdate[fieldToUpdate] || [];
-            const updatedContent = currentContent.filter(item => item.id !== contentIdToRemove);
+	    try {
+	        const batch = writeBatch(db);
+	        const postRef = doc(db, 'classes', classData.id, 'posts', postId);
+	        const classRef = doc(db, 'classes', classData.id);
 
-            batch.update(postRef, { [fieldToUpdate]: updatedContent });
-            batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
+	        const postToUpdate = sharedContentPosts.find(p => p.id === postId);
+	        if (!postToUpdate) throw new Error('Post not found');
 
-            if (contentType === 'quiz') {
-                const submissionsQuery = query(
-                    collection(db, 'quizSubmissions'),
-                    where('quizId', '==', contentIdToRemove),
-                    where('classId', '==', classData.id)
-                );
-                const submissionsSnapshot = await getDocs(submissionsQuery);
-                submissionsSnapshot.forEach(submissionDoc => {
-                    batch.delete(submissionDoc.ref);
-                });
-            }
+	        const currentContent = postToUpdate[fieldToUpdate] || [];
+	        const updatedContent = currentContent.filter(item => item.id !== contentIdToRemove);
 
-            await batch.commit();
+	        batch.update(postRef, { [fieldToUpdate]: updatedContent });
+	        batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
 
-            showToast(`${contentType.charAt(0).toUpperCase() + contentType.slice(1)} and associated data removed.`, "success");
-        } catch (error) {
-            console.error(`Error unsharing ${contentType}:`, error);
-            showToast(`Failed to unshare ${contentType}. Error: ${error.message}`, "error");
-        }
-    };
+	        if (contentType === 'quiz') {
+	            const submissionsQuery = query(
+	                collection(db, 'quizSubmissions'),
+	                where('quizId', '==', contentIdToRemove),
+	                where('classId', '==', classData.id)
+	            );
+	            const submissionsSnapshot = await getDocs(submissionsQuery);
+	            submissionsSnapshot.forEach(submissionDoc => {
+	                batch.delete(submissionDoc.ref);
+	            });
+	        }
+
+	        await batch.commit();
+
+	        // --- CLEANUP (BATCHED): Remove deleted lessons from students' completedLessons (XP unchanged) ---
+	        if (contentType === 'lesson') {
+	            const deletedLessonIds = [contentIdToRemove];
+	            const studentIds = (classData.students || []).map(s => s.id);
+	            const cleanupBatch = writeBatch(db);
+
+	            try {
+	                for (const studentId of studentIds) {
+	                    const userRef = doc(db, 'users', studentId);
+	                    const userSnap = await getDoc(userRef);
+	                    if (!userSnap.exists()) continue;
+
+	                    const userData = userSnap.data();
+	                    const completed = userData.completedLessons || [];
+	                    const hasDeletedLesson = completed.some(id => deletedLessonIds.includes(id));
+
+	                    if (hasDeletedLesson) {
+	                        const updatedCompleted = completed.filter(id => !deletedLessonIds.includes(id));
+	                        cleanupBatch.update(userRef, { completedLessons: updatedCompleted });
+	                    }
+	                }
+
+	                await cleanupBatch.commit();
+	                showToast(
+	                    `Lesson and associated data removed (and cleaned from student progress).`,
+	                    'success'
+	                );
+	            } catch (err) {
+	                console.error('Error cleaning up completedLessons (batch):', err);
+	                showToast(
+	                    `Lesson removed but cleanup of student records failed: ${err.message}`,
+	                    'error'
+	                );
+	            }
+	        } else {
+	            showToast(
+	                `${contentType.charAt(0).toUpperCase() + contentType.slice(1)} and associated data removed.`,
+	                'success'
+	            );
+	        }
+	    } catch (error) {
+	        console.error(`Error unsharing ${contentType}:`, error);
+	        showToast(`Failed to unshare ${contentType}. Error: ${error.message}`, 'error');
+	    }
+	};
 
     const handleDeleteUnitContent = async (unitDisplayName, contentType) => {
         if (!classData?.id || !userProfile || userProfile.role !== 'teacher') return;

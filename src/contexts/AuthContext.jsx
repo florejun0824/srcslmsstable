@@ -29,6 +29,9 @@ const MOCK_PASSWORD_CHECK = (submittedPassword, storedPassword) => {
   return submittedPassword === storedPassword;
 };
 
+// 🔹 XP formula helper
+const getXpForLevel = (level) => ((level - 1) * level / 2) * 500;
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -79,53 +82,108 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // 🔹 Session conflict listener
+  // 🔹 Session conflict listener + XP-safe sync
   useEffect(() => {
-    let unsubscribe = () => {};
+    if (!user?.id) return;
 
-    if (user && user.id) {
-      const userDocRef = doc(db, 'users', user.id);
-      unsubscribe = onSnapshot(
-        userDocRef,
-        (docSnap) => {
-          if (docSnap.exists()) {
-            const latestUserData = docSnap.data();
-            const firestoreSessionId = latestUserData.lastSessionId;
-
-            if (
-              currentSessionId.current &&
-              firestoreSessionId &&
-              firestoreSessionId !== currentSessionId.current
-            ) {
-              console.log(
-                'Firestore session ID mismatch, triggering conflict:',
-                firestoreSessionId,
-                'vs local:',
-                currentSessionId.current
-              );
-              handleSessionConflict();
-            } else if (currentSessionId.current && !firestoreSessionId) {
-              console.log(
-                'Firestore session ID cleared by another device, triggering conflict.'
-              );
-              handleSessionConflict(
-                'Your account was logged out from another device.'
-              );
-            }
-          } else {
-            handleSessionConflict(
-              'Your user account no longer exists or has been deactivated.'
-            );
-          }
-        },
-        (error) => {
-          console.error('Error listening to user document for session control:', error);
+    const userDocRef = doc(db, "users", user.id);
+    const unsubscribe = onSnapshot(
+      userDocRef,
+      (docSnap) => {
+        if (!docSnap.exists()) {
+          handleSessionConflict(
+            "Your user account no longer exists or has been deactivated."
+          );
+          return;
         }
-      );
-    }
+
+        const latestUserData = docSnap.data();
+        const firestoreSessionId = latestUserData.lastSessionId;
+
+        // 🔐 Session conflict check
+        if (
+          currentSessionId.current &&
+          firestoreSessionId &&
+          firestoreSessionId !== currentSessionId.current
+        ) {
+          console.warn(
+            "Session conflict detected:",
+            firestoreSessionId,
+            "vs local:",
+            currentSessionId.current
+          );
+          handleSessionConflict();
+          return;
+        }
+
+        // ✅ Real-time profile sync — XP-safe version
+        setUser((prev) => {
+          if (!prev) return { id: user.id, ...latestUserData };
+
+          const IGNORE_KEYS = ["xp", "lastLogin", "updatedAt"];
+          let hasChanged = false;
+
+          // Check if any *non-XP* field changed
+          for (const key of Object.keys(latestUserData)) {
+            if (IGNORE_KEYS.includes(key)) continue;
+            if (JSON.stringify(latestUserData[key]) !== JSON.stringify(prev[key])) {
+              hasChanged = true;
+              break;
+            }
+          }
+
+          if (!hasChanged) {
+            // ✅ XP changed? Update just that field — no full re-render.
+            if (latestUserData.xp !== prev.xp) {
+              const updatedUser = { ...prev, xp: latestUserData.xp };
+              localStorage.setItem("loggedInUser", JSON.stringify(updatedUser));
+              return updatedUser;
+            }
+            return prev;
+          }
+
+          // ✅ Something else changed (e.g., name, role, strand)
+          const newUser = { ...prev, ...latestUserData };
+          localStorage.setItem("loggedInUser", JSON.stringify(newUser));
+          return newUser;
+        });
+      },
+      (error) => {
+        console.error("Error listening to user document:", error);
+      }
+    );
 
     return () => unsubscribe();
-  }, [user, handleSessionConflict]);
+  }, [user?.id, handleSessionConflict]);
+
+
+  // 🔹 Automatic Level-Up Watcher
+  useEffect(() => {
+    if (!user?.id || typeof user.xp !== "number") return;
+
+    const currentXP = user.xp;
+    const currentLevel = user.level || 1;
+    const nextLevelXP = getXpForLevel(currentLevel + 1);
+
+    // ✅ Check if XP exceeds threshold for level up
+    if (currentXP >= nextLevelXP) {
+      const newLevel = currentLevel + 1;
+      console.log(`🎉 Level Up! ${currentLevel} → ${newLevel}`);
+
+      const userRef = doc(db, "users", user.id);
+      updateDoc(userRef, { level: newLevel })
+        .then(() => {
+          setUser((prev) => {
+            if (!prev) return prev;
+            const updated = { ...prev, level: newLevel };
+            localStorage.setItem("loggedInUser", JSON.stringify(updated));
+            return updated;
+          });
+        })
+        .catch((err) => console.error("Error updating level:", err));
+    }
+  }, [user?.xp]);
+
 
   // 🔹 Login
   const login = useCallback(async (email, password, selectedRole) => {
@@ -214,11 +272,22 @@ export const AuthProvider = ({ children }) => {
     () => ({
       user,
       userProfile: user,
+
+      // ✅ Modified setter: ensures XP or level updates trigger re-renders
+      setUserProfile: (updater) => {
+        setUser(prev => {
+          const updated = typeof updater === 'function' ? updater(prev) : updater;
+          const newUser = { ...updated };
+          localStorage.setItem('loggedInUser', JSON.stringify(newUser));
+          return newUser;
+        });
+      },
+
       loading,
       login,
       logout,
       refreshUserProfile,
-      firestoreService, // ✅ pulled from unified file
+      firestoreService,
       isSessionConflictModalOpen,
       sessionConflictMessage,
       setIsSessionConflictModalOpen,

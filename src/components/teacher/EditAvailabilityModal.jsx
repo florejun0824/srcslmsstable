@@ -43,8 +43,10 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
     
     const [searchTerm, setSearchTerm] = useState('');
     const [tempRecipientIds, setTempRecipientIds] = useState(new Set()); 
-    // --- NEW STATE: IDs that were included in the original post ---
     const [originalRecipientIds, setOriginalRecipientIds] = useState(new Set());
+    
+    const [updateScope, setUpdateScope] = useState('single'); // 'single', 'unit', 'all'
+
 
     const allStudents = useMemo(() => {
         const students = classData?.students || []; 
@@ -60,6 +62,18 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
             };
         }).sort((a, b) => a.displayName.localeCompare(b.displayName));
     }, [classData]);
+
+    // --- MODIFIED: Get the unitId from the nested lesson/quiz ---
+    const postUnitId = useMemo(() => {
+        if (post?.lessons && post.lessons.length > 0) {
+            return post.lessons[0].unitId;
+        }
+        if (post?.quizzes && post.quizzes.length > 0) {
+            return post.quizzes[0].unitId; // Assuming quizzes can also have a unitId
+        }
+        // Fallback to the top-level 'post' object just in case
+        return post?.unitId; 
+    }, [post]);
 
 
     useEffect(() => {
@@ -93,6 +107,8 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
             
             setTempRecipientIds(initialIds);
             setOriginalRecipientIds(originalIds);
+            
+            setUpdateScope('single');
         }
     }, [post, allStudents]); 
 
@@ -121,9 +137,8 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
         });
     };
 
-    // --- MODIFICATION: Locked Recipient Toggle Logic ---
+    // Recipient Toggle Logic (unchanged)
     const handleToggleStudent = useCallback((studentId) => {
-        // If the student was an original recipient, DO NOT allow deselecting them.
         if (originalRecipientIds.has(studentId)) {
             showToast("A student who already received the post cannot be unselected.", "info");
             return;
@@ -140,7 +155,7 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
         });
     }, [originalRecipientIds, showToast]);
 
-    // --- MODIFICATION: Locked Recipient Toggle All Logic ---
+    // Recipient Toggle All Logic (unchanged)
     const handleToggleAllStudents = useCallback(() => {
         const allStudentIds = allStudents.map(s => s.id);
         const allSelected = tempRecipientIds.size === allStudentIds.length;
@@ -148,14 +163,12 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
         setTempRecipientIds(prevSet => {
             const newSet = new Set(prevSet);
             if (allSelected) {
-                // If attempting to deselect all, keep all original recipients selected.
                 allStudentIds.forEach(id => {
                     if (!originalRecipientIds.has(id)) {
-                        newSet.delete(id); // Only deselect non-original students
+                        newSet.delete(id);
                     }
                 });
             } else {
-                // Select all (add all missing ones)
                 allStudentIds.forEach(id => newSet.add(id));
             }
             return newSet;
@@ -163,6 +176,7 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
     }, [allStudents, tempRecipientIds.size, originalRecipientIds]);
 
 
+    // --- MODIFIED: `handleUpdate` uses the `postUnitId` variable ---
     const handleUpdate = async () => {
         if (!post?.id || !classId) {
             showToast("Missing information to update dates.", "error");
@@ -175,7 +189,6 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
             return;
         }
         
-        // Final check: You cannot unselect an original recipient.
         const unselectedOriginals = Array.from(originalRecipientIds).filter(id => !tempRecipientIds.has(id));
         if (unselectedOriginals.length > 0) {
              showToast("Cannot save. You cannot unselect a student who already received the post.", "error");
@@ -186,32 +199,76 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
         setIsSubmitting(true);
         try {
             const batch = writeBatch(db);
-            const postRef = doc(db, `classes/${classId}/posts`, post.id);
             const classRef = doc(db, "classes", classId);
             
             const isAllStudentsSelected = recipientIdsArray.length === allStudents.length;
-
             const updatePayload = {
                 availableFrom: Timestamp.fromDate(availableFrom),
                 availableUntil: Timestamp.fromDate(availableUntil),
                 targetAudience: isAllStudentsSelected ? 'all' : 'specific',
                 targetStudentIds: isAllStudentsSelected ? [] : recipientIdsArray, 
             };
+            
+            const postsCollectionRef = collection(db, `classes/${classId}/posts`);
+
+            if (updateScope === 'single') {
+                const postRef = doc(db, `classes/${classId}/posts`, post.id);
+                batch.update(postRef, updatePayload);
+
+            } else {
+                let postsToUpdateQuery;
+                
+                if (updateScope === 'unit') {
+                    // --- MODIFIED: Use the postUnitId variable ---
+                    if (!postUnitId) {
+                        showToast("This post has no unit ID. Cannot update by unit.", "error");
+                        setIsSubmitting(false);
+                        return;
+                    }
+                    
+                    // --- IMPORTANT ---
+                    // This query assumes your *other* 'post' documents
+                    // ALSO have a top-level 'unitId' field to query against.
+                    // If 'unitId' is nested (e.g., 'lessons.0.unitId'),
+                    // this query will not work.
+                    // Your 'post' documents MUST be denormalized with a
+                    // top-level 'unitId' for this query to function.
+                    postsToUpdateQuery = query(postsCollectionRef, where('unitId', '==', postUnitId));
+
+                } else if (updateScope === 'all') {
+                    postsToUpdateQuery = query(postsCollectionRef);
+                }
+
+                const postsSnapshot = await getDocs(postsToUpdateQuery);
+                
+                if (postsSnapshot.empty) {
+                     showToast("No other posts found for the selected scope.", "info");
+                }
+                
+                postsSnapshot.forEach(postDoc => {
+                    batch.update(postDoc.ref, updatePayload);
+                });
+            }
 
 
-            batch.update(postRef, updatePayload);
             batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
             
             await batch.commit();
 
             showToast("Activity settings updated successfully!", "success");
 
-            onUpdate({
-                id: post.id,
-                availableFrom: Timestamp.fromDate(availableFrom),
-                availableUntil: Timestamp.fromDate(availableUntil),
-                ...updatePayload 
-            });
+            if (updateScope === 'single') {
+                onUpdate({
+                    id: post.id,
+                    availableFrom: Timestamp.fromDate(availableFrom),
+                    availableUntil: Timestamp.fromDate(availableUntil),
+                    ...updatePayload 
+                });
+            } else {
+                // Tell parent to refetch all data
+                onUpdate({ isMassUpdate: true });
+            }
+            
             onClose();
         } catch (error) {
             console.error("Error updating settings:", error);
@@ -283,20 +340,19 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
 
 
     return (
-        // --- UI FIX 1: Removed fixed h-[70vh] height ---
         <Modal isOpen={isOpen} onClose={onClose} title="Edit Activity Settings" size="4xl"> 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {/* Removed fixed height */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
-                {/* 1. General Settings (Left Column) - Made flex to push date section down if needed */}
+                {/* 1. General Settings (Left Column) */}
                 <div className="space-y-6 flex flex-col">
                     <h2 className="text-xl font-bold text-slate-800">General Settings</h2>
                     
-                    {/* Title and Comments (flex-grow to push things down) */}
                     <div className="bg-neumorphic-base p-5 rounded-xl shadow-neumorphic space-y-4 flex-grow"> 
                         <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
                         <input
                             type="text"
                             readOnly
+                            // This logic correctly finds the title inside the nested lesson/quiz
                             value={post?.lessons?.[0]?.title || post?.quizzes?.[0]?.title || 'Untitled Activity'}
                             className="w-full p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0 disabled:opacity-80"
                             disabled
@@ -348,8 +404,8 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                     </div>
                 </div>
 
-                {/* 2. Recipient Settings (Right Column) - Made flex-col to enable scrolling */}
-                <div className="space-y-4 flex flex-col min-h-[500px]"> {/* Added min-h for structure */}
+                {/* 2. Recipient Settings (Right Column) */}
+                <div className="space-y-4 flex flex-col min-h-[500px]">
                     <h2 className="text-xl font-bold text-slate-800">Recipients ({classData?.name || 'Class Roster'})</h2>
                     
                     {/* Search Bar */}
@@ -364,7 +420,7 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                         <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     </div>
 
-                    {/* Student List Container (flex-1 and overflow-y-auto enables scrolling) */}
+                    {/* Student List Container */}
                     <div className="flex-1 bg-neumorphic-base rounded-xl shadow-neumorphic overflow-hidden flex flex-col min-h-0">
                         
                         {/* Select All Header */}
@@ -391,7 +447,6 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                             {filteredStudents.length > 0 ? filteredStudents.map(student => {
                                 const studentName = student.displayName; 
                                 const isSelected = tempRecipientIds.has(student.id);
-                                // --- LOGIC FIX: Disable student if they were in the original post ---
                                 const isDisabled = originalRecipientIds.has(student.id);
 
                                 return (
@@ -423,8 +478,10 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                 </div>
             </div>
 
-            {/* --- UI FIX 2: Moved Footer outside the main grid and added top margin --- */}
+            {/* --- MODIFIED FOOTER: Uses postUnitId to show/hide "This Unit" option --- */}
             <div className="flex justify-between items-center pt-4 border-t border-black/10 mt-6">
+                
+                {/* Delete Button (Left Side) */}
                 <button
                     onClick={handleDelete}
                     className="px-4 py-2 text-sm font-semibold text-red-600 bg-neumorphic-base rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50"
@@ -433,13 +490,69 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                     Delete Post
                 </button>
                 
-                <div className="flex justify-end gap-2">
-                    <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50" disabled={isSubmitting}>
-                        Cancel
-                    </button>
-                    <button onClick={handleUpdate} className="px-4 py-2 text-sm font-semibold text-blue-700 bg-gradient-to-br from-sky-100 to-blue-200 rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50" disabled={isSubmitting || tempRecipientIds.size === 0}>
-                        {isSubmitting ? 'Saving...' : 'Save Settings'}
-                    </button>
+                {/* Actions (Right Side) */}
+                <div className="flex flex-col items-end gap-3">
+                    
+                    {/* Update Scope Options */}
+                    <div className="flex items-center gap-4">
+                        <label className="text-sm font-medium text-slate-700">Apply settings to:</label>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input 
+                                    type="radio" 
+                                    name="updateScope"
+                                    value="single"
+                                    checked={updateScope === 'single'} 
+                                    onChange={(e) => setUpdateScope(e.target.value)}
+                                    className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300"
+                                />
+                                <span className="text-sm">This Post Only</span>
+                            </label>
+                            
+                            {/* --- MODIFIED: Use postUnitId to show this option --- */}
+                            {postUnitId && (
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                    <input 
+                                        type="radio" 
+                                        name="updateScope"
+                                        value="unit"
+                                        checked={updateScope === 'unit'} 
+                                        onChange={(e) => setUpdateScope(e.target.value)}
+                                        className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300"
+                                    />
+                                    <span className="text-sm">This Unit</span>
+                                </label>
+                            )}
+                            
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input 
+                                    type="radio" 
+                                    name="updateScope"
+                                    value="all"
+                                    checked={updateScope === 'all'} 
+                                    onChange={(e) => setUpdateScope(e.target.value)}
+                                    className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300"
+                                />
+                                <span className="text-sm">All Posts</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-end gap-2">
+                        <button 
+                            onClick={onClose} 
+                            className="px-4 py-2 text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50" 
+                            disabled={isSubmitting}>
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={handleUpdate} 
+                            className="px-4 py-2 text-sm font-semibold text-blue-700 bg-gradient-to-br from-sky-100 to-blue-200 rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50" 
+                            disabled={isSubmitting || tempRecipientIds.size === 0}>
+                            {isSubmitting ? 'Saving...' : 'Save Settings'}
+                        </button>
+                    </div>
                 </div>
             </div>
         </Modal>

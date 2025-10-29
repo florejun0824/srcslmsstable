@@ -386,6 +386,7 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
             const lessonRef = doc(db, "lessons", lesson.id);
             await updateDoc(lessonRef, {
                 title,
+				lessonTitle: title,
                 studyGuideUrl,
                 pages: pagesToSave,
             });

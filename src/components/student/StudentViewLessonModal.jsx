@@ -1,5 +1,6 @@
 // src/components/teacher/StudentViewLessonModal.jsx
 // MODIFIED TO MATCH TEACHER VIEW STRUCTURE AND ENABLE OBJECTIVES DISPLAY
+// *** MODIFIED TO INCLUDE onComplete PROGRESS TRACKING AND DECOUPLE CLOSING ***
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog } from '@headlessui/react';
@@ -149,7 +150,7 @@ async function registerDejaVuFonts() {
         normal: "DejaVuSans.ttf",
         bold: "DejaVuSans-Bold.ttf",
         italics: "DejaVuSans-Oblique.ttf",
-        bolditalics: "DejaVuSans-BoldOblique.ttf",
+        bolditalics: "DejaVuSans-BoldObliques.ttf",
       },
     };
 
@@ -178,9 +179,15 @@ const processLatex = (text) => {
 };
 
 
-// --- MODIFIED: Removed onUpdate prop since students don't update lessons ---
-export default function StudentViewLessonModal({ isOpen, onClose, lesson, className }) {
+// --- MODIFIED: Added onComplete prop ---
+function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, className }) {
+
     const [currentPage, setCurrentPage] = useState(0);
+    // --- ADDED: State to track the highest page visited ---
+    const [maxPageReached, setMaxPageReached] = useState(0);
+    // --- ADDED: State to track if XP has been successfully awarded ---
+    const [xpAwarded, setXpAwarded] = useState(false);
+    // --- END ADDED ---
     const [currentLesson, setCurrentLesson] = useState(lesson);
     const { showToast } = useToast();
     // --- Removed isFinalizing state as it's not needed for view-only ---
@@ -189,7 +196,25 @@ export default function StudentViewLessonModal({ isOpen, onClose, lesson, classN
     const lessonPageRef = useRef(null);
 
     useEffect(() => { setCurrentLesson(lesson); }, [lesson]);
-    useEffect(() => { if (isOpen) { setCurrentPage(0); if (contentRef.current) contentRef.current.scrollTop = 0; } }, [isOpen]);
+
+    // --- MODIFIED: Reset progress and XP state on open ---
+    useEffect(() => { 
+        if (isOpen) { 
+            setCurrentPage(0); 
+            setMaxPageReached(0); 
+            setXpAwarded(false); // Reset XP state on opening a new lesson
+            if (contentRef.current) contentRef.current.scrollTop = 0; 
+        } 
+    }, [isOpen]);
+    // --- END MODIFIED ---
+
+    // --- ADDED: Track the furthest page reached ---
+    useEffect(() => {
+        if (currentPage > maxPageReached) {
+            setMaxPageReached(currentPage);
+        }
+    }, [currentPage, maxPageReached]);
+    // --- END ADDED ---
 
     const lessonTitle = currentLesson?.lessonTitle || currentLesson?.title || 'Untitled Lesson';
     const pages = currentLesson?.pages || [];
@@ -202,6 +227,53 @@ export default function StudentViewLessonModal({ isOpen, onClose, lesson, classN
     // --- MODIFIED: Fixed goToPreviousPage logic (was adding 1 instead of subtracting 1) ---
     const goToNextPage = useCallback(() => { if (currentPage < totalPages - 1) { setCurrentPage(prev => prev + 1); if (contentRef.current) contentRef.current.scrollTop = 0; } }, [currentPage, totalPages]);
     const goToPreviousPage = useCallback(() => { if (currentPage > 0) { setCurrentPage(prev => prev - 1); if (contentRef.current) contentRef.current.scrollTop = 0; } }, [currentPage]);
+    // --- END MODIFIED ---
+
+    // --- ADDED: New handler for "Finish" button click ---
+    const handleFinishLesson = async () => {
+        if (xpAwarded || !onComplete || totalPages === 0 || currentPage < totalPages - 1) {
+            return;
+        }
+
+        // Prepare the progress object
+        const progress = {
+            pagesRead: maxPageReached + 1, 
+            totalPages: totalPages,
+            isFinished: true,
+            lessonId: currentLesson?.id || null
+        };
+
+        // Call the parent's onComplete function (which awards XP)
+        try {
+            // Await the XP award process. Crucially, refreshUserProfile() is now removed from the parent's onComplete.
+            await onComplete(progress);
+            // This flag is set to true immediately after the DB update to switch the button to "Close"
+            setXpAwarded(true); 
+        } catch (error) {
+            console.error("XP award failed:", error);
+            showToast("Failed to finalize lesson progress.", "error");
+        }
+    };
+    // --- END ADDED ---
+
+    // --- MODIFIED: Simplified handleClose for 'X' and backdrop click ---
+    const handleClose = () => {
+        // If the user closes the modal via 'X' or backdrop, log progress if they didn't already finish.
+        if (!xpAwarded && onComplete && totalPages > 0) {
+            const isFinished = currentPage === totalPages - 1;
+            const pagesRead = maxPageReached + 1; 
+
+            // Call onComplete to log reading progress, but don't wait for it.
+            onComplete({
+                pagesRead: pagesRead,
+                totalPages: totalPages,
+                isFinished: isFinished, 
+                lessonId: currentLesson?.id || null
+            });
+        }
+        
+        onClose(); // Always just call onClose to close the modal
+    };
     // --- END MODIFIED ---
 
     useEffect(() => { const handleKeyDown = (e) => { if (!isOpen) return; if (e.key === 'ArrowRight') goToNextPage(); else if (e.key === 'ArrowLeft') goToPreviousPage(); }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isOpen, goToNextPage, goToPreviousPage]);
@@ -229,9 +301,20 @@ export default function StudentViewLessonModal({ isOpen, onClose, lesson, classN
 	                alignment: 'justify'
 	            }
 	        };
-	        const lessonTitleToExport = lessonToExport.lessonTitle || lessonToExport.title;
-			const sanitizedFileName = (lessonTitleToExport.replace(/[\\/:"*?<>|]+/g, '_') || 'lesson') + '.pdf';
-	        const subjectTitle = "SRCS Learning Portal"; // Generic fallback
+			const lessonTitleToExport = lessonToExport.lessonTitle || lessonToExport.title || 'Untitled Lesson';
+
+			            // 1. Aggressively replace any character that is NOT a letter, number, dot, hyphen, or underscore
+			            let safeTitle = lessonTitleToExport.replace(/[^a-zA-Z0-9.-_]/g, '_');
+
+			            // 2. Truncate the name to a safe length (e.g., 200 chars) to prevent file system errors
+			            if (safeTitle.length > 200) {
+			                safeTitle = safeTitle.substring(0, 200);
+			            }
+
+			            // 3. Ensure the name isn't empty after sanitization
+						const sanitizedFileName = (safeTitle || 'lesson') + '.pdf';
+
+				        const subjectTitle = "SRCS Learning Portal"; // Generic fallback
 	        let lessonContent = [];
 
 	        for (const page of lessonToExport.pages) {
@@ -311,7 +394,8 @@ export default function StudentViewLessonModal({ isOpen, onClose, lesson, classN
     if (!isOpen || !currentLesson) return null;
 
     return (
-        <Dialog open={isOpen} onClose={onClose} className={`fixed inset-0 z-50 flex items-center justify-center font-sans ${className}`}>
+        // --- MODIFIED: Use new handleClose for backdrop click ---
+        <Dialog open={isOpen} onClose={handleClose} className={`fixed inset-0 z-50 flex items-center justify-center font-sans ${className}`}>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="fixed inset-0 bg-black/20" aria-hidden="true" />
             <Dialog.Panel as={motion.div} variants={modalVariants} initial="hidden" animate="visible" exit="exit" className="relative bg-neumorphic-base rounded-2xl shadow-neumorphic w-full max-w-5xl z-10 flex flex-col h-full md:h-[90vh] md:max-h-[700px] overflow-hidden">
                 <div className="w-full bg-neumorphic-base h-1.5 flex-shrink-0 shadow-neumorphic-flat-inset">
@@ -345,7 +429,8 @@ export default function StudentViewLessonModal({ isOpen, onClose, lesson, classN
                             </button>
                         )}
                     </div>
-                    <button onClick={onClose} className="p-2 rounded-full text-slate-600 bg-neumorphic-base shadow-neumorphic active:shadow-neumorphic-inset hover:text-slate-800 transition-all duration-150 ease-out flex-shrink-0 ml-4" aria-label="Close lesson"><XMarkIcon className="w-6 h-6" /></button>
+                    {/* --- MODIFIED: Use new handleClose for 'X' button --- */}
+                    <button onClick={handleClose} className="p-2 rounded-full text-slate-600 bg-neumorphic-base shadow-neumorphic active:shadow-neumorphic-inset hover:text-slate-800 transition-all duration-150 ease-out flex-shrink-0 ml-4" aria-label="Close lesson"><XMarkIcon className="w-6 h-6" /></button>
                 </header>
                 <main ref={contentRef} className="flex-grow overflow-y-auto custom-scrollbar bg-neumorphic-base flex flex-col items-center p-4 sm:p-8">
                     <div className="w-full max-w-3xl flex-grow">
@@ -387,16 +472,36 @@ export default function StudentViewLessonModal({ isOpen, onClose, lesson, classN
                     </div>
                     <div className="flex justify-end">
                         <button
-                            onClick={currentPage < totalPages - 1 ? goToNextPage : onClose}
+                            // --- MODIFIED: Conditional logic for Next/Finish/Close ---
+                            onClick={currentPage < totalPages - 1 
+                                ? goToNextPage 
+                                : xpAwarded 
+                                    ? handleClose // Close button after XP awarded
+                                    : handleFinishLesson // Finish button for XP award
+                            }
+                            // --- CRITICAL FIX: The button is only disabled if there are no pages. ---
+                            disabled={totalPages === 0}
+                            // --- END CRITICAL FIX ---
                             className={`flex items-center justify-center gap-2 px-4 py-2.5 sm:px-5 rounded-full font-semibold transition-shadow duration-150 ease-out bg-neumorphic-base shadow-neumorphic active:shadow-neumorphic-inset
-                                ${currentPage < totalPages - 1 ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'}
+                                ${currentPage < totalPages - 1 
+                                    ? 'text-red-600 hover:text-red-700' 
+                                    : xpAwarded 
+                                        ? 'text-green-800 bg-green-200/50 hover:bg-green-300/50' // Highlight for final close
+                                        : 'text-green-600 hover:text-green-700' // Finish button
+                                }
+                                ${totalPages === 0 ? 'opacity-50 cursor-not-allowed' : ''}
                             `}
-                            aria-label={currentPage < totalPages - 1 ? "Next page" : "Finish lesson"}
+                            aria-label={currentPage < totalPages - 1 ? "Next page" : xpAwarded ? "Close lesson" : "Finish lesson"}
                         >
                             <span className="hidden sm:inline">
-                                {currentPage < totalPages - 1 ? 'Next' : 'Finish'}
+                                {currentPage < totalPages - 1 ? 'Next' : xpAwarded ? 'Close' : 'Finish'}
                             </span>
-                            {currentPage < totalPages - 1 ? <ArrowRightIcon className="h-5 w-5" /> : <CheckCircleIcon className="h-5 w-5" />}
+                            {currentPage < totalPages - 1 
+                                ? <ArrowRightIcon className="h-5 w-5" /> 
+                                : xpAwarded 
+                                    ? <XMarkIcon className="h-5 w-5" /> // Use XMark for final close
+                                    : <CheckCircleIcon className="h-5 w-5" />
+                            }
                         </button>
                     </div>
                 </footer>
@@ -404,3 +509,4 @@ export default function StudentViewLessonModal({ isOpen, onClose, lesson, classN
         </Dialog>
     );
 }
+export default React.memo(StudentViewLessonModal);

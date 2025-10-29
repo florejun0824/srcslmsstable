@@ -1,3 +1,4 @@
+// src/pages/StudentDashboardUI.jsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -9,7 +10,6 @@ import {
     Squares2X2Icon,
     SparklesIcon,
     GiftIcon,
-    // --- (Icons are unchanged) ---
     ClockIcon,
     PresentationChartLineIcon,
     AcademicCapIcon,
@@ -17,7 +17,6 @@ import {
     ChevronRightIcon,
 } from '@heroicons/react/24/solid';
 import StudentProfilePage from './StudentProfilePage';
-import StudentClassesTab from '../components/student/StudentClassesTab';
 import RewardsPage from '../components/student/RewardsPage';
 import StudentClassDetailView from '../components/student/StudentClassDetailView';
 import StudentQuizzesTab from '../components/student/StudentQuizzesTab';
@@ -26,9 +25,141 @@ import UserInitialsAvatar from '../components/common/UserInitialsAvatar';
 import Spinner from '../components/common/Spinner';
 import SessionConflictModal from '../components/common/SessionConflictModal';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { format } from 'date-fns';
 
-// --- (SidebarContent component is unchanged) ---
+/* ==========================================================================
+   BADGE_MAP (small subset copied from StudentProfilePage)
+   - will render small colored icon bubbles for recent badges/genericBadges
+   ========================================================================== */
+const BADGE_MAP = {
+    'first_quiz': { icon: '🚀', title: 'First Quiz', color: 'bg-amber-100', textColor: 'text-amber-600' },
+    'perfect_score': { icon: '🏆', title: 'Perfect Score', color: 'bg-yellow-100', textColor: 'text-yellow-700' },
+    'badge_scholar': { icon: '🎓', title: 'Scholar', color: 'bg-indigo-100', textColor: 'text-indigo-700' },
+    'badge_master': { icon: '🌟', title: 'Master', color: 'bg-green-100', textColor: 'text-green-700' },
+    'badge_legend': { icon: '👑', title: 'Legend', color: 'bg-purple-100', textColor: 'text-purple-700' },
+};
+
+/* ==========================================================================
+   XPProgressRing (enhanced)
+   - Animated circular ring that pulses on xp changes
+   - Uses user's leveling math (increasing XP per level)
+   - Shows Level number in center and total XP underneath
+   ========================================================================== */
+const XPProgressRing = ({ xp = 0, level = 1 }) => {
+  const currentLevel = Math.max(1, level || 1);
+  const currentXP = Math.max(0, xp || 0);
+
+  // XP logic
+  const xpForCurrentLevel = ((currentLevel - 1) * currentLevel / 2) * 500;
+  const xpForNextLevel = (currentLevel * (currentLevel + 1) / 2) * 500;
+  const xpInThisLevel = Math.max(0, currentXP - xpForCurrentLevel);
+  const xpNeededForThisLevel = Math.max(1, xpForNextLevel - xpForCurrentLevel);
+  const percent = Math.min(100, (xpInThisLevel / xpNeededForThisLevel) * 100);
+
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percent / 100) * circumference;
+
+  return (
+    <div className="relative flex items-center justify-center w-[90px] h-[90px] sm:w-[110px] sm:h-[110px]">
+      <svg
+        className="absolute inset-0 w-full h-full rotate-[-90deg]"
+        viewBox="0 0 100 100"
+      >
+        <defs>
+          <linearGradient id="xpGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#60A5FA" /> {/* soft blue */}
+            <stop offset="50%" stopColor="#3B82F6" /> {/* medium blue */}
+            <stop offset="100%" stopColor="#2563EB" /> {/* deep blue */}
+          </linearGradient>
+        </defs>
+
+        {/* Background ring */}
+        <circle cx="50" cy="50" r={radius} stroke="#E5E7EB" strokeWidth="6" fill="none" />
+
+        {/* Main animated ring with subtle halo */}
+        <motion.circle
+          cx="50"
+          cy="50"
+          r={radius}
+          stroke="url(#xpGradient)"
+          strokeWidth="6"
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference}
+          strokeLinecap="round"
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 1, ease: 'easeOut' }}
+          style={{
+            filter:
+              "drop-shadow(0 0 3px rgba(96,165,250,0.6)) drop-shadow(0 0 5px rgba(37,99,235,0.4))",
+          }}
+        />
+      </svg>
+
+      {/* Center content */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center scale-[0.85] sm:scale-100">
+        <span className="text-[9px] sm:text-xs text-slate-500 leading-none">Lvl</span>
+        <span className="text-base sm:text-lg font-bold bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-600 bg-clip-text text-transparent leading-none">
+          {currentLevel}
+        </span>
+        <span className="text-[9px] sm:text-xs text-slate-400 leading-none mt-0.5">
+          {currentXP} XP
+        </span>
+      </div>
+    </div>
+  );
+};
+
+
+/* ==========================================================================
+   DailyQuote - shows one quote per day (deterministic by date)
+   ========================================================================== */
+// 🎯 Animated DailyQuote with soft fade + slide
+const DailyQuote = ({ compact = false }) => {
+  const quotes = [
+    "Small steps each day add up to big results.",
+    "Every challenge is a chance to grow.",
+    "Your effort today shapes your tomorrow.",
+    "Progress, not perfection.",
+    "Keep learning — your potential is endless.",
+    "The best way to predict the future is to create it.",
+    "Dream big. Work hard. Stay humble.",
+    "Even slow progress is progress.",
+    "Learning never exhausts the mind. — Leonardo da Vinci",
+    "You are doing better than you think.",
+    "Consistency compounds over time.",
+    "Curiosity drives mastery.",
+  ];
+
+  const [quote, setQuote] = useState("");
+  const today = new Date();
+  const index = today.getDate() % quotes.length;
+
+  // Animate quote change
+  useEffect(() => {
+    setQuote(quotes[index]);
+  }, [index]);
+
+  return (
+    <motion.div
+      key={quote} // Animate on quote change
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.8, ease: "easeInOut" }}
+      className={`text-slate-600 ${compact ? "text-sm" : "text-base"} italic leading-snug`}
+    >
+      “{quote}”
+    </motion.div>
+  );
+};
+
+
+/* ==========================================================================
+   SidebarContent (unchanged structure)
+   ========================================================================== */
 const SidebarContent = ({ view, handleViewChange, sidebarNavItems, onLogoutClick, hasUnclaimedRewards }) => {
     return (
         <div className="h-full flex flex-col justify-between">
@@ -85,7 +216,9 @@ const SidebarContent = ({ view, handleViewChange, sidebarNavItems, onLogoutClick
     );
 };
 
-// --- (EmptyState component is unchanged) ---
+/* ==========================================================================
+   EmptyState (kept)
+   ========================================================================== */
 const EmptyState = ({ icon: Icon, title, message, actionText, onActionClick }) => (
     <div className="flex flex-col items-center justify-center text-center p-8 rounded-3xl bg-neumorphic-base shadow-neumorphic-inset max-w-lg mx-auto mt-10">
         <Icon className="h-16 w-16 text-slate-400 mb-4" />
@@ -102,21 +235,20 @@ const EmptyState = ({ icon: Icon, title, message, actionText, onActionClick }) =
     </div>
 );
 
-
-// --- (DashboardHome component is unchanged) ---
+/* ==========================================================================
+   DashboardHome
+   - compact greeting
+   - XP ring + daily quote (side-by-side on mobile for compactness)
+   - recent achievements
+   - classes with teacher info
+   ========================================================================== */
 const DashboardHome = ({
     userProfile,
     myClasses,
     setSelectedClass,
-    nextQuiz,
-    latestLesson,
-    hasUnclaimedRewards,
-    handleViewChange,
-    setLessonToView,
-    handleTakeQuizClick,
     handleDownloadPacket,
+    handleViewChange
 }) => {
-
     const getGreeting = () => {
         const hour = new Date().getHours();
         if (hour < 12) return 'Good morning';
@@ -124,158 +256,222 @@ const DashboardHome = ({
         return 'Good evening';
     };
 
+    // compute fallback level
+    const computedLevelFallback = useMemo(() => {
+        const xp = Math.max(0, userProfile?.xp || 0);
+        const approx = Math.floor((Math.sqrt(1 + 8 * (xp / 500)) + 1) / 2);
+        return Math.max(1, approx);
+    }, [userProfile?.xp]);
+
+    const currentLevel = userProfile?.level || computedLevelFallback;
+
+    // Use up to 3 recent badges (from genericBadges)
+    const genericBadges = (userProfile?.genericBadges || []).slice(-3).reverse();
+
+    // defensive teacher name resolver
+    const getTeacherName = (classItem) => {
+        if (!classItem) return 'Unknown';
+        return (
+            classItem.teacherName ||
+            classItem.teacher?.displayName ||
+            classItem.teacher?.name ||
+            [classItem.teacher?.firstName, classItem.teacher?.lastName].filter(Boolean).join(' ') ||
+            'Teacher'
+        );
+    };
+
     return (
-        <div className="space-y-8">
-            {/* --- 1. Greeting --- */}
-            <div>
-                <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 tracking-tight">
-                    {getGreeting()}, {userProfile?.firstName || 'Student'}!
-                </h1>
-                <p className="mt-2 text-base sm:text-lg text-slate-500 max-w-2xl">
-                    Welcome back. Let's dive into today's learning journey.
-                </p>
+        <div className="space-y-4">
+		{/* Greeting + XP Ring + Quote */}
+		<div className="bg-neumorphic-base rounded-3xl shadow-neumorphic p-4 sm:p-6 flex flex-col gap-4">
+		  {/* Greeting */}
+		  <div className="text-center sm:text-left">
+		    <h1 className="text-lg sm:text-2xl font-semibold text-slate-900 tracking-tight truncate">
+		      {getGreeting()}, {userProfile?.firstName || 'Student'}!
+		    </h1>
+		    <p className="mt-1 text-xs sm:text-sm text-slate-500">
+		      Keep going — you're doing great. Tap a class to continue learning.
+		    </p>
+		  </div>
+
+		  {/* XP Ring and Quote */}
+		  <div className="flex flex-row items-center justify-between sm:justify-between gap-2 sm:gap-6">
+		    {/* XP Ring (left aligned, scales better in mobile) */}
+<div className="flex-shrink-0 relative w-20 h-20 sm:w-28 sm:h-28 flex items-center justify-center">
+  <XPProgressRing xp={userProfile?.xp || 0} level={currentLevel} />
+</div>
+		    
+			{/* RPG-style Quote box (right side, blue-themed to match XP ring) */}
+			<div className="flex-1 text-right">
+			  <motion.div
+			    initial={{ opacity: 0, y: 6 }}
+			    animate={{ opacity: 1, y: 0 }}
+			    transition={{ duration: 0.7 }}
+			    className="relative inline-block bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-100 border border-blue-200 shadow-[0_3px_8px_rgba(0,0,0,0.08)] rounded-xl px-3 py-2 sm:px-4 sm:py-3 text-[11px] sm:text-sm text-slate-700 italic font-medium max-w-[70%] sm:max-w-[240px] float-right backdrop-blur-sm"
+			  >
+			    <span className="absolute -top-2 -left-2 bg-gradient-to-r from-sky-400 to-blue-500 text-white rounded-full px-1.5 py-0.5 text-[10px] font-bold shadow-sm">
+			      ✨
+			    </span>
+			    <DailyQuote compact />
+			  </motion.div>
+			</div>
+		  </div>
+		</div>
+		
+
+            {/* Recent Achievements */}
+            <div className="bg-neumorphic-base p-3 rounded-2xl shadow-neumorphic">
+                <div className="flex items-center justify-between mb-3 px-1">
+                    <h2 className="text-sm sm:text-lg font-semibold text-slate-800 flex items-center gap-2">
+                        <SparklesIcon className="h-4 w-4 text-red-500" /> Recent Achievements
+                    </h2>
+                    <button
+                        onClick={() => handleViewChange('profile')}
+                        className="text-xs text-slate-500 hover:text-red-600"
+                    >
+                        View all
+                    </button>
+                </div>
+
+                <div className="flex gap-3 overflow-x-auto no-scrollbar py-1 px-1">
+                    {genericBadges.length > 0 ? (
+                        genericBadges.map((b, idx) => {
+                            const meta = BADGE_MAP[b] || { icon: '⭐', title: b, color: 'bg-slate-100', textColor: 'text-slate-700' };
+                            return (
+                                <motion.div
+                                    key={`${b}-${idx}`}
+                                    initial={{ opacity: 0, y: 6 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.28, delay: idx * 0.06 }}
+                                    className="min-w-[120px] flex-shrink-0 bg-neumorphic-base p-3 rounded-lg shadow-neumorphic hover:shadow-neumorphic-inset"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`${meta.color} h-12 w-12 rounded-lg flex items-center justify-center`}>
+                                            <span className="text-lg">{meta.icon}</span>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="text-sm font-semibold text-slate-800 truncate">{meta.title}</div>
+                                            <div className="text-[11px] text-slate-500 mt-0.5">Unlocked</div>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            );
+                        })
+                    ) : (
+                        <div className="min-w-[160px] flex-shrink-0 bg-neumorphic-base p-3 rounded-lg shadow-neumorphic">
+                            <div className="flex items-center gap-3">
+                                <div className="h-12 w-12 rounded-lg bg-slate-100 flex items-center justify-center">
+                                    <SparklesIcon className="h-6 w-6 text-slate-400" />
+                                </div>
+                                <div>
+                                    <div className="text-sm font-semibold text-slate-800">No achievements yet</div>
+                                    <div className="text-[11px] text-slate-500">Start learning to unlock badges</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* --- 2. "Up Next" Section --- */}
-            {(nextQuiz || latestLesson || hasUnclaimedRewards) && (
-                <div>
-                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-4 flex items-center gap-3">
-                        <SparklesIcon className="h-6 w-6 sm:h-8 sm:w-8 text-red-500" /> Up Next
+            {/* My Classes */}
+            <div className="bg-neumorphic-base p-3 rounded-3xl shadow-neumorphic">
+                <div className="flex items-center justify-between mb-4 px-1">
+                    <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <AcademicCapIcon className="h-5 w-5 text-slate-700" /> My Classes
                     </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {/* Card for Next Quiz */}
-                        {nextQuiz && (
-                            <button
-                                onClick={() => handleTakeQuizClick(nextQuiz)}
-                                className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic hover:shadow-neumorphic-inset transition-all duration-300 text-left group"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span className="flex items-center gap-2 text-sm font-semibold text-red-600">
-                                        <ClockIcon className="h-5 w-5" /> Quiz Due
-                                    </span>
-                                    <ChevronRightIcon className="h-5 w-5 text-slate-400 group-hover:translate-x-1 transition-transform" />
-                                </div>
-                                <h3 className="text-lg font-bold text-slate-800 mt-2 truncate">{nextQuiz.title}</h3>
-                                <p className="text-sm text-slate-500">
-                                    Due by: {format(nextQuiz.availableUntil.toDate(), 'MMM d, h:mm a')}
-                                </p>
-                            </button>
-                        )}
-
-                        {/* Card for Latest Lesson */}
-                        {latestLesson && (
-                            <button
-                                onClick={() => setLessonToView(latestLesson)}
-                                className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic hover:shadow-neumorphic-inset transition-all duration-300 text-left group"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span className="flex items-center gap-2 text-sm font-semibold text-blue-600">
-                                        <PresentationChartLineIcon className="h-5 w-5" /> New Lesson
-                                    </span>
-                                    <ChevronRightIcon className="h-5 w-5 text-slate-400 group-hover:translate-x-1 transition-transform" />
-                                </div>
-                                <h3 className="text-lg font-bold text-slate-800 mt-2 truncate">{latestLesson.title}</h3>
-                                <p className="text-sm text-slate-500 truncate">
-                                    In: {latestLesson.className}
-                                </p>
-                            </button>
-                        )}
-
-                        {/* Card for Unclaimed Rewards */}
-                        {hasUnclaimedRewards && (
-                            <button
-                                onClick={() => handleViewChange('rewards')}
-                                className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic hover:shadow-neumorphic-inset transition-all duration-300 text-left group"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span className="flex items-center gap-2 text-sm font-semibold text-amber-500">
-                                        <GiftIcon className="h-5 w-5" /> New Reward!
-                                    </span>
-                                    <ChevronRightIcon className="h-5 w-5 text-slate-400 group-hover:translate-x-1 transition-transform" />
-                                </div>
-                                <h3 className="text-lg font-bold text-slate-800 mt-2">You've unlocked a new reward!</h3>
-                                <p className="text-sm text-slate-500">
-                                    Go to the Rewards page to claim it.
-                                </p>
-                            </button>
-                        )}
-                    </div>
+                    <SparklesIcon className="h-4 w-4 text-slate-400 hidden sm:block" />
                 </div>
-            )}
 
-            {/* --- 3. "My Classes" Section --- */}
-            <div className="bg-neumorphic-base p-4 sm:p-6 rounded-3xl shadow-neumorphic">
-                <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-4 flex items-center gap-3">
-                    <AcademicCapIcon className="h-6 w-6 sm:h-8 sm:w-8 text-slate-700" /> My Classes
-                </h2>
-                {myClasses.length === 0 ? (
+                {(!myClasses || myClasses.length === 0) ? (
                     <EmptyState
                         icon={InboxIcon}
                         title="No Classes Yet"
                         message="You haven't joined any classes. Click 'Join Class' in the header to get started."
                     />
                 ) : (
-                    <StudentClassesTab
-                        classes={myClasses}
-                        onClassSelect={setSelectedClass}
-                        onDownloadPacket={handleDownloadPacket}
-                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {myClasses.map((classItem, idx) => (
+                            <motion.button
+                                key={classItem.id || idx}
+                                onClick={() => setSelectedClass(classItem)}
+                                whileTap={{ scale: 0.97 }}
+                                whileHover={{ y: -2 }}
+                                className="relative w-full text-left bg-neumorphic-base rounded-xl p-3 sm:p-4 shadow-neumorphic hover:shadow-neumorphic-inset transition-all duration-200"
+                            >
+                                <div className="flex items-start gap-3">
+                                    <div className="h-10 w-10 rounded-lg bg-red-500 flex items-center justify-center shadow-inner flex-shrink-0">
+                                        <BookOpenIcon className="h-5 w-5 text-white" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <h3 className="text-sm sm:text-base font-semibold text-slate-800 truncate">{classItem.name}</h3>
+                                            <ChevronRightIcon className="h-4 w-4 text-slate-400" />
+                                        </div>
+                                        <p className="text-[12px] text-slate-500 mt-1 truncate">{classItem.description || 'No description'}</p>
+
+                                        <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
+                                            <span className="text-[12px]">Taught by <span className="text-slate-700 font-medium">{getTeacherName(classItem)}</span></span>
+                                            {classItem.subject && <span className="px-2 py-0.5 bg-slate-100 rounded-full text-[11px]">{classItem.subject}</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.button>
+                        ))}
+                    </div>
                 )}
             </div>
         </div>
     );
 };
 
-
+/* ==========================================================================
+   StudentDashboardUI (main component) - retains original structure + changes
+   ========================================================================== */
 const StudentDashboardUI = ({
     userProfile, logout, view, isSidebarOpen, setIsSidebarOpen, handleViewChange,
     setJoinClassModalOpen, selectedClass, setSelectedClass, myClasses,
     isFetching,
     lessons, units, setLessonToView, quizzes,
-    handleTakeQuizClick, handleDownloadPacket
+    handleTakeQuizClick, fetchContent, handleDownloadPacket
 }) => {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
     const profileMenuRef = useRef(null);
     const { isSessionConflictModalOpen, sessionConflictMessage, setIsSessionConflictModalOpen, performLogout } = useAuth();
+	const { showToast } = useToast();
 
-    // --- MODIFICATION: Added Profile to the main sidebarNavItems array ---
+    // Sidebar items (profile added)
     const sidebarNavItems = [
         { view: 'classes', text: 'Dashboard', icon: Squares2X2Icon },
         { view: 'lessons', text: 'Lessons', icon: BookOpenIcon },
         { view: 'quizzes', text: 'Quizzes', icon: ClipboardDocumentCheckIcon },
         { view: 'rewards', text: 'Rewards', icon: GiftIcon },
-        { view: 'profile', text: 'Profile', icon: UserIcon } // <-- ADDED
+        { view: 'profile', text: 'Profile', icon: UserIcon }
     ];
-    // --- END MODIFICATION ---
-
-    // --- MODIFICATION: This can now just be a copy of the main array ---
     const desktopSidebarNavItems = [...sidebarNavItems];
-    // --- END MODIFICATION ---
 
-    // --- (hasUnclaimedRewards useMemo is unchanged) ---
+    // hasUnclaimedRewards (unchanged)
     const hasUnclaimedRewards = useMemo(() => {
         const unlocked = userProfile?.unlockedRewards || [];
         const claimed = userProfile?.claimedRewards || [];
         return unlocked.some(rewardId => !claimed.includes(rewardId));
     }, [userProfile]);
 
-    // --- (nextQuiz useMemo is unchanged) ---
+    // nextQuiz & latestLesson kept but not shown on the dashboard per request
     const nextQuiz = useMemo(() => {
         const now = new Date();
-        return [...quizzes.active]
+        return [...(quizzes?.active || [])]
             .filter(q => q.availableUntil && q.availableUntil.toDate() > now)
             .sort((a, b) => a.availableUntil.toDate().getTime() - b.availableUntil.toDate().getTime())[0];
-    }, [quizzes.active]);
+    }, [quizzes?.active]);
 
-    // --- (latestLesson useMemo is unchanged) ---
     const latestLesson = useMemo(() => {
-        return [...lessons]
+        return [...(lessons || [])]
             .filter(l => l.createdAt)
             .sort((a, b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime())[0];
     }, [lessons]);
 
-    // --- (getGreeting function is unchanged) ---
+    // Greeting helper (unchanged)
     const getGreeting = () => {
         const hour = new Date().getHours();
         if (hour < 12) return 'Good morning';
@@ -283,7 +479,7 @@ const StudentDashboardUI = ({
         return 'Good evening';
     };
 
-    // --- (useEffect for profile menu is unchanged) ---
+    // profile menu click outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
@@ -294,53 +490,78 @@ const StudentDashboardUI = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // --- (handleProfileClick is unchanged) ---
     const handleProfileClick = () => {
         handleViewChange('profile');
         setIsProfileMenuOpen(false);
     };
 
-    // --- (handleLogoutClick is unchanged) ---
     const handleLogoutClick = () => {
         setIsLogoutModalOpen(true);
         setIsProfileMenuOpen(false);
     };
 
-    // --- (renderView function is unchanged) ---
+    // Main view renderer (keeps your original switch logic)
     const renderView = () => {
         if (selectedClass) {
             return <StudentClassDetailView selectedClass={selectedClass} onBack={() => setSelectedClass(null)} setLessonToView={setLessonToView} />;
         }
 
-        const allQuizzesEmpty = quizzes.active.length === 0 && quizzes.completed.length === 0 && quizzes.overdue.length === 0;
-        const allLessonsEmpty = lessons.length === 0;
+        const allQuizzesEmpty = (quizzes?.active?.length || 0) === 0 && (quizzes?.completed?.length || 0) === 0 && (quizzes?.overdue?.length || 0) === 0;
+        const allLessonsEmpty = (lessons?.length || 0) === 0;
 
         switch (view) {
             case 'classes':
             case 'default':
                 return (
-                    <DashboardHome
-                        userProfile={userProfile}
-                        myClasses={myClasses}
-                        setSelectedClass={setSelectedClass}
-                        nextQuiz={nextQuiz}
-                        latestLesson={latestLesson}
-                        hasUnclaimedRewards={hasUnclaimedRewards}
-                        handleViewChange={handleViewChange}
-                        setLessonToView={setLessonToView}
-                        handleTakeQuizClick={handleTakeQuizClick}
-                        handleDownloadPacket={handleDownloadPacket}
-                    />
+				  <DashboardHome
+				    userProfile={userProfile}
+				    myClasses={myClasses}
+				    setSelectedClass={setSelectedClass}
+				    nextQuiz={nextQuiz}
+				    latestLesson={latestLesson}
+				    hasUnclaimedRewards={hasUnclaimedRewards}
+				    handleViewChange={handleViewChange}  // ✅ Pass the actual prop
+				    setLessonToView={setLessonToView}
+				    handleTakeQuizClick={handleTakeQuizClick}
+				    handleDownloadPacket={handleDownloadPacket}
+				  />
+				  
+                    
                 );
-            case 'lessons':
-                if (allLessonsEmpty && !isFetching) {
-                    return <EmptyState
-                        icon={BookOpenIcon}
-                        title="No Lessons Found"
-                        message="Your teacher hasn't posted any lessons yet. Check back soon!"
-                    />;
-                }
-                return <StudentLessonsTab lessons={lessons} units={units} setLessonToView={setLessonToView} isFetchingContent={isFetching} />;
+			case 'lessons':
+			  return (
+			    <div className="relative">
+			      {allLessonsEmpty && !isFetching ? (
+			        <EmptyState
+			          icon={BookOpenIcon}
+			          title="No Lessons Found"
+			          message="Your teacher hasn't posted any lessons yet. Check back soon!"
+			          actionText={isFetching ? "Checking..." : "Check for New Lessons"}
+			          onActionClick={fetchContent}
+			        />
+			      ) : (
+			        <StudentLessonsTab
+			          lessons={lessons}
+			          units={units}
+			          setLessonToView={setLessonToView}
+			          isFetchingContent={isFetching}
+			          onRefreshLessons={fetchContent}
+			        />
+			      )}
+
+			      {/* Floating Button Always Visible (even if empty) */}
+			      <button
+			        onClick={fetchContent}
+			        disabled={isFetching}
+			        className="fixed bottom-24 right-5 z-50 sm:hidden flex items-center justify-center rounded-full 
+			                   bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg 
+			                   w-14 h-14 active:scale-[0.95] transition-transform duration-200 ease-in-out"
+			      >
+			        <BookOpenIcon className={`h-6 w-6 ${isFetching ? 'animate-spin' : ''}`} />
+			      </button>
+			    </div>
+			  );
+
             case 'quizzes':
                 if (allQuizzesEmpty && !isFetching) {
                     return <EmptyState
@@ -362,7 +583,7 @@ const StudentDashboardUI = ({
     return (
         <div className="min-h-screen font-sans bg-neumorphic-base text-slate-900 selection:bg-red-500/30">
             <div className="relative z-10 h-full md:flex">
-                {/* Desktop Sidebar (unchanged) */}
+                {/* Desktop Sidebar */}
                 <aside className="w-72 flex-shrink-0 hidden md:block bg-neumorphic-base p-6 rounded-r-3xl shadow-neumorphic">
                     <SidebarContent
                         view={view}
@@ -375,20 +596,24 @@ const StudentDashboardUI = ({
 
                 {/* Main Content */}
                 <div className="flex-1 flex flex-col overflow-hidden pb-20 md:pb-0">
-                    {/* Header (unchanged) */}
-                    <header className="p-4 sm:p-6 flex items-center justify-between bg-neumorphic-base sticky top-0 z-20 shadow-neumorphic rounded-b-3xl">
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-full bg-neumorphic-base shadow-neumorphic flex items-center justify-center flex-shrink-0">
-                                <img
-                                    src="https://i.ibb.co/XfJ8scGX/1.png"
-                                    alt="SRCS Logo"
-                                    className="w-10 h-10 rounded-full"
-                                />
-                            </div>
-                            <span className="font-extrabold text-lg sm:text-xl text-slate-800 hidden sm:block">
-                                SRCS Portal
-                            </span>
-                        </div>
+                    {/* Header */}
+			<header className="p-4 sm:p-6 flex items-center justify-between bg-neumorphic-base sticky top-0 z-20 shadow-neumorphic rounded-b-3xl">
+			  <div className="flex items-center gap-3">
+			    <div className="w-12 h-12 rounded-full bg-neumorphic-base shadow-neumorphic flex items-center justify-center flex-shrink-0">
+			      <img
+			        src="https://i.ibb.co/XfJ8scGX/1.png"
+			        alt="SRCS Logo"
+			        className="w-10 h-10 rounded-full"
+			      />
+			    </div>
+
+			    {/* 📱 Show "SRCS LMS" in mobile, "SRCS Portal" in desktop */}
+			    <span className="font-extrabold text-lg sm:text-xl text-slate-800">
+			      <span className="sm:hidden">SRCS LMS</span>
+			      <span className="hidden sm:inline">SRCS LMS</span>
+			    </span>
+			  </div>
+
                         <div className="flex items-center gap-4 relative">
                             <button
                                 onClick={() => setJoinClassModalOpen(true)}
@@ -433,7 +658,7 @@ const StudentDashboardUI = ({
                         </div>
                     </header>
 
-                    {/* Main area (unchanged) */}
+                    {/* Main area */}
                     <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pt-6 relative">
                         <AnimatePresence>
                             {isFetching && (
@@ -449,7 +674,7 @@ const StudentDashboardUI = ({
                                 </motion.div>
                             )}
                         </AnimatePresence>
-                        
+
                         <motion.div
                             key={view}
                             initial={{ opacity: 0, y: 10 }}
@@ -462,7 +687,7 @@ const StudentDashboardUI = ({
                 </div>
             </div>
 
-            {/* Mobile Footer (This will now automatically include 'Profile') */}
+            {/* Mobile Footer */}
             <footer className="fixed bottom-0 left-0 right-0 bg-neumorphic-base flex justify-around md:hidden z-40 shadow-neumorphic rounded-t-3xl">
                 {sidebarNavItems.map(item => {
                     const isActive = view === item.view;
@@ -486,7 +711,7 @@ const StudentDashboardUI = ({
                 })}
             </footer>
 
-            {/* Logout Confirmation Modal (Unchanged) */}
+            {/* Logout Confirmation Modal */}
             <AnimatePresence>
                 {isLogoutModalOpen && (
                     <motion.div
@@ -526,7 +751,7 @@ const StudentDashboardUI = ({
                 )}
             </AnimatePresence>
 
-            {/* Session Conflict Modal (Unchanged) */}
+            {/* Session Conflict Modal */}
             <SessionConflictModal isOpen={isSessionConflictModalOpen} message={sessionConflictMessage} onClose={performLogout} />
         </div>
     );
