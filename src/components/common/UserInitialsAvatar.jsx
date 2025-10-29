@@ -7,7 +7,7 @@ import React from 'react';
  * - user, firstName, lastName, id
  * - size: 'sm'|'md'|'lg'|'xl'|'full'
  * - className: additional tailwind classes for the main wrapper
- * - borderType: string identifier for the border (e.g., 'border_basic', 'border_animated')
+ * - borderType: string identifier for the border (e..g, 'border_basic', 'border_animated')
  * - effectsEnabled: boolean, controls if cosmetic effects like borders are shown
  */
 const gradientColors = [
@@ -31,32 +31,42 @@ const getUserGradient = (id) => {
   return gradientColors[index];
 };
 
-// --- ADDED: Border Class Logic ---
 // Maps borderType identifiers to Tailwind classes
-const getBorderClasses = (borderType) => {
+export const getBorderClasses = (borderType) => { // <-- MODIFIED: Added export
     switch (borderType) {
         case 'border_basic':
-            // Simple static border (adjust color/width as needed)
-            return 'ring-4 ring-blue-500 ring-offset-2 ring-offset-neumorphic-base'; // Example: Blue ring
+            // Level 5: Gemini-style rotating gradient border.
+            // Uses the "gradient padding" method.
+            return 'bg-gradient-gemini animate-spin-fast';
+        
         case 'border_animated':
-            // Simple animation (e.g., pulse)
-            return 'ring-4 ring-purple-500 ring-offset-2 ring-offset-neumorphic-base animate-pulse'; // Example: Pulsing purple ring
+            // NEW Level 10: "Breathing" Panning Gradient
+            // A more sophisticated, slower pan and pulse.
+            // Also uses the "gradient padding" method.
+            return 'bg-gradient-advanced animate-gradient-pan animate-gentle-pulse';
+
         case 'border_advanced_animated':
-            // More complex animation (e.g., custom spin - requires defining 'animate-spin-slow' in CSS)
-            return 'ring-4 ring-offset-2 ring-offset-neumorphic-base border-t-transparent border-solid border-green-500 animate-spin-slow'; // Example: Spinning green segment
+            // This border uses the "ring" method.
+            return 'ring-4 ring-offset-2 ring-offset-neumorphic-base border-t-transparent border-solid border-green-500 animate-spin-slow';
+
         case 'border_elite_animated':
-             // Example using gradient and maybe a custom animation
-             // Requires defining 'animate-gradient-glow' and 'bg-gradient-elite' in CSS
+             // This border uses the "ring" method.
             return 'ring-4 ring-transparent ring-offset-2 ring-offset-neumorphic-base bg-gradient-elite animate-gradient-glow';
+        
         case 'border_legendary_animated':
-            // Example using multiple effects (requires custom CSS/animation)
-            // Requires defining 'animate-legendary-sparkle' and 'bg-gradient-legendary' in CSS
+            // This border uses the "ring" method.
             return 'ring-4 ring-transparent ring-offset-2 ring-offset-neumorphic-base bg-gradient-legendary animate-legendary-sparkle';
+        
         default:
             return ''; // No border
     }
 };
-// --- END ADDED ---
+
+// Helper function to identify borders that use the padding method vs. the ring method
+export const isGradientPaddingBorder = (borderType) => { // <-- MODIFIED: Added export
+    return borderType === 'border_basic' || borderType === 'border_animated';
+};
+
 
 const UserInitialsAvatar = ({
     user,
@@ -93,24 +103,30 @@ const UserInitialsAvatar = ({
   const initials = getInitials(finalFirstName, finalLastName);
   const gradient = getUserGradient(finalId);
 
-  // Determine border classes based on props
-  const borderClasses = effectsEnabled ? getBorderClasses(borderType) : '';
+  // --- MODIFIED LOGIC ---
+  // Determine border classes based on props and method
+  const allClasses = effectsEnabled ? getBorderClasses(borderType) : '';
+  const isGradientBorder = effectsEnabled && isGradientPaddingBorder(borderType);
 
-  // --- MODIFIED: Base wrapper class ---
-  // Added position: relative to contain the absolute border
-  const wrapperBase = `relative rounded-full overflow-hidden box-border flex items-center justify-center ${sizeClasses} ${className}`;
-  // --- END MODIFIED ---
+  // Separate classes for the two rendering methods
+  const gradientBorderClasses = isGradientBorder ? allClasses : '';
+  const ringBorderClasses = !isGradientBorder ? allClasses : '';
+
+  // Base wrapper class: Apply ring-based borders here, and conditional padding
+  const wrapperBase = `relative rounded-full box-border flex items-center justify-center ${sizeClasses} ${className} ${isGradientBorder ? 'p-1' : ''} ${ringBorderClasses} bg-neumorphic-base shadow-neumorphic`;
+  // --- END MODIFIED LOGIC ---
 
   // Photo case
   if (finalPhotoURL) {
     return (
-      <div className={wrapperBase + ' bg-neumorphic-base shadow-neumorphic'}>
-        {/* --- ADDED: Border Element --- */}
-        {borderClasses && (
-             <div className={`absolute inset-0 rounded-full z-0 pointer-events-none ${borderClasses}`}></div>
+      <div className={wrapperBase}>
+        {/* Render inner div ONLY for gradient padding borders */}
+        {isGradientBorder && (
+             <div className={`absolute inset-0 rounded-full z-0 pointer-events-none ${gradientBorderClasses}`}></div>
         )}
-        {/* --- END ADDED --- */}
+        
         {/* Image needs relative and z-10 to sit above the border */}
+        {/* We add a rounded-full here to clip the image *inside* the padding */}
         <img
           src={finalPhotoURL}
           alt={`${finalFirstName} ${finalLastName}`.trim()}
@@ -123,15 +139,15 @@ const UserInitialsAvatar = ({
 
   // Initials case
   return (
-    <div className={wrapperBase + ' bg-neumorphic-base shadow-neumorphic cursor-pointer'}>
-        {/* --- ADDED: Border Element --- */}
-        {borderClasses && (
-             <div className={`absolute inset-0 rounded-full z-0 pointer-events-none ${borderClasses}`}></div>
+    <div className={wrapperBase + ' cursor-pointer'}>
+        {/* Render inner div ONLY for gradient padding borders */}
+        {isGradientBorder && (
+             <div className={`absolute inset-0 rounded-full z-0 pointer-events-none ${gradientBorderClasses}`}></div>
         )}
-        {/* --- END ADDED --- */}
 
-      {/* Gradient background - Needs relative and z-10 */}
+      {/* Gradient background - Needs relative, z-10, and rounded-full to clip inside padding */}
       <div className={`relative z-10 w-full h-full rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`} />
+      
       {/* Initials text - Needs relative and z-20 to sit above gradient and border */}
       <span className="absolute inset-0 z-20 flex items-center justify-center font-semibold leading-none text-white select-none">
         {initials}

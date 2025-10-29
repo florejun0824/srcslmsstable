@@ -167,8 +167,13 @@
 }
 .animate-slide-in-right { animation: slide-in-right 0.6s ease-out forwards; }
 
-/* --- ADDED: Keyframes for Borders --- */
+/* --- Keyframes for Borders --- */
 @keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spin-fast {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
@@ -182,7 +187,21 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; transform: scale(1.05); }
 }
-/* --- END ADDED --- */
+
+/* --- NEW: Keyframes for Level 10 "Breathing" Effect --- */
+@keyframes gradient-pan {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes gentle-pulse-glow {
+  0% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.03); }
+  100% { opacity: 0.7; transform: scale(1); }
+}
+/* --- END NEW --- */
+
 
 /* ==========================================================================
    Custom Reusable Component Layer
@@ -272,16 +291,51 @@
    Utility Layer Additions (Animations, Gradients)
    ========================================================================== */
 @layer utilities {
-    /* --- ADDED: Border Animations & Gradients --- */
+    /* --- Border Animations & Gradients --- */
     .animate-spin-slow {
         animation: spin-slow 4s linear infinite;
     }
+
+    .animate-spin-fast {
+        animation: spin-fast 2s linear infinite;
+    }
+
     .animate-gradient-glow {
         animation: gradient-glow 3s ease-in-out infinite;
     }
     .animate-legendary-sparkle {
         animation: legendary-sparkle 2.5s ease-in-out infinite;
     }
+    
+    /* --- NEW: Level 10 Animation Classes --- */
+    .animate-gradient-pan {
+        animation: gradient-pan 3s ease-in-out infinite; /* <-- Set to 3s for a lively pan */
+        background-size: 200% 200%; /* Important for panning */
+    }
+    .animate-gentle-pulse {
+        animation: gentle-pulse-glow 3s ease-in-out infinite;
+    }
+    /* --- END NEW --- */
+
+    .bg-gradient-gemini {
+        background-image: conic-gradient(
+            from 0deg,
+            #4285F4, /* Google Blue */
+            #7C4DFF, /* Deep Purple */
+            #EC4899, /* Pink */
+            #FBBC05, /* Google Yellow */
+            #34A853, /* Google Green */
+            #4285F4  /* Loop back to Blue */
+        );
+    }
+    
+    /* --- NEW: Level 10 Gradient Class --- */
+    .bg-gradient-advanced {
+        /* A purple/pink/blue gradient */
+        background-image: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+    }
+    /* --- END NEW --- */
+
     .bg-gradient-elite {
         /* Define your elite gradient */
         background-image: linear-gradient(135deg, #fccb90 0%, #d57eeb 100%);
@@ -290,7 +344,6 @@
         /* Define your legendary gradient */
         background-image: radial-gradient(circle farthest-corner at 10% 20%, rgba(253, 203, 50, 1) 0%, rgba(244, 56, 98, 1) 100.2%);
     }
-    /* --- END ADDED --- */
 }
 
 /* ==========================================================================

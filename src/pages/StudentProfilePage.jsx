@@ -1,5 +1,5 @@
 // src/pages/StudentProfilePage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { db } from '../services/firebase';
@@ -17,8 +17,6 @@ import {
     SparklesIcon
 } from '@heroicons/react/24/solid';
 import { updateStudentDetailsInClasses } from '../services/firestoreService';
-import { Switch } from '@tremor/react';
-
 
 // Neumorphic styled input field
 const NeumorphicFormField = ({ label, icon: Icon, children, className = '' }) => (
@@ -99,6 +97,8 @@ const StudentProfilePage = () => {
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
 
+    const isInitialXpLoad = useRef(true);
+
 	// Load profile only once (or when account truly changes)
 	useEffect(() => {
 	  if (!authLoading && userProfile && !profile.firstName) {
@@ -122,6 +122,14 @@ const StudentProfilePage = () => {
 	  const prevXp = profile.xp || 0;
 	  const newXp = userProfile.xp || 0;
 
+      if (isInitialXpLoad.current) {
+        if (newXp !== prevXp) {
+            setProfile(prev => ({ ...prev, xp: newXp, level: userProfile.level || prev.level }));
+        }
+        isInitialXpLoad.current = false; 
+        return; 
+      }
+
 	  if (newXp > prevXp) {
 	    const gained = newXp - prevXp;
 	    setXpGain(gained);
@@ -133,12 +141,11 @@ const StudentProfilePage = () => {
 	    const timeout = setTimeout(() => setXpGain(0), 1500);
 	    return () => clearTimeout(timeout);
 	  } else if (newXp !== prevXp) {
-	    // Handle XP decrease or reset
 	    setProfile(prev => ({ ...prev, xp: newXp, level: userProfile.level || prev.level }));
 	  }
-	}, [userProfile?.xp]);
+	}, [userProfile?.xp]); 
 	
-	// 🎯 Detect and announce level up
+	// 🎯 Detect and set level up (no toast on load)
 	useEffect(() => {
 	  if (!userProfile) return;
 
@@ -146,10 +153,6 @@ const StudentProfilePage = () => {
 	  const newLevel = userProfile.level || 1;
 
 	  if (newLevel > prevLevel) {
-	    // Level increased 🎉
-	    showToast(`🔥 Level Up! You reached Level ${newLevel}!`, 'success');
-
-	    // Optional: fun animation spark
 	    setXpGain(0);
 	    setProfile(prev => ({ ...prev, level: newLevel }));
 	  }
@@ -338,27 +341,32 @@ const StudentProfilePage = () => {
                     </div>
                 )}
 
-                {/* Cosmetics Toggle */}
+                {/* --- Cosmetics Toggle --- */}
                 <div className="mb-8 bg-neumorphic-base p-4 rounded-2xl shadow-neumorphic flex items-center justify-between">
-                    <label htmlFor="cosmetics-toggle-profile" className="font-semibold text-slate-800">
+                    <label htmlFor="cosmetics-toggle-profile" className="font-semibold text-slate-800 cursor-pointer">
                         Enable Cosmetic Effects
                         <span className="block text-xs text-slate-500">
                             Toggles borders, backgrounds, titles, etc.
                         </span>
                     </label>
-                    <Switch
+                    <button
+                        type="button"
                         id="cosmetics-toggle-profile"
-                        checked={cosmeticsEnabled}
-                        onChange={handleToggleCosmetics}
+                        role="switch"
+                        aria-checked={cosmeticsEnabled}
+                        onClick={() => handleToggleCosmetics(!cosmeticsEnabled)}
                         disabled={isTogglingCosmetics}
-                        className="group relative inline-flex h-[22px] w-[42px] flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 bg-gray-200 ui-checked:bg-green-500"
+                        className={`relative w-14 h-8 flex-shrink-0 rounded-full cursor-pointer transition-all duration-300 ease-in-out ${cosmeticsEnabled ? 'bg-green-500 shadow-neumorphic-inset' : 'bg-neumorphic-base shadow-neumorphic'} disabled:opacity-50`}
                     >
+                        <span className="sr-only">Toggle Cosmetic Effects</span>
                         <span
                             aria-hidden="true"
-                            className="pointer-events-none inline-block h-[18px] w-[18px] transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0.5 ui-checked:translate-x-[20.5px]"
+                            className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transform transition-all duration-300 ease-in-out ${cosmeticsEnabled ? 'translate-x-6 shadow-none' : 'translate-x-0'}`}
                         />
-                    </Switch>
+                    </button>
                 </div>
+                {/* --- END Cosmetics Toggle --- */}
+
 
                 {/* Profile Form */}
                 <h2 className="text-xl font-bold text-slate-800 mb-4">Edit Profile</h2>
@@ -386,7 +394,8 @@ const StudentProfilePage = () => {
                                 placeholder="Your last name"
                                 className="w-full bg-transparent py-3 text-slate-800 placeholder-slate-400 outline-none border-none focus:ring-0"
                             />
-                        </NeumorphicFormField>
+                        </NeumorphicFormField> 
+                        {/* --- THIS IS THE FIX --- */}
                         <NeumorphicFormField label="Profile Picture URL" icon={PhotoIcon}>
                             <input
                                 type="url"

@@ -624,10 +624,10 @@ const StudentDashboardUI = ({
                             </button>
                             {userProfile && (
                                 <div ref={profileMenuRef}>
-                                    <button
-                                        className="w-11 h-11 relative rounded-full overflow-hidden border-2 border-white hover:border-red-500/50 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 flex-shrink-0 flex items-center justify-center transform hover:scale-[1.05] shadow-neumorphic"
-                                        onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                                    >
+							<button
+							    className="w-11 h-11 relative rounded-full border-2 border-white hover:border-red-500/50 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 flex-shrink-0 flex items-center justify-center transform hover:scale-[1.05] shadow-neumorphic"
+							    onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+							>
                                         <UserInitialsAvatar
                                             user={userProfile}
                                             size="full"

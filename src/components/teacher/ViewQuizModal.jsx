@@ -8,20 +8,15 @@ import { handleExportPdf as exportPdfUtil } from './quiz/quizUtils'; // Adjust p
 import QuizContent from './quiz/QuizContent';
 import QuizWarningModal from '../../components/common/QuizWarningModal'; // Adjust path if needed
 
-// --- MODIFIED: Import new hooks and components ---
 import useQuizState from '../../hooks/useQuizState'; // Adjust path if needed
 import Watermark from '../quiz/Watermark'; // Adjust path if needed
 import TimerDisplay from '../quiz/TimerDisplay'; // Adjust path if needed
-// --- END MODIFIED ---
 
-// --- MODIFIED: Create Context and custom hook ---
 const QuizContext = createContext(null);
 export const useQuiz = () => useContext(QuizContext);
-// --- END MODIFIED ---
 
 export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userProfile, classId, isTeacherView = false }) {
 
-    // --- MODIFIED: All state and logic is now in useQuizState ---
     const quizState = useQuizState({
         isOpen,
         quiz,
@@ -30,39 +25,48 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         isTeacherView,
         onComplete
     });
-    // --- END MODIFIED ---
 
-    // States and handlers needed *only* by the modal shell
     const [showWarningModal, setShowWarningModal] = useState(false);
     const { showToast } = useToast();
 
-    // --- MODIFIED: Track warning modal state based on quizState ---
+    // --- MODIFIED: Show warning modal immediately on infraction ---
     useEffect(() => {
-        if (quizState.isLocked && !showWarningModal) {
-            setShowWarningModal(true);
+        // If an infraction is active AND the warning modal isn't already shown...
+        if (quizState.isInfractionActive && !showWarningModal) {
+            setShowWarningModal(true); // ...show the warning modal.
         }
-        // --- REMOVED: Redundant warning logic ---
-    }, [quizState.isLocked, showWarningModal]); // --- MODIFIED: Simplified dependencies ---
+        // Dependency is now isInfractionActive
+    }, [quizState.isInfractionActive, showWarningModal]);
     // --- END MODIFIED ---
 
 
-    // --- MODIFIED: handleClose now uses quizState ---
+    // handleClose remains the same - it acts as a backup trigger if needed
     const handleClose = () => {
-        quizState.setIsInfractionActive(false);
+        // --- MODIFIED: Reset infraction state if user closes warning manually before action ---
+        // Although handleStay/handleLeave should handle this, it's safer here too.
+        if (showWarningModal) {
+             quizState.setIsInfractionActive(false);
+        }
+        // --- END MODIFIED ---
+
         const antiCheatEnabled = quiz?.settings?.lockOnLeave ?? false;
 
         // Check quizState for quiz progress
         if (isOpen && classId && !quizState.isLocked && quizState.score === null && !quizState.hasSubmitted && !isTeacherView && antiCheatEnabled && quizState.isAvailable) {
-            setShowWarningModal(true);
+            setShowWarningModal(true); // Trigger warning if trying to close while in progress
         } else {
             onClose(); // Close modal directly if no warning needed or if locked
         }
     };
-    // --- END MODIFIED ---
 
-    // --- MODIFIED: handleStayInQuiz (FIX for locked modal loop) ---
+    // --- MODIFIED: handleStayInQuiz resets infraction state ---
     const handleStayInQuiz = () => {
         setShowWarningModal(false);
+        // Reset the infraction state *unless* the quiz is already locked
+        if (!quizState.isLocked) {
+             quizState.setIsInfractionActive(false);
+        }
+
         // If the quiz is locked, "Acknowledge" (onStay) should
         // close the main modal, not just the warning modal.
         if (quizState.isLocked) {
@@ -71,23 +75,21 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
     };
     // --- END MODIFIED ---
 
-    // --- MODIFIED: handleLeaveQuiz now uses issueWarning from quizState ---
+    // handleLeaveQuiz remains the same
     const handleLeaveQuiz = async () => {
         await quizState.issueWarning('general'); // Use the handler from the hook
         setShowWarningModal(false);
         quizState.setIsInfractionActive(false);
         onClose();
     };
-    // --- END MODIFIED ---
 
     // PDF Export (unchanged)
     const handleExportPdf = () => {
         exportPdfUtil(quiz, showToast);
     };
 
-    // --- MODIFIED: Keydown handler now uses quizState ---
+    // Keydown handler (unchanged)
     const handleKeyDown = useCallback((event) => {
-        // Check state from the hook
         if (quizState.score !== null || quizState.isLocked || quizState.showReview || ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
         
         const currentQuestion = quizState.shuffledQuestions[quizState.currentQ];
@@ -98,7 +100,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
             if (isTeacherView) {
                 if (quizState.currentQ < quizState.shuffledQuestions.length - 1) quizState.setCurrentQ(prev => prev + 1);
             } else if (canNavigate) {
-                quizState.handleNextQuestion(); // Use handler from hook
+                quizState.handleNextQuestion();
             }
         } else if (event.key === 'ArrowLeft') {
             if (quiz?.settings?.preventBackNavigation && !isTeacherView) {
@@ -110,7 +112,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                 quizState.setQuestionResult(null);
                 quizState.setMatchingResult(null);
                 quizState.setCurrentQ(prev => prev - 1);
-                quizState.setQuestionStartTime(Date.now()); // Use setter from hook
+                quizState.setQuestionStartTime(Date.now());
             }
         }
     }, [
@@ -120,7 +122,6 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         quizState.setCurrentQ, quizState.setCurrentQuestionAttempted, quizState.setQuestionResult,
         quizState.setMatchingResult, quizState.setQuestionStartTime
     ]);
-    // --- END MODIFIED ---
 
     // Keydown Listener (unchanged)
     useEffect(() => {
@@ -129,15 +130,11 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         return () => { window.removeEventListener('keydown', handleKeyDown); };
     }, [isOpen, handleKeyDown]);
 
-    // --- MODIFIED: Quiz Theming Logic ---
+    // Quiz Theming Logic (unchanged)
     const getQuizThemeClass = () => {
         const cosmeticsEnabled = userProfile?.cosmeticsEnabled ?? true;
         const selectedBorder = userProfile?.selectedBorder;
-
-        if (!cosmeticsEnabled || !selectedBorder || selectedBorder === 'none') {
-            return '';
-        }
-
+        if (!cosmeticsEnabled || !selectedBorder || selectedBorder === 'none') return '';
         const themeMap = {
             'border_basic': 'theme-border-basic',
             'border_animated': 'theme-border-animated',
@@ -145,12 +142,9 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
             'border_elite_animated': 'theme-border-elite',
             'border_legendary_animated': 'theme-border-legendary',
         };
-
         return themeMap[selectedBorder] || '';
     };
-
     const quizThemeClass = getQuizThemeClass();
-    // --- END MODIFIED ---
 
     if (!isOpen) return null;
 
@@ -162,13 +156,11 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                 
                 <DialogPanel className={`quiz-container relative flex flex-col w-full max-w-lg md:max-w-3xl rounded-3xl bg-neumorphic-base shadow-neumorphic max-h-[95vh] sm:max-h-[90vh] overflow-hidden ${quizThemeClass}`}>
                     
-                    {/* --- MODIFIED: Watermark Component --- */}
                     <Watermark
                         userProfile={userProfile}
                         quizSettings={quiz?.settings}
                         isTeacherView={isTeacherView}
                     />
-                    {/* --- END MODIFIED --- */}
                     
                     {/* Header */}
                     <div className="relative z-20 flex-shrink-0 p-4 pb-3 border-b border-slate-300/50">
@@ -186,7 +178,6 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                             </div>
                             <div className="flex flex-col-reverse sm:flex-row items-end sm:items-center gap-2 self-end sm:self-center mt-2 sm:mt-0">
                                 
-                                {/* --- MODIFIED: TimerDisplay Component --- */}
                                 <TimerDisplay
                                     timeRemaining={quizState.timeRemaining}
                                     quizSettings={quiz?.settings}
@@ -197,17 +188,13 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                     score={quizState.score}
                                     hasSubmitted={quizState.hasSubmitted}
                                 />
-                                {/* --- END MODIFIED --- */}
 
-                                {/* --- MODIFIED: Warning display uses quizState --- */}
                                 {!isTeacherView && classId && !quizState.isLocked && quizState.score === null && !quizState.hasSubmitted && (quiz?.settings?.lockOnLeave ?? false) && quizState.isAvailable && (
                                     <div className="flex items-center gap-1 bg-neumorphic-base text-amber-800 px-3 py-1 rounded-full shadow-neumorphic-inset flex-shrink-0" title="Anti-cheat warnings">
                                         <ShieldExclamationIcon className="w-4 h-4 text-amber-600"/>
                                         <span className="text-xs font-semibold">{quizState.warnings} / {quizState.MAX_WARNINGS}</span>
                                     </div>
                                 )}
-                                {/* --- END MODIFIED --- */}
-
                             </div>
                         </div>
                         {isTeacherView && (
@@ -219,16 +206,13 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
 
                     {/* Content Area */}
                     <div className="relative z-20 flex-grow overflow-y-auto px-4 sm:px-6 py-4 custom-scrollbar">
-                        {/* --- MODIFIED: Provide quizState to context --- */}
                         <QuizContext.Provider value={quizState}>
                             <QuizContent />
                         </QuizContext.Provider>
-                        {/* --- END MODIFIED --- */}
                     </div>
 
                     {/* Footer */}
                     <div className="relative z-20 flex-shrink-0 p-4 pt-3 border-t border-slate-300/50">
-                        {/* --- MODIFIED: Footer logic now uses quizState --- */}
                         {(!isTeacherView && quizState.isAvailable && !quizState.isLocked && quizState.score === null && !quizState.hasSubmitted && !quizState.questionResult && !quizState.matchingResult) && (
                             (quizState.currentQuestionAttempted || (quizState.shuffledQuestions[quizState.currentQ]?.type === 'essay' && quizState.userAnswers[quizState.currentQ]?.trim())) ? (
                                 <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
@@ -278,9 +262,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                 </div>
                             ) : null
                         )}
-                        {/* --- END MODIFIED --- */}
 
-                        {/* --- MODIFIED: Teacher view uses quizState --- */}
                         {isTeacherView && quizState.shuffledQuestions.length > 0 && (
                             <div className="flex justify-between items-center">
                                 <button
@@ -311,12 +293,10 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                 </button>
                             </div>
                         )}
-                        {/* --- END MODIFIED --- */}
                     </div>
                 </DialogPanel>
             </Dialog>
             
-            {/* --- MODIFIED: Warning modal uses quizState --- */}
             <QuizWarningModal
                 isOpen={showWarningModal}
                 warnings={quizState.warnings}
@@ -325,7 +305,6 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                 onLeave={handleLeaveQuiz}
                 isLocked={quizState.isLocked}
             />
-            {/* --- END MODIFIED --- */}
         </>
     );
 }

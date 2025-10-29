@@ -396,14 +396,36 @@ export const joinClassWithCode = async (classCode, studentProfile) => {
     if (!classCode || !studentProfile) {
       throw new Error("Class code and student profile are required.");
     }
+
+    // 1. Find the class
     const upperCaseClassCode = classCode.toUpperCase();
     const q = query(collection(db, "classes"), where("classCode", "==", upperCaseClassCode));
     const querySnapshot = await getDocs(q);
+
     if (querySnapshot.empty) {
       throw new Error("Invalid class code. Please check the code and try again.");
     }
+
     const classDoc = querySnapshot.docs[0];
+    const classData = classDoc.data();
     const classDocRef = doc(db, "classes", classDoc.id);
+
+    // --- 
+    // --- 2. (NEW) VALIDATE GRADE LEVEL ---
+    // ---
+    if (classData.gradeLevel !== studentProfile.gradeLevel) {
+      throw new Error(
+        `Join failed: Your grade (${studentProfile.gradeLevel}) does not match the class's grade (${classData.gradeLevel}).`
+      );
+    }
+    // --- END OF NEW VALIDATION ---
+
+    // 3. (NEW) Check if student is already in the class
+    if (classData.studentIds && classData.studentIds.includes(studentProfile.id)) {
+      throw new Error("You are already enrolled in this class.");
+    }
+
+    // 4. Add student to the class
     const studentObject = {
       id: studentProfile.id,
       firstName: studentProfile.firstName,
@@ -413,17 +435,20 @@ export const joinClassWithCode = async (classCode, studentProfile) => {
       students: arrayUnion(studentObject),
       studentIds: arrayUnion(studentProfile.id)
     });
-    return { success: true, className: classDoc.data().name };
+
+    // 5. Return success
+    return { success: true, className: classData.name };
   } catch (err) {
     console.error(`❌ joinClassWithCode failed for code=${classCode}`, err);
-    throw err;
+    throw err; // Re-throw the error so the modal can catch it
   }
 };
 
 export const updateClassArchiveStatus = async (classId, isArchived) => {
   try {
     return updateDoc(doc(db, "classes", classId), { isArchived });
-  } catch (err) {
+  } catch (err)
+ {
     console.error(`❌ updateClassArchiveStatus failed for classId=${classId}`, err);
     throw err;
   }
