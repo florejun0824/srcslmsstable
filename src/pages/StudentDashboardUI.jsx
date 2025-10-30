@@ -24,7 +24,7 @@ import StudentLessonsTab from '../components/student/StudentLessonsTab';
 import UserInitialsAvatar from '../components/common/UserInitialsAvatar';
 import Spinner from '../components/common/Spinner';
 import SessionConflictModal from '../components/common/SessionConflictModal';
-import InstallPWA from './components/common/InstallPWA';
+import InstallPWA from '../components/common/InstallPWA';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { format } from 'date-fns';
