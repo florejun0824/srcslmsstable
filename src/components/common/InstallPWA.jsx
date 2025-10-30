@@ -1,3 +1,4 @@
+// src/components/common/InstallPWA.jsx
 import React, { useState, useEffect } from 'react';
 import { ArrowDownTrayIcon, ShareIcon } from '@heroicons/react/24/solid';
 
@@ -64,18 +65,22 @@ const InstallPWA = () => {
       {/* This is the instruction modal for iOS users */}
       {showIOSModal && (
         <div 
-          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+          // --- CHANGE HERE ---
+          // Changed `items-end sm:items-center` to just `items-center`
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
           onClick={handleCloseModal}
         >
           <div 
-            className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl p-6 w-full max-w-md m-4"
+            // --- AND CHANGE HERE ---
+            // Changed `rounded-t-2xl sm:rounded-2xl` to just `rounded-2xl`
+            className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md m-4"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-bold text-slate-900">Install App on your iPhone</h3>
             <p className="text-slate-600 mt-2 text-sm">To install this app on your device, please follow these steps:</p>
             <ol className="list-decimal list-inside text-slate-700 mt-4 space-y-2">
-              <li>Tap the "Share" icon <ShareIcon className="h-5 w-5 inline-block mx-1" /> at the bottom of your screen.</li>
-              <li>Scroll down and tap <span className="font-semibold">"Add to Home Screen"</span>.</li>
+              <li>Tap the "Share" icon <ShareIcon className="h-5 w-5 inline-block mx-1" /> at the bottom or top of your screen.</li>
+              <li>Scroll down and tap More and <span className="font-semibold">"Add to Home Screen"</span>.</li>
               <li>Tap <span className="font-semibold">"Add"</span> in the top-right corner.</li>
             </ol>
             <button
@@ -92,4 +97,3 @@ const InstallPWA = () => {
 };
 
 export default InstallPWA;
-
