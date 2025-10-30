@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Modal from '../common/Modal';
-// --- MODIFICATION 1: Add doc, getDoc, and where ---
 import { collection, getDocs, query, orderBy, doc, getDoc, where } from 'firebase/firestore';
 import { CheckIcon, MagnifyingGlassIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 
-// ... (Button styles and NeumorphicCheckbox component are unchanged) ...
-const primaryButtonStyles = "w-full sm:w-auto px-6 py-3 text-base font-semibold text-white bg-blue-600 rounded-full shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all duration-200 disabled:opacity-50 active:scale-95";
-const secondaryButtonStyles = "w-full sm:w-auto px-6 py-3 text-base font-semibold text-gray-900 bg-neumorphic-base rounded-full shadow-neumorphic hover:text-blue-600 transition-all disabled:opacity-50 active:scale-95";
+// --- MODIFIED: Made buttons responsive ---
+const primaryButtonStyles = "w-full sm:w-auto px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base font-semibold text-white bg-blue-600 rounded-full shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all duration-200 disabled:opacity-50 active:scale-95";
+const secondaryButtonStyles = "w-full sm:w-auto px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base font-semibold text-gray-900 bg-neumorphic-base rounded-full shadow-neumorphic hover:text-blue-600 transition-all disabled:opacity-50 active:scale-95";
 
 const NeumorphicCheckbox = React.memo(({ checked, indeterminate, ...props }) => {
+    // ... (This component is unchanged) ...
     const ref = React.useRef(null);
     useEffect(() => {
         if (ref.current) {
@@ -32,13 +32,13 @@ const NeumorphicCheckbox = React.memo(({ checked, indeterminate, ...props }) => 
     );
 });
 
+// --- MODIFIED: Made empty state responsive ---
 const StudentListMessage = ({ icon, title, message }) => {
-    // ... (This helper component is unchanged) ...
     const IconComponent = icon;
     return (
         <div className="flex flex-col items-center justify-center h-full text-center p-8 text-gray-500">
-            {IconComponent && <IconComponent className="w-12 h-12 mb-4 text-gray-400" />}
-            <h3 className="font-semibold text-gray-700">{title}</h3>
+            {IconComponent && <IconComponent className="w-10 h-10 sm:w-12 h-12 mb-4 text-gray-400" />}
+            <h3 className="font-semibold text-gray-700 text-base sm:text-lg">{title}</h3>
             <p className="text-sm">{message}</p>
         </div>
     );
@@ -47,6 +47,7 @@ const StudentListMessage = ({ icon, title, message }) => {
 
 const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, currentSelectionMap, db }) => {
     
+    // ... (All state and logic is unchanged) ...
     const [tempSelectionMap, setTempSelectionMap] = useState(new Map());
     const [activeClassId, setActiveClassId] = useState(null);
     const [students, setStudents] = useState([]);
@@ -54,7 +55,6 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
     const [searchTerm, setSearchTerm] = useState('');
     const [loadingClassStudents, setLoadingClassStudents] = useState(null);
 
-    // ... (All logic and useEffects are unchanged) ...
     useEffect(() => {
         if (isOpen) {
             const newMap = new Map();
@@ -229,7 +229,7 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
     }, [allClasses, searchTerm]);
 
     const classListContent = useMemo(() => {
-        // ... (This function is unchanged) ...
+        // ... (This function's logic is unchanged) ...
         if (filteredClasses.length === 0) {
             return <div className="p-4 text-center text-gray-500">No classes match search.</div>
         }
@@ -245,7 +245,8 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
             return (
                 <div 
                     key={cls.value} 
-                    className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${activeClassId === cls.value ? 'bg-blue-500/10 shadow-neumorphic' : 'hover:bg-black/5'}`}
+                    // --- MODIFIED: Reduced mobile padding ---
+                    className={`flex items-center gap-3 p-2 sm:p-3 rounded-xl cursor-pointer transition-all ${activeClassId === cls.value ? 'bg-blue-500/10 shadow-neumorphic' : 'hover:bg-black/5'}`}
                 >
                     <div className="flex-shrink-0">
                         {isLoading ? (
@@ -260,10 +261,11 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
                         )}
                     </div>
                     <div 
-                        className="flex-grow select-none"
+                        className="flex-grow select-none min-w-0" // Added min-w-0 for truncation
                         onClick={() => setActiveClassId(cls.value)}
                     >
-                        <div className="font-medium text-gray-900">{cls.label}</div>
+                        {/* --- MODIFIED: Made text responsive and added truncation --- */}
+                        <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{cls.label}</div>
                         <div className="text-sm text-gray-500">
                             {selection.size} / {totalCount} selected
                         </div>
@@ -274,7 +276,7 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
     }, [filteredClasses, activeClassId, tempSelectionMap, loadingClassStudents]);
 
     const studentListContent = useMemo(() => {
-        // ... (This function is unchanged) ...
+        // ... (This function's logic is unchanged) ...
         if (loadingStudents) {
             return <StudentListMessage icon={ArrowPathIcon} title="Loading Students..." message="Please wait..." />;
         }
@@ -291,7 +293,8 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
 
         return (
             <>
-                <header className="flex-shrink-0 flex items-center gap-3 p-4 border-b border-black/10">
+                {/* --- MODIFIED: Made header responsive --- */}
+                <header className="flex-shrink-0 flex items-center gap-3 p-3 sm:p-4 border-b border-black/10">
                     <NeumorphicCheckbox
                         checked={allVisibleSelected}
                         indeterminate={isIndeterminate}
@@ -300,7 +303,8 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
                     />
                     <label
                         onClick={handleToggleAllStudents}
-                        className="font-semibold text-gray-900 cursor-pointer select-none flex-grow"
+                        // --- MODIFIED: Made text responsive ---
+                        className="font-semibold text-gray-900 cursor-pointer select-none flex-grow text-sm sm:text-base"
                     >
                         Select all students
                         <span className="text-gray-500 font-normal ml-2">
@@ -316,10 +320,12 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
                             <li 
                                 key={student.id} 
                                 onClick={() => handleToggleStudent(student.id)}
-                                className={`flex items-center gap-3 p-4 cursor-pointer transition-colors ${isSelected ? 'bg-blue-500/10' : 'hover:bg-black/5'} border-t border-black/5`}
+                                // --- MODIFIED: Made list item responsive ---
+                                className={`flex items-center gap-3 p-3 sm:p-4 cursor-pointer transition-colors ${isSelected ? 'bg-blue-500/10' : 'hover:bg-black/5'} border-t border-black/5`}
                             >
                                 <NeumorphicCheckbox checked={isSelected} readOnly className="pointer-events-none" />
-                                <span className="text-gray-800 select-none">{student.displayName}</span>
+                                {/* --- MODIFIED: Made text responsive --- */}
+                                <span className="text-gray-800 select-none text-sm sm:text-base">{student.displayName}</span>
                             </li>
                         );
                     })}
@@ -335,28 +341,27 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
             onClose={onClose} 
             title="Select Classes & Students"
             description="Select classes and the specific students you want to share with."
-            // I still recommend reducing this size for a better mobile-first feel
-            // e.g., size="2xl" or size="3xl"
-            size="6xl"
+            // --- MODIFIED: Reduced max size from 6xl to 4xl ---
+            size="4xl"
             contentClassName="bg-neumorphic-base"
         >
-            {/* --- MODIFICATION 1: Use h-[80vh] for a bit more space --- */}
             <div className="flex flex-col h-[80vh] md:h-[70vh]">
                 
-                {/* --- MODIFICATION 2: Changed grid to flex, fixed column classes --- */}
-                <main className="flex-grow flex flex-col md:flex-row gap-4 min-h-0">
+                {/* --- MODIFIED: Reduced gap for mobile --- */}
+                <main className="flex-grow flex flex-col md:flex-row gap-2 sm:gap-4 min-h-0">
                     
                     {/* Column 1: Search */}
-                    {/* No flex-grow, it just takes its natural height */}
-                    <div className="w-full md:w-1/3 p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col">
-                        <h3 className="text-lg font-semibold mb-3 text-gray-900">Search</h3>
+                    {/* --- MODIFIED: Made responsive --- */}
+                    <div className="w-full md:w-1/3 p-3 sm:p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col">
+                        <h3 className="text-base sm:text-lg font-semibold mb-3 text-gray-900">Search</h3>
                         <div className="relative">
                             <input 
                                 type="text"
                                 placeholder="Search class name..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full p-3 pl-10 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                // --- MODIFIED: Made input responsive ---
+                                className="w-full p-2.5 sm:p-3 pl-10 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm sm:text-base"
                             />
                             <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                             {searchTerm && (
@@ -368,25 +373,23 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
                     </div>
 
                     {/* Column 2: Class list */}
-                    {/* Added flex-grow and min-h-0 to make it fill height and allow internal scroll */}
-                    <div className="w-full md:w-1/3 p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col flex-grow min-h-0">
-                        <h3 className="text-lg font-semibold mb-3 text-gray-900">Class list</h3>
-                        {/* This internal div will now scroll correctly on all screen sizes */}
+                    {/* --- MODIFIED: Made responsive --- */}
+                    <div className="w-full md:w-1/3 p-3 sm:p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col flex-grow min-h-0">
+                        <h3 className="text-base sm:text-lg font-semibold mb-3 text-gray-900">Class list</h3>
                         <div className="flex-grow overflow-y-auto space-y-2 -m-1 p-1">
                             {classListContent}
                         </div>
                     </div>
 
                     {/* Column 3: Student list */}
-                    {/* Added flex-grow and min-h-0 to make it fill height and allow internal scroll */}
                     <div className="w-full md:w-1/3 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col flex-grow min-h-0 overflow-hidden">
-                        {/* studentListContent already contains the scrolling list, this just gives it the height */}
                         {studentListContent}
                     </div>
 
                 </main>
                 
-                <footer className="flex-shrink-0 pt-5 mt-5 border-t border-black/10">
+                {/* --- MODIFIED: Made footer responsive --- */}
+                <footer className="flex-shrink-0 pt-4 sm:pt-5 mt-4 sm:mt-5 border-t border-black/10">
                     <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                         <button type="button" onClick={onClose} className={secondaryButtonStyles}>Cancel</button>
                         <button onClick={handleDone} className={primaryButtonStyles}>

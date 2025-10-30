@@ -9,19 +9,18 @@ import { ChevronUpDownIcon, CheckIcon } from '@heroicons/react/24/solid';
 import ContentSelectionModal from './ContentSelectionModal';
 import ClassStudentSelectionModal from './ClassStudentSelectionModal';
 
-// (Helper components: primaryButtonStyles, secondaryButtonStyles, CustomSingleSelect, ToggleSwitch remain unchanged)
+// --- MODIFIED: Made buttons responsive ---
+const primaryButtonStyles = "w-full sm:w-auto px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base font-semibold text-white bg-blue-600 rounded-full shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all duration-200 disabled:opacity-50 active:scale-95";
+const secondaryButtonStyles = "w-full sm:w-auto px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base font-semibold text-gray-900 bg-neumorphic-base rounded-full shadow-neumorphic hover:text-blue-600 transition-all disabled:opacity-50 active:scale-95";
 
-const primaryButtonStyles = "px-6 py-3 text-base font-semibold text-white bg-blue-600 rounded-full shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all duration-200 disabled:opacity-50 active:scale-95";
-const secondaryButtonStyles = "px-6 py-3 text-base font-semibold text-gray-900 bg-neumorphic-base rounded-full shadow-neumorphic hover:text-blue-600 transition-all disabled:opacity-50 active:scale-95";
-
-
+// --- MODIFIED: Made select responsive ---
 const CustomSingleSelect = React.memo(({ options, selectedValue, onSelectionChange, isOpen, onToggle, placeholder = "Select...", disabled = false }) => {
     
     const selectedLabel = options.find(opt => opt.value === selectedValue)?.label || placeholder;
 
     const renderOptions = () => {
         return options.map(({ value, label }) => (
-            <li key={value} onClick={() => { onSelectionChange(value); onToggle(); }} className="flex items-center justify-between p-3 hover:bg-blue-500/10 cursor-pointer rounded-lg text-base transition-colors duration-150">
+            <li key={value} onClick={() => { onSelectionChange(value); onToggle(); }} className="flex items-center justify-between p-3 hover:bg-blue-500/10 cursor-pointer rounded-lg text-sm sm:text-base transition-colors duration-150">
                 <span className="text-gray-800">{label}</span>
                 {selectedValue === value && <CheckIcon className="h-5 w-5 text-blue-600" />}
             </li>
@@ -30,8 +29,8 @@ const CustomSingleSelect = React.memo(({ options, selectedValue, onSelectionChan
 
     return (
         <div className="relative">
-            <button type="button" onClick={onToggle} disabled={disabled} className="flex w-full items-center justify-between p-4 bg-neumorphic-base rounded-xl shadow-neumorphic focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 disabled:bg-gray-200/50 disabled:cursor-not-allowed">
-                <span className={`block truncate text-base ${selectedValue === null ? 'text-gray-500' : 'text-gray-900'}`}>{selectedLabel}</span>
+            <button type="button" onClick={onToggle} disabled={disabled} className="flex w-full items-center justify-between p-3 sm:p-4 bg-neumorphic-base rounded-xl shadow-neumorphic focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 disabled:bg-gray-200/50 disabled:cursor-not-allowed">
+                <span className={`block truncate text-sm sm:text-base ${selectedValue === null ? 'text-gray-500' : 'text-gray-900'}`}>{selectedLabel}</span>
                 <ChevronUpDownIcon className={`h-5 w-5 text-gray-400 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
             {isOpen && (
@@ -43,10 +42,10 @@ const CustomSingleSelect = React.memo(({ options, selectedValue, onSelectionChan
     );
 });
 
-
+// --- MODIFIED: Made toggle responsive ---
 const ToggleSwitch = ({ label, enabled, onChange, disabled = false }) => (
     <label className={`flex items-center justify-between ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
-        <span className="font-medium text-gray-800">{label}</span>
+        <span className="font-medium text-gray-800 text-sm sm:text-base">{label}</span>
         <div className="relative">
             <input type="checkbox" className="sr-only" checked={enabled} onChange={onChange} disabled={disabled} />
             <div className={`block w-14 h-8 rounded-full transition-colors ${enabled ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
@@ -63,6 +62,7 @@ const getInitialDateWithZeroSeconds = () => {
 };
 
 export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) {
+    // ... (All state and hooks remain unchanged) ...
     const { user } = useAuth();
     const [classes, setClasses] =useState([]);
     const [rawLessons, setRawLessons] = useState([]);
@@ -104,14 +104,15 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     const isExamPossible = selectedQuizzes.length > 0 && selectedLessons.length === 0;
     const isAssignment = selectedLessons.length > 0;
 
-    // (All useEffect hooks remain unchanged)
     useEffect(() => {
+        // ... (This hook's logic is unchanged) ...
         if (!isExamPossible) {
             setSendAsExam(false);
         }
     }, [isExamPossible]);
 
     useEffect(() => {
+        // ... (This hook's logic is unchanged) ...
         const fetchPrerequisites = async () => {
             if (!isOpen || !user?.id || !subject?.id) return;
 
@@ -152,8 +153,8 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         fetchPrerequisites();
     }, [isOpen, user, subject]);
     
-    // (All useMemo hooks remain unchanged)
     const allLessons = useMemo(() => {
+        // ... (This memo's logic is unchanged) ...
         const grouped = {};
         units.forEach(unit => {
             const items = rawLessons.filter(lesson => lesson.unitId === unit.id).sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -165,6 +166,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     }, [rawLessons, units]);
 
     const allQuizzes = useMemo(() => {
+        // ... (This memo's logic is unchanged) ...
         const grouped = {};
         units.forEach(unit => {
             const items = rawQuizzes.filter(quiz => quiz.unitId === unit.id).sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -183,13 +185,14 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         { value: 4, label: 'Quarter 4' },
     ];
 
-    // (All handler functions remain unchanged)
     const formatTime = (date) => {
+        // ... (This handler's logic is unchanged) ...
         if (!date) return '';
         return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
     };
 
     const handleDateChange = (date, field) => {
+        // ... (This handler's logic is unchanged) ...
         if (field === 'from') {
             setAvailableFrom(prevDate => {
                 const newDate = new Date(prevDate || new Date());
@@ -210,6 +213,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     };
 
     const handleTimeChange = (e, field) => {
+        // ... (This handler's logic is unchanged) ...
         const [hours, minutes] = e.target.value.split(':');
         if (!hours || !minutes) return;
 
@@ -231,19 +235,23 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     };
 
     const handleToggleDropdown = useCallback((dropdownName) => {
+        // ... (This handler's logic is unchanged) ...
         setActiveDropdown(prev => prev === dropdownName ? null : dropdownName);
     }, []);
 
     const handleClassSelectionConfirm = (newSelectionMap) => {
+        // ... (This handler's logic is unchanged) ...
         setSelectionMap(newSelectionMap);
         setIsClassModalOpen(false);
     };
     
     const handleQuizSettingsChange = (field, value) => {
+        // ... (This handler's logic is unchanged) ...
         setQuizSettings(prev => ({ ...prev, [field]: value }));
     };
 
     const handleClose = useCallback(() => {
+        // ... (This handler's logic is unchanged) ...
         setPostTitle('');
         setPostComment('');
         setSelectionMap(new Map());
@@ -272,6 +280,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     }, [onClose]);
 
     const handleShare = async () => {
+        // ... (This handler's logic is unchanged) ...
         if (!postTitle.trim()) {
             setError("Please enter a title for the post.");
             return;
@@ -382,10 +391,10 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         }
     };
 
-    // (Helper variables/functions for rendering remain unchanged)
     const thingsToShareCount = selectedLessons.length + selectedQuizzes.length;
     
     const classButtonText = () => {
+        // ... (This function's logic is unchanged) ...
         if (selectionMap.size === 0) return "Select Classes & Students";
         
         let totalStudents = 0;
@@ -398,9 +407,10 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         return `${totalStudents} Student(s) in ${selectionMap.size} Class(es) Selected`;
     };
     
-    const selectButtonStyle = "flex w-full items-center justify-between p-4 bg-neumorphic-base rounded-xl shadow-neumorphic focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 disabled:bg-gray-200/50 disabled:cursor-not-allowed";
-    const datePickerClasses = "w-2/3 p-4 bg-neumorphic-base text-gray-900 shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500";
-    const timeInputClasses = "w-1/3 p-4 bg-neumorphic-base text-gray-900 shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed";
+    // --- MODIFIED: Made styles responsive ---
+    const selectButtonStyle = "flex w-full items-center justify-between p-3 sm:p-4 bg-neumorphic-base rounded-xl shadow-neumorphic focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 disabled:bg-gray-200/50 disabled:cursor-not-allowed";
+    const datePickerClasses = "w-2/3 p-3 sm:p-4 bg-neumorphic-base text-gray-900 shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base";
+    const timeInputClasses = "w-1/3 p-3 sm:p-4 bg-neumorphic-base text-gray-900 shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base";
 
 
     return (
@@ -410,18 +420,21 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 onClose={handleClose}
                 title="Share Content"
                 description={`Share materials from "${subject.title}" to your classes.`}
-                size="5xl" 
+                // --- MODIFIED: Reduced max size ---
+                size="4xl" 
                 contentClassName="bg-neumorphic-base"
             >
-                <div className="relative max-h-[75vh] flex flex-col">
-                    <main className="flex-grow overflow-y-auto pr-2 -mr-2">
-                        {/* --- MODIFICATION: Changed to 3-column grid --- */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="relative max-h-[80vh] sm:max-h-[75vh] flex flex-col">
+                    {/* --- MODIFIED: Reduced mobile padding --- */}
+                    <main className="flex-grow overflow-y-auto pr-2 -mr-2 p-1 sm:p-0">
+                        {/* --- MODIFIED: Changed to 1-column grid on mobile, 3-column on large --- */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
                             
                             {/* --- COLUMN 1: Details & Recipients --- */}
-                            <div className="space-y-6">
-                                <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">1. Set Post Details</h3>
+                            <div className="space-y-4 sm:space-y-6">
+                                {/* --- MODIFIED: Made section responsive --- */}
+                                <section className="bg-neumorphic-base p-4 sm:p-5 rounded-2xl shadow-neumorphic">
+                                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">1. Set Post Details</h3>
                                     <div className="space-y-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1.5">Post Title</label>
@@ -429,7 +442,8 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                                 type="text"
                                                 value={postTitle}
                                                 onChange={(e) => setPostTitle(e.target.value)}
-                                                className="w-full p-4 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 placeholder:text-gray-500"
+                                                // --- MODIFIED: Made input responsive ---
+                                                className="w-full p-3 sm:p-4 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 placeholder:text-gray-500 text-sm sm:text-base"
                                                 placeholder="e.g., Unit 1 Review"
                                             />
                                         </div>
@@ -439,22 +453,23 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                                 rows={3}
                                                 value={postComment}
                                                 onChange={(e) => setPostComment(e.target.value)}
-                                                className="w-full p-4 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 placeholder:text-gray-500 resize-none"
+                                                // --- MODIFIED: Made textarea responsive ---
+                                                className="w-full p-3 sm:p-4 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 placeholder:text-gray-500 resize-none text-sm sm:text-base"
                                                 placeholder="Add an optional comment for your students..."
                                             />
                                         </div>
                                     </div>
                                 </section>
 
-                                <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">2. Share With</h3>
+                                <section className="bg-neumorphic-base p-4 sm:p-5 rounded-2xl shadow-neumorphic">
+                                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">2. Share With</h3>
                                     <button
                                         type="button"
                                         onClick={() => setIsClassModalOpen(true)}
                                         disabled={contentLoading}
                                         className={selectButtonStyle}
                                     >
-                                        <span className="block truncate text-base">
+                                        <span className="block truncate text-sm sm:text-base">
                                             {classButtonText()}
                                         </span>
                                         <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
@@ -463,9 +478,9 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                             </div>
                             
                             {/* --- COLUMN 2: Settings & Scheduling --- */}
-                            <div className="space-y-6">
-                                <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">3. Set Availability</h3>
+                            <div className="space-y-4 sm:space-y-6">
+                                <section className="bg-neumorphic-base p-4 sm:p-5 rounded-2xl shadow-neumorphic">
+                                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">3. Set Availability</h3>
                                     <div className="space-y-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1.5">Available From</label>
@@ -507,8 +522,8 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                     </div>
                                 </section>
 
-                                <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">4. Set Post Type</h3>
+                                <section className="bg-neumorphic-base p-4 sm:p-5 rounded-2xl shadow-neumorphic">
+                                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">4. Set Post Type</h3>
                                     <div className='space-y-3'>
                                         {isAssignment && (
                                             <ToggleSwitch
@@ -531,8 +546,8 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                     </div>
                                 </section>
 
-                                <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">5. Select Quarter</h3>
+                                <section className="bg-neumorphic-base p-4 sm:p-5 rounded-2xl shadow-neumorphic">
+                                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">5. Select Quarter</h3>
                                     <CustomSingleSelect
                                         options={quarterOptions}
                                         selectedValue={selectedQuarter}
@@ -545,9 +560,9 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                             </div>
 
                             {/* --- COLUMN 3: Content & Security --- */}
-                            <div className="space-y-6">
-                                <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">6. Choose Content</h3>
+                            <div className="space-y-4 sm:space-y-6">
+                                <section className="bg-neumorphic-base p-4 sm:p-5 rounded-2xl shadow-neumorphic">
+                                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">6. Choose Content</h3>
                                     <div className="space-y-4">
                                         <button
                                             type="button"
@@ -555,7 +570,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                             disabled={contentLoading}
                                             className={selectButtonStyle}
                                         >
-                                            <span className="block truncate text-base">
+                                            <span className="block truncate text-sm sm:text-base">
                                                 {selectedLessons.length > 0 ? `${selectedLessons.length} Lessons Selected` : `Select Lessons`}
                                             </span>
                                             <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
@@ -566,15 +581,15 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                             disabled={contentLoading}
                                             className={selectButtonStyle}
                                         >
-                                            <span className="block truncate text-base">
+                                            <span className="block truncate text-sm sm:text-base">
                                                 {selectedQuizzes.length > 0 ? `${selectedQuizzes.length} Quizzes Selected` : `Select Quizzes`}
                                             </span>
                                             <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
                                         </button>
                                     </div>
                                 </section>
-                                <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">7. Quiz Security</h3>
+                                <section className="bg-neumorphic-base p-4 sm:p-5 rounded-2xl shadow-neumorphic">
+                                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">7. Quiz Security</h3>
                                     <div className="space-y-4">
                                         <ToggleSwitch
                                             label="Enable Anti-Cheating Features"
@@ -614,7 +629,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                                     onChange={() => handleQuizSettingsChange('preventBackNavigation', !quizSettings.preventBackNavigation)}
                                                 />
                                             </div>
-                                        )}
+                                            )}
                                     </div>
                                 </section>
                             </div>
@@ -622,8 +637,8 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                         {/* --- END MODIFICATION --- */}
                     </main>
 
-                    {/* (Footer remains unchanged) */}
-                    <footer className="flex-shrink-0 pt-5 mt-5 border-t border-black/10">
+                    {/* --- MODIFIED: Made footer responsive --- */}
+                    <footer className="flex-shrink-0 pt-4 sm:pt-5 mt-4 sm:mt-5 border-t border-black/10">
                         {error && (<div className="text-center text-red-600 text-sm mb-4 p-3 bg-red-100/70 rounded-xl">{error}</div>)}
                         {success && (<div className="text-center text-green-600 text-sm mb-4 p-3 bg-green-100/7V rounded-xl">{success}</div>)}
                         <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">

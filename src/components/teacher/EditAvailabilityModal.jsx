@@ -5,7 +5,15 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { db } from '../../services/firebase';
 import { doc, updateDoc, Timestamp, collection, query, where, getDocs, writeBatch, serverTimestamp, getDoc } from 'firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
-import { MagnifyingGlassIcon, CheckIcon, UserGroupIcon, ShieldExclamationIcon } from '@heroicons/react/24/solid';
+import { 
+    MagnifyingGlassIcon, 
+    CheckIcon, 
+    UserGroupIcon, 
+    ShieldExclamationIcon,
+    Cog6ToothIcon,
+    UsersIcon,
+    ShieldCheckIcon
+} from '@heroicons/react/24/solid';
 
 // --- (Reusable NeumorphicCheckbox component remains unchanged) ---
 const NeumorphicCheckbox = React.memo(({ checked, indeterminate, ...props }) => {
@@ -83,6 +91,10 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
     const [originalRecipientIds, setOriginalRecipientIds] = useState(new Set());
     
     const [quizSettings, setQuizSettings] = useState(defaultQuizSettings);
+    
+    // --- NEW STATE FOR MOBILE TABS ---
+    const [mobileTab, setMobileTab] = useState('general'); // 'general', 'recipients', 'security'
+
 
     const allStudents = useMemo(() => {
         const students = classData?.students || []; 
@@ -310,6 +322,12 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
     const isAllSelectedInClass = allStudents.length > 0 && tempRecipientIds.size === allStudents.length;
     const isPartiallySelected = tempRecipientIds.size > 0 && !isAllSelectedInClass;
 
+    const mobileTabs = [
+        { id: 'general', name: 'General', icon: Cog6ToothIcon },
+        { id: 'recipients', name: `Recipients (${tempRecipientIds.size}/${allStudents.length})`, icon: UsersIcon },
+        { id: 'security', name: 'Security', icon: ShieldCheckIcon },
+    ];
+
     return (
         <Modal
             isOpen={isOpen}
@@ -317,85 +335,113 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
             title="" 
             size="screen"
             roundedClass="rounded-2xl"
-            containerClassName="h-full p-4 bg-black/30 backdrop-blur-sm"
+            containerClassName="h-full p-2 sm:p-4 bg-black/30 backdrop-blur-sm" // MODIFIED: p-4 to p-2 sm:p-4
             contentClassName="p-0"
             showCloseButton={true}
         >
-            {/* --- MODIFIED: Changed max-w-6xl to max-w-7xl --- */}
-            <div className="py-4 px-1 md:py-6 md:px-1.5 bg-neumorphic-base h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl rounded-2xl">
+            <div className="p-2 sm:p-4 md:p-6 bg-neumorphic-base h-[95vh] sm:h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl rounded-2xl"> {/* MODIFIED: Padding and height */}
                 
-                <header className="mb-4 p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex-shrink-0">
-                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Edit Activity Settings</h1>
-                    <p className="text-lg text-slate-600 mt-1">
+                <header className="mb-4 p-3 sm:p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex-shrink-0"> {/* MODIFIED: Padding */}
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Edit Activity Settings</h1> {/* MODIFIED: Text size */}
+                    <p className="text-base sm:text-lg text-slate-600 mt-1 truncate"> {/* MODIFIED: Text size & added truncate */}
                         {postTitle || 'Untitled Activity'}
                     </p>
                 </header>
+
+                {/* --- NEW: MOBILE TAB NAVIGATION --- */}
+                <nav className="lg:hidden flex-shrink-0 flex items-center gap-2 p-2 bg-neumorphic-base rounded-2xl shadow-neumorphic overflow-x-auto mb-4">
+                    {mobileTabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setMobileTab(tab.id)}
+                            className={`flex-shrink-0 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 ${
+                                mobileTab === tab.id
+                                    ? 'shadow-neumorphic-inset text-blue-600'
+                                    : 'text-slate-700 hover:shadow-neumorphic-inset'
+                            }`}
+                        >
+                            <tab.icon className="h-5 w-5" />
+                            <span>{tab.name}</span>
+                        </button>
+                    ))}
+                </nav>
                 
-                {/* --- MODIFIED: Changed back to lg:grid-cols-3 for equal widths --- */}
+                {/* --- MODIFIED: Main content area is now a grid, columns are conditionally hidden on mobile --- */}
                 <main className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
 
-                    {/* --- MODIFIED: Removed lg:col-span-2 --- */}
-                    <div className="flex flex-col space-y-6 overflow-y-auto custom-scrollbar p-2 pr-4 min-h-0">
-                        <h2 className="text-xl font-bold text-slate-800 flex-shrink-0">General Settings</h2>
+                    {/* --- COLUMN 1: General Settings --- */}
+                    {/* MODIFIED: Added conditional classes, removed overflow-y-auto, and added a scrolling wrapper inside */}
+                    <div className={`
+                        ${mobileTab === 'general' ? 'flex' : 'hidden'} 
+                        lg:flex flex-col min-h-0
+                    `}>
+                        <h2 className="text-xl font-bold text-slate-800 flex-shrink-0 mb-4">General Settings</h2>
                         
-                        <div className="bg-neumorphic-base p-5 rounded-xl shadow-neumorphic space-y-4"> 
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
-                            <input
-                                type="text"
-                                value={postTitle}
-                                onChange={(e) => setPostTitle(e.target.value)}
-                                className="w-full p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
-                            />
-                             <label className="block text-sm font-medium text-slate-700 mb-1">Comments (Optional)</label>
-                            <textarea
-                                value={postContent}
-                                onChange={(e) => setPostContent(e.target.value)}
-                                placeholder="Add an optional comment for your students..."
-                                rows={3}
-                                className="w-full p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0 resize-none"
-                            />
-                        </div>
-
-                        <div className="bg-neumorphic-base p-5 rounded-xl shadow-neumorphic space-y-4">
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Period: Available From</label>
-                            <div className="flex gap-2">
-                                <DatePicker
-                                    selected={availableFrom}
-                                    onChange={(date) => handleDateChange(date, 'from')}
-                                    dateFormat="MMMM d, yyyy"
-                                    className="w-2/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
-                                />
+                        {/* This new wrapper handles scrolling for this column's content */}
+                        <div className="flex-1 flex flex-col space-y-6 overflow-y-auto custom-scrollbar p-2 pr-4 min-h-0">
+                            <div className="bg-neumorphic-base p-5 rounded-xl shadow-neumorphic space-y-4"> 
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
                                 <input
-                                    type="time"
-                                    value={formatTime(availableFrom)}
-                                    onChange={(e) => handleTimeChange(e, 'from')}
-                                    className="w-1/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
+                                    type="text"
+                                    value={postTitle}
+                                    onChange={(e) => setPostTitle(e.target.value)}
+                                    className="w-full p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
+                                />
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Comments (Optional)</label>
+                                <textarea
+                                    value={postContent}
+                                    onChange={(e) => setPostContent(e.target.value)}
+                                    placeholder="Add an optional comment for your students..."
+                                    rows={3}
+                                    className="w-full p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0 resize-none"
                                 />
                             </div>
 
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Available Until</label>
-                            <div className="flex gap-2">
-                                <DatePicker
-                                    selected={availableUntil}
-                                    onChange={(date) => handleDateChange(date, 'until')}
-                                    dateFormat="MMMM d, yyyy"
-                                    className="w-2/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
-                                />
-                                <input
-                                    type="time"
-                                    value={formatTime(availableUntil)}
-                                    onChange={(e) => handleTimeChange(e, 'until')}
-                                    className="w-1/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
-                                />
+                            <div className="bg-neumorphic-base p-5 rounded-xl shadow-neumorphic space-y-4">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Period: Available From</label>
+                                <div className="flex gap-2">
+                                    <DatePicker
+                                        selected={availableFrom}
+                                        onChange={(date) => handleDateChange(date, 'from')}
+                                        dateFormat="MMMM d, yyyy"
+                                        className="w-2/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
+                                    />
+                                    <input
+                                        type="time"
+                                        value={formatTime(availableFrom)}
+                                        onChange={(e) => handleTimeChange(e, 'from')}
+                                        className="w-1/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
+                                    />
+                                </div>
+
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Available Until</label>
+                                <div className="flex gap-2">
+                                    <DatePicker
+                                        selected={availableUntil}
+                                        onChange={(date) => handleDateChange(date, 'until')}
+                                        dateFormat="MMMM d, yyyy"
+                                        className="w-2/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
+                                    />
+                                    <input
+                                        type="time"
+                                        value={formatTime(availableUntil)}
+                                        onChange={(e) => handleTimeChange(e, 'until')}
+                                        className="w-1/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
                     
-                    {/* --- MODIFIED: Removed lg:col-span-3 --- */}
-                    <div className="space-y-4 flex flex-col min-h-0">
-                        <h2 className="text-xl font-bold text-slate-800">Recipients ({classData?.name || 'Class Roster'})</h2>
+                    {/* --- COLUMN 2: Recipients --- */}
+                    {/* MODIFIED: Added conditional classes, removed space-y-4, and added margins to children */}
+                    <div className={`
+                        ${mobileTab === 'recipients' ? 'flex' : 'hidden'} 
+                        lg:flex flex-col min-h-0
+                    `}>
+                        <h2 className="text-xl font-bold text-slate-800 mb-4">Recipients ({classData?.name || 'Class Roster'})</h2>
                         
-                        <div className="relative flex-shrink-0">
+                        <div className="relative flex-shrink-0 mb-4">
                             <input
                                 type="text"
                                 placeholder="Search student..."
@@ -406,6 +452,7 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                             <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                         </div>
 
+                        {/* This wrapper is now a flex-1 child of a flex-col parent, so it will fill space and allow its own child (the ul) to scroll */}
                         <div className="flex-1 bg-neumorphic-base rounded-xl shadow-neumorphic overflow-hidden flex flex-col min-h-0">
                             <header 
                                 onClick={handleToggleAllStudents}
@@ -454,11 +501,16 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                         </div>
                     </div>
 
-                    {/* --- MODIFIED: Removed lg:col-span-2 --- */}
-                    <div className="flex flex-col space-y-6 min-h-0">
-                        <h2 className="text-xl font-bold text-slate-800 flex-shrink-0">Quiz Security Settings</h2>
+                    {/* --- COLUMN 3: Security Settings --- */}
+                    {/* MODIFIED: Added conditional classes, removed space-y-6, and added margin to h2 */}
+                    <div className={`
+                        ${mobileTab === 'security' ? 'flex' : 'hidden'} 
+                        lg:flex flex-col min-h-0
+                    `}>
+                        <h2 className="text-xl font-bold text-slate-800 flex-shrink-0 mb-4">Quiz Security Settings</h2>
                         
                         {hasQuizzes ? (
+                            // This wrapper will now correctly take up flex-1 space and allow its content to scroll
                             <div className="flex-1 bg-neumorphic-base p-5 rounded-xl shadow-neumorphic space-y-4 overflow-y-auto custom-scrollbar min-h-0 pr-4">
                                 <div className="space-y-4">
                                     <ToggleSwitch

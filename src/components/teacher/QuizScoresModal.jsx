@@ -15,7 +15,7 @@ import {
     SparklesIcon,
     PencilSquareIcon,
     ClockIcon,
-    DocumentChartBarIcon // Make sure this import is added
+    DocumentChartBarIcon
 } from '@heroicons/react/24/solid';
 import { ClockIcon as ClockOutlineIcon } from '@heroicons/react/24/outline'; // Added
 import { Button } from '@tremor/react';
@@ -28,21 +28,21 @@ import { useToast } from '../../contexts/ToastContext';
 // Helper function for delay
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// StatCard Component - Renders dashboard statistics
+// --- MODIFIED: StatCard Component (Made Responsive) ---
 const StatCard = ({ icon: Icon, title, value, color }) => (
-    <div className={`flex-1 bg-neumorphic-base p-4 rounded-xl shadow-neumorphic flex items-center gap-4`}>
-        <div className={`w-12 h-12 rounded-full flex items-center justify-center bg-neumorphic-base shadow-neumorphic-inset`}>
+    <div className={`flex-1 bg-neumorphic-base p-3 sm:p-4 rounded-xl shadow-neumorphic flex items-center gap-3 sm:gap-4`}>
+        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center bg-neumorphic-base shadow-neumorphic-inset flex-shrink-0`}>
             {/* Dynamically applying text color class */}
-            <Icon className={`w-6 h-6 text-${color}-600`} />
+            <Icon className={`w-5 h-5 sm:w-6 sm:h-6 text-${color}-600`} />
         </div>
         <div>
-            <p className="text-sm font-medium text-slate-600">{title}</p>
-            <p className="text-2xl font-bold text-slate-800">{value}</p>
+            <p className="text-xs sm:text-sm font-medium text-slate-600">{title}</p>
+            <p className="text-xl sm:text-2xl font-bold text-slate-800">{value}</p>
         </div>
     </div>
 );
 
-// ScoreBadge Component - Renders score status in the table
+// --- MODIFIED: ScoreBadge Component (Slightly more compact) ---
 const ScoreBadge = ({ score, totalItems, isLate = false, status }) => {
     let colorClasses = 'bg-gray-100 text-gray-700'; // Default: Not Started / Unknown
     let displayScore = '—';
@@ -82,7 +82,7 @@ const ScoreBadge = ({ score, totalItems, isLate = false, status }) => {
     );
 };
 
-// StatusPill Component - Renders status text with icon
+// --- MODIFIED: StatusPill Component (Made Responsive) ---
 const StatusPill = ({ status }) => {
     // Configuration for different statuses
     const statusConfig = {
@@ -114,8 +114,8 @@ const StatusPill = ({ status }) => {
 
 
     return (
-        <div className={`flex items-center gap-2 text-sm font-semibold ${colorClassMap[color] || colorClassMap['gray']}`}>
-            <Icon className={`w-5 h-5 ${iconColorClassMap[color] || iconColorClassMap['gray']}`} />
+        <div className={`flex items-center gap-1 sm:gap-2 text-sm font-semibold ${colorClassMap[color] || colorClassMap['gray']}`}>
+            <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${iconColorClassMap[color] || iconColorClassMap['gray']}`} />
             <span>{text}</span>
         </div>
     );
@@ -123,7 +123,6 @@ const StatusPill = ({ status }) => {
 
 
 // Main Modal Component
-// --- FIX: Add setIsReportModalOpen to the list of destructured props ---
 const QuizScoresModal = ({ 
     isOpen, 
     onClose, 
@@ -132,7 +131,7 @@ const QuizScoresModal = ({
     quizScores, 
     quizLocks, 
     onUnlockQuiz, 
-    setIsReportModalOpen // <-- THIS WAS MISSING
+    setIsReportModalOpen
 }) => {
     const { showToast } = useToast();
     // State for table sorting configuration
@@ -625,17 +624,21 @@ const QuizScoresModal = ({
             title="" 
             size="screen"
             roundedClass="rounded-2xl"
-            containerClassName="h-full p-4 bg-black/30 backdrop-blur-sm"
+            // --- MODIFIED: Reduced mobile padding ---
+            containerClassName="h-full p-2 sm:p-4 bg-black/30 backdrop-blur-sm"
             contentClassName="p-0"
             showCloseButton={true}
         >
-            <div className="p-4 md:p-8 bg-neumorphic-base h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl">
+            {/* --- MODIFIED: Reduced mobile padding --- */}
+            <div className="p-2 sm:p-4 md:p-8 bg-neumorphic-base h-[95vh] sm:h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl">
                 
                 {/* 1. Header (flex-shrink-0) */}
-                <div className="mb-6 p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex-shrink-0">
-                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">{`Scores for "${quiz?.title || 'Quiz'}"`}</h1>
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                {/* --- MODIFIED: Reduced mobile padding --- */}
+                <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex-shrink-0">
+                    {/* --- MODIFIED: Made text responsive --- */}
+                    <h1 className="text-xl sm:text-3xl font-bold text-slate-900 tracking-tight truncate">{`Scores for "${quiz?.title || 'Quiz'}"`}</h1>
+                    {/* --- MODIFIED: Reduced mobile gap --- */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 mt-4">
                         <StatCard icon={UsersIcon} title="Completion Rate" value={`${completedCount} / ${totalStudents}`} color="blue" />
                         <StatCard icon={AcademicCapIcon} title="Average Score (%)" value={totalPossiblePoints > 0 ? `${averageScorePercent.toFixed(1)}%` : 'N/A'} color="teal" />
                         <StatCard icon={ChartBarIcon} title="Highest Score (%)" value={totalPossiblePoints > 0 ? `${highestScorePercent.toFixed(1)}%` : 'N/A'} color="purple" />
@@ -643,13 +646,15 @@ const QuizScoresModal = ({
                 </div>
 
 				{/* 2. Button Row (flex-shrink-0) */}
-                <div className="flex-shrink-0 mb-6 flex flex-wrap items-center gap-4"> {/* Container for buttons */}
+                {/* --- MODIFIED: Made responsive (flex-col) and reduced gap --- */}
+                <div className="flex-shrink-0 mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                     <Button
                        onClick={handleBulkGradeEssays}
                        disabled={!hasPendingEssaysForThisQuiz || isBulkGrading}
                        icon={SparklesIcon}
+                       // --- MODIFIED: Added w-full sm:w-auto, text-sm, responsive padding ---
                        className={`
-                           w-full sm:w-auto font-semibold transition-all rounded-xl border-none outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-neumorphic-base py-2 px-4
+                           w-full sm:w-auto font-semibold transition-all rounded-xl border-none outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-neumorphic-base text-sm py-2 px-3 sm:py-2 sm:px-4
                            ${isBulkGrading 
                                ? 'text-white bg-gradient-to-r from-blue-400 to-purple-500 shadow-lg opacity-70 cursor-wait animate-pulse' 
                                : hasPendingEssaysForThisQuiz
@@ -658,13 +663,13 @@ const QuizScoresModal = ({
                            }
                        `}
                     >
-                       {isBulkGrading ? 'Grading Pending Essays...' : 'Grade Pending Essays'}
+                       {isBulkGrading ? 'Grading...' : 'Grade Pending Essays'}
                     </Button>
 
-                    {/* --- Generate Report Button --- */}
+                    {/* --- MODIFIED: Made responsive (w-full, justify-center) and text/padding --- */}
                     <button
                         onClick={() => setIsReportModalOpen(true)}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 font-semibold rounded-xl shadow-neumorphic transition-shadow duration-200 hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 font-semibold text-sm rounded-xl shadow-neumorphic transition-shadow duration-200 hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
                     >
                         <DocumentChartBarIcon className="h-5 w-5" />
                         Generate Report
@@ -674,69 +679,80 @@ const QuizScoresModal = ({
 
 
                 {/* 3. Main content area (flex-1 for expansion, min-h-0 for scrolling) */}
-                <main className="flex-1 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col min-h-0">
-                    {/* Table Header (Sticky) */}
-                    <div className="flex-shrink-0 grid grid-cols-12 gap-4 px-4 py-3 border-b-2 border-slate-300/60 text-left text-xs sm:text-sm font-bold text-slate-600 rounded-t-xl sticky top-0 bg-neumorphic-base z-10 min-w-[700px]">
-                        {/* Sortable Column Headers */}
-                        <button onClick={() => requestSort('name')} className="col-span-4 group flex items-center gap-1 hover:text-sky-700 transition-colors"><span>Student Name</span> {getSortIcon('name')}</button>
-                        <button onClick={() => requestSort('status')} className="col-span-3 group flex items-center gap-1 hover:text-sky-700 transition-colors"><span>Status</span> {getSortIcon('status')}</button>
-                        {/* Attempt Columns Header */}
-                        <div className={`col-span-3 grid grid-cols-${maxAttempts} text-center`}>
-                            {[...Array(maxAttempts)].map((_, i) => (
-                                <span key={i} className={`col-span-1 ${maxAttempts > 3 ? 'text-[10px]' : ''}`}>Attempt {i + 1}</span>
-                            ))}
+                {/* --- MODIFIED: Added overflow-hidden to parent --- */}
+                <main className="flex-1 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col min-h-0 overflow-hidden">
+                    {/* --- SCROLLING FIX ---
+                      This new outer wrapper handles BOTH horizontal and vertical scrolling for the entire table.
+                      The sticky header will now scroll horizontally with the content.
+                    */}
+                    <div className="flex-1 overflow-auto custom-scrollbar">
+                        {/* Table Header (Sticky) */}
+                        {/* --- MODIFIED: Reduced padding, responsive text. min-w forces horizontal scroll. Sticky header. --- */}
+                        <div className="grid grid-cols-12 gap-2 sm:gap-4 px-2 py-2 sm:px-4 sm:py-3 border-b-2 border-slate-300/60 text-left text-[10px] sm:text-sm font-bold text-slate-600 rounded-t-xl sticky top-0 bg-neumorphic-base z-10 min-w-[700px]">
+                            {/* Sortable Column Headers */}
+                            <button onClick={() => requestSort('name')} className="col-span-4 group flex items-center gap-1 hover:text-sky-700 transition-colors"><span>Student Name</span> {getSortIcon('name')}</button>
+                            <button onClick={() => requestSort('status')} className="col-span-3 group flex items-center gap-1 hover:text-sky-700 transition-colors"><span>Status</span> {getSortIcon('status')}</button>
+                            {/* Attempt Columns Header */}
+                            <div className={`col-span-3 grid grid-cols-${maxAttempts} text-center`}>
+                                {[...Array(maxAttempts)].map((_, i) => (
+                                    <span key={i} className={`col-span-1 ${maxAttempts > 3 ? 'text-[9px] sm:text-[10px]' : ''}`}>Attempt {i + 1}</span>
+                                ))}
+                            </div>
+                            <div className="col-span-2 text-right">Actions</div>
                         </div>
-                        <div className="col-span-2 text-right">Actions</div>
-                    </div>
-                    
-                    {/* Table Body (Scrollable) */}
-                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-                        {processedStudentData.length > 0 ? (
-                            processedStudentData.map(student => (
-                                <div key={student.id} className="grid grid-cols-12 gap-4 items-center p-3 rounded-lg transition-shadow hover:shadow-neumorphic-inset border-b border-slate-200/50 last:border-b-0 min-w-[700px]">
-                                    {/* Student Name */}
-                                    <div className="col-span-4 font-semibold text-slate-800 truncate" title={`${student.lastName}, ${student.firstName}`}>{student.lastName}, {student.firstName}</div>
-                                    {/* Status Pill */}
-                                    <div className="col-span-3"><StatusPill status={student.status} /></div>
-                                    {/* Attempts */}
-                                    <div className={`col-span-3 grid grid-cols-${maxAttempts} gap-1`}>
-                                        {student.attemptsDisplay.map((attempt, index) => (
-                                            <div key={index} className="col-span-1 flex justify-center">
-                                                {attempt ? (
-                                                    <ScoreBadge
-                                                        score={attempt.score}
-                                                        totalItems={attempt.totalItems} // Use total from the specific attempt
-                                                        isLate={!!attempt.isLate} // This now uses the calculated flag
-                                                        status={attempt.status} // Pass status for correct badge display
-                                                    />
-                                                ) : (
-                                                    <span className="text-slate-400 text-xs">—</span> // Placeholder if no attempt data
-                                                )}
-                                            </div>
-                                        ))}
+                        
+                        {/* Table Body (This area will scroll vertically inside the parent) */}
+                        {/* --- MODIFIED: Removed overflow-y-auto (handled by parent), removed pr-2 --- */}
+                        <div className="">
+                            {processedStudentData.length > 0 ? (
+                                processedStudentData.map(student => (
+                                    // --- MODIFIED: Reduced padding, min-w forces horizontal scroll ---
+                                    <div key={student.id} className="grid grid-cols-12 gap-2 sm:gap-4 items-center p-2 sm:p-3 rounded-lg transition-shadow hover:shadow-neumorphic-inset border-b border-slate-200/50 last:border-b-0 min-w-[700px]">
+                                        {/* Student Name */}
+                                        <div className="col-span-4 font-semibold text-slate-800 truncate text-sm" title={`${student.lastName}, ${student.firstName}`}>{student.lastName}, {student.firstName}</div>
+                                        {/* Status Pill */}
+                                        <div className="col-span-3"><StatusPill status={student.status} /></div>
+                                        {/* Attempts */}
+                                        <div className={`col-span-3 grid grid-cols-${maxAttempts} gap-1`}>
+                                            {student.attemptsDisplay.map((attempt, index) => (
+                                                <div key={index} className="col-span-1 flex justify-center">
+                                                    {attempt ? (
+                                                        <ScoreBadge
+                                                            score={attempt.score}
+                                                            totalItems={attempt.totalItems} // Use total from the specific attempt
+                                                            isLate={!!attempt.isLate} // This now uses the calculated flag
+                                                            status={attempt.status} // Pass status for correct badge display
+                                                        />
+                                                    ) : (
+                                                        <span className="text-slate-400 text-xs">—</span> // Placeholder if no attempt data
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {/* Actions Column */}
+                                        <div className="col-span-2 flex justify-end">
+                                            {/* Unlock Button */}
+                                            {student.isLocked && onUnlockQuiz && ( // Show only if locked and handler provided
+                                                // --- MODIFIED: Made button responsive ---
+                                                <button
+                                                    onClick={() => quiz?.id && student?.id && onUnlockQuiz(quiz.id, student.id)}
+                                                    className="px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-semibold text-red-600 bg-neumorphic-base rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
+                                                    title={`Unlock quiz for ${student.firstName}`}
+                                                    aria-label={`Unlock quiz for ${student.firstName} ${student.lastName}`}
+                                                >
+                                                    Unlock
+                                                </button>
+                                            )}
+                                            {/* Placeholder for future actions like "View Details" */}
+                                            {!student.isLocked && <div className="w-[48px] sm:w-[58px]"></div> /* Keep alignment */}
+                                        </div>
                                     </div>
-                                    {/* Actions Column */}
-                                    <div className="col-span-2 flex justify-end">
-                                        {/* Unlock Button */}
-                                        {student.isLocked && onUnlockQuiz && ( // Show only if locked and handler provided
-                                            <button
-                                                onClick={() => quiz?.id && student?.id && onUnlockQuiz(quiz.id, student.id)}
-                                                className="px-3 py-1 text-xs font-semibold text-red-600 bg-neumorphic-base rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
-                                                title={`Unlock quiz for ${student.firstName}`}
-                                                aria-label={`Unlock quiz for ${student.firstName} ${student.lastName}`}
-                                            >
-                                                Unlock
-                                            </button>
-                                        )}
-                                        {/* Placeholder for future actions like "View Details" */}
-                                        {!student.isLocked && <div className="w-[58px]"></div> /* Keep alignment */}
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            // Empty state message
-                            <div className="text-center py-8 text-slate-500">No students enrolled in this class yet or no submissions found.</div>
-                        )}
+                                ))
+                            ) : (
+                                // Empty state message
+                                <div className="text-center py-8 text-slate-500">No students enrolled in this class yet or no submissions found.</div>
+                            )}
+                        </div>
                     </div>
                 </main>
             </div>

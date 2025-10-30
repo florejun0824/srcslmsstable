@@ -95,31 +95,34 @@ const nativeSave = async (blob, fileName, mimeType, showToast) => {
 };
 
 const modalVariants = {
+    // ... (This section is unchanged) ...
     hidden: { opacity: 0, scale: 0.98 },
     visible: { opacity: 1, scale: 1, transition: { ease: "easeOut", duration: 0.2 } },
     exit: { opacity: 0, scale: 0.98, transition: { ease: "easeIn", duration: 0.15 } },
 };
 
 const pageTransitionVariants = {
+    // ... (This section is unchanged) ...
     hidden: { opacity: 0, x: 15 },
     visible: { opacity: 1, x: 0, transition: { ease: "easeOut", duration: 0.25 } },
     exit: { opacity: 0, x: -15, transition: { ease: "easeIn", duration: 0.2 } },
 };
 
-// --- ADDED: Container and Item variants for Objectives from ViewLessonModal ---
 const objectivesContainerVariants = {
+    // ... (This section is unchanged) ...
     visible: { transition: { staggerChildren: 0.07 } },
 };
 
 const objectiveItemVariants = {
+    // ... (This section is unchanged) ...
     hidden: { opacity: 0, y: 10 },
     visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 150, damping: 20 } },
 };
-// --- END ADDED ---
 
 
 // Font Loading Functions
 async function loadFontToVfs(name, url) {
+  // ... (This function is unchanged) ...
   const res = await fetch(url);
   const buffer = await res.arrayBuffer();
   const base64 = btoa(
@@ -130,6 +133,7 @@ async function loadFontToVfs(name, url) {
 
 let dejaVuLoaded = false;
 async function registerDejaVuFonts() {
+  // ... (This function is unchanged) ...
   if (dejaVuLoaded) return;
   
   try {
@@ -155,6 +159,7 @@ async function registerDejaVuFonts() {
 
 // Helper function to process special text characters
 const processLatex = (text) => {
+    // ... (This function is unchanged) ...
     if (!text) return '';
     let processedText = text;
 
@@ -172,42 +177,34 @@ const processLatex = (text) => {
 };
 
 
-// --- MODIFIED: Added onComplete prop ---
 function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, className }) {
 
+    // ... (All state and logic is unchanged) ...
     const [currentPage, setCurrentPage] = useState(0);
-    // --- ADDED: State to track the highest page visited ---
     const [maxPageReached, setMaxPageReached] = useState(0);
-    // --- ADDED: State to track if XP has been successfully awarded ---
     const [xpAwarded, setXpAwarded] = useState(false);
-    // --- END ADDED ---
     const [currentLesson, setCurrentLesson] = useState(lesson);
     const { showToast } = useToast();
-    // --- Removed isFinalizing state as it's not needed for view-only ---
     const [exportingLessonId, setExportingLessonId] = useState(null);
     const contentRef = useRef(null);
     const lessonPageRef = useRef(null);
 
     useEffect(() => { setCurrentLesson(lesson); }, [lesson]);
 
-    // --- MODIFIED: Reset progress and XP state on open ---
     useEffect(() => { 
         if (isOpen) { 
             setCurrentPage(0); 
             setMaxPageReached(0); 
-            setXpAwarded(false); // Reset XP state on opening a new lesson
+            setXpAwarded(false);
             if (contentRef.current) contentRef.current.scrollTop = 0; 
         } 
     }, [isOpen]);
-    // --- END MODIFIED ---
 
-    // --- ADDED: Track the furthest page reached ---
     useEffect(() => {
         if (currentPage > maxPageReached) {
             setMaxPageReached(currentPage);
         }
     }, [currentPage, maxPageReached]);
-    // --- END ADDED ---
 
     const lessonTitle = currentLesson?.lessonTitle || currentLesson?.title || 'Untitled Lesson';
     const pages = currentLesson?.pages || [];
@@ -217,18 +214,15 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
     const progressPercentage = totalPages > 0 ? ((currentPage + 1) / totalPages) * 100 : 0;
     const pageData = pages[currentPage];
 
-    // --- MODIFIED: Fixed goToPreviousPage logic (was adding 1 instead of subtracting 1) ---
     const goToNextPage = useCallback(() => { if (currentPage < totalPages - 1) { setCurrentPage(prev => prev + 1); if (contentRef.current) contentRef.current.scrollTop = 0; } }, [currentPage, totalPages]);
     const goToPreviousPage = useCallback(() => { if (currentPage > 0) { setCurrentPage(prev => prev - 1); if (contentRef.current) contentRef.current.scrollTop = 0; } }, [currentPage]);
-    // --- END MODIFIED ---
 
-    // --- ADDED: New handler for "Finish" button click ---
     const handleFinishLesson = async () => {
+        // ... (This logic is unchanged) ...
         if (xpAwarded || !onComplete || totalPages === 0 || currentPage < totalPages - 1) {
             return;
         }
 
-        // Prepare the progress object
         const progress = {
             pagesRead: maxPageReached + 1, 
             totalPages: totalPages,
@@ -236,27 +230,21 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
             lessonId: currentLesson?.id || null
         };
 
-        // Call the parent's onComplete function (which awards XP)
         try {
-            // Await the XP award process. Crucially, refreshUserProfile() is now removed from the parent's onComplete.
             await onComplete(progress);
-            // This flag is set to true immediately after the DB update to switch the button to "Close"
             setXpAwarded(true); 
         } catch (error) {
             console.error("XP award failed:", error);
             showToast("Failed to finalize lesson progress.", "error");
         }
     };
-    // --- END ADDED ---
 
-    // --- MODIFIED: Simplified handleClose for 'X' and backdrop click ---
     const handleClose = () => {
-        // If the user closes the modal via 'X' or backdrop, log progress if they didn't already finish.
+        // ... (This logic is unchanged) ...
         if (!xpAwarded && onComplete && totalPages > 0) {
             const isFinished = currentPage === totalPages - 1;
             const pagesRead = maxPageReached + 1; 
 
-            // Call onComplete to log reading progress, but don't wait for it.
             onComplete({
                 pagesRead: pagesRead,
                 totalPages: totalPages,
@@ -265,16 +253,13 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
             });
         }
         
-        onClose(); // Always just call onClose to close the modal
+        onClose();
     };
-    // --- END MODIFIED ---
 
     useEffect(() => { const handleKeyDown = (e) => { if (!isOpen) return; if (e.key === 'ArrowRight') goToNextPage(); else if (e.key === 'ArrowLeft') goToPreviousPage(); }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isOpen, goToNextPage, goToPreviousPage]);
 
-    // --- Removed handleFinalizeDiagram and handleRevertDiagramToEditable as students can't edit ---
-    // These functions should only exist in the teacher's ViewLessonModal.
-
 	const handleExportLessonPdf = async (lessonToExport) => {
+	    // ... (This logic is unchanged) ...
 	    if (exportingLessonId) return;
 	    setExportingLessonId(lessonToExport.id);
 	    showToast("Preparing PDF...", "info");
@@ -296,18 +281,12 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
 	        };
 			const lessonTitleToExport = lessonToExport.lessonTitle || lessonToExport.title || 'Untitled Lesson';
 
-			            // 1. Aggressively replace any character that is NOT a letter, number, dot, hyphen, or underscore
-			            let safeTitle = lessonTitleToExport.replace(/[^a-zA-Z0-9.-_]/g, '_');
-
-			            // 2. Truncate the name to a safe length (e.g., 200 chars) to prevent file system errors
-			            if (safeTitle.length > 200) {
-			                safeTitle = safeTitle.substring(0, 200);
-			            }
-
-			            // 3. Ensure the name isn't empty after sanitization
-						const sanitizedFileName = (safeTitle || 'lesson') + '.pdf';
-
-				        const subjectTitle = "SRCS Learning Portal"; // Generic fallback
+	        let safeTitle = lessonTitleToExport.replace(/[^a-zA-Z0-9.-_]/g, '_');
+	        if (safeTitle.length > 200) {
+	            safeTitle = safeTitle.substring(0, 200);
+	        }
+			const sanitizedFileName = (safeTitle || 'lesson') + '.pdf';
+			const subjectTitle = "SRCS Learning Portal";
 	        let lessonContent = [];
 
 	        for (const page of lessonToExport.pages) {
@@ -315,17 +294,12 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
 	            if (cleanTitle) {
 	                lessonContent.push({ text: cleanTitle, style: 'pageTitle' });
 	            }
-
 	            let contentString = typeof page.content === 'string' ? page.content : '';
-                
                 contentString = processLatex(contentString);
-
 	            let html = marked.parse(contentString);
-
                 html = html
                     .replace(/<blockquote>\s*<p>/g, '<blockquote>')
                     .replace(/<\/p>\s*<\/blockquote>/g, '</blockquote>');
-
 	            const convertedContent = htmlToPdfmake(html, { defaultStyles: pdfStyles.default });
 	            lessonContent.push(convertedContent);
 	        }
@@ -364,7 +338,6 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
 	            }
 	        };
 
-            // NATIVE FIX: Use getBlob for native, download for web
 	        const pdfDoc = pdfMake.createPdf(docDefinition);
             if (isNativePlatform()) {
                 pdfDoc.getBlob(async (blob) => {
@@ -387,33 +360,40 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
     if (!isOpen || !currentLesson) return null;
 
     return (
-        // --- MODIFIED: Use new handleClose for backdrop click ---
         <Dialog open={isOpen} onClose={handleClose} className={`fixed inset-0 z-50 flex items-center justify-center font-sans ${className}`}>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="fixed inset-0 bg-black/20" aria-hidden="true" />
+            
+            {/* --- MODIFIED: Added h-full and responsive max-h --- */}
             <Dialog.Panel as={motion.div} variants={modalVariants} initial="hidden" animate="visible" exit="exit" className="relative bg-neumorphic-base rounded-2xl shadow-neumorphic w-full max-w-5xl z-10 flex flex-col h-full md:h-[90vh] md:max-h-[700px] overflow-hidden">
+                
                 <div className="w-full bg-neumorphic-base h-1.5 flex-shrink-0 shadow-neumorphic-flat-inset">
                     <div className="bg-red-600 h-1.5 transition-all duration-500 ease-out rounded-r-full" style={{ width: `${progressPercentage}%` }} />
                 </div>
+
+                {/* --- MODIFIED: Made header responsive --- */}
                 <header className="flex justify-between items-center p-4 sm:p-5 bg-neumorphic-base flex-shrink-0 z-10 border-b border-neumorphic-shadow-dark/10">
                     <div className="flex items-center gap-3 overflow-hidden">
-                        <Dialog.Title className="text-lg sm:text-xl font-bold text-tremor-content-strong truncate">{lessonTitle}</Dialog.Title>
+                        {/* --- MODIFIED: Responsive text --- */}
+                        <Dialog.Title className="text-base sm:text-xl font-bold text-tremor-content-strong truncate">{lessonTitle}</Dialog.Title>
                         
                         {currentLesson.studyGuideUrl ? (
+                            // --- MODIFIED: Responsive button ---
                             <a 
                                 href={currentLesson.studyGuideUrl} 
                                 download 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-full shadow-neumorphic active:shadow-neumorphic-inset transition-shadow duration-150 ease-out whitespace-nowrap"
+                                className="inline-flex items-center gap-2 px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-full shadow-neumorphic active:shadow-neumorphic-inset transition-shadow duration-150 ease-out whitespace-nowrap"
                             >
                                 <ArrowDownTrayIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                                 <span className="hidden sm:inline">Study Guide</span>
                             </a>
                         ) : (
+                            // --- MODIFIED: Responsive button ---
                             <button
                                 onClick={() => handleExportLessonPdf(currentLesson)}
                                 disabled={!!exportingLessonId}
-                                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-full shadow-neumorphic active:shadow-neumorphic-inset transition-shadow duration-150 ease-out whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
+                                className="inline-flex items-center gap-2 px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-full shadow-neumorphic active:shadow-neumorphic-inset transition-shadow duration-150 ease-out whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                                 <ArrowDownTrayIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                                 <span className="hidden sm:inline">
@@ -422,77 +402,103 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
                             </button>
                         )}
                     </div>
-                    {/* --- MODIFIED: Use new handleClose for 'X' button --- */}
-                    <button onClick={handleClose} className="p-2 rounded-full text-slate-600 bg-neumorphic-base shadow-neumorphic active:shadow-neumorphic-inset hover:text-slate-800 transition-all duration-150 ease-out flex-shrink-0 ml-4" aria-label="Close lesson"><XMarkIcon className="w-6 h-6" /></button>
+                    {/* --- MODIFIED: Responsive button --- */}
+                    <button onClick={handleClose} className="p-1.5 sm:p-2 rounded-full text-slate-600 bg-neumorphic-base shadow-neumorphic active:shadow-neumorphic-inset hover:text-slate-800 transition-all duration-150 ease-out flex-shrink-0 ml-4" aria-label="Close lesson">
+                        <XMarkIcon className="w-5 h-5 sm:w-6 h-6" />
+                    </button>
                 </header>
+                
+                {/* --- MODIFIED: Made main padding responsive --- */}
                 <main ref={contentRef} className="flex-grow overflow-y-auto custom-scrollbar bg-neumorphic-base flex flex-col items-center p-4 sm:p-8">
                     <div className="w-full max-w-3xl flex-grow">
                         <AnimatePresence initial={false} mode="wait">
-                            <motion.div key={currentPage} variants={pageTransitionVariants} initial="hidden" animate="visible" exit="exit" className="w-full min-h-full bg-neumorphic-base rounded-xl shadow-neumorphic p-6 sm:p-8">
-                                {/* --- ADDED: Learning Objectives Display --- */}
+                            {/* --- MODIFIED: Made content padding responsive --- */}
+                            <motion.div key={currentPage} variants={pageTransitionVariants} initial="hidden" animate="visible" exit="exit" className="w-full min-h-full bg-neumorphic-base rounded-xl shadow-neumorphic p-4 sm:p-8">
+                                
                                 {currentPage === 0 && objectives.length > 0 && (
-                                    <motion.div variants={objectivesContainerVariants} initial="hidden" animate="visible" className="mb-8 p-5 bg-neumorphic-base rounded-xl shadow-neumorphic-inset">
-                                        <h3 className="flex items-center gap-3 text-lg font-bold text-tremor-content-strong mb-4"><ListBulletIcon className="h-6 w-6 text-red-600" />{objectivesLabel}</h3>
-                                        <ul className="space-y-3 text-base text-slate-700">{objectives.map((objective, index) => (<motion.li key={index} variants={objectiveItemVariants} className="flex items-start gap-3"><CheckCircleIcon className="h-5 w-5 text-red-500 flex-shrink-0 mt-1" /><div className="flex-1"><ContentRenderer text={objective} /></div></motion.li>))}</ul>
+                                    // --- MODIFIED: Made objectives responsive ---
+                                    <motion.div variants={objectivesContainerVariants} initial="hidden" animate="visible" className="mb-6 sm:mb-8 p-4 sm:p-5 bg-neumorphic-base rounded-xl shadow-neumorphic-inset">
+                                        <h3 className="flex items-center gap-3 text-base sm:text-lg font-bold text-tremor-content-strong mb-4">
+                                            <ListBulletIcon className="h-5 w-5 sm:h-6 sm:w-6 text-red-600" />
+                                            {objectivesLabel}
+                                        </h3>
+                                        {/* --- MODIFIED: Font size changed from text-base --- */}
+                                        <ul className="space-y-3 text-xs sm:text-sm text-slate-700">{objectives.map((objective, index) => (
+                                            <motion.li key={index} variants={objectiveItemVariants} className="flex items-start gap-3">
+                                                <CheckCircleIcon className="h-5 w-5 text-red-500 flex-shrink-0 mt-1" />
+                                                <div className="flex-1"><ContentRenderer text={objective} /></div>
+                                            </motion.li>
+                                        ))}</ul>
                                     </motion.div>
                                 )}
-                                {/* --- END ADDED --- */}
 
                                 {pageData ? (
-                                    <LessonPage
-                                        ref={lessonPageRef}
-                                        page={pageData}
-                                        isEditable={false} // HARDCODED TO FALSE FOR STUDENTS
-                                        // Removed onFinalizeDiagram and onRevertDiagram
-                                        isFinalizing={false} // HARDCODED TO FALSE
-                                    />
+                                    // --- MODIFIED: Font size changed from text-sm ---
+                                    <div className="text-sm">
+                                        <LessonPage
+                                            ref={lessonPageRef}
+                                            page={pageData}
+                                            isEditable={false} // HARDCODED TO FALSE FOR STUDENTS
+                                            isFinalizing={false} // HARDCODED TO FALSE
+                                        />
+                                    </div>
                                 ) : (
-                                    currentPage === 0 && objectives.length > 0 ? null : ( <div className="flex flex-col items-center justify-center text-center text-slate-500 h-full py-12"><QuestionMarkCircleIcon className="w-16 h-16 text-slate-300 mb-4" /><p className="text-lg font-medium">No content for this page.</p></div>)
+                                    currentPage === 0 && objectives.length > 0 ? null : ( 
+                                        <div className="flex flex-col items-center justify-center text-center text-slate-500 h-full py-12">
+                                            <QuestionMarkCircleIcon className="w-16 h-16 text-slate-300 mb-4" />
+                                            <p className="text-lg font-medium">No content for this page.</p>
+                                        </div>
+                                    )
                                 )}
                             </motion.div>
                         </AnimatePresence>
                     </div>
                 </main>
-                <footer className="grid grid-cols-3 items-center p-4 bg-neumorphic-base border-t border-neumorphic-shadow-dark/10 flex-shrink-0 z-10">
-                    <div className="flex items-center gap-4 justify-start">
-                        <button onClick={goToPreviousPage} disabled={currentPage === 0} className="p-3 rounded-full text-slate-600 bg-neumorphic-base shadow-neumorphic active:shadow-neumorphic-inset disabled:shadow-none disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-150 ease-out" aria-label="Previous page"><ArrowLeftIcon className="h-5 w-5" /></button>
-                        <span className="text-sm font-semibold text-tremor-content whitespace-nowrap">{totalPages > 0 ? `Page ${currentPage + 1} / ${totalPages}` : 'No Pages'}</span>
+                
+                {/* --- MODIFIED: Made footer responsive --- */}
+                <footer className="grid grid-cols-3 items-center p-3 sm:p-4 bg-neumorphic-base border-t border-neumorphic-shadow-dark/10 flex-shrink-0 z-10">
+                    <div className="flex items-center gap-2 sm:gap-4 justify-start">
+                        {/* --- MODIFIED: Responsive button --- */}
+                        <button onClick={goToPreviousPage} disabled={currentPage === 0} className="p-2 sm:p-3 rounded-full text-slate-600 bg-neumorphic-base shadow-neumorphic active:shadow-neumorphic-inset disabled:shadow-none disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-150 ease-out" aria-label="Previous page">
+                            <ArrowLeftIcon className="h-5 w-5" />
+                        </button>
+                        {/* --- MODIFIED: Responsive text --- */}
+                        <span className="text-xs sm:text-sm font-semibold text-tremor-content whitespace-nowrap">{totalPages > 0 ? `Page ${currentPage + 1} / ${totalPages}` : 'No Pages'}</span>
                     </div>
-                    {/* The middle div is intentionally empty to mimic the teacher's layout 
-                        where the editing buttons would be. */}
+                    
                     <div className="flex items-center gap-2 justify-center">
                         {/* No editing buttons for students */}
                     </div>
+
                     <div className="flex justify-end">
                         <button
-                            // --- MODIFIED: Conditional logic for Next/Finish/Close ---
                             onClick={currentPage < totalPages - 1 
                                 ? goToNextPage 
                                 : xpAwarded 
-                                    ? handleClose // Close button after XP awarded
-                                    : handleFinishLesson // Finish button for XP award
+                                    ? handleClose
+                                    : handleFinishLesson
                             }
-                            // --- CRITICAL FIX: The button is only disabled if there are no pages. ---
                             disabled={totalPages === 0}
-                            // --- END CRITICAL FIX ---
-                            className={`flex items-center justify-center gap-2 px-4 py-2.5 sm:px-5 rounded-full font-semibold transition-shadow duration-150 ease-out bg-neumorphic-base shadow-neumorphic active:shadow-neumorphic-inset
+                            // --- MODIFIED: Responsive button ---
+                            className={`flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full font-semibold transition-shadow duration-150 ease-out bg-neumorphic-base shadow-neumorphic active:shadow-neumorphic-inset
                                 ${currentPage < totalPages - 1 
                                     ? 'text-red-600 hover:text-red-700' 
                                     : xpAwarded 
-                                        ? 'text-green-800 bg-green-200/50 hover:bg-green-300/50' // Highlight for final close
-                                        : 'text-green-600 hover:text-green-700' // Finish button
+                                        ? 'text-green-800 bg-green-200/50 hover:bg-green-300/50'
+                                        : 'text-green-600 hover:text-green-700'
                                 }
                                 ${totalPages === 0 ? 'opacity-50 cursor-not-allowed' : ''}
                             `}
                             aria-label={currentPage < totalPages - 1 ? "Next page" : xpAwarded ? "Close lesson" : "Finish lesson"}
                         >
-                            <span className="hidden sm:inline">
+                            {/* --- MODIFIED: Responsive text --- */}
+                            <span className="text-sm sm:text-base">
                                 {currentPage < totalPages - 1 ? 'Next' : xpAwarded ? 'Close' : 'Finish'}
                             </span>
                             {currentPage < totalPages - 1 
                                 ? <ArrowRightIcon className="h-5 w-5" /> 
                                 : xpAwarded 
-                                    ? <XMarkIcon className="h-5 w-5" /> // Use XMark for final close
+                                    ? <XMarkIcon className="h-5 w-5" />
                                     : <CheckCircleIcon className="h-5 w-5" />
                             }
                         </button>

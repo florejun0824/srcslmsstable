@@ -18,16 +18,17 @@ import {
     ShareIcon,
 } from '@heroicons/react/24/solid';
 
-// Style constants (unchanged)
-const commonContainerClasses = "min-h-screen p-6 bg-neumorphic-base";
-const windowContainerClasses = "bg-neumorphic-base rounded-3xl p-8 shadow-neumorphic w-full max-w-7xl mx-auto my-12 transition-all duration-500";
+// Style constants (MODIFIED FOR RESPONSIVENESS)
+const commonContainerClasses = "min-h-screen p-4 sm:p-6 bg-neumorphic-base";
+const windowContainerClasses = "bg-neumorphic-base rounded-3xl p-4 sm:p-8 shadow-neumorphic w-full max-w-7xl mx-auto my-6 sm:my-12 transition-all duration-500";
 const baseButtonStyles = "font-semibold rounded-xl transition-shadow duration-200 active:shadow-neumorphic-inset disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-neumorphic-inset flex items-center gap-2";
-const primaryButton = `${baseButtonStyles} px-5 py-2.5 bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 shadow-neumorphic hover:shadow-neumorphic-inset`;
-const secondaryButton = `${baseButtonStyles} px-5 py-2.5 bg-neumorphic-base text-slate-700 shadow-neumorphic hover:shadow-neumorphic-inset`;
-const iconButton = `${baseButtonStyles} p-2.5 bg-neumorphic-base text-slate-600 shadow-neumorphic hover:shadow-neumorphic-inset rounded-full`;
-const destructiveIconButton = `${baseButtonStyles} p-2.5 bg-neumorphic-base text-red-600 shadow-neumorphic hover:shadow-neumorphic-inset rounded-full`;
+const primaryButton = `${baseButtonStyles} px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 shadow-neumorphic hover:shadow-neumorphic-inset`;
+const secondaryButton = `${baseButtonStyles} px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-neumorphic-base text-slate-700 shadow-neumorphic hover:shadow-neumorphic-inset`;
+const iconButton = `${baseButtonStyles} p-2 sm:p-2.5 bg-neumorphic-base text-slate-600 shadow-neumorphic hover:shadow-neumorphic-inset rounded-full`;
+const destructiveIconButton = `${baseButtonStyles} p-2 sm:p-2.5 bg-neumorphic-base text-red-600 shadow-neumorphic hover:shadow-neumorphic-inset rounded-full`;
 
 const getSubjectStyling = (subjectTitle) => {
+    // ... (This function is unchanged) ...
     const lowerCaseTitle = subjectTitle.toLowerCase();
     let IconComponent = BookOpenIcon;
     let iconColor = 'text-gray-500';
@@ -44,6 +45,7 @@ const getSubjectStyling = (subjectTitle) => {
 
 // --- LEVEL 3: SUBJECT DETAIL VIEW ---
 const SubjectDetail = (props) => {
+    // ... (All logic, state, and effects are unchanged) ...
     const {
         courses,
         handleOpenEditSubject, handleOpenDeleteSubject, setShareContentModalOpen,
@@ -71,11 +73,9 @@ const SubjectDetail = (props) => {
     const [showLessonPicker, setShowLessonPicker] = useState(false);
     const [activeUnitForPicker, setActiveUnitForPicker] = useState(null);
 
-    // Syncs the URL with the parent TeacherDashboard state for modals
     useEffect(() => {
         if (activeSubject) {
             setActiveSubject(activeSubject);
-            // We decode the categoryName from the URL
             handleCategoryClick(decodeURIComponent(categoryName));
         }
         return () => {
@@ -140,16 +140,17 @@ const SubjectDetail = (props) => {
     return (
         <div className={commonContainerClasses}>
             <div className={`${windowContainerClasses} bg-gradient-to-br from-white to-slate-50`}>
+                {/* --- MODIFIED: Made header responsive --- */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap"> {/* Added flex-wrap */}
                         <button
                             onClick={() => navigate(`/dashboard/courses/${contentGroup}/${categoryName}`)}
                             className={secondaryButton}
                         >
                             <ArrowUturnLeftIcon className="w-5 h-5" />
-                            Back to Subjects
+                            <span className="hidden sm:inline">Back</span>
                         </button>
-                        <h2 className="text-xl font-bold text-slate-800 tracking-tight">
+                        <h2 className="text-lg sm:text-xl font-bold text-slate-800 tracking-tight">
                             {activeSubject.title}
                         </h2>
                         <button
@@ -167,9 +168,9 @@ const SubjectDetail = (props) => {
                             <TrashIcon className="w-5 h-5" />
                         </button>
                     </div>
-                    <div className="flex gap-3 flex-wrap">
+                    <div className="flex gap-2 sm:gap-3 flex-wrap"> {/* Added flex-wrap */}
                         <button onClick={() => setShareContentModalOpen(true)} className={secondaryButton}>
-                            <ShareIcon className="w-5 h-5" />Send Lesson
+                            <ShareIcon className="w-5 h-5" />Send
                         </button>
                         <button onClick={() => setAddUnitModalOpen(true)} className={primaryButton}>
                             <PlusCircleIcon className="w-5 h-5" />Add Unit
@@ -180,6 +181,7 @@ const SubjectDetail = (props) => {
                     </div>
                 </div>
                 <div>
+                    {/* ... (Spinner and UnitAccordion are unchanged) ... */}
                     {isLoadingUnitsAndLessons ? (
                         <div className="flex justify-center items-center py-10">
                             <Spinner />
@@ -218,13 +220,15 @@ const SubjectDetail = (props) => {
                 </div>
             </div>
 
-            {/* Lesson Picker Modal */}
+            {/* --- MODIFIED: Lesson Picker Modal (Responsive) --- */}
             {showLessonPicker && activeUnitForPicker && (
                 <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-5 p-4">
                     <div className="bg-gradient-to-br from-white to-slate-100 rounded-3xl shadow-neumorphic w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
-                        <div className="px-6 py-4 border-b border-neumorphic-shadow-dark/30 flex justify-between items-center">
+                        {/* --- MODIFIED: Responsive padding --- */}
+                        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-neumorphic-shadow-dark/30 flex justify-between items-center">
                             <div>
-                                <h2 className="text-lg font-bold text-slate-800">Select Lessons</h2>
+                                {/* --- MODIFIED: Responsive text --- */}
+                                <h2 className="text-base sm:text-lg font-bold text-slate-800">Select Lessons</h2>
                                 <p className="text-sm text-slate-600 mt-1">
                                     From unit: <span className="font-medium">{activeUnitForPicker.name}</span>
                                 </p>
@@ -232,7 +236,8 @@ const SubjectDetail = (props) => {
                             <button onClick={() => setShowLessonPicker(false)} className={iconButton}>✕</button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+                        {/* --- MODIFIED: Responsive padding --- */}
+                        <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4 space-y-3">
                             {allLessonsForSubject
                                 .filter((lesson) => lesson.unitId === activeUnitForPicker.id)
                                 .sort((a, b) =>
@@ -241,14 +246,16 @@ const SubjectDetail = (props) => {
                                 .map((lesson) => (
                                     <label
                                         key={lesson.id}
-                                        className={`flex items-center justify-between p-4 rounded-2xl transition-all cursor-pointer bg-neumorphic-base ${
+                                        // --- MODIFIED: Responsive padding ---
+                                        className={`flex items-center justify-between p-3 sm:p-4 rounded-2xl transition-all cursor-pointer bg-neumorphic-base ${
                                             selectedLessons.has(lesson.id)
                                                 ? 'shadow-neumorphic-inset'
                                                 : 'shadow-neumorphic'
                                         }`}
                                     >
                                         <div className="min-w-0">
-                                            <div className="text-slate-800 font-medium truncate">{lesson.title}</div>
+                                            {/* --- MODIFIED: Responsive text --- */}
+                                            <div className="text-slate-800 font-medium truncate text-sm sm:text-base">{lesson.title}</div>
                                             {lesson.subtitle && (
                                                 <div className="text-xs text-slate-500 mt-1 truncate">
                                                     {lesson.subtitle}
@@ -271,7 +278,8 @@ const SubjectDetail = (props) => {
                             )}
                         </div>
 
-                        <div className="px-6 py-4 border-t border-neumorphic-shadow-dark/30 flex justify-end gap-3">
+                        {/* --- MODIFIED: Responsive padding --- */}
+                        <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-neumorphic-shadow-dark/30 flex justify-end gap-3">
                             <button onClick={() => setShowLessonPicker(false)} className={secondaryButton}>
                                 Cancel
                             </button>
@@ -295,12 +303,12 @@ const SubjectDetail = (props) => {
 
 // --- LEVEL 2: SUBJECT LIST VIEW ---
 const SubjectList = (props) => {
+    // ... (All logic, state, and effects are unchanged) ...
     const { courses, handleInitiateDelete, onAddSubjectClick, setActiveSubject, handleCategoryClick } = props;
     const { contentGroup, categoryName } = useParams();
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
 
-    // We must decode the categoryName from the URL
     const decodedCategoryName = decodeURIComponent(categoryName);
 
     useEffect(() => {
@@ -316,20 +324,24 @@ const SubjectList = (props) => {
     return (
         <div className={commonContainerClasses}>
             <div className={`${windowContainerClasses} bg-gradient-to-br from-white to-slate-50`}>
+                {/* --- MODIFIED: Made header responsive --- */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => navigate(`/dashboard/courses/${contentGroup}`)} className={secondaryButton}><ArrowUturnLeftIcon className="w-5 h-5" />Back</button>
-                        <h1 className="text-4xl font-extrabold text-slate-800 leading-tight truncate">{decodedCategoryName.replace(/\s\((Teacher|Learner)'s Content\)/i, '')}</h1>
+                    <div className="flex items-center gap-2 sm:gap-4">
+                        <button onClick={() => navigate(`/dashboard/courses/${contentGroup}`)} className={secondaryButton}><ArrowUturnLeftIcon className="w-5 h-5" /></button>
+                        {/* --- MODIFIED: Responsive header text --- */}
+                        <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-800 leading-tight truncate">{decodedCategoryName.replace(/\s\((Teacher|Learner)'s Content\)/i, '')}</h1>
                     </div>
                     <button onClick={() => { if (onAddSubjectClick) { onAddSubjectClick(decodedCategoryName); } }} className={primaryButton}><PlusCircleIcon className="w-5 h-5" />Add Subject</button>
                 </div>
                 <div className="mb-6">
                     <div className="relative">
                         <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        <input type="text" placeholder={`Search in ${decodedCategoryName}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full max-w-md p-3 pl-12 rounded-xl focus:ring-0 border-none bg-neumorphic-base shadow-neumorphic-inset text-slate-800 placeholder:text-slate-500" />
+                        {/* --- MODIFIED: Responsive search input --- */}
+                        <input type="text" placeholder={`Search in ${decodedCategoryName}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full max-w-md p-3 pl-10 sm:pl-12 rounded-xl focus:ring-0 border-none bg-neumorphic-base shadow-neumorphic-inset text-slate-800 placeholder:text-slate-500 text-sm sm:text-base" />
                     </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* --- MODIFIED: Responsive grid gap --- */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {filteredCourses.length > 0 ? (
                         filteredCourses.map((course) => {
                             const { icon: Icon, iconColor, gradient } = getSubjectStyling(course.title);
@@ -338,14 +350,17 @@ const SubjectList = (props) => {
                                 <Link 
                                     key={course.id} 
                                     to={course.id}
-                                    className={`group relative rounded-3xl p-6 shadow-neumorphic transition-shadow duration-300 cursor-pointer bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset`}
+                                    // --- MODIFIED: Responsive padding ---
+                                    className={`group relative rounded-3xl p-4 sm:p-6 shadow-neumorphic transition-shadow duration-300 cursor-pointer bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset`}
                                 >
                                     <div className="relative z-5 flex flex-col h-full justify-between">
                                         <div>
-                                            <div className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-neumorphic-base shadow-neumorphic-inset">
-                                                <Icon className={`w-7 h-7 ${iconColor}`} />
+                                            {/* --- MODIFIED: Responsive icon box --- */}
+                                            <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mb-3 sm:mb-4 bg-neumorphic-base shadow-neumorphic-inset">
+                                                <Icon className={`w-6 h-6 sm:w-7 h-7 ${iconColor}`} />
                                             </div>
-                                            <h2 className="text-2xl font-bold tracking-tight text-slate-800">{course.title}</h2>
+                                            {/* --- MODIFIED: Responsive text --- */}
+                                            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-800">{course.title}</h2>
                                         </div>
                                         <p className="text-sm text-slate-500 mt-2 font-medium">{unitCount} {unitCount === 1 ? 'Unit' : 'Units'}</p>
                                     </div>
@@ -367,6 +382,7 @@ const SubjectList = (props) => {
 
 // --- LEVEL 1: CATEGORY LIST VIEW ---
 const CategoryList = (props) => {
+    // ... (All logic, state, and effects are unchanged) ...
     const { courseCategories, courses, setCreateCategoryModalOpen, handleEditCategory, handleInitiateDelete, handleCategoryClick, setActiveSubject } = props;
     const { contentGroup } = useParams();
     const navigate = useNavigate();
@@ -393,14 +409,17 @@ const CategoryList = (props) => {
     return (
         <div className={commonContainerClasses}>
             <div className={`${windowContainerClasses} bg-gradient-to-br from-white to-slate-50`}>
+                {/* --- MODIFIED: Made header responsive --- */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 sm:gap-4">
                         <button onClick={() => navigate('/dashboard/courses')} className={secondaryButton} title="Back to Content Types"><ArrowUturnLeftIcon className="w-5 h-5" /></button>
-                        <h1 className="text-4xl font-extrabold text-slate-800 leading-tight truncate">{title}</h1>
+                        {/* --- MODIFIED: Responsive header text (User's specific request) --- */}
+                        <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-800 leading-tight truncate">{title}</h1>
                     </div>
                     <button onClick={() => setCreateCategoryModalOpen(true)} className={primaryButton}><PlusCircleIcon className="w-5 h-5" />Add Category</button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {/* --- MODIFIED: Responsive grid gap --- */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
                     {categoriesToShow.map((cat) => {
                         const courseCount = courses.filter(c => c.category === cat.name).length;
                         const { icon: Icon, iconColor, gradient } = getSubjectStyling(cat.name);
@@ -409,14 +428,17 @@ const CategoryList = (props) => {
                             <Link 
                                 key={cat.id} 
                                 to={encodeURIComponent(cat.name)} // Encode the name for the URL
-                                className={`group relative p-6 rounded-3xl shadow-neumorphic transition-shadow cursor-pointer bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset h-full flex flex-col justify-between`}
+                                // --- MODIFIED: Responsive padding ---
+                                className={`group relative p-4 sm:p-6 rounded-3xl shadow-neumorphic transition-shadow cursor-pointer bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset h-full flex flex-col justify-between`}
                             >
                                 <div className="relative z-5 flex-grow">
-                                    <div className="p-4 inline-block bg-neumorphic-base shadow-neumorphic-inset rounded-xl mb-4"><Icon className={`w-8 h-8 ${iconColor}`} /></div>
-                                    <h2 className="text-xl font-bold text-slate-800 mb-1">
+                                    {/* --- MODIFIED: Responsive icon box --- */}
+                                    <div className="p-3 sm:p-4 inline-block bg-neumorphic-base shadow-neumorphic-inset rounded-xl mb-4"><Icon className={`w-7 h-7 sm:w-8 h-8 ${iconColor}`} /></div>
+                                    {/* --- MODIFIED: Responsive text --- */}
+                                    <h2 className="text-lg sm:text-xl font-bold text-slate-800 mb-1">
                                         {cleanName}
                                     </h2>
-                                    <p className="text-slate-500">{courseCount} {courseCount === 1 ? 'Subject' : 'Subjects'}</p>
+                                    <p className="text-slate-500 text-sm sm:text-base">{courseCount} {courseCount === 1 ? 'Subject' : 'Subjects'}</p>
                                 </div>
                                 <div className="absolute top-4 right-4 z-5 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleEditCategory(cat); }} className={iconButton} title={`Edit category ${cat.name}`}><PencilSquareIcon className="w-5 h-5" /></button>
@@ -433,6 +455,7 @@ const CategoryList = (props) => {
 
 // --- LEVEL 0: CONTENT GROUP SELECTOR ---
 const ContentGroupSelector = (props) => {
+    // ... (All logic, state, and effects are unchanged) ...
     useEffect(() => {
         props.setActiveSubject(null);
         props.handleBackToCategoryList();
@@ -441,23 +464,32 @@ const ContentGroupSelector = (props) => {
     return (
         <div className={commonContainerClasses}>
             <div className={windowContainerClasses}>
-                <div className="flex flex-col md:flex-row items-stretch justify-center gap-8 md:gap-12">
-                    <Link to="learner" className="group relative p-12 rounded-3xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset cursor-pointer flex-1 bg-gradient-to-br from-white to-sky-100 flex flex-col justify-between items-start">
+                {/* --- MODIFIED: Responsive gap --- */}
+                <div className="flex flex-col md:flex-row items-stretch justify-center gap-4 md:gap-12">
+                    {/* --- MODIFIED: Responsive padding --- */}
+                    <Link to="learner" className="group relative p-6 sm:p-12 rounded-3xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset cursor-pointer flex-1 bg-gradient-to-br from-white to-sky-100 flex flex-col justify-between items-start">
                         <div className="relative z-5">
-                            <div className="p-5 bg-neumorphic-base shadow-neumorphic-inset rounded-2xl mb-6 inline-block"><LearnerIcon className="w-12 h-12 text-sky-600" /></div>
-                            <h2 className="text-4xl font-extrabold text-slate-800">Learner's Content</h2>
-                            <p className="text-slate-600 mt-2 text-lg">Access a world of knowledge and curated subjects designed for students.</p>
+                            {/* --- MODIFIED: Responsive icon box --- */}
+                            <div className="p-4 sm:p-5 bg-neumorphic-base shadow-neumorphic-inset rounded-2xl mb-4 sm:mb-6 inline-block"><LearnerIcon className="w-10 h-10 sm:w-12 h-12 text-sky-600" /></div>
+                            {/* --- MODIFIED: Responsive text --- */}
+                            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-800">Learner's Content</h2>
+                            <p className="text-slate-600 mt-2 text-base sm:text-lg">Access a world of knowledge and curated subjects designed for students.</p>
                         </div>
-                        <div className="relative z-10 mt-8 px-6 py-3 bg-neumorphic-base shadow-neumorphic rounded-full font-semibold">Explore Now</div>
+                        {/* --- MODIFIED: Responsive "button" --- */}
+                        <div className="relative z-10 mt-8 px-5 py-2 sm:px-6 sm:py-3 bg-neumorphic-base shadow-neumorphic rounded-full font-semibold text-sm sm:text-base">Explore Now</div>
                     </Link>
 
-                    <Link to="teacher" className="group relative p-12 rounded-3xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset cursor-pointer flex-1 bg-gradient-to-br from-white to-emerald-100 flex flex-col justify-between items-start">
+                    {/* --- MODIFIED: Responsive padding --- */}
+                    <Link to="teacher" className="group relative p-6 sm:p-12 rounded-3xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset cursor-pointer flex-1 bg-gradient-to-br from-white to-emerald-100 flex flex-col justify-between items-start">
                         <div className="relative z-5">
-                            <div className="p-5 bg-neumorphic-base shadow-neumorphic-inset rounded-2xl mb-6 inline-block"><TeacherIcon className="w-12 h-12 text-emerald-600" /></div>
-                            <h2 className="text-4xl font-extrabold text-slate-800">Teacher's Content</h2>
-                            <p className="text-slate-600 mt-2 text-lg">Discover powerful tools and resources to manage subjects and lessons.</p>
+                            {/* --- MODIFIED: Responsive icon box --- */}
+                            <div className="p-4 sm:p-5 bg-neumorphic-base shadow-neumorphic-inset rounded-2xl mb-4 sm:mb-6 inline-block"><TeacherIcon className="w-10 h-10 sm:w-12 h-12 text-emerald-600" /></div>
+                            {/* --- MODIFIED: Responsive text --- */}
+                            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-800">Teacher's Content</h2>
+                            <p className="text-slate-600 mt-2 text-base sm:text-lg">Discover powerful tools and resources to manage subjects and lessons.</p>
                         </div>
-                        <div className="relative z-5 mt-8 px-6 py-3 bg-neumorphic-base shadow-neumorphic rounded-full font-semibold">Manage Content</div>
+                        {/* --- MODIFIED: Responsive "button" --- */}
+                        <div className="relative z-5 mt-8 px-5 py-2 sm:px-6 sm:py-3 bg-neumorphic-base shadow-neumorphic rounded-full font-semibold text-sm sm:text-base">Manage Content</div>
                     </Link>
                 </div>
             </div>
@@ -468,6 +500,7 @@ const ContentGroupSelector = (props) => {
 
 // --- MAIN COURSES VIEW COMPONENT ---
 const CoursesView = (props) => {
+    // ... (This component is unchanged) ...
     return (
         <Routes>
             {/* This <Route> wrapper is the fix.

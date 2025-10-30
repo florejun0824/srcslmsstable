@@ -56,6 +56,7 @@ const ScoresTab = ({
 
 
     const customUnitSort = (a, b) => {
+        // ... (no changes in this function)
         if (a === 'Uncategorized') return 1;
         if (b === 'Uncategorized') return -1;
         const numA = parseInt(a.match(/\d+/)?.[0], 10);
@@ -67,6 +68,7 @@ const ScoresTab = ({
     };
 
     const quizzesByPostAndUnit = sharedContentPosts.reduce((acc, post) => {
+        // ... (no changes in this logic)
         const postQuizzes = (post.quizzes || []);
         if (postQuizzes.length === 0) return acc;
 
@@ -87,13 +89,12 @@ const ScoresTab = ({
         return acc;
     }, {});
 
-    // --- MODIFIED: Sort by Post date ascending (oldest first) ---
     const postEntries = Object.values(quizzesByPostAndUnit).sort((a, b) => 
         (a.post.createdAt?.toDate() || 0) - (b.post.createdAt?.toDate() || 0) 
     );
-    // --- END MODIFICATION ---
 
     const getQuizStats = (quizId) => {
+        // ... (no changes in this function)
         const relevantScores = quizScores.filter(score => score.quizId === quizId);
         const uniqueStudents = new Set(relevantScores.map(s => s.studentId));
         return {
@@ -103,6 +104,7 @@ const ScoresTab = ({
     };
 
     const handleViewScores = (quiz, post) => {
+        // ... (no changes in this function)
         setSelectedQuizForScores({ 
             ...quiz, 
             availableUntil: post.availableUntil,
@@ -114,17 +116,16 @@ const ScoresTab = ({
     const allQuizzes = sharedContentPosts.flatMap(p => p.quizzes || []);
 
     return (
-        <div className="space-y-6">
-            {/* (Generate Report button is intentionally removed from here) */}
-
+        // MODIFIED: Reduced mobile spacing
+        <div className="space-y-4 sm:space-y-6">
             {allQuizzes.length === 0 ? (
-                <div className="text-center p-12 bg-neumorphic-base rounded-2xl shadow-neumorphic-inset mt-4">
-                    <ChartBarIcon className="h-16 w-16 mb-4 text-slate-300 mx-auto" />
-                    <p className="text-xl font-semibold text-slate-700">No Quizzes with Scores</p>
-                    <p className="mt-2 text-base text-slate-500">Scores for shared quizzes will appear here once students complete them.</p>
+                // MODIFIED: Made empty state responsive
+                <div className="text-center p-6 sm:p-12 bg-neumorphic-base rounded-2xl shadow-neumorphic-inset mt-4">
+                    <ChartBarIcon className="h-12 w-12 sm:h-16 sm:w-16 mb-4 text-slate-300 mx-auto" />
+                    <p className="text-lg sm:text-xl font-semibold text-slate-700">No Quizzes with Scores</p>
+                    <p className="mt-2 text-sm sm:text-base text-slate-500">Scores for shared quizzes will appear here once students complete them.</p>
                 </div>
             ) : (
-                // (The rest of the component's render logic remains unchanged)
                 postEntries.map(({ post, units: unitsInPost }) => {
                     const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
                     const isPostCollapsed = collapsedPosts.has(post.id);
@@ -132,13 +133,16 @@ const ScoresTab = ({
                     return (
                         <div key={post.id} className="bg-neumorphic-base rounded-2xl shadow-neumorphic">
                             <button 
-                                className="w-full text-left p-4 group"
+                                // MODIFIED: Reduced mobile padding
+                                className="w-full text-left p-3 sm:p-4 group"
                                 onClick={() => togglePostCollapse(post.id)}
                             >
                                 <div className="flex justify-between items-start">
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="font-bold text-slate-800 text-xl group-hover:text-sky-600 transition-colors truncate">{post.title}</h3>
+                                        {/* MODIFIED: Reduced mobile font size */}
+                                        <h3 className="font-bold text-slate-800 text-lg sm:text-xl group-hover:text-sky-600 transition-colors truncate">{post.title}</h3>
                                         <div className="text-xs text-slate-500 mt-2 flex flex-wrap gap-x-3">
+                                            {/* (Post details unchanged, already small) */}
                                             <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
                                             {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
                                             {(() => {
@@ -149,14 +153,16 @@ const ScoresTab = ({
                                             })()}
                                         </div>
                                     </div>
-                                    <div className="flex-shrink-0 flex items-center gap-2 pl-4">
+                                    {/* MODIFIED: Reduced mobile padding */}
+                                    <div className="flex-shrink-0 flex items-center gap-2 pl-2 sm:pl-4">
                                         <ChevronDownIcon className={`h-6 w-6 text-slate-500 transition-transform ${isPostCollapsed ? '' : 'rotate-180'}`} />
                                     </div>
                                 </div>
                             </button>
                             
                             {!isPostCollapsed && (
-                                <div className="space-y-3 px-4 pb-4">
+                                // MODIFIED: Reduced mobile padding
+                                <div className="space-y-3 px-2 sm:px-4 pb-3 sm:pb-4">
                                     {sortedUnitKeys.map(unitDisplayName => {
                                         const quizzesInUnit = unitsInPost[unitDisplayName];
                                         const unitKey = `${post.id}_${unitDisplayName}`;
@@ -165,7 +171,8 @@ const ScoresTab = ({
                                         return (
                                             <div key={unitKey} className="bg-neumorphic-base rounded-xl shadow-neumorphic-inset">
                                                 <button 
-                                                    className="flex items-center justify-between w-full p-4 font-semibold text-lg text-slate-800 group" 
+                                                    // MODIFIED: Reduced mobile padding and font size
+                                                    className="flex items-center justify-between w-full p-3 sm:p-4 font-semibold text-base sm:text-lg text-slate-800 group" 
                                                     onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}
                                                 >
                                                     <span className="group-hover:text-sky-600 truncate">{unitDisplayName}</span>
@@ -177,18 +184,23 @@ const ScoresTab = ({
                                                         {quizzesInUnit.sort((a, b) => (a.order || 0) - (b.order || 0) || a.title.localeCompare(b.title)).map(quiz => {
                                                             const stats = getQuizStats(quiz.id);
                                                             return (
-                                                                <div key={quiz.id} className="flex items-center justify-between gap-4 py-3 px-4 transition-shadow rounded-xl hover:bg-slate-50/50">
+                                                                // MODIFIED: Reduced mobile padding and gap
+                                                                <div key={quiz.id} className="flex items-center justify-between gap-2 sm:gap-4 py-3 px-2 sm:px-4 transition-shadow rounded-xl hover:bg-slate-50/50">
                                                                     <div className="flex-1 min-w-0">
-                                                                        <p className="font-bold text-slate-800 text-lg truncate">{quiz.title}</p>
-                                                                        <p className="text-sm text-slate-500 mt-1">
+                                                                        {/* MODIFIED: Reduced mobile font size */}
+                                                                        <p className="font-bold text-slate-800 text-sm sm:text-base truncate">{quiz.title}</p>
+                                                                        {/* MODIFIED: Reduced mobile font size and margin */}
+                                                                        <p className="text-xs sm:text-sm text-slate-500 mt-0.5 sm:mt-1">
                                                                             {stats.studentsWhoTook} Student(s) took this quiz ({stats.submissions} total submissions)
                                                                         </p>
                                                                     </div>
                                                                     <button
                                                                         onClick={() => handleViewScores(quiz, post)}
-                                                                        className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
+                                                                        // MODIFIED: Reduced mobile padding and font size for button
+                                                                        className="flex-shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
                                                                     >
-                                                                        View Scores
+                                                                        <span className="hidden sm:inline">View Scores</span>
+                                                                        <span className="sm:hidden">Scores</span>
                                                                     </button>
                                                                 </div>
                                                             );

@@ -47,6 +47,7 @@ import EditAvailabilityModal from './EditAvailabilityModal';
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
 
 const fetchDocsInBatches = async (collectionName, ids) => {
+    // ... (no changes in this function)
     if (!ids || ids.length === 0) return [];
     const chunks = [];
     for (let i = 0; i < ids.length; i += 30) {
@@ -60,6 +61,7 @@ const fetchDocsInBatches = async (collectionName, ids) => {
 };
 
 const PostHeader = ({ post, onEditDates }) => (
+    // ... (no changes in this component)
     <>
         <h3 className="font-bold text-slate-800 text-xl px-2 pt-1">{post.title}</h3>
         <div className="text-xs text-slate-500 px-2 pb-2 mb-2 border-b border-slate-200/80 flex flex-wrap gap-x-3">
@@ -83,6 +85,7 @@ const PostHeader = ({ post, onEditDates }) => (
 
 
 const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => {
+    // ... (no changes in state or effects)
     const { userProfile } = useAuth();
     const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState('announcements');
@@ -128,6 +131,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     }, [isOpen, classData?.id]);
 
     useEffect(() => {
+        // ... (no changes in this effect)
         if (!isOpen || !classData?.id) return;
         let active = true;
         const annQuery = query(collection(db, "studentAnnouncements"), where("classId", "==", classData.id), orderBy("createdAt", "desc"));
@@ -140,6 +144,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     }, [isOpen, classData?.id]);
 
     useEffect(() => {
+        // ... (no changes in this effect)
         if (!isOpen || !classData?.id) return;
         let active = true;
         const postsQuery = query(collection(db, `classes/${classData.id}/posts`), orderBy('createdAt', 'asc'));
@@ -167,6 +172,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     }, [isOpen, classData?.id]);
 
     useEffect(() => {
+        // ... (no changes in this effect)
         if (!isOpen || !classData?.id) return;
         setLoading(true);
         let active = true;
@@ -184,6 +190,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     }, [isOpen, classData?.id]);
 
     useEffect(() => {
+        // ... (no changes in this effect)
         if (!isOpen || !classData?.id) {
              setQuizLocks([]); // Clear locks if modal is closed or no class
              return;
@@ -228,6 +235,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     }, [isOpen, classData?.id, classQuizIds]);
 
     const togglePostCollapse = (postId) => {
+        // ... (no changes in this function)
         setCollapsedPosts(prev => {
             const newSet = new Set(prev);
             if (newSet.has(postId)) newSet.delete(postId);
@@ -237,6 +245,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     };
 
     const toggleUnitCollapse = (postId, unitDisplayName) => {
+        // ... (no changes in this function)
         const unitKey = `${postId}_${unitDisplayName}`;
         setCollapsedUnits(prev => {
             const newSet = new Set(prev);
@@ -249,6 +258,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const onChangeEdit = (e) => setEditContent(e.target.value);
 
     useEffect(() => {
+        // ... (no changes in this effect)
         if (isOpen && classData?.id && (activeTab === 'lessons' || activeTab === 'quizzes')) {
             const newCollapsedPosts = new Set();
             const newCollapsedUnits = new Set();
@@ -288,12 +298,14 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     }, [activeTab, sharedContentPosts, units, isOpen, classData?.id]);
 
     const handleTabChange = (tabName) => {
+        // ... (no changes in this function)
         setActiveTab(tabName);
         setSelectedLessons(new Set());
         setSelectedQuizzes(new Set());
     };
 
     const handleToggleSelection = (contentType, contentId) => {
+        // ... (no changes in this function)
         const set = contentType === 'lesson' ? setSelectedLessons : setSelectedQuizzes;
         set(prevSet => {
             const newSet = new Set(prevSet);
@@ -307,6 +319,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     };
 
 	const handleDeleteSelected = async (contentType) => {
+	    // ... (no changes in this function)
 	    if (!classData?.id) return;
 
 	    const selectedSet = contentType === 'lesson' ? selectedLessons : setSelectedQuizzes;
@@ -367,8 +380,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                     );
                     const locksSnapshot = await getDocs(locksQuery);
                     locksSnapshot.forEach((lockDoc) => {
-                        batch.delete(lockDoc.ref);
-                    });
+	                    batch.delete(lockDoc.ref);
+	                });
 	            }
 	        }
 
@@ -430,6 +443,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	};
 
     const handleUnlockQuiz = async (quizId, studentId) => {
+        // ... (no changes in this function)
         if (!window.confirm("Are you sure you want to unlock this quiz?")) return;
         try {
             await deleteDoc(doc(db, 'quizLocks', `${quizId}_${studentId}`));
@@ -439,11 +453,13 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
     };
     const handleEditDatesClick = (post) => {
+        // ... (no changes in this function)
         setPostToEdit(post);
         setIsEditModalOpen(true);
     };
 
 	const handleDeleteContentFromPost = async (postId, contentIdToRemove, contentType) => {
+	    // ... (no changes in this function)
 	    if (!classData?.id) return;
 
 	    const confirmMessage =
@@ -539,11 +555,13 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	};
 
     const handleDeleteUnitContent = async (unitDisplayName, contentType) => {
+        // ... (no changes in this function)
         console.warn("handleDeleteUnitContent is deprecated with the new layout.");
     };
 
 
     const handlePostUpdate = (updateInfo) => {
+        // ... (no changes in this function)
         if (updateInfo.isDeleted) {
             setSharedContentPosts(prevPosts => prevPosts.filter(p => p.id !== updateInfo.id));
         } else if (updateInfo.isMassUpdate) {
@@ -557,6 +575,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     };
 
     const handleDelete = async (id) => {
+        // ... (no changes in this function)
         if (!window.confirm("Are you sure you want to delete this announcement?")) return;
         try {
             await deleteDoc(doc(db, 'studentAnnouncements', id));
@@ -566,6 +585,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
     };
     const handleEditSave = async (id) => {
+        // ... (no changes in this function)
         const trimmedContent = editContent.trim();
         if (!trimmedContent) return showToast("Content cannot be empty.", "error");
         try {
@@ -573,7 +593,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             setEditingId(null);
             setEditContent('');
             showToast("Announcement updated.", "success");
-        } catch (error) {
+        } catch (error)
+        {
             showToast("Failed to update.", "error");
         }
     };
@@ -583,13 +604,14 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         if (loading && activeTab !== 'announcements') return <div className="text-center py-10 text-slate-500 text-lg">Loading...</div>;
 
         const EmptyState = ({ icon: Icon, text, subtext }) => (
-            <div className="text-center p-12 bg-neumorphic-base rounded-2xl shadow-neumorphic-inset mt-4">
+            <div className="text-center p-8 sm:p-12 bg-neumorphic-base rounded-2xl shadow-neumorphic-inset mt-4">
                 <Icon className="h-16 w-16 mb-4 text-slate-300 mx-auto" />
-                <p className="text-xl font-semibold text-slate-700">{text}</p>
+                <p className="text-lg sm:text-xl font-semibold text-slate-700">{text}</p>
                 <p className="mt-2 text-base text-slate-500">{subtext}</p>
             </div>
         );
         const customUnitSort = (a, b) => {
+            // ... (no changes in this function)
             if (a === 'Uncategorized') return 1;
             if (b === 'Uncategorized') return -1;
             const numA = parseInt(a.match(/\d+/)?.[0], 10);
@@ -600,7 +622,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             return a.localeCompare(b);
         };
         const ListItem = ({ children, isChecked }) => (
-            <div className={`flex items-center justify-between gap-4 py-3 px-4 rounded-xl transition-colors ${isChecked ? 'bg-sky-100/50' : 'hover:bg-slate-50/50'}`}>
+            // --- MODIFICATION: Reduced vertical padding on mobile ---
+            <div className={`flex items-center justify-between gap-2 sm:gap-4 py-2 px-2 sm:py-3 sm:px-4 rounded-xl transition-colors ${isChecked ? 'bg-sky-100/50' : 'hover:bg-slate-50/50'}`}>
                 {children}
             </div>
         );
@@ -613,13 +636,12 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
         if (activeTab === 'lessons') {
             const lessonsByPostAndUnit = sharedContentPosts.reduce((acc, post) => {
+                // ... (no changes in this logic)
                 const postLessons = (post.lessons || []);
                 if (postLessons.length === 0) return acc;
-
                 if (!acc[post.id]) {
                     acc[post.id] = { post: post, units: {} };
                 }
-
                 postLessons.forEach(lessonDetails => {
                     const unitDisplayName = units[lessonDetails.unitId] || 'Uncategorized';
                     if (!acc[post.id].units[unitDisplayName]) {
@@ -646,12 +668,12 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         return (
                             <PostGroup key={post.id}>
                                 <button 
-                                    className="w-full text-left p-4 group"
+                                    className="w-full text-left p-3 sm:p-4 group"
                                     onClick={() => togglePostCollapse(post.id)}
                                 >
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-bold text-slate-800 text-xl group-hover:text-sky-600 transition-colors truncate">{post.title}</h3>
+                                            <h3 className="font-bold text-slate-800 text-lg sm:text-xl group-hover:text-sky-600 transition-colors truncate">{post.title}</h3>
                                             <div className="text-xs text-slate-500 mt-2 flex flex-wrap gap-x-3">
                                                 <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
                                                 {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
@@ -663,13 +685,13 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                 })()}
                                             </div>
                                         </div>
-                                        <div className="flex-shrink-0 flex items-center gap-2 pl-4">
+                                        <div className="flex-shrink-0 flex items-center gap-1 sm:gap-2 pl-2 sm:pl-4">
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); handleEditDatesClick(post); }} 
                                                 title="Edit Availability" 
-                                                className="flex items-center gap-1 text-sm text-sky-600 hover:underline p-1"
+                                                className="flex items-center gap-1 text-xs sm:text-sm text-sky-600 hover:underline p-1"
                                             >
-                                                <PencilSquareIcon className="w-4 h-4" /> Manage
+                                                <PencilSquareIcon className="w-4 h-4" /> <span className="hidden sm:inline">Manage</span>
                                             </button>
                                             <ChevronDownIcon className={`h-6 w-6 text-slate-500 transition-transform ${isPostCollapsed ? '' : 'rotate-180'}`} />
                                         </div>
@@ -677,7 +699,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                 </button>
                                 
                                 {!isPostCollapsed && (
-                                    <div className="space-y-3 px-4 pb-4">
+                                    <div className="space-y-3 px-2 sm:px-4 pb-4">
                                         {sortedUnitKeys.map(unitDisplayName => {
                                             const lessonsInUnit = unitsInPost[unitDisplayName];
                                             const unitKey = `${post.id}_${unitDisplayName}`;
@@ -688,12 +710,14 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
                                             return (
                                                 <div key={unitKey} className="bg-neumorphic-base rounded-xl shadow-neumorphic-inset">
-                                                    <div className="flex justify-between items-center px-4 py-3 border-b border-slate-200/80">
+                                                    {/* --- MODIFICATION: Reduced padding and gap for mobile --- */}
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 border-b border-slate-200/80">
                                                         <button className="flex-1 flex items-center gap-2 group min-w-0" onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}>
-                                                            <h4 className="font-semibold text-lg text-slate-800 group-hover:text-sky-600 truncate">{unitDisplayName}</h4>
+                                                            {/* --- MODIFICATION: Reduced font size for mobile --- */}
+                                                            <h4 className="font-semibold text-sm sm:text-base text-slate-800 group-hover:text-sky-600 truncate">{unitDisplayName}</h4>
                                                             <ChevronDownIcon className={`h-5 w-5 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
                                                         </button>
-                                                        <label className="flex items-center gap-2 cursor-pointer w-fit pl-4 flex-shrink-0">
+                                                        <label className="flex items-center justify-end gap-2 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0">
                                                             <input
                                                                 type="checkbox"
                                                                 className="h-4 w-4 rounded text-sky-600 border-slate-400 focus:ring-sky-500"
@@ -718,6 +742,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                 const isChecked = selectedSet.has(lessonDetails.id);
                                                                 return (
                                                                     <ListItem key={lessonDetails.id} isChecked={isChecked}>
+                                                                        {/* --- MODIFICATION: Reduced padding --- */}
                                                                         <label className="p-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
                                                                             <input
                                                                                 type="checkbox"
@@ -727,7 +752,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                             />
                                                                         </label>
                                                                         <div className="flex-1 min-w-0" onClick={() => setViewLessonData(lessonDetails)}>
-                                                                            <p className="font-bold text-slate-800 text-lg cursor-pointer hover:text-sky-600 transition-colors truncate">{lessonDetails.title}</p>
+                                                                            {/* --- MODIFICATION: Reduced font size for mobile --- */}
+                                                                            <p className="font-bold text-slate-800 text-sm sm:text-base cursor-pointer hover:text-sky-600 transition-colors truncate">{lessonDetails.title}</p>
                                                                         </div>
                                                                         <div className="flex space-x-1 flex-shrink-0">
                                                                             <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, lessonDetails.id, 'lesson'); }} className="p-2 rounded-full text-red-500 hover:shadow-neumorphic-inset" title="Unshare Lesson"><TrashIcon className="w-5 h-5" /></button>
@@ -751,13 +777,12 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         
         if (activeTab === 'quizzes') {
             const quizzesByPostAndUnit = sharedContentPosts.reduce((acc, post) => {
+                // ... (no changes in this logic)
                 const postQuizzes = (post.quizzes || []);
                 if (postQuizzes.length === 0) return acc;
-
                 if (!acc[post.id]) {
                     acc[post.id] = { post: post, units: {} };
                 }
-
                 postQuizzes.forEach(quizDetails => {
                     const unitDisplayName = units[quizDetails.unitId] || 'Uncategorized';
                     if (!acc[post.id].units[unitDisplayName]) {
@@ -784,12 +809,12 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         return (
                             <PostGroup key={post.id}>
                                 <button 
-                                    className="w-full text-left p-4 group"
+                                    className="w-full text-left p-3 sm:p-4 group"
                                     onClick={() => togglePostCollapse(post.id)}
                                 >
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-bold text-slate-800 text-xl group-hover:text-sky-600 transition-colors truncate">{post.title}</h3>
+                                            <h3 className="font-bold text-slate-800 text-lg sm:text-xl group-hover:text-sky-600 transition-colors truncate">{post.title}</h3>
                                             <div className="text-xs text-slate-500 mt-2 flex flex-wrap gap-x-3">
                                                 <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
                                                 {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
@@ -801,13 +826,13 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                 })()}
                                             </div>
                                         </div>
-                                        <div className="flex-shrink-0 flex items-center gap-2 pl-4">
+                                        <div className="flex-shrink-0 flex items-center gap-1 sm:gap-2 pl-2 sm:pl-4">
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); handleEditDatesClick(post); }} 
                                                 title="Edit Availability" 
-                                                className="flex items-center gap-1 text-sm text-sky-600 hover:underline p-1"
+                                                className="flex items-center gap-1 text-xs sm:text-sm text-sky-600 hover:underline p-1"
                                             >
-                                                <PencilSquareIcon className="w-4 h-4" /> Manage
+                                                <PencilSquareIcon className="w-4 h-4" /> <span className="hidden sm:inline">Manage</span>
                                             </button>
                                             <ChevronDownIcon className={`h-6 w-6 text-slate-500 transition-transform ${isPostCollapsed ? '' : 'rotate-180'}`} />
                                         </div>
@@ -815,7 +840,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                 </button>
                                 
                                 {!isPostCollapsed && (
-                                    <div className="space-y-3 px-4 pb-4">
+                                    <div className="space-y-3 px-2 sm:px-4 pb-4">
                                         {sortedUnitKeys.map(unitDisplayName => {
                                             const quizzesInUnit = unitsInPost[unitDisplayName];
                                             const unitKey = `${post.id}_${unitDisplayName}`;
@@ -826,12 +851,14 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
                                             return (
                                                 <div key={unitKey} className="bg-neumorphic-base rounded-xl shadow-neumorphic-inset">
-                                                    <div className="flex justify-between items-center px-4 py-3 border-b border-slate-200/80">
+                                                    {/* --- MODIFICATION: Reduced padding and gap for mobile --- */}
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 border-b border-slate-200/80">
                                                         <button className="flex-1 flex items-center gap-2 group min-w-0" onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}>
-                                                            <h4 className="font-semibold text-lg text-slate-800 group-hover:text-sky-600 truncate">{unitDisplayName}</h4>
+                                                            {/* --- MODIFICATION: Reduced font size for mobile --- */}
+                                                            <h4 className="font-semibold text-sm sm:text-base text-slate-800 group-hover:text-sky-600 truncate">{unitDisplayName}</h4>
                                                             <ChevronDownIcon className={`h-5 w-5 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
                                                         </button>
-                                                        <label className="flex items-center gap-2 cursor-pointer w-fit pl-4 flex-shrink-0">
+                                                        <label className="flex items-center justify-end gap-2 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0">
                                                             <input
                                                                 type="checkbox"
                                                                 className="h-4 w-4 rounded text-sky-600 border-slate-400 focus:ring-sky-500"
@@ -856,6 +883,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                 const isChecked = selectedSet.has(quizDetails.id);
                                                                 return (
                                                                     <ListItem key={quizDetails.id} isChecked={isChecked}>
+                                                                        {/* --- MODIFICATION: Reduced padding --- */}
                                                                         <label className="p-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
                                                                             <input
                                                                                 type="checkbox"
@@ -873,7 +901,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                                 availableUntil: post.availableUntil
                                                                             })}
                                                                         >
-                                                                            <p className="font-bold text-slate-800 text-lg cursor-pointer hover:text-purple-600 transition-colors truncate">
+                                                                            {/* --- MODIFICATION: Reduced font size for mobile --- */}
+                                                                            <p className="font-bold text-slate-800 text-sm sm:text-base cursor-pointer hover:text-purple-600 transition-colors truncate">
                                                                                 {quizDetails.title}
                                                                             </p>
                                                                         </div>
@@ -897,6 +926,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             );
         }
         if (activeTab === 'scores') {
+            // ... (no changes in this block)
             const allQuizzesFromPosts = sharedContentPosts.flatMap(p => p.quizzes || []);
             const allLessonsFromPosts = sharedContentPosts.flatMap(p => p.lessons || []);
             
@@ -918,20 +948,20 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             );
         }
         if (activeTab === 'students') {
-            
+            // ... (no changes in this block)
             return (
                  <div className="space-y-3 pr-2 max-h-full overflow-y-auto custom-scrollbar">
                     {(classData?.students && classData.students.length > 0) ? (
                         <div className="bg-neumorphic-base rounded-2xl shadow-neumorphic-inset p-1">
                             {classData.students.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(student => (
                                 <ListItem key={student.id} isChecked={false}>
-                                    <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2 sm:gap-4">
                                         <div className="w-10 h-10 rounded-full flex-shrink-0">
                                             <UserInitialsAvatar user={student} size="w-10 h-10" />
                                         </div>
                                         <div>
-                                            <p className="font-bold text-slate-800">{student.lastName}, {student.firstName}</p>
-                                            <p className="text-sm text-slate-500">ID: {student.id}</p>
+                                            <p className="font-bold text-slate-800 text-sm sm:text-base">{student.lastName}, {student.firstName}</p>
+                                            <p className="text-xs sm:text-sm text-slate-500">ID: {student.id}</p>
                                         </div>
                                     </div>
                                     {onRemoveStudent && <button onClick={() => onRemoveStudent(classData.id, student)} className="p-2 rounded-full text-red-500 hover:shadow-neumorphic-inset" title={`Remove ${student.firstName}`}><TrashIcon className="w-5 h-5" /></button>}
@@ -944,6 +974,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
         
         return (
+            // ... (no changes in this block)
             <div className="flex flex-col pr-2 max-h-full overflow-y-auto custom-scrollbar">
                 {showAddForm && (<div className="mb-6 flex-shrink-0"><CreateClassAnnouncementForm classId={classData.id} onAnnouncementPosted={() => setShowAddForm(false)} /></div>)}
                 <div className="space-y-4 flex-grow">
@@ -955,6 +986,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
 
     const tabs = [
+        // ... (no changes in tabs array)
         { id: 'announcements', name: 'Announcements', icon: MegaphoneIcon },
         { id: 'lessons', name: 'Lessons', icon: BookOpenIcon },
         { id: 'quizzes', name: 'Quizzes', icon: AcademicCapIcon },
@@ -970,27 +1002,28 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 title=""
                 size="screen" 
                 roundedClass="rounded-2xl"
-                containerClassName="h-full p-4 bg-black/30 backdrop-blur-sm" 
+                containerClassName="h-full p-2 sm:p-4 bg-black/30 backdrop-blur-sm"
                 contentClassName="p-0"
                 showCloseButton={true}
             >
-                <div className="p-4 md:p-8 bg-neumorphic-base h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl">
+                {/* ... (no changes in this section) ... */}
+                <div className="p-2 sm:p-4 md:p-8 bg-neumorphic-base h-[95vh] sm:h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl">
                     
-                    <div className="mb-6 p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex-shrink-0">
-                        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">{classData?.name || 'Class Details'}</h1>
-                        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-3">
-                            <p className="text-base text-slate-600">
+                    <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex-shrink-0">
+                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">{classData?.name || 'Class Details'}</h1>
+                        <div className="flex flex-wrap items-center gap-x-4 sm:gap-x-6 gap-y-2 mt-3">
+                            <p className="text-sm sm:text-base text-slate-600">
                                 <span className="font-medium text-slate-500">Grade Level:</span>
                                 <span className="font-semibold text-slate-700 ml-1.5">{classData?.gradeLevel}</span>
                             </p>
                             
-                            <div className="flex items-center gap-1.5 text-base text-slate-600">
+                            <div className="flex items-center gap-1.5 text-sm sm:text-base text-slate-600">
                                 <span className="font-medium text-slate-500">Class Owner:</span>
                                 <UserInitialsAvatar user={userProfile} size="w-6 h-6" />
                                 <span className="font-semibold text-slate-700">{userProfile?.displayName}</span>
                             </div>
                             
-                            <p className="text-base text-slate-600">
+                            <p className="text-sm sm:text-base text-slate-600">
                                 <span className="font-medium text-slate-500">Class Code:</span> 
                                 <span className="font-bold text-sky-600 ml-1.5 tracking-wider">{classData?.classCode}</span>
                             </p>
@@ -1002,7 +1035,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                             <button
                                 key={tab.id}
                                 onClick={() => handleTabChange(tab.id)}
-                                className={`flex-shrink-0 flex items-center gap-3 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                                className={`flex-shrink-0 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 ${
                                     activeTab === tab.id
                                         ? 'shadow-neumorphic-inset text-sky-600'
                                         : 'text-slate-700 hover:shadow-neumorphic-inset'
@@ -1014,10 +1047,10 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         ))}
                     </nav>
 
-                    <main className="flex-1 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col min-h-0 mt-6">
-                        <header className="px-8 pt-8 pb-4 flex-shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80">
+                    <main className="flex-1 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col min-h-0 mt-4 sm:mt-6">
+                        <header className="px-4 pt-4 pb-4 sm:px-6 sm:pt-6 sm:pb-4 flex-shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80">
                             
-                            <div className="flex.items-center gap-3">
+                            <div className="flex items-center gap-3">
                                 {activeTab === 'lessons' && selectedLessons.size > 0 && (
                                     <Button 
                                         onClick={() => handleDeleteSelected('lesson')} 
@@ -1025,7 +1058,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                         color="red"
                                         className="font-semibold text-white bg-red-600 border-red-700 shadow-lg hover:bg-red-700"
                                     >
-                                        Delete {selectedLessons.size} Selected
+                                        <span className="hidden sm:inline">Delete {selectedLessons.size} Selected</span>
+                                        <span className="sm:hidden">Delete ({selectedLessons.size})</span>
                                     </Button>
                                 )}
                                 {activeTab === 'quizzes' && selectedQuizzes.size > 0 && (
@@ -1035,17 +1069,19 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                         color="red"
                                         className="font-semibold text-white bg-red-600 border-red-700 shadow-lg hover:bg-red-700"
                                     >
-                                        Delete {selectedQuizzes.size} Selected
+                                        <span className="hidden sm:inline">Delete {selectedQuizzes.size} Selected</span>
+                                        <span className="sm:hidden">Delete ({selectedQuizzes.size})</span>
                                     </Button>
                                 )}
 
                                 {activeTab === 'scores' && (
                                     <button
                                         onClick={() => setIsReportModalOpen(true)}
-                                        className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:bg-blue-500 active:scale-95 transition-all duration-200"
+                                        className="flex items-center gap-2 px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:bg-blue-500 active:scale-95 transition-all duration-200"
                                     >
                                         <DocumentChartBarIcon className="h-5 w-5" />
-                                        Generate Report
+                                        <span className="hidden sm:inline">Generate Report</span>
+                                        <span className="sm:hidden">Report</span>
                                     </button>
                                 )}
 
@@ -1057,7 +1093,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                             </div>
                         </header>
                         
-                        <div className="flex-1 px-8 pb-8 custom-scrollbar min-h-0">
+                        <div className="flex-1 p-4 sm:px-6 sm:pb-6 custom-scrollbar min-h-0">
                             {renderContent()}
                         </div>
                     </main>
@@ -1066,6 +1102,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             </Modal>
 
 			 <GenerateReportModal
+			   /* ... (no changes in this component) ... */
 			   isOpen={isReportModalOpen}
 			   onClose={() => setIsReportModalOpen(false)}
 			   classData={classData}
@@ -1086,6 +1123,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 };
 
 const AnnouncementListItem = ({ post, isOwn, onEdit, onDelete, isEditing, editContent, onChangeEdit, onSaveEdit, onCancelEdit, onClick }) => {
+    // ... (no changes in this component)
     const formattedDate = post.createdAt?.toDate().toLocaleString() || 'NA';
     return (
         <div className="group relative bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic transition-shadow duration-300 hover:shadow-neumorphic-inset cursor-pointer" onClick={!isEditing ? onClick : undefined}>
