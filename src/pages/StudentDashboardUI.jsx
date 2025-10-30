@@ -24,6 +24,7 @@ import StudentLessonsTab from '../components/student/StudentLessonsTab';
 import UserInitialsAvatar from '../components/common/UserInitialsAvatar';
 import Spinner from '../components/common/Spinner';
 import SessionConflictModal from '../components/common/SessionConflictModal';
+import InstallPWA from './components/common/InstallPWA';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { format } from 'date-fns';
@@ -412,6 +413,7 @@ const StudentDashboardUI = ({
                         </span>
                       </div>
                       <div className="flex items-center gap-4 relative">
+							<InstallPWA />
                         <button onClick={() => setJoinClassModalOpen(true)} className="flex items-center justify-center gap-2 bg-neumorphic-base text-red-600 font-semibold border-none rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset transition-all duration-300 ease-in-out transform hover:scale-[1.03] py-2.5 px-4">
                           <PlusCircleIcon className="h-5 w-5" /> <span>Join Class</span>
                         </button>

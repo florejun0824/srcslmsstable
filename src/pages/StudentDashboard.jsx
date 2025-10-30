@@ -400,7 +400,7 @@ const StudentDashboard = () => {
       showToast('Lesson already completed.', 'info');
       return;
     }
-    const XP_FOR_LESSON = 25;
+    const XP_FOR_LESSON = 75;
     try {
       const userRef = doc(db, 'users', userProfile.id);
       await updateDoc(userRef, {
