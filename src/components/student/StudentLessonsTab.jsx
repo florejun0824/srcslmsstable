@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+// Import hooks for routing
+import { useLocation, useNavigate } from 'react-router-dom';
 import { BookOpenIcon, ArrowRightIcon, Squares2X2Icon, ArrowPathIcon } from '@heroicons/react/24/solid';
 import Spinner from '../common/Spinner';
 import LessonsByUnitView from './LessonsByUnitView';
@@ -20,10 +22,15 @@ const StudentLessonsTab = ({
   onRefreshLessons
 }) => {
   const [lessonsByClass, setLessonsByClass] = useState({});
-  const [selectedClassForLessons, setSelectedClassForLessons] = useState(null);
+  // This state will hold the class data derived from the URL
+  const [selectedClassData, setSelectedClassData] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Group lessons by class
+  // Get router location and navigation functions
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Group lessons by class (unchanged)
   useEffect(() => {
     if (lessons.length > 0) {
       const groupedLessons = lessons.reduce((acc, lesson) => {
@@ -50,10 +57,43 @@ const StudentLessonsTab = ({
     }
   }, [lessons]);
 
-  const handleClassCardClick = (classData) => setSelectedClassForLessons(classData);
-  const handleBackToClassList = () => setSelectedClassForLessons(null);
+  // New useEffect to sync the URL with the selected class state
+  useEffect(() => {
+    // Parse URL: /student/lessons/class/class-123
+    const pathParts = location.pathname.split('/');
+    const classIdFromUrl = pathParts.length === 5 && pathParts[3] === 'class' ? pathParts[4] : null;
 
-  // Manual refresh handler
+    if (classIdFromUrl) {
+      // We must wait for lessonsByClass to be populated
+      if (Object.keys(lessonsByClass).length > 0) {
+        const matchingClass = Object.values(lessonsByClass).find(
+          (cls) => cls.id === classIdFromUrl
+        );
+
+        if (matchingClass) {
+          setSelectedClassData(matchingClass);
+        } else {
+          // Class ID in URL is invalid or not found, navigate back
+          console.warn('Class ID from URL not found, navigating back.');
+          navigate('/student/lessons', { replace: true });
+        }
+      }
+      // If lessonsByClass isn't ready, this effect will re-run when it is.
+    } else {
+      // We are on the main /student/lessons page
+      setSelectedClassData(null);
+    }
+  }, [location.pathname, lessonsByClass, navigate]);
+
+  // Update click handlers to use navigate
+  const handleClassCardClick = (classData) => {
+    navigate(`/student/lessons/class/${classData.id}`);
+  };
+  const handleBackToClassList = () => {
+    navigate('/student/lessons');
+  };
+
+  // Manual refresh handler (unchanged)
   const handleRefreshClick = async () => {
     if (!onRefreshLessons) return;
     setIsRefreshing(true);
@@ -66,17 +106,17 @@ const StudentLessonsTab = ({
     }
   };
 
-  // --- When viewing a single class ---
-  if (selectedClassForLessons) {
+  // --- When viewing a single class (use selectedClassData) ---
+  if (selectedClassData) {
     const lessonsForSelectedClass = lessons.filter(
-      (lesson) => lesson.classId === selectedClassForLessons.id
+      (lesson) => lesson.classId === selectedClassData.id
     );
     return (
       <LessonsByUnitView
-        selectedClass={selectedClassForLessons}
+        selectedClass={selectedClassData}
         lessons={lessonsForSelectedClass}
         units={units}
-        onBack={handleBackToClassList}
+        onBack={handleBackToClassList} // This now uses navigate
         setLessonToView={setLessonToView}
         onContentUpdate={onRefreshLessons}
       />
@@ -87,7 +127,7 @@ const StudentLessonsTab = ({
 
   return (
     <div className="min-h-[60vh] relative pb-24 sm:pb-10">
-      {/* Header always visible */}
+      {/* Header always visible (unchanged) */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Lessons</h1>
@@ -96,7 +136,7 @@ const StudentLessonsTab = ({
           </p>
         </div>
 
-        {/* Desktop Refresh */}
+        {/* Desktop Refresh (unchanged) */}
         <button
           onClick={handleRefreshClick}
           disabled={isRefreshing}
@@ -111,7 +151,7 @@ const StudentLessonsTab = ({
         </button>
       </div>
 
-      {/* Main content */}
+      {/* Main content (unchanged) */}
       <div>
         {isFetchingContent || isFetchingUnits ? (
           <div className="flex justify-center items-center py-16">
@@ -127,9 +167,9 @@ const StudentLessonsTab = ({
                   className="group relative p-3 rounded-lg bg-neumorphic-base shadow-neumorphic 
                              hover:shadow-neumorphic-inset transition-all duration-300 cursor-pointer
                              flex flex-col"
-                  onClick={() => handleClassCardClick(classData)}
+                  onClick={() => handleClassCardClick(classData)} // Use new handler
                 >
-                  {/* Icon + Title */}
+                  {/* Icon + Title (unchanged) */}
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <div className="w-9 h-9 flex items-center justify-center rounded-md bg-neumorphic-base shadow-neumorphic-inset">
                       <Squares2X2Icon className="h-5 w-5 text-red-600" />
@@ -144,7 +184,7 @@ const StudentLessonsTab = ({
 
                   <div className="border-t border-slate-200/70 my-2"></div>
 
-                  {/* Footer */}
+                  {/* Footer (unchanged) */}
                   <div className="flex items-center justify-between text-red-600 group-hover:text-red-700 font-medium text-xs">
                     <span>View Lessons</span>
                     <ArrowRightIcon className="h-4 w-4 transition-transform duration-200 transform group-hover:translate-x-1" />
@@ -162,7 +202,7 @@ const StudentLessonsTab = ({
         )}
       </div>
 
-      {/* Floating FAB (Always visible on mobile) */}
+      {/* Floating FAB (unchanged) */}
       <button
         onClick={handleRefreshClick}
         disabled={isRefreshing}

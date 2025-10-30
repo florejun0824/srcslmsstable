@@ -9,6 +9,7 @@ import { ChevronUpDownIcon, CheckIcon } from '@heroicons/react/24/solid';
 import ContentSelectionModal from './ContentSelectionModal';
 import ClassStudentSelectionModal from './ClassStudentSelectionModal';
 
+// (Helper components: primaryButtonStyles, secondaryButtonStyles, CustomSingleSelect, ToggleSwitch remain unchanged)
 
 const primaryButtonStyles = "px-6 py-3 text-base font-semibold text-white bg-blue-600 rounded-full shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all duration-200 disabled:opacity-50 active:scale-95";
 const secondaryButtonStyles = "px-6 py-3 text-base font-semibold text-gray-900 bg-neumorphic-base rounded-full shadow-neumorphic hover:text-blue-600 transition-all disabled:opacity-50 active:scale-95";
@@ -41,40 +42,6 @@ const CustomSingleSelect = React.memo(({ options, selectedValue, onSelectionChan
         </div>
     );
 });
-
-
-// --- THIS IS THE MODIFIED COMPONENT ---
-const CustomDateTimePicker = React.memo(({ selectedDate, onDateChange, isClearable = false, placeholder = "Select date" }) => {
-    
-    const inputClasses = "w-full p-4 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 placeholder:text-gray-500";
-    
-    return (
-        <div className="w-full">
-            <DatePicker
-                selected={selectedDate}
-                onChange={onDateChange}
-                isClearable={isClearable}
-                placeholderText={placeholder}
-                
-                // --- Configuration for Date & Time ---
-                showTimeSelect
-                timeIntervals={15} // Keep intervals for quick-scrolling
-                dateFormat="yyyy-MM-dd, h:mm aa"
-                
-                // --- THIS IS THE FIX ---
-                // This adds a text box where you can type any exact time (e.g., "9:07 AM")
-                timeInputLabel="Time:" 
-                
-                // --- Styling ---
-                className={inputClasses}
-                
-                // --- Modal Fix ---
-                popperPlacement="bottom-end"
-            />
-        </div>
-    );
-});
-// --- END OF MODIFIED COMPONENT ---
 
 
 const ToggleSwitch = ({ label, enabled, onChange, disabled = false }) => (
@@ -111,6 +78,9 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     const [selectedQuarter, setSelectedQuarter] = useState(null);
     const [sendAsExam, setSendAsExam] = useState(false);
     
+    const [postTitle, setPostTitle] = useState('');
+    const [postComment, setPostComment] = useState('');
+
     const [isClassModalOpen, setIsClassModalOpen] = useState(false);
     const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
     const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
@@ -134,6 +104,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     const isExamPossible = selectedQuizzes.length > 0 && selectedLessons.length === 0;
     const isAssignment = selectedLessons.length > 0;
 
+    // (All useEffect hooks remain unchanged)
     useEffect(() => {
         if (!isExamPossible) {
             setSendAsExam(false);
@@ -143,6 +114,10 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     useEffect(() => {
         const fetchPrerequisites = async () => {
             if (!isOpen || !user?.id || !subject?.id) return;
+
+            setPostTitle(`New materials for ${subject.title}`);
+            setPostComment('');
+
             setContentLoading(true);
             setError('');
             try {
@@ -177,6 +152,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         fetchPrerequisites();
     }, [isOpen, user, subject]);
     
+    // (All useMemo hooks remain unchanged)
     const allLessons = useMemo(() => {
         const grouped = {};
         units.forEach(unit => {
@@ -207,6 +183,53 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         { value: 4, label: 'Quarter 4' },
     ];
 
+    // (All handler functions remain unchanged)
+    const formatTime = (date) => {
+        if (!date) return '';
+        return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    };
+
+    const handleDateChange = (date, field) => {
+        if (field === 'from') {
+            setAvailableFrom(prevDate => {
+                const newDate = new Date(prevDate || new Date());
+                newDate.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+                return newDate;
+            });
+        } else if (field === 'until') {
+            if (date === null) {
+                setAvailableUntil(null);
+                return;
+            }
+            setAvailableUntil(prevDate => {
+                const newDate = new Date(prevDate || new Date());
+                newDate.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+                return newDate;
+            });
+        }
+    };
+
+    const handleTimeChange = (e, field) => {
+        const [hours, minutes] = e.target.value.split(':');
+        if (!hours || !minutes) return;
+
+        if (field === 'from') {
+            setAvailableFrom(prevDate => {
+                const newDate = new Date(prevDate || new Date());
+                newDate.setHours(parseInt(hours, 10));
+                newDate.setMinutes(parseInt(minutes, 10));
+                return newDate;
+            });
+        } else if (field === 'until') {
+            setAvailableUntil(prevDate => {
+                const newDate = new Date(prevDate || new Date());
+                newDate.setHours(parseInt(hours, 10));
+                newDate.setMinutes(parseInt(minutes, 10));
+                return newDate;
+            });
+        }
+    };
+
     const handleToggleDropdown = useCallback((dropdownName) => {
         setActiveDropdown(prev => prev === dropdownName ? null : dropdownName);
     }, []);
@@ -221,6 +244,8 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     };
 
     const handleClose = useCallback(() => {
+        setPostTitle('');
+        setPostComment('');
         setSelectionMap(new Map());
         setSelectedLessons([]); 
         setSelectedQuizzes([]);
@@ -247,12 +272,20 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     }, [onClose]);
 
     const handleShare = async () => {
+        if (!postTitle.trim()) {
+            setError("Please enter a title for the post.");
+            return;
+        }
         if (!selectedQuarter) {
             setError("Please select a quarter before sharing.");
             return;
         }
         if (selectionMap.size === 0 || (selectedLessons.length === 0 && selectedQuizzes.length === 0)) {
             setError("Please select at least one class, at least one student, and one piece of content.");
+            return;
+        }
+        if (!availableFrom) {
+            setError("Please set a valid 'Available From' date and time.");
             return;
         }
 
@@ -270,9 +303,15 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 .filter(q => selectedQuizzes.includes(q.id))
                 .map(q => ({ ...q, quarter: selectedQuarter }));
 
+            const firstLesson = lessonsToPost[0];
+            const firstQuiz = quizzesToPost[0];
+            const postUnitId = firstLesson?.unitId || firstQuiz?.unitId || null;
+
             const contentParts = [];
             if (lessonsToPost.length > 0) contentParts.push(`${lessonsToPost.length} lesson(s)`);
             if (quizzesToPost.length > 0) contentParts.push(`${quizzesToPost.length} quiz(zes)`);
+
+            const generatedContent = `The following are now available: ${contentParts.join(' and ')}.`;
 
             const maxAttempts = (isExamPossible && sendAsExam) ? 1 : 3;
             
@@ -305,18 +344,18 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 const newPostRef = doc(collection(db, `classes/${classId}/posts`));
                 
                 batch.set(newPostRef, {
-                    title: `New materials for ${subject.title}`,
-                    content: `The following are now available: ${contentParts.join(' and ')}.`,
+                    title: postTitle,
+                    content: postComment.trim() ? postComment : generatedContent,
                     author: user.displayName || 'Teacher',
                     createdAt: serverTimestamp(),
                     subjectId: subject.id,
                     availableFrom: Timestamp.fromDate(availableFrom),
                     availableUntil: availableUntil ? Timestamp.fromDate(availableUntil) : null,
                     quarter: selectedQuarter,
+                    unitId: postUnitId,
                     lessons: lessonsToPost,
                     quizzes: quizzesToPost,
                     quizSettings: settingsToSave,
-                    
                     targetAudience: "specific", 
                     targetStudentIds: targetStudentIds, 
                 });
@@ -334,7 +373,8 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
             await batch.commit();
             setSuccess(`Successfully shared materials to ${totalClassesShared} class(es).`);
             setTimeout(handleClose, 2000);
-        } catch (err) {
+        } catch (err)
+        {
             console.error("Error sharing content: ", err);
             setError("An error occurred while sharing. Please try again.");
         } finally {
@@ -342,6 +382,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         }
     };
 
+    // (Helper variables/functions for rendering remain unchanged)
     const thingsToShareCount = selectedLessons.length + selectedQuizzes.length;
     
     const classButtonText = () => {
@@ -358,6 +399,9 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
     };
     
     const selectButtonStyle = "flex w-full items-center justify-between p-4 bg-neumorphic-base rounded-xl shadow-neumorphic focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 disabled:bg-gray-200/50 disabled:cursor-not-allowed";
+    const datePickerClasses = "w-2/3 p-4 bg-neumorphic-base text-gray-900 shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500";
+    const timeInputClasses = "w-1/3 p-4 bg-neumorphic-base text-gray-900 shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed";
+
 
     return (
         <React.Fragment>
@@ -371,10 +415,39 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
             >
                 <div className="relative max-h-[75vh] flex flex-col">
                     <main className="flex-grow overflow-y-auto pr-2 -mr-2">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* --- MODIFICATION: Changed to 3-column grid --- */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            
+                            {/* --- COLUMN 1: Details & Recipients --- */}
                             <div className="space-y-6">
                                 <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">1. Share With</h3>
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">1. Set Post Details</h3>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Post Title</label>
+                                            <input
+                                                type="text"
+                                                value={postTitle}
+                                                onChange={(e) => setPostTitle(e.target.value)}
+                                                className="w-full p-4 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 placeholder:text-gray-500"
+                                                placeholder="e.g., Unit 1 Review"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Comment <span className="font-normal text-gray-500">(Optional)</span></label>
+                                            <textarea
+                                                rows={3}
+                                                value={postComment}
+                                                onChange={(e) => setPostComment(e.target.value)}
+                                                className="w-full p-4 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 placeholder:text-gray-500 resize-none"
+                                                placeholder="Add an optional comment for your students..."
+                                            />
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">2. Share With</h3>
                                     <button
                                         type="button"
                                         onClick={() => setIsClassModalOpen(true)}
@@ -387,9 +460,55 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                         <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
                                     </button>
                                 </section>
+                            </div>
+                            
+                            {/* --- COLUMN 2: Settings & Scheduling --- */}
+                            <div className="space-y-6">
+                                <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">3. Set Availability</h3>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Available From</label>
+                                            <div className="flex gap-2">
+                                                <DatePicker
+                                                    selected={availableFrom}
+                                                    onChange={(date) => handleDateChange(date, 'from')}
+                                                    dateFormat="MMMM d, yyyy"
+                                                    className={datePickerClasses}
+                                                />
+                                                <input
+                                                    type="time"
+                                                    value={formatTime(availableFrom)}
+                                                    onChange={(e) => handleTimeChange(e, 'from')}
+                                                    className={timeInputClasses}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Available Until <span className="font-normal text-gray-500">(Optional)</span></label>
+                                            <div className="flex gap-2">
+                                                <DatePicker
+                                                    selected={availableUntil}
+                                                    onChange={(date) => handleDateChange(date, 'until')}
+                                                    dateFormat="MMMM d, yyyy"
+                                                    className={datePickerClasses}
+                                                    isClearable={true}
+                                                    placeholderText="No end date"
+                                                />
+                                                <input
+                                                    type="time"
+                                                    value={formatTime(availableUntil)}
+                                                    onChange={(e) => handleTimeChange(e, 'until')}
+                                                    className={timeInputClasses}
+                                                    disabled={availableUntil === null}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
 
                                 <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">2. Set Post Type</h3>
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">4. Set Post Type</h3>
                                     <div className='space-y-3'>
                                         {isAssignment && (
                                             <ToggleSwitch
@@ -413,20 +532,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                 </section>
 
                                 <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">3. Set Availability</h3>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Available From</label>
-                                            <CustomDateTimePicker selectedDate={availableFrom} onDateChange={setAvailableFrom} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Available Until <span className="font-normal text-gray-500">(Optional)</span></label>
-                                            <CustomDateTimePicker selectedDate={availableUntil} onDateChange={setAvailableUntil} placeholder="No end date" isClearable={true} />
-                                        </div>
-                                    </div>
-                                </section>
-                                <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">4. Select Quarter</h3>
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">5. Select Quarter</h3>
                                     <CustomSingleSelect
                                         options={quarterOptions}
                                         selectedValue={selectedQuarter}
@@ -437,10 +543,11 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                     />
                                 </section>
                             </div>
-                            
+
+                            {/* --- COLUMN 3: Content & Security --- */}
                             <div className="space-y-6">
                                 <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">5. Choose Content</h3>
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">6. Choose Content</h3>
                                     <div className="space-y-4">
                                         <button
                                             type="button"
@@ -467,7 +574,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                     </div>
                                 </section>
                                 <section className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">6. Quiz Security</h3>
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">7. Quiz Security</h3>
                                     <div className="space-y-4">
                                         <ToggleSwitch
                                             label="Enable Anti-Cheating Features"
@@ -481,13 +588,11 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                                     enabled={quizSettings.shuffleQuestions}
                                                     onChange={() => handleQuizSettingsChange('shuffleQuestions', !quizSettings.shuffleQuestions)}
                                                 />
-
                                                 <ToggleSwitch
                                                     label="Lock on Leaving Quiz Tab/App"
                                                     enabled={quizSettings.lockOnLeave}
                                                     onChange={() => handleQuizSettingsChange('lockOnLeave', !quizSettings.lockOnLeave)}
                                                 />
-
                                                 <ToggleSwitch
                                                     label="Prevent Screen Recording & Screenshots"
                                                     enabled={quizSettings.preventScreenCapture}
@@ -509,14 +614,15 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                                     onChange={() => handleQuizSettingsChange('preventBackNavigation', !quizSettings.preventBackNavigation)}
                                                 />
                                             </div>
-
                                         )}
                                     </div>
                                 </section>
                             </div>
                         </div>
+                        {/* --- END MODIFICATION --- */}
                     </main>
 
+                    {/* (Footer remains unchanged) */}
                     <footer className="flex-shrink-0 pt-5 mt-5 border-t border-black/10">
                         {error && (<div className="text-center text-red-600 text-sm mb-4 p-3 bg-red-100/70 rounded-xl">{error}</div>)}
                         {success && (<div className="text-center text-green-600 text-sm mb-4 p-3 bg-green-100/7V rounded-xl">{success}</div>)}
@@ -530,6 +636,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 </div>
             </Modal>
             
+            {/* (Child modals remain unchanged) */}
             <ClassStudentSelectionModal
                 isOpen={isClassModalOpen}
                 onClose={() => setIsClassModalOpen(false)}
@@ -538,8 +645,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 currentSelectionMap={selectionMap}
                 db={db}
             />
-
-
             <ContentSelectionModal
                 isOpen={isLessonModalOpen}
                 onClose={() => setIsLessonModalOpen(false)}

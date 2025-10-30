@@ -34,7 +34,8 @@ import {
     ChevronDownIcon,
     ChevronUpIcon,
     XMarkIcon,
-    ClockIcon
+    ClockIcon,
+    DocumentChartBarIcon
 } from '@heroicons/react/24/solid';
 import CreateClassAnnouncementForm from './CreateClassAnnouncementForm';
 import { useAuth } from '../../contexts/AuthContext';
@@ -58,6 +59,28 @@ const fetchDocsInBatches = async (collectionName, ids) => {
     return snapshots.flatMap(snapshot => snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
 };
 
+const PostHeader = ({ post, onEditDates }) => (
+    <>
+        <h3 className="font-bold text-slate-800 text-xl px-2 pt-1">{post.title}</h3>
+        <div className="text-xs text-slate-500 px-2 pb-2 mb-2 border-b border-slate-200/80 flex flex-wrap gap-x-3">
+            <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
+            {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
+            {(() => {
+                let targetText = "Target: All Students";
+                if (post.targetAudience === 'all') {
+                    targetText = "Target: All Students";
+                } else if (post.targetAudience === 'specific') {
+                    targetText = `Target: ${post.targetStudentIds?.length || 0} Student(s)`;
+                }
+                return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 text-slate-400" />{targetText}</span>;
+            })()}
+            <button onClick={onEditDates} title="Edit Availability" className="flex items-center gap-1 text-sky-600 hover:underline">
+                <PencilSquareIcon className="w-3 h-3" /> Edit
+            </button>
+        </div>
+    </>
+);
+
 
 const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => {
     const { userProfile } = useAuth();
@@ -80,6 +103,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const [selectedQuizForScores, setSelectedQuizForScores] = useState(null);
     const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
     const [units, setUnits] = useState({});
+    const [collapsedPosts, setCollapsedPosts] = useState(new Set());
     const [collapsedUnits, setCollapsedUnits] = useState(new Set());
     const [classQuizIds, setClassQuizIds] = useState([]);
     const [selectedLessons, setSelectedLessons] = useState(new Set());
@@ -94,7 +118,9 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             setAnnouncements([]); setSharedContentPosts([]); setQuizScores([]); setQuizLocks([]);
             setEditingId(null); setEditContent(''); setPostToEdit(null); setIsEditModalOpen(false);
             setIsReportModalOpen(false); setScoresDetailModalOpen(false); setSelectedQuizForScores(null);
-            setSelectedAnnouncement(null); setUnits({}); setCollapsedUnits(new Set());
+            setSelectedAnnouncement(null); setUnits({}); 
+            setCollapsedPosts(new Set());
+            setCollapsedUnits(new Set());
             setClassQuizIds([]);
             setSelectedLessons(new Set());
             setSelectedQuizzes(new Set());
@@ -116,7 +142,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     useEffect(() => {
         if (!isOpen || !classData?.id) return;
         let active = true;
-        const postsQuery = query(collection(db, `classes/${classData.id}/posts`), orderBy('createdAt', 'desc'));
+        const postsQuery = query(collection(db, `classes/${classData.id}/posts`), orderBy('createdAt', 'asc'));
         const unsub = onSnapshot(postsQuery, async (snapshot) => {
             if (!active) return;
             const allPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -158,8 +184,17 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     }, [isOpen, classData?.id]);
 
     useEffect(() => {
-        if (!isOpen || !classData?.id || classQuizIds.length === 0) {
-            setQuizLocks([]);
+        if (!isOpen || !classData?.id) {
+             setQuizLocks([]); // Clear locks if modal is closed or no class
+             return;
+        }
+
+        // When classQuizIds changes (e.g., a quiz is deleted),
+        // filter the local state to remove locks for quiz IDs that no longer exist.
+        setQuizLocks(prevLocks => prevLocks.filter(lock => classQuizIds.includes(lock.quizId)));
+
+        if (classQuizIds.length === 0) {
+            setQuizLocks([]); // No quizzes, so no locks
             return;
         }
 
@@ -179,7 +214,9 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             return onSnapshot(locksQuery, (locksSnap) => {
                 setQuizLocks(prevLocks => {
                     const locksFromThisChunk = locksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    // Get all locks NOT in this chunk
                     const otherLocks = prevLocks.filter(lock => !chunk.includes(lock.quizId));
+                    // Return the combination
                     return [...otherLocks, ...locksFromThisChunk];
                 });
             }, (error) => {
@@ -190,40 +227,65 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         return () => unsubscribers.forEach(unsub => unsub());
     }, [isOpen, classData?.id, classQuizIds]);
 
-    const toggleUnitCollapse = (unitTitle) => {
-        setCollapsedUnits(prev => {
+    const togglePostCollapse = (postId) => {
+        setCollapsedPosts(prev => {
             const newSet = new Set(prev);
-            if (newSet.has(unitTitle)) newSet.delete(unitTitle);
-            else newSet.add(unitTitle);
+            if (newSet.has(postId)) newSet.delete(postId);
+            else newSet.add(postId);
             return newSet;
         });
     };
+
+    const toggleUnitCollapse = (postId, unitDisplayName) => {
+        const unitKey = `${postId}_${unitDisplayName}`;
+        setCollapsedUnits(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(unitKey)) newSet.delete(unitKey);
+            else newSet.add(unitKey);
+            return newSet;
+        });
+    };
+    
     const onChangeEdit = (e) => setEditContent(e.target.value);
 
     useEffect(() => {
-        if (isOpen && classData?.id && (activeTab === 'lessons' || activeTab === 'quizzes' || activeTab === 'scores')) {
-            const allUnitTitles = new Set();
-             sharedContentPosts.forEach(post => {
-                (post.lessons || []).forEach(lesson => {
-                    const unitDisplayName = units[lesson.unitId] || 'Uncategorized';
-                    allUnitTitles.add(unitDisplayName);
-                });
-                (post.quizzes || []).forEach(quiz => {
-                    const unitDisplayName = units[quiz.unitId] || 'Uncategorized';
-                    allUnitTitles.add(unitDisplayName);
-                });
+        if (isOpen && classData?.id && (activeTab === 'lessons' || activeTab === 'quizzes')) {
+            const newCollapsedPosts = new Set();
+            const newCollapsedUnits = new Set();
+            
+            sharedContentPosts.forEach(post => {
+                if (activeTab === 'lessons' && (post.lessons || []).length > 0) {
+                    newCollapsedPosts.add(post.id);
+                    (post.lessons || []).forEach(lesson => {
+                        const unitDisplayName = units[lesson.unitId] || 'Uncategorized';
+                        newCollapsedUnits.add(`${post.id}_${unitDisplayName}`);
+                    });
+                } else if (activeTab === 'quizzes' && (post.quizzes || []).length > 0) {
+                    newCollapsedPosts.add(post.id);
+                    (post.quizzes || []).forEach(quiz => {
+                        const unitDisplayName = units[quiz.unitId] || 'Uncategorized';
+                        newCollapsedUnits.add(`${post.id}_${unitDisplayName}`);
+                    });
+                }
             });
-             if (Object.keys(units).length > 0 || sharedContentPosts.some(p => (p.lessons?.some(l => !l.unitId) || p.quizzes?.some(q => !q.unitId)))) {
-                 if (allUnitTitles.size > 0) {
-                    setCollapsedUnits(allUnitTitles);
-                 } else {
-                    setCollapsedUnits(new Set());
-                 }
-             }
+            
+            setCollapsedPosts(newCollapsedPosts);
+            setCollapsedUnits(newCollapsedUnits);
+        } else if (activeTab === 'scores') {
+            const allUnitTitles = new Set();
+            sharedContentPosts.forEach(post => {
+               (post.quizzes || []).forEach(quiz => {
+                   const unitDisplayName = units[quiz.unitId] || 'Uncategorized';
+                   allUnitTitles.add(unitDisplayName);
+               });
+           });
+           setCollapsedUnits(allUnitTitles);
+           setCollapsedPosts(new Set());
         } else {
+            setCollapsedPosts(new Set());
             setCollapsedUnits(new Set());
         }
-    }, [activeTab, units, sharedContentPosts, isOpen, classData?.id]);
+    }, [activeTab, sharedContentPosts, units, isOpen, classData?.id]);
 
     const handleTabChange = (tabName) => {
         setActiveTab(tabName);
@@ -247,13 +309,13 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	const handleDeleteSelected = async (contentType) => {
 	    if (!classData?.id) return;
 
-	    const selectedSet = contentType === 'lesson' ? selectedLessons : selectedQuizzes;
+	    const selectedSet = contentType === 'lesson' ? selectedLessons : setSelectedQuizzes;
 	    if (selectedSet.size === 0) return;
 
 	    const fieldToUpdate = contentType === 'quiz' ? 'quizzes' : 'lessons';
 	    const confirmMessage =
 	        contentType === 'quiz'
-	            ? `Are you sure you want to unshare these ${selectedSet.size} quizzes? This will also delete all student submissions for these quizzes in this class.`
+	            ? `Are you sure you want to unshare these ${selectedSet.size} quizzes? This will also delete all student submissions and quiz locks for these quizzes in this class.`
 	            : `Are you sure you want to unshare these ${selectedSet.size} lessons?`;
 
 	    if (!window.confirm(confirmMessage)) return;
@@ -263,7 +325,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	        const classRef = doc(db, 'classes', classData.id);
 	        const removedQuizIds = new Set();
 
-	        // --- MAIN DELETE LOOP ---
 	        for (const post of sharedContentPosts) {
 	            const currentContent = post[fieldToUpdate] || [];
 	            if (currentContent.length === 0) continue;
@@ -282,12 +343,11 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	            }
 	        }
 
-	        // --- DELETE QUIZ SUBMISSIONS IF QUIZZES ARE REMOVED ---
 	        if (contentType === 'quiz' && removedQuizIds.size > 0) {
 	            const quizIdArray = Array.from(removedQuizIds);
 	            const MAX_IN_CLAUSE = 30;
 	            for (let i = 0; i < quizIdArray.length; i += MAX_IN_CLAUSE) {
-	                const chunk = quizIdArray.slice(i, i + MAX_IN_CLAUSE);
+	                const chunk = quizIdArray.slice(i, i + 30);
 	                if (chunk.length === 0) continue;
 
 	                const submissionsQuery = query(
@@ -299,16 +359,22 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	                submissionsSnapshot.forEach((submissionDoc) => {
 	                    batch.delete(submissionDoc.ref);
 	                });
+
+                    const locksQuery = query(
+                        collection(db, 'quizLocks'),
+                        where('quizId', 'in', chunk),
+                        where('classId', '==', classData.id)
+                    );
+                    const locksSnapshot = await getDocs(locksQuery);
+                    locksSnapshot.forEach((lockDoc) => {
+                        batch.delete(lockDoc.ref);
+                    });
 	            }
 	        }
 
-	        // --- UPDATE CLASS TIMESTAMP ---
 	        batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
-
-	        // --- COMMIT MAIN DELETION ---
 	        await batch.commit();
 
-	        // --- CLEANUP (BATCHED): Remove deleted lessons from students' completedLessons (XP unchanged) ---
 	        if (contentType === 'lesson') {
 	            const deletedLessonIds = Array.from(selectedSet);
 	            const studentIds = (classData.students || []).map((s) => s.id);
@@ -346,11 +412,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	                    'error'
 	                );
 	            }
-
-	            // Clear selected lessons
 	            setSelectedLessons(new Set());
 	        } else {
-	            // For quizzes only
 	            showToast(
 	                `${selectedSet.size} ${contentType}(s) and associated data removed.`,
 	                'success'
@@ -385,7 +448,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
 	    const confirmMessage =
 	        contentType === 'quiz'
-	            ? `Are you sure you want to unshare this quiz? This will also delete all student submissions for this quiz in this class.`
+	            ? `Are you sure you want to unshare this quiz? This will also delete all student submissions and quiz locks for this quiz in this class.`
 	            : `Are you sure you want to unshare this lesson?`;
 
 	    if (!window.confirm(confirmMessage)) return;
@@ -416,11 +479,20 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	            submissionsSnapshot.forEach(submissionDoc => {
 	                batch.delete(submissionDoc.ref);
 	            });
+
+                const locksQuery = query(
+                    collection(db, 'quizLocks'),
+                    where('quizId', '==', contentIdToRemove),
+                    where('classId', '==', classData.id)
+                );
+                const locksSnapshot = await getDocs(locksQuery);
+                locksSnapshot.forEach(lockDoc => {
+                    batch.delete(lockDoc.ref);
+                });
 	        }
 
 	        await batch.commit();
 
-	        // --- CLEANUP (BATCHED): Remove deleted lessons from students' completedLessons (XP unchanged) ---
 	        if (contentType === 'lesson') {
 	            const deletedLessonIds = [contentIdToRemove];
 	            const studentIds = (classData.students || []).map(s => s.id);
@@ -467,93 +539,17 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	};
 
     const handleDeleteUnitContent = async (unitDisplayName, contentType) => {
-        if (!classData?.id || !userProfile || userProfile.role !== 'teacher') return;
-
-        const fieldToUpdate = contentType === 'quiz' ? 'quizzes' : 'lessons';
-        const confirmMessage = contentType === 'quiz'
-            ? `Are you sure you want to unshare ALL quizzes in the unit "${unitDisplayName}" from this class? This will also delete ALL student submissions for these quizzes in this class.`
-            : `Are you sure you want to unshare ALL lessons in the unit "${unitDisplayName}" from this class?`;
-
-        if (!window.confirm(confirmMessage)) return;
-
-        const targetUnitId = unitDisplayName === 'Uncategorized'
-            ? null
-            : Object.keys(units).find(id => units[id] === unitDisplayName);
-         if (targetUnitId === undefined && unitDisplayName !== 'Uncategorized') {
-             console.error("Could not find unit ID for display name:", unitDisplayName);
-             showToast("Error finding unit ID.", "error");
-             return;
-         }
-
-
-        try {
-            const batch = writeBatch(db);
-            const classRef = doc(db, "classes", classData.id);
-            const removedQuizIds = new Set();
-            let contentRemoved = false;
-
-            for (const post of sharedContentPosts) {
-                const currentContent = post[fieldToUpdate] || [];
-                if (currentContent.length === 0) continue;
-
-                const contentToKeep = currentContent.filter(item => {
-                    const itemUnitId = item.unitId || null;
-                    const belongsToUnit = (targetUnitId === null && itemUnitId === null) ||
-                                        (targetUnitId !== null && itemUnitId === targetUnitId);
-
-                    if (belongsToUnit && contentType === 'quiz') {
-                        removedQuizIds.add(item.id);
-                    }
-                    return !belongsToUnit;
-                });
-
-                if (contentToKeep.length < currentContent.length) {
-                    contentRemoved = true;
-                    const postRef = doc(db, 'classes', classData.id, 'posts', post.id);
-                    batch.update(postRef, { [fieldToUpdate]: contentToKeep });
-                }
-            }
-
-             if (!contentRemoved) {
-                 showToast(`No ${contentType}s found in unit "${unitDisplayName}" to remove.`, "info");
-                 return;
-             }
-
-
-            if (contentType === 'quiz' && removedQuizIds.size > 0) {
-                const quizIdArray = Array.from(removedQuizIds);
-                 const MAX_IN_CLAUSE = 30;
-                 for (let i = 0; i < quizIdArray.length; i += MAX_IN_CLAUSE) {
-                     const chunk = quizIdArray.slice(i, i + MAX_IN_CLAUSE);
-                     if (chunk.length === 0) continue;
-                     const submissionsQuery = query(
-                         collection(db, 'quizSubmissions'),
-                         where('quizId', 'in', chunk),
-                         where('classId', '==', classData.id)
-                     );
-                     const submissionsSnapshot = await getDocs(submissionsQuery);
-                     submissionsSnapshot.forEach(submissionDoc => {
-                         batch.delete(submissionDoc.ref);
-                     });
-                 }
-            }
-
-            batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
-
-            await batch.commit();
-
-            showToast(`All ${contentType}s from unit "${unitDisplayName}" and associated data removed.`, "success");
-        } catch (error) {
-            console.error(`Error unsharing unit ${contentType}s:`, error);
-            showToast(`Failed to unshare ${contentType}s for unit "${unitDisplayName}". Error: ${error.message}`, "error");
-        }
+        console.warn("handleDeleteUnitContent is deprecated with the new layout.");
     };
 
 
     const handlePostUpdate = (updateInfo) => {
         if (updateInfo.isDeleted) {
             setSharedContentPosts(prevPosts => prevPosts.filter(p => p.id !== updateInfo.id));
-        } else {
+        } else if (updateInfo.isMassUpdate) {
+             console.log("Mass update triggered, waiting for snapshot listener to refresh data.");
+        }
+        else {
             setSharedContentPosts(prevPosts =>
                 prevPosts.map(p => p.id === updateInfo.id ? { ...p, ...updateInfo } : p)
             );
@@ -603,117 +599,150 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             if (!isNaN(numB)) return 1;
             return a.localeCompare(b);
         };
-        const ListItem = ({ children }) => (
-            <div className="flex items-center justify-between gap-4 py-3 px-4 transition-shadow rounded-xl hover:shadow-neumorphic-inset">
+        const ListItem = ({ children, isChecked }) => (
+            <div className={`flex items-center justify-between gap-4 py-3 px-4 rounded-xl transition-colors ${isChecked ? 'bg-sky-100/50' : 'hover:bg-slate-50/50'}`}>
                 {children}
             </div>
         );
         
-        const UnitGroup = ({ title, children }) => (
+        const PostGroup = ({ children }) => (
             <div className="bg-neumorphic-base rounded-2xl shadow-neumorphic">
-                <div className="flex items-center justify-between w-full p-4">
-                    <button
-                        className="flex-1 flex items-center justify-between text-left mr-2 group"
-                        onClick={() => toggleUnitCollapse(title)}
-                    >
-                        <span className="font-semibold text-xl text-slate-800 group-hover:text-sky-600 transition-colors">{title}</span>
-                        <ChevronDownIcon className={`h-6 w-6 text-slate-500 transition-transform ${!collapsedUnits.has(title) ? 'rotate-180' : ''}`} />
-                    </button>
-                </div>
-                {!collapsedUnits.has(title) && <div className="px-2 pb-2">{children}</div>}
+                {children}
             </div>
         );
 
         if (activeTab === 'lessons') {
-            const lessonsByUnit = sharedContentPosts.reduce((acc, post) => {
-                (post.lessons || []).forEach(lessonDetails => {
+            const lessonsByPostAndUnit = sharedContentPosts.reduce((acc, post) => {
+                const postLessons = (post.lessons || []);
+                if (postLessons.length === 0) return acc;
+
+                if (!acc[post.id]) {
+                    acc[post.id] = { post: post, units: {} };
+                }
+
+                postLessons.forEach(lessonDetails => {
                     const unitDisplayName = units[lessonDetails.unitId] || 'Uncategorized';
-                    if (!acc[unitDisplayName]) acc[unitDisplayName] = [];
-                    acc[unitDisplayName].push({ post, lessonDetails });
+                    if (!acc[post.id].units[unitDisplayName]) {
+                        acc[post.id].units[unitDisplayName] = [];
+                    }
+                    acc[post.id].units[unitDisplayName].push(lessonDetails);
                 });
                 return acc;
             }, {});
-            const sortedUnitKeys = Object.keys(lessonsByUnit).sort(customUnitSort);
+            
+            const postEntries = Object.values(lessonsByPostAndUnit).sort((a, b) => 
+                (a.post.createdAt?.toDate() || 0) - (b.post.createdAt?.toDate() || 0)
+            );
+            
             const selectedSet = selectedLessons;
 
             return (
-                // FIX: Removed large h2 headers and ensured single scrolling container.
                 <div className="space-y-6 pr-2 max-h-full overflow-y-auto custom-scrollbar">
-                    {sortedUnitKeys.length > 0 ? sortedUnitKeys.map(unitDisplayName => {
+                    {postEntries.length > 0 ? postEntries.map(({ post, units: unitsInPost }) => {
                         
-                        const lessonsInUnit = lessonsByUnit[unitDisplayName];
-                        const lessonIdsInUnit = lessonsInUnit.map(l => l.lessonDetails.id);
-                        const isAllSelected = lessonIdsInUnit.length > 0 && lessonIdsInUnit.every(id => selectedSet.has(id));
+                        const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
+                        const isPostCollapsed = collapsedPosts.has(post.id);
 
                         return (
-                            <UnitGroup
-                                key={unitDisplayName}
-                                title={unitDisplayName}
-                            >
-                                <div className="px-4 pt-2 pb-3 border-b border-slate-200/80" onClick={(e) => e.stopPropagation()}>
-                                    <label className="flex items-center gap-3 cursor-pointer w-fit">
-                                        <input
-                                            type="checkbox"
-                                            className="h-5 w-5 rounded text-sky-600 border-slate-400 focus:ring-sky-500 focus:ring-2"
-                                            checked={isAllSelected}
-                                            onChange={() => {
-                                                const set = setSelectedLessons;
-                                                set(prevSet => {
-                                                    const newSet = new Set(prevSet);
-                                                    if (isAllSelected) {
-                                                        lessonIdsInUnit.forEach(id => newSet.delete(id));
-                                                    } else {
-                                                        lessonIdsInUnit.forEach(id => newSet.add(id));
-                                                    }
-                                                    return newSet;
-                                                });
-                                            }}
-                                        />
-                                        <span className="font-semibold text-slate-700">Select All in this Unit</span>
-                                    </label>
-                                </div>
-
-                                {lessonsInUnit.sort((a, b) => (a.lessonDetails.order || 0) - (b.lessonDetails.order || 0) || a.lessonDetails.title.localeCompare(b.lessonDetails.title)).map(({ post, lessonDetails }) => (
-                                    <ListItem key={`${post.id}-${lessonDetails.id}`}>
-                                        <label className="p-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                                            <input
-                                                type="checkbox"
-                                                className="h-5 w-5 rounded text-sky-600 border-slate-400 focus:ring-sky-500 focus:ring-2"
-                                                checked={selectedSet.has(lessonDetails.id)}
-                                                onChange={() => handleToggleSelection('lesson', lessonDetails.id)}
-                                            />
-                                        </label>
-                                        <div className="flex-1 min-w-0" onClick={() => setViewLessonData(lessonDetails)}>
-                                            <p className="font-bold text-slate-800 text-lg cursor-pointer hover:text-sky-600 transition-colors truncate">{lessonDetails.title}</p>
-                                            
-                                            <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap gap-x-3">
+                            <PostGroup key={post.id}>
+                                <button 
+                                    className="w-full text-left p-4 group"
+                                    onClick={() => togglePostCollapse(post.id)}
+                                >
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-bold text-slate-800 text-xl group-hover:text-sky-600 transition-colors truncate">{post.title}</h3>
+                                            <div className="text-xs text-slate-500 mt-2 flex flex-wrap gap-x-3">
                                                 <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
                                                 {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
-                                                
                                                 {(() => {
                                                     let targetText = "Target: All Students";
-                                                    if (post.targetAudience === 'all') {
-                                                        targetText = "Target: All Students";
-                                                    } else if (post.targetAudience === 'specific') {
-                                                        targetText = `Target: ${post.targetStudentIds?.length || 0} Student(s)`;
-                                                    }
-                                                    return (
-                                                        <span className="flex items-center gap-1">
-                                                            <UsersIcon className="h-3 w-3 text-slate-400" />
-                                                            {targetText}
-                                                        </span>
-                                                    );
+                                                    if (post.targetAudience === 'all') targetText = "Target: All Students";
+                                                    else if (post.targetAudience === 'specific') targetText = `Target: ${post.targetStudentIds?.length || 0} Student(s)`;
+                                                    return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 text-slate-400" />{targetText}</span>;
                                                 })()}
                                             </div>
+                                        </div>
+                                        <div className="flex-shrink-0 flex items-center gap-2 pl-4">
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); handleEditDatesClick(post); }} 
+                                                title="Edit Availability" 
+                                                className="flex items-center gap-1 text-sm text-sky-600 hover:underline p-1"
+                                            >
+                                                <PencilSquareIcon className="w-4 h-4" /> Manage
+                                            </button>
+                                            <ChevronDownIcon className={`h-6 w-6 text-slate-500 transition-transform ${isPostCollapsed ? '' : 'rotate-180'}`} />
+                                        </div>
+                                    </div>
+                                </button>
+                                
+                                {!isPostCollapsed && (
+                                    <div className="space-y-3 px-4 pb-4">
+                                        {sortedUnitKeys.map(unitDisplayName => {
+                                            const lessonsInUnit = unitsInPost[unitDisplayName];
+                                            const unitKey = `${post.id}_${unitDisplayName}`;
+                                            const isUnitCollapsed = collapsedUnits.has(unitKey);
+                                            
+                                            const lessonIdsInUnit = lessonsInUnit.map(l => l.id);
+                                            const isAllSelected = lessonIdsInUnit.length > 0 && lessonIdsInUnit.every(id => selectedSet.has(id));
 
-                                        </div>
-                                        <div className="flex space-x-1 flex-shrink-0">
-                                            <button onClick={() => handleEditDatesClick(post)} title="Edit Availability" className="p-2 rounded-full text-slate-500 hover:shadow-neumorphic-inset"><PencilSquareIcon className="w-5 h-5" /></button>
-                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, lessonDetails.id, 'lesson'); }} className="p-2 rounded-full text-red-500 hover:shadow-neumorphic-inset" title="Unshare Lesson"><TrashIcon className="w-5 h-5" /></button>
-                                        </div>
-                                    </ListItem>
-                                ))}
-                            </UnitGroup>
+                                            return (
+                                                <div key={unitKey} className="bg-neumorphic-base rounded-xl shadow-neumorphic-inset">
+                                                    <div className="flex justify-between items-center px-4 py-3 border-b border-slate-200/80">
+                                                        <button className="flex-1 flex items-center gap-2 group min-w-0" onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}>
+                                                            <h4 className="font-semibold text-lg text-slate-800 group-hover:text-sky-600 truncate">{unitDisplayName}</h4>
+                                                            <ChevronDownIcon className={`h-5 w-5 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
+                                                        </button>
+                                                        <label className="flex items-center gap-2 cursor-pointer w-fit pl-4 flex-shrink-0">
+                                                            <input
+                                                                type="checkbox"
+                                                                className="h-4 w-4 rounded text-sky-600 border-slate-400 focus:ring-sky-500"
+                                                                checked={isAllSelected}
+                                                                onChange={() => {
+                                                                    const set = setSelectedLessons;
+                                                                    set(prevSet => {
+                                                                        const newSet = new Set(prevSet);
+                                                                        if (isAllSelected) lessonIdsInUnit.forEach(id => newSet.delete(id));
+                                                                        else lessonIdsInUnit.forEach(id => newSet.add(id));
+                                                                        return newSet;
+                                                                    });
+                                                                }}
+                                                            />
+                                                            <span className="text-sm font-semibold text-slate-700">Select All</span>
+                                                        </label>
+                                                    </div>
+                                                    
+                                                    {!isUnitCollapsed && (
+                                                        <div className="mt-1 px-2 pb-2">
+                                                            {lessonsInUnit.sort((a, b) => (a.order || 0) - (b.order || 0) || a.title.localeCompare(b.title)).map(lessonDetails => {
+                                                                const isChecked = selectedSet.has(lessonDetails.id);
+                                                                return (
+                                                                    <ListItem key={lessonDetails.id} isChecked={isChecked}>
+                                                                        <label className="p-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                className="h-5 w-5 rounded text-sky-600 border-slate-400 focus:ring-sky-500 focus:ring-2"
+                                                                                checked={isChecked}
+                                                                                onChange={() => handleToggleSelection('lesson', lessonDetails.id)}
+                                                                            />
+                                                                        </label>
+                                                                        <div className="flex-1 min-w-0" onClick={() => setViewLessonData(lessonDetails)}>
+                                                                            <p className="font-bold text-slate-800 text-lg cursor-pointer hover:text-sky-600 transition-colors truncate">{lessonDetails.title}</p>
+                                                                        </div>
+                                                                        <div className="flex space-x-1 flex-shrink-0">
+                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, lessonDetails.id, 'lesson'); }} className="p-2 rounded-full text-red-500 hover:shadow-neumorphic-inset" title="Unshare Lesson"><TrashIcon className="w-5 h-5" /></button>
+                                                                        </div>
+                                                                    </ListItem>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </PostGroup>
                         );
                     }) : <EmptyState icon={BookOpenIcon} text="No lessons shared yet" subtext="Share lessons with your class to get started." />}
                 </div>
@@ -721,107 +750,147 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
         
         if (activeTab === 'quizzes') {
-             const quizzesByUnit = sharedContentPosts.reduce((acc, post) => {
-                (post.quizzes || []).forEach(quizDetails => {
+            const quizzesByPostAndUnit = sharedContentPosts.reduce((acc, post) => {
+                const postQuizzes = (post.quizzes || []);
+                if (postQuizzes.length === 0) return acc;
+
+                if (!acc[post.id]) {
+                    acc[post.id] = { post: post, units: {} };
+                }
+
+                postQuizzes.forEach(quizDetails => {
                     const unitDisplayName = units[quizDetails.unitId] || 'Uncategorized';
-                    if (!acc[unitDisplayName]) acc[unitDisplayName] = [];
-                    acc[unitDisplayName].push({ post, quizDetails });
+                    if (!acc[post.id].units[unitDisplayName]) {
+                        acc[post.id].units[unitDisplayName] = [];
+                    }
+                    acc[post.id].units[unitDisplayName].push(quizDetails);
                 });
                 return acc;
             }, {});
-            const sortedUnitKeys = Object.keys(quizzesByUnit).sort(customUnitSort);
+            
+            const postEntries = Object.values(quizzesByPostAndUnit).sort((a, b) => 
+                (a.post.createdAt?.toDate() || 0) - (b.post.createdAt?.toDate() || 0)
+            );
+
             const selectedSet = selectedQuizzes;
 
             return (
-                // FIX: Removed large h2 headers and ensured single scrolling container.
                 <div className="space-y-6 pr-2 max-h-full overflow-y-auto custom-scrollbar">
-                    {sortedUnitKeys.length > 0 ? sortedUnitKeys.map(unitDisplayName => {
+                    {postEntries.length > 0 ? postEntries.map(({ post, units: unitsInPost }) => {
                         
-                        const quizzesInUnit = quizzesByUnit[unitDisplayName];
-                        const quizIdsInUnit = quizzesInUnit.map(q => q.quizDetails.id);
-                        const isAllSelected = quizIdsInUnit.length > 0 && quizIdsInUnit.every(id => selectedSet.has(id));
+                        const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
+                        const isPostCollapsed = collapsedPosts.has(post.id);
 
                         return (
-                            <UnitGroup
-                                key={unitDisplayName}
-                                title={unitDisplayName}
-                            >
-                                <div className="px-4 pt-2 pb-3 border-b border-slate-200/80" onClick={(e) => e.stopPropagation()}>
-                                    <label className="flex items-center gap-3 cursor-pointer w-fit">
-                                        <input
-                                            type="checkbox"
-                                            className="h-5 w-5 rounded text-sky-600 border-slate-400 focus:ring-sky-500 focus:ring-2"
-                                            checked={isAllSelected}
-                                            onChange={() => {
-                                                const set = setSelectedQuizzes;
-                                                set(prevSet => {
-                                                    const newSet = new Set(prevSet);
-                                                    if (isAllSelected) {
-                                                        quizIdsInUnit.forEach(id => newSet.delete(id));
-                                                    } else {
-                                                        quizIdsInUnit.forEach(id => newSet.add(id));
-                                                    }
-                                                    return newSet;
-                                                });
-                                            }}
-                                        />
-                                        <span className="font-semibold text-slate-700">Select All in this Unit</span>
-                                    </label>
-                                </div>
-
-                                {quizzesInUnit.sort((a, b) => (a.quizDetails.order || 0) - (b.quizDetails.order || 0) || a.quizDetails.title.localeCompare(b.quizDetails.title)).map(({ post, quizDetails }) => (
-                                    <ListItem key={`${post.id}-${quizDetails.id}`}>
-                                        <label className="p-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                                            <input
-                                                type="checkbox"
-                                                className="h-5 w-5 rounded text-sky-600 border-slate-400 focus:ring-sky-500 focus:ring-2"
-                                                checked={selectedSet.has(quizDetails.id)}
-                                                onChange={() => handleToggleSelection('quiz', quizDetails.id)}
-                                            />
-                                        </label>
-                                        <div
-                                            className="flex-1 min-w-0"
-                                            onClick={() => setViewQuizData({
-                                                ...quizDetails,
-                                                settings: post.quizSettings,
-                                                availableFrom: post.availableFrom,
-                                                availableUntil: post.availableUntil
-                                            })}
-                                        >
-                                            <p
-                                                className="font-bold text-slate-800 text-lg cursor-pointer hover:text-purple-600 transition-colors truncate"
-                                            >
-                                                {quizDetails.title}
-                                            </p>
-                                            
-                                            <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap gap-x-3">
+                            <PostGroup key={post.id}>
+                                <button 
+                                    className="w-full text-left p-4 group"
+                                    onClick={() => togglePostCollapse(post.id)}
+                                >
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-bold text-slate-800 text-xl group-hover:text-sky-600 transition-colors truncate">{post.title}</h3>
+                                            <div className="text-xs text-slate-500 mt-2 flex flex-wrap gap-x-3">
                                                 <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
                                                 {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
-                                                
                                                 {(() => {
                                                     let targetText = "Target: All Students";
-                                                    if (post.targetAudience === 'all') {
-                                                        targetText = "Target: All Students";
-                                                    } else if (post.targetAudience === 'specific') {
-                                                        targetText = `Target: ${post.targetStudentIds?.length || 0} Student(s)`;
-                                                    }
-                                                    return (
-                                                        <span className="flex items-center gap-1">
-                                                            <UsersIcon className="h-3 w-3 text-slate-400" />
-                                                            {targetText}
-                                                        </span>
-                                                    );
+                                                    if (post.targetAudience === 'all') targetText = "Target: All Students";
+                                                    else if (post.targetAudience === 'specific') targetText = `Target: ${post.targetStudentIds?.length || 0} Student(s)`;
+                                                    return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 text-slate-400" />{targetText}</span>;
                                                 })()}
                                             </div>
+                                        </div>
+                                        <div className="flex-shrink-0 flex items-center gap-2 pl-4">
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); handleEditDatesClick(post); }} 
+                                                title="Edit Availability" 
+                                                className="flex items-center gap-1 text-sm text-sky-600 hover:underline p-1"
+                                            >
+                                                <PencilSquareIcon className="w-4 h-4" /> Manage
+                                            </button>
+                                            <ChevronDownIcon className={`h-6 w-6 text-slate-500 transition-transform ${isPostCollapsed ? '' : 'rotate-180'}`} />
+                                        </div>
+                                    </div>
+                                </button>
+                                
+                                {!isPostCollapsed && (
+                                    <div className="space-y-3 px-4 pb-4">
+                                        {sortedUnitKeys.map(unitDisplayName => {
+                                            const quizzesInUnit = unitsInPost[unitDisplayName];
+                                            const unitKey = `${post.id}_${unitDisplayName}`;
+                                            const isUnitCollapsed = collapsedUnits.has(unitKey);
 
-                                        </div>
-                                        <div className="flex space-x-1 flex-shrink-0">
-                                            <button onClick={() => handleEditDatesClick(post)} title="Edit Availability" className="p-2 rounded-full text-slate-500 hover:shadow-neumorphic-inset"><PencilSquareIcon className="w-5 h-5" /></button>
-                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, quizDetails.id, 'quiz'); }} className="p-2 rounded-full text-red-500 hover:shadow-neumorphic-inset" title="Unshare Quiz"><TrashIcon className="w-5 h-5" /></button>
-                                        </div>
-                                    </ListItem>
-                                ))}
-                            </UnitGroup>
+                                            const quizIdsInUnit = quizzesInUnit.map(q => q.id);
+                                            const isAllSelected = quizIdsInUnit.length > 0 && quizIdsInUnit.every(id => selectedSet.has(id));
+
+                                            return (
+                                                <div key={unitKey} className="bg-neumorphic-base rounded-xl shadow-neumorphic-inset">
+                                                    <div className="flex justify-between items-center px-4 py-3 border-b border-slate-200/80">
+                                                        <button className="flex-1 flex items-center gap-2 group min-w-0" onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}>
+                                                            <h4 className="font-semibold text-lg text-slate-800 group-hover:text-sky-600 truncate">{unitDisplayName}</h4>
+                                                            <ChevronDownIcon className={`h-5 w-5 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
+                                                        </button>
+                                                        <label className="flex items-center gap-2 cursor-pointer w-fit pl-4 flex-shrink-0">
+                                                            <input
+                                                                type="checkbox"
+                                                                className="h-4 w-4 rounded text-sky-600 border-slate-400 focus:ring-sky-500"
+                                                                checked={isAllSelected}
+                                                                onChange={() => {
+                                                                    const set = setSelectedQuizzes;
+                                                                    set(prevSet => {
+                                                                        const newSet = new Set(prevSet);
+                                                                        if (isAllSelected) quizIdsInUnit.forEach(id => newSet.delete(id));
+                                                                        else quizIdsInUnit.forEach(id => newSet.add(id));
+                                                                        return newSet;
+                                                                    });
+                                                                }}
+                                                            />
+                                                            <span className="text-sm font-semibold text-slate-700">Select All</span>
+                                                        </label>
+                                                    </div>
+                                                    
+                                                    {!isUnitCollapsed && (
+                                                        <div className="mt-1 px-2 pb-2">
+                                                            {quizzesInUnit.sort((a, b) => (a.order || 0) - (b.order || 0) || a.title.localeCompare(b.title)).map(quizDetails => {
+                                                                const isChecked = selectedSet.has(quizDetails.id);
+                                                                return (
+                                                                    <ListItem key={quizDetails.id} isChecked={isChecked}>
+                                                                        <label className="p-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                className="h-5 w-5 rounded text-sky-600 border-slate-400 focus:ring-sky-500 focus:ring-2"
+                                                                                checked={isChecked}
+                                                                                onChange={() => handleToggleSelection('quiz', quizDetails.id)}
+                                                                            />
+                                                                        </label>
+                                                                        <div
+                                                                            className="flex-1 min-w-0"
+                                                                            onClick={() => setViewQuizData({
+                                                                                ...quizDetails,
+                                                                                settings: post.quizSettings,
+                                                                                availableFrom: post.availableFrom,
+                                                                                availableUntil: post.availableUntil
+                                                                            })}
+                                                                        >
+                                                                            <p className="font-bold text-slate-800 text-lg cursor-pointer hover:text-purple-600 transition-colors truncate">
+                                                                                {quizDetails.title}
+                                                                            </p>
+                                                                        </div>
+                                                                        <div className="flex space-x-1 flex-shrink-0">
+                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, quizDetails.id, 'quiz'); }} className="p-2 rounded-full text-red-500 hover:shadow-neumorphic-inset" title="Unshare Quiz"><TrashIcon className="w-5 h-5" /></button>
+                                                                        </div>
+                                                                    </ListItem>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </PostGroup>
                         );
                     }) : <EmptyState icon={AcademicCapIcon} text="No quizzes shared yet" subtext="Share quizzes with your class to get started." />}
                 </div>
@@ -833,7 +902,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             
             return (
                  <div className="pr-2 max-h-full overflow-y-auto custom-scrollbar">
-                    {/* FIX: Removed large h2 headers */}
                     <ScoresTab
                         quizzes={allQuizzesFromPosts}
                         units={units}
@@ -853,11 +921,10 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             
             return (
                  <div className="space-y-3 pr-2 max-h-full overflow-y-auto custom-scrollbar">
-                    {/* FIX: Removed large h2 headers */}
                     {(classData?.students && classData.students.length > 0) ? (
                         <div className="bg-neumorphic-base rounded-2xl shadow-neumorphic-inset p-1">
                             {classData.students.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(student => (
-                                <ListItem key={student.id}>
+                                <ListItem key={student.id} isChecked={false}>
                                     <div className="flex items-center gap-4">
                                         <div className="w-10 h-10 rounded-full flex-shrink-0">
                                             <UserInitialsAvatar user={student} size="w-10 h-10" />
@@ -878,7 +945,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         
         return (
             <div className="flex flex-col pr-2 max-h-full overflow-y-auto custom-scrollbar">
-                {/* FIX: Removed large h2 headers */}
                 {showAddForm && (<div className="mb-6 flex-shrink-0"><CreateClassAnnouncementForm classId={classData.id} onAnnouncementPosted={() => setShowAddForm(false)} /></div>)}
                 <div className="space-y-4 flex-grow">
                     {announcements.length > 0 ? announcements.map(post => (<AnnouncementListItem key={post.id} post={post} isOwn={userProfile?.id === post.teacherId} onEdit={() => { setEditingId(post.id); setEditContent(post.content); }} onDelete={() => handleDelete(post.id)} isEditing={editingId === post.id} editContent={editContent} onChangeEdit={onChangeEdit} onSaveEdit={() => handleEditSave(post.id)} onCancelEdit={() => setEditingId(null)} onClick={() => setSelectedAnnouncement(post)} />)) : <EmptyState icon={MegaphoneIcon} text="No announcements yet" subtext="Post important updates for your students here." />}
@@ -902,18 +968,14 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 isOpen={isOpen}
                 onClose={onClose}
                 title=""
-                // FIX 2: Set size="screen" to maximize modal width
                 size="screen" 
                 roundedClass="rounded-2xl"
-                // Adjusted containerClassName to center the modal content
                 containerClassName="h-full p-4 bg-black/30 backdrop-blur-sm" 
                 contentClassName="p-0"
                 showCloseButton={true}
             >
-                {/* FIX 3: Set FIXED INTERNAL HEIGHT and max width for clean layout */}
                 <div className="p-4 md:p-8 bg-neumorphic-base h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl">
                     
-                    {/* 1. Class Header (flex-shrink-0) */}
                     <div className="mb-6 p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex-shrink-0">
                         <h1 className="text-3xl font-bold text-slate-900 tracking-tight">{classData?.name || 'Class Details'}</h1>
                         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-3">
@@ -935,7 +997,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         </div>
                     </div>
 
-                    {/* 2. Top tab bar (flex-shrink-0) */}
                     <nav className="flex-shrink-0 flex items-center gap-2 p-2 bg-neumorphic-base rounded-2xl shadow-neumorphic overflow-x-auto">
                         {tabs.map(tab => (
                             <button
@@ -953,12 +1014,10 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         ))}
                     </nav>
 
-                    {/* 3. Main content area (flex-1 for expansion, min-h-0 for scrolling) */}
                     <main className="flex-1 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col min-h-0 mt-6">
                         <header className="px-8 pt-8 pb-4 flex-shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80">
-                            {/* This is the main title now */}
                             
-                            <div className="flex items-center gap-3">
+                            <div className="flex.items-center gap-3">
                                 {activeTab === 'lessons' && selectedLessons.size > 0 && (
                                     <Button 
                                         onClick={() => handleDeleteSelected('lesson')} 
@@ -980,6 +1039,16 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                     </Button>
                                 )}
 
+                                {activeTab === 'scores' && (
+                                    <button
+                                        onClick={() => setIsReportModalOpen(true)}
+                                        className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:bg-blue-500 active:scale-95 transition-all duration-200"
+                                    >
+                                        <DocumentChartBarIcon className="h-5 w-5" />
+                                        Generate Report
+                                    </button>
+                                )}
+
                                 {activeTab === 'announcements' && userProfile?.role === 'teacher' && (
                                     <div>
                                         <Button onClick={() => setShowAddForm(prev => !prev)} icon={PlusCircleIcon} className="font-semibold text-white bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset border-none">{showAddForm ? 'Cancel' : 'New'}</Button>
@@ -988,7 +1057,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                             </div>
                         </header>
                         
-                        {/* Scrollable content container */}
                         <div className="flex-1 px-8 pb-8 custom-scrollbar min-h-0">
                             {renderContent()}
                         </div>
@@ -997,7 +1065,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 </div>
             </Modal>
 
-            {/* All the other modals remain outside */}
 			 <GenerateReportModal
 			   isOpen={isReportModalOpen}
 			   onClose={() => setIsReportModalOpen(false)}
@@ -1018,9 +1085,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     );
 };
 
-// ... (AnnouncementListItem component is unchanged) ...
 const AnnouncementListItem = ({ post, isOwn, onEdit, onDelete, isEditing, editContent, onChangeEdit, onSaveEdit, onCancelEdit, onClick }) => {
-    const formattedDate = post.createdAt?.toDate().toLocaleString() || 'N/A';
+    const formattedDate = post.createdAt?.toDate().toLocaleString() || 'NA';
     return (
         <div className="group relative bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic transition-shadow duration-300 hover:shadow-neumorphic-inset cursor-pointer" onClick={!isEditing ? onClick : undefined}>
             {isEditing ? (

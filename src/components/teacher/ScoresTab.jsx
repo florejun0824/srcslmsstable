@@ -1,20 +1,63 @@
 // src/components/teacher/ScoresTab.jsx
 
-import React from 'react';
-import { ChartBarIcon, ChevronDownIcon, DocumentChartBarIcon } from '@heroicons/react/24/solid';
+import React, { useState, useEffect } from 'react';
+import { ChartBarIcon, ChevronDownIcon, DocumentChartBarIcon, PencilSquareIcon, CalendarDaysIcon, ClockIcon, UsersIcon } from '@heroicons/react/24/solid';
 
 const ScoresTab = ({
-    quizzes,
     units,
     quizScores, // This prop is crucial for receiving real-time updates
-    sharedContentPosts, // <-- FIX: Added this prop
+    sharedContentPosts, // This is the new source of truth
     setIsReportModalOpen,
     setSelectedQuizForScores,
     setScoresDetailModalOpen,
-    collapsedUnits,
-    toggleUnitCollapse,
 }) => {
+    
+    // (All state, hooks, and helper functions remain unchanged)
+    const [collapsedPosts, setCollapsedPosts] = useState(new Set());
+    const [collapsedUnits, setCollapsedUnits] = useState(new Set());
+
+    const togglePostCollapse = (postId) => {
+        setCollapsedPosts(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(postId)) newSet.delete(postId);
+            else newSet.add(postId);
+            return newSet;
+        });
+    };
+
+    const toggleUnitCollapse = (postId, unitDisplayName) => {
+        const unitKey = `${postId}_${unitDisplayName}`;
+        setCollapsedUnits(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(unitKey)) newSet.delete(unitKey);
+            else newSet.add(unitKey);
+            return newSet;
+        });
+    };
+
+    useEffect(() => {
+        const newCollapsedPosts = new Set();
+        const newCollapsedUnits = new Set();
+        
+        sharedContentPosts.forEach(post => {
+            const postQuizzes = (post.quizzes || []);
+            if (postQuizzes.length > 0) {
+                newCollapsedPosts.add(post.id);
+                postQuizzes.forEach(quiz => {
+                    const unitDisplayName = units[quiz.unitId] || 'Uncategorized';
+                    newCollapsedUnits.add(`${post.id}_${unitDisplayName}`);
+                });
+            }
+        });
+        
+        setCollapsedPosts(newCollapsedPosts);
+        setCollapsedUnits(newCollapsedUnits);
+    }, [sharedContentPosts, units]);
+
+
     const customUnitSort = (a, b) => {
+        if (a === 'Uncategorized') return 1;
+        if (b === 'Uncategorized') return -1;
         const numA = parseInt(a.match(/\d+/)?.[0], 10);
         const numB = parseInt(b.match(/\d+/)?.[0], 10);
         if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
@@ -23,14 +66,32 @@ const ScoresTab = ({
         return a.localeCompare(b);
     };
 
-    const quizzesByUnit = quizzes.reduce((acc, quiz) => {
-        const unitName = units[quiz.unitId] || 'Uncategorized';
-        if (!acc[unitName]) acc[unitName] = [];
-        acc[unitName].push(quiz);
+    const quizzesByPostAndUnit = sharedContentPosts.reduce((acc, post) => {
+        const postQuizzes = (post.quizzes || []);
+        if (postQuizzes.length === 0) return acc;
+
+        if (!acc[post.id]) {
+            acc[post.id] = {
+                post: post,
+                units: {} 
+            };
+        }
+
+        postQuizzes.forEach(quizDetails => {
+            const unitDisplayName = units[quizDetails.unitId] || 'Uncategorized';
+            if (!acc[post.id].units[unitDisplayName]) {
+                acc[post.id].units[unitDisplayName] = [];
+            }
+            acc[post.id].units[unitDisplayName].push(quizDetails);
+        });
         return acc;
     }, {});
 
-    const sortedUnitKeys = Object.keys(quizzesByUnit).sort(customUnitSort);
+    // --- MODIFIED: Sort by Post date ascending (oldest first) ---
+    const postEntries = Object.values(quizzesByPostAndUnit).sort((a, b) => 
+        (a.post.createdAt?.toDate() || 0) - (b.post.createdAt?.toDate() || 0) 
+    );
+    // --- END MODIFICATION ---
 
     const getQuizStats = (quizId) => {
         const relevantScores = quizScores.filter(score => score.quizId === quizId);
@@ -41,65 +102,107 @@ const ScoresTab = ({
         };
     };
 
-    const handleViewScores = (quiz) => {
-        // <-- FIX: Find the post to get the 'availableUntil' date -->
-        const post = sharedContentPosts.find(p => p.quizzes?.some(q => q.id === quiz.id));
-        const availableUntil = post?.availableUntil;
-        // <-- FIX: Pass 'availableUntil' along with the quiz data -->
-        setSelectedQuizForScores({ ...quiz, availableUntil });
+    const handleViewScores = (quiz, post) => {
+        setSelectedQuizForScores({ 
+            ...quiz, 
+            availableUntil: post.availableUntil,
+            settings: post.quizSettings 
+        });
         setScoresDetailModalOpen(true);
     };
+    
+    const allQuizzes = sharedContentPosts.flatMap(p => p.quizzes || []);
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-end">
-                <button
-                    onClick={() => setIsReportModalOpen(true)}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 font-semibold rounded-xl shadow-neumorphic transition-shadow duration-200 hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
-                >
-                    <DocumentChartBarIcon className="h-5 w-5" />
-                    Generate Report
-                </button>
-            </div>
+            {/* (Generate Report button is intentionally removed from here) */}
 
-            {quizzes.length === 0 ? (
+            {allQuizzes.length === 0 ? (
                 <div className="text-center p-12 bg-neumorphic-base rounded-2xl shadow-neumorphic-inset mt-4">
                     <ChartBarIcon className="h-16 w-16 mb-4 text-slate-300 mx-auto" />
                     <p className="text-xl font-semibold text-slate-700">No Quizzes with Scores</p>
                     <p className="mt-2 text-base text-slate-500">Scores for shared quizzes will appear here once students complete them.</p>
                 </div>
             ) : (
-                sortedUnitKeys.map(unitName => (
-                    <div key={unitName} className="bg-neumorphic-base rounded-2xl shadow-neumorphic">
-                        <button className="flex items-center justify-between w-full p-4 font-semibold text-xl text-slate-800" onClick={() => toggleUnitCollapse(unitName)}>
-                            <span>{unitName}</span>
-                            <ChevronDownIcon className={`h-6 w-6 text-slate-500 transition-transform ${!collapsedUnits.has(unitName) ? 'rotate-180' : ''}`} />
-                        </button>
-                        {!collapsedUnits.has(unitName) && (
-                            <div className="px-2 pb-2">
-                                {quizzesByUnit[unitName].map(quiz => {
-                                    const stats = getQuizStats(quiz.id);
-                                    return (
-                                        <div key={quiz.id} className="flex items-center justify-between gap-4 py-3 px-4 transition-shadow rounded-xl hover:shadow-neumorphic-inset">
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-bold text-slate-800 text-lg truncate">{quiz.title}</p>
-                                                <p className="text-sm text-slate-500 mt-1">
-                                                    {stats.studentsWhoTook} Student(s) took this quiz ({stats.submissions} total submissions)
-                                                </p>
-                                            </div>
-                                            <button
-                                                onClick={() => handleViewScores(quiz)}
-                                                className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
-                                            >
-                                                View Scores
-                                            </button>
+                // (The rest of the component's render logic remains unchanged)
+                postEntries.map(({ post, units: unitsInPost }) => {
+                    const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
+                    const isPostCollapsed = collapsedPosts.has(post.id);
+
+                    return (
+                        <div key={post.id} className="bg-neumorphic-base rounded-2xl shadow-neumorphic">
+                            <button 
+                                className="w-full text-left p-4 group"
+                                onClick={() => togglePostCollapse(post.id)}
+                            >
+                                <div className="flex justify-between items-start">
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-slate-800 text-xl group-hover:text-sky-600 transition-colors truncate">{post.title}</h3>
+                                        <div className="text-xs text-slate-500 mt-2 flex flex-wrap gap-x-3">
+                                            <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
+                                            {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
+                                            {(() => {
+                                                let targetText = "Target: All Students";
+                                                if (post.targetAudience === 'all') targetText = "Target: All Students";
+                                                else if (post.targetAudience === 'specific') targetText = `Target: ${post.targetStudentIds?.length || 0} Student(s)`;
+                                                return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 text-slate-400" />{targetText}</span>;
+                                            })()}
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                ))
+                                    </div>
+                                    <div className="flex-shrink-0 flex items-center gap-2 pl-4">
+                                        <ChevronDownIcon className={`h-6 w-6 text-slate-500 transition-transform ${isPostCollapsed ? '' : 'rotate-180'}`} />
+                                    </div>
+                                </div>
+                            </button>
+                            
+                            {!isPostCollapsed && (
+                                <div className="space-y-3 px-4 pb-4">
+                                    {sortedUnitKeys.map(unitDisplayName => {
+                                        const quizzesInUnit = unitsInPost[unitDisplayName];
+                                        const unitKey = `${post.id}_${unitDisplayName}`;
+                                        const isUnitCollapsed = collapsedUnits.has(unitKey);
+
+                                        return (
+                                            <div key={unitKey} className="bg-neumorphic-base rounded-xl shadow-neumorphic-inset">
+                                                <button 
+                                                    className="flex items-center justify-between w-full p-4 font-semibold text-lg text-slate-800 group" 
+                                                    onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}
+                                                >
+                                                    <span className="group-hover:text-sky-600 truncate">{unitDisplayName}</span>
+                                                    <ChevronDownIcon className={`h-6 w-6 text-slate-500 transition-transform ${isUnitCollapsed ? '' : 'rotate-180'}`} />
+                                                </button>
+
+                                                {!isUnitCollapsed && (
+                                                    <div className="px-2 pb-2">
+                                                        {quizzesInUnit.sort((a, b) => (a.order || 0) - (b.order || 0) || a.title.localeCompare(b.title)).map(quiz => {
+                                                            const stats = getQuizStats(quiz.id);
+                                                            return (
+                                                                <div key={quiz.id} className="flex items-center justify-between gap-4 py-3 px-4 transition-shadow rounded-xl hover:bg-slate-50/50">
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="font-bold text-slate-800 text-lg truncate">{quiz.title}</p>
+                                                                        <p className="text-sm text-slate-500 mt-1">
+                                                                            {stats.studentsWhoTook} Student(s) took this quiz ({stats.submissions} total submissions)
+                                                                        </p>
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => handleViewScores(quiz, post)}
+                                                                        className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
+                                                                    >
+                                                                        View Scores
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })
             )}
         </div>
     );

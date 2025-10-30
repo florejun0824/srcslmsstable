@@ -9,15 +9,11 @@ import {
     ChevronUpIcon
 } from '@heroicons/react/24/outline';
 
-// ✅ FIX: use xlsx-js-style instead of sheetjs-style
 import * as XLSX from 'xlsx-js-style';
 
-// --- MODIFICATION START ---
-// Added Capacitor imports for native file saving
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FileOpener } from '@capacitor-community/file-opener';
-// --- MODIFICATION END ---
 
 
 const dropIn = {
@@ -45,6 +41,8 @@ export default function GenerateReportModal({
     const { showToast } = useToast();
     const [selectedQuizIds, setSelectedQuizIds] = useState([]);
     const [sortOption, setSortOption] = useState('gender-lastName');
+    
+    const [collapsedPosts, setCollapsedPosts] = useState(new Set());
     const [collapsedUnits, setCollapsedUnits] = useState(new Set());
 
     const students = classData?.students || [];
@@ -55,27 +53,40 @@ export default function GenerateReportModal({
 
     useEffect(() => {
         if (isOpen) {
-            const quizzesByUnit = {};
-            quizzes.forEach(quizDetails => {
-                let unitDisplayName = 'Uncategorized';
-                if (quizDetails.unitId && unitMap[quizDetails.unitId]) {
-                    unitDisplayName = unitMap[quizDetails.unitId];
+            const newCollapsedPosts = new Set();
+            const newCollapsedUnits = new Set();
+            
+            posts.forEach(post => {
+                const postQuizzes = (post.quizzes || []);
+                if (postQuizzes.length > 0) {
+                    newCollapsedPosts.add(post.id);
+                    postQuizzes.forEach(quiz => {
+                        const unitDisplayName = unitMap[quiz.unitId] || 'Uncategorized';
+                        newCollapsedUnits.add(`${post.id}_${unitDisplayName}`);
+                    });
                 }
-                if (!quizzesByUnit[unitDisplayName]) {
-                    quizzesByUnit[unitDisplayName] = [];
-                }
-                quizzesByUnit[unitDisplayName].push(quizDetails);
             });
-            const allDisplayedUnitKeys = Object.keys(quizzesByUnit);
-            setCollapsedUnits(new Set(allDisplayedUnitKeys));
+            
+            setCollapsedPosts(newCollapsedPosts);
+            setCollapsedUnits(newCollapsedUnits);
         }
-    }, [isOpen, unitMap, quizzes]);
+    }, [isOpen, posts, unitMap]);
 
-    const toggleUnitCollapse = (unitTitle) => {
+    const togglePostCollapse = (postId) => {
+        setCollapsedPosts(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(postId)) newSet.delete(postId);
+            else newSet.add(postId);
+            return newSet;
+        });
+    };
+
+    const toggleUnitCollapse = (postId, unitDisplayName) => {
+        const unitKey = `${postId}_${unitDisplayName}`;
         setCollapsedUnits(prev => {
             const newSet = new Set(prev);
-            if (newSet.has(unitTitle)) newSet.delete(unitTitle);
-            else newSet.add(unitTitle);
+            if (newSet.has(unitKey)) newSet.delete(unitKey);
+            else newSet.add(unitKey);
             return newSet;
         });
     };
@@ -88,10 +99,7 @@ export default function GenerateReportModal({
         );
     };
 
-    const handleUnitSelectionToggle = (unitDisplayName, quizzesByUnit) => {
-        const quizzesInThisUnit = quizzesByUnit[unitDisplayName] || [];
-        const quizIdsInThisUnit = quizzesInThisUnit.map(quiz => quiz.id);
-
+    const handleUnitSelectionToggle = (quizIdsInThisUnit) => {
         const allQuizzesSelected =
             quizIdsInThisUnit.length > 0 &&
             quizIdsInThisUnit.every(quizId => selectedQuizIds.includes(quizId));
@@ -107,7 +115,8 @@ export default function GenerateReportModal({
         }
     };
 
-    // --- Excel cell styles ---
+
+    // --- (All Excel cell styles remain unchanged) ---
     const commonBorderStyle = {
         top: { style: "thin", color: { auto: 1 } },
         bottom: { style: "thin", color: { auto: 1 } },
@@ -169,10 +178,8 @@ export default function GenerateReportModal({
         border: commonBorderStyle
     };
 
-    // --- MODIFICATION START ---
-    // Made function async and added native saving logic
+    // --- (handleGenerate function remains unchanged) ---
     const handleGenerate = async () => {
-    // --- MODIFICATION END ---
         if (selectedQuizIds.length === 0) {
             return showToast("Please select at least one quiz to include in the report.", "error");
         }
@@ -198,7 +205,6 @@ export default function GenerateReportModal({
 
         const workbook = XLSX.utils.book_new();
 
-        // ✅ Proper worksheet initialization
         let worksheet = XLSX.utils.aoa_to_sheet([[]]);
         worksheet['!ref'] = 'A1';
         let rowIndex = 0;
@@ -240,7 +246,6 @@ export default function GenerateReportModal({
         let minDate = null;
         let maxDate = null;
         selectedQuizzes.forEach(quiz => {
-            // --- FIX: Check for quiz in `post.quizzes` not `post.quizIds` ---
             const quizPosts = posts.filter(post => (post.quizzes || []).some(q => q.id === quiz.id));
             quizPosts.forEach(post => {
                 if (post.availableFrom && post.availableFrom.toDate) {
@@ -342,16 +347,10 @@ export default function GenerateReportModal({
         worksheet['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rowIndex - 1, c: studentCols - 1 } });
         XLSX.utils.book_append_sheet(workbook, worksheet, "Quiz Scores Report");
         
-        // --- MODIFICATION START ---
-        // Replaced XLSX.writeFile with native saving logic
-        
         const fileName = `${classData.name || 'Class'} - Quiz Report.xlsx`;
 
         try {
             if (Capacitor.isNativePlatform()) {
-                // --- Native Mobile (Android/iOS) Logic ---
-                
-                // 1. Check permissions
                 let permStatus = await Filesystem.checkPermissions();
                 if (permStatus.publicStorage !== 'granted') {
                     permStatus = await Filesystem.requestPermissions();
@@ -361,72 +360,94 @@ export default function GenerateReportModal({
                     console.error("Storage permission not granted.");
                     return; 
                 }
-
-                // 2. Get file data as base64
                 const base64Data = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
-
-                // 3. Write the file
                 const result = await Filesystem.writeFile({
                     path: fileName,
                     data: base64Data,
-                    directory: Directory.Documents, // Save to Documents directory
+                    directory: Directory.Documents, 
                     recursive: true
                 });
-
-                // 4. Show toast and open the file
                 showToast("File saved to Documents folder.", "info");
                 await FileOpener.open({
                     filePath: result.uri,
-                    contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // MIME type for .xlsx
+                    contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 });
-
             } else {
-                // --- Web Browser Logic ---
                 XLSX.writeFile(workbook, fileName);
                 showToast("Report generated successfully.", "success");
             }
-
-            onClose(); // Close modal *after* successful save
-
+            onClose(); 
         } catch (error) {
             console.error("Error generating report:", error);
             showToast(`Failed to generate report: ${error.message}`, "error");
         }
-        // --- MODIFICATION END ---
     };
 
     const handleClose = () => {
         setSelectedQuizIds([]);
         setSortOption('gender-lastName');
+        setCollapsedPosts(new Set());
         setCollapsedUnits(new Set());
         onClose();
     };
 
-    const quizzesByUnit = {};
-    quizzes.forEach(quizDetails => {
-        let unitDisplayName = 'Uncategorized';
-        if (quizDetails.unitId && unitMap[quizDetails.unitId]) {
-            unitDisplayName = unitMap[quizDetails.unitId];
-        }
-        if (!quizzesByUnit[unitDisplayName]) quizzesByUnit[unitDisplayName] = [];
-        quizzesByUnit[unitDisplayName].push(quizDetails);
-    });
+    // --- Data processing for new grouping ---
+    const quizzesByPostAndUnit = posts.reduce((acc, post) => {
+        const postQuizzes = (post.quizzes || []);
+        if (postQuizzes.length === 0) return acc;
 
-    const sortedUnitKeys = Object.keys(quizzesByUnit).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        if (!acc[post.id]) {
+            acc[post.id] = {
+                post: post,
+                units: {} 
+            };
+        }
+
+        postQuizzes.forEach(quizDetails => {
+            const unitDisplayName = unitMap[quizDetails.unitId] || 'Uncategorized';
+            if (!acc[post.id].units[unitDisplayName]) {
+                acc[post.id].units[unitDisplayName] = [];
+            }
+            acc[post.id].units[unitDisplayName].push({ id: quizDetails.id, title: quizDetails.title });
+        });
+        return acc;
+    }, {});
+
+    // --- MODIFIED: Sort by date ascending (oldest first) ---
+    const postEntries = Object.values(quizzesByPostAndUnit).sort((a, b) => 
+        (a.post.createdAt?.toDate() || 0) - (b.post.createdAt?.toDate() || 0)
+    );
+    // --- END MODIFICATION ---
+
+    const customUnitSort = (a, b) => {
+        if (a === 'Uncategorized') return 1;
+        if (b === 'Uncategorized') return -1;
+        const numA = parseInt(a.match(/\d+/)?.[0], 10);
+        const numB = parseInt(b.match(/\d+/)?.[0], 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        if (!isNaN(numA)) return -1;
+        if (!isNaN(numB)) return 1;
+        return a.localeCompare(b);
+    };
+    // --- END ---
+
 
     return (
         <Dialog open={isOpen} onClose={handleClose} static={true} className={className}>
             <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" aria-hidden="true" />
             
             <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
+                {/* --- MODIFIED: Changed size to max-w-7xl and h-[90vh] --- */}
                 <DialogPanel as={motion.div}
                     variants={dropIn}
                     initial="hidden"
                     animate="visible"
                     exit="exit"
-                    className="w-full max-w-2xl rounded-2xl bg-neumorphic-base flex flex-col overflow-hidden shadow-neumorphic"
-                    style={{ maxHeight: '90vh' }}
+                    className="w-full max-w-7xl rounded-2xl bg-neumorphic-base flex flex-col overflow-hidden shadow-neumorphic"
+                    style={{ height: '90vh' }}
                 >
+                {/* --- END MODIFICATION --- */}
+
                     <header className="flex items-center justify-between p-5 border-b border-neumorphic-shadow-dark/30 flex-shrink-0">
                         <div className="flex items-center gap-3">
                             <DocumentChartBarIcon className="h-6 w-6 text-sky-600" />
@@ -439,51 +460,113 @@ export default function GenerateReportModal({
                         </button>
                     </header>
 
-                    <div className="flex-grow p-6 overflow-y-auto space-y-6">
-                        <div className="bg-neumorphic-base p-5 rounded-xl shadow-neumorphic">
-                            <label className="flex items-center text-lg font-bold text-slate-800 mb-4">
+                    {/* --- MODIFIED: Main content area is now a 2-col grid, parent overflow-y-auto removed --- */}
+                    <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-6 p-6 min-h-0">
+                        
+                        {/* --- MODIFIED: COLUMN 1: Select Quizzes (with overflow-hidden) --- */}
+                        <div className="bg-neumorphic-base p-5 rounded-xl shadow-neumorphic flex flex-col overflow-hidden">
+                            <label className="flex items-center text-lg font-bold text-slate-800 mb-4 flex-shrink-0">
                                 <span className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-200 to-blue-300 text-blue-700 text-sm font-bold flex items-center justify-center mr-3 shadow-neumorphic">1</span>
                                 Select Quizzes
                             </label>
                             {quizzes.length === 0 ? (
                                 <p className="text-slate-500 text-sm px-2 py-4 text-center">No quizzes have been shared with this class yet.</p>
                             ) : (
-                                <div className="space-y-2 max-h-72 overflow-y-auto -mr-2 pr-2">
-                                    {sortedUnitKeys.map(unitDisplayName => {
-                                        const quizzesInThisUnit = quizzesByUnit[unitDisplayName] || [];
-                                        const quizIdsInThisUnit = quizzesInThisUnit.map(q => q.id);
-                                        const allSelected = quizIdsInThisUnit.length > 0 && quizIdsInThisUnit.every(id => selectedQuizIds.includes(id));
-                                        const someSelected = quizIdsInThisUnit.some(id => selectedQuizIds.includes(id)) && !allSelected;
+                                // --- MODIFIED: This div is now the scrolling container ---
+                                <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar -mr-2 pr-2">
+                                    {postEntries.map(({ post, units: unitsInPost }) => {
+                                        const isPostCollapsed = collapsedPosts.has(post.id);
+                                        const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
+                                        
+                                        // --- MODIFIED: Get date and all quiz IDs for this post ---
+                                        const sentDate = post.createdAt?.toDate()
+                                            ? post.createdAt.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+                                            : 'Date not available';
+                                        
+                                        const allQuizIdsInPost = sortedUnitKeys.flatMap(unitKey =>
+                                            unitsInPost[unitKey].map(q => q.id)
+                                        );
+                                        const allSelectedInPost = allQuizIdsInPost.length > 0 && allQuizIdsInPost.every(id => selectedQuizIds.includes(id));
+                                        const someSelectedInPost = allQuizIdsInPost.some(id => selectedQuizIds.includes(id)) && !allSelectedInPost;
 
                                         return (
-                                            <div key={unitDisplayName} className="bg-neumorphic-base rounded-lg shadow-neumorphic-inset">
-                                                <button className="flex items-center justify-between w-full p-3 font-semibold text-sm text-slate-700 hover:bg-slate-200/50 transition-colors" onClick={() => toggleUnitCollapse(unitDisplayName)}>
-                                                    <div className="flex items-center">
+                                            <div key={post.id} className="bg-neumorphic-base rounded-lg shadow-neumorphic-inset">
+                                                {/* --- MODIFIED: Selectable Post Header with Date --- */}
+                                                <div className="flex items-center justify-between w-full p-3 font-semibold text-base text-slate-800 bg-slate-100/50 rounded-t-lg border-b border-neumorphic-shadow-dark/30">
+                                                    <div className="flex items-center flex-1 min-w-0 gap-3">
                                                         <input
                                                             type="checkbox"
-                                                            checked={allSelected}
-                                                            onChange={() => handleUnitSelectionToggle(unitDisplayName, quizzesByUnit)}
-                                                            ref={el => el && (el.indeterminate = someSelected)}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                            className="h-4 w-4 rounded text-sky-600 border-slate-300 focus:ring-sky-500 mr-3"
+                                                            checked={allSelectedInPost}
+                                                            ref={el => el && (el.indeterminate = someSelectedInPost)}
+                                                            onChange={() => handleUnitSelectionToggle(allQuizIdsInPost)}
+                                                            onClick={(e) => e.stopPropagation()} 
+                                                            className="h-4 w-4 rounded text-sky-600 border-slate-300 focus:ring-sky-500 flex-shrink-0"
                                                         />
-                                                        {unitDisplayName}
+                                                        <button
+                                                            className="text-left flex-1 group min-w-0"
+                                                            onClick={() => togglePostCollapse(post.id)}
+                                                        >
+                                                            <span className="group-hover:text-sky-600 transition-colors truncate block">{post.title}</span>
+                                                            <span className="text-xs text-slate-500 font-normal block mt-1">
+                                                                Sent on: {sentDate}
+                                                            </span>
+                                                        </button>
                                                     </div>
-                                                    {collapsedUnits.has(unitDisplayName) ? <ChevronDownIcon className="h-5 w-5 text-slate-400" /> : <ChevronUpIcon className="h-5 w-5 text-slate-400" />}
-                                                </button>
-                                                {!collapsedUnits.has(unitDisplayName) && (
-                                                    <div className="p-2 border-t border-neumorphic-shadow-dark/30">
-                                                        {quizzesInThisUnit.sort((a,b) => a.title.localeCompare(b.title)).map(quiz => (
-                                                            <label key={quiz.id} className={`flex items-center p-2 rounded-md cursor-pointer transition-colors text-sm ${selectedQuizIds.includes(quiz.id) ? 'bg-sky-100/60' : 'hover:bg-slate-200/50'}`}>
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={selectedQuizIds.includes(quiz.id)}
-                                                                    onChange={() => handleQuizSelection(quiz.id)}
-                                                                    className="h-4 w-4 rounded text-sky-600 border-slate-300 focus:ring-sky-500 mr-3"
-                                                                />
-                                                                <span className="text-slate-800">{quiz.title}</span>
-                                                            </label>
-                                                        ))}
+                                                    <button onClick={() => togglePostCollapse(post.id)} className="p-1">
+                                                        {isPostCollapsed ? <ChevronDownIcon className="h-5 w-5 text-slate-400" /> : <ChevronUpIcon className="h-5 w-5 text-slate-400" />}
+                                                    </button>
+                                                </div>
+                                                
+                                                {/* (Collapsible content remains the same) */}
+                                                {!isPostCollapsed && (
+                                                    <div className="p-2 space-y-2 border-t border-neumorphic-shadow-dark/30">
+                                                        {sortedUnitKeys.map(unitDisplayName => {
+                                                            const quizzesInUnit = unitsInPost[unitDisplayName] || [];
+                                                            const quizIdsInUnit = quizzesInUnit.map(q => q.id);
+                                                            const allSelected = quizIdsInUnit.length > 0 && quizIdsInUnit.every(id => selectedQuizIds.includes(id));
+                                                            const someSelected = quizIdsInUnit.some(id => selectedQuizIds.includes(id)) && !allSelected;
+                                                            
+                                                            const unitKey = `${post.id}_${unitDisplayName}`;
+                                                            const isUnitCollapsed = collapsedUnits.has(unitKey);
+
+                                                            return (
+                                                                <div key={unitKey} className="bg-neumorphic-base rounded-md shadow-neumorphic-inset">
+                                                                    <button 
+                                                                        className="flex items-center justify-between w-full p-3 font-semibold text-sm text-slate-700 hover:bg-slate-200/50 transition-colors" 
+                                                                        onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}
+                                                                    >
+                                                                        <div className="flex items-center flex-1 min-w-0">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={allSelected}
+                                                                                ref={el => el && (el.indeterminate = someSelected)}
+                                                                                onChange={() => handleUnitSelectionToggle(quizIdsInUnit)}
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                className="h-4 w-4 rounded text-sky-600 border-slate-300 focus:ring-sky-500 mr-3 flex-shrink-0"
+                                                                            />
+                                                                            <span className="truncate">{unitDisplayName}</span>
+                                                                        </div>
+                                                                        {isUnitCollapsed ? <ChevronDownIcon className="h-5 w-5 text-slate-400" /> : <ChevronUpIcon className="h-5 w-5 text-slate-400" />}
+                                                                    </button>
+                                                                    
+                                                                    {!isUnitCollapsed && (
+                                                                        <div className="pt-1 pb-2 px-2 border-t border-neumorphic-shadow-dark/30">
+                                                                            {quizzesInUnit.sort((a,b) => a.title.localeCompare(b.title)).map(quiz => (
+                                                                                <label key={quiz.id} className={`flex items-center p-2 rounded-md cursor-pointer transition-colors text-sm ${selectedQuizIds.includes(quiz.id) ? 'bg-sky-100/60' : 'hover:bg-slate-200/50'}`}>
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        checked={selectedQuizIds.includes(quiz.id)}
+                                                                                        onChange={() => handleQuizSelection(quiz.id)}
+                                                                                        className="h-4 w-4 rounded text-sky-600 border-slate-300 focus:ring-sky-500 mr-3"
+                                                                                    />
+                                                                                    <span className="text-slate-800">{quiz.title}</span>
+                                                                                </label>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 )}
                                             </div>
@@ -493,6 +576,7 @@ export default function GenerateReportModal({
                             )}
                         </div>
                         
+                        {/* --- COLUMN 2: Sort Options (No scrolling) --- */}
                         <div className="bg-neumorphic-base p-5 rounded-xl shadow-neumorphic">
                              <label className="flex items-center text-lg font-bold text-slate-800 mb-4">
                                 <span className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-200 to-blue-300 text-blue-700 text-sm font-bold flex items-center justify-center mr-3 shadow-neumorphic">2</span>
@@ -512,6 +596,8 @@ export default function GenerateReportModal({
                             </div>
                         </div>
                     </div>
+                    {/* --- END 2-COL GRID --- */}
+
 
                     <footer className="flex justify-end gap-3 p-4 bg-neumorphic-base border-t border-neumorphic-shadow-dark/30 flex-shrink-0">
                         <button onClick={handleClose} className="px-5 py-2.5 bg-neumorphic-base text-slate-800 rounded-lg font-semibold text-sm transition-shadow shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset">

@@ -1,9 +1,6 @@
 // src/StudentDashboard.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-// --- MODIFICATION START ---
-// Import hooks from react-router-dom
 import { useLocation, useNavigate } from 'react-router-dom';
-// --- MODIFICATION END ---
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
 import {
@@ -32,7 +29,6 @@ const StudentDashboard = () => {
   const { userProfile, logout, loading: authLoading, setUserProfile } = useAuth();
   const { showToast } = useToast();
 
-  // --- MODIFICATION START ---
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -68,15 +64,12 @@ const StudentDashboard = () => {
     }
     setIsSidebarOpen(false); // Close sidebar on mobile nav
   };
-  // --- MODIFICATION END ---
 
-  // UI state (only sidebar and modals remain)
-  // --- REMOVED STATE ---
-  // const [view, setView] = useState('classes');
+  // UI state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isJoinClassModalOpen, setJoinClassModalOpen] = useState(false);
 
-  // data state (unchanged)
+  // data state
   const [myClasses, setMyClasses] = useState([]);
   const [isFetchingClasses, setIsFetchingClasses] = useState(true);
   const [selectedClass, setSelectedClass] = useState(null);
@@ -91,7 +84,7 @@ const StudentDashboard = () => {
   const isFirstContentLoad = useRef(true);
 
   //
-  // 1) Listen for classes (unchanged)
+  // 1) Listen for classes
   //
   useEffect(() => {
     if (authLoading || !userProfile?.id) {
@@ -147,7 +140,7 @@ const StudentDashboard = () => {
   }, [authLoading, userProfile?.id]);
 
   //
-  // 2) Fetch units once (unchanged)
+  // 2) Fetch units once
   //
   useEffect(() => {
     const fetchUnits = async () => {
@@ -168,47 +161,91 @@ const StudentDashboard = () => {
   }, []);
 
   //
-  // 3) fetchContent (unchanged logic)
+  // 3a) Extracted post-fetching logic
   //
-  const fetchContent = useCallback(async () => {
-    if (authLoading || !userProfile?.id) {
-      setIsFetchingContent(false);
-      return;
+  const fetchPosts = useCallback(async () => {
+    if (authLoading || !userProfile?.id || myClasses.length === 0) {
+      return []; // Return empty array if not ready
     }
-    setIsFetchingContent(true);
+    
+    let allPosts = [];
     try {
-      let allPosts = [];
-      if (myClasses.length > 0) {
-        const postPromises = myClasses.map(c =>
-          getDocs(query(collection(db, `classes/${c.id}/posts`))).then(snapshot => ({
-            classId: c.id,
-            className: c.name,
-            snapshot
-          }))
-        );
-        const results = await Promise.all(postPromises);
-        const studentId = userProfile.id;
-        results.forEach(res => {
-          res.snapshot.forEach(docSnap => {
-            const post = { id: docSnap.id, ...docSnap.data(), className: res.className, classId: res.classId };
-            const targetAudience = post.targetAudience;
-            const targetStudentIds = post.targetStudentIds || [];
-            let isRecipient = false;
-            if (targetAudience === 'specific') {
-              isRecipient = targetStudentIds.includes(studentId);
-            } else {
-              isRecipient = targetAudience !== 'specific' && (targetStudentIds.length === 0 || !targetAudience);
-            }
-            if (isRecipient) allPosts.push(post);
-          });
+      const postPromises = myClasses.map(c =>
+        getDocs(query(collection(db, `classes/${c.id}/posts`))).then(snapshot => ({
+          classId: c.id,
+          className: c.name,
+          snapshot
+        }))
+      );
+      const results = await Promise.all(postPromises);
+      const studentId = userProfile.id;
+      
+      results.forEach(res => {
+        res.snapshot.forEach(docSnap => {
+          const post = { id: docSnap.id, ...docSnap.data(), className: res.className, classId: res.classId };
+          const targetAudience = post.targetAudience;
+          const targetStudentIds = post.targetStudentIds || [];
+          let isRecipient = false;
+          if (targetAudience === 'specific') {
+            isRecipient = targetStudentIds.includes(studentId);
+          } else {
+            isRecipient = targetAudience !== 'specific' && (targetStudentIds.length === 0 || !targetAudience);
+          }
+          if (isRecipient) allPosts.push(post);
         });
-      }
+      });
+    } catch (err) {
+      console.error("Error fetching posts:", err);
+    }
+    return allPosts;
+  }, [authLoading, userProfile?.id, myClasses]);
+
+  //
+  // 3b) This function is no longer needed, as fetchContent will be used for real-time.
+  // We can leave it, but it won't be called by the listener.
+  //
+  const fetchLessonsOnly = useCallback(async () => {
+    try {
+      const allPosts = await fetchPosts();
       const allLessonsFromPosts = allPosts.flatMap(post =>
         (post.lessons || []).map(lesson => ({ ...lesson, className: post.className, classId: post.classId, postId: post.id, createdAt: post.createdAt }))
       );
+      setLessons(allLessonsFromPosts);
+      console.log('Background lesson sync complete.');
+    } catch (err)
+ {
+      console.error('Error in background lesson fetch:', err);
+    }
+  }, [fetchPosts]);
+
+  //
+  // 3c) Refactored fetchContent (for manual refresh AND real-time)
+  //
+  const fetchContent = useCallback(async (isBackgroundSync = false) => {
+    if (authLoading || !userProfile?.id) {
+      if (!isBackgroundSync) setIsFetchingContent(false);
+      return;
+    }
+    
+    // Only show spinner for manual/initial load, not background syncs
+    if (!isBackgroundSync) {
+      setIsFetchingContent(true);
+    }
+
+    try {
+      const allPosts = await fetchPosts();
+
+      // Process Lessons
+      const allLessonsFromPosts = allPosts.flatMap(post =>
+        (post.lessons || []).map(lesson => ({ ...lesson, className: post.className, classId: post.classId, postId: post.id, createdAt: post.createdAt }))
+      );
+      
+      // Process Quizzes
       const allQuizzesFromPosts = allPosts.flatMap(post =>
         (post.quizzes || []).map(quiz => ({ ...quiz, className: post.className, classId: post.classId, postId: post.id, availableFrom: post.availableFrom, availableUntil: post.availableUntil, settings: post.quizSettings }))
       );
+
+      // Fetch Submissions
       const quizIds = allQuizzesFromPosts.map(q => q.id).filter(Boolean);
       const submissionsByQuizId = new Map();
       if (quizIds.length > 0) {
@@ -227,28 +264,41 @@ const StudentDashboard = () => {
           });
         });
       }
+      
+      // Combine Quizzes with Submissions
       const quizzesWithDetails = allQuizzesFromPosts.map(q => {
         const subs = submissionsByQuizId.get(q.id) || [];
         return { ...q, attemptsTaken: subs.length };
       });
+      
+      // Set all state at the end
       setLessons(allLessonsFromPosts);
       setAllQuizzes(quizzesWithDetails);
+      if (isBackgroundSync) {
+        console.log('Background content sync complete.');
+      }
+
     } catch (err) {
       console.error('Error in fetchContent:', err);
+      if (!isBackgroundSync) {
+        showToast('Could not refresh content.', 'error');
+      }
       setLessons([]);
       setAllQuizzes([]);
     } finally {
-      setIsFetchingContent(false);
+      if (!isBackgroundSync) {
+        setIsFetchingContent(false);
+      }
     }
-  }, [authLoading, myClasses, userProfile?.id]);
+  }, [authLoading, userProfile?.id, fetchPosts, showToast]);
 
   //
-  // 4) initial content load (unchanged logic)
+  // 4) initial content load
   //
   useEffect(() => {
     if (!authLoading && !isFetchingClasses) {
       if (isFirstContentLoad.current) {
-        fetchContent();
+        fetchContent(false); // false = this is NOT a background sync
         isFirstContentLoad.current = false;
       }
     }
@@ -256,16 +306,47 @@ const StudentDashboard = () => {
   }, [authLoading, isFetchingClasses, myClasses]);
 
   //
-  // 5) Fetch content on quiz tab (unchanged logic, still works with derived `view`)
+  // 5) Real-time listener for ALL content (Lessons AND Quizzes)
   //
   useEffect(() => {
-    if (view === 'quizzes') {
-      fetchContent();
+    if (authLoading || !userProfile?.id || myClasses.length === 0 || isFirstContentLoad.current) {
+      return;
     }
-  }, [view, fetchContent]);
+
+    console.log('Attaching real-time content listeners...');
+    
+    const listeners = myClasses.map(c => {
+      const postsQuery = query(collection(db, `classes/${c.id}/posts`));
+      
+      const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
+        console.log(`Post update detected in class ${c.id}, refreshing all content...`);
+        // Call the main fetchContent function, but as a background sync
+        fetchContent(true); 
+      }, (error) => {
+        console.error(`Listener error for class ${c.id}:`, error);
+      });
+      
+      return unsubscribe;
+    });
+
+    return () => {
+      console.log('Cleaning up content listeners...');
+      listeners.forEach(unsubscribe => unsubscribe());
+    };
+    
+  }, [authLoading, userProfile?.id, myClasses, fetchContent, isFirstContentLoad.current]);
 
   //
-  // 6) categorize quizzes (unchanged logic)
+  // 6) This effect is NO LONGER NEEDED and has been removed.
+  //
+  // useEffect(() => {
+  //   if (view === 'quizzes') {
+  //     fetchContent();
+  //   }
+  // }, [view, fetchContent]);
+
+  //
+  // 7) categorize quizzes
   //
   useEffect(() => {
     const categorizeQuizzes = () => {
@@ -300,17 +381,17 @@ const StudentDashboard = () => {
   }, [allQuizzes]);
 
   //
-  // handlers: quiz open/close/submit (unchanged)
+  // handlers: quiz open/close/submit
   //
   const handleTakeQuizClick = (quiz) => setQuizToTake(quiz);
   const handleQuizClose = () => setQuizToTake(null);
   const handleQuizSubmit = () => {
-    fetchContent();
+    fetchContent(false); // Manually fetch after submit
     setQuizToTake(null);
   };
 
   //
-  // 7) handleLessonComplete (unchanged)
+  // 8) handleLessonComplete
   //
   const handleLessonComplete = async (progress) => {
     if (!progress?.isFinished || !userProfile?.id || !progress?.lessonId) return;
@@ -343,7 +424,7 @@ const StudentDashboard = () => {
   };
 
   //
-  // UI guard (unchanged)
+  // UI guard
   //
   if (authLoading) {
     return (
@@ -354,17 +435,15 @@ const StudentDashboard = () => {
   }
 
   //
-  // Render - Pass router-aware props to UI
+  // Render
   //
   return (
     <>
       <StudentDashboardUI
         userProfile={userProfile}
         logout={logout}
-        // --- MODIFIED PROPS ---
-        view={view} // Derived from URL
-        handleViewChange={handleViewChange} // Uses navigate
-        // --- END MODIFIED PROPS ---
+        view={view}
+        handleViewChange={handleViewChange}
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
         setJoinClassModalOpen={setJoinClassModalOpen}
@@ -377,10 +456,10 @@ const StudentDashboard = () => {
         setLessonToView={setLessonToView}
         quizzes={quizzes}
         handleTakeQuizClick={handleTakeQuizClick}
-		fetchContent={fetchContent} // Unchanged
+		    fetchContent={() => fetchContent(false)} // Pass fetchContent for manual refresh
       />
 
-      {/* Modals remain unchanged */}
+      {/* Modals */}
       <JoinClassModal
         isOpen={isJoinClassModalOpen}
         onClose={() => setJoinClassModalOpen(false)}
