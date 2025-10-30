@@ -115,7 +115,7 @@ const StudentManagementView = (props) => {
                     <p className="text-lg text-slate-600 mt-2 max-w-2xl mx-auto">Select a class from your learning management system to import students.</p>
                 </div>
                 
-                <div className="mb-8 sticky top-4 bg-neumorphic-base/80 backdrop-blur-sm py-2 z-20 rounded-full shadow-neumorphic">
+                <div className="mb-8 sticky top-4 bg-neumorphic-base/80 backdrop-blur-sm py-2 z-5 rounded-full shadow-neumorphic">
                     <div className="relative max-w-xl mx-auto">
                         <MagnifyingGlassIcon className="w-5 h-5 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
                         <input

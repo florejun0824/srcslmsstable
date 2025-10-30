@@ -98,39 +98,29 @@ const nativeSave = async (blob, fileName, mimeType, showToast) => {
     return;
   }
   
-  // --- ✅ MODIFICATION: Using Directory.Documents ---
-  // This is the recommended directory for user-generated files on modern Android
-  // and often has fewer permission issues than Downloads or External root.
-  const directory = Directory.Documents; 
+  // 1. Use the app's internal, private data directory.
+  // This requires NO permissions and is guaranteed to work.
+  const directory = Directory.Data; 
 
   try {
-    // --- START PERMISSION CHECK ---
-    let permStatus = await Filesystem.checkPermissions();
-	if (permStatus.publicStorage !== 'granted') {
-	  permStatus = await Filesystem.requestPermissions();
-	}
-
-	// If permission is *still* not granted, show error and stop
-	if (permStatus.publicStorage !== 'granted') {
-      showToast("Storage permission is required to save files.", "error");
-	  console.error("Storage permission not granted.");
-      return; // Stop if permission is denied
-    }
-    // --- END PERMISSION CHECK ---
+    // 2. --- PERMISSION CHECK REMOVED ---
+    // We don't need to ask for permissions when using Directory.Data.
 
     const base64Data = await blobToBase64(blob);
     
-    // Write the file to the user's Documents directory
+    // Write the file to the app's private data directory
     const result = await Filesystem.writeFile({
       path: fileName,
       data: base64Data,
-      directory: directory, // --- MODIFIED ---
-      recursive: true // Still include this just in case
+      directory: directory,
+      recursive: true
     });
 
-    showToast(`File saved to Documents folder.`, 'info'); // --- MODIFIED ---
+    // 3. Update toast to be more accurate for this workflow.
+    showToast(`Opening file...`, 'info');
 
     // Now, use FileOpener to open the file with the native OS
+    // FileOpener can access the internal app URI just fine.
     await FileOpener.open({
       filePath: result.uri,
       contentType: mimeType,
@@ -934,106 +924,122 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	};
 
 	const handleExportLessonPdf = async (lesson) => {
-	    if (exportingLessonId) return;
-	    setExportingLessonId(lesson.id);
-		showToast("Preparing PDF...", "info");
-		        const lessonTitle = lesson.lessonTitle || lesson.title;
-				const sanitizedFileName = (lessonTitle.replace(/[\\/:"*?<>|]+/g, '_') || 'lesson') + '.pdf';
+		    if (exportingLessonId) return;
+		    setExportingLessonId(lesson.id);
+			showToast("Preparing PDF...", "info");
+		        
+	        // --- START MODIFICATION ---
+	        const lessonTitleToExport = lesson.lessonTitle || lesson.title || 'Untitled Lesson';
+	
+	        // 1. Aggressively replace any character that is NOT a letter, number, dot, hyphen, or underscore
+	        let safeTitle = lessonTitleToExport.replace(/[^a-zA-Z0-9.-_]/g, '_');
 
-	    try {
-            await registerDejaVuFonts();
-
-	        const pdfStyles = {
-	            coverTitle: { fontSize: 32, bold: true, margin: [0, 0, 0, 15] },
-	            coverSub: { fontSize: 18, italics: true, color: '#555555' },
-	            pageTitle: { fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] },
-	            blockquote: { margin: [20, 5, 20, 5], italics: true, color: '#4a4a4a' },
-	            default: {
-	                fontSize: 11,
-	                lineHeight: 1.5,
-	                color: '#333333',
-	                alignment: 'justify'
-	            }
-	        };
-	        
-	        const subjectTitle = subject?.title || "SRCS Learning Portal";
-	        let lessonContent = [];
-
-	        for (const page of lesson.pages) {
-	            const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
-	            if (cleanTitle) {
-	                lessonContent.push({ text: cleanTitle, style: 'pageTitle' });
-	            }
-
-	            let contentString = typeof page.content === 'string' ? page.content : '';
-                
-                // ✅ FIX 1: Process raw text before parsing markdown
-                contentString = processLatex(contentString);
-
-	            let html = marked.parse(contentString);
-
-                // ✅ FIX 2: Clean up blockquote HTML for proper rendering
-                html = html
-                    .replace(/<blockquote>\s*<p>/g, '<blockquote>')
-                    .replace(/<\/p>\s*<\/blockquote>/g, '</blockquote>');
-
-	            const convertedContent = htmlToPdfmake(html, { defaultStyles: pdfStyles.default });
-	            lessonContent.push(convertedContent);
+	        // 2. Truncate the name to a safe length (e.g., 200 chars)
+	        if (safeTitle.length > 200) {
+	            safeTitle = safeTitle.substring(0, 200);
 	        }
 
-	        const docDefinition = {
-	            pageSize: "A4",
-	            pageMargins: [72, 100, 72, 100],
-	            header: {
-	                margin: [0, 20, 0, 0],
-	                stack: [{ image: "headerImg", width: 450, alignment: "center" }]
-	            },
-	            footer: {
-	                margin: [0, 0, 0, 20],
-	                stack: [{ image: "footerImg", width: 450, alignment: "center" }]
-	            },
-                defaultStyle: {
-                    font: 'DejaVu',
-                    ...pdfStyles.default,
-                },
-	            styles: pdfStyles,
-	            content: [
-	                {
-	                    stack: [
-	                        { text: lessonTitle, style: "coverTitle" },
-	                        { text: subjectTitle, style: "coverSub" }
-	                    ],
-	                    alignment: "center",
-	                    margin: [0, 200, 0, 0],
-	                    pageBreak: "after"
-	                },
-	                ...lessonContent
-	            ],
-	            images: {
-	 		        headerImg: "https://i.ibb.co/xt5CY6GY/header-port.png",
-	 		        footerImg: "https://i.ibb.co/kgrMBfDr/Footer.png"
-	            }
-	        };
-            
-            // NATIVE FIX: Use getBlob for native, download for web
-	        const pdfDoc = pdfMake.createPdf(docDefinition);
-            if (isNativePlatform()) {
-                pdfDoc.getBlob(async (blob) => {
-                    await nativeSave(blob, sanitizedFileName, 'application/pdf', showToast);
-                    setExportingLessonId(null);
-                });
-            } else {
-				pdfDoc.download(sanitizedFileName, () => {
-				    setExportingLessonId(null);
-				});
-            }
+	        // 3. Ensure the name isn't empty after sanitization
+	        const sanitizedFileName = (safeTitle || 'lesson') + '.pdf';
+	        // --- END MODIFICATION ---
 
-	    } catch (error) {
-	        console.error("Failed to export PDF:", error);
-	        showToast("An error occurred while creating the PDF.", "error");
-	        setExportingLessonId(null);
-	    }
-	};
+		    try {
+	            await registerDejaVuFonts();
+
+		        const pdfStyles = {
+		            coverTitle: { fontSize: 32, bold: true, margin: [0, 0, 0, 15] },
+		            coverSub: { fontSize: 18, italics: true, color: '#555555' },
+		            pageTitle: { fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] },
+		            blockquote: { margin: [20, 5, 20, 5], italics: true, color: '#4a4a4a' },
+		            default: {
+		                fontSize: 11,
+		                lineHeight: 1.5,
+		                color: '#333333',
+		                alignment: 'justify'
+		            }
+		        };
+	        
+		        const subjectTitle = subject?.title || "SRCS Learning Portal";
+		        let lessonContent = [];
+
+		        for (const page of lesson.pages) {
+		            const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
+		            if (cleanTitle) {
+		                lessonContent.push({ text: cleanTitle, style: 'pageTitle' });
+		            }
+
+		            let contentString = typeof page.content === 'string' ? page.content : '';
+                
+	                // ✅ FIX 1: Process raw text before parsing markdown
+	                contentString = processLatex(contentString);
+
+		            let html = marked.parse(contentString);
+
+	                // ✅ FIX 2: Clean up blockquote HTML for proper rendering
+	                html = html
+	                    .replace(/<blockquote>\s*<p>/g, '<blockquote>')
+	                    .replace(/<\/p>\s*<\/blockquote>/g, '</blockquote>');
+
+		            const convertedContent = htmlToPdfmake(html, { defaultStyles: pdfStyles.default });
+		            lessonContent.push(convertedContent);
+		        }
+
+		        const docDefinition = {
+		            pageSize: "A4",
+		            pageMargins: [72, 100, 72, 100],
+		            header: {
+		                margin: [0, 20, 0, 0],
+		                stack: [{ image: "headerImg", width: 450, alignment: "center" }]
+		            },
+		            footer: {
+		                margin: [0, 0, 0, 20],
+		                stack: [{ image: "footerImg", width: 450, alignment: "center" }]
+		            },
+	                defaultStyle: {
+	                    font: 'DejaVu',
+	                    ...pdfStyles.default,
+	                },
+		            styles: pdfStyles,
+		            content: [
+		                {
+		                    stack: [
+	                            // Use the original (non-sanitized) title for the PDF content
+		                        { text: lessonTitleToExport, style: "coverTitle" }, 
+		                        { text: subjectTitle, style: "coverSub" }
+		                    ],
+		                    alignment: "center",
+		                    margin: [0, 200, 0, 0],
+		                    pageBreak: "after"
+		                },
+		                ...lessonContent
+		            ],
+		            images: {
+		 		        headerImg: "https://i.ibb.co/xt5CY6GY/header-port.png",
+		 		        footerImg: "https://i.ibb.co/kgrMBfDr/Footer.png"
+		            }
+		        };
+            
+	            // NATIVE FIX: Use getBlob for native, download for web
+		        const pdfDoc = pdfMake.createPdf(docDefinition);
+	            if (isNativePlatform()) {
+	                pdfDoc.getBlob(async (blob) => {
+	                    // Pass the new sanitizedFileName to nativeSave
+	                    await nativeSave(blob, sanitizedFileName, 'application/pdf', showToast);
+	                    setExportingLessonId(null);
+	                });
+	            } else {
+	                // Pass the new sanitizedFileName to the web download
+					pdfDoc.download(sanitizedFileName, () => {
+					    setExportingLessonId(null);
+					});
+	            }
+
+		    } catch (error) {
+		        console.error("Failed to export PDF:", error);
+		        showToast("An error occurred while creating the PDF.", "error");
+		        setExportingLessonId(null);
+		    }
+		};
     
     const unitVisuals = useMemo(() => [
         { icon: RectangleStackIcon, gradient: 'from-white to-blue-50', iconColor: 'text-blue-500' },

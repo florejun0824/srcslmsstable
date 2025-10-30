@@ -1,4 +1,8 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
+// --- MODIFICATION START ---
+// Import hooks from react-router-dom
+import { useLocation, useNavigate } from 'react-router-dom';
+// --- MODIFICATION END ---
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import {
@@ -23,6 +27,61 @@ const TeacherDashboard = () => {
   const { user, userProfile, logout, firestoreService, refreshUserProfile } = useAuth();
   const { showToast } = useToast();
 
+  // --- MODIFICATION START ---
+  // Get location and navigation tools from router
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  /**
+   * Helper function to determine the active view from the URL pathname.
+   * This REPLACES the `activeView` state.
+   */
+  const getActiveViewFromPath = (pathname) => {
+    // pathname will be like "/dashboard", "/dashboard/content", "/dashboard/studentManagement"
+    const pathSegment = pathname.substring('/dashboard'.length).split('/')[1]; // Get the part *after* /dashboard/
+
+    // --- THIS IS THE FIX ---
+    // Added all missing cases from your TeacherDashboardLayout
+    switch (pathSegment) {
+      case 'studentManagement':
+        return 'studentManagement';
+      case 'classes':
+        return 'classes';
+      case 'courses':
+        return 'courses';
+      case 'analytics':
+        return 'analytics';
+      case 'profile':
+        return 'profile';
+      case 'admin':
+        return 'admin';
+      default:
+        // Default to 'home' for "/dashboard" or "/dashboard/"
+        return 'home'; 
+    }
+    // --- END OF FIX ---
+  };
+
+  // The activeView is now derived from the URL, not from local state.
+  const activeView = getActiveViewFromPath(location.pathname);
+
+  /**
+   * This handler REPLACES the original state-setting function.
+   * It now changes the URL, which in turn updates the `activeView` variable.
+   */
+  const handleViewChange = (view) => {
+    // `view` is the key (e.g., 'home', 'content', 'studentManagement')
+    if (view === 'home') {
+      navigate('/dashboard');
+    } else {
+      navigate(`/dashboard/${view}`);
+    }
+    // Also close the sidebar on mobile navigation
+    setIsSidebarOpen(false);
+  };
+  // --- MODIFICATION END ---
+
+
   // --- State Variables ---
   const [classes, setClasses] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -30,7 +89,10 @@ const TeacherDashboard = () => {
   const [teacherAnnouncements, setTeacherAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeView, setActiveView] = useState('home');
+  
+  // --- REMOVED STATE ---
+  // const [activeView, setActiveView] = useState('home'); // This is now derived from URL
+  
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [activeSubject, setActiveSubject] = useState(null);
   const [activeUnit, setActiveUnit] = useState(null);
@@ -155,6 +217,7 @@ const TeacherDashboard = () => {
     }, [user]);
 
     useEffect(() => {
+        // This hook now works based on the URL-derived `activeView`
         if (activeView === 'studentManagement') {
             setIsImportViewLoading(true);
             const fetchAllClassesForImport = async () => {
@@ -173,9 +236,10 @@ const TeacherDashboard = () => {
 
             fetchAllClassesForImport();
         }
-    }, [activeView, showToast]);
+    }, [activeView, showToast]); // Dependency on activeView is correct
 
     // --- Handler Functions ---
+    // (All handler functions remain 100% unchanged)
     const handleCreateUnit = async (unitData) => {
         if (!unitData || !unitData.subjectId) {
             showToast("Missing data to create the unit.", "error");
@@ -302,10 +366,7 @@ const TeacherDashboard = () => {
         } finally { setIsAiThinking(false); }
     };
 
-	// In: TeacherDashboard.jsx
-
 	const handleRemoveStudentFromClass = async (classId, student) => {
-	    // The 'student' parameter is the full student object from the roster
 	    if (!window.confirm(`Are you sure you want to remove ${student.firstName} ${student.lastName} from the class?`)) { 
 	        return; 
 	    }
@@ -313,21 +374,16 @@ const TeacherDashboard = () => {
 	    try {
 	        const classRef = doc(db, "classes", classId);
 	        const classDoc = classes.find(c => c.id === classId);
-
-	        // 1. Find the full student object to remove from the 'students' array (for the teacher roster)
 	        const studentObjectToRemove = classDoc.students.find(s => s.id === student.id);
-        
-	        // 2. Get the student ID string to remove from the 'studentIds' array (for the student's query)
 	        const studentIdToRemove = student.id;
 
 	        if (!studentObjectToRemove) {
 	            console.warn("Student object not found in 'students' array, but will still attempt to remove ID from 'studentIds'.");
 	        }
 
-	        // 3. Update the document, removing from BOTH arrays in one operation
 	        await updateDoc(classRef, { 
-	            students: arrayRemove(studentObjectToRemove), // Removes the object from 'students'
-	            studentIds: arrayRemove(studentIdToRemove)    // Removes the string from 'studentIds'
+	            students: arrayRemove(studentObjectToRemove),
+	            studentIds: arrayRemove(studentIdToRemove)
 	        });
         
 	        showToast("Student removed successfully.", "success");
@@ -346,7 +402,7 @@ const TeacherDashboard = () => {
 	        `Page Title: ${page.title}\n\n${page.content}`
 	    ).join('\n\n---\n\n');
 
-	    const prompt = `Based on the following lesson content, generate a 10-question multiple-choice quiz...`;
+	    const prompt = `Based on the following lesson content, generate a 10-question multiple-choice quiz...`; // (Rest of your prompt)
 
 	    try {
 	        const aiResponseText = await callGeminiWithLimitCheck(prompt);
@@ -465,32 +521,18 @@ const TeacherDashboard = () => {
         setIsDeleteModalOpen(true);
     };
 
-    // ✅ START: ADD THIS HELPER FUNCTION INSIDE YOUR TeacherDashboard COMPONENT
-    /**
-     * Finds and deletes a quiz and all its submissions within a batch operation.
-     * @param {WriteBatch} batch The Firestore WriteBatch to add operations to.
-     * @param {string} quizId The ID of the quiz to delete.
-     */
     async function deleteQuizAndSubmissions(batch, quizId) {
-        // Query for all student submissions linked to this quiz ID.
-        // IMPORTANT: Verify 'quizSubmissions' is your collection name and 'quizId' is the field name.
         const submissionsQuery = query(
             collection(db, 'quizSubmissions'),
             where('quizId', '==', quizId)
         );
         const submissionsSnapshot = await getDocs(submissionsQuery);
-
-        // Add each submission to the batch for deletion.
         submissionsSnapshot.forEach(doc => {
             batch.delete(doc.ref);
         });
-
-        // Add the main quiz document to the batch for deletion.
         batch.delete(doc(db, 'quizzes', quizId));
-        
         console.log(`Queued deletion for quiz ${quizId} and its ${submissionsSnapshot.size} submissions.`);
     }
-    // ✅ END: HELPER FUNCTION ADDED
 
     const handleConfirmDelete = async () => {
         if (!deleteTarget) {
@@ -529,7 +571,6 @@ const TeacherDashboard = () => {
                     
                     const quizzesQuery = query(collection(db, 'quizzes'), where('unitId', '==', unitDoc.id));
                     const quizzesSnapshot = await getDocs(quizzesQuery);
-                    // ✅ MODIFICATION: Instead of just deleting quizzes, we now also delete their submissions.
                     for (const quizDoc of quizzesSnapshot.docs) {
                         await deleteQuizAndSubmissions(batch, quizDoc.id);
                     }
@@ -550,7 +591,6 @@ const TeacherDashboard = () => {
                 batch.delete(doc(db, 'courses', id));
                 setActiveSubject(null);
             
-            // ✅ MODIFICATION: Separated 'quiz' from 'lesson' to handle it with the new function.
             } else if (type === 'quiz') {
                 findAndQueueClassUpdates(subjectId);
                 await deleteQuizAndSubmissions(batch, id);
@@ -604,10 +644,16 @@ const TeacherDashboard = () => {
         fetchCourses();
         setReloadKey(prevKey => prevKey + 1);
     };
-
-    const handleViewChange = (view) => {
-        if (activeView === view) { setReloadKey(prevKey => prevKey + 1); }
-        else { setActiveView(view); setSelectedCategory(null); setIsSidebarOpen(false); }
+    
+    const handleViewChangeWrapper = (view) => {
+        if (activeView === view) { 
+            setReloadKey(prevKey => prevKey + 1); 
+        }
+        else { 
+            handleViewChange(view); // This will change the URL
+            setSelectedCategory(null);
+            // setIsSidebarOpen(false); // handleViewChange already does this
+        }
     };
     
     const handleCategoryClick = (categoryName) => { setSelectedCategory(categoryName); };
@@ -643,7 +689,7 @@ const TeacherDashboard = () => {
 	        const classRef = doc(db, "classes", classId);
 	        await updateDoc(classRef, newData);
 	        showToast("Class updated successfully!", "success");
-	        setEditClassModalOpen(false); // Close the modal after a successful update
+	        setEditClassModalOpen(false);
 	    } catch (error) {
 	        console.error("Error updating class:", error);
 	        showToast("Failed to update class.", "error");
@@ -673,12 +719,9 @@ const TeacherDashboard = () => {
 	    if (window.confirm("Delete this announcement?")) {
 	        try {
 	            await deleteDoc(doc(db, 'teacherAnnouncements', id));
-            
-	            // ADD THIS LINE:
 	            setTeacherAnnouncements(prevAnnouncements => 
 	                prevAnnouncements.filter(announcement => announcement.id !== id)
 	            );
-
 	            showToast("Announcement deleted.", "success");
 	        } catch (error) {
 	            console.error("Error deleting announcement:", error);
@@ -709,17 +752,12 @@ const TeacherDashboard = () => {
 	    if (studentsToImport.size === 0) return showToast("Please select students to import.", "error");
 	    setIsImporting(true);
 	    try {
-	        // 1. Get the full student OBJECTS to add
 	        const studentObjectsToAdd = selectedClassForImport.students.filter(s => studentsToImport.has(s.id));
-        
-	        // 2. Get the corresponding student ID STRINGS
 	        const studentIdsToAdd = studentObjectsToAdd.map(student => student.id);
-
-	        // 3. Update the target class, adding to BOTH arrays
 	        const targetClassRef = doc(db, "classes", importTargetClassId);
 	        await updateDoc(targetClassRef, { 
-	            students: arrayUnion(...studentObjectsToAdd), // For the teacher's roster
-	            studentIds: arrayUnion(...studentIdsToAdd)    // For the student's dashboard query
+	            students: arrayUnion(...studentObjectsToAdd),
+	            studentIds: arrayUnion(...studentIdsToAdd)
 	        });
 
 	        showToast(`${studentsToImport.size} student(s) imported successfully!`, 'success');
@@ -759,7 +797,7 @@ const TeacherDashboard = () => {
                 loading={loading}
                 error={error}
                 activeView={activeView}
-                handleViewChange={handleViewChange}
+                handleViewChange={handleViewChangeWrapper}
                 isSidebarOpen={isSidebarOpen}
                 setIsSidebarOpen={setIsSidebarOpen}
                 logout={logout}
@@ -836,7 +874,7 @@ const TeacherDashboard = () => {
                 isEditClassModalOpen={isEditClassModalOpen}
                 setEditClassModalOpen={setEditClassModalOpen}
                 classToEdit={classToEdit}
-                isAddUnitModalOpen={isAddUnitModalOpen}
+isAddUnitModalOpen={isAddUnitModalOpen}
                 setAddUnitModalOpen={setAddUnitModalOpen}
                 editUnitModalOpen={editUnitModalOpen}
                 setEditUnitModalOpen={setEditUnitModalOpen}
@@ -885,7 +923,7 @@ const TeacherDashboard = () => {
                         onClose={() => setViewLessonModalOpen(false)} 
                         lesson={selectedLesson} 
                         onUpdate={handleUpdateLesson} 
-						userRole={user?.role} // ✅ FIX: Pass the user's role to the modal
+						userRole={user?.role}
                     />
                 )}
                 {isBetaWarningModalOpen && (

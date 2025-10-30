@@ -38,7 +38,7 @@ const HomeView = ({
             
             {/* REMOVED: The decorative divs for the old "aurora" background are gone. */}
 
-            <div className="relative z-10 space-y-4 md:space-y-6">
+            <div className="relative z-5 space-y-4 md:space-y-6">
                 <DashboardHeader
                     userProfile={userProfile}
                     showToast={showToast}

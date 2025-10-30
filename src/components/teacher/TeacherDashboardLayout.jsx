@@ -11,6 +11,7 @@ import {
     IconPower,
 	IconChartBar,
 } from '@tabler/icons-react';
+import { NavLink } from 'react-router-dom';
 
 // FIREBASE & SERVICES
 import { getDocs, writeBatch, doc, where, query, collection } from 'firebase/firestore';
@@ -56,7 +57,7 @@ const EditSubjectModal = lazy(() => import('./EditSubjectModal'));
 const DeleteSubjectModal = lazy(() => import('./DeleteSubjectModal'));
 
 // --- DESKTOP HEADER COMPONENT ---
-const DesktopHeader = ({ activeView, handleViewChange, userProfile, setIsLogoutModalOpen }) => {
+const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
     const navItems = [
         { view: 'home', text: 'Home', icon: IconHome },
         { view: 'studentManagement', text: 'Students', icon: IconUsers },
@@ -90,49 +91,56 @@ const DesktopHeader = ({ activeView, handleViewChange, userProfile, setIsLogoutM
             {/* Center: Navigation */}
             <nav className="w-full max-w-2xl p-3 bg-neumorphic-base rounded-3xl shadow-neumorphic flex justify-center items-center gap-3">
                 {navItems.map((item) => {
-                    const isActive = activeView === item.view;
                     return (
-                        <button
+                        <NavLink
                             key={item.view}
-                            onClick={() => handleViewChange(item.view)}
-                            className={`group relative flex-1 flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-200 ${
-                                isActive
-                                    ? 'shadow-neumorphic-inset'
-                                    : 'hover:shadow-neumorphic-inset active:shadow-neumorphic-inset'
-                            }`}
+                            to={item.view === 'home' ? '/dashboard' : `/dashboard/${item.view}`}
+                            end={item.view === 'home'} 
+                            className={({ isActive }) => 
+                                `group relative flex-1 flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-200 ${
+                                    isActive
+                                        ? 'shadow-neumorphic-inset'
+                                        : 'hover:shadow-neumorphic-inset active:shadow-neumorphic-inset'
+                                }`
+                            }
                             aria-label={item.text}
                         >
-                            <item.icon
-                                size={28}
-                                className={`transition-colors duration-200 ${
-                                    isActive
-                                        ? 'text-sky-600'
-                                        : 'text-slate-500 group-hover:text-slate-700'
-                                }`}
-                            />
-                            <span
-                                className={`mt-0.5 text-sm font-semibold ${
-                                    isActive
-                                        ? 'text-sky-600'
-                                        : 'text-slate-500 group-hover:text-slate-700'
-                                }`}
-                            >
-                                {item.text}
-                            </span>
-                        </button>
+                            {({ isActive }) => (
+                                <>
+                                    <item.icon
+                                        size={28}
+                                        className={`transition-colors duration-200 ${
+                                            isActive
+                                                ? 'text-sky-600'
+                                                : 'text-slate-500 group-hover:text-slate-700'
+                                        }`}
+                                    />
+                                    <span
+                                        className={`mt-0.5 text-sm font-semibold ${
+                                            isActive
+                                                ? 'text-sky-600'
+                                                : 'text-slate-500 group-hover:text-slate-700'
+                                        }`}
+                                    >
+                                        {item.text}
+                                    </span>
+                                </>
+                            )}
+                        </NavLink>
                     );
                 })}
             </nav>
 
             {/* Right side: Profile + Logout */}
             <div className="flex items-center gap-4 flex-shrink-0">
-			{/* Desktop header avatar — use a single square wrapper, no padding */}
-			<div
-			  onClick={() => handleViewChange('profile')}
-			  className="
-			    w-16 h-16 rounded-full bg-neumorphic-base shadow-neumorphic
+			
+			<NavLink
+			  to="/dashboard/profile"
+			  className={({ isActive }) =>
+			    `w-16 h-16 rounded-full bg-neumorphic-base shadow-neumorphic
 			    flex items-center justify-center overflow-hidden cursor-pointer
-			    transition-shadow hover:shadow-neumorphic-inset"
+			    transition-shadow ${isActive ? 'shadow-neumorphic-inset' : 'hover:shadow-neumorphic-inset'}`
+              }
 			>
 			  {userProfile?.photoURL ? (
 			    <img
@@ -146,10 +154,10 @@ const DesktopHeader = ({ activeView, handleViewChange, userProfile, setIsLogoutM
 			      firstName={userProfile?.firstName}
 			      lastName={userProfile?.lastName}
 			      id={userProfile?.id}
-			      size="full"   // fills the parent square
+			      size="full"
 			    />
 			  )}
-			</div>
+			</NavLink>
 
                 <div className="p-3 bg-neumorphic-base rounded-3xl shadow-neumorphic hidden xl:block">
                     <span className="font-semibold text-lg text-slate-700">
@@ -440,9 +448,11 @@ const TeacherDashboardLayout = (props) => {
                             </span>
                         </div>
                         <div className="flex items-center gap-1">
-							  <div
-							    onClick={() => handleViewChange('profile')}
-							    className="p-1 rounded-full cursor-pointer hover:shadow-neumorphic-inset"
+							  <NavLink
+							    to="/dashboard/profile"
+                                className={({ isActive }) => 
+                                    `p-1 rounded-full cursor-pointer ${isActive ? 'shadow-neumorphic-inset' : 'hover:shadow-neumorphic-inset'}`
+                                }
 							  >
 							    {userProfile?.photoURL ? (
 							      <img
@@ -457,7 +467,7 @@ const TeacherDashboardLayout = (props) => {
 							        size="sm"
 							      />
 							    )}
-							  </div>
+							  </NavLink>
 							  
 					
                             
@@ -473,11 +483,9 @@ const TeacherDashboardLayout = (props) => {
                 </header>
 
                 {/* Desktop Header */}
-                <div className="hidden lg:block sticky top-0 z-30 bg-neumorphic-base px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
+                <div className="hidden lg:block sticky top-0 z-[10] bg-neumorphic-base px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
                     <div className="w-full max-w-screen-2xl mx-auto">
                         <DesktopHeader
-                            activeView={activeView}
-                            handleViewChange={handleViewChange}
                             userProfile={userProfile}
                             setIsLogoutModalOpen={setIsLogoutModalOpen}
                         />
@@ -722,35 +730,41 @@ const TeacherDashboardLayout = (props) => {
             <footer className="sticky bottom-0 z-50 p-2 bg-neumorphic-base shadow-neumorphic lg:hidden">
                 <div className="flex justify-around items-center">
                     {navItems.map((item) => {
-                        const isActive = activeView === item.view;
                         return (
-                            <button
+                            <NavLink
                                 key={item.view}
-                                onClick={() => handleViewChange(item.view)}
-                                className={`flex-1 flex flex-col items-center justify-center py-2 rounded-xl transition-all duration-300 ${
-                                    isActive
-                                        ? 'shadow-neumorphic-inset'
-                                        : 'hover:shadow-neumorphic-inset'
-                                }`}
+                                to={item.view === 'home' ? '/dashboard' : `/dashboard/${item.view}`}
+                                end={item.view === 'home'}
+                                className={({ isActive }) => 
+                                    `flex-1 flex flex-col items-center justify-center py-2 rounded-xl transition-all duration-300 ${
+                                        isActive
+                                            ? 'shadow-neumorphic-inset'
+                                            : 'hover:shadow-neumorphic-inset'
+                                    }`
+                                }
                             >
-                                <item.icon
-                                    className={`mb-0.5 transition-colors ${
-                                        isActive
-                                            ? 'text-sky-600'
-                                            : 'text-gray-500'
-                                    }`}
-                                    size={24}
-                                />
-                                <span
-                                    className={`text-xs font-semibold transition-colors ${
-                                        isActive
-                                            ? 'text-sky-600'
-                                            : 'text-gray-500'
-                                    }`}
-                                >
-                                    {item.text}
-                                </span>
-                            </button>
+                                {({ isActive }) => (
+                                    <>
+                                        <item.icon
+                                            className={`mb-0.5 transition-colors ${
+                                                isActive
+                                                    ? 'text-sky-600'
+                                                    : 'text-gray-500'
+                                            }`}
+                                            size={24}
+                                        />
+                                        <span
+                                            className={`text-xs font-semibold transition-colors ${
+                                                isActive
+                                                    ? 'text-sky-600'
+                                                    : 'text-gray-500'
+                                            }`}
+                                        >
+                                            {item.text}
+                                        </span>
+                                    </>
+                                )}
+                            </NavLink>
                         );
                     })}
                 </div>

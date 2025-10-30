@@ -61,26 +61,17 @@ const nativeSave = async (blob, fileName, mimeType, showToast) => {
     return;
   }
   
-  const directory = Directory.Documents; 
+  // 1. Use the app's internal, private data directory.
+  // This requires NO permissions and is guaranteed to work.
+  const directory = Directory.Data; 
 
   try {
-    // --- START PERMISSION CHECK ---
-    let permStatus = await Filesystem.checkPermissions();
-	if (permStatus.publicStorage !== 'granted') {
-	  permStatus = await Filesystem.requestPermissions();
-	}
-
-	// If permission is *still* not granted, show error and stop
-	if (permStatus.publicStorage !== 'granted') {
-      showToast("Storage permission is required to save files.", "error");
-	  console.error("Storage permission not granted.");
-      return; // Stop if permission is denied
-    }
-    // --- END PERMISSION CHECK ---
+    // 2. --- PERMISSION CHECK REMOVED ---
+    // We don't need to ask for permissions when using Directory.Data.
 
     const base64Data = await blobToBase64(blob);
     
-    // Write the file to the user's Documents directory
+    // Write the file to the app's private data directory
     const result = await Filesystem.writeFile({
       path: fileName,
       data: base64Data,
@@ -88,9 +79,11 @@ const nativeSave = async (blob, fileName, mimeType, showToast) => {
       recursive: true
     });
 
-    showToast(`File saved to Documents folder.`, 'info');
+    // 3. Update toast to be more accurate for this workflow.
+    showToast(`Opening PDF...`, 'info');
 
     // Now, use FileOpener to open the file with the native OS
+    // FileOpener can access the internal app URI just fine.
     await FileOpener.open({
       filePath: result.uri,
       contentType: mimeType,

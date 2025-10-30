@@ -16,8 +16,13 @@ if (typeof window !== "undefined") {
 }
 
 import React, { useState, useEffect } from 'react';
-import { Capacitor } from '@capacitor/core'; // <-- MODIFICATION: ADDED THIS LINE
-import { StatusBar } from '@capacitor/status-bar'; // <-- MODIFICATION: ADDED THIS LINE
+// --- MODIFICATION START ---
+// Import routing components
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+// --- MODIFICATION END ---
+
+import { Capacitor } from '@capacitor/core';
+import { StatusBar } from '@capacitor/status-bar';
 import { useAuth } from './contexts/AuthContext'; 
 import Spinner from './components/common/Spinner';
 import LoginPage from './pages/LoginPage';
@@ -28,7 +33,10 @@ import TestPage from './pages/TestPage';
 import { handleAuthRedirect, createPresentationFromData } from './services/googleSlidesService';
 import PostLoginExperience from "./components/PostLoginExperience";
 import UpdateOverlay from './components/UpdateOverlay';
+// --- MODIFICATION START ---
+// Fixed the typo from '*s' to '* as'
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
+// --- MODIFICATION END ---
 import './index.css';
 
 const AVERAGE_BUILD_SECONDS = 300; // 5 minutes
@@ -78,28 +86,89 @@ const AppRouter = () => {
     };
   }, []);
 
-  if (window.location.pathname === '/test') return <TestPage />;
-  if (window.location.pathname === '/create-admin-xyz') return <AdminSignup />;
+  // Show a top-level spinner while auth is loading
   if (loading) return <Spinner />;
-  if (!userProfile) return <LoginPage />;
 
-  if (userProfile?.role === 'student') {
-    return (
-      <PostLoginExperience>
-        <StudentDashboard />
-      </PostLoginExperience>
-    );
-  }
+  // --- MODIFICATION START ---
+  // Replace all conditional logic with <Routes>
+  return (
+    <Routes>
+      {/* Publicly accessible routes */}
+      <Route path="/test" element={<TestPage />} />
+      <Route path="/create-admin-xyz" element={<AdminSignup />} />
 
-  if (userProfile?.role === 'teacher' || userProfile?.role === 'admin') {
-    return (
-      <PostLoginExperience>
-        <TeacherDashboard />
-      </PostLoginExperience>
-    );
-  }
+      {/* Login Route */}
+      <Route 
+        path="/login" 
+        element={
+          !userProfile ? (
+            <LoginPage />
+          ) : (
+            // If user is already logged in, redirect them from /login
+            // to their correct dashboard.
+            <Navigate 
+              to={userProfile.role === 'student' ? "/student" : "/dashboard"} 
+              replace 
+            />
+          )
+        } 
+      />
 
-  return <Spinner />;
+      {/* Student Dashboard Routes (Protected) */}
+      <Route 
+        path="/student/*" 
+        element={
+          !userProfile ? (
+            <Navigate to="/login" replace />
+          ) : userProfile.role === 'student' ? (
+            <PostLoginExperience>
+              <StudentDashboard />
+            </PostLoginExperience>
+          ) : (
+            // Wrong role, redirect to teacher dash
+            <Navigate to="/dashboard" replace />
+          )
+        }
+      />
+
+      {/* Teacher/Admin Dashboard Routes (Protected) */}
+      {/* This "/*" is the key. It allows TeacherDashboard to handle
+          all nested routes like /dashboard/home, /dashboard/classes, etc.
+      */}
+      <Route 
+        path="/dashboard/*" 
+        element={
+          !userProfile ? (
+            <Navigate to="/login" replace />
+          ) : (userProfile.role === 'teacher' || userProfile.role === 'admin') ? (
+            <PostLoginExperience>
+              <TeacherDashboard />
+            </PostLoginExperience>
+          ) : (
+            // Wrong role, redirect to student dash
+            <Navigate to="/student" replace />
+          )
+        }
+      />
+      
+      {/* Default Fallback Route */}
+      {/* Redirects "/" to the correct starting page */}
+      <Route 
+        path="/" 
+        element={
+          !userProfile ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <Navigate 
+              to={userProfile.role === 'student' ? "/student" : "/dashboard"} 
+              replace 
+            />
+          )
+        } 
+      />
+    </Routes>
+  );
+  // --- MODIFICATION END ---
 };
 
 export default function App() {
@@ -107,9 +176,7 @@ export default function App() {
   const [timeLeft, setTimeLeft] = useState(AVERAGE_BUILD_SECONDS);
   const [waitingWorker, setWaitingWorker] = useState(null);
 
-  // --- MODIFICATION START ---
-  // This hook will run once when the App component loads
-  // to hide the status bar on native mobile devices.
+  // --- Capacitor/Status Bar Effect (Unchanged) ---
   useEffect(() => {
     const hideStatusBar = async () => {
       if (Capacitor.isNativePlatform()) {
@@ -120,11 +187,10 @@ export default function App() {
         }
       }
     };
-
     hideStatusBar();
   }, []);
-  // --- MODIFICATION END ---
 
+  // --- Service Worker Effect (Unchanged) ---
   useEffect(() => {
     serviceWorkerRegistration.register({
       onUpdate: registration => {
@@ -133,15 +199,14 @@ export default function App() {
     });
   }, []);
 
+  // --- Build Status Effect (Unchanged) ---
   useEffect(() => {
     let pollInterval;
     let countdownInterval;
-
     const checkBuildStatus = async () => {
       try {
         const res = await fetch('/.netlify/functions/build-status', { cache: 'no-store' });
         const data = await res.json();
-
         setBuildStatus(prevStatus => {
           if (prevStatus !== 'building' && data.status === 'building') {
             setTimeLeft(AVERAGE_BUILD_SECONDS);
@@ -165,18 +230,17 @@ export default function App() {
         if (countdownInterval) clearInterval(countdownInterval);
       }
     };
-
     if (buildStatus !== 'building') {
       checkBuildStatus();
       pollInterval = setInterval(checkBuildStatus, 15000);
     }
-
     return () => {
       clearInterval(pollInterval);
       if (countdownInterval) clearInterval(countdownInterval);
     };
-  }, []); // Note: You had an empty dependency array, which is correct.
+  }, []);
 
+  // --- handleEnter Function (Unchanged) ---
   const handleEnter = () => {
     if (waitingWorker) {
       waitingWorker.postMessage({ type: 'SKIP_WAITING' });
@@ -188,17 +252,22 @@ export default function App() {
     }
   };
   
+  // --- Update Overlays (Unchanged) ---
   if (buildStatus === 'building') {
     return <UpdateOverlay status="building" timeLeft={timeLeft} />;
   }
-
   if (waitingWorker) {
     return <UpdateOverlay status="complete" onEnter={handleEnter} />;
   }
 
+  // --- MODIFICATION START ---
+  // Wrap the app in <BrowserRouter>
   return (
-    <div className="bg-gray-100 min-h-screen">
-      <AppRouter />
-    </div>
+    <BrowserRouter>
+      <div className="bg-gray-100 min-h-screen">
+        <AppRouter />
+      </div>
+    </BrowserRouter>
   );
+  // --- MODIFICATION END ---
 }

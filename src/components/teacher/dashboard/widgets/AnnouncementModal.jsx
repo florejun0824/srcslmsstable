@@ -478,10 +478,13 @@ const AnnouncementModal = ({
   if (!isOpen || !announcement) return null
 
   return (
-    // --- MODIFIED: Added onClick for backdrop ---
+    // --- THIS IS THE FIX ---
+    // 1. Changed `items-start` to `items-center` to vertically center the modal.
+    // 2. Removed `pt-12 sm:pt-20` as `items-center` handles positioning.
+    // 3. Changed `px-4 pb-4` to just `p-4` for consistent padding.
     <div
-      className="fixed inset-0 z-[10000] flex items-start justify-center bg-black/30 backdrop-blur-sm px-4 pb-4 pt-12 sm:pt-20 font-sans"
-      onClick={handleBackdropClick} // <-- ADDED
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 font-sans"
+      onClick={handleBackdropClick}
     >
       <div className="bg-neumorphic-base rounded-[28px] shadow-neumorphic w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
         {/* Header (not fixed) */}
