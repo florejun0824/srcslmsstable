@@ -6,7 +6,11 @@ import LessonPage from './LessonPage';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import { Dialog } from '@headlessui/react';
 
-export default function PreviewScreen({ subject, unit, generationResult, onBackToEdit, onClose, onBackToGeneration }) {
+// --- START OF CHANGES ---
+// Accepted guideData as a prop
+export default function PreviewScreen({ subject, unit, guideData, generationResult, onBackToEdit, onClose, onBackToGeneration }) {
+// --- END OF CHANGES ---
+
     const { showToast } = useToast();
     const [selectedLessonIndex, setSelectedLessonIndex] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
@@ -30,7 +34,7 @@ export default function PreviewScreen({ subject, unit, generationResult, onBackT
             lessonsToPreview.forEach((lesson) => {
                 const newLessonRef = doc(collection(db, 'lessons'));
                 batch.set(newLessonRef, {
-                    // FIX: Using lessonTitle consistent with generation prompt
+                    // --- Existing Fields ---
                     title: lesson.lessonTitle, 
                     lessonTitle: lesson.lessonTitle,
                     unitId: unit.id,
@@ -41,6 +45,15 @@ export default function PreviewScreen({ subject, unit, generationResult, onBackT
                     createdAt: serverTimestamp(),
                     order: order++,
                     isAiGenerated: true,
+
+                    // --- START OF CHANGES ---
+                    // This now saves the specific 1-3 competencies assigned by the AI
+                    learningCompetencies: lesson.assignedCompetencies || [], 
+                    
+                    // These are saved from the main form, as they apply to all lessons
+                    contentStandard: guideData.contentStandard || '',
+                    performanceStandard: guideData.performanceStandard || ''
+                    // --- END OF CHANGES ---
                 });
             });
 

@@ -444,7 +444,7 @@ const TeacherDashboardLayout = (props) => {
                                 className="w-9 h-9 rounded-full"
                             />
                             <span className="font-bold text-lg text-gray-800">
-                                SRCS Portal
+                                SRCS LMS
                             </span>
                         </div>
                         <div className="flex items-center gap-1">

@@ -49,6 +49,13 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     // New state for language and grade level
     const [language, setLanguage] = useState('English');
     const [gradeLevel, setGradeLevel] = useState('Grade 9');
+    
+    // --- START OF CHANGES (1/4): Add state for new inputs ---
+    const [learningCompetencies, setLearningCompetencies] = useState('');
+    const [contentStandard, setContentStandard] = useState('');
+    const [performanceStandard, setPerformanceStandard] = useState('');
+    // --- END OF CHANGES (1/4) ---
+
     const [subjects, setSubjects] = useState([]);
     const [selectedSubject, setSelectedSubject] = useState(null);
 
@@ -57,9 +64,11 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             try {
                 const subs = await getAllSubjects();
                 setSubjects(subs);
+            // --- START OF FIX: Added missing curly braces ---
             } catch (error) {
                 showToast('Could not fetch subjects.', 'error');
             }
+            // --- END OF FIX ---
         };
         fetchSubjects();
     }, []);
@@ -120,6 +129,11 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         setProgressMessage('');
         setSelectedLessonIndex(0);
         setSelectedPageIndex(0);
+        // --- START OF CHANGES: Reset new fields as well ---
+        setLearningCompetencies('');
+        setContentStandard('');
+        setPerformanceStandard('');
+        // --- END OF CHANGES ---
     };
 
     const handleToggleUnitExpansion = (unitId) => {
@@ -250,6 +264,17 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             You are an expert curriculum designer and bestselling textbook author. Your primary task is to transform the provided source text into a structured, engaging, and pedagogically sound educational unit.
             ${languageAndGradeInstruction}
             ${perspectiveInstruction}
+            
+            {/* --- START OF CHANGES (2/4): Add Standards & Competency instructions --- */}
+            **UNIT STANDARDS (NON-NEGOTIABLE CONTEXT):**
+            - **Content Standard:** ${contentStandard || "Not provided."}
+            - **Performance Standard:** ${performanceStandard || "Not provided."}
+            - **Learning Competencies (Master List):** ${learningCompetencies || "Not provided."}
+
+            **CRITICAL COMPETENCY ASSIGNMENT (NON-NEGOTIABLE):**
+            The "Learning Competencies (Master List)" provided above is for the *entire* unit. For *each specific lesson* you generate (except the "Unit Overview"), you MUST analyze this master list and select 1-3 competencies that are *directly addressed* by that single lesson. You MUST add these selected competencies as a new array of strings under the key \`"assignedCompetencies"\`.
+            {/* --- END OF CHANGES (2/4) --- */}
+
             ${scaffoldingInstruction}
 
             **CRITICAL CONTENT FIDELITY RULE (NON-NEGOTIABLE):** Your absolute top priority is to fully and accurately represent the entire source document. Do NOT over-summarize or omit key information, examples, or data points from the source text. The generated lessons should be comprehensive and reflect the full depth of the original material. If the source text is long, you MUST generate more pages or more lessons to cover it completely. Do not truncate the content.
@@ -357,11 +382,17 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                   ]
                 },
                 {
+                  {/* --- START OF CHANGES (2/4 cont.): Update JSON structure --- */}
                   "lessonTitle": "Lesson ${existingLessonCount + 1}: How Plants Turn Sunlight into Food",
                   "learningObjectives": [
                     "Explain how photosynthesis works",
                     "Identify the role of chlorophyll in the process"
                   ],
+                  "assignedCompetencies": [
+                    "Specific competency 1 from master list",
+                    "Specific competency 2 from master list"
+                  ],
+                  {/* --- END OF CHANGES (2/4 cont.) --- */}
                   "pages": [
                     { "title": "Why Plants Are Nature's Solar Panels", "content": "Engaging intro..." },
                     { "title": "Let's Get Started", "content": "..." },
@@ -431,6 +462,15 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     contentType: "studentLesson",
                     createdAt: serverTimestamp(),
                     order: existingLessonCount + index,
+                    
+                    // --- START OF CHANGES (3/4): Add new fields to Firestore document ---
+                    // Save the specific, AI-assigned competencies for this lesson
+                    learningCompetencies: lesson.assignedCompetencies || [],
+                    
+                    // Save the unit-wide standards (from state)
+                    contentStandard: contentStandard || '',
+                    performanceStandard: performanceStandard || ''
+                    // --- END OF CHANGES (3/4) ---
                 })
             );
             await Promise.all(savePromises);
@@ -455,6 +495,9 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     }, [selectedLesson]);
 
     const gradeLevels = ["Kindergarten", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
+
+    // --- START OF CHANGES (4/4): Define reusable style and add new UI ---
+    const formInputStyle = "block w-full rounded-lg border-transparent bg-neumorphic-base shadow-neumorphic-inset focus:border-sky-500 focus:ring-sky-500 text-sm";
 
     return (
         <div className="flex flex-col h-full">
@@ -511,14 +554,14 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label htmlFor="language" className="block text-sm font-semibold text-slate-700 mb-1">Language</label>
-                            <select id="language" name="language" value={language} onChange={(e) => setLanguage(e.target.value)} className="block w-full rounded-lg border-transparent bg-neumorphic-base shadow-neumorphic-inset focus:border-sky-500 focus:ring-sky-500 text-sm">
+                            <select id="language" name="language" value={language} onChange={(e) => setLanguage(e.target.value)} className={formInputStyle}>
                                 <option>English</option>
                                 <option>Filipino</option>
                             </select>
                         </div>
                         <div>
                             <label htmlFor="gradeLevel" className="block text-sm font-semibold text-slate-700 mb-1">Grade Level</label>
-                            <select id="gradeLevel" name="gradeLevel" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} className="block w-full rounded-lg border-transparent bg-neumorphic-base shadow-neumorphic-inset focus:border-sky-500 focus:ring-sky-500 text-sm">
+                            <select id="gradeLevel" name="gradeLevel" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} className={formInputStyle}>
                                 {gradeLevels.map(level => (
                                     <option key={level} value={level}>{level}</option>
                                 ))}
@@ -528,13 +571,53 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
                     <div>
                         <label htmlFor="subject" className="block text-sm font-semibold text-slate-700 mb-1">Subject</label>
-                        <select id="subject" name="subject" value={selectedSubject || ''} onChange={(e) => setSelectedSubject(e.target.value)} className="block w-full rounded-lg border-transparent bg-neumorphic-base shadow-neumorphic-inset focus:border-sky-500 focus:ring-sky-500 text-sm">
+                        <select id="subject" name="subject" value={selectedSubject || ''} onChange={(e) => setSelectedSubject(e.target.value)} className={formInputStyle}>
                             <option value="" disabled>Select a subject</option>
                             {subjects.map(subject => (
                                 <option key={subject.id} value={subject.id}>{subject.title}</option>
                             ))}
                         </select>
                     </div>
+                    
+                    <div>
+                        <label htmlFor="learningCompetencies" className="block text-sm font-semibold text-slate-700 mb-1">Learning Competencies (Master List)</label>
+                        <textarea
+                            id="learningCompetencies"
+                            name="learningCompetencies"
+                            value={learningCompetencies}
+                            onChange={(e) => setLearningCompetencies(e.target.value)}
+                            className={formInputStyle}
+                            rows={4}
+                            placeholder="e.g., Describe the process of photosynthesis..."
+                        />
+                    </div>
+
+                    <div>
+                        <label htmlFor="contentStandard" className="block text-sm font-semibold text-slate-700 mb-1">Content Standard (Optional)</label>
+                        <textarea
+                            id="contentStandard"
+                            name="contentStandard"
+                            value={contentStandard}
+                            onChange={(e) => setContentStandard(e.target.value)}
+                            className={formInputStyle}
+                            rows={2}
+                            placeholder="e.g., The learners demonstrate an understanding of..."
+                        />
+                    </div>
+
+                    <div>
+                        <label htmlFor="performanceStandard" className="block text-sm font-semibold text-slate-700 mb-1">Performance Standard (Optional)</label>
+                        <textarea
+                            id="performanceStandard"
+                            name="performanceStandard"
+                            value={performanceStandard}
+                            onChange={(e) => setPerformanceStandard(e.target.value)}
+                            className={formInputStyle}
+                            rows={2}
+                            placeholder="e.g., The learners shall be able to..."
+                        />
+                    </div>
+                    {/* --- END OF CHANGES (4/4) --- */}
 
                     <div className="space-y-2">
                         <h3 className="text-base font-semibold text-slate-700">Scaffolding (Optional)</h3>

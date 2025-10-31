@@ -31,7 +31,9 @@ const tryParseJson = (jsonString) => {
     }
 };
 
-export default function GenerationScreen({ subject, unit, guideData, onGenerationComplete, onBack }) {
+// --- START OF FIX: Accept startLessonNumber prop ---
+export default function GenerationScreen({ subject, unit, guideData, startLessonNumber, onGenerationComplete, onBack }) {
+// --- END OF FIX ---
     const { showToast } = useToast();
     const [lessonProgress, setLessonProgress] = useState({ current: 0, total: 0 });
 
@@ -169,13 +171,19 @@ export default function GenerationScreen({ subject, unit, guideData, onGeneratio
                       **ABSOLUTE PRIMARY RULE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
                       **JSON SYNTAX RULES (NON-NEGOTIABLE):** 1. All keys in quotes. 2. Colon after every key. 3. Backslashes escaped (\\\\). 4. No trailing commas.
                       **CRITICAL PRE-FLIGHT CHECK:** Before outputting, verify: 1. No missing colons? 2. No missing commas? 3. Brackets/braces matched? 4. Backslashes escaped?
-                      **OUTPUT JSON STRUCTURE:** {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": [...], "pages": [...]}]}
+                      
+                      **OUTPUT JSON STRUCTURE:** {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": [...], "assignedCompetencies": ["Competency 1...", "Competency 2..."], "pages": [...]}]}
                       ---
                       **GENERATION TASK DETAILS**
                       ---
                       **Core Content:** Subject: "${guideData.subjectName}", Grade: ${guideData.gradeLevel}, Topic: "${guideData.content}"
-                      **Learning Competencies:** "${guideData.learningCompetencies}"
+                      
+                      **Learning Competencies (Master List):** "${guideData.learningCompetencies}"
+                      
                       **CRITICAL OBJECTIVES INSTRUCTION:** Generate 'learningObjectives' array with 3-5 objectives.
+
+                      **CRITICAL COMPETENCY ASSIGNMENT (NON-NEGOTIABLE):** The "Learning Competencies (Master List)" provided above is for the *entire* topic. For the specific lesson you are generating (Lesson ${lessonNumber}), you MUST analyze this master list and select 1-3 competencies that are *directly addressed* by this single lesson. You MUST add these selected competencies as a new array of strings under the key \`"assignedCompetencies"\`.
+
                       **CRITICAL INSTRUCTION FOR LESSON TITLES (NON-NEGOTIABLE):** The "lessonTitle" MUST be academic, formal, and descriptive. It must clearly state the core topic of the lesson.
                           - **GOOD Example:** "Lesson 1: The Principles of Newtonian Mechanics"
                           - **BAD Example:** "Lesson 1: Fun with Physics!"
@@ -187,7 +195,7 @@ export default function GenerationScreen({ subject, unit, guideData, onGeneratio
                       ${masterInstructions}`;
             } else {
                 showToast(`AI response was invalid. Retrying Lesson ${lessonNumber} (Attempt ${attempt})...`, "warning");
-                prompt = `The following text is not valid JSON and produced this error: "${lastError.message}". Correct the syntax and return ONLY the valid JSON object. BROKEN JSON: ${lastResponseText}`;
+                prompt = `The following text is not valid JSON and produced this error: "${lastError.message}". Correct the "broken" JSON and return ONLY the valid JSON object. BROKEN JSON: ${lastResponseText}`;
             }
 
             try {
@@ -204,7 +212,7 @@ export default function GenerationScreen({ subject, unit, guideData, onGeneratio
     };
 
 
-    const runGenerationLoop = async (startLessonNumber = 1) => {
+    const runGenerationLoop = async (startLessonNum = 1) => { // --- FIX: Use parameter ---
         let currentLessons = []; // Start fresh
         const lessonSummaryLabel = guideData.language === 'Filipino' ? 'Buod ng Aralin' : "Lesson Summary";
 
@@ -221,7 +229,9 @@ export default function GenerationScreen({ subject, unit, guideData, onGeneratio
                 throw new Error("Please provide the Main Content/Topic and Learning Competencies.");
             }
 
-            for (let i = startLessonNumber; i <= guideData.lessonCount; i++) {
+            // --- START OF FIX: Use startLessonNum in loop ---
+            for (let i = startLessonNum; i <= guideData.lessonCount; i++) {
+            // --- END OF FIX ---
                 setLessonProgress({ current: i, total: guideData.lessonCount });
                 showToast(`Generating Lesson ${i} of ${guideData.lessonCount}...`, "info", 10000);
                 
@@ -238,14 +248,11 @@ export default function GenerationScreen({ subject, unit, guideData, onGeneratio
                 
                 if (singleLessonData && singleLessonData.generated_lessons && singleLessonData.generated_lessons.length > 0) {
                     currentLessons.push(...singleLessonData.generated_lessons);
-                    // BUG FIX: Removed the onGenerationComplete call from inside the loop
-                    // It was causing the process to exit after the first lesson.
                 } else {
                     throw new Error(`Received invalid or empty data for lesson ${i}.`);
                 }
             }
         
-            // This is the correct place to call onGenerationComplete for a successful run
             onGenerationComplete({ previewData: { generated_lessons: currentLessons }, failedLessonNumber: null });
             setLessonProgress({ current: 0, total: 0 });
             showToast("All lessons generated successfully!", "success");
@@ -260,9 +267,11 @@ export default function GenerationScreen({ subject, unit, guideData, onGeneratio
     };
 
 
+    // --- START OF FIX: Update useEffect ---
     useEffect(() => {
-        runGenerationLoop();
-    }, [guideData]); // Run generation whenever guideData changes (i.e., when submitted from step 1)
+        runGenerationLoop(startLessonNumber);
+    }, [guideData, startLessonNumber]); // Run when guideData changes OR when startLessonNumber changes
+    // --- END OF FIX ---
 
     return (
         <div className="flex flex-col h-full bg-slate-200 rounded-2xl">

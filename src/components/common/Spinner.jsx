@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Fun, encouraging messages to display while loading
@@ -12,6 +12,86 @@ const loadingMessages = [
   'Calibrating circuits...',
   'Enhancing the experience...',
 ];
+
+const SpinningRings = memo(() => (
+  // --- CHANGE 2: Added motion.div and animation props for a "pulse" ---
+  <motion.div 
+    className="relative h-16 w-16 flex-shrink-0"
+    animate={{ scale: [1, 1.04, 1] }} // Keyframes for pulse
+    transition={{ 
+      scale: { 
+        repeat: Infinity, 
+        duration: 2.5, 
+        ease: "easeInOut" 
+      } 
+    }}
+  >
+    <div className="absolute inset-2 h-12 w-12 rounded-full bg-neumorphic-base shadow-neumorphic-inset flex items-center justify-center">
+        <img
+          src="https://i.ibb.co/XfJ8scGX/1.png"
+          alt="School Logo"
+          className="h-10 w-10 rounded-full object-cover"
+        />
+    </div>
+    <motion.svg
+      viewBox="0 0 100 100"
+      // --- CHANGE 3: Added a soft "glow" using drop-shadow filter ---
+      className="absolute inset-0 [filter:drop-shadow(0_0_6px_rgba(96,165,250,0.5))]"
+      animate={{ rotate: 360 }}
+      transition={{ 
+        repeat: Infinity, 
+        ease: 'linear', 
+        duration: 1.2 
+      }}
+    >
+      <defs>
+        <linearGradient id="g-blue" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#60a5fa" />
+          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <circle
+        cx="50"
+        cy="50"
+        r="45"
+        stroke="url(#g-blue)"
+        strokeWidth="6"
+        fill="none"
+        strokeLinecap="round"
+        strokeDasharray="200 360"
+      />
+    </motion.svg>
+    <motion.svg
+      viewBox="0 0 100 100"
+      // --- CHANGE 3: Added a soft "glow" using drop-shadow filter ---
+      className="absolute inset-0 [filter:drop-shadow(0_0_4px_rgba(94,234,212,0.5))]"
+      animate={{ rotate: -360 }}
+      transition={{ 
+        repeat: Infinity, 
+        ease: 'linear', 
+        duration: 2 
+      }}
+    >
+      <defs>
+        <linearGradient id="g-teal" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#5eead4" />
+          <stop offset="100%" stopColor="#14b8a6" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <circle
+        cx="50"
+        cy="50"
+        r="38"
+        stroke="url(#g-teal)"
+        strokeWidth="5"
+        fill="none"
+        strokeLinecap="round"
+        strokeDasharray="150 360"
+      />
+    </motion.svg>
+  </motion.div>
+));
+
 
 const Spinner = ({ isLoading = true }) => {
   const [message, setMessage] = useState(loadingMessages[0]);
@@ -49,65 +129,14 @@ const Spinner = ({ isLoading = true }) => {
             transition={{ type: 'spring', damping: 20, stiffness: 150 }}
             className="flex w-[320px] items-center gap-4 rounded-full bg-neumorphic-base p-4 shadow-neumorphic"
           >
-            <div className="relative h-16 w-16 flex-shrink-0">
-              {/* MODIFIED: The container for the logo now has the "pressed in" shadow effect */}
-              <div className="absolute inset-2 h-12 w-12 rounded-full bg-neumorphic-base shadow-neumorphic-inset flex items-center justify-center">
-                  <img
-                    src="https://i.ibb.co/XfJ8scGX/1.png"
-                    alt="School Logo"
-                    className="h-10 w-10 rounded-full object-cover"
-                  />
-              </div>
-              <motion.svg
-                viewBox="0 0 100 100"
-                className="absolute inset-0"
-                animate={{ rotate: 360 }}
-                transition={{ loop: Infinity, ease: 'linear', duration: 1.2 }}
-              >
-                <defs>
-                  <linearGradient id="g-blue" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#60a5fa" />
-                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="45"
-                  stroke="url(#g-blue)"
-                  strokeWidth="6"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeDasharray="200 360"
-                />
-              </motion.svg>
-              <motion.svg
-                viewBox="0 0 100 100"
-                className="absolute inset-0"
-                animate={{ rotate: -360 }}
-                transition={{ loop: Infinity, ease: 'linear', duration: 2 }}
-              >
-                <defs>
-                  <linearGradient id="g-teal" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#5eead4" />
-                    <stop offset="100%" stopColor="#14b8a6" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  stroke="url(#g-teal)"
-                  strokeWidth="5"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeDasharray="150 360"
-                />
-              </motion.svg>
-            </div>
+            
+            <SpinningRings />
 
             <div className="flex flex-col overflow-hidden">
-              <p className="font-bold text-slate-800">SRCS Learning Portal</p>
+              {/* --- CHANGE 1: Applied gradient text classes --- */}
+              <p className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-teal-400">
+                SRCS Learning Portal
+              </p>
               <AnimatePresence mode="wait">
                 <motion.p
                   key={message}

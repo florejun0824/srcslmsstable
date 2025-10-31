@@ -38,6 +38,10 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         failedLessonNumber: null,
     });
     
+    // --- START OF FIX: Add state for retry logic ---
+    const [startLessonNumber, setStartLessonNumber] = useState(1);
+    // --- END OF FIX ---
+
     // Data fetched once and passed down
     const [subject, setSubject] = useState(null);
     const [unit, setUnit] = useState(null);
@@ -71,6 +75,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         setCurrentStep('topic');
         setGuideData(initialFormData);
         setGenerationResult({ previewData: null, failedLessonNumber: null });
+        setStartLessonNumber(1); // --- FIX: Reset lesson number ---
     }, []);
 
     const handleClose = useCallback(() => {
@@ -80,6 +85,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
 
     const handleTopicSubmit = (submittedFormData) => {
         setGuideData(submittedFormData);
+        setStartLessonNumber(1); // --- FIX: Reset to 1 on new submission ---
         setCurrentStep('generation');
     };
 
@@ -88,13 +94,17 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         setCurrentStep('preview');
     };
     
-    // --- BUG FIX ---
-    // This function now correctly takes the user back to the topic screen.
     const handleBackToEdit = () => {
         setCurrentStep('topic');
-        // We keep the guideData so the form is pre-filled for editing
         setGenerationResult({ previewData: null, failedLessonNumber: null });
     };
+
+    // --- START OF FIX: Add the missing handler ---
+    const handleBackToGeneration = (failedLessonNum) => {
+        setStartLessonNumber(failedLessonNum); // Set the lesson to restart from
+        setCurrentStep('generation'); // Go back to the generation screen
+    };
+    // --- END OF FIX ---
 
     const renderCurrentStep = () => {
         if (!subject || !unit) {
@@ -108,6 +118,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                         subject={subject}
                         unit={unit}
                         guideData={guideData}
+                        startLessonNumber={startLessonNumber} // --- FIX: Pass prop ---
                         onGenerationComplete={handleGenerationComplete}
                         onBack={() => setCurrentStep('topic')}
                     />
@@ -117,8 +128,10 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                     <PreviewScreen
                         subject={subject}
                         unit={unit}
+                        guideData={guideData}
                         generationResult={generationResult}
-                        onBackToEdit={handleBackToEdit} // Correct handler passed
+                        onBackToEdit={handleBackToEdit}
+                        onBackToGeneration={handleBackToGeneration} // --- FIX: Pass prop ---
                         onClose={handleClose}
                     />
                 );
@@ -128,7 +141,6 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
                     <TopicSelectionScreen
                         subject={subject}
                         unit={unit}
-                        // Pass existing form data back to the topic screen for editing
                         initialData={guideData} 
                         onSubmit={handleTopicSubmit}
                     />
