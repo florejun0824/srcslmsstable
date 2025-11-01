@@ -144,7 +144,6 @@ export const deleteUser = async (userId) => {
 };
 
 export const addMultipleUsers = async (users) => {
-  // ✅ FIX: Add a check to ensure the 'users' parameter is an array.
   if (!Array.isArray(users)) {
     const error = new TypeError("Failed to add multiple users: The input must be an array.");
     console.error(error.message, { received: users });
@@ -369,8 +368,6 @@ export const updateTeacherInPool = async (batch, teacherId, newData) => {
     if (newData.lastName) allowedFields.lastName = newData.lastName;
 
     if (Object.keys(allowedFields).length > 0) {
-      // Use setDoc with { merge: true } to create the doc if it's missing,
-      // or update it if it exists. This is an "upsert" operation.
       batch.set(teacherRef, allowedFields, { merge: true });
     }
   } catch (err) {
@@ -397,7 +394,6 @@ export const joinClassWithCode = async (classCode, studentProfile) => {
       throw new Error("Class code and student profile are required.");
     }
 
-    // 1. Find the class
     const upperCaseClassCode = classCode.toUpperCase();
     const q = query(collection(db, "classes"), where("classCode", "==", upperCaseClassCode));
     const querySnapshot = await getDocs(q);
@@ -410,22 +406,16 @@ export const joinClassWithCode = async (classCode, studentProfile) => {
     const classData = classDoc.data();
     const classDocRef = doc(db, "classes", classDoc.id);
 
-    // --- 
-    // --- 2. (NEW) VALIDATE GRADE LEVEL ---
-    // ---
     if (classData.gradeLevel !== studentProfile.gradeLevel) {
       throw new Error(
         `Join failed: Your grade (${studentProfile.gradeLevel}) does not match the class's grade (${classData.gradeLevel}).`
       );
     }
-    // --- END OF NEW VALIDATION ---
-
-    // 3. (NEW) Check if student is already in the class
+    
     if (classData.studentIds && classData.studentIds.includes(studentProfile.id)) {
       throw new Error("You are already enrolled in this class.");
     }
 
-    // 4. Add student to the class
     const studentObject = {
       id: studentProfile.id,
       firstName: studentProfile.firstName,
@@ -436,11 +426,10 @@ export const joinClassWithCode = async (classCode, studentProfile) => {
       studentIds: arrayUnion(studentProfile.id)
     });
 
-    // 5. Return success
     return { success: true, className: classData.name };
   } catch (err) {
     console.error(`❌ joinClassWithCode failed for code=${classCode}`, err);
-    throw err; // Re-throw the error so the modal can catch it
+    throw err;
   }
 };
 
@@ -459,6 +448,45 @@ export const deleteClass = async (classId) => {
     return await deleteDoc(doc(db, "classes", classId));
   } catch (err) {
     console.error(`❌ deleteClass failed for classId=${classId}`, err);
+    throw err;
+  }
+};
+
+// --- NEW FUNCTION ---
+export const getAllClasses = async () => {
+  try {
+    const classesRef = collection(db, 'classes');
+    const q = query(classesRef, where("isArchived", "!=", true));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (err) {
+    console.error(`❌ getAllClasses failed`, err);
+    throw err;
+  }
+};
+
+// --- NEW FUNCTION ---
+export const addStudentsToClass = async (classId, studentIds, studentObjects) => {
+  try {
+    if (!classId || !studentIds || !studentObjects) {
+      throw new Error("classId, studentIds, and studentObjects are required.");
+    }
+    
+    const classRef = doc(db, "classes", classId);
+    
+    const studentsForUnion = studentObjects.map(s => ({
+      id: s.id,
+      firstName: s.firstName,
+      lastName: s.lastName
+    }));
+
+    await updateDoc(classRef, {
+      studentIds: arrayUnion(...studentIds),
+      students: arrayUnion(...studentsForUnion)
+    });
+
+  } catch (err) {
+    console.error(`❌ addStudentsToClass failed for classId=${classId}`, err);
     throw err;
   }
 };
@@ -548,6 +576,8 @@ const firestoreService = {
   joinClassWithCode,
   updateClassArchiveStatus,
   deleteClass,
+  getAllClasses, // <-- ADDED
+  addStudentsToClass, // <-- ADDED
 
   updateAnnouncement,
   deleteAnnouncement,

@@ -220,8 +220,11 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
     default: {
       const content = page.content; 
       const contentString = (typeof content === 'string') ? content : JSON.stringify(content, null, 2); 
-      return ( 
-        <div className="mb-6 last:mb-0"> 
+      return (
+        // --- THIS IS THE CHANGE ---
+        // Added `overflow-x-auto` to this div. This will make this block
+        // horizontally scrollable if its content (like a table) is too wide.
+        <div className="mb-6 last:mb-0 overflow-x-auto"> 
           {shouldRenderTitle && ( <h4 className="font-semibold text-gray-700 mb-2">{page.title}</h4> )} 
           <ContentRenderer text={contentString} /> 
         </div> 

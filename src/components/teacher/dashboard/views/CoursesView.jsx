@@ -325,14 +325,15 @@ const SubjectList = (props) => {
         <div className={commonContainerClasses}>
             <div className={`${windowContainerClasses} bg-gradient-to-br from-white to-slate-50`}>
                 {/* --- MODIFIED: Made header responsive --- */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                    <div className="flex items-center gap-2 sm:gap-4">
-                        <button onClick={() => navigate(`/dashboard/courses/${contentGroup}`)} className={secondaryButton}><ArrowUturnLeftIcon className="w-5 h-5" /></button>
-                        {/* --- MODIFIED: Responsive header text --- */}
-                        <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-800 leading-tight truncate">{decodedCategoryName.replace(/\s\((Teacher|Learner)'s Content\)/i, '')}</h1>
-                    </div>
-                    <button onClick={() => { if (onAddSubjectClick) { onAddSubjectClick(decodedCategoryName); } }} className={primaryButton}><PlusCircleIcon className="w-5 h-5" />Add Subject</button>
-                </div>
+		<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+		    <div className="flex items-start gap-2 sm:gap-4"> {/* <-- MODIFICATION 1: Aligns button to the top */}
+		        <button onClick={() => navigate(`/dashboard/courses/${contentGroup}`)} className={secondaryButton}><ArrowUturnLeftIcon className="w-5 h-5" /></button>
+		        {/* --- MODIFIED: Responsive header text --- */}
+		        {/* MODIFICATION 2 & 3: Removed 'truncate' and made text smaller */}
+		        <h1 className="text-xl sm:text-3xl font-extrabold text-slate-800 leading-tight">{decodedCategoryName.replace(/\s\((Teacher|Learner)'s Content\)/i, '')}</h1>
+		    </div>
+		    <button onClick={() => { if (onAddSubjectClick) { onAddSubjectClick(decodedCategoryName); } }} className={primaryButton}><PlusCircleIcon className="w-5 h-5" />Add Subject</button>
+		</div>
                 <div className="mb-6">
                     <div className="relative">
                         <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -359,8 +360,10 @@ const SubjectList = (props) => {
                                             <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mb-3 sm:mb-4 bg-neumorphic-base shadow-neumorphic-inset">
                                                 <Icon className={`w-6 h-6 sm:w-7 h-7 ${iconColor}`} />
                                             </div>
-                                            {/* --- MODIFIED: Responsive text --- */}
-                                            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-800">{course.title}</h2>
+											{/* --- MODIFIED: Responsive text --- */}
+											<h2 className="text-base sm:text-lg font-bold text-slate-800 mb-1">
+											    {course.title}
+											</h2>
                                         </div>
                                         <p className="text-sm text-slate-500 mt-2 font-medium">{unitCount} {unitCount === 1 ? 'Unit' : 'Units'}</p>
                                     </div>
