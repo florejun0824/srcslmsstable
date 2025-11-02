@@ -13,9 +13,22 @@ import {
     CheckCircleIcon,
     ExclamationCircleIcon,
     PencilIcon,
-    SparklesIcon
+    SparklesIcon,
+    // --- ADDED: Icon for biometrics ---
+    FingerPrintIcon
 } from '@heroicons/react/24/solid';
 import { updateStudentDetailsInClasses } from '../services/firestoreService';
+
+// --- ADDED: Headless UI for the toggle switch ---
+import { Switch } from '@headlessui/react';
+// --- ADDED: Biometric/Preferences plugins ---
+import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
+import { Preferences } from '@capacitor/preferences';
+
+// Helper for class names
+function classNames(...classes) {
+  return classes.filter(Boolean).join(' ')
+}
 
 const NeumorphicFormField = ({ label, icon: Icon, children, className = '' }) => (
     <div className={className}>
@@ -93,6 +106,12 @@ const StudentProfilePage = () => {
 
     const isInitialXpLoad = useRef(true);
 
+    // --- ADDED: State for the biometric toggle ---
+    const [isBiometricSupported, setIsBiometricSupported] = useState(false);
+    const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
+    const [isLoadingBiometrics, setIsLoadingBiometrics] = useState(true);
+
+
     useEffect(() => {
         if (!authLoading && userProfile && !profile.firstName) {
             setProfile(prev => ({
@@ -107,6 +126,29 @@ const StudentProfilePage = () => {
             }));
         }
     }, [authLoading, userProfile]);
+
+    // --- ADDED: Check biometric status on component load ---
+    useEffect(() => {
+        const checkBiometricStatus = async () => {
+            try {
+                const { isAvailable } = await BiometricAuth.checkBiometry();
+                setIsBiometricSupported(isAvailable);
+
+                if (isAvailable) {
+                    // Check if we have credentials stored
+                    const { value } = await Preferences.get({ key: 'userCredentials' });
+                    setIsBiometricEnabled(!!value);
+                }
+            } catch (error) {
+                console.error("Failed to check biometric status:", error);
+                setIsBiometricSupported(false);
+            } finally {
+                setIsLoadingBiometrics(false);
+            }
+        };
+
+        checkBiometricStatus();
+    }, []);
 
     useEffect(() => {
         if (!userProfile) return;
@@ -219,6 +261,31 @@ const StudentProfilePage = () => {
             showToast(`Failed to update setting: ${err.message}`, 'error');
         } finally {
             setIsTogglingCosmetics(false);
+        }
+    };
+
+    // --- ADDED: Handler for the biometric toggle switch ---
+    const handleBiometricToggle = async (enabled) => {
+        if (enabled) {
+            // --- CANNOT ENABLE from here ---
+            // This is a security precaution. We don't have the user's password
+            // to re-save securely. They must do it from the login page.
+            showToast(
+                "Please log out and log in with your password to enable biometrics.", 
+                "info"
+            );
+            // We don't change the state, so the toggle snaps back to 'off'
+        } else {
+            // --- DISABLE ---
+            // This is safe to do. We just remove the credentials.
+            try {
+                await Preferences.remove({ key: 'userCredentials' });
+                setIsBiometricEnabled(false);
+                showToast("Biometric Login Disabled", "success");
+            } catch (error) {
+                console.error("Failed to disable biometrics:", error);
+                showToast("Could not disable biometric login.", "error");
+            }
         }
     };
 
@@ -342,6 +409,43 @@ const StudentProfilePage = () => {
                         />
                     </button>
                 </div>
+
+                {/* --- ADDED: Security Section --- */}
+                {isBiometricSupported && !isLoadingBiometrics && (
+                    <div className="mb-8 bg-neumorphic-base p-4 rounded-2xl shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg">
+                        <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-3 -mt-1 flex items-center gap-2">
+                           <FingerPrintIcon className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                           Security
+                        </h3>
+                        <Switch.Group as="div" className="flex items-center justify-between">
+                            <span className="flex-grow flex flex-col">
+                                <Switch.Label as="span" className="font-semibold text-slate-800 dark:text-slate-100 cursor-pointer" passive>
+                                    Biometric Login
+                                </Switch.Label>
+                                <Switch.Description as="span" className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                    {isBiometricEnabled ? "Enabled" : "Disabled"}. Use Face/Fingerprint to log in.
+                                </Switch.Description>
+                            </span>
+                            <Switch
+                                checked={isBiometricEnabled}
+                                onChange={handleBiometricToggle}
+                                className={classNames(
+                                    isBiometricEnabled ? 'bg-blue-600' : 'bg-gray-200 dark:bg-slate-700',
+                                    'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+                                )}
+                            >
+                                <span
+                                    aria-hidden="true"
+                                    className={classNames(
+                                        isBiometricEnabled ? 'translate-x-5' : 'translate-x-0',
+                                        'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out'
+                                    )}
+                                />
+                            </Switch>
+                        </Switch.Group>
+                    </div>
+                )}
+                {/* --- END: Security Section --- */}
 
                 <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">Edit Profile</h2>
                 <form onSubmit={handleProfileSubmit} className="space-y-6">

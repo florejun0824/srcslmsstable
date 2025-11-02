@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 // Import the new combined component
 import HologramOnboarding from "./HologramOnboarding"; 
+// --- ADDED: Import the new BiometricPrompt component ---
+import BiometricPrompt from "./common/BiometricPrompt"; // <-- Adjust path if you save it elsewhere
 
 export default function PostLoginExperience({ children }) {
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -53,7 +55,18 @@ export default function PostLoginExperience({ children }) {
           onClose={handleOnboardingClose}
         />
       )}
-      {!showOnboarding && children}
+      
+      {/* --- MODIFIED SECTION ---
+        Once onboarding is hidden, we render the children (the dashboard)
+        AND our new BiometricPrompt. It will handle its own logic
+        and show a modal *on top* of the dashboard if needed.
+      */}
+      {!showOnboarding && (
+        <>
+          <BiometricPrompt />
+          {children}
+        </>
+      )}
     </>
   );
 }
