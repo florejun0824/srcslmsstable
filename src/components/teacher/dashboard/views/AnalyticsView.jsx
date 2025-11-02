@@ -567,7 +567,14 @@ const AnalyticsView = ({ activeClasses }) => {
       return;
     }
 
+    // 🧩 NEW: Guard clause for missing lessonData
+    if (!lessonData) {
+      alert("Lesson data is missing. Please ensure the selected quiz is linked to a lesson before generating remediation.");
+      return;
+    }
+
     const action = analysisResult.recommendation_action;
+
 
     // ✅ Skip entirely if NONE
     if (action === "NONE") {
@@ -592,9 +599,9 @@ const AnalyticsView = ({ activeClasses }) => {
 
     try {
       const lessonLanguage = lessonData?.language || "the same language as the original lesson";
-      const lessonText = (lessonData.pages || [])
-        .map((p) => `${p.title ? p.title + "\n" : ""}${p.content || ""}`)
-        .join("\n\n"); // Fixed img.join error
+	const lessonText = (lessonData?.pages || [])
+	  .map((p) => `${p.title ? p.title + "\n" : ""}${p.content || ""}`)
+	  .join("\n\n");
       const weakTopicsString = weakItems
         .map((item) => `- ${item.question} (Difficulty: ${item.difficulty})`)
         .join("\n");
@@ -884,6 +891,12 @@ const AnalyticsView = ({ activeClasses }) => {
   return (
     // --- MODIFIED: Added dark theme base ---
     <div className="p-4 sm:p-6 md:p-8 h-full overflow-y-auto dark:bg-neumorphic-base-dark">
+      <div className="md:col-span-2">
+	{(isLoading || isGeneratingRemediation) && (
+	  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+	    <Spinner size="lg" />
+	  </div>
+	)}
       {/* --- MODIFIED: Added dark theme text --- */}
       <h1 className="text-3xl font-extrabold text-slate-900 dark:text-slate-100 mb-6">Class Analytics</h1>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1013,13 +1026,10 @@ const AnalyticsView = ({ activeClasses }) => {
               ))}
             </div>
           )}
-        </div>
+    </div>
 
-        {/* Main Content */}
-        <div className="md:col-span-2">
-          {isLoading ? <div className="flex justify-center mt-12"><Spinner /></div> : (
-            <>
-              {analysisType === "students" && ( // Show this content only when not loading
+          {analysisType === "students" && ( // Show this content only when not loading
+        
                 <div>
                   {selectedQuarter ? (
                     atRiskByQuarter[selectedQuarter]?.length > 0 ? (
@@ -1197,11 +1207,10 @@ const AnalyticsView = ({ activeClasses }) => {
                     ))}
                   </div>
                 </div>
-              )}
-            </>
           )}
         </div>
       </div>
+            
       {!selectedClassId && !isLoading && ( // Only show placeholder if not loading
         <div className="text-center mt-16">
           {/* --- MODIFIED: Added dark theme icon/text --- */}
