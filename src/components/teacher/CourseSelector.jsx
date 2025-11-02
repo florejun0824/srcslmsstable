@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { collection, query, onSnapshot } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+// --- MODIFIED: Added Headless UI and Heroicons ---
+import { Listbox, Transition } from '@headlessui/react';
+import { CheckIcon, ChevronUpDownIcon } from '@heroicons/react/24/solid';
 
 /**
  * A selector component for courses, fetching all courses from Firestore.
@@ -12,13 +15,15 @@ export default function CourseSelector({ onCourseSelect }) {
     const [courses, setCourses] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [selectedCourseId, setSelectedCourseId] = useState('');
+    // --- MODIFIED: Store the full object, not just the ID. This works better with Listbox. ---
+    const [selectedCourse, setSelectedCourse] = useState(null);
+
+    // --- MODIFIED: Neumorphic input styles for the Listbox button ---
+    const inputBaseStyles = "relative w-full cursor-default bg-slate-200 dark:bg-neumorphic-base-dark rounded-xl shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:shadow-neumorphic-inset-dark py-2.5 pl-4 pr-10 text-left focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm";
 
     useEffect(() => {
-        // Create a query to fetch all documents from the 'courses' collection
         const coursesQuery = query(collection(db, 'courses'));
 
-        // Set up a real-time listener with onSnapshot
         const unsubscribe = onSnapshot(
             coursesQuery,
             (snapshot) => {
@@ -27,27 +32,19 @@ export default function CourseSelector({ onCourseSelect }) {
                     ...doc.data()
                 }));
 
-                // Sort courses alphabetically by title
-                coursesData.sort((a, b) => {
-                    if (a.title && b.title) {
-                        return a.title.localeCompare(b.title);
-                    }
-                    return 0;
-                });
-
+                coursesData.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
                 setCourses(coursesData);
                 setIsLoading(false);
 
-                // Automatically select the first course if available
                 if (coursesData.length > 0) {
-                    const defaultCourseId = coursesData[0].id;
-                    setSelectedCourseId(defaultCourseId);
-                    const selectedCourse = coursesData.find(c => c.id === defaultCourseId);
+                    // --- MODIFIED: Set the full course object ---
+                    const defaultCourse = coursesData[0];
+                    setSelectedCourse(defaultCourse);
                     if (onCourseSelect) {
-                        onCourseSelect(selectedCourse);
+                        onCourseSelect(defaultCourse);
                     }
                 } else {
-                    setSelectedCourseId('');
+                    setSelectedCourse(null);
                     if (onCourseSelect) {
                         onCourseSelect(null);
                     }
@@ -60,50 +57,93 @@ export default function CourseSelector({ onCourseSelect }) {
             }
         );
 
-        // Unsubscribe from the listener when the component unmounts
         return () => unsubscribe();
-    }, [onCourseSelect]);
+    }, [onCourseSelect]); // onCourseSelect is stable, this effect runs once.
 
-    const handleSelectChange = (e) => {
-        const courseId = e.target.value;
-        setSelectedCourseId(courseId);
-        const selectedCourse = courses.find(c => c.id === courseId);
+    const handleSelectChange = (course) => {
+        setSelectedCourse(course);
         if (onCourseSelect) {
-            onCourseSelect(selectedCourse);
+            onCourseSelect(course);
         }
     };
 
     if (isLoading) {
-        return <div className="text-center p-4 text-slate-500">Loading courses...</div>;
+        return <div className="text-center p-4 text-slate-500 dark:text-slate-400">Loading courses...</div>;
     }
 
     if (error) {
-        return <div className="text-center p-4 text-red-600">{error}</div>;
+        return <div className="text-center p-4 text-red-600 dark:text-red-400">{error}</div>;
     }
 
     return (
-        <div className="p-4 bg-white rounded-xl shadow-lg w-full">
-            <h2 className="text-base font-bold text-slate-700 mb-4 border-b pb-2">Select a Subject</h2>
+        // --- MODIFIED: Added dark theme styles ---
+        <div className="p-4 bg-slate-200 dark:bg-neumorphic-base-dark rounded-xl shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] dark:shadow-lg w-full">
+            {/* --- MODIFIED: Added dark theme text & border --- */}
+            <h2 className="text-base font-bold text-slate-700 dark:text-slate-100 mb-4 border-b pb-2 border-slate-300/70 dark:border-slate-700">Select a Subject</h2>
             {courses.length > 0 ? (
                 <div>
-                    <label htmlFor="course-select" className="block text-sm font-medium text-slate-600 mb-1">
+                    {/* --- MODIFIED: Added dark theme text --- */}
+                    <label htmlFor="course-select-button" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
                         Choose a subject:
                     </label>
-                    <select
-                        id="course-select"
-                        value={selectedCourseId}
-                        onChange={handleSelectChange}
-                        className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white shadow-sm"
-                    >
-                        {courses.map((course) => (
-                            <option key={course.id} value={course.id}>
-                                {course.title}
-                            </option>
-                        ))}
-                    </select>
+                    
+                    {/* --- MODIFIED: Replaced <select> with <Listbox> --- */}
+                    <Listbox value={selectedCourse} onChange={handleSelectChange}>
+                        <div className="relative mt-1">
+                            <Listbox.Button id="course-select-button" className={inputBaseStyles}>
+                                <span className="block truncate text-slate-800 dark:text-slate-100">{selectedCourse?.title || "Select a subject"}</span>
+                                <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                                    <ChevronUpDownIcon
+                                        className="h-5 w-5 text-gray-400"
+                                        aria-hidden="true"
+                                    />
+                                </span>
+                            </Listbox.Button>
+                            <Transition
+                                as={Fragment}
+                                leave="transition ease-in duration-100"
+                                leaveFrom="opacity-100"
+                                leaveTo="opacity-0"
+                            >
+                                <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-slate-200 dark:bg-neumorphic-base-dark py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                                    {courses.map((course) => (
+                                        <Listbox.Option
+                                            key={course.id}
+                                            className={({ active }) =>
+                                                `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                                    active ? 'bg-sky-100 text-sky-900 dark:bg-sky-800 dark:text-sky-100' : 'text-gray-900 dark:text-slate-100'
+                                                }`
+                                            }
+                                            value={course}
+                                        >
+                                            {({ selected }) => (
+                                                <>
+                                                    <span
+                                                        className={`block truncate ${
+                                                            selected ? 'font-medium' : 'font-normal'
+                                                        }`}
+                                                    >
+                                                        {course.title}
+                                                    </span>
+                                                    {selected ? (
+                                                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-sky-600 dark:text-sky-400">
+                                                            <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                                        </span>
+                                                    ) : null}
+                                                </>
+                                            )}
+                                        </Listbox.Option>
+                                    ))}
+                                </Listbox.Options>
+                            </Transition>
+                        </div>
+                    </Listbox>
+                    {/* --- END OF REPLACEMENT --- */}
+
                 </div>
             ) : (
-                <p className="text-sm text-slate-500">No subjects are currently available. Please create one first.</p>
+                // --- MODIFIED: Added dark theme text ---
+                <p className="text-sm text-slate-500 dark:text-slate-400">No subjects are currently available. Please create one first.</p>
             )}
         </div>
     );

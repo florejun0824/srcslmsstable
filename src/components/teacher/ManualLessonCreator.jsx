@@ -178,25 +178,31 @@ const MarkdownEditor = ({ value, onValueChange }) => {
         <button
             onClick={onClick || (() => applyMarkdown(syntax))}
             title={tooltip}
-            className="p-2 rounded-md text-gray-600 hover:bg-gray-200 hover:text-gray-900 flex items-center justify-center"
+            // --- MODIFIED: Added dark theme styles ---
+            className="p-2 rounded-md text-slate-600 hover:bg-slate-200 hover:text-slate-900 
+                       dark:text-slate-400 dark:hover:bg-neumorphic-base dark:hover:text-slate-100 flex items-center justify-center"
         >
             {Icon ? <Icon className="w-5 h-5" /> : <span className="text-xs font-bold px-1">{text}</span>}
         </button>
     );
 
     return (
-        <div className="border border-slate-300/80 rounded-xl overflow-hidden flex flex-col h-full bg-white/80 min-h-0">
-            <div className="flex items-center flex-wrap gap-1 p-2 border-b border-slate-300/80 bg-slate-100/80">
+        // --- MODIFIED: Added dark theme styles ---
+        <div className="border border-slate-300/80 dark:border-slate-700 rounded-xl overflow-hidden flex flex-col h-full bg-white/80 dark:bg-neumorphic-base-dark min-h-0">
+            {/* --- MODIFIED: Added dark theme styles --- */}
+            <div className="flex items-center flex-wrap gap-1 p-2 border-b border-slate-300/80 dark:border-slate-700 bg-slate-100/80 dark:bg-neumorphic-base-dark/60">
                 <ToolbarButton icon={BoldIcon} syntax="bold" tooltip="Bold" />
                 <ToolbarButton icon={ItalicIcon} syntax="italic" tooltip="Italic" />
                 <ToolbarButton icon={QueueListIcon} syntax="list" tooltip="Bulleted List" />
                 <ToolbarButton icon={CodeBracketIcon} syntax="code" tooltip="Inline Code" />
                 <ToolbarButton icon={LinkIcon} syntax="link" tooltip="Link" />
-                <div className="w-px h-6 bg-slate-300/80 mx-1"></div>
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <div className="w-px h-6 bg-slate-300/80 dark:bg-slate-700 mx-1"></div>
                 <div className="relative">
                     <ToolbarButton icon={PaintBrushIcon} tooltip="Text Color" onClick={() => setShowColorPicker(s => !s)} />
                     {showColorPicker && (
-                        <div onMouseLeave={() => setShowColorPicker(false)} className="absolute top-full mt-2 z-10 bg-white p-2 rounded-lg shadow-xl border border-slate-200 flex gap-2">
+                        // --- MODIFIED: Added dark theme styles ---
+                        <div onMouseLeave={() => setShowColorPicker(false)} className="absolute top-full mt-2 z-10 bg-white dark:bg-neumorphic-base p-2 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 flex gap-2">
                             {TEXT_COLORS.map(color => (
                                 <button key={color.name} title={color.name} onClick={() => applyColor(color.hex)} className="w-6 h-6 rounded-full" style={{ backgroundColor: color.hex }} />
                             ))}
@@ -204,7 +210,8 @@ const MarkdownEditor = ({ value, onValueChange }) => {
                     )}
                 </div>
                 <ToolbarButton icon={ChatBubbleLeftRightIcon} tooltip="Block Quote" onClick={applyBlockQuote} />
-                <div className="w-px h-6 bg-slate-300/80 mx-1"></div>
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <div className="w-px h-6 bg-slate-300/80 dark:bg-slate-700 mx-1"></div>
                 <ToolbarButton text="H1" syntax="h1" tooltip="Heading 1" />
                 <ToolbarButton text="H2" syntax="h2" tooltip="Heading 2" />
                 <ToolbarButton text="H3" syntax="h3" tooltip="Heading 3" />
@@ -214,7 +221,9 @@ const MarkdownEditor = ({ value, onValueChange }) => {
                     ref={textareaRef}
                     value={value}
                     onChange={(e) => onValueChange && onValueChange(e.target.value)}
-                    className="w-full p-2 font-mono text-sm resize-none border-none focus:outline-none focus:ring-0 bg-transparent overflow-hidden"
+                    // --- MODIFIED: Added dark theme styles ---
+                    className="w-full p-2 font-mono text-sm resize-none border-none focus:outline-none focus:ring-0 bg-transparent overflow-hidden
+                               dark:text-slate-100 dark:placeholder-slate-500"
                     placeholder="Type your markdown content here..."
                     style={{ lineHeight: '1.5', whiteSpace: 'pre-wrap' }}
                 />
@@ -248,19 +257,27 @@ function SortablePageItem({ id, page, index, activePageIndex, setActivePageIndex
             ref={setNodeRef}
             style={style}
             onClick={() => setActivePageIndex(index)}
-            className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-300 ${isActive ? 'bg-white shadow-lg ring-2 ring-indigo-500/50' : 'bg-white/60 hover:bg-white/90 hover:shadow-md'} ${isDragging ? 'shadow-2xl' : ''}`}
+            // --- MODIFIED: Added dark theme styles ---
+            className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-300 ${isDragging ? 'shadow-2xl' : ''}
+                       ${isActive 
+                           ? 'bg-white shadow-lg ring-2 ring-indigo-500/50 dark:bg-slate-100 dark:shadow-neumorphic-light dark:ring-2 dark:ring-indigo-400' 
+                           : 'bg-white/60 hover:bg-white/90 hover:shadow-md dark:bg-neumorphic-base-dark dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark'
+                       }`}
         >
             <div className="flex items-center gap-3 overflow-hidden">
-                <button {...listeners} {...attributes} className="p-1 text-slate-400 cursor-grab touch-none">
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <button {...listeners} {...attributes} className="p-1 text-slate-400 dark:text-slate-500 cursor-grab touch-none">
                     <Bars3Icon className="h-5 w-5"/>
                 </button>
-                <span className="font-medium text-slate-800 truncate">{page.title || `Page ${index + 1}`}</span>
+                {/* --- MODIFIED: Added dark theme text (conditional) --- */}
+                <span className={`font-medium truncate ${isActive ? 'text-slate-800' : 'text-slate-800 dark:text-slate-100'}`}>{page.title || `Page ${index + 1}`}</span>
             </div>
             <button
                 onClick={(e) => { e.stopPropagation(); removePage(index); }}
                 disabled={isOnlyPage}
                 title="Remove page"
-                className="p-1 text-red-400 hover:text-red-600 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+                // --- MODIFIED: Added dark theme styles ---
+                className="p-1 text-red-400 hover:text-red-600 dark:text-red-500 dark:hover:text-red-400 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <TrashIcon className="h-5 w-5"/>
             </button>
@@ -283,6 +300,10 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
             coordinateGetter: sortableKeyboardCoordinates,
         })
     );
+    
+    // --- MODIFIED: Added reusable form input style ---
+    const formInputStyle = "w-full p-3 text-base rounded-xl shadow-neumorphic-inset bg-neumorphic-base text-slate-900 placeholder-slate-400 dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:text-slate-100 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500";
+
 
     const handlePageChange = (field, value) => {
         const newPages = [...pages];
@@ -367,19 +388,23 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
 
     return (
         <div className="flex flex-col h-full">
-            <div className="flex-shrink-0 pb-4 border-b border-slate-900/10">
+            {/* --- MODIFIED: Added dark theme styles --- */}
+            <div className="flex-shrink-0 pb-4 border-b border-slate-900/10 dark:border-slate-700">
                 <div className="flex justify-between items-center mb-4">
-                    <Dialog.Title as="h3" className="text-2xl font-bold text-slate-800">Create Lesson Manually</Dialog.Title>
+                    {/* --- MODIFIED: Added dark theme text --- */}
+                    <Dialog.Title as="h3" className="text-2xl font-bold text-slate-800 dark:text-slate-100">Create Lesson Manually</Dialog.Title>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" placeholder="Lesson Title, e.g., 'Introduction to Cells'" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-2 border border-gray-300 rounded-xl"/>
-                    <input type="text" placeholder="Study Guide URL (Optional)" value={studyGuideUrl} onChange={(e) => setStudyGuideUrl(e.target.value)} className="w-full p-2 border border-gray-300 rounded-xl"/>
+                    {/* --- MODIFIED: Using formInputStyle --- */}
+                    <input type="text" placeholder="Lesson Title, e.g., 'Introduction to Cells'" value={title} onChange={(e) => setTitle(e.target.value)} className={formInputStyle}/>
+                    <input type="text" placeholder="Study Guide URL (Optional)" value={studyGuideUrl} onChange={(e) => setStudyGuideUrl(e.target.value)} className={formInputStyle}/>
                 </div>
             </div>
 
             <div className="flex-grow grid grid-cols-12 gap-6 pt-4 min-h-0">
                 <div className="col-span-4 lg:col-span-3 flex flex-col">
-                    <h3 className="text-base font-semibold text-slate-700 mb-3 px-1">Pages</h3>
+                    {/* --- MODIFIED: Added dark theme text --- */}
+                    <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-3 px-1">Pages</h3>
                     <div className="flex-grow overflow-y-auto pr-2 -mr-2">
                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                             <SortableContext items={pages.map(p => p.id)} strategy={verticalListSortingStrategy}>
@@ -401,25 +426,32 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                         </DndContext>
                     </div>
                     <div className="mt-4 flex-shrink-0 pr-2">
-                         <button onClick={addPage} className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-white/60 text-slate-700 border border-slate-300/70 hover:bg-white/90 hover:border-slate-400 rounded-xl">
+                         {/* --- MODIFIED: Added dark theme styles --- */}
+                         <button onClick={addPage} className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-neumorphic-base text-slate-700 shadow-neumorphic transition-shadow duration-300 rounded-xl
+                                                            dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark">
                             <PlusCircleIcon className="w-5 h-5"/>
                             Add New Page
                         </button>
                     </div>
                 </div>
-
-                <div className="col-span-8 lg:col-span-9 flex flex-col min-h-0 pl-6 border-l border-slate-900/10">
-                    <h4 className="text-base font-semibold text-slate-700 mb-3">Editing: <span className="text-indigo-600">{activePage.title || `Page ${activePageIndex + 1}`}</span></h4>
+                
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <div className="col-span-8 lg:col-span-9 flex flex-col min-h-0 pl-6 border-l border-slate-900/10 dark:border-l dark:border-slate-700">
+                    {/* --- MODIFIED: Added dark theme text --- */}
+                    <h4 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-3">Editing: <span className="text-indigo-600 dark:text-indigo-400">{activePage.title || `Page ${activePageIndex + 1}`}</span></h4>
                     
                     <div className="flex-grow min-h-0 overflow-auto">
                         <div className="space-y-4 flex flex-col p-1 min-h-0">
-                            <input placeholder="Page Title" value={activePage.title} onChange={(e) => handlePageChange('title', e.target.value)} className="w-full p-2 border border-gray-300 rounded-xl"/>
+                            {/* --- MODIFIED: Using formInputStyle --- */}
+                            <input placeholder="Page Title" value={activePage.title} onChange={(e) => handlePageChange('title', e.target.value)} className={formInputStyle}/>
                             
                             <Tab.Group selectedIndex={pageTypeIndex > -1 ? pageTypeIndex : 0} onChange={(index) => handlePageChange('type', ['text', 'diagram-data', 'video'][index])}>
-                                <Tab.List className="p-1 bg-slate-200/60 rounded-xl w-fit">
-                                    <Tab className="ui-selected:bg-white ui-selected:text-slate-800 ui-selected:shadow-md text-slate-600 rounded-lg px-4 py-1.5 text-sm font-semibold outline-none">Text</Tab>
-                                    <Tab className="ui-selected:bg-white ui-selected:text-slate-800 ui-selected:shadow-md text-slate-600 rounded-lg px-4 py-1.5 text-sm font-semibold outline-none">Image</Tab>
-                                    <Tab className="ui-selected:bg-white ui-selected:text-slate-800 ui-selected:shadow-md text-slate-600 rounded-lg px-4 py-1.5 text-sm font-semibold outline-none">Video</Tab>
+                                {/* --- MODIFIED: Added dark theme styles --- */}
+                                <Tab.List className="p-1 bg-slate-200/60 dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark rounded-xl w-fit">
+                                    {/* --- MODIFIED: Added dark theme styles --- */}
+                                    <Tab className="ui-selected:bg-white dark:ui-selected:bg-slate-100 ui-selected:text-slate-800 dark:ui-selected:text-slate-900 ui-selected:shadow-md text-slate-600 dark:text-slate-400 rounded-lg px-4 py-1.5 text-sm font-semibold outline-none">Text</Tab>
+                                    <Tab className="ui-selected:bg-white dark:ui-selected:bg-slate-100 ui-selected:text-slate-800 dark:ui-selected:text-slate-900 ui-selected:shadow-md text-slate-600 dark:text-slate-400 rounded-lg px-4 py-1.5 text-sm font-semibold outline-none">Image</Tab>
+                                    <Tab className="ui-selected:bg-white dark:ui-selected:bg-slate-100 ui-selected:text-slate-800 dark:ui-selected:text-slate-900 ui-selected:shadow-md text-slate-600 dark:text-slate-400 rounded-lg px-4 py-1.5 text-sm font-semibold outline-none">Video</Tab>
                                 </Tab.List>
                                 <Tab.Panels className="pt-4 flex flex-col min-h-0">
                                     <Tab.Panel className="flex flex-col min-h-0">
@@ -431,7 +463,8 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                                 />
                                             </div>
                                             <div className="flex-1 min-h-0">
-                                                <div className="w-full h-full border border-slate-300/80 rounded-xl bg-white/80 p-6 prose max-w-none prose-slate">
+                                                {/* --- MODIFIED: Added dark theme styles --- */}
+                                                <div className="w-full h-full border border-slate-300/80 dark:border-slate-700 rounded-xl bg-white/80 dark:bg-neumorphic-base-dark p-6 prose max-w-none prose-slate dark:prose-invert">
                                                     {/* --- BUG FIX IS HERE --- */}
                                                     <ContentRenderer text={typeof activePage.content === 'string' ? activePage.content : ''} />
                                                 </div>
@@ -439,27 +472,35 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                         </div>
                                     </Tab.Panel>
                                     <Tab.Panel>
-                                        <div className="space-y-4 p-4 bg-white/80 rounded-xl border border-slate-300/80">
+                                        {/* --- MODIFIED: Added dark theme styles --- */}
+                                        <div className="space-y-4 p-4 bg-white/80 dark:bg-neumorphic-base-dark/50 rounded-xl border border-slate-300/80 dark:border-slate-700">
                                             <div className="space-y-2">
                                                 {Array.isArray(activePage.content?.imageUrls) && activePage.content.imageUrls.map((url, idx) => (
                                                     <div key={idx} className="flex gap-2 items-center">
-                                                        <input placeholder={`Image URL #${idx + 1}`} value={url} onChange={(e) => { const newUrls = [...activePage.content.imageUrls]; newUrls[idx] = e.target.value; handlePageChange('imageUrls', newUrls); }} className="flex-1 p-2 border border-gray-300 rounded-xl"/>
-                                                        <button onClick={() => { const newUrls = activePage.content.imageUrls.filter((_, i) => i !== idx); handlePageChange('imageUrls', newUrls); }} className="p-2 text-red-500 hover:bg-red-100 rounded-full">
+                                                        {/* --- MODIFIED: Using formInputStyle --- */}
+                                                        <input placeholder={`Image URL #${idx + 1}`} value={url} onChange={(e) => { const newUrls = [...activePage.content.imageUrls]; newUrls[idx] = e.target.value; handlePageChange('imageUrls', newUrls); }} className={formInputStyle}/>
+                                                        {/* --- MODIFIED: Added dark theme styles --- */}
+                                                        <button onClick={() => { const newUrls = activePage.content.imageUrls.filter((_, i) => i !== idx); handlePageChange('imageUrls', newUrls); }} className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-full">
                                                             <TrashIcon className="w-5 h-5"/>
                                                         </button>
                                                     </div>
                                                 ))}
-                                                <button onClick={() => handlePageChange('imageUrls', [...(activePage.content?.imageUrls || []), ''])} className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-white/60 text-slate-700 border border-slate-300/70 hover:bg-white/90 hover:border-slate-400 rounded-xl">
+                                                {/* --- MODIFIED: Added dark theme styles --- */}
+                                                <button onClick={() => handlePageChange('imageUrls', [...(activePage.content?.imageUrls || []), ''])} className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-neumorphic-base text-slate-700 shadow-neumorphic transition-shadow duration-300 rounded-xl
+                                                                                                    dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark">
                                                     <PlusCircleIcon className="w-5 h-5"/>
                                                     Add Image URL
                                                 </button>
                                             </div>
-                                            <input placeholder="Labels (comma-separated)" value={Array.isArray(activePage.content?.labels) ? activePage.content.labels.join(', ') : ''} onChange={(e) => handlePageChange('diagram_labels', e.target.value)} className="w-full p-2 border border-gray-300 rounded-xl"/>
+                                            {/* --- MODIFIED: Using formInputStyle --- */}
+                                            <input placeholder="Labels (comma-separated)" value={Array.isArray(activePage.content?.labels) ? activePage.content.labels.join(', ') : ''} onChange={(e) => handlePageChange('diagram_labels', e.target.value)} className={formInputStyle}/>
                                         </div>
                                     </Tab.Panel>
                                     <Tab.Panel>
-                                        <div className="p-4 bg-white/80 rounded-xl border border-slate-300/80">
-                                            <input placeholder="Video URL (YouTube, Vimeo, etc.)" value={typeof activePage.content === 'string' ? activePage.content : ''} onChange={(e) => handlePageChange('content', e.target.value)} className="w-full p-2 border border-gray-300 rounded-xl"/>
+                                        {/* --- MODIFIED: Added dark theme styles --- */}
+                                        <div className="p-4 bg-white/80 dark:bg-neumorphic-base-dark/50 rounded-xl border border-slate-300/80 dark:border-slate-700">
+                                            {/* --- MODIFIED: Using formInputStyle --- */}
+                                            <input placeholder="Video URL (YouTube, Vimeo, etc.)" value={typeof activePage.content === 'string' ? activePage.content : ''} onChange={(e) => handlePageChange('content', e.target.value)} className={formInputStyle}/>
                                         </div>
                                     </Tab.Panel>
                                 </Tab.Panels>
@@ -469,10 +510,16 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                 </div>
             </div>
             
-            <div className="flex-shrink-0 flex justify-end items-center gap-3 pt-6 mt-4 border-t border-slate-900/10">
-                {error && <p className="text-red-500 text-sm mr-auto">{error}</p>}
-                <button className="px-4 py-2 bg-white/60 text-slate-700 border border-slate-300/70 hover:bg-white/90 hover:border-slate-400 rounded-xl" onClick={onClose}>Cancel</button>
-                <button onClick={handleAddLesson} disabled={loading} className="px-4 py-2 font-semibold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg hover:shadow-indigo-500/40 transition-shadow rounded-xl disabled:bg-slate-400 disabled:shadow-none">
+            {/* --- MODIFIED: Added dark theme styles --- */}
+            <div className="flex-shrink-0 flex justify-end items-center gap-3 pt-6 mt-4 border-t border-slate-900/10 dark:border-slate-700">
+                {/* --- MODIFIED: Added dark theme text --- */}
+                {error && <p className="text-red-500 dark:text-red-400 text-sm mr-auto">{error}</p>}
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <button className="px-4 py-2 bg-neumorphic-base text-slate-700 rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset
+                                 dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark" onClick={onClose}>Cancel</button>
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <button onClick={handleAddLesson} disabled={loading} className="px-4 py-2 font-semibold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg hover:shadow-indigo-500/40 transition-shadow rounded-xl disabled:bg-slate-400 disabled:shadow-none
+                                                                       dark:from-indigo-700 dark:to-blue-700 dark:hover:shadow-indigo-600/40">
                     {loading ? 'Saving...' : 'Save Lesson'}
                 </button>
             </div>

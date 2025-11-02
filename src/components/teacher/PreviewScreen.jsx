@@ -1,160 +1,143 @@
-import React, { useState } from 'react'; // FIX: Imported useState
-import { collection, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../services/firebase';
-import { useToast } from '../../contexts/ToastContext';
-import LessonPage from './LessonPage';
-import { ArrowPathIcon } from '@heroicons/react/24/outline';
-import { Dialog } from '@headlessui/react';
+import React from 'react';
+import { Dialog, Transition, TransitionChild } from '@headlessui/react';
+import { XMarkIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon } from '@heroicons/react/20/solid';
 
-// --- START OF CHANGES ---
-// Accepted guideData as a prop
-export default function PreviewScreen({ subject, unit, guideData, generationResult, onBackToEdit, onClose, onBackToGeneration }) {
-// --- END OF CHANGES ---
+// Helper function to format the notes object into a readable string
+const formatNotesToString = (notesObject) => {
+    if (!notesObject || typeof notesObject !== 'object') {
+        return "No speaker notes available.";
+    }
 
-    const { showToast } = useToast();
-    const [selectedLessonIndex, setSelectedLessonIndex] = useState(0);
-    const [isSaving, setIsSaving] = useState(false);
-    
-    const isValidPreview = generationResult?.previewData && generationResult.previewData.generated_lessons?.length > 0;
-    const lessonsToPreview = isValidPreview ? generationResult.previewData.generated_lessons : [];
-    const selectedLesson = isValidPreview ? lessonsToPreview[selectedLessonIndex] : null;
+    const { talkingPoints, interactiveElement, slideTiming } = notesObject;
 
-    const handleSave = async () => {
-        if (!isValidPreview) {
-            showToast("There is no valid content to save.", "error");
-            return;
-        }
-        setIsSaving(true);
-        try {
-            const batch = writeBatch(db);
-            // Find the highest existing order number for lessons in this unit to append the new ones.
-            // This is a simplified approach. A more robust solution might involve a Firestore query.
-            let order = unit.lessonCount || 0; 
+    let formattedString = `[TALKING POINTS]\n${talkingPoints || 'N/A'}\n\n`;
+    formattedString += `[INTERACTIVE ELEMENT]\n${interactiveElement || 'N/A'}\n\n`;
+    formattedString += `[SUGGESTED TIMING: ${slideTiming || 'N/A'}]`;
 
-            lessonsToPreview.forEach((lesson) => {
-                const newLessonRef = doc(collection(db, 'lessons'));
-                batch.set(newLessonRef, {
-                    // --- Existing Fields ---
-                    title: lesson.lessonTitle, 
-                    lessonTitle: lesson.lessonTitle,
-                    unitId: unit.id,
-                    subjectId: subject.id,
-                    pages: lesson.pages || [],
-                    objectives: lesson.learningObjectives || [],
-                    contentType: "studentLesson",
-                    createdAt: serverTimestamp(),
-                    order: order++,
-                    isAiGenerated: true,
+    return formattedString;
+};
 
-                    // --- START OF CHANGES ---
-                    // This now saves the specific 1-3 competencies assigned by the AI
-                    learningCompetencies: lesson.assignedCompetencies || [], 
-                    
-                    // These are saved from the main form, as they apply to all lessons
-                    contentStandard: guideData.contentStandard || '',
-                    performanceStandard: guideData.performanceStandard || ''
-                    // --- END OF CHANGES ---
-                });
-            });
+export default function PresentationPreviewModal({ isOpen, onClose, previewData, onConfirm, isSaving }) {
+    if (!isOpen) return null;
 
-            await batch.commit();
-            showToast(`${lessonsToPreview.length} lesson(s) saved successfully!`, "success");
-            onClose();
-        } catch (error) {
-            console.error("Error saving learning guide:", error);
-            showToast("An error occurred while saving the lessons.", "error");
-        } finally {
-            setIsSaving(false);
-        }
-    };
-    
-    // Reusable neumorphic button styles
-    const btnBase = "inline-flex items-center justify-center px-5 py-2.5 text-sm font-medium rounded-xl transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-200 focus:ring-sky-500";
-    const btnExtruded = `bg-slate-200 shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff]`;
-    const btnDisabled = "disabled:text-slate-400 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff]";
+    const slides = previewData?.slides || [];
 
     return (
-        <div className="flex flex-col h-full bg-slate-200 rounded-2xl">
-            <header className="flex-shrink-0 p-6 text-center">
-                <Dialog.Title as="h2" className="text-xl font-bold text-slate-800">
-                    Preview & Save Learning Guide
-                </Dialog.Title>
-                <p className="text-sm text-slate-500 mt-1">
-                    Review the AI-generated lessons below. You can save them or go back to regenerate.
-                </p>
-            </header>
+        <Transition show={isOpen} as={React.Fragment}>
+            <Dialog as="div" className="relative z-[9999] font-sans" onClose={onClose}>
+                {/* Backdrop */}
+                <TransitionChild
+                    as={React.Fragment}
+                    enter="ease-out duration-300"
+                    enterFrom="opacity-0"
+                    enterTo="opacity-100"
+                    leave="ease-in duration-200"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
+                >
+                    {/* --- MODIFIED: Added dark theme backdrop --- */}
+                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity dark:bg-black/80" />
+                </TransitionChild>
 
-            <main className="flex-grow flex flex-col md:flex-row gap-6 p-6 overflow-hidden">
-                <div className="w-full md:w-1/3 flex-shrink-0 flex flex-col">
-                    <h3 className="text-base font-semibold text-slate-700 mb-3 px-1">Generated Lessons</h3>
-                    <div className="flex-grow overflow-y-auto pr-2 -mr-2 space-y-2">
-                        {isValidPreview ? (
-                            lessonsToPreview.map((lesson, index) => (
-                                <button 
-                                    key={index} 
-                                    onClick={() => setSelectedLessonIndex(index)}
-                                    className={`w-full text-left p-3 rounded-xl transition-all duration-200 ${selectedLessonIndex === index ? 'shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff] ring-2 ring-sky-500/80' : 'bg-slate-200 shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff]'}`}
-                                >
-                                    {/* FIX: Using lessonTitle consistent with generation prompt */}
-                                    <p className="font-semibold text-slate-800 truncate">{lesson.lessonTitle}</p>
-                                    <p className="text-xs text-slate-500">{lesson.pages?.length || 0} pages</p>
-                                </button>
-                            ))
-                        ) : (
-                            <div className="text-center text-slate-500 pt-10">
-                                <p>No lessons were generated.</p>
-                                {generationResult.failedLessonNumber && <p className="text-sm mt-2">Generation failed at Lesson {generationResult.failedLessonNumber}.</p>}
-                            </div>
-                        )}
+                <div className="fixed inset-0 z-[9999] w-screen overflow-y-auto">
+                    <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+                        <TransitionChild
+                            as={React.Fragment}
+                            enter="ease-out duration-300"
+                            enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                            enterTo="opacity-100 translate-y-0 sm:scale-100"
+                            leave="ease-in duration-200"
+                            leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                            leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                        >
+                            {/* Neumorphic Modal Panel */}
+                            {/* --- MODIFIED: Added dark theme panel styles --- */}
+                            <Dialog.Panel className="relative transform overflow-hidden rounded-3xl bg-neumorphic-base shadow-neumorphic transition-all sm:my-8 sm:w-full sm:max-w-4xl max-h-[90vh] flex flex-col p-7
+                                                     dark:bg-neumorphic-base-dark dark:shadow-lg">
+                                
+                                {/* Header */}
+                                {/* --- MODIFIED: Added dark theme border --- */}
+                                <div className="flex justify-between items-center mb-6 pb-4 border-b border-neumorphic-shadow-dark/20 dark:border-slate-700">
+                                    {/* --- MODIFIED: Added dark theme text --- */}
+                                    <Dialog.Title className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+                                        Presentation Preview ({slides.length} Slides)
+                                    </Dialog.Title>
+                                    <button
+                                        onClick={onClose}
+                                        // --- MODIFIED: Added dark theme button styles ---
+                                        className="p-2 rounded-full bg-neumorphic-base shadow-neumorphic hover:shadow-neumorphic-inset transition
+                                                   dark:bg-neumorphic-base-dark dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark"
+                                    >
+                                        {/* --- MODIFIED: Added dark theme icon --- */}
+                                        <XMarkIcon className="w-6 h-6 text-slate-500 dark:text-slate-400" />
+                                    </button>
+                                </div>
+
+                                {/* Slides Content */}
+                                <div className="flex-grow overflow-y-auto pr-3 space-y-6">
+                                    {slides.length > 0 ? (
+                                        slides.map((slide, index) => (
+                                            <div
+                                                key={index}
+                                                // --- MODIFIED: Added dark theme card styles ---
+                                                className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic text-left
+                                                           dark:bg-neumorphic-base-dark dark:shadow-lg"
+                                            >
+                                                {/* --- MODIFIED: Added dark theme text --- */}
+                                                <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mb-2">SLIDE {index + 1}</p>
+                                                {/* --- MODIFIED: Added dark theme text --- */}
+                                                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-3">{slide.title}</h3>
+                                                
+                                                {/* --- MODIFIED: Added dark theme inset styles --- */}
+                                                <div className="text-sm text-slate-700 bg-neumorphic-base shadow-neumorphic-inset p-3 rounded-xl mb-4
+                                                                dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:text-slate-200">
+                                                    <pre className="whitespace-pre-wrap font-sans">{slide.body}</pre>
+                                                </div>
+
+                                                {/* --- MODIFIED: Added dark theme text --- */}
+                                                <h4 className="font-semibold text-xs text-slate-500 dark:text-slate-400 mt-4 mb-2">SPEAKER NOTES</h4>
+                                                {/* --- MODIFIED: Added dark theme inset styles --- */}
+                                                <div className="text-xs text-slate-700 bg-neumorphic-base shadow-neumorphic-inset p-3 rounded-xl
+                                                                dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:text-slate-300">
+                                                    <pre className="whitespace-pre-wrap font-sans">{formatNotesToString(slide.notes)}</pre>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        // --- MODIFIED: Added dark theme text ---
+                                        <p className="text-center text-slate-500 dark:text-slate-400 py-10">No slide data to display.</p>
+                                    )}
+                                </div>
+
+                                {/* Footer Buttons */}
+                                {/* --- MODIFIED: Added dark theme border --- */}
+                                <div className="pt-6 mt-6 border-t border-neumorphic-shadow-dark/20 dark:border-slate-700 flex justify-end">
+                                    <button
+                                        onClick={onConfirm}
+                                        disabled={isSaving}
+                                        // --- MODIFIED: Added dark theme button styles ---
+                                        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-blue-700 bg-gradient-to-br from-sky-100 to-blue-200 shadow-neumorphic hover:shadow-neumorphic-inset transition disabled:opacity-50
+                                                   dark:from-sky-700 dark:to-blue-800 dark:text-sky-100 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark"
+                                    >
+                                        {isSaving ? (
+                                            <>
+                                                <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                                                Creating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CheckCircleIcon className="h-5 w-5" />
+                                                Create Presentation
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </Dialog.Panel>
+                        </TransitionChild>
                     </div>
                 </div>
-
-                <div className="w-full md:w-2/3 bg-slate-200 rounded-xl shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff] overflow-y-auto">
-                    {selectedLesson ? (
-                        <div className="p-6 prose prose-slate max-w-none">
-                            {selectedLesson.pages.map((page, index) => (
-                                <div key={index} className="mb-8 pb-8 border-b border-slate-300/70 last:border-b-0">
-                                     {/* FIX: Using page.title consistent with generation prompt */}
-                                     {page.title && <h3 className="font-bold text-lg mb-2">{page.title}</h3>}
-                                     <LessonPage page={page} isEditable={false} />
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="flex items-center justify-center h-full text-slate-500">
-                            <p>Select a lesson from the left to preview its content.</p>
-                        </div>
-                    )}
-                </div>
-            </main>
-            
-            <footer className="flex-shrink-0 p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <button 
-                    onClick={onBackToEdit} 
-                    disabled={isSaving} 
-                    className={`${btnBase} ${btnExtruded} text-slate-700 ${btnDisabled}`}
-                >
-                    Back to Edit
-                </button>
-                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                    {generationResult.failedLessonNumber && (
-                        <button 
-                            onClick={() => onBackToGeneration(generationResult.failedLessonNumber)} 
-                            className={`${btnBase} bg-amber-400 text-amber-900 font-semibold shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff]`}
-                        >
-                            <ArrowPathIcon className="h-5 w-5 mr-2" />
-                            Retry from Lesson {generationResult.failedLessonNumber}
-                        </button>
-                    )}
-                    <button 
-                        onClick={handleSave} 
-                        className={`${btnBase} ${btnExtruded} text-sky-600 font-semibold ${btnDisabled}`}
-                        disabled={!isValidPreview || isSaving}
-                    >
-                        {isSaving ? 'Saving...' : `Accept & Save ${lessonsToPreview.length} Lesson(s)`}
-                    </button>
-                </div>
-            </footer>
-        </div>
+            </Dialog>
+        </Transition>
     );
 }

@@ -353,7 +353,7 @@ const MenuPortal = ({ children, menuStyle, onClose }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [onClose]);
     // --- MODIFIED: Added dark mode classes ---
-    return createPortal(<div ref={menuRef} style={menuStyle} className="fixed bg-neumorphic-base dark:bg-slate-800 rounded-md shadow-neumorphic dark:shadow-neumorphic-dark z-[5000]"><div className="py-1" onClick={onClose}>{children}</div></div>, document.body);
+    return createPortal(<div ref={menuRef} style={menuStyle} className="fixed bg-neumorphic-base dark:bg-slate-800 rounded-md shadow-neumorphic dark:shadow-lg z-[5000]"><div className="py-1" onClick={onClose}>{children}</div></div>, document.body);
 };
 
 const ActionMenu = ({ children }) => {
@@ -385,7 +385,7 @@ const ActionMenu = ({ children }) => {
 
 const MenuItem = ({ icon: Icon, text, onClick, disabled = false, loading = false }) => (
     // --- MODIFIED: Added dark mode classes ---
-    <button onClick={onClick} disabled={disabled || loading} className="flex items-center w-full px-4 py-2 text-sm text-left text-slate-700 dark:text-slate-200 rounded-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark disabled:opacity-50 disabled:cursor-not-allowed">
+    <button onClick={onClick} disabled={disabled || loading} className="flex items-center w-full px-4 py-2 text-sm text-left text-slate-700 dark:text-slate-200 rounded-lg hover:bg-neumorphic-base/50 hover:shadow-neumorphic-inset dark:hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed">
         <Icon className={`h-5 w-5 mr-3 ${loading ? 'animate-spin' : ''}`} />
         <span>{text}</span>
     </button>
@@ -427,7 +427,7 @@ const AddContentButton = ({ onAddLesson, onAddQuiz }) => {
                 onClick={handleToggle}
                 onPointerDown={(e) => e.stopPropagation()} // Prevent DND kit from capturing
                 // --- MODIFIED: Added dark mode classes ---
-                className="flex items-center gap-2 text-sm font-semibold bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-800 dark:to-blue-900 text-blue-700 dark:text-blue-200 py-2 px-4 rounded-full shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
+                className="flex items-center gap-2 text-sm font-semibold bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-800 dark:to-blue-900 text-blue-700 dark:text-blue-200 py-2 px-4 rounded-full shadow-neumorphic dark:shadow-lg transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
             >
                 <PlusIcon className="w-5 h-5" />
                 Add Content
@@ -466,7 +466,7 @@ function SortableContentItem({ item, isReordering, ...props }) {
     return (
         <div ref={setNodeRef} style={style} {...attributes} className="mb-3 touch-none"> 
             {/* --- MODIFIED: Added dark mode classes --- */}
-            <div className={`w-full flex items-center p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark transition-all duration-200 ${isReordering ? 'ring-2 ring-sky-400' : 'hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'}`}>
+            <div className={`w-full flex items-center p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-lg transition-all duration-200 ${isReordering ? 'ring-2 ring-sky-400' : 'hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'}`}>
                 {isReordering && (
                     <button {...listeners} className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-grab flex-shrink-0" title="Drag to reorder">
                         <Bars3Icon className="w-5 h-5" />
@@ -517,13 +517,13 @@ function SortableUnitCard(props) {
     return (
         <div ref={setNodeRef} style={style} {...attributes} className="touch-none">
             {/* --- MODIFIED: Added dark mode classes to Unit Card --- */}
-            <div onClick={() => onSelect(unit)} className={`group relative p-6 rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow duration-300 cursor-pointer overflow-hidden flex flex-col justify-between h-full bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark`}>
+            <div onClick={() => onSelect(unit)} className={`group relative p-6 rounded-2xl shadow-neumorphic dark:shadow-lg transition-shadow duration-300 cursor-pointer overflow-hidden flex flex-col justify-between h-full bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark`}>
                 <button {...listeners} className="absolute top-3 left-3 p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 cursor-grab opacity-50 group-hover:opacity-100 transition-opacity" title="Drag to reorder"><ArrowsUpDownIcon className="h-5 w-5" /></button>
                 {/* --- MODIFIED: Added dark mode classes to action buttons --- */}
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={(e) => { e.stopPropagation(); onOpenAiHub(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 dark:bg-slate-700/50 text-slate-700 dark:text-slate-200 shadow-neumorphic hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="AI Tools for this unit"><SparklesIcon className="w-5 h-5" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); onEdit(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 dark:bg-slate-700/50 text-slate-700 dark:text-slate-200 shadow-neumorphic hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Edit Unit"><PencilIcon className="w-5 h-5" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); onDelete(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 dark:bg-slate-700/50 text-red-600 dark:text-red-400 shadow-neumorphic hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Delete Unit"><TrashIcon className="w-5 h-5" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); onOpenAiHub(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 dark:bg-slate-700/50 text-slate-700 dark:text-slate-200 shadow-neumorphic dark:shadow-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="AI Tools for this unit"><SparklesIcon className="w-5 h-5" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); onEdit(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 dark:bg-slate-700/50 text-slate-700 dark:text-slate-200 shadow-neumorphic dark:shadow-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Edit Unit"><PencilIcon className="w-5 h-5" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 dark:bg-slate-700/50 text-red-600 dark:text-red-400 shadow-neumorphic dark:shadow-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Delete Unit"><TrashIcon className="w-5 h-5" /></button>
                 </div>
                 <div className="relative z-10">
                     {/* --- MODIFIED: Added dark mode classes to icon container --- */}
@@ -1098,7 +1098,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                         <button 
                                             onClick={() => setIsReordering(prev => !prev)} 
                                             // --- MODIFIED: Added dark mode classes ---
-                                            className={`font-semibold px-4 py-2 rounded-full transition-all text-sm shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark ${
+                                            className={`font-semibold px-4 py-2 rounded-full transition-all text-sm shadow-neumorphic dark:shadow-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark ${
                                                 isReordering ? 'bg-sky-600 dark:bg-sky-500 text-white dark:text-slate-900' : 'bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-700 dark:text-slate-200'
                                             }`}
                                         >

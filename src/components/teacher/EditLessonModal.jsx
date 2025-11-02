@@ -51,7 +51,8 @@ const reorder = (list, startIndex, endIndex) => {
 
 // Page type icon
 const PageTypeIcon = ({ type, isActive }) => {
-    const iconClass = `h-5 w-5 flex-shrink-0 ${isActive ? 'text-primary-600' : 'text-slate-500'}`;
+    // --- MODIFIED: Added dark theme text colors ---
+    const iconClass = `h-5 w-5 flex-shrink-0 ${isActive ? 'text-primary-600 dark:text-primary-400' : 'text-slate-500 dark:text-slate-400'}`;
     switch (type) {
         case 'diagram-data': return <PhotoIcon className={iconClass} />;
         case 'video': return <VideoCameraIcon className={iconClass} />;
@@ -226,22 +227,34 @@ const MarkdownEditor = ({ value, onValueChange }) => {
     };
 
     const ToolbarButton = ({ icon, syntax, tooltip, onClick }) => (
-        <Button size="xs" variant="light" icon={icon} onClick={onClick || (() => applyMarkdown(syntax))} tooltip={tooltip} className="p-2 rounded-lg" />
+        <Button 
+            size="xs" 
+            variant="light" 
+            icon={icon} 
+            onClick={onClick || (() => applyMarkdown(syntax))} 
+            tooltip={tooltip} 
+            // --- MODIFIED: Added dark theme text/hover ---
+            className="p-2 rounded-lg dark:text-slate-400 dark:hover:!bg-neumorphic-base-dark/60" 
+        />
     );
 
     return (
-        <div className="rounded-xl flex flex-col h-full bg-neumorphic-base shadow-neumorphic-inset min-h-0">
-            <div className="flex items-center flex-wrap gap-1 p-2 border-b border-neumorphic-shadow-dark/20 bg-neumorphic-base">
+        // --- MODIFIED: Added dark theme styles ---
+        <div className="rounded-xl flex flex-col h-full bg-neumorphic-base shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark min-h-0">
+            {/* --- MODIFIED: Added dark theme styles --- */}
+            <div className="flex items-center flex-wrap gap-1 p-2 border-b border-neumorphic-shadow-dark/20 dark:border-slate-700 bg-neumorphic-base dark:bg-neumorphic-base-dark">
                 <ToolbarButton icon={BoldIcon} syntax="bold" tooltip="Bold" />
                 <ToolbarButton icon={ItalicIcon} syntax="italic" tooltip="Italic" />
                 <ToolbarButton icon={QueueListIcon} syntax="list" tooltip="Bulleted List" />
                 <ToolbarButton icon={CodeBracketIcon} syntax="code" tooltip="Inline Code" />
                 <ToolbarButton icon={LinkIcon} syntax="link" tooltip="Link" />
-                <div className="w-px h-6 bg-neumorphic-shadow-dark/30 mx-1"></div>
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <div className="w-px h-6 bg-neumorphic-shadow-dark/30 dark:bg-slate-700 mx-1"></div>
                 <div className="relative">
                     <ToolbarButton icon={PaintBrushIcon} tooltip="Text Color" onClick={() => setShowColorPicker(s => !s)} />
                     {showColorPicker && (
-                        <div onMouseLeave={() => setShowColorPicker(false)} className="absolute top-full mt-2 z-10 bg-neumorphic-base p-2 rounded-lg shadow-neumorphic flex gap-2">
+                        // --- MODIFIED: Added dark theme styles ---
+                        <div onMouseLeave={() => setShowColorPicker(false)} className="absolute top-full mt-2 z-10 bg-neumorphic-base dark:bg-neumorphic-base-dark p-2 rounded-lg shadow-neumorphic dark:shadow-lg dark:border dark:border-slate-700 flex gap-2">
                             {TEXT_COLORS.map(color => (
                                 <button key={color.name} title={color.name} onClick={() => applyColor(color.hex)} className="w-6 h-6 rounded-full" style={{ backgroundColor: color.hex }} />
                             ))}
@@ -253,8 +266,9 @@ const MarkdownEditor = ({ value, onValueChange }) => {
                 {/* --- ADDED: Spoiler Button --- */}
                 <ToolbarButton icon={ChevronRightIcon} tooltip="Click to Reveal" onClick={applySpoiler} />
                 {/* --- END ADDED --- */}
-
-                <div className="w-px h-6 bg-neumorphic-shadow-dark/30 mx-1"></div>
+                
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <div className="w-px h-6 bg-neumorphic-shadow-dark/30 dark:bg-slate-700 mx-1"></div>
                 <ToolbarButton icon={H1Icon} syntax="h1" tooltip="Heading 1" />
                 <ToolbarButton icon={H2Icon} syntax="h2" tooltip="Heading 2" />
                 <ToolbarButton icon={H3Icon} syntax="h3" tooltip="Heading 3" />
@@ -265,7 +279,8 @@ const MarkdownEditor = ({ value, onValueChange }) => {
                     ref={textareaRef}
                     value={value}
                     onChange={(e) => onValueChange && onValueChange(e.target.value)}
-                    className="w-full p-2 font-mono text-sm resize-none border-none focus:outline-none focus:ring-0 bg-transparent overflow-hidden"
+                    // --- MODIFIED: Added dark theme styles ---
+                    className="w-full p-2 font-mono text-sm resize-none border-none focus:outline-none focus:ring-0 bg-transparent overflow-hidden dark:text-slate-100 dark:placeholder-slate-500"
                     placeholder="Type your markdown content here..."
                     style={{ lineHeight: '1.5', whiteSpace: 'pre-wrap' }}
                 />
@@ -292,6 +307,10 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
     const [activePageIndex, setActivePageIndex] = useState(0);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    
+    // --- THIS IS THE NEW STYLE VARIABLE ---
+    const formInputStyle = "w-full text-base rounded-xl shadow-neumorphic-inset bg-neumorphic-base text-slate-900 placeholder-slate-400 dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:text-slate-100 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500 border-none";
+
 
     useEffect(() => {
         if (lesson) {
@@ -405,14 +424,19 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
 
     return (
         <Dialog open={isOpen} onClose={onClose} static={true}>
-            <DialogPanel className="w-screen h-screen max-w-full max-h-screen rounded-none bg-neumorphic-base p-6 flex flex-col overflow-hidden">
+            {/* --- MODIFIED: Added dark theme styles --- */}
+            <DialogPanel className="w-screen h-screen max-w-full max-h-screen rounded-none bg-neumorphic-base dark:bg-neumorphic-base-dark p-6 flex flex-col overflow-hidden">
                 {/* Neumorphic Header */}
-                <div className="flex-shrink-0 pb-4 mb-4 shadow-neumorphic-inset rounded-2xl p-4">
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <div className="flex-shrink-0 pb-4 mb-4 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-2xl p-4">
                     <div className="flex justify-between items-center mb-4">
-                        <Title className="text-2xl font-bold text-slate-800">Edit Lesson</Title>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <Title className="text-2xl font-bold text-slate-800 dark:text-slate-100">Edit Lesson</Title>
                         <Button 
                             onClick={onClose} 
-                            className="rounded-xl bg-neumorphic-base text-slate-700 shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-flat-inset transition-shadow"
+                            // --- MODIFIED: Added dark theme styles ---
+                            className="rounded-xl bg-neumorphic-base text-slate-700 shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-flat-inset transition-shadow
+                                       dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark"
                         >
                             Close
                         </Button>
@@ -422,13 +446,15 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                             placeholder="Lesson Title" 
                             value={title} 
                             onValueChange={setTitle} 
-                            className="rounded-xl bg-neumorphic-base shadow-neumorphic-inset border-none focus:ring-2 focus:ring-primary-500" 
+                            // --- MODIFIED: Using formInputStyle ---
+                            className={formInputStyle} 
                         />
                         <TextInput 
                             placeholder="Study Guide URL (Optional)" 
                             value={studyGuideUrl} 
                             onValueChange={setStudyGuideUrl} 
-                            className="rounded-xl bg-neumorphic-base shadow-neumorphic-inset border-none focus:ring-2 focus:ring-primary-500" 
+                            // --- MODIFIED: Using formInputStyle ---
+                            className={formInputStyle} 
                         />
                     </div>
                 </div>
@@ -437,7 +463,8 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                 <div className="flex-grow min-h-0 grid grid-cols-12 gap-6">
                     {/* Left Pages Column */}
                     <div className="col-span-4 lg:col-span-3 flex flex-col min-h-0">
-                        <h3 className="text-base font-semibold text-slate-700 mb-3 px-1">Pages</h3>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-3 px-1">Pages</h3>
                         <div className="flex-grow overflow-y-auto pr-2 -mr-2 min-h-0">
                             <DragDropContext onDragEnd={handleOnDragEnd}>
                                 <StrictModeDroppable droppableId="pages">
@@ -453,12 +480,19 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                                                 {...provided.draggableProps}
                                                                 {...provided.dragHandleProps}
                                                                 onClick={() => setActivePageIndex(index)}
-                                                                className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-shadow duration-300 ${isActive ? 'shadow-neumorphic-inset' : 'shadow-neumorphic'} bg-neumorphic-base`}
+                                                                // --- THIS IS THE CORRECTED LINE ---
+                                                                className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-shadow duration-300 bg-neumorphic-base dark:bg-neumorphic-base-dark
+                                                                            ${isActive 
+                                                                                ? 'shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark' 
+                                                                                : 'shadow-neumorphic dark:shadow-lg'
+                                                                            }`}
                                                             >
                                                                 <div className="flex items-center gap-3 overflow-hidden">
-                                                                    <Bars3Icon className="h-5 w-5 text-slate-400 flex-shrink-0" />
+                                                                    {/* --- MODIFIED: Added dark theme icon --- */}
+                                                                    <Bars3Icon className="h-5 w-5 text-slate-400 dark:text-slate-500 flex-shrink-0" />
                                                                     <PageTypeIcon type={page.type} isActive={isActive} />
-                                                                    <span className="font-medium text-slate-800 truncate">{page.title || `Page ${index + 1}`}</span>
+                                                                    {/* --- MODIFIED: Added dark theme text --- */}
+                                                                    <span className="font-medium text-slate-800 dark:text-slate-100 truncate">{page.title || `Page ${index + 1}`}</span>
                                                                 </div>
                                                                 <Button 
                                                                     icon={TrashIcon} 
@@ -468,7 +502,9 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                                                     onClick={(e) => { e.stopPropagation(); removePage(index); }} 
                                                                     disabled={pages.length === 1} 
                                                                     tooltip="Remove page" 
-                                                                    className="rounded-full !bg-neumorphic-base !shadow-neumorphic hover:!shadow-neumorphic-inset" 
+                                                                    // --- MODIFIED: Added dark theme styles ---
+                                                                    className="rounded-full !bg-neumorphic-base !shadow-neumorphic hover:!shadow-neumorphic-inset
+                                                                               dark:!bg-neumorphic-base-dark dark:!shadow-lg dark:hover:!shadow-neumorphic-inset-dark" 
                                                                 />
                                                             </div>
                                                         );
@@ -484,7 +520,9 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                         <div className="mt-4 flex-shrink-0 pr-2">
                             <Button 
                                 icon={PlusCircleIcon} 
-                                className="w-full justify-center rounded-xl bg-neumorphic-base text-slate-700 shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-flat-inset transition-shadow" 
+                                // --- MODIFIED: Added dark theme styles ---
+                                className="w-full justify-center rounded-xl bg-neumorphic-base text-slate-700 shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-flat-inset transition-shadow
+                                           dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark" 
                                 onClick={addPage}
                             >
                                 Add New Page
@@ -494,21 +532,28 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
 
                     {/* Right Editor + Preview Column */}
                     <div className="col-span-8 lg:col-span-9 flex flex-col min-h-0">
-                        <h4 className="text-base font-semibold text-slate-700 mb-3">Editing: <span className="text-primary-600">{activePage.title || `Page ${activePageIndex + 1}`}</span></h4>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <h4 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-3">Editing: <span className="text-primary-600 dark:text-primary-400">{activePage.title || `Page ${activePageIndex + 1}`}</span></h4>
                         <div className="flex-grow min-h-0 overflow-y-auto">
                             <div className="space-y-4 flex flex-col p-1 min-h-0">
                                 <TextInput 
                                     placeholder="Page Title" 
                                     value={activePage.title} 
                                     onValueChange={(val) => handlePageChange('title', val)} 
-                                    className="rounded-xl bg-neumorphic-base shadow-neumorphic-inset border-none focus:ring-2 focus:ring-primary-500"
+                                    // --- MODIFIED: Using formInputStyle ---
+                                    className={formInputStyle}
                                 />
 
                                 <TabGroup index={pageTypeIndex > -1 ? pageTypeIndex : 0} onIndexChange={(index) => handlePageChange('type', ['text', 'diagram-data', 'video'][index])}>
-                                    <TabList className="p-1 bg-neumorphic-base shadow-neumorphic-flat-inset rounded-xl w-fit">
-                                        <Tab className="ui-selected:bg-neumorphic-base ui-selected:text-primary-600 ui-selected:shadow-neumorphic text-slate-600 rounded-lg px-4 py-1.5 text-sm font-semibold outline-none transition-all">Text</Tab>
-                                        <Tab className="ui-selected:bg-neumorphic-base ui-selected:text-primary-600 ui-selected:shadow-neumorphic text-slate-600 rounded-lg px-4 py-1.5 text-sm font-semibold outline-none transition-all">Image</Tab>
-                                        <Tab className="ui-selected:bg-neumorphic-base ui-selected:text-primary-600 ui-selected:shadow-neumorphic text-slate-600 rounded-lg px-4 py-1.5 text-sm font-semibold outline-none transition-all">Video</Tab>
+                                    {/* --- MODIFIED: Added dark theme styles --- */}
+                                    <TabList className="p-1 bg-neumorphic-base shadow-neumorphic-flat-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark rounded-xl w-fit">
+                                        {/* --- MODIFIED: Added dark theme styles --- */}
+                                        <Tab className="ui-selected:bg-neumorphic-base ui-selected:text-primary-600 ui-selected:shadow-neumorphic text-slate-600 rounded-lg px-4 py-1.5 text-sm font-semibold outline-none transition-all
+                                                    dark:ui-selected:bg-neumorphic-base-dark dark:ui-selected:text-primary-400 dark:ui-selected:shadow-lg dark:text-slate-400">Text</Tab>
+                                        <Tab className="ui-selected:bg-neumorphic-base ui-selected:text-primary-600 ui-selected:shadow-neumorphic text-slate-600 rounded-lg px-4 py-1.5 text-sm font-semibold outline-none transition-all
+                                                    dark:ui-selected:bg-neumorphic-base-dark dark:ui-selected:text-primary-400 dark:ui-selected:shadow-lg dark:text-slate-400">Image</Tab>
+                                        <Tab className="ui-selected:bg-neumorphic-base ui-selected:text-primary-600 ui-selected:shadow-neumorphic text-slate-600 rounded-lg px-4 py-1.5 text-sm font-semibold outline-none transition-all
+                                                    dark:ui-selected:bg-neumorphic-base-dark dark:ui-selected:text-primary-400 dark:ui-selected:shadow-lg dark:text-slate-400">Video</Tab>
                                     </TabList>
 
                                     <TabPanels className="pt-4 flex flex-col min-h-0">
@@ -518,7 +563,8 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                                     <MarkdownEditor value={typeof activePage.content === 'string' ? activePage.content : ''} onValueChange={(val) => handlePageChange('content', val)} />
                                                 </div>
                                                 <div className="flex-1 min-h-0">
-                                                    <div className="w-full h-full rounded-xl bg-neumorphic-base shadow-neumorphic-inset p-6 prose max-w-none prose-slate">
+                                                    {/* --- MODIFIED: Added dark theme styles --- */}
+                                                    <div className="w-full h-full rounded-xl bg-neumorphic-base shadow-neumorphic-inset p-6 prose max-w-none prose-slate dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:prose-invert">
                                                         <ContentRenderer text={typeof activePage.content === 'string' ? activePage.content : ''} />
                                                     </div>
                                                 </div>
@@ -526,23 +572,38 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                         </TabPanel>
 
                                         <TabPanel className="min-h-0">
-                                            <div className="space-y-4 p-4 bg-neumorphic-base shadow-neumorphic-inset rounded-xl">
+                                            {/* --- MODIFIED: Added dark theme styles --- */}
+                                            <div className="space-y-4 p-4 bg-neumorphic-base shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark rounded-xl">
                                                 <div className="space-y-2">
                                                     {Array.isArray(activePage.content?.imageUrls) && activePage.content.imageUrls.map((url, idx) => (
                                                         <div key={idx} className="flex gap-2 items-center">
-                                                            <TextInput placeholder={`Image URL #${idx + 1}`} value={url} onValueChange={(val) => { const newUrls = [...activePage.content.imageUrls]; newUrls[idx] = val; handlePageChange('imageUrls', newUrls); }} className="flex-1 rounded-xl bg-neumorphic-base !shadow-neumorphic-inset border-none focus:ring-2 focus:ring-primary-500" />
-                                                            <Button variant="light" color="red" icon={TrashIcon} onClick={() => { const newUrls = activePage.content.imageUrls.filter((_, i) => i !== idx); handlePageChange('imageUrls', newUrls); }} className="rounded-full !bg-neumorphic-base !shadow-neumorphic hover:!shadow-neumorphic-inset" />
+                                                            {/* --- MODIFIED: Using formInputStyle --- */}
+                                                            <TextInput placeholder={`Image URL #${idx + 1}`} value={url} onValueChange={(val) => { const newUrls = [...activePage.content.imageUrls]; newUrls[idx] = val; handlePageChange('imageUrls', newUrls); }} 
+                                                                className={`${formInputStyle} flex-1`} />
+                                                            {/* --- MODIFIED: Added dark theme styles --- */}
+                                                            <Button variant="light" color="red" icon={TrashIcon} onClick={() => { const newUrls = activePage.content.imageUrls.filter((_, i) => i !== idx); handlePageChange('imageUrls', newUrls); }} 
+                                                                className="rounded-full !bg-neumorphic-base !shadow-neumorphic hover:!shadow-neumorphic-inset
+                                                                           dark:!bg-neumorphic-base-dark dark:!shadow-lg dark:hover:!shadow-neumorphic-inset-dark" />
                                                         </div>
                                                     ))}
-                                                    <Button icon={PlusCircleIcon} className="rounded-xl bg-neumorphic-base text-slate-700 shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-flat-inset transition-shadow" onClick={() => handlePageChange('imageUrls', [...(activePage.content?.imageUrls || []), ''])}>Add Image URL</Button>
+                                                    {/* --- MODIFIED: Added dark theme styles --- */}
+                                                    <Button icon={PlusCircleIcon} 
+                                                        className="rounded-xl bg-neumorphic-base text-slate-700 shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-flat-inset transition-shadow
+                                                                   dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark" 
+                                                        onClick={() => handlePageChange('imageUrls', [...(activePage.content?.imageUrls || []), ''])}>Add Image URL</Button>
                                                 </div>
-                                                <TextInput placeholder="Labels (comma-separated)" value={Array.isArray(activePage.content?.labels) ? activePage.content.labels.join(', ') : ''} onValueChange={(val) => handlePageChange('diagram_labels', val)} className="rounded-xl bg-neumorphic-base shadow-neumorphic-inset border-none focus:ring-2 focus:ring-primary-500" />
+                                                {/* --- MODIFIED: Using formInputStyle --- */}
+                                                <TextInput placeholder="Labels (comma-separated)" value={Array.isArray(activePage.content?.labels) ? activePage.content.labels.join(', ') : ''} onValueChange={(val) => handlePageChange('diagram_labels', val)} 
+                                                    className={formInputStyle} />
                                             </div>
                                         </TabPanel>
 
                                         <TabPanel className="min-h-0">
-                                            <div className="p-4 bg-neumorphic-base shadow-neumorphic-inset rounded-xl">
-                                                <TextInput placeholder="Video URL (YouTube, etc.)" value={typeof activePage.content === 'string' ? activePage.content : ''} onValueChange={(val) => handlePageChange('content', val)} className="rounded-xl bg-neumorphic-base shadow-neumorphic-inset border-none focus:ring-2 focus:ring-primary-500" />
+                                            {/* --- MODIFIED: Added dark theme styles --- */}
+                                            <div className="p-4 bg-neumorphic-base shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark rounded-xl">
+                                                {/* --- MODIFIED: Using formInputStyle --- */}
+                                                <TextInput placeholder="Video URL (YouTube, etc.)" value={typeof activePage.content === 'string' ? activePage.content : ''} onValueChange={(val) => handlePageChange('content', val)} 
+                                                    className={formInputStyle} />
                                             </div>
                                         </TabPanel>
                                     </TabPanels>
@@ -553,16 +614,22 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                 </div>
 
                 {/* Neumorphic Footer */}
-                <div className="flex-shrink-0 flex justify-end items-center gap-3 pt-4 mt-4 border-t-2 border-neumorphic-base shadow-neumorphic-inset rounded-2xl p-4">
-                    {error && <p className="text-red-500 text-sm mr-auto">{error}</p>}
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <div className="flex-shrink-0 flex justify-end items-center gap-3 pt-4 mt-4 border-t-2 border-neumorphic-base dark:border-t-2 dark:border-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-2xl p-4">
+                    {/* --- MODIFIED: Added dark theme text --- */}
+                    {error && <p className="text-red-500 dark:text-red-400 text-sm mr-auto">{error}</p>}
                     <Button 
-                        className="rounded-xl bg-neumorphic-base text-slate-700 shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-flat-inset transition-shadow" 
+                        // --- MODIFIED: Added dark theme styles ---
+                        className="rounded-xl bg-neumorphic-base text-slate-700 shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-flat-inset transition-shadow
+                                   dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark" 
                         onClick={onClose}
                     >
                         Cancel
                     </Button>
                     <Button 
-                        className="font-semibold rounded-xl bg-primary-600 text-white shadow-lg hover:bg-primary-700 transition-colors" 
+                        // --- MODIFIED: Added dark theme styles ---
+                        className="font-semibold rounded-xl bg-primary-600 text-white shadow-lg hover:bg-primary-700 transition-colors
+                                   dark:bg-primary-700 dark:hover:bg-primary-600" 
                         onClick={handleUpdateLesson} 
                         loading={loading}
                     >

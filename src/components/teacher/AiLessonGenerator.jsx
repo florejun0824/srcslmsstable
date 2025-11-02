@@ -497,19 +497,24 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const gradeLevels = ["Kindergarten", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
 
     // --- START OF CHANGES (4/4): Define reusable style and add new UI ---
-    const formInputStyle = "block w-full rounded-lg border-transparent bg-neumorphic-base shadow-neumorphic-inset focus:border-sky-500 focus:ring-sky-500 text-sm";
+    // --- MODIFIED: Added dark mode classes to formInputStyle ---
+    const formInputStyle = "block w-full rounded-lg border-transparent bg-neumorphic-base shadow-neumorphic-inset text-slate-900 placeholder-slate-400 focus:border-sky-500 focus:ring-sky-500 text-sm dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:text-slate-100 dark:placeholder-slate-500";
 
     return (
         <div className="flex flex-col h-full">
-            <div className="flex-shrink-0 pb-4 border-b border-neumorphic-shadow-dark/20">
+            {/* --- MODIFIED: Added dark theme border --- */}
+            <div className="flex-shrink-0 pb-4 border-b border-neumorphic-shadow-dark/20 dark:border-slate-700">
                 <div className="flex justify-between items-center mb-2">
-                    <Dialog.Title as="h3" className="text-2xl font-bold text-slate-800">Generate with AI</Dialog.Title>
-                    <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-slate-600 rounded-lg hover:shadow-neumorphic-inset">
+                    {/* --- MODIFIED: Added dark theme text --- */}
+                    <Dialog.Title as="h3" className="text-2xl font-bold text-slate-800 dark:text-slate-100">Generate with AI</Dialog.Title>
+                    {/* --- MODIFIED: Added dark theme styles --- */}
+                    <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-slate-600 dark:text-slate-400 rounded-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark">
                         <ArrowUturnLeftIcon className="w-4 h-4" />
                         Back
                     </button>
                 </div>
-                 <p className="text-slate-500">
+                 {/* --- MODIFIED: Added dark theme text --- */}
+                 <p className="text-slate-500 dark:text-slate-400">
                     Upload a document and AI will structure it into a full unit.
                 </p>
             </div>
@@ -517,35 +522,47 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             <div className="flex-grow pt-4 overflow-hidden flex flex-col md:flex-row gap-6">
                 <div className="w-full md:w-1/3 flex flex-col gap-4 overflow-y-auto pr-2">
                     {isProcessing ? (
-                        <div className="w-full flex-grow flex flex-col items-center justify-center p-4 rounded-2xl bg-neumorphic-base shadow-neumorphic-inset">
+                        // --- MODIFIED: Added dark theme styles ---
+                        <div className="w-full flex-grow flex flex-col items-center justify-center p-4 rounded-2xl bg-neumorphic-base shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
                             <Spinner/>
-                            <p className="text-sm font-semibold text-slate-700 mt-4">{progressMessage}</p>
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mt-4">{progressMessage}</p>
                         </div>
                     ) : (
                         !file ? (
-                            <label htmlFor="file-upload" className="relative flex-grow block w-full rounded-2xl p-8 text-center cursor-pointer transition-shadow duration-300 bg-neumorphic-base shadow-neumorphic-inset hover:shadow-neumorphic">
+                            // --- MODIFIED: Added dark theme styles ---
+                            <label htmlFor="file-upload" className="relative flex-grow block w-full rounded-2xl p-8 text-center cursor-pointer transition-shadow duration-300 bg-neumorphic-base shadow-neumorphic-inset hover:shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:hover:shadow-lg">
                                 <div className="flex flex-col items-center justify-center h-full">
-                                    <DocumentArrowUpIcon className="mx-auto h-16 w-16 text-slate-400" />
-                                    <span className="mt-4 block text-sm font-semibold text-slate-700">
+                                    {/* --- MODIFIED: Added dark theme icon --- */}
+                                    <DocumentArrowUpIcon className="mx-auto h-16 w-16 text-slate-400 dark:text-slate-600" />
+                                    {/* --- MODIFIED: Added dark theme text --- */}
+                                    <span className="mt-4 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                                         Click to upload or drag & drop
                                     </span>
-                                    <span className="mt-1 block text-xs text-slate-500">
+                                    {/* --- MODIFIED: Added dark theme text --- */}
+                                    <span className="mt-1 block text-xs text-slate-500 dark:text-slate-500">
                                         PDF, DOCX, or TXT
                                     </span>
                                 </div>
                                 <input id="file-upload" name="file-upload" type="file" className="sr-only" accept=".pdf,.docx,.txt" onChange={handleFileChange} />
                             </label>
                         ) : (
-                            <div className="relative w-full flex-grow rounded-2xl p-4 shadow-neumorphic flex flex-col justify-center">
+                            // --- MODIFIED: Added dark theme styles ---
+                            <div className="relative w-full flex-grow rounded-2xl p-4 shadow-neumorphic dark:shadow-lg dark:bg-neumorphic-base-dark flex flex-col justify-center">
                                 <div className="flex items-center gap-4">
-                                    <DocumentTextIcon className="h-12 w-12 text-sky-600 flex-shrink-0" />
+                                    {/* --- MODIFIED: Added dark theme icon --- */}
+                                    <DocumentTextIcon className="h-12 w-12 text-sky-600 dark:text-sky-400 flex-shrink-0" />
                                     <div className="overflow-hidden">
-                                        <p className="truncate font-semibold text-slate-800">{file.name}</p>
-                                        <p className="text-sm text-slate-500">{Math.round(file.size / 1024)} KB</p>
+                                        {/* --- MODIFIED: Added dark theme text --- */}
+                                        <p className="truncate font-semibold text-slate-800 dark:text-slate-100">{file.name}</p>
+                                        {/* --- MODIFIED: Added dark theme text --- */}
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">{Math.round(file.size / 1024)} KB</p>
                                     </div>
                                 </div>
-                                <button onClick={removeFile} className="absolute top-3 right-3 p-1.5 rounded-full hover:shadow-neumorphic-inset transition-colors">
-                                    <XMarkIcon className="h-5 w-5 text-slate-500" />
+                                {/* --- MODIFIED: Added dark theme styles --- */}
+                                <button onClick={removeFile} className="absolute top-3 right-3 p-1.5 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-colors">
+                                    {/* --- MODIFIED: Added dark theme icon --- */}
+                                    <XMarkIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                                 </button>
                             </div>
                         )
@@ -553,14 +570,16 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label htmlFor="language" className="block text-sm font-semibold text-slate-700 mb-1">Language</label>
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <label htmlFor="language" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Language</label>
                             <select id="language" name="language" value={language} onChange={(e) => setLanguage(e.target.value)} className={formInputStyle}>
                                 <option>English</option>
                                 <option>Filipino</option>
                             </select>
                         </div>
                         <div>
-                            <label htmlFor="gradeLevel" className="block text-sm font-semibold text-slate-700 mb-1">Grade Level</label>
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <label htmlFor="gradeLevel" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Grade Level</label>
                             <select id="gradeLevel" name="gradeLevel" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} className={formInputStyle}>
                                 {gradeLevels.map(level => (
                                     <option key={level} value={level}>{level}</option>
@@ -570,7 +589,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     </div>
 
                     <div>
-                        <label htmlFor="subject" className="block text-sm font-semibold text-slate-700 mb-1">Subject</label>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <label htmlFor="subject" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Subject</label>
                         <select id="subject" name="subject" value={selectedSubject || ''} onChange={(e) => setSelectedSubject(e.target.value)} className={formInputStyle}>
                             <option value="" disabled>Select a subject</option>
                             {subjects.map(subject => (
@@ -580,7 +600,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     </div>
                     
                     <div>
-                        <label htmlFor="learningCompetencies" className="block text-sm font-semibold text-slate-700 mb-1">Learning Competencies (Master List)</label>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <label htmlFor="learningCompetencies" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Learning Competencies (Master List)</label>
                         <textarea
                             id="learningCompetencies"
                             name="learningCompetencies"
@@ -593,7 +614,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     </div>
 
                     <div>
-                        <label htmlFor="contentStandard" className="block text-sm font-semibold text-slate-700 mb-1">Content Standard (Optional)</label>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <label htmlFor="contentStandard" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Content Standard (Optional)</label>
                         <textarea
                             id="contentStandard"
                             name="contentStandard"
@@ -606,7 +628,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     </div>
 
                     <div>
-                        <label htmlFor="performanceStandard" className="block text-sm font-semibold text-slate-700 mb-1">Performance Standard (Optional)</label>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <label htmlFor="performanceStandard" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Performance Standard (Optional)</label>
                         <textarea
                             id="performanceStandard"
                             name="performanceStandard"
@@ -620,9 +643,12 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     {/* --- END OF CHANGES (4/4) --- */}
 
                     <div className="space-y-2">
-                        <h3 className="text-base font-semibold text-slate-700">Scaffolding (Optional)</h3>
-                        <div className="bg-neumorphic-base p-3 rounded-xl max-h-[18rem] overflow-y-auto shadow-neumorphic-inset">
-                            <p className="text-xs text-slate-500 mb-3">Explicitly select lessons for the AI to build upon.</p>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300">Scaffolding (Optional)</h3>
+                        {/* --- MODIFIED: Added dark theme styles --- */}
+                        <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark p-3 rounded-xl max-h-[18rem] overflow-y-auto shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Explicitly select lessons for the AI to build upon.</p>
                             {subjectContext && subjectContext.units.length > 0 ? (
                                 subjectContext.units
                                     .slice()
@@ -637,9 +663,12 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                     return (
                                         <div key={unit.id} className="pt-2 first:pt-0">
                                             <div className="flex items-center p-2 rounded-md">
-                                                <button onClick={() => handleToggleUnitExpansion(unit.id)} className="p-1"><ChevronRightIcon className={`h-4 w-4 text-slate-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`} /></button>
-                                                <input type="checkbox" id={`scaffold-unit-${unit.id}`} checked={isAllSelected} ref={el => { if(el) el.indeterminate = isPartiallySelected; }} onChange={() => handleUnitCheckboxChange(lessonsInUnit)} className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 ml-2" />
-                                                <label htmlFor={`scaffold-unit-${unit.id}`} className="ml-2 flex-1 text-sm font-semibold text-slate-700 cursor-pointer">{unit.title}</label>
+                                                {/* --- MODIFIED: Added dark theme icon --- */}
+                                                <button onClick={() => handleToggleUnitExpansion(unit.id)} className="p-1"><ChevronRightIcon className={`h-4 w-4 text-slate-500 dark:text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} /></button>
+                                                {/* --- MODIFIED: Added dark theme styles --- */}
+                                                <input type="checkbox" id={`scaffold-unit-${unit.id}`} checked={isAllSelected} ref={el => { if(el) el.indeterminate = isPartiallySelected; }} onChange={() => handleUnitCheckboxChange(lessonsInUnit)} className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 dark:focus:ring-sky-600 ml-2" />
+                                                {/* --- MODIFIED: Added dark theme text --- */}
+                                                <label htmlFor={`scaffold-unit-${unit.id}`} className="ml-2 flex-1 text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">{unit.title}</label>
                                             </div>
                                             {isExpanded && (
                                                 <div className="pl-6 pt-2 space-y-2">
@@ -655,9 +684,11 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                                                     else newSet.add(lesson.id);
                                                                     setScaffoldLessonIds(newSet);
                                                                 }}
-                                                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                                // --- MODIFIED: Added dark theme styles ---
+                                                                className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-600"
                                                             />
-                                                            <label htmlFor={`scaffold-lesson-${lesson.id}`} className="ml-2 block text-sm text-slate-800">
+                                                            {/* --- MODIFIED: Added dark theme text --- */}
+                                                            <label htmlFor={`scaffold-lesson-${lesson.id}`} className="ml-2 block text-sm text-slate-800 dark:text-slate-200">
                                                                 {lesson.title}
                                                             </label>
                                                         </div>
@@ -667,37 +698,61 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                         </div>
                                     );
                                 })
-                            ) : (<p className="text-sm text-slate-400">Scanning subject content...</p>)}
+                            ) : (
+                                // --- MODIFIED: Added dark theme text ---
+                                <p className="text-sm text-slate-400 dark:text-slate-500">Scanning subject content...</p>
+                            )}
                         </div>
                     </div>
 
-                    <button onClick={handleGenerateLesson} disabled={!file || isProcessing} className="w-full flex items-center justify-center font-semibold bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 rounded-xl py-3 mt-auto shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-60">
+                    {/* --- MODIFIED: Added dark theme styles --- */}
+                    <button onClick={handleGenerateLesson} disabled={!file || isProcessing} 
+                        className="w-full flex items-center justify-center font-semibold bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 rounded-xl py-3 mt-auto shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-60
+                                   dark:from-sky-700 dark:to-blue-800 dark:text-sky-100 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark">
                         <SparklesIcon className="w-5 h-5 mr-2" />
                         {previewLessons.length > 0 ? 'Regenerate Lessons' : 'Generate Lessons'}
                     </button>
                 </div>
                 
-                <div className="w-full md:w-2/3 flex flex-col bg-neumorphic-base rounded-2xl p-3 shadow-neumorphic-inset overflow-hidden">
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <div className="w-full md:w-2/3 flex flex-col bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl p-3 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark overflow-hidden">
                     {previewLessons.length > 0 ? (
                         <div className="flex-grow flex flex-col md:flex-row gap-3 overflow-hidden">
                             <div className="w-full md:w-1/3 flex-shrink-0 flex flex-col">
-                                <h4 className="p-2 text-sm font-semibold text-slate-600">Generated Lessons</h4>
+                                {/* --- MODIFIED: Added dark theme text --- */}
+                                <h4 className="p-2 text-sm font-semibold text-slate-600 dark:text-slate-400">Generated Lessons</h4>
                                 <div className="flex-grow overflow-y-auto pr-1 space-y-1.5">
                                     {previewLessons.map((lesson, index) => (
-                                        <button key={index} onClick={() => { setSelectedLessonIndex(index); setSelectedPageIndex(0); }} className={`w-full text-left p-3 rounded-xl transition-all duration-300 ${selectedLessonIndex === index ? 'bg-white shadow-neumorphic ring-2 ring-sky-300' : 'bg-neumorphic-base shadow-neumorphic hover:shadow-neumorphic-inset'}`}>
-                                            <span className="font-semibold text-slate-800">{lesson.lessonTitle}</span>
+                                        <button 
+                                            key={index} 
+                                            onClick={() => { setSelectedLessonIndex(index); setSelectedPageIndex(0); }} 
+                                            // --- MODIFIED: Added dark theme styles ---
+                                            className={`w-full text-left p-3 rounded-xl transition-all duration-300 
+                                                        ${selectedLessonIndex === index 
+                                                            ? 'bg-white shadow-neumorphic ring-2 ring-sky-300 dark:bg-slate-100 dark:text-slate-900 dark:shadow-neumorphic-light dark:ring-sky-400' 
+                                                            : 'bg-neumorphic-base shadow-neumorphic hover:shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark'
+                                                        }`}
+                                        >
+                                            {/* --- MODIFIED: Added dark theme text (via parent) --- */}
+                                            <span className={`font-semibold ${selectedLessonIndex === index ? 'text-slate-800' : 'text-slate-800 dark:text-slate-100'}`}>{lesson.lessonTitle}</span>
                                         </button>
                                     ))}
                                 </div>
                             </div>
-                             <div className="w-full md:w-2/3 flex-grow bg-neumorphic-base rounded-xl flex flex-col overflow-hidden shadow-neumorphic min-h-0">
+                             {/* --- MODIFIED: Added dark theme styles --- */}
+                             <div className="w-full md:w-2/3 flex-grow bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl flex flex-col overflow-hidden shadow-neumorphic dark:shadow-lg min-h-0">
                                 {selectedLesson && (
                                   <>
-                                    <div className="flex-shrink-0 p-4 border-b border-neumorphic-shadow-dark/20">
-                                      <h3 className="text-lg font-bold text-slate-900 truncate">{selectedLesson.lessonTitle}</h3>
-                                      {objectivesAsMarkdown && ( <div className="my-2 p-3 bg-sky-50 border-l-4 border-sky-300 rounded-r-lg">
-                                          <p className="font-semibold mb-1 text-sky-900">Learning Objectives</p>
-                                          <div className="prose prose-sm max-w-none prose-sky text-sky-800">
+                                    {/* --- MODIFIED: Added dark theme border --- */}
+                                    <div className="flex-shrink-0 p-4 border-b border-neumorphic-shadow-dark/20 dark:border-slate-700">
+                                      {/* --- MODIFIED: Added dark theme text --- */}
+                                      <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 truncate">{selectedLesson.lessonTitle}</h3>
+                                      {/* --- MODIFIED: Added dark theme styles --- */}
+                                      {objectivesAsMarkdown && ( <div className="my-2 p-3 bg-sky-50 dark:bg-sky-900/50 border-l-4 border-sky-300 dark:border-sky-700 rounded-r-lg">
+                                          {/* --- MODIFIED: Added dark theme text --- */}
+                                          <p className="font-semibold mb-1 text-sky-900 dark:text-sky-200">Learning Objectives</p>
+                                          {/* --- MODIFIED: Added dark theme prose --- */}
+                                          <div className="prose prose-sm max-w-none prose-sky text-sky-800 dark:text-sky-300">
                                             <LessonPage page={{ content: objectivesAsMarkdown }} isEditable={false} />
                                           </div>
                                         </div>)}
@@ -706,13 +761,18 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                           <button
                                             key={index}
                                             onClick={() => setSelectedPageIndex(index)}
-                                            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${selectedPageIndex === index ? "bg-sky-600 text-white shadow-neumorphic" : "bg-neumorphic-base text-slate-600 shadow-neumorphic hover:shadow-neumorphic-inset"}`}
+                                            // --- MODIFIED: Added dark theme styles ---
+                                            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${selectedPageIndex === index 
+                                                ? "bg-sky-600 text-white shadow-neumorphic dark:bg-sky-600 dark:text-white dark:shadow-lg" 
+                                                : "bg-neumorphic-base text-slate-600 shadow-neumorphic hover:shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark"
+                                            }`}
                                           >{page.title}</button>
                                         ))}
                                       </div>
                                     </div>
                                     <div className="flex-grow min-h-0 overflow-y-auto p-6">
-                                      <div className="prose max-w-none prose-slate">
+                                      {/* --- MODIFIED: Added dark theme prose --- */}
+                                      <div className="prose max-w-none prose-slate dark:prose-invert">
                                         {selectedPage ? <LessonPage page={selectedPage} isEditable={false} /> : <p>Select a page to view its content.</p>}
                                       </div>
                                     </div>
@@ -722,18 +782,28 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                         </div>
                     ) : (
                         <div className="m-auto text-center">
-                            <DocumentTextIcon className="mx-auto h-16 w-16 text-slate-300" />
-                            <p className="mt-2 text-sm font-semibold text-slate-500">AI-Generated Preview</p>
-                            <p className="mt-1 text-xs text-slate-400">Your unit lessons will appear here.</p>
+                            {/* --- MODIFIED: Added dark theme icon --- */}
+                            <DocumentTextIcon className="mx-auto h-16 w-16 text-slate-300 dark:text-slate-700" />
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <p className="mt-2 text-sm font-semibold text-slate-500 dark:text-slate-400">AI-Generated Preview</p>
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Your unit lessons will appear here.</p>
                         </div>
                     )}
                 </div>
             </div>
 
-            <div className="flex-shrink-0 flex justify-end items-center gap-3 pt-6 mt-4 border-t border-neumorphic-shadow-dark/20">
-                {error && <p className="text-red-500 text-sm mr-auto">{error}</p>}
-                <button className="px-4 py-2 bg-neumorphic-base text-slate-700 rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset" onClick={onClose}>Cancel</button>
-                <button onClick={handleSaveLesson} disabled={saving || previewLessons.length === 0 || isProcessing} className="px-4 py-2 font-semibold bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset disabled:opacity-60">
+            {/* --- MODIFIED: Added dark theme border --- */}
+            <div className="flex-shrink-0 flex justify-end items-center gap-3 pt-6 mt-4 border-t border-neumorphic-shadow-dark/20 dark:border-slate-700">
+                {/* --- MODIFIED: Added dark theme text --- */}
+                {error && <p className="text-red-500 dark:text-red-400 text-sm mr-auto">{error}</p>}
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <button className="px-4 py-2 bg-neumorphic-base text-slate-700 rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset
+                                 dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark" onClick={onClose}>Cancel</button>
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <button onClick={handleSaveLesson} disabled={saving || previewLessons.length === 0 || isProcessing} 
+                    className="px-4 py-2 font-semibold bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset disabled:opacity-60
+                               dark:from-sky-700 dark:to-blue-800 dark:text-sky-100 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark">
                     {saving ? 'Saving...' : `Save ${previewLessons.length} Lesson(s)`}
                 </button>
             </div>

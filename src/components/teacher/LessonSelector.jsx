@@ -124,32 +124,40 @@ export default function LessonSelector({ subjectId, onLessonsSelect }) {
     });
 
     if (isLoading) {
-        return <div className="text-center p-4 text-slate-500">Loading lessons...</div>;
+        // --- MODIFIED: Added dark theme text ---
+        return <div className="text-center p-4 text-slate-500 dark:text-slate-400">Loading lessons...</div>;
     }
 
     if (error) {
-        return <div className="text-center p-4 text-red-600">{error}</div>;
+        // --- MODIFIED: Added dark theme text ---
+        return <div className="text-center p-4 text-red-600 dark:text-red-400">{error}</div>;
     }
 
     return (
-        <div className="p-4 bg-white rounded-xl shadow-lg w-full">
-            <h2 className="text-base font-bold text-slate-700 mb-4 border-b pb-2">Select Lessons</h2>
+        // --- MODIFIED: Added dark theme styles ---
+        <div className="p-4 bg-slate-200 dark:bg-neumorphic-base-dark rounded-xl shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] dark:shadow-lg w-full">
+            {/* --- MODIFIED: Added dark theme text & border --- */}
+            <h2 className="text-base font-bold text-slate-700 dark:text-slate-100 mb-4 border-b pb-2 border-slate-300/70 dark:border-slate-700">Select Lessons</h2>
             {allLessons.length > 0 ? (
                 <div className="space-y-4">
                     {sortedUnitIds.map((unitId) => (
-                        <div key={unitId} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                            <h3 className="font-semibold text-sm text-indigo-700 mb-2">
+                        // --- MODIFIED: Added dark theme styles ---
+                        <div key={unitId} className="bg-slate-200 dark:bg-neumorphic-base-dark/60 rounded-lg p-3 shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:shadow-neumorphic-inset-dark">
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <h3 className="font-semibold text-sm text-indigo-700 dark:text-indigo-400 mb-2">
                                 {units[unitId] ? `Unit: ${units[unitId]}` : `Unit ID: ${unitId}`}
                             </h3>
                             <div className="space-y-2">
                                 {groupedLessons[unitId].map((lesson) => (
-                                    <label key={lesson.id} className="flex items-center space-x-3 text-sm text-slate-700 p-2 rounded-md hover:bg-slate-100 cursor-pointer transition-colors">
+                                    // --- MODIFIED: Added dark theme styles ---
+                                    <label key={lesson.id} className="flex items-center space-x-3 text-sm text-slate-700 dark:text-slate-300 p-2 rounded-md hover:bg-slate-100 dark:hover:bg-neumorphic-base-dark cursor-pointer transition-colors">
                                         <input
                                             type="checkbox"
                                             value={lesson.id}
                                             checked={selectedLessonIds.includes(lesson.id)}
                                             onChange={handleCheckboxChange}
-                                            className="form-checkbox h-4 w-4 text-indigo-600 rounded focus:ring-indigo-500"
+                                            // --- MODIFIED: Added dark theme styles ---
+                                            className="form-checkbox h-4 w-4 text-indigo-600 rounded focus:ring-indigo-500 dark:bg-slate-800 dark:border-slate-600"
                                         />
                                         <span>{lesson.title}</span>
                                     </label>
@@ -159,9 +167,9 @@ export default function LessonSelector({ subjectId, onLessonsSelect }) {
                     ))}
                 </div>
             ) : (
-                <p className="text-sm text-slate-500">No lessons are currently available for this subject.</p>
+                // --- MODIFIED: Added dark theme text ---
+                <p className="text-sm text-slate-500 dark:text-slate-400">No lessons are currently available for this subject.</p>
             )}
         </div>
     );
 }
-

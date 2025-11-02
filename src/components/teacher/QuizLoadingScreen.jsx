@@ -32,12 +32,15 @@ export default function QuizLoadingScreen() {
   ];
 
   return (
-    <div className="flex min-h-[350px] flex-col items-center justify-center space-y-8 p-10 text-center font-sans bg-slate-200">
+    // --- MODIFIED: Added dark theme background ---
+    <div className="flex min-h-[350px] flex-col items-center justify-center space-y-8 p-10 text-center font-sans bg-slate-200 dark:bg-neumorphic-base-dark">
       
       {/* Neumorphic Inset Icon Animation */}
-      <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-slate-200 shadow-[inset_5px_5px_10px_#bdc1c6,inset_-5px_-5px_10px_#ffffff]">
+      {/* --- MODIFIED: Added dark theme styles --- */}
+      <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-slate-200 shadow-[inset_5px_5px_10px_#bdc1c6,inset_-5px_-5px_10px_#ffffff] dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
         {/* Central Icon */}
-        <SparklesIcon className="h-16 w-16 text-sky-500" />
+        {/* --- MODIFIED: Added dark theme icon --- */}
+        <SparklesIcon className="h-16 w-16 text-sky-500 dark:text-sky-400" />
         
         {/* Emitted Sparkles */}
         {sparkles.map((sparkle) => (
@@ -58,17 +61,20 @@ export default function QuizLoadingScreen() {
               ease: "easeInOut"
             }}
           >
-            <SparklesIcon className="h-6 w-6 text-sky-400 opacity-70" />
+            {/* --- MODIFIED: Added dark theme icon --- */}
+            <SparklesIcon className="h-6 w-6 text-sky-400 dark:text-sky-400 opacity-70" />
           </motion.div>
         ))}
       </div>
 
       {/* Loading Text */}
       <div className="max-w-md">
-        <h3 className="text-2xl font-bold text-slate-800">
+        {/* --- MODIFIED: Added dark theme text --- */}
+        <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
           Generating Your Quiz
         </h3>
-        <div className="mt-3 h-6 text-base text-slate-600">
+        {/* --- MODIFIED: Added dark theme text --- */}
+        <div className="mt-3 h-6 text-base text-slate-600 dark:text-slate-400">
           <AnimatePresence mode="wait">
             <motion.p
               key={messageIndex}

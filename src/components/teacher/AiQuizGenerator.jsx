@@ -290,67 +290,88 @@ export default function AiQuizGenerator({ onBack, onAiComplete }) {
 
     return (
         <div className="flex flex-col h-full min-h-[400px]">
-            <div className="flex-shrink-0 pb-4 border-b border-neumorphic-shadow-dark/20">
+            {/* --- MODIFIED: Added dark theme border --- */}
+            <div className="flex-shrink-0 pb-4 border-b border-neumorphic-shadow-dark/20 dark:border-slate-700">
                 <div className="flex justify-between items-center mb-2">
-                    <Dialog.Title as="h3" className="text-2xl font-bold text-slate-800">Generate Quiz from File</Dialog.Title>
-                    <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-slate-600 rounded-lg hover:shadow-neumorphic-inset">
+                    {/* --- MODIFIED: Added dark theme text --- */}
+                    <Dialog.Title as="h3" className="text-2xl font-bold text-slate-800 dark:text-slate-100">Generate Quiz from File</Dialog.Title>
+                    {/* --- MODIFIED: Added dark theme styles --- */}
+                    <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-slate-600 rounded-lg hover:shadow-neumorphic-inset dark:text-slate-400 dark:hover:shadow-neumorphic-inset-dark">
                         <ArrowUturnLeftIcon className="w-4 h-4" />
                         Back
                     </button>
                 </div>
-                 <p className="text-slate-500">
+                 {/* --- MODIFIED: Added dark theme text --- */}
+                 <p className="text-slate-500 dark:text-slate-400">
                     Upload a file and AI will parse it into the quiz editor for your review.
                 </p>
             </div>
 
             <div className="flex-grow pt-4 overflow-hidden flex flex-col gap-6">
                 {isProcessing ? (
-                    <div className="w-full flex-grow flex flex-col items-center justify-center p-4 rounded-2xl bg-neumorphic-base shadow-neumorphic-inset">
+                    // --- MODIFIED: Added dark theme styles ---
+                    <div className="w-full flex-grow flex flex-col items-center justify-center p-4 rounded-2xl bg-neumorphic-base shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
                         <Spinner/>
-                        <p className="text-sm font-semibold text-slate-700 mt-4">{progressMessage}</p>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mt-4">{progressMessage}</p>
                     </div>
                 ) : (
                     <>
                         {!file ? (
-                            <label htmlFor="file-upload" className="relative flex-grow block w-full rounded-2xl p-8 text-center cursor-pointer transition-shadow duration-300 bg-neumorphic-base shadow-neumorphic-inset hover:shadow-neumorphic">
+                            // --- MODIFIED: Added dark theme styles ---
+                            <label htmlFor="file-upload" className="relative flex-grow block w-full rounded-2xl p-8 text-center cursor-pointer transition-shadow duration-300 bg-neumorphic-base shadow-neumorphic-inset hover:shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:hover:shadow-lg">
                                 <div className="flex flex-col items-center justify-center h-full">
-                                    <DocumentArrowUpIcon className="mx-auto h-16 w-16 text-slate-400" />
-                                    <span className="mt-4 block text-sm font-semibold text-slate-700">
+                                    {/* --- MODIFIED: Added dark theme icon --- */}
+                                    <DocumentArrowUpIcon className="mx-auto h-16 w-16 text-slate-400 dark:text-slate-600" />
+                                    {/* --- MODIFIED: Added dark theme text --- */}
+                                    <span className="mt-4 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                                         Click to upload or drag & drop
                                     </span>
-                                    <span className="mt-1 block text-xs text-slate-500">
+                                    {/* --- MODIFIED: Added dark theme text --- */}
+                                    <span className="mt-1 block text-xs text-slate-500 dark:text-slate-500">
                                         PDF, DOCX, or TXT
                                     </span>
                                 </div>
                                 <input id="file-upload" name="file-upload" type="file" className="sr-only" accept=".pdf,.docx,.txt" onChange={handleFileChange} />
                             </label>
                         ) : (
-                            <div className="relative w-full flex-grow rounded-2xl p-4 shadow-neumorphic flex flex-col justify-center">
+                            // --- MODIFIED: Added dark theme styles ---
+                            <div className="relative w-full flex-grow rounded-2xl p-4 shadow-neumorphic flex flex-col justify-center dark:bg-neumorphic-base-dark dark:shadow-lg">
                                 <div className="flex items-center gap-4">
-                                    <DocumentTextIcon className="h-12 w-12 text-sky-600 flex-shrink-0" />
+                                    {/* --- MODIFIED: Added dark theme icon --- */}
+                                    <DocumentTextIcon className="h-12 w-12 text-sky-600 dark:text-sky-400 flex-shrink-0" />
                                     <div className="overflow-hidden">
-                                        <p className="truncate font-semibold text-slate-800">{file.name}</p>
-                                        <p className="text-sm text-slate-500">{Math.round(file.size / 1024)} KB</p>
+                                        {/* --- MODIFIED: Added dark theme text --- */}
+                                        <p className="truncate font-semibold text-slate-800 dark:text-slate-100">{file.name}</p>
+                                        {/* --- MODIFIED: Added dark theme text --- */}
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">{Math.round(file.size / 1024)} KB</p>
                                     </div>
                                 </div>
-                                <button onClick={removeFile} className="absolute top-3 right-3 p-1.5 rounded-full hover:shadow-neumorphic-inset transition-colors">
-                                    <XMarkIcon className="h-5 w-5 text-slate-500" />
+                                {/* --- MODIFIED: Added dark theme styles --- */}
+                                <button onClick={removeFile} className="absolute top-3 right-3 p-1.5 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-colors">
+                                    {/* --- MODIFIED: Added dark theme icon --- */}
+                                    <XMarkIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                                 </button>
                             </div>
                         )}
-                        <p className="text-xs text-slate-500 text-center">
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
                             The uploaded file is processed by AI and is **never** stored on our servers or your device.
                         </p>
                     </>
                 )}
             </div>
 
-            <div className="flex-shrink-0 flex justify-end items-center gap-3 pt-6 mt-4 border-t border-neumorphic-shadow-dark/20">
-                {error && <p className="text-red-500 text-sm mr-auto">{error}</p>}
+            {/* --- MODIFIED: Added dark theme border --- */}
+            <div className="flex-shrink-0 flex justify-end items-center gap-3 pt-6 mt-4 border-t border-neumorphic-shadow-dark/20 dark:border-slate-700">
+                {/* --- MODIFIED: Added dark theme text --- */}
+                {error && <p className="text-red-500 dark:text-red-400 text-sm mr-auto">{error}</p>}
                 <button 
                     onClick={handleGenerateQuiz} 
                     disabled={!file || isProcessing} 
-                    className="w-full flex items-center justify-center font-semibold bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 rounded-xl py-3 shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-60"
+                    // --- MODIFIED: Added dark theme styles ---
+                    className="w-full flex items-center justify-center font-semibold bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 rounded-xl py-3 shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-60
+                               dark:from-sky-700 dark:to-blue-800 dark:text-sky-100 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark"
                 >
                     <SparklesIcon className="w-5 h-5 mr-2" />
                     {isProcessing ? 'Processing...' : 'Generate & Review Quiz'}

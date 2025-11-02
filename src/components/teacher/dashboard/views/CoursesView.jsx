@@ -16,22 +16,25 @@ import {
     AcademicCapIcon as TeacherIcon,
     PresentationChartBarIcon,
     ShareIcon,
+    // --- MODIFICATION: Imported the spinner icon ---
+    ArrowPathIcon,
 } from '@heroicons/react/24/solid';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 
 // --- MODIFIED STYLE CONSTANTS (Theme-Aware) ---
 const commonContainerClasses = "min-h-screen p-4 sm:p-6 bg-neumorphic-base dark:bg-neumorphic-base-dark";
-const windowContainerClasses = "bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl p-4 sm:p-8 shadow-neumorphic dark:shadow-neumorphic-dark w-full max-w-7xl mx-auto my-6 sm:my-12 transition-all duration-500";
+const windowContainerClasses = "bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl p-4 sm:p-8 shadow-neumorphic dark:shadow-lg w-full max-w-7xl mx-auto my-6 sm:my-12 transition-all duration-500";
 
 const neumorphicHoverActiveClasses = "hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark";
-const baseButtonStyles = `font-semibold rounded-xl transition-shadow duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-neumorphic-inset dark:disabled:shadow-neumorphic-inset-dark flex items-center gap-2`;
+const baseButtonStyles = `font-semibold rounded-xl transition-shadow duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-neumorphic-inset dark:disabled:shadow-neumorphic-inset-dark flex items-center justify-center gap-2`;
 
-const primaryButton = `${baseButtonStyles} px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-800 dark:to-blue-900 text-blue-700 dark:text-blue-200 shadow-neumorphic dark:shadow-neumorphic-dark ${neumorphicHoverActiveClasses}`;
+const primaryButton = `${baseButtonStyles} px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-800 dark:to-blue-900 text-blue-700 dark:text-blue-200 shadow-neumorphic dark:shadow-lg ${neumorphicHoverActiveClasses}`;
 
-const secondaryButton = `${baseButtonStyles} px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-700 dark:text-slate-200 shadow-neumorphic dark:shadow-neumorphic-dark ${neumorphicHoverActiveClasses}`;
+const secondaryButton = `${baseButtonStyles} px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-700 dark:text-slate-200 shadow-neumorphic dark:shadow-lg ${neumorphicHoverActiveClasses}`;
 
-const iconButton = `${baseButtonStyles} p-2 sm:p-2.5 bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-600 dark:text-slate-300 shadow-neumorphic dark:shadow-neumorphic-dark ${neumorphicHoverActiveClasses} rounded-full`;
+const iconButton = `${baseButtonStyles} p-2 sm:p-2.5 bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-600 dark:text-slate-300 shadow-neumorphic dark:shadow-lg ${neumorphicHoverActiveClasses} rounded-full`;
 
-const destructiveIconButton = `${baseButtonStyles} p-2 sm:p-2.5 bg-neumorphic-base dark:bg-neumorphic-base-dark text-red-600 dark:text-red-400 shadow-neumorphic dark:shadow-neumorphic-dark ${neumorphicHoverActiveClasses} rounded-full`;
+const destructiveIconButton = `${baseButtonStyles} p-2 sm:p-2.5 bg-neumorphic-base dark:bg-neumorphic-base-dark text-red-600 dark:text-red-400 shadow-neumorphic dark:shadow-lg ${neumorphicHoverActiveClasses} rounded-full`;
 // --- END MODIFIED STYLE CONSTANTS ---
 
 const getSubjectStyling = (subjectTitle) => {
@@ -53,7 +56,6 @@ const getSubjectStyling = (subjectTitle) => {
 
 // --- LEVEL 3: SUBJECT DETAIL VIEW ---
 const SubjectDetail = (props) => {
-    // ... (All logic, state, and effects are unchanged) ...
     const {
         courses,
         handleOpenEditSubject, handleOpenDeleteSubject, setShareContentModalOpen,
@@ -64,6 +66,7 @@ const SubjectDetail = (props) => {
         // State sync props
         setActiveSubject,
         handleCategoryClick,
+        activeUnit, // --- ADDED: Need activeUnit prop for UnitAccordion ---
     } = props;
 
     const { contentGroup, categoryName, subjectId } = useParams();
@@ -100,8 +103,8 @@ const SubjectDetail = (props) => {
                 const fetchedUnits = unitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setUnits(fetchedUnits);
                 if (fetchedUnits.length > 0) {
-                    const unitIds = fetchedUnits.map(u => u.id);
-                    const lessonsQuery = query(collection(db, 'lessons'), where('unitId', 'in', unitIds));
+                    // --- FIX: Query all lessons for the subject, not just for fetched units ---
+                    const lessonsQuery = query(collection(db, 'lessons'), where('subjectId', '==', activeSubject.id));
                     const unsubscribeLessons = onSnapshot(lessonsQuery, (lessonsSnapshot) => {
                         const fetchedLessons = lessonsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                         setAllLessonsForSubject(fetchedLessons);
@@ -147,11 +150,9 @@ const SubjectDetail = (props) => {
 
     return (
         <div className={commonContainerClasses}>
-            {/* --- MODIFIED: Removed inline gradient from card, using windowContainerClasses --- */}
             <div className={`${windowContainerClasses}`}>
-                {/* --- MODIFIED: Made header responsive --- */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-3">
-                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap"> {/* Added flex-wrap */}
+                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                         <button
                             onClick={() => navigate(`/dashboard/courses/${contentGroup}/${categoryName}`)}
                             className={secondaryButton}
@@ -159,7 +160,6 @@ const SubjectDetail = (props) => {
                             <ArrowUturnLeftIcon className="w-5 h-5" />
                             <span className="hidden sm:inline">Back</span>
                         </button>
-                        {/* --- MODIFIED: Added dark mode text --- */}
                         <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
                             {activeSubject.title}
                         </h2>
@@ -178,7 +178,7 @@ const SubjectDetail = (props) => {
                             <TrashIcon className="w-5 h-5" />
                         </button>
                     </div>
-                    <div className="flex gap-2 sm:gap-3 flex-wrap"> {/* Added flex-wrap */}
+                    <div className="flex gap-2 sm:gap-3 flex-wrap">
                         <button onClick={() => setShareContentModalOpen(true)} className={secondaryButton}>
                             <ShareIcon className="w-5 h-5" />Send
                         </button>
@@ -191,7 +191,6 @@ const SubjectDetail = (props) => {
                     </div>
                 </div>
                 <div>
-                    {/* ... (Spinner and UnitAccordion are unchanged) ... */}
                     {isLoadingUnitsAndLessons ? (
                         <div className="flex justify-center items-center py-10">
                             <Spinner />
@@ -204,14 +203,13 @@ const SubjectDetail = (props) => {
                             userProfile={userProfile}
                             isAiGenerating={isAiGenerating}
                             setIsAiGenerating={setIsAiGenerating}
-                            activeUnit={props.activeUnit}
+                            activeUnit={activeUnit}
                             onSetActiveUnit={onSetActiveUnit}
                             selectedLessons={selectedLessons}
                             onLessonSelect={handleLessonSelect}
-                            units={units}
-                            allLessonsForSubject={allLessonsForSubject}
                             handleGenerateQuizForLesson={handleGenerateQuizForLesson}
                             renderGeneratePptButton={(unit) => (
+                                // --- MODIFICATION: This button now shows a spinner ---
                                 <button
                                     onClick={() => {
                                         setSelectedLessons(new Set());
@@ -221,8 +219,12 @@ const SubjectDetail = (props) => {
                                     className={primaryButton}
                                     disabled={isAiGenerating}
                                 >
-                                    <PresentationChartBarIcon className="w-5 h-5" />
-                                    <span>Generate PPT</span>
+                                    {isAiGenerating ? (
+                                        <ArrowPathIcon className="w-5 h-5 animate-spin" />
+                                    ) : (
+                                        <PresentationChartBarIcon className="w-5 h-5" />
+                                    )}
+                                    <span>{isAiGenerating ? 'Generating...' : 'Generate PPT'}</span>
                                 </button>
                             )}
                         />
@@ -232,39 +234,47 @@ const SubjectDetail = (props) => {
 
             {/* --- MODIFIED: Lesson Picker Modal (Themed) --- */}
             {showLessonPicker && activeUnitForPicker && (
-                <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-5 p-4">
-                    {/* --- MODIFIED: Added dark mode classes --- */}
-                    <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+                <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-[5000] p-4">
+                    <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-lg w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
                         
-                        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30 flex justify-between items-center">
+                        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-neumorphic-shadow-dark/30 dark:border-slate-700 flex justify-between items-center">
                             <div>
-                                {/* --- MODIFIED: Added dark mode classes --- */}
                                 <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">Select Lessons</h2>
                                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                                    From unit: <span className="font-medium">{activeUnitForPicker.name}</span>
+                                    From unit: <span className="font-medium">{activeUnitForPicker.title}</span>
                                 </p>
                             </div>
-                            <button onClick={() => setShowLessonPicker(false)} className={iconButton}>✕</button>
+                            <button onClick={() => setShowLessonPicker(false)} className={`${iconButton} !p-1.5`}>
+                                <XMarkIcon className="w-5 h-5" />
+                            </button>
                         </div>
 
                         <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4 space-y-3">
-                            {allLessonsForSubject
-                                .filter((lesson) => lesson.unitId === activeUnitForPicker.id)
-                                .sort((a, b) =>
-                                    a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })
-                                )
-                                .map((lesson) => (
+                            {(() => {
+                                const lessonsInUnit = allLessonsForSubject
+                                    .filter((lesson) => lesson.unitId === activeUnitForPicker.id)
+                                    .sort((a, b) =>
+                                        (a.order || 0) - (b.order || 0)
+                                    );
+                                
+                                if (lessonsInUnit.length === 0) {
+                                    return (
+                                        <p className="text-center text-slate-500 dark:text-slate-400 py-6">
+                                            No lessons available in this unit.
+                                        </p>
+                                    );
+                                }
+
+                                return lessonsInUnit.map((lesson) => (
                                     <label
                                         key={lesson.id}
-                                        // --- MODIFIED: Added dark mode classes ---
                                         className={`flex items-center justify-between p-3 sm:p-4 rounded-2xl transition-all cursor-pointer bg-neumorphic-base dark:bg-neumorphic-base-dark ${
                                             selectedLessons.has(lesson.id)
                                                 ? 'shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark'
-                                                : 'shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'
+                                                : 'shadow-neumorphic dark:shadow-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'
                                         }`}
                                     >
                                         <div className="min-w-0">
-                                            {/* --- MODIFIED: Added dark mode classes --- */}
                                             <div className="text-slate-800 dark:text-slate-100 font-medium truncate text-sm sm:text-base">{lesson.title}</div>
                                             {lesson.subtitle && (
                                                 <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">
@@ -276,30 +286,32 @@ const SubjectDetail = (props) => {
                                             type="checkbox"
                                             checked={selectedLessons.has(lesson.id)}
                                             onChange={() => handleLessonSelect(lesson.id)}
-                                            // --- MODIFIED: Added dark mode classes ---
                                             className="w-5 h-5 rounded text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400 border-gray-300 dark:border-slate-600 dark:bg-slate-700"
                                         />
                                     </label>
-                                ))}
-
-                            <p className="text-center text-slate-500 dark:text-slate-400 py-6">
-                                    No lessons available in this unit.
-                            </p>
+                                ));
+                            })()}
                         </div>
 
-                        <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30 flex justify-end gap-3">
+                        <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-neumorphic-shadow-dark/30 dark:border-slate-700 flex justify-end gap-3">
                             <button onClick={() => setShowLessonPicker(false)} className={secondaryButton}>
                                 Cancel
                             </button>
+                            {/* --- MODIFICATION: This button now shows a spinner --- */}
                             <button
                                 onClick={() => {
                                     setShowLessonPicker(false);
                                     handleGeneratePresentationClick();
                                 }}
                                 className={primaryButton}
-                                disabled={selectedLessons.size === 0}
+                                disabled={selectedLessons.size === 0 || isAiGenerating}
                             >
-                                Generate
+                                {isAiGenerating ? (
+                                    <ArrowPathIcon className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    <PresentationChartBarIcon className="w-5 h-5" />
+                                )}
+                                <span>{isAiGenerating ? 'Generating...' : 'Generate'}</span>
                             </button>
                         </div>
                     </div>
@@ -311,7 +323,6 @@ const SubjectDetail = (props) => {
 
 // --- LEVEL 2: SUBJECT LIST VIEW ---
 const SubjectList = (props) => {
-    // ... (All logic, state, and effects are unchanged) ...
     const { courses, handleInitiateDelete, onAddSubjectClick, setActiveSubject, handleCategoryClick } = props;
     const { contentGroup, categoryName } = useParams();
     const navigate = useNavigate();
@@ -331,7 +342,6 @@ const SubjectList = (props) => {
 
     return (
         <div className={commonContainerClasses}>
-            {/* --- MODIFIED: Removed gradient from card, using windowContainerClasses --- */}
             <div className={windowContainerClasses}>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                     <div className="flex items-start gap-2 sm:gap-4">
@@ -343,7 +353,6 @@ const SubjectList = (props) => {
                 <div className="mb-6">
                     <div className="relative">
                         <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        {/* --- MODIFIED: Themed search input --- */}
                         <input type="text" placeholder={`Search in ${decodedCategoryName}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full max-w-md p-3 pl-10 sm:pl-12 rounded-xl focus:ring-0 border-none bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-slate-800 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm sm:text-base" />
                     </div>
                 </div>
@@ -356,16 +365,13 @@ const SubjectList = (props) => {
                                 <Link 
                                     key={course.id} 
                                     to={course.id}
-                                    // --- MODIFIED: Added dark mode classes, kept light gradient ---
-                                    className={`group relative rounded-3xl p-4 sm:p-6 shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow duration-300 cursor-pointer bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark`}
+                                    className={`group relative rounded-3xl p-4 sm:p-6 shadow-neumorphic dark:shadow-lg transition-shadow duration-300 cursor-pointer bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark`}
                                 >
                                     <div className="relative z-5 flex flex-col h-full justify-between">
                                         <div>
-                                            {/* --- MODIFIED: Themed icon box --- */}
                                             <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mb-3 sm:mb-4 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
                                                 <Icon className={`w-6 h-6 sm:w-7 h-7 ${iconColor}`} />
                                             </div>
-											{/* --- MODIFIED: Themed text --- */}
 											<h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">
 											    {course.title}
 											</h2>
@@ -390,7 +396,6 @@ const SubjectList = (props) => {
 
 // --- LEVEL 1: CATEGORY LIST VIEW ---
 const CategoryList = (props) => {
-    // ... (All logic, state, and effects are unchanged) ...
     const { courseCategories, courses, setCreateCategoryModalOpen, handleEditCategory, handleInitiateDelete, handleCategoryClick, setActiveSubject } = props;
     const { contentGroup } = useParams();
     const navigate = useNavigate();
@@ -416,7 +421,6 @@ const CategoryList = (props) => {
 
     return (
         <div className={commonContainerClasses}>
-            {/* --- MODIFIED: Removed gradient from card, using windowContainerClasses --- */}
             <div className={windowContainerClasses}>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                     <div className="flex items-center gap-2 sm:gap-4">
@@ -434,13 +438,10 @@ const CategoryList = (props) => {
                             <Link 
                                 key={cat.id} 
                                 to={encodeURIComponent(cat.name)} // Encode the name for the URL
-                                // --- MODIFIED: Added dark mode classes, kept light gradient ---
-                                className={`group relative p-4 sm:p-6 rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow cursor-pointer bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark h-full flex flex-col justify-between`}
+                                className={`group relative p-4 sm:p-6 rounded-3xl shadow-neumorphic dark:shadow-lg transition-shadow cursor-pointer bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark h-full flex flex-col justify-between`}
                             >
                                 <div className="relative z-5 flex-grow">
-                                    {/* --- MODIFIED: Themed icon box --- */}
                                     <div className="p-3 sm:p-4 inline-block bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-xl mb-4"><Icon className={`w-7 h-7 sm:w-8 h-8 ${iconColor}`} /></div>
-                                    {/* --- MODIFIED: Themed text --- */}
                                     <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 mb-1">
                                         {cleanName}
                                     </h2>
@@ -461,7 +462,6 @@ const CategoryList = (props) => {
 
 // --- LEVEL 0: CONTENT GROUP SELECTOR ---
 const ContentGroupSelector = (props) => {
-    // ... (All logic, state, and effects are unchanged) ...
     useEffect(() => {
         props.setActiveSubject(null);
         props.handleBackToCategoryList();
@@ -471,24 +471,22 @@ const ContentGroupSelector = (props) => {
         <div className={commonContainerClasses}>
             <div className={windowContainerClasses}>
                 <div className="flex flex-col md:flex-row items-stretch justify-center gap-4 md:gap-12">
-                    {/* --- MODIFIED: Learner Card (Themed) --- */}
-                    <Link to="learner" className="group relative p-6 sm:p-12 rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark cursor-pointer flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark flex flex-col justify-between items-start">
+                    <Link to="learner" className="group relative p-6 sm:p-12 rounded-3xl shadow-neumorphic dark:shadow-lg transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark cursor-pointer flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark flex flex-col justify-between items-start">
                         <div className="relative z-5">
                             <div className="p-4 sm:p-5 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-2xl mb-4 sm:mb-6 inline-block"><LearnerIcon className="w-10 h-10 sm:w-12 h-12 text-sky-600 dark:text-sky-400" /></div>
                             <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-800 dark:text-slate-100">Learner's Content</h2>
                             <p className="text-slate-600 dark:text-slate-400 mt-2 text-base sm:text-lg">Access a world of knowledge and curated subjects designed for students.</p>
                         </div>
-                        <div className="relative z-10 mt-8 px-5 py-2 sm:px-6 sm:py-3 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark rounded-full font-semibold text-sm sm:text-base">Explore Now</div>
+                        <div className="relative z-10 mt-8 px-5 py-2 sm:px-6 sm:py-3 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-lg rounded-full font-semibold text-sm sm:text-base text-slate-700 dark:text-slate-200">Explore Now</div>
                     </Link>
 
-                    {/* --- MODIFIED: Teacher Card (Themed) --- */}
-                    <Link to="teacher" className="group relative p-6 sm:p-12 rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark cursor-pointer flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark flex flex-col justify-between items-start">
+                    <Link to="teacher" className="group relative p-6 sm:p-12 rounded-3xl shadow-neumorphic dark:shadow-lg transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark cursor-pointer flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark flex flex-col justify-between items-start">
                         <div className="relative z-5">
                             <div className="p-4 sm:p-5 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-2xl mb-4 sm:mb-6 inline-block"><TeacherIcon className="w-10 h-10 sm:w-12 h-12 text-emerald-600 dark:text-emerald-400" /></div>
                             <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-800 dark:text-slate-100">Teacher's Content</h2>
                             <p className="text-slate-600 dark:text-slate-400 mt-2 text-base sm:text-lg">Discover powerful tools and resources to manage subjects and lessons.</p>
                         </div>
-                        <div className="relative z-5 mt-8 px-5 py-2 sm:px-6 sm:py-3 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark rounded-full font-semibold text-sm sm:text-base">Manage Content</div>
+                        <div className="relative z-5 mt-8 px-5 py-2 sm:px-6 sm:py-3 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-lg rounded-full font-semibold text-sm sm:text-base text-slate-700 dark:text-slate-200">Manage Content</div>
                     </Link>
                 </div>
             </div>

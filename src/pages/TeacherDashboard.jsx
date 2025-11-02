@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
-// --- MODIFICATION START ---
-// Import hooks from react-router-dom
 import { useLocation, useNavigate } from 'react-router-dom';
-// --- MODIFICATION END ---
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import {
@@ -16,37 +13,37 @@ import { createPresentationFromData } from '../services/googleSlidesService';
 import TeacherDashboardLayout from '../components/teacher/TeacherDashboardLayout';
 import GlobalAiSpinner from '../components/common/GlobalAiSpinner';
 
-// --- MODIFIED: Imported the confirmation modal ---
-// (We can move this to /common later, but for now this works)
-// Make sure AdminDashboard.jsx exports this component: export { ConfirmActionModal };
 import { ConfirmActionModal } from './AdminDashboard'; 
 
-// Lazy load modals to improve initial page load performance
 const PresentationPreviewModal = lazy(() => import('../components/teacher/PresentationPreviewModal'));
 const BetaWarningModal = lazy(() => import('../components/teacher/BetaWarningModal'));
 const ViewLessonModal = lazy(() => import('../components/teacher/ViewLessonModal'));
 const AnalyticsView = lazy(() => import('../components/teacher/dashboard/views/AnalyticsView'));
 
+// --- THIS IS THE HELPER FUNCTION COPIED FROM THE MODAL ---
+// Helper function to format the notes object into a readable string
+const formatNotesToString = (notesObject) => {
+    if (!notesObject || typeof notesObject !== 'object') {
+        return "No speaker notes available.";
+    }
+    const { talkingPoints, interactiveElement, slideTiming } = notesObject;
+    let formattedString = `[TALKING POINTS]\n${talkingPoints || 'N/A'}\n\n`;
+    formattedString += `[INTERACTIVE ELEMENT]\n${interactiveElement || 'N/A'}\n\n`;
+    formattedString += `[SUGGESTED TIMING: ${slideTiming || 'N/A'}]`;
+    return formattedString;
+};
+// --- END HELPER FUNCTION ---
 
 const TeacherDashboard = () => {
   const { user, userProfile, logout, firestoreService, refreshUserProfile } = useAuth();
   const { showToast } = useToast();
 
-  // --- MODIFICATION START ---
-  // Get location and navigation tools from router
   const location = useLocation();
   const navigate = useNavigate();
 
-  /**
-   * Helper function to determine the active view from the URL pathname.
-   * This REPLACES the `activeView` state.
-   */
   const getActiveViewFromPath = (pathname) => {
-    // pathname will be like "/dashboard", "/dashboard/content", "/dashboard/studentManagement"
-    const pathSegment = pathname.substring('/dashboard'.length).split('/')[1]; // Get the part *after* /dashboard/
+    const pathSegment = pathname.substring('/dashboard'.length).split('/')[1]; 
 
-    // --- THIS IS THE FIX ---
-    // Added all missing cases from your TeacherDashboardLayout
     switch (pathSegment) {
       case 'studentManagement':
         return 'studentManagement';
@@ -61,42 +58,27 @@ const TeacherDashboard = () => {
       case 'admin':
         return 'admin';
       default:
-        // Default to 'home' for "/dashboard" or "/dashboard/"
         return 'home'; 
     }
-    // --- END OF FIX ---
   };
 
-  // The activeView is now derived from the URL, not from local state.
   const activeView = getActiveViewFromPath(location.pathname);
 
-  /**
-   * This handler REPLACES the original state-setting function.
-   * It now changes the URL, which in turn updates the `activeView` variable.
-   */
   const handleViewChange = (view) => {
-    // `view` is the key (e.g., 'home', 'content', 'studentManagement')
     if (view === 'home') {
       navigate('/dashboard');
     } else {
       navigate(`/dashboard/${view}`);
     }
-    // Also close the sidebar on mobile navigation
     setIsSidebarOpen(false);
   };
-  // --- MODIFICATION END ---
 
-
-  // --- State Variables ---
   const [classes, setClasses] = useState([]);
   const [courses, setCourses] = useState([]);
   const [courseCategories, setCourseCategories] = useState([]);
   const [teacherAnnouncements, setTeacherAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // --- REMOVED STATE ---
-  // const [activeView, setActiveView] = useState('home'); // This is now derived from URL
   
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [activeSubject, setActiveSubject] = useState(null);
@@ -151,16 +133,13 @@ const TeacherDashboard = () => {
   const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState([]);
   const [reloadKey, setReloadKey] = useState(0);
 
-  // --- NEW STATE for Archive Modal ---
   const [confirmArchiveModalState, setConfirmArchiveModalState] = useState({
     isOpen: false,
     title: '',
     message: '',
     onConfirm: () => {},
   });
-  // --- END NEW STATE ---
 
-    // --- useEffect Hooks ---
     useEffect(() => {
         if (userProfile && messages.length === 0) {
             setMessages([{ sender: 'ai', text: `Hello, ${userProfile?.firstName}! I'm your AI assistant. How can I help you today?` }]);
@@ -231,7 +210,6 @@ const TeacherDashboard = () => {
     }, [user]);
 
     useEffect(() => {
-        // This hook now works based on the URL-derived `activeView`
         if (activeView === 'studentManagement') {
             setIsImportViewLoading(true);
             const fetchAllClassesForImport = async () => {
@@ -250,10 +228,8 @@ const TeacherDashboard = () => {
 
             fetchAllClassesForImport();
         }
-    }, [activeView, showToast]); // Dependency on activeView is correct
+    }, [activeView, showToast]);
 
-    // --- Handler Functions ---
-    // (All handler functions remain 100% unchanged)
     const handleCreateUnit = async (unitData) => {
         if (!unitData || !unitData.subjectId) {
             showToast("Missing data to create the unit.", "error");
@@ -463,54 +439,86 @@ const TeacherDashboard = () => {
         handleGeneratePresentationPreview(ids, data, units);
     };
 
-    const handleGeneratePresentationPreview = async (lessonIds, lessonsData, unitsData) => {
-        if (!activeSubject) { showToast("No active subject selected. This is required for folder creation.", "warning"); return; }
+    // --- THIS IS THE SPINNER FIX ---
+    const handleGeneratePresentationPreview = (lessonIds, lessonsData, unitsData) => {
+        if (!activeSubject) { 
+            showToast("No active subject selected. This is required for folder creation.", "warning"); 
+            return; 
+        }
+        
         setIsAiGenerating(true);
         showToast("Gathering content and generating preview...", "info");
-        try {
-            const selectedLessonsData = lessonsData.filter(l => lessonIds.includes(l.id));
-            if (selectedLessonsData.length === 0) { throw new Error("No lesson data found for the selected IDs."); }
-            const allLessonContent = selectedLessonsData.map(lesson => { if (!lesson.pages || lesson.pages.length === 0) { return ''; } const validPages = lesson.pages.filter(page => page.content && page.content.trim() !== ''); if (validPages.length === 0) { return ''; } const pageText = validPages.map(page => `Page Title: ${page.title}\n${page.content.trim()}`).join('\n\n'); return `Lesson: ${lesson.title}\n${pageText}`; }).filter(entry => entry.trim() !== '').join('\n\n---\n\n');
-            if (!allLessonContent || allLessonContent.trim().length === 0) { throw new Error("Selected lessons contain no usable content to generate slides."); }
-			const presentationPrompt = `
-			You are a master educator and presentation designer. 
-			Your task is to generate a structured presentation preview from lesson content.
 
-			⚠️ IMPORTANT: 
-			- Respond ONLY with a single valid JSON object.
-			- Do NOT include explanations, notes, markdown fences, or extra text.
-			- Follow the exact schema below.
+        // This setTimeout ensures React re-renders to show the spinner
+        // *before* the heavy blocking code runs.
+        setTimeout(async () => {
+            try {
+                const selectedLessonsData = lessonsData.filter(l => lessonIds.includes(l.id));
+                if (selectedLessonsData.length === 0) { throw new Error("No lesson data found for the selected IDs."); }
+                
+                // This heavy, synchronous task now runs *after* the spinner is visible.
+                const allLessonContent = selectedLessonsData.map(lesson => { 
+                    if (!lesson.pages || lesson.pages.length === 0) { return ''; } 
+                    const validPages = lesson.pages.filter(page => page.content && page.content.trim() !== ''); 
+                    if (validPages.length === 0) { return ''; } 
+                    const pageText = validPages.map(page => `Page Title: ${page.title}\n${page.content.trim()}`).join('\n\n'); 
+                    return `Lesson: ${lesson.title}\n${pageText}`; 
+                }).filter(entry => entry.trim() !== '').join('\n\n---\n\n');
+                
+                if (!allLessonContent || allLessonContent.trim().length === 0) { 
+                    throw new Error("Selected lessons contain no usable content to generate slides."); 
+                }
+                
+                const presentationPrompt = `
+                You are a master educator and presentation designer. 
+                Your task is to generate a structured presentation preview from lesson content.
 
-			SCHEMA:
-			{
-			  "slides": [
-			    {
-			      "title": "string - short, engaging slide title",
-			      "body": "string - main content of the slide, concise but clear",
-			      "notes": {
-			        "talkingPoints": "string - bullet points the teacher can say",
-			        "interactiveElement": "string - suggested activity, question, or visual",
-			        "slideTiming": "string - recommended time in minutes"
-			      }
-			    }
-			  ]
-			}
+                ⚠️ IMPORTANT: 
+                - Respond ONLY with a single valid JSON object.
+                - Do NOT include explanations, notes, markdown fences, or extra text.
+                - Follow the exact schema below.
 
-			LESSON CONTENT TO PROCESS:
-			---
-			${allLessonContent}
-			`;
-            
-            const aiResponseText = await callGeminiWithLimitCheck(presentationPrompt);
-            const jsonText = aiResponseText.match(/```json\s*([\s\S]*?)\s*```/)?.[1] || aiResponseText;
-            const parsedData = JSON.parse(jsonText);
-            if (!parsedData.slides || !Array.isArray(parsedData.slides)) { throw new Error("AI response did not contain a valid 'slides' array."); }
-            setPresentationPreviewData({ ...parsedData, lessonIds, lessonsData, unitsData });
-            setPresentationPreviewModalOpen(true);
-        } catch (error) { console.error("Presentation Preview Generation Error:", error); showToast(`Preview Error: ${error.message}`, "error"); }
-        finally { setIsAiGenerating(false); }
+                SCHEMA:
+                {
+                  "slides": [
+                    {
+                      "title": "string - short, engaging slide title",
+                      "body": "string - main content of the slide, concise but clear",
+                      "notes": {
+                        "talkingPoints": "string - bullet points the teacher can say",
+                        "interactiveElement": "string - suggested activity, question, or visual",
+                        "slideTiming": "string - recommended time in minutes"
+                      }
+                    }
+                  ]
+                }
+
+                LESSON CONTENT TO PROCESS:
+                ---
+                ${allLessonContent}
+                ---
+                `;
+                
+                const aiResponseText = await callGeminiWithLimitCheck(presentationPrompt);
+                const jsonText = aiResponseText.match(/```json\s*([\s\S]*?)\s*```/)?.[1] || aiResponseText;
+                const parsedData = JSON.parse(jsonText);
+                if (!parsedData.slides || !Array.isArray(parsedData.slides)) { throw new Error("AI response did not contain a valid 'slides' array."); }
+                
+                setPresentationPreviewData({ ...parsedData, lessonIds, lessonsData, unitsData });
+                setPresentationPreviewModalOpen(true);
+
+            } catch (error) { 
+                console.error("Presentation Preview Generation Error:", error); 
+                showToast(`Preview Error: ${error.message}`, "error"); 
+            }
+            finally { 
+                setIsAiGenerating(false); 
+            }
+        }, 0); // The 0ms delay is the key.
     };
+    // --- END OF SPINNER FIX ---
 
+    // --- THIS IS THE "INVALID VALUE" API FIX ---
     const handleCreatePresentation = async () => {
         if (!presentationPreviewData) { showToast("No preview data available to create a presentation.", "error"); return; }
         setIsSavingPresentation(true);
@@ -522,21 +530,32 @@ const TeacherDashboard = () => {
             const unitName = unit.name || "Untitled Unit";
             const sourceTitle = lessonIds.length > 1 ? `${unitName} Summary` : firstLesson.title;
             const presentationTitle = `Presentation for: ${sourceTitle}`;
-            const cleanedSlides = slides.map(slide => ({ ...slide, body: slide.body.split('\n').map(line => line.trim()).join('\n'), notes: slide.notes || {} }));
+            
+            // This is the fix: Convert the 'notes' object to a formatted string
+            const cleanedSlides = slides.map(slide => ({ 
+                ...slide, 
+                body: slide.body.split('\n').map(line => line.trim()).join('\n'), 
+                // Use the helper function to convert the object to a string
+                notes: formatNotesToString(slide.notes || {}) 
+            }));
+
             const presentationUrl = await createPresentationFromData(cleanedSlides, presentationTitle, subjectName, unitName);
             window.open(presentationUrl, '_blank');
             showToast("Presentation created! You can now copy the notes.", "success");
-        } catch (error) { console.error("Presentation Creation Error:", error); showToast(`Creation Error: ${error.message}`, "error"); }
+        } catch (error) { 
+            console.error("Presentation Creation Error:", error); 
+            // The error from googleSlidesService.js will bubble up here
+            showToast(`Creation Error: ${error.message}`, "error"); 
+        }
         finally { setIsSavingPresentation(false); }
     };
+    // --- END OF "INVALID VALUE" FIX ---
 
-    // --- MODIFIED: Renamed to be more generic ---
     const handleInitiateDelete = (type, id, name, subjectId = null) => {
         setDeleteTarget({ type, id, name, subjectId });
         setIsDeleteModalOpen(true);
     };
     
-    // --- NEW: Handler to open archive confirmation modal ---
     const handleInitiateArchive = (classId, className) => {
         setConfirmArchiveModalState({
             isOpen: true,
@@ -545,7 +564,6 @@ const TeacherDashboard = () => {
             onConfirm: () => handleArchiveClass(classId)
         });
     };
-    // --- END NEW ---
 
     async function deleteQuizAndSubmissions(batch, quizId) {
         const submissionsQuery = query(
@@ -567,13 +585,12 @@ const TeacherDashboard = () => {
         }
         const { type, id, name, subjectId } = deleteTarget;
 
-        // --- NEW: Added 'class' type ---
         if (type === 'class') {
-            setIsAiGenerating(true); // Show loading spinner
+            setIsAiGenerating(true); 
             try {
                 await firestoreService.deleteClass(id); 
                 showToast("Class permanently deleted.", "success");
-                setIsArchivedModalOpen(false); // Close archived modal if open
+                setIsArchivedModalOpen(false); 
             } catch (error) {
                 showToast("Failed to delete class.", "error");
             } finally {
@@ -583,7 +600,6 @@ const TeacherDashboard = () => {
             }
             return;
         }
-        // --- END NEW ---
 
         if (type === 'unit') {
             await handleDeleteUnit(id, subjectId);
@@ -690,18 +706,15 @@ const TeacherDashboard = () => {
         setReloadKey(prevKey => prevKey + 1);
     };
     
-    // --- MODIFIED: Renamed function ---
     const handleViewChangeWrapper = (view) => {
         if (activeView === view) { 
             setReloadKey(prevKey => prevKey + 1); 
         }
         else { 
-            handleViewChange(view); // This will change the URL
+            handleViewChange(view); 
             setSelectedCategory(null);
-            // setIsSidebarOpen(false); // handleViewChange already does this
         }
     };
-    // --- END MODIFICATION ---
     
     const handleCategoryClick = (categoryName) => { setSelectedCategory(categoryName); };
     const handleBackToCategoryList = () => { setSelectedCategory(null); };
@@ -725,7 +738,6 @@ const TeacherDashboard = () => {
         } catch (err) { showToast('Failed to change password.', 'error'); console.error(err); }
     };
 
-    // --- MODIFIED: This is now the *action* not the confirmation ---
     const handleArchiveClass = async (classId) => {
         try { 
             await firestoreService.updateClassArchiveStatus(classId, true); 
@@ -750,12 +762,10 @@ const TeacherDashboard = () => {
         catch (error) { showToast("Failed to restore class.", "error"); }
     };
 
-    // --- MODIFIED: This is now just a wrapper for handleInitiateDelete ---
     const handleDeleteClass = async (classId, isArchivedView = false) => {
         const classToDel = classes.find(c => c.id === classId);
         handleInitiateDelete('class', classId, classToDel?.name || 'this class');
     };
-    // --- END MODIFICATION ---
 
     const handleStartEditAnn = (post) => { setEditingAnnId(post.id); setEditingAnnText(post.content); };
     const handleUpdateTeacherAnn = async () => {
@@ -846,7 +856,6 @@ const TeacherDashboard = () => {
                 loading={loading}
                 error={error}
                 activeView={activeView}
-                // --- MODIFIED: Pass new handler ---
                 handleViewChange={handleViewChangeWrapper}
                 isSidebarOpen={isSidebarOpen}
                 setIsSidebarOpen={setIsSidebarOpen}
@@ -854,11 +863,9 @@ const TeacherDashboard = () => {
                 showToast={showToast}
                 activeClasses={activeClasses}
                 archivedClasses={archivedClasses}
-                // --- MODIFIED: Pass new handlers down ---
-                handleArchiveClass={handleInitiateArchive} // Pass the "initiate" function
-                handleDeleteClass={handleDeleteClass} // Pass the wrapper
-                handleInitiateDelete={handleInitiateDelete} // Pass the generic one
-                // --- END MODIFICATION ---
+                handleArchiveClass={handleInitiateArchive} 
+                handleDeleteClass={handleDeleteClass} 
+                handleInitiateDelete={handleInitiateDelete} 
                 courses={courses}
                 courseCategories={courseCategories}
                 teacherAnnouncements={teacherAnnouncements}
@@ -997,7 +1004,6 @@ const TeacherDashboard = () => {
                 )}
             </Suspense>
 
-            {/* --- NEW: Render the Archive Confirmation Modal --- */}
             <ConfirmActionModal
                 isOpen={confirmArchiveModalState.isOpen}
                 onClose={() => setConfirmArchiveModalState({ ...confirmArchiveModalState, isOpen: false })}

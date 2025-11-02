@@ -12,21 +12,25 @@ import QuizLoadingScreen from './QuizLoadingScreen';
 import ContentRenderer from './ContentRenderer';
 
 // Neumorphic styles helper for segmented controls
+// --- MODIFIED: Added dark theme styles ---
 const getSegmentedButtonClasses = (isActive) => {
-    const baseClasses = "flex-1 rounded-lg py-2.5 px-3 text-sm font-semibold transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 ring-offset-2 ring-offset-slate-200 ring-sky-500";
+    const baseClasses = "flex-1 rounded-lg py-2.5 px-3 text-sm font-semibold transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 ring-offset-2 ring-offset-slate-200 dark:ring-offset-neumorphic-base-dark ring-sky-500";
     if (isActive) {
-        return `${baseClasses} bg-slate-200 text-sky-600 shadow-[3px_3px_6px_#bdc1c6,-3px_-3px_6px_#ffffff] scale-100`;
+        return `${baseClasses} bg-slate-200 text-sky-600 shadow-[3px_3px_6px_#bdc1c6,-3px_-3px_6px_#ffffff] dark:bg-neumorphic-base-dark dark:text-sky-400 dark:shadow-lg scale-100`;
     }
-    return `${baseClasses} bg-transparent text-slate-600 hover:bg-slate-200/50`;
+    return `${baseClasses} bg-transparent text-slate-600 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-neumorphic-base-dark/50`;
 };
 
 // Neumorphic input field styles
-const inputBaseStyles = "bg-slate-200 rounded-xl shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] focus:outline-none focus:ring-2 focus:ring-sky-500 placeholder:text-slate-400 border-none";
+// --- MODIFIED: Added dark theme styles ---
+const inputBaseStyles = "bg-slate-200 dark:bg-neumorphic-base-dark rounded-xl shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:shadow-neumorphic-inset-dark focus:outline-none focus:ring-2 focus:ring-sky-500 placeholder:text-slate-400 dark:placeholder-slate-500 border-none dark:text-slate-100";
 
 // Neumorphic button styles
-const btnBase = "w-full inline-flex items-center justify-center px-4 py-3 text-sm font-semibold rounded-xl transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-200";
-const btnExtruded = `shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff]`;
-const btnDisabled = "disabled:text-slate-400 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff]";
+// --- MODIFIED: Added dark theme styles ---
+const btnBase = "w-full inline-flex items-center justify-center px-4 py-3 text-sm font-semibold rounded-xl transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-200 dark:focus:ring-offset-neumorphic-base-dark";
+const btnExtruded = `shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff]
+                   dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark`;
+const btnDisabled = "disabled:text-slate-400 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] dark:disabled:text-slate-600 dark:disabled:shadow-neumorphic-inset-dark";
 
 export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson }) {
     const { showToast } = useToast();
@@ -326,24 +330,32 @@ Return the response as a single, valid JSON object with a "title" and a "questio
                 return (
                     <div className="space-y-6">
                         <div className="text-center">
-                            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-200 shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff]">
-                                <ClipboardDocumentListIcon className="h-9 w-9 text-sky-500" />
+                            {/* --- MODIFIED: Added dark theme styles --- */}
+                            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-200 dark:bg-neumorphic-base-dark shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff] dark:shadow-neumorphic-inset-dark">
+                                {/* --- MODIFIED: Added dark theme icon --- */}
+                                <ClipboardDocumentListIcon className="h-9 w-9 text-sky-500 dark:text-sky-400" />
                             </div>
-                            <Title className="mt-4 text-2xl font-bold text-slate-800">AI Quiz Generator</Title>
-                            <p className="mt-1 text-sm text-slate-500">For: <span className="font-semibold text-slate-700">{lesson?.title}</span></p>
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <Title className="mt-4 text-2xl font-bold text-slate-800 dark:text-slate-100">AI Quiz Generator</Title>
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">For: <span className="font-semibold text-slate-700 dark:text-slate-300">{lesson?.title}</span></p>
                         </div>
                         <div className="space-y-4">
-                            <div className="p-5 rounded-2xl shadow-[inset_3px_3px_7px_#bdc1c6,inset_-3px_-3px_7px_#ffffff] space-y-5">
+                            {/* --- MODIFIED: Added dark theme styles --- */}
+                            <div className="p-5 rounded-2xl shadow-[inset_3px_3px_7px_#bdc1c6,inset_-3px_-3px_7px_#ffffff] dark:shadow-neumorphic-inset-dark space-y-5">
                                 <div>
-                                    <label className="text-sm font-medium text-slate-700 flex items-center mb-2"><LanguageIcon className="h-5 w-5 mr-2" />Language</label>
+                                    {/* --- MODIFIED: Added dark theme text --- */}
+                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center mb-2"><LanguageIcon className="h-5 w-5 mr-2" />Language</label>
                                     <div className={`flex space-x-1 p-1 rounded-xl ${inputBaseStyles}`}><button onClick={() => setLanguage('English')} className={getSegmentedButtonClasses(language === 'English')}>English</button><button onClick={() => setLanguage('Filipino')} className={getSegmentedButtonClasses(language === 'Filipino')}>Filipino</button></div>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <label className="text-sm font-medium text-slate-700 flex items-center"><HashtagIcon className="h-5 w-5 mr-2" />Number of Items</label>
+                                    {/* --- MODIFIED: Added dark theme text --- */}
+                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center"><HashtagIcon className="h-5 w-5 mr-2" />Number of Items</label>
                                     <input type="number" value={itemCount} onChange={(e) => setItemCount(Math.max(1, Math.min(50, parseInt(e.target.value, 10) || 1)))} className={`max-w-[100px] text-center ${inputBaseStyles} py-2.5`} />
                                 </div>
                                 <div>
-                                    <label className="text-sm font-medium text-slate-700 flex items-center mb-2"><ListBulletIcon className="h-5 w-5 mr-2" />Subject</label>
+                                    {/* --- MODIFIED: Added dark theme text --- */}
+                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center mb-2"><ListBulletIcon className="h-5 w-5 mr-2" />Subject</label>
                                     <select value={selectedSubject || ''} onChange={(e) => setSelectedSubject(e.target.value)} className={`w-full ${inputBaseStyles} py-2.5 px-3`}>
                                         <option value="" disabled>Select a subject</option>
                                         {subjects.map(subject => (
@@ -352,17 +364,22 @@ Return the response as a single, valid JSON object with a "title" and a "questio
                                     </select>
                                 </div>
                             </div>
-                            <div className="p-5 rounded-2xl shadow-[inset_3px_3px_7px_#bdc1c6,inset_-3px_-3px_7px_#ffffff]">
-                                <label className="text-sm font-medium text-slate-700 flex items-center mb-2"><ListBulletIcon className="h-5 w-5 mr-2" />Question Type</label>
+                            {/* --- MODIFIED: Added dark theme styles --- */}
+                            <div className="p-5 rounded-2xl shadow-[inset_3px_3px_7px_#bdc1c6,inset_-3px_-3px_7px_#ffffff] dark:shadow-neumorphic-inset-dark">
+                                {/* --- MODIFIED: Added dark theme text --- */}
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center mb-2"><ListBulletIcon className="h-5 w-5 mr-2" />Question Type</label>
                                 <div className={`grid grid-cols-2 gap-1 p-1 rounded-xl ${inputBaseStyles}`}>{questionTypes.map((t) => (<button key={t.id} onClick={() => setQuizType(t.id)} className={getSegmentedButtonClasses(quizType === t.id)}>{t.name}</button>))}</div>
                             </div>
                         </div>
-                        {quizType === 'mixed' && (<div className="p-5 rounded-2xl shadow-[inset_3px_3px_7px_#bdc1c6,inset_-3px_-3px_7px_#ffffff] space-y-4">
-                            <h3 className="text-base font-semibold text-slate-800">Item Distribution</h3>
+                        {/* --- MODIFIED: Added dark theme styles --- */}
+                        {quizType === 'mixed' && (<div className="p-5 rounded-2xl shadow-[inset_3px_3px_7px_#bdc1c6,inset_-3px_-3px_7px_#ffffff] dark:shadow-neumorphic-inset-dark space-y-4">
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">Item Distribution</h3>
                             <div className="grid grid-cols-3 gap-3">
                                 {distributionTypes.map(distType => (
                                     <div key={distType.key}>
-                                        <label className="text-xs font-medium text-slate-500">{distType.label}</label>
+                                        {/* --- MODIFIED: Added dark theme text --- */}
+                                        <label className="text-xs font-medium text-slate-500 dark:text-slate-400">{distType.label}</label>
                                         <input 
                                             type="number" 
                                             value={distribution[distType.key]} 
@@ -372,7 +389,8 @@ Return the response as a single, valid JSON object with a "title" and a "questio
                                     </div>
                                 ))}
                             </div>
-                            {(totalDistributed !== itemCount) && (<p className="text-sm font-medium text-center text-amber-800 bg-amber-200 p-2.5 rounded-lg shadow-[inset_1px_1px_2px_#e6c589,inset_-1px_-1px_2px_#ffffd3]">Current total: {totalDistributed} of {itemCount}</p>)}
+                            {/* --- MODIFIED: Added dark theme styles --- */}
+                            {(totalDistributed !== itemCount) && (<p className="text-sm font-medium text-center text-amber-800 bg-amber-200 dark:bg-amber-900/50 dark:text-amber-400 p-2.5 rounded-lg shadow-[inset_1px_1px_2px_#e6c589,inset_-1px_-1px_2px_#ffffd3] dark:shadow-neumorphic-inset-dark">Current total: {totalDistributed} of {itemCount}</p>)}
                         </div>)}
                     </div>
                 );
@@ -380,45 +398,61 @@ Return the response as a single, valid JSON object with a "title" and a "questio
             case 3:
                 return (
                      <div className="flex flex-col h-full">
-                        <Title className="text-2xl font-bold text-slate-800">Preview & Revise</Title>
-                        <Subtitle className="mt-1 text-slate-500">Review the generated quiz below.</Subtitle>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <Title className="text-2xl font-bold text-slate-800 dark:text-slate-100">Preview & Revise</Title>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <Subtitle className="mt-1 text-slate-500 dark:text-slate-400">Review the generated quiz below.</Subtitle>
                         <div className="mt-4 -mx-2 px-2 overflow-y-auto flex-grow space-y-4">
-                            <h3 className="font-bold text-xl text-slate-800">{generatedQuiz?.title}</h3>
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <h3 className="font-bold text-xl text-slate-800 dark:text-slate-100">{generatedQuiz?.title}</h3>
                             {generatedQuiz?.questions.map((q, i) => (
-                                <div key={i} className="p-4 bg-slate-200 rounded-xl shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff]">
-                                    <p className="font-semibold text-slate-900 leading-relaxed"><span className="text-slate-500 mr-2">{i + 1}.</span><ContentRenderer text={q.text} /></p>
-                                    <div className="mt-3 flex items-center space-x-2"><span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-200 shadow-[inset_1px_1px_2px_#bdc1c6,inset_-1px_-1px_2px_#ffffff] text-sky-700">{getTranslatedType(q.type)}</span><span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-200 shadow-[inset_1px_1px_2px_#bdc1c6,inset_-1px_-1px_2px_#ffffff] text-purple-700">{q.difficulty}</span></div>
+                                // --- MODIFIED: Added dark theme styles ---
+                                <div key={i} className="p-4 bg-slate-200 rounded-xl shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] dark:bg-neumorphic-base-dark dark:shadow-lg">
+                                    {/* --- MODIFIED: Added dark theme text --- */}
+                                    <p className="font-semibold text-slate-900 dark:text-slate-100 leading-relaxed"><span className="text-slate-500 dark:text-slate-400 mr-2">{i + 1}.</span><ContentRenderer text={q.text} /></p>
+                                    {/* --- MODIFIED: Added dark theme styles --- */}
+                                    <div className="mt-3 flex items-center space-x-2">
+                                        <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-200 shadow-[inset_1px_1px_2px_#bdc1c6,inset_-1px_-1px_2px_#ffffff] text-sky-700 dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:text-sky-300">{getTranslatedType(q.type)}</span>
+                                        <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-200 shadow-[inset_1px_1px_2px_#bdc1c6,inset_-1px_-1px_2px_#ffffff] text-purple-700 dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:text-purple-300">{q.difficulty}</span>
+                                    </div>
                                     <div className="mt-3 pl-6 text-sm">
                                         {q.type === 'multiple-choice' && q.options && (
-                                            <ul className="list-disc list-outside space-y-1.5 text-slate-700">
+                                            // --- MODIFIED: Added dark theme text ---
+                                            <ul className="list-disc list-outside space-y-1.5 text-slate-700 dark:text-slate-300">
                                                 {q.options.map((option) => (
-                                                    <li key={option.text} className={option.isCorrect ? 'font-semibold text-green-700' : ''}>
+                                                    // --- MODIFIED: Added dark theme text ---
+                                                    <li key={option.text} className={option.isCorrect ? 'font-semibold text-green-700 dark:text-green-400' : ''}>
                                                         <ContentRenderer text={option.text} />
-                                                        {option.isCorrect && <span className="text-green-500 ml-1.5">✓</span>}
+                                                        {option.isCorrect && <span className="text-green-500 dark:text-green-400 ml-1.5">✓</span>}
                                                     </li>
                                                 ))}
                                             </ul>
                                         )}
                                         {/* FIXED: Display Tama/Mali or True/False as options for preview */}
                                         {(q.type === 'true-false') && (
-                                            <ul className="list-disc list-outside space-y-1.5 text-slate-700">
-                                                <li className={q.correctAnswer === true ? 'font-semibold text-green-700' : ''}>
+                                            // --- MODIFIED: Added dark theme text ---
+                                            <ul className="list-disc list-outside space-y-1.5 text-slate-700 dark:text-slate-300">
+                                                {/* --- MODIFIED: Added dark theme text --- */}
+                                                <li className={q.correctAnswer === true ? 'font-semibold text-green-700 dark:text-green-400' : ''}>
                                                     {language === 'Filipino' ? 'Tama' : 'True'}
-                                                    {q.correctAnswer === true && <span className="text-green-500 ml-1.5">✓</span>}
+                                                    {q.correctAnswer === true && <span className="text-green-500 dark:text-green-400 ml-1.5">✓</span>}
                                                 </li>
-                                                <li className={q.correctAnswer === false ? 'font-semibold text-green-700' : ''}>
+                                                {/* --- MODIFIED: Added dark theme text --- */}
+                                                <li className={q.correctAnswer === false ? 'font-semibold text-green-700 dark:text-green-400' : ''}>
                                                     {language === 'Filipino' ? 'Mali' : 'False'}
-                                                    {q.correctAnswer === false && <span className="text-green-500 ml-1.5">✓</span>}
+                                                    {q.correctAnswer === false && <span className="text-green-500 dark:text-green-400 ml-1.5">✓</span>}
                                                 </li>
                                             </ul>
                                         )}
                                         {(q.type === 'identification') && (
-                                            <p className="text-slate-700">
-                                                Answer: <span className="font-semibold text-green-700"><ContentRenderer text={String(q.correctAnswer)}/></span>
+                                            // --- MODIFIED: Added dark theme text ---
+                                            <p className="text-slate-700 dark:text-slate-300">
+                                                Answer: <span className="font-semibold text-green-700 dark:text-green-400"><ContentRenderer text={String(q.correctAnswer)}/></span>
                                             </p>
                                         )}
                                         {q.explanation && (
-                                            <div className="mt-4 p-3 bg-slate-200 border-l-4 border-sky-300 text-sky-900 rounded-r-lg shadow-[inset_2px_2px_4px_#d1d9e6,inset_-2px_-2px_4px_#ffffff]">
+                                            // --- MODIFIED: Added dark theme styles ---
+                                            <div className="mt-4 p-3 bg-slate-200 border-l-4 border-sky-300 text-sky-900 rounded-r-lg shadow-[inset_2px_2px_4px_#d1d9e6,inset_-2px_-2px_4px_#ffffff] dark:bg-sky-900/30 dark:border-sky-700 dark:text-sky-200 dark:shadow-neumorphic-inset-dark">
                                                 <p className="font-bold text-xs tracking-wider uppercase">Explanation</p>
                                                 <p className="text-sm italic mt-1"><ContentRenderer text={q.explanation} /></p>
                                             </div>
@@ -428,10 +462,12 @@ Return the response as a single, valid JSON object with a "title" and a "questio
                             ))}
                         </div>
                         <div className="mt-6 flex-shrink-0">
-                            <label className="text-sm font-medium text-slate-700">Request Changes (Optional)</label>
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Request Changes (Optional)</label>
                             <textarea placeholder="e.g., Make question 3 harder..." value={revisionPrompt} onChange={e => setRevisionPrompt(e.target.value)} className={`w-full mt-1.5 text-sm ${inputBaseStyles} p-3 min-h-[60px]`} />
                             <div className="flex justify-end pt-2">
-                                <button onClick={() => handleGenerate(true)} disabled={isGenerating} className={`${btnBase} w-auto bg-slate-200 text-slate-700 ${btnExtruded} ${btnDisabled}`}><ArrowUturnLeftIcon className="h-4 w-4 mr-2" />Regenerate</button>
+                                {/* --- MODIFIED: Added dark theme styles --- */}
+                                <button onClick={() => handleGenerate(true)} disabled={isGenerating} className={`${btnBase} w-auto bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 ${btnExtruded} ${btnDisabled}`}><ArrowUturnLeftIcon className="h-4 w-4 mr-2" />Regenerate</button>
                             </div>
                         </div>
                     </div>
@@ -439,9 +475,15 @@ Return the response as a single, valid JSON object with a "title" and a "questio
             case 4:
                 return (
                     <div className="text-center p-8 flex flex-col items-center justify-center h-full">
-                        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-slate-200 mb-6 shadow-[inset_5px_5px_10px_#bdc1c6,inset_-5px_-5px_10px_#ffffff]"><CheckCircleIcon className="h-12 w-12 text-green-500" /></div>
-                        <Title className="text-3xl font-bold text-slate-800">Quiz Saved!</Title>
-                        <p className="text-slate-600 mt-2 max-w-xs">The quiz is now available in your content library.</p>
+                        {/* --- MODIFIED: Added dark theme styles --- */}
+                        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-slate-200 dark:bg-neumorphic-base-dark mb-6 shadow-[inset_5px_5px_10px_#bdc1c6,inset_-5px_-5px_10px_#ffffff] dark:shadow-neumorphic-inset-dark">
+                            {/* --- MODIFIED: Added dark theme icon --- */}
+                            <CheckCircleIcon className="h-12 w-12 text-green-500 dark:text-green-400" />
+                        </div>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <Title className="text-3xl font-bold text-slate-800 dark:text-slate-100">Quiz Saved!</Title>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <p className="text-slate-600 dark:text-slate-400 mt-2 max-w-xs">The quiz is now available in your content library.</p>
                     </div>
                 );
             default: return null;
@@ -449,17 +491,28 @@ Return the response as a single, valid JSON object with a "title" and a "questio
     };
 
     const renderButtons = () => {
-        if (step === 4) return <button onClick={onClose} className={`${btnBase} bg-slate-700 hover:bg-slate-800 text-white ${btnExtruded}`}>Close</button>;
+        if (step === 4) return (
+            // --- MODIFIED: Added dark theme styles ---
+            <button onClick={onClose} className={`${btnBase} bg-slate-700 hover:bg-slate-800 text-white dark:bg-slate-600 dark:hover:bg-slate-700 ${btnExtruded}`}>
+                Close
+            </button>
+        );
         if (step === 3) return (
             <div className="grid grid-cols-3 gap-3">
-                <button onClick={() => setStep(1)} className={`${btnBase} bg-slate-200 text-slate-700 ${btnExtruded}`}>Back</button>
-                <button onClick={handleExportPdf} className={`${btnBase} bg-slate-200 text-slate-700 ${btnExtruded}`}>Export PDF</button>
-                <button onClick={handleSaveQuiz} disabled={isGenerating} className={`${btnBase} bg-sky-500 hover:bg-sky-600 text-white ${btnExtruded} ${btnDisabled}`}>Save Quiz</button>
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <button onClick={() => setStep(1)} className={`${btnBase} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 ${btnExtruded}`}>Back</button>
+                <button onClick={handleExportPdf} className={`${btnBase} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 ${btnExtruded}`}>Export PDF</button>
+                <button onClick={handleSaveQuiz} disabled={isGenerating} className={`${btnBase} bg-sky-500 hover:bg-sky-600 text-white dark:bg-sky-600 dark:hover:bg-sky-700 ${btnExtruded} ${btnDisabled}`}>Save Quiz</button>
             </div>
         );
         if (step === 1) {
             const isInvalid = quizType === 'mixed' && Object.values(distribution).reduce((s, v) => s + v, 0) !== itemCount;
-            return <button onClick={() => handleGenerate(false)} disabled={isInvalid || isGenerating} className={`${btnBase} bg-sky-500 hover:bg-sky-600 text-white ${btnExtruded} disabled:bg-slate-200 ${btnDisabled}`}><SparklesIcon className="h-5 w-5 mr-2" />Generate Quiz</button>;
+            return (
+                // --- MODIFIED: Added dark theme styles ---
+                <button onClick={() => handleGenerate(false)} disabled={isInvalid || isGenerating} className={`${btnBase} bg-sky-500 hover:bg-sky-600 text-white dark:bg-sky-600 dark:hover:bg-sky-700 ${btnExtruded} disabled:bg-slate-200 dark:disabled:bg-neumorphic-base-dark ${btnDisabled}`}>
+                    <SparklesIcon className="h-5 w-5 mr-2" />Generate Quiz
+                </button>
+            );
         }
         return null;
     };
@@ -468,15 +521,20 @@ Return the response as a single, valid JSON object with a "title" and a "questio
 
     return (
         <Dialog open={isOpen} onClose={onClose} className="relative z-50">
-            <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm" aria-hidden="true" />
+            {/* --- MODIFIED: Added dark theme backdrop --- */}
+            <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm dark:bg-black/80" aria-hidden="true" />
             <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-                <DialogPanel className="max-w-lg w-full bg-slate-200 rounded-3xl shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff] flex flex-col max-h-[90vh] transition-all relative">
-                    <button onClick={onClose} className={`absolute top-4 right-4 z-10 h-10 w-10 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 ${btnExtruded}`}><XMarkIcon className="h-6 w-6" /></button>
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <DialogPanel className="max-w-lg w-full bg-slate-200 dark:bg-neumorphic-base-dark rounded-3xl shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff] dark:shadow-lg flex flex-col max-h-[90vh] transition-all relative">
+                    {/* --- MODIFIED: Added dark theme styles --- */}
+                    <button onClick={onClose} className={`absolute top-4 right-4 z-10 h-10 w-10 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 dark:bg-neumorphic-base-dark dark:text-slate-400 ${btnExtruded}`}><XMarkIcon className="h-6 w-6" /></button>
                     <div className="flex-1 overflow-y-auto p-8 pt-12">
                         {isGenerating ? <QuizLoadingScreen /> : renderStepContent()}
-                        {error && !isGenerating && <p className="text-sm text-red-800 mt-4 text-center bg-red-200 p-3 rounded-lg shadow-[inset_1px_1px_2px_#d1d9e8,inset_-1px_-1px_2px_#ffffff]">{error}</p>}
+                        {/* --- MODIFIED: Added dark theme styles --- */}
+                        {error && !isGenerating && <p className="text-sm text-red-800 dark:text-red-400 mt-4 text-center bg-red-200 dark:bg-red-900/50 p-3 rounded-lg shadow-[inset_1px_1px_2px_#d1d9e8,inset_-1px_-1px_2px_#ffffff] dark:shadow-neumorphic-inset-dark">{error}</p>}
                     </div>
-                    {!isGenerating && <div className="flex-shrink-0 px-6 py-5 bg-slate-200/50 border-t border-slate-300/70">{renderButtons()}</div>}
+                    {/* --- MODIFIED: Added dark theme styles --- */}
+                    {!isGenerating && <div className="flex-shrink-0 px-6 py-5 bg-slate-200/50 dark:bg-transparent border-t border-slate-300/70 dark:border-t dark:border-slate-700/50">{renderButtons()}</div>}
                 </DialogPanel>
             </div>
         </Dialog>

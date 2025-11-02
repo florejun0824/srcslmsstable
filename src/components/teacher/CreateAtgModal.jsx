@@ -53,6 +53,14 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
     const [currentSelectedLessonId, setCurrentSelectedLessonId] = useState('');
 
     const { allSubjects, unitsForSubject, lessonsForUnit, loading } = useCourseData(currentSelectedSubjectId);
+
+    // --- MODIFIED: Neumorphic style constants (Tailwind) ---
+    const neuInput = "w-full bg-slate-200 dark:bg-neumorphic-base-dark rounded-lg py-2.5 px-4 text-slate-700 dark:text-slate-100 shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff] dark:shadow-neumorphic-inset-dark focus:outline-none focus:ring-2 focus:ring-sky-500 transition border-2 border-slate-200 dark:border-neumorphic-base-dark focus:border-slate-300 dark:focus:border-slate-700 placeholder:text-slate-400 dark:placeholder:text-slate-500";
+    const neuCard = "bg-slate-200 dark:bg-neumorphic-base-dark p-4 sm:p-6 rounded-xl shadow-[6px_6px_12px_#bdc1c6,-6px_-6px_12px_#ffffff] dark:shadow-lg";
+    const neuButton = "px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-neumorphic-base-dark shadow-[5px_5px_10px_#bdc1c6,-5px_-5px_10px_#ffffff] dark:shadow-lg hover:shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:hover:shadow-neumorphic-inset-dark active:shadow-[inset_5px_5px_10px_#bdc1c6,inset_-5px_-5px_10px_#ffffff] dark:active:shadow-neumorphic-inset-dark disabled:text-slate-400 dark:disabled:text-slate-600 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] dark:disabled:shadow-neumorphic-inset-dark transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-200 dark:focus:ring-offset-neumorphic-base-dark";
+    const neuButtonPrimary = "px-8 py-3 bg-gradient-to-br from-teal-400 to-cyan-500 font-semibold text-white rounded-xl shadow-[5px_5px_10px_#bdc1c6,-5px_-5px_10px_#ffffff] dark:from-teal-600 dark:to-cyan-700 dark:shadow-lg hover:shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:hover:shadow-neumorphic-inset-dark active:shadow-[inset_5px_5px_10px_#bdc1c6,inset_-5px_-5px_10px_#ffffff] dark:active:shadow-neumorphic-inset-dark disabled:text-slate-400 dark:disabled:text-slate-600 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] dark:disabled:shadow-neumorphic-inset-dark transition-shadow duration-200";
+    const neuHeaderIcon = "p-2 sm:p-3 rounded-xl text-white shadow-lg flex-shrink-0 bg-gradient-to-br from-teal-500 to-cyan-600";
+    // ----------------------------------------------------
     
     const handleGenerate = async () => {
         setIsGenerating(true);
@@ -258,49 +266,58 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
 
     return (
         <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4">
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
-            {/* ✅ FIXED: Responsive padding and max-width for the dialog panel */}
-            <Dialog.Panel className="relative bg-slate-50 p-4 sm:p-6 rounded-2xl shadow-2xl w-full max-w-md lg:max-w-5xl max-h-[90vh] flex flex-col">
+            {/* --- MODIFIED: Dark theme backdrop --- */}
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm dark:bg-black/80" />
+            {/* --- MODIFIED: Dark theme panel --- */}
+            <Dialog.Panel className="relative bg-slate-200 dark:bg-neumorphic-base-dark p-4 sm:p-6 rounded-2xl shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff] dark:shadow-lg w-full max-w-md lg:max-w-5xl max-h-[90vh] flex flex-col">
                 {(isGenerating || isSaving) && (
-                    <div className="absolute inset-0 bg-white/80 flex flex-col justify-center items-center z-50 rounded-2xl">
+                    // --- MODIFIED: Dark theme loading overlay ---
+                    <div className="absolute inset-0 bg-white/80 dark:bg-neumorphic-base-dark/80 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl">
                         <Spinner />
-                        <p className="mt-2 text-sm text-slate-600">{isGenerating ? 'AI is generating ATG...' : 'Saving ATG...'}</p>
+                        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{isGenerating ? 'AI is generating ATG...' : 'Saving ATG...'}</p>
                     </div>
                 )}
                 
+                {/* --- MODIFIED: Dark theme header --- */}
                 <div className="flex justify-between items-start mb-4 sm:mb-6">
                     <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="bg-gradient-to-br from-teal-500 to-cyan-600 p-2 sm:p-3 rounded-xl text-white shadow-lg flex-shrink-0">
+                        <div className={neuHeaderIcon}>
                             <DocumentTextIcon className="h-6 w-6 sm:h-8 sm:h-8" />
                         </div>
                         <div>
-                            <Dialog.Title className="text-base sm:text-2xl font-bold text-slate-800">AI ATG Generator</Dialog.Title>
-                            <p className="text-xs sm:text-sm text-slate-500">Create a PEAC Adaptive Teaching Guide from source content.</p>
+                            <Dialog.Title className="text-base sm:text-2xl font-bold text-slate-800 dark:text-slate-100">AI ATG Generator</Dialog.Title>
+                            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Create a PEAC Adaptive Teaching Guide from source content.</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 rounded-full text-slate-400 hover:bg-slate-200"><XMarkIcon className="h-6 w-6" /></button>
+                    {/* --- MODIFIED: Dark theme close button --- */}
+                    <button onClick={onClose} className={`${neuButton} !p-2 !rounded-full`}><XMarkIcon className="h-6 w-6" /></button>
                 </div>
 
+                {/* --- MODIFIED: Dark theme scrollbar --- */}
                 <div className="flex-1 overflow-y-auto -mr-2 pr-2 sm:-mr-4 sm:pr-4">
                     {!previewData ? (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md space-y-4">
-                                <h3 className="font-bold text-base sm:text-lg text-slate-700 border-b pb-2">Authoritative Inputs</h3>
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Content Standard</label>
-                                    <textarea value={contentStandard} onChange={(e) => setContentStandard(e.target.value)} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500" rows={3} />
-                                </div>
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Performance Standard</label>
-                                    <textarea value={performanceStandard} onChange={(e) => setPerformanceStandard(e.target.value)} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500" rows={3} />
-                                </div>
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Learning Competencies</label>
-                                    <textarea placeholder="One competency per line..." value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500" rows={4} />
+                            {/* --- MODIFIED: Dark theme card --- */}
+                            <div className={neuCard}>
+                                <h3 className="font-bold text-base sm:text-lg text-slate-700 dark:text-slate-100 border-b dark:border-slate-700 pb-2 mb-4">Authoritative Inputs</h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Content Standard</label>
+                                        <textarea value={contentStandard} onChange={(e) => setContentStandard(e.target.value)} className={neuInput} rows={3} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Performance Standard</label>
+                                        <textarea value={performanceStandard} onChange={(e) => setPerformanceStandard(e.target.value)} className={neuInput} rows={3} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Learning Competencies</label>
+                                        <textarea placeholder="One competency per line..." value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className={neuInput} rows={4} />
+                                    </div>
                                 </div>
                             </div>
-                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md">
-                                <h3 className="font-bold text-base sm:text-lg text-slate-700 border-b pb-2 mb-4">Source Content</h3>
+                            {/* --- MODIFIED: Dark theme card --- */}
+                            <div className={neuCard}>
+                                <h3 className="font-bold text-base sm:text-lg text-slate-700 dark:text-slate-100 border-b dark:border-slate-700 pb-2 mb-4">Source Content</h3>
                                 <SourceContentSelector
                                     scope={scope} handleScopeChange={(e) => setScope(e.target.value)}
                                     selectedSubjectId={currentSelectedSubjectId} handleSubjectChange={(e) => { setCurrentSelectedSubjectId(e.target.value); setCurrentSelectedUnitIds(new Set()); setCurrentSelectedLessonId(''); }}
@@ -318,24 +335,29 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <h2 className="text-lg sm:text-xl font-bold text-slate-700">Preview ATG</h2>
-                            <div className="max-h-[60vh] overflow-y-auto border rounded-lg p-2 sm:p-4 bg-slate-100">
-                                {previewData?.generated_lessons?.[0] ? <LessonPage page={previewData.generated_lessons[0].pages[0]} /> : <p>Could not load preview.</p>}
+                            {/* --- MODIFIED: Dark theme text --- */}
+                            <h2 className="text-lg sm:text-xl font-bold text-slate-700 dark:text-slate-100">Preview ATG</h2>
+                            {/* --- MODIFIED: Dark theme preview container --- */}
+                            <div className="max-h-[60vh] overflow-y-auto rounded-lg p-2 sm:p-4 bg-slate-100 dark:bg-slate-900/50 shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:shadow-neumorphic-inset-dark">
+                                {/* --- MODIFIED: Added dark theme prose --- */}
+                                <div className="prose prose-slate dark:prose-invert max-w-none">
+                                    {previewData?.generated_lessons?.[0] ? <LessonPage page={previewData.generated_lessons[0].pages[0]} /> : <p>Could not load preview.</p>}
+                                </div>
                             </div>
                         </div>
                     )}
                 </div>
-                 {/* ✅ FIXED: Responsive footer buttons */}
-                <div className="pt-4 sm:pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-slate-200 mt-4 sm:mt-6">
+                 {/* --- MODIFIED: Dark theme footer --- */}
+                <div className="pt-4 sm:pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-slate-200 dark:border-slate-700/50 mt-4 sm:mt-6">
                     {previewData ? (
                         <>
-                            <button onClick={() => setPreviewData(null)} disabled={isSaving || isGenerating} className="btn-secondary w-full sm:w-auto text-sm">Back to Edit</button>
-                            <button onClick={handleSave} className="btn-primary w-full sm:w-auto text-sm" disabled={isSaving}>
+                            <button onClick={() => setPreviewData(null)} disabled={isSaving || isGenerating} className={`${neuButton} w-full sm:w-auto`}>Back to Edit</button>
+                            <button onClick={handleSave} className={`${neuButtonPrimary} w-full sm:w-auto !py-2.5 !px-5`} disabled={isSaving}>
                                 {isSaving ? 'Saving...' : 'Accept & Save'}
                             </button>
                         </>
                     ) : (
-                        <button onClick={handleGenerate} disabled={isGenerating || loading} className="btn-primary ml-auto w-full sm:w-auto text-sm">
+                        <button onClick={handleGenerate} disabled={isGenerating || loading} className={`${neuButtonPrimary} ml-auto w-full sm:w-auto !py-2.5 !px-5`}>
                             {isGenerating ? 'Generating...' : 'Generate ATG'}
                         </button>
                     )}

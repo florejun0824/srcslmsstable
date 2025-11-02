@@ -9,11 +9,21 @@ import InteractiveLoadingScreen from '../common/InteractiveLoadingScreen';
 import CourseSelector from './CourseSelector';
 import LessonSelector from './LessonSelector';
 
+// --- Neumorphic Style Helpers (from other files) ---
+// --- MODIFIED: Added dark theme styles ---
+const inputBaseStyles = "block w-full text-sm bg-slate-200 dark:bg-neumorphic-base-dark rounded-xl shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:shadow-neumorphic-inset-dark focus:outline-none focus:ring-2 focus:ring-sky-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 border-none dark:text-slate-100";
+const btnBase = "w-full inline-flex items-center justify-center px-4 py-3 text-sm font-semibold rounded-xl transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-200 dark:focus:ring-offset-neumorphic-base-dark";
+const btnExtruded = `shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff]
+                   dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark`;
+const btnDisabled = "disabled:opacity-60 disabled:text-slate-500 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] dark:disabled:text-slate-600 dark:disabled:shadow-neumorphic-inset-dark";
+// --------------------------------------------------
+
 // A reusable input field component for this form (iOS Style)
+// --- MODIFIED: Adapted to use neumorphic styles ---
 const FormInput = ({ label, id, ...props }) => (
     <div>
-        {label && <label htmlFor={id} className="block text-sm font-medium text-gray-600 mb-1.5">{label}</label>}
-        <input id={id} {...props} className="block w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
+        {label && <label htmlFor={id} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">{label}</label>}
+        <input id={id} {...props} className={`${inputBaseStyles} px-4 py-2.5`} />
     </div>
 );
 
@@ -274,45 +284,46 @@ const generateExplanationsMarkdown = (questions) => {
     return markdown;
 };
 
+// --- MODIFIED: Added dark theme styles to TOSPreviewTable ---
 const TOSPreviewTable = ({ tos }) => (
     <div className="overflow-x-auto text-sm">
-        <div className="bg-gray-100 p-4 rounded-xl mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 text-center">{tos?.header?.examTitle}</h3>
-            <p className="text-center text-sm text-gray-600">{tos?.header?.subject}</p>
-            <p className="text-center text-sm text-gray-600">{tos?.header?.gradeLevel}</p>
-            <h4 className="font-medium text-gray-800 text-center mt-2">TABLE OF SPECIFICATIONS (TOS)</h4>
+        <div className="bg-slate-200/50 dark:bg-neumorphic-base-dark/50 p-4 rounded-xl mb-4 dark:shadow-neumorphic-inset-dark">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100 text-center">{tos?.header?.examTitle}</h3>
+            <p className="text-center text-sm text-gray-600 dark:text-slate-400">{tos?.header?.subject}</p>
+            <p className="text-center text-sm text-gray-600 dark:text-slate-400">{tos?.header?.gradeLevel}</p>
+            <h4 className="font-medium text-gray-800 dark:text-slate-200 text-center mt-2">TABLE OF SPECIFICATIONS (TOS)</h4>
         </div>
         <table className="min-w-full">
-            <thead className="border-b border-gray-200">
+            <thead className="border-b border-gray-200 dark:border-slate-700">
                 <tr>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Competencies</th>
-                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Hours</th>
-                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Weight</th>
-                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Items</th>
-                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Easy Nos.</th>
-                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Average Nos.</th>
-                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Difficult Nos.</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Competencies</th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Hours</th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Weight</th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Items</th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Easy Nos.</th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Average Nos.</th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Difficult Nos.</th>
                 </tr>
             </thead>
             <tbody>
                 {tos?.competencyBreakdown?.map((row, index) => (
-                    <tr key={index} className="border-b border-gray-200">
-                        <td className="px-3 py-4 whitespace-nowrap text-gray-800">{row.competency}</td>
-                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 text-center">{row.noOfHours}</td>
-                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 text-center">{row.weightPercentage}</td>
-                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 text-center">{row.noOfItems}</td>
-                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 text-center">{row.easyItems.itemNumbers}</td>
-                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 text-center">{row.averageItems.itemNumbers}</td>
-                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 text-center">{row.difficultItems.itemNumbers}</td>
+                    <tr key={index} className="border-b border-gray-200 dark:border-slate-700">
+                        <td className="px-3 py-4 whitespace-nowrap text-gray-800 dark:text-slate-200">{row.competency}</td>
+                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 dark:text-slate-300 text-center">{row.noOfHours}</td>
+                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 dark:text-slate-300 text-center">{row.weightPercentage}</td>
+                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 dark:text-slate-300 text-center">{row.noOfItems}</td>
+                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 dark:text-slate-300 text-center">{row.easyItems.itemNumbers}</td>
+                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 dark:text-slate-300 text-center">{row.averageItems.itemNumbers}</td>
+                        <td className="px-3 py-4 whitespace-nowrap text-gray-700 dark:text-slate-300 text-center">{row.difficultItems.itemNumbers}</td>
                     </tr>
                 ))}
             </tbody>
             <tfoot className="font-bold">
                 <tr>
-                    <td className="px-3 py-3 whitespace-nowrap text-gray-900">TOTAL</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-gray-900 text-center">{tos?.totalRow?.hours}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-gray-900 text-center">{tos?.totalRow?.weightPercentage}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-gray-900 text-center">{tos?.totalRow?.noOfItems}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-gray-900 dark:text-slate-100">TOTAL</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-gray-900 dark:text-slate-100 text-center">{tos?.totalRow?.hours}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-gray-900 dark:text-slate-100 text-center">{tos?.totalRow?.weightPercentage}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-gray-900 dark:text-slate-100 text-center">{tos?.totalRow?.noOfItems}</td>
                     <td colSpan="3"></td>
                 </tr>
             </tfoot>
@@ -333,6 +344,12 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
     const [testTypes, setTestTypes] = useState([]);
     const [totalHours, setTotalHours] = useState('');
     const [isSaveOptionsOpen, setIsSaveOptionsOpen] = useState(false);
+
+    // --- MODIFIED: Create the input style constant ---
+    const neumorphicInput = `${inputBaseStyles} block w-full px-4 py-2.5 sm:text-sm`;
+    const neumorphicTextarea = `${inputBaseStyles} block w-full px-4 py-2.5 sm:text-sm`;
+    const neumorphicSelect = `${inputBaseStyles} block w-full pl-4 pr-10 py-2.5 sm:text-sm appearance-none`;
+
 
     const handleTestTypeChange = (index, field, value) => {
         const updatedTestTypes = [...testTypes];
@@ -646,13 +663,16 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 
     return (
         <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-black/30 backdrop-blur-lg" />
+            {/* --- MODIFIED: Added dark theme backdrop --- */}
+            <div className="fixed inset-0 bg-black/30 backdrop-blur-lg dark:bg-black/80" />
             <Dialog.Panel
-                className="relative bg-gray-50/80 backdrop-blur-xl border border-white/20 p-6 sm:p-8 rounded-3xl w-full max-w-5xl flex flex-col max-h-[90vh]"
+                // --- MODIFIED: Swapped to neumorphic styles ---
+                className="relative bg-slate-200 dark:bg-neumorphic-base-dark shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff] dark:shadow-lg border border-white/20 dark:border-slate-700/50 p-6 sm:p-8 rounded-3xl w-full max-w-5xl flex flex-col max-h-[90vh]"
                 onClick={(e) => e.stopPropagation()}
             >
                 {(isGenerating || isSaving) && (
-                    <div className="absolute inset-0 bg-white/80 backdrop-blur-md flex flex-col justify-center items-center z-50 rounded-3xl">
+                    // --- MODIFIED: Added dark theme loading screen ---
+                    <div className="absolute inset-0 bg-white/80 dark:bg-neumorphic-base-dark/80 backdrop-blur-md flex flex-col justify-center items-center z-50 rounded-3xl">
                         <InteractiveLoadingScreen
                             topic={selectedLessons.length > 0 ? selectedLessons.map(l => l.title).join(', ') : "new ideas"}
                             isSaving={isSaving}
@@ -662,55 +682,65 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                 )}
                 {isSaveOptionsOpen && (
                     <Dialog open={isSaveOptionsOpen} onClose={() => setIsSaveOptionsOpen(false)} className="relative z-[120]">
-                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" />
+                        {/* --- MODIFIED: Added dark theme backdrop --- */}
+                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/80" aria-hidden="true" />
                         <div className="fixed inset-0 flex items-center justify-center p-4">
-                            <Dialog.Panel className="w-full max-w-sm rounded-3xl bg-white/90 backdrop-blur-xl p-6 shadow-2xl">
-                                <Dialog.Title className="text-xl font-bold text-gray-900 flex items-center gap-3">
-                                   <DocumentArrowDownIcon className="w-7 h-7 text-blue-600"/>
+                            {/* --- MODIFIED: Added dark theme panel --- */}
+                            <Dialog.Panel className="w-full max-w-sm rounded-3xl bg-slate-200 dark:bg-neumorphic-base-dark p-6 shadow-2xl dark:shadow-lg">
+                                {/* --- MODIFIED: Added dark theme text/icon --- */}
+                                <Dialog.Title className="text-xl font-bold text-gray-900 dark:text-slate-100 flex items-center gap-3">
+                                   <DocumentArrowDownIcon className="w-7 h-7 text-blue-600 dark:text-blue-400"/>
                                    Save Options
                                 </Dialog.Title>
-                                <p className="text-sm text-gray-600 mt-2">How would you like to save the generated exam content?</p>
+                                {/* --- MODIFIED: Added dark theme text --- */}
+                                <p className="text-sm text-gray-600 dark:text-slate-400 mt-2">How would you like to save the generated exam content?</p>
                                 <div className="mt-5 space-y-3">
-                                    <button onClick={() => handleFinalSave('lesson')} className="w-full flex items-center gap-4 text-left p-3 rounded-xl hover:bg-gray-200 transition-colors">
-                                        <DocumentTextIcon className="w-8 h-8 text-green-600 flex-shrink-0" />
+                                    {/* --- MODIFIED: Added dark theme buttons --- */}
+                                    <button onClick={() => handleFinalSave('lesson')} className="w-full flex items-center gap-4 text-left p-3 rounded-xl hover:bg-gray-200 dark:hover:bg-neumorphic-base-dark/60 transition-colors">
+                                        <DocumentTextIcon className="w-8 h-8 text-green-600 dark:text-green-400 flex-shrink-0" />
                                         <div>
-                                            <p className="font-semibold text-gray-800">Viewable Lesson</p>
-                                            <p className="text-xs text-gray-500">Saves TOS, questions, and answers as markdown pages.</p>
+                                            <p className="font-semibold text-gray-800 dark:text-slate-200">Viewable Lesson</p>
+                                            <p className="text-xs text-gray-500 dark:text-slate-400">Saves TOS, questions, and answers as markdown pages.</p>
                                         </div>
                                     </button>
-                                     <button onClick={() => handleFinalSave('quiz')} className="w-full flex items-center gap-4 text-left p-3 rounded-xl hover:bg-gray-200 transition-colors">
-                                        <PuzzlePieceIcon className="w-8 h-8 text-indigo-600 flex-shrink-0" />
+                                     <button onClick={() => handleFinalSave('quiz')} className="w-full flex items-center gap-4 text-left p-3 rounded-xl hover:bg-gray-200 dark:hover:bg-neumorphic-base-dark/60 transition-colors">
+                                        <PuzzlePieceIcon className="w-8 h-8 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
                                         <div>
-                                            <p className="font-semibold text-gray-800">Interactive Quiz</p>
-                                            <p className="text-xs text-gray-500">Saves compatible questions as a playable quiz.</p>
+                                            <p className="font-semibold text-gray-800 dark:text-slate-200">Interactive Quiz</p>
+                                            <p className="text-xs text-gray-500 dark:text-slate-400">Saves compatible questions as a playable quiz.</p>
                                         </div>
                                     </button>
-                                     <button onClick={() => handleFinalSave('both')} className="w-full flex items-center gap-4 text-left p-3 rounded-xl hover:bg-gray-200 transition-colors">
-                                        <DocumentDuplicateIcon className="w-8 h-8 text-sky-600 flex-shrink-0" />
+                                     <button onClick={() => handleFinalSave('both')} className="w-full flex items-center gap-4 text-left p-3 rounded-xl hover:bg-gray-200 dark:hover:bg-neumorphic-base-dark/60 transition-colors">
+                                        <DocumentDuplicateIcon className="w-8 h-8 text-sky-600 dark:text-sky-400 flex-shrink-0" />
                                         <div>
-                                            <p className="font-semibold text-gray-800">Both Lesson and Quiz</p>
-                                            <p className="text-xs text-gray-500">Creates both a viewable lesson and an interactive quiz.</p>
+                                            <p className="font-semibold text-gray-800 dark:text-slate-200">Both Lesson and Quiz</p>
+                                            <p className="text-xs text-gray-500 dark:text-slate-400">Creates both a viewable lesson and an interactive quiz.</p>
                                         </div>
                                     </button>
                                 </div>
                                 <div className="mt-6 text-right">
-                                     <button onClick={() => setIsSaveOptionsOpen(false)} className="bg-gray-200 py-2 px-4 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-300">Cancel</button>
+                                     {/* --- MODIFIED: Added dark theme button --- */}
+                                     <button onClick={() => setIsSaveOptionsOpen(false)} className={`py-2 px-4 rounded-lg text-sm font-semibold ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300`}>Cancel</button>
                                 </div>
                             </Dialog.Panel>
                         </div>
                     </Dialog>
                 )}
-                <div className="flex justify-between items-start pb-5 border-b border-gray-900/10 flex-shrink-0">
+                {/* --- MODIFIED: Added dark theme border --- */}
+                <div className="flex justify-between items-start pb-5 border-b border-gray-900/10 dark:border-slate-700 flex-shrink-0">
                     <div className="flex items-center gap-4">
-                        <div className="bg-blue-600 p-2.5 rounded-2xl text-white shadow-lg flex-shrink-0">
+                        {/* --- MODIFIED: Added dark theme icon bg --- */}
+                        <div className="bg-blue-600 dark:bg-blue-700 p-2.5 rounded-2xl text-white shadow-lg flex-shrink-0">
                             <ClipboardDocumentListIcon className="h-7 w-7" />
                         </div>
                         <div>
-                            <Dialog.Title className="text-2xl font-semibold text-gray-900">Exam & TOS Generator</Dialog.Title>
-                            <p className="text-sm text-gray-600">Create a comprehensive exam and its Table of Specifications.</p>
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <Dialog.Title className="text-2xl font-semibold text-gray-900 dark:text-slate-100">Exam & TOS Generator</Dialog.Title>
+                            <p className="text-sm text-gray-600 dark:text-slate-400">Create a comprehensive exam and its Table of Specifications.</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 rounded-full text-gray-500 bg-gray-200/50 hover:bg-gray-200">
+                    {/* --- MODIFIED: Added dark theme close button --- */}
+                    <button onClick={onClose} className={`h-10 w-10 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 dark:bg-neumorphic-base-dark dark:text-slate-400 ${btnExtruded}`}>
                         <XMarkIcon className="w-6 h-6" />
                     </button>
                 </div>
@@ -718,34 +748,43 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                     {!previewData ? (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <div className="space-y-6">
-                                <div className="p-5 bg-white/70 rounded-2xl">
-                                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Exam Configuration</h3>
+                                {/* --- MODIFIED: Added dark theme card --- */}
+                                <div className="p-5 bg-slate-200 rounded-2xl shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] dark:bg-neumorphic-base-dark dark:shadow-lg">
+                                    {/* --- MODIFIED: Added dark theme text --- */}
+                                    <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-4">Exam Configuration</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="md:col-span-2">
-                                            <label htmlFor="totalItemsDisplay" className="block text-sm font-medium text-gray-600">Total Number of Items</label>
-                                            <div id="totalItemsDisplay" className="mt-1.5 block w-full px-4 py-2.5 bg-gray-100 border-gray-200 rounded-xl text-gray-800 font-medium sm:text-sm">
+                                            {/* --- MODIFIED: Added dark theme text --- */}
+                                            <label htmlFor="totalItemsDisplay" className="block text-sm font-medium text-slate-600 dark:text-slate-300">Total Number of Items</label>
+                                            {/* --- MODIFIED: Added dark theme styles --- */}
+                                            <div id="totalItemsDisplay" className={`mt-1.5 ${neumorphicInput} py-2.5 font-medium`}>
                                                 {totalConfiguredItems}
                                             </div>
                                         </div>
                                         <div className="md:col-span-1">
-                                            <label htmlFor="totalHours" className="block text-sm font-medium text-gray-600">Total Hours Spent</label>
-                                            <input id="totalHours" type="number" value={totalHours} onChange={(e) => setTotalHours(e.target.value)} className="mt-1.5 block w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="e.g., 10" />
+                                            {/* --- MODIFIED: Added dark theme text --- */}
+                                            <label htmlFor="totalHours" className="block text-sm font-medium text-slate-600 dark:text-slate-300">Total Hours Spent</label>
+                                            <input id="totalHours" type="number" value={totalHours} onChange={(e) => setTotalHours(e.target.value)} className={`mt-1.5 ${neumorphicInput}`} placeholder="e.g., 10" />
                                         </div>
                                         <div className="md:col-span-1">
-                                            <label htmlFor="language" className="block text-sm font-medium text-gray-600">Language</label>
-                                            <select id="language" value={language} onChange={e => setLanguage(e.target.value)} className="mt-1.5 block w-full pl-4 pr-10 py-2.5 text-base bg-gray-100 border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-xl">
+                                            {/* --- MODIFIED: Added dark theme text --- */}
+                                            <label htmlFor="language" className="block text-sm font-medium text-slate-600 dark:text-slate-300">Language</label>
+                                            <select id="language" value={language} onChange={e => setLanguage(e.target.value)} className={`mt-1.5 ${neumorphicSelect}`}>
                                                 <option>English</option>
                                                 <option>Filipino</option>
                                             </select>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="p-5 bg-white/70 rounded-2xl">
-                                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Source Content Selection</h3>
+                                {/* --- MODIFIED: Added dark theme card --- */}
+                                <div className="p-5 bg-slate-200 rounded-2xl shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] dark:bg-neumorphic-base-dark dark:shadow-lg">
+                                    {/* --- MODIFIED: Added dark theme text --- */}
+                                    <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-4">Source Content Selection</h3>
                                     <div className="space-y-4">
                                         <div>
-                                            <label htmlFor="learningCompetencies" className="block text-sm font-medium text-gray-600 mb-1.5">Learning Competencies</label>
-                                            <textarea id="learningCompetencies" rows="4" value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className="block w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Enter learning competencies, one per line." ></textarea>
+                                            {/* --- MODIFIED: Added dark theme text --- */}
+                                            <label htmlFor="learningCompetencies" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Learning Competencies</label>
+                                            <textarea id="learningCompetencies" rows="4" value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className={neumorphicTextarea} placeholder="Enter learning competencies, one per line." ></textarea>
                                         </div>
                                         <CourseSelector onCourseSelect={setSelectedCourse} />
                                         {selectedCourse && (
@@ -755,22 +794,27 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                 </div>
                             </div>
                             <div className="space-y-6">
-                                <div className="p-5 bg-white/70 rounded-2xl h-full flex flex-col">
+                                {/* --- MODIFIED: Added dark theme card --- */}
+                                <div className="p-5 bg-slate-200 rounded-2xl shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] dark:bg-neumorphic-base-dark dark:shadow-lg h-full flex flex-col">
                                     <div className="flex justify-between items-center mb-4">
                                         <div>
-                                            <h3 className="text-lg font-semibold text-gray-800">Test Structure</h3>
-                                            <p className="text-sm text-gray-500">Define the types of tests for the exam.</p>
+                                            {/* --- MODIFIED: Added dark theme text --- */}
+                                            <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-100">Test Structure</h3>
+                                            <p className="text-sm text-gray-500 dark:text-slate-400">Define the types of tests for the exam.</p>
                                         </div>
-                                        <button onClick={addTestType} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                        {/* --- MODIFIED: Added dark theme button --- */}
+                                        <button onClick={addTestType} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl shadow-sm hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                                             <PlusIcon className="w-5 h-5"/>
                                             <span>Add</span>
                                         </button>
                                     </div>
                                     <div className="space-y-3 flex-1">
                                         {testTypes.map((test, index) => (
-                                            <div key={index} className="flex items-center gap-2 p-2 rounded-xl bg-gray-100">
+                                            // --- MODIFIED: Added dark theme list item ---
+                                            <div key={index} className="flex items-center gap-2 p-2 rounded-xl bg-gray-100 dark:bg-neumorphic-base-dark/60">
                                                 <div className="flex-1">
-                                                    <select value={test.type} onChange={e => handleTestTypeChange(index, 'type', e.target.value)} className="w-full text-sm bg-white/0 border-none rounded-md focus:ring-0">
+                                                    {/* --- MODIFIED: Added dark theme select --- */}
+                                                    <select value={test.type} onChange={e => handleTestTypeChange(index, 'type', e.target.value)} className="w-full text-sm bg-transparent dark:bg-transparent dark:text-slate-100 border-none rounded-md focus:ring-0">
                                                         <option>Multiple Choice</option>
                                                         <option>Matching Type</option>
                                                         <option>Alternative Response</option>
@@ -782,33 +826,42 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                                     </select>
                                                 </div>
                                                 <div className="flex-1">
-                                                    <input id={`range-${index}`} type="text" value={test.range} onChange={e => handleTestTypeChange(index, 'range', e.target.value)} placeholder="Number Range (e.g., 1-10)" className="w-full px-3 py-1.5 text-sm bg-white rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500"/>
+                                                    {/* --- MODIFIED: Added dark theme input --- */}
+                                                    <input id={`range-${index}`} type="text" value={test.range} onChange={e => handleTestTypeChange(index, 'range', e.target.value)} placeholder="Number Range (e.g., 1-10)" className={`w-full px-3 py-1.5 text-sm rounded-lg ${inputBaseStyles}`}/>
                                                 </div>
-                                                <button onClick={() => removeTestType(index)} className="text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-red-100 transition-colors">
+                                                {/* --- MODIFIED: Added dark theme button --- */}
+                                                <button onClick={() => removeTestType(index)} className="text-gray-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-500 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors">
                                                     <TrashIcon className="w-5 h-5" />
                                                 </button>
                                             </div>
                                         ))}
                                     </div>
                                     {totalConfiguredItems === 0 && (
-                                        <p className="text-red-600 text-sm mt-3 font-medium">Warning: Total items is 0.</p>
+                                        // --- MODIFIED: Added dark theme text ---
+                                        <p className="text-red-600 dark:text-red-400 text-sm mt-3 font-medium">Warning: Total items is 0.</p>
                                     )}
                                 </div>
                             </div>
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <h2 className="text-2xl font-semibold text-gray-800">Preview: {previewData?.examTitle || 'Generated Exam'}</h2>
-                            <div className="space-y-6 max-h-[60vh] overflow-y-auto border border-gray-900/10 rounded-2xl p-2 sm:p-5 bg-gray-100/50">
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <h2 className="text-2xl font-semibold text-gray-800 dark:text-slate-100">Preview: {previewData?.examTitle || 'Generated Exam'}</h2>
+                            {/* --- MODIFIED: Added dark theme container --- */}
+                            <div className="space-y-6 max-h-[60vh] overflow-y-auto border border-gray-900/10 dark:border-slate-700 rounded-2xl p-2 sm:p-5 bg-gray-100/50 dark:bg-neumorphic-base-dark/30 dark:shadow-neumorphic-inset-dark">
                                 {isValidPreview ? (
                                     <>
-                                        <div className="bg-white p-5 rounded-2xl shadow-sm">
-                                            <h3 className="text-lg font-bold mb-3">Page 1: Table of Specifications (TOS)</h3>
+                                        {/* --- MODIFIED: Added dark theme card --- */}
+                                        <div className="bg-white dark:bg-neumorphic-base-dark p-5 rounded-2xl shadow-sm dark:shadow-lg">
+                                            {/* --- MODIFIED: Added dark theme text --- */}
+                                            <h3 className="text-lg font-bold mb-3 dark:text-slate-100">Page 1: Table of Specifications (TOS)</h3>
                                             <TOSPreviewTable tos={previewData.tos} />
                                         </div>
 
-								<div className="bg-white p-5 rounded-2xl shadow-sm">
-								    <h3 className="text-lg font-bold mb-2">Page 2: Exam Questions</h3>
+								{/* --- MODIFIED: Added dark theme card --- */}
+								<div className="bg-white dark:bg-neumorphic-base-dark p-5 rounded-2xl shadow-sm dark:shadow-lg">
+								    {/* --- MODIFIED: Added dark theme text --- */}
+								    <h3 className="text-lg font-bold mb-2 dark:text-slate-100">Page 2: Exam Questions</h3>
 								    {(() => {
 								        // Group questions by type (e.g., all 'multiple_choice' together)
 								        const groupedQuestions = previewData.examQuestions.reduce((acc, q) => {
@@ -833,14 +886,19 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 
 								            return (
 								                <div key={type} className="mt-6 first:mt-0">
-								                    <h4 className="text-md font-bold">{romanNumerals[typeIndex]}. {typeHeader}</h4>
-								                    {data.instruction && <p className="text-sm font-medium italic text-gray-600 my-2">{data.instruction}</p>}
-								                    {data.passage && <p className="text-sm text-gray-800 my-2 p-3 bg-gray-100 rounded-xl border border-gray-200">{data.passage}</p>}
+								                    {/* --- MODIFIED: Added dark theme text --- */}
+								                    <h4 className="text-md font-bold dark:text-slate-200">{romanNumerals[typeIndex]}. {typeHeader}</h4>
+								                    {/* --- MODIFIED: Added dark theme text --- */}
+								                    {data.instruction && <p className="text-sm font-medium italic text-gray-600 dark:text-slate-400 my-2">{data.instruction}</p>}
+								                    {/* --- MODIFIED: Added dark theme styles --- */}
+								                    {data.passage && <p className="text-sm text-gray-800 dark:text-slate-200 my-2 p-3 bg-gray-100 dark:bg-neumorphic-base-dark/50 rounded-xl border border-gray-200 dark:border-slate-700">{data.passage}</p>}
 
 								                    {/* Special box for Identification choices */}
 								                    {type === 'identification' && data.choicesBox && (
-								                        <div className="text-center p-3 my-4 border border-gray-300 rounded-xl bg-gray-50/50">
-								                            <p className="text-sm font-semibold text-gray-700">
+								                        // --- MODIFIED: Added dark theme styles ---
+								                        <div className="text-center p-3 my-4 border border-gray-300 dark:border-slate-700 rounded-xl bg-gray-50/50 dark:bg-neumorphic-base-dark/50">
+								                            {/* --- MODIFIED: Added dark theme text --- */}
+								                            <p className="text-sm font-semibold text-gray-700 dark:text-slate-300">
 								                                {data.choicesBox.join('   •   ')}
 								                            </p>
 								                        </div>
@@ -858,8 +916,10 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 								                                    <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 pl-2">
 								                                        {/* Column A: Prompts */}
 								                                        <div className="flex-1">
-								                                            <p className="font-semibold text-gray-800 mb-2">{t.columnA}</p>
-								                                            <ul className="list-none space-y-2 text-sm text-gray-700">
+								                                            {/* --- MODIFIED: Added dark theme text --- */}
+								                                            <p className="font-semibold text-gray-800 dark:text-slate-100 mb-2">{t.columnA}</p>
+								                                            {/* --- MODIFIED: Added dark theme text --- */}
+								                                            <ul className="list-none space-y-2 text-sm text-gray-700 dark:text-slate-300">
 								                                                {q.prompts.map((prompt, promptIndex) => (
 								                                                    <li key={prompt.id} className="flex items-start">
 								                                                        <span className="w-8 flex-shrink-0 font-medium">{q.questionNumber + promptIndex}.</span>
@@ -870,8 +930,10 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 								                                        </div>
 								                                        {/* Column B: Options */}
 								                                        <div className="flex-1">
-								                                            <p className="font-semibold text-gray-800 mb-2">{t.columnB}</p>
-								                                            <ul className="list-none space-y-2 text-sm text-gray-700">
+								                                            {/* --- MODIFIED: Added dark theme text --- */}
+								                                            <p className="font-semibold text-gray-800 dark:text-slate-100 mb-2">{t.columnB}</p>
+								                                            {/* --- MODIFIED: Added dark theme text --- */}
+								                                            <ul className="list-none space-y-2 text-sm text-gray-700 dark:text-slate-300">
 								                                                {q.options.map((option, optionIndex) => (
 								                                                    <li key={option.id} className="flex items-start">
 								                                                        <span className="w-8 flex-shrink-0 font-medium">{String.fromCharCode(97 + optionIndex)}.</span>
@@ -887,11 +949,13 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 								                            /* Default rendering for all other question types */
 								                            data.questions.map((q, index) => (
 								                                <div key={index} className="pl-2">
-								                                    <p className="font-medium text-gray-800">{q.questionNumber}. {q.question}</p>
+								                                    {/* --- MODIFIED: Added dark theme text --- */}
+								                                    <p className="font-medium text-gray-800 dark:text-slate-200">{q.questionNumber}. {q.question}</p>
                                     
 								                                    {/* For Multiple Choice, Analogy, etc. */}
 								                                    {q.options && Array.isArray(q.options) && (
-								                                        <ul className="list-none mt-2 ml-8 text-sm space-y-1.5 text-gray-700">
+								                                        // --- MODIFIED: Added dark theme text ---
+								                                        <ul className="list-none mt-2 ml-8 text-sm space-y-1.5 text-gray-700 dark:text-slate-300">
 								                                            {q.options.map((option, optIndex) => (
 								                                                <li key={optIndex}>{String.fromCharCode(97 + optIndex)}. {option}</li>
 								                                            ))}
@@ -913,49 +977,61 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 								    })()}
 								</div>
 
-											<div className="bg-white p-5 rounded-2xl shadow-sm">
-                                            <h3 className="text-lg font-bold mb-3">Page 3: Answer Key</h3>
+                                            {/* --- MODIFIED: Added dark theme card --- */}
+											<div className="bg-white dark:bg-neumorphic-base-dark p-5 rounded-2xl shadow-sm dark:shadow-lg">
+                                            {/* --- MODIFIED: Added dark theme text --- */}
+                                            <h3 className="text-lg font-bold mb-3 dark:text-slate-100">Page 3: Answer Key</h3>
                                             <ul className="list-none space-y-2">
                                                 {previewData.examQuestions.map((q, index) => (
                                                     <li key={index} className="text-sm">
-                                                        <strong className="font-semibold text-gray-800">Question {q.questionNumber}:</strong> <span className="text-gray-700">{q.correctAnswer || (q.correctAnswers && Object.entries(q.correctAnswers).map(([key, val]) => `${key}-${val}`).join(', '))}</span>
+                                                        {/* --- MODIFIED: Added dark theme text --- */}
+                                                        <strong className="font-semibold text-gray-800 dark:text-slate-100">Question {q.questionNumber}:</strong> <span className="text-gray-700 dark:text-slate-300">{q.correctAnswer || (q.correctAnswers && Object.entries(q.correctAnswers).map(([key, val]) => `${key}-${val}`).join(', '))}</span>
                                                     </li>
                                                 ))}
                                             </ul>
                                         </div>
 
-											<div className="bg-white p-5 rounded-2xl shadow-sm">
-                                            <h3 className="text-lg font-bold mb-3">Page 4: Explanations</h3>
+                                            {/* --- MODIFIED: Added dark theme card --- */}
+											<div className="bg-white dark:bg-neumorphic-base-dark p-5 rounded-2xl shadow-sm dark:shadow-lg">
+                                            {/* --- MODIFIED: Added dark theme text --- */}
+                                            <h3 className="text-lg font-bold mb-3 dark:text-slate-100">Page 4: Explanations</h3>
                                             <ul className="list-none space-y-4">
                                                 {previewData.examQuestions.filter(q => q.explanation || q.solution).map((q, index) => (
                                                     <li key={index} className="text-sm">
-                                                        <strong className="font-semibold text-gray-800">Question {q.questionNumber}:</strong>
-                                                        {q.explanation && <p className="ml-4 text-gray-700">Explanation: {q.explanation}</p>}
-                                                        {q.solution && <p className="ml-4 text-gray-700">Solution: {q.solution}</p>}
+                                                        {/* --- MODIFIED: Added dark theme text --- */}
+                                                        <strong className="font-semibold text-gray-800 dark:text-slate-100">Question {q.questionNumber}:</strong>
+                                                        {q.explanation && <p className="ml-4 text-gray-700 dark:text-slate-300">Explanation: {q.explanation}</p>}
+                                                        {q.solution && <p className="ml-4 text-gray-700 dark:text-slate-300">Solution: {q.solution}</p>}
                                                     </li>
                                                 ))}
                                             </ul>
                                         </div>
                                     </>
-                                ) : <p className="text-red-600 font-medium p-4">Could not generate a valid preview.</p>}
+                                // --- MODIFIED: Added dark theme text ---
+                                ) : <p className="text-red-600 dark:text-red-400 font-medium p-4">Could not generate a valid preview.</p>}
                             </div>
                         </div>
                     )}
                 </div>
-                <div className="pt-5 border-t border-gray-900/10 flex-shrink-0 flex justify-end gap-3">
+                {/* --- MODIFIED: Added dark theme border --- */}
+                <div className="pt-5 border-t border-gray-900/10 dark:border-slate-700 flex-shrink-0 flex justify-end gap-3">
                     {previewData ? (
                         <>
-                            <button onClick={() => setPreviewData(null)} disabled={isSaving} className="bg-gray-200 py-2.5 px-5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors">Back to Edit</button>
-                            <button onClick={() => setIsSaveOptionsOpen(true)} disabled={!isValidPreview || isSaving} className="inline-flex justify-center py-2.5 px-5 shadow-sm text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-colors">
+                            {/* --- MODIFIED: Added dark theme button --- */}
+                            <button onClick={() => setPreviewData(null)} disabled={isSaving} className={`py-2.5 px-5 rounded-xl text-sm font-semibold ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300`}>Back to Edit</button>
+                            {/* --- MODIFIED: Added dark theme button --- */}
+                            <button onClick={() => setIsSaveOptionsOpen(true)} disabled={!isValidPreview || isSaving} className={`inline-flex justify-center py-2.5 px-5 shadow-sm text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-colors`}>
                                 {isSaving ? 'Saving...' : 'Accept & Save'}
                             </button>
                         </>
                     ) : (
                         <>
-                            <button type="button" className="bg-gray-200 py-2.5 px-5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors" onClick={onClose}>
+                            {/* --- MODIFIED: Added dark theme button --- */}
+                            <button type="button" className={`py-2.5 px-5 rounded-xl text-sm font-semibold ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300`} onClick={onClose}>
                                 Cancel
                             </button>
-                            <button type="button" className="inline-flex justify-center py-2.5 px-5 shadow-sm text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors" onClick={handleGenerate} disabled={!isValidForGeneration || isGenerating}>
+                            {/* --- MODIFIED: Added dark theme button --- */}
+                            <button type="button" className={`inline-flex justify-center py-2.5 px-5 shadow-sm text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors`} onClick={handleGenerate} disabled={!isValidForGeneration || isGenerating}>
                                 {isGenerating ? 'Generating...' : 'Generate Exam & TOS'}
                             </button>
                         </>

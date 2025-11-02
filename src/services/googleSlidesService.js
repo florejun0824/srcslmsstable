@@ -57,13 +57,20 @@ export const handleAuthRedirect = async () => {
 };
 
 const findOrCreateFolder = async (folderName, parentFolderId = 'root') => {
+    // --- THIS IS FIX #2 (Drive API Error) ---
+    // Apostrophes in folder names must be escaped in Drive queries.
+    const escapedFolderName = folderName.replace(/'/g, "\\'");
+    // --- END OF FIX ---
+
     const response = await window.gapi.client.drive.files.list({
-        q: `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and '${parentFolderId}' in parents and trashed=false`,
+        // Use the escapedFolderName here
+        q: `mimeType='application/vnd.google-apps.folder' and name='${escapedFolderName}' and '${parentFolderId}' in parents and trashed=false`,
         fields: 'files(id, name)',
     });
     if (response.result.files && response.result.files.length > 0) {
         return response.result.files[0].id;
     } else {
+        // Use the *original* folderName when creating it
         const fileMetadata = { name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [parentFolderId] };
         const folder = await window.gapi.client.drive.files.create({ resource: fileMetadata, fields: 'id' });
         return folder.result.id;
@@ -98,8 +105,12 @@ const findSpeakerNotesObjectId = async (presentationId, slideObjectId) => {
         const response = await window.gapi.client.slides.presentations.pages.get({
             presentationId,
             pageObjectId: slideObjectId,
-            fields: 'notesPage(notesProperties(speakerNotesObjectId))',
+            // --- THIS IS FIX #1 (Slides API Error) ---
+            // Request the whole notesPage object. This is more robust and won't fail
+            // if the template slide doesn't have a speaker notes box.
+            fields: 'notesPage',
         });
+        // Now, safely check the path to the ID in JavaScript
         return response.result?.notesPage?.notesProperties?.speakerNotesObjectId || null;
     } catch (error) {
         console.error("Error fetching notes page for slide:", slideObjectId, error);
@@ -172,8 +183,11 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                 }
             }
             
-            const formattedNotes = formatNotesToString(data.notes);
+            // This was the (other) error: `data.notes` was an object.
+            // It is now a string because TeacherDashboard.jsx formats it first.
+            const formattedNotes = data.notes;
             const speakerNotesObjectId = await findSpeakerNotesObjectId(presentationId, slide.objectId);
+            
             if (speakerNotesObjectId) {
                 populateRequests.push({
                     deleteText: {

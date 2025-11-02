@@ -61,59 +61,16 @@ const tryParseJson = (jsonString) => {
 export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId, subjectId }) {
     const { showToast } = useToast();
 
-    // --- Neumorphism style constants (inline) ---
-    // tweak these if you want stronger/weaker effect
-    const NEU_BG = '#eef2f5'; // overall soft background used for cards/inputs
-    const NEU_SHADOW_LIGHT = 'rgba(255,255,255,0.9)';
-    const NEU_SHADOW_DARK = 'rgba(163,177,198,0.35)';
-    const NEU_BORDER = 'rgba(0,0,0,0.04)';
+    // --- MODIFIED: Removed inline style objects ---
 
-    const NEU_PANEL = {
-        background: NEU_BG,
-        boxShadow: `8px 8px 18px ${NEU_SHADOW_DARK}, -8px -8px 18px ${NEU_SHADOW_LIGHT}`,
-        border: `1px solid ${NEU_BORDER}`,
-        borderRadius: 20,
-    };
-
-    const NEU_CARD = {
-        background: NEU_BG,
-        boxShadow: `6px 6px 12px ${NEU_SHADOW_DARK}, -6px -6px 12px ${NEU_SHADOW_LIGHT}`,
-        border: `1px solid ${NEU_BORDER}`,
-        borderRadius: 12,
-    };
-
-    const NEU_INPUT = {
-        background: NEU_BG,
-        boxShadow: `inset 4px 4px 8px ${NEU_SHADOW_DARK}, inset -4px -4px 8px ${NEU_SHADOW_LIGHT}`,
-        border: `1px solid ${NEU_BORDER}`,
-        borderRadius: 10,
-        padding: '0.5rem 0.75rem',
-    };
-
-    const NEU_BUTTON = {
-        background: NEU_BG,
-        boxShadow: `6px 6px 14px ${NEU_SHADOW_DARK}, -6px -6px 14px ${NEU_SHADOW_LIGHT}`,
-        border: `1px solid ${NEU_BORDER}`,
-        borderRadius: 12,
-        padding: '0.6rem 1rem',
-    };
-
-    const NEU_BUTTON_PRIMARY = {
-        ...NEU_BUTTON,
-        // slightly tinted for primary look while keeping soft UI feel
-        background: 'linear-gradient(180deg, #eef2f8, #e6ebf4)',
-    };
-
-    const NEU_HEADER_ICON = {
-        background: NEU_BG,
-        boxShadow: `4px 4px 10px ${NEU_SHADOW_DARK}, -4px -4px 10px ${NEU_SHADOW_LIGHT}`,
-        borderRadius: 14,
-        padding: 12,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-    };
-
+    // --- Neumorphic style constants (Tailwind) ---
+    const neuInput = "w-full bg-slate-200 dark:bg-neumorphic-base-dark rounded-lg py-2.5 px-4 text-slate-700 dark:text-slate-100 shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff] dark:shadow-neumorphic-inset-dark focus:outline-none focus:ring-2 focus:ring-sky-500 transition border-2 border-slate-200 dark:border-neumorphic-base-dark focus:border-slate-300 dark:focus:border-slate-700 placeholder:text-slate-400 dark:placeholder:text-slate-500";
+    const neuCard = "bg-slate-200 dark:bg-neumorphic-base-dark p-4 rounded-xl shadow-[6px_6px_12px_#bdc1c6,-6px_-6px_12px_#ffffff] dark:shadow-lg";
+    const neuInsetCard = "bg-slate-200 dark:bg-neumorphic-base-dark p-4 rounded-xl shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff] dark:shadow-neumorphic-inset-dark";
+    const neuButton = "px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-neumorphic-base-dark shadow-[5px_5px_10px_#bdc1c6,-5px_-5px_10px_#ffffff] dark:shadow-lg hover:shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:hover:shadow-neumorphic-inset-dark active:shadow-[inset_5px_5px_10px_#bdc1c6,inset_-5px_-5px_10px_#ffffff] dark:active:shadow-neumorphic-inset-dark disabled:text-slate-400 dark:disabled:text-slate-600 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] dark:disabled:shadow-neumorphic-inset-dark transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-200 dark:focus:ring-offset-neumorphic-base-dark";
+    const neuButtonPrimary = "px-8 py-3 bg-slate-200 font-semibold text-sky-600 dark:text-sky-400 rounded-xl shadow-[5px_5px_10px_#bdc1c6,-5px_-5px_10px_#ffffff] dark:bg-neumorphic-base-dark dark:shadow-lg hover:shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:hover:shadow-neumorphic-inset-dark active:shadow-[inset_5px_5px_10px_#bdc1c6,inset_-5px_-5px_10px_#ffffff] dark:active:shadow-neumorphic-inset-dark disabled:text-slate-400 dark:disabled:text-slate-600 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] dark:disabled:shadow-neumorphic-inset-dark transition-shadow duration-200";
+    const neuHeaderIcon = "p-3 rounded-xl text-zinc-700 dark:text-zinc-300 bg-slate-200 dark:bg-neumorphic-base-dark shadow-[4px_4px_10px_#bdc1c6,-4px_-4px_10px_#ffffff] dark:shadow-lg inline-flex items-center justify-center";
+    
     // --- All state declarations remain the same ---
     const [inputs, setInputs] = useState({
         contentStandard: '',
@@ -533,8 +490,8 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         const values = components.find(c => c.type === 'values');
         if (values && values.values) {
             const valuesHtml = values.values.map(v => `<h4>${esc(v.name)}</h4><p>${nl2br(v.description)}</p>`).join('');
-            tbody += `<tr><td colspan="2" style="background-color: #dbeafe; color: #1e40af; font-weight: bold; padding: 10px;">VALUES INTEGRATION</td></tr>`;
-            tbody += `<tr><td colspan="2" style="padding: 10px;">${valuesHtml}</td></tr>`;
+            tbody += `<tr><td colspan='2' style='background-color: #dbeafe; color: #1e40af; font-weight: bold; padding: 10px;'>VALUES INTEGRATION</td></tr>`;
+            tbody += `<tr><td colspan='2' style='padding: 10px;'>${valuesHtml}</td></tr>`;
         }
 
         return `<table style='width: 100%; border-collapse: collapse;'>
@@ -684,35 +641,38 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         } finally { setIsSaving(false); }
     };
     
-    // --- The entire JSX return block remains the same structurally, with neumorphism inline styles added ---
+    // --- MODIFIED: The entire JSX return block is now using Tailwind classes ---
     return (
         <Dialog open={isOpen} onClose={!isSaving && !isGenerating ? onClose : () => {}} className="relative z-[110]">
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" />
+            {/* --- MODIFIED: Dark theme backdrop --- */}
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm dark:bg-black/80" aria-hidden="true" />
             
             <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-                <Dialog.Panel style={NEU_PANEL} className="relative p-6 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+                {/* --- MODIFIED: Dark theme panel --- */}
+                <Dialog.Panel className="relative p-6 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col bg-slate-200 dark:bg-neumorphic-base-dark shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff] dark:shadow-lg border border-slate-300/50 dark:border-slate-700/50">
                     {(isGenerating || isSaving) && (
-                        <div className="absolute inset-0 bg-white/70 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl space-y-3">
+                        // --- MODIFIED: Dark theme loading overlay ---
+                        <div className="absolute inset-0 bg-white/70 backdrop-blur-sm dark:bg-neumorphic-base-dark/80 flex flex-col justify-center items-center z-50 rounded-2xl space-y-3">
                             {isGenerating ? <ProgressIndicator progress={progress} /> : <Spinner />}
-                            <p className="text-zinc-600">{isGenerating ? progressLabel : 'Saving...'}</p>
+                            <p className="text-zinc-600 dark:text-slate-300">{isGenerating ? progressLabel : 'Saving...'}</p>
                         </div>
                     )}
                     
+                    {/* --- MODIFIED: Dark theme header --- */}
                     <div className="flex justify-between items-start mb-6 flex-shrink-0">
                         <div className="flex items-center gap-4">
-                            <div style={NEU_HEADER_ICON} aria-hidden="true">
-                                <DocumentChartBarIcon className="h-8 w-8 text-zinc-700" />
+                            <div className={neuHeaderIcon} aria-hidden="true">
+                                <DocumentChartBarIcon className="h-8 w-8 text-zinc-700 dark:text-zinc-300" />
                             </div>
                             <div>
-                                <Dialog.Title className="text-xl sm:text-2xl font-bold text-zinc-900">AI PEAC ULP Generator</Dialog.Title>
-                                <p className="text-sm text-zinc-500">Create a ULP that aligns with PEAC standards.</p>
+                                <Dialog.Title className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-slate-100">AI PEAC ULP Generator</Dialog.Title>
+                                <p className="text-sm text-zinc-500 dark:text-slate-400">Create a ULP that aligns with PEAC standards.</p>
                             </div>
                         </div>
                         <button
                             onClick={onClose}
                             disabled={isSaving || isGenerating}
-                            style={{ ...NEU_BUTTON, padding: 8 }}
-                            className="p-1.5 rounded-full text-zinc-500 bg-zinc-200/80 hover:bg-zinc-300/80 flex-shrink-0"
+                            className={`${neuButton} !p-2 !rounded-full`} // Use ! to override base padding
                         >
                             <XMarkIcon className="h-5 w-5" />
                         </button>
@@ -722,15 +682,16 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                         {!previewData ? (
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 <div className="space-y-4">
-                                    <h3 className="font-bold text-lg text-zinc-700 border-b border-zinc-200 pb-2">Generation Options</h3>
+                                    {/* --- MODIFIED: Dark theme text --- */}
+                                    <h3 className="font-bold text-lg text-zinc-700 dark:text-slate-300 border-b border-zinc-200 dark:border-slate-700 pb-2">Generation Options</h3>
                                     <div>
-                                        <label htmlFor="generationTarget" className="block text-sm font-medium text-zinc-600 mb-1.5">Document to Generate</label>
+                                        {/* --- MODIFIED: Dark theme text --- */}
+                                        <label htmlFor="generationTarget" className="block text-sm font-medium text-zinc-600 dark:text-slate-300 mb-1.5">Document to Generate</label>
                                         <select
                                             name="generationTarget"
                                             value={generationTarget}
                                             onChange={(e) => setGenerationTarget(e.target.value)}
-                                            className="form-input-ios"
-                                            style={{ ...NEU_INPUT, width: '100%' }}
+                                            className={`${neuInput} appearance-none`}
                                         >
                                             <option value="teacherGuide">PEAC Unit Learning Plan (ULP)</option>
                                             <option value="studentLesson">Student Learning Guide</option>
@@ -738,62 +699,67 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                                         </select>
                                     </div>
                                     <div>
-                                        <label htmlFor="language" className="block text-sm font-medium text-zinc-600 mb-1.5">Output Language</label>
+                                        {/* --- MODIFIED: Dark theme text --- */}
+                                        <label htmlFor="language" className="block text-sm font-medium text-zinc-600 dark:text-slate-300 mb-1.5">Output Language</label>
                                         <div className="relative">
                                             <select
                                                 id="language"
                                                 value={selectedLanguage}
                                                 onChange={(e) => setSelectedLanguage(e.target.value)}
-                                                className="form-input-ios pl-10"
-                                                style={{ ...NEU_INPUT, width: '100%', paddingLeft: '2.5rem' }}
+                                                className={`${neuInput} pl-10 appearance-none`}
                                             >
                                                 <option>English</option><option>Filipino</option>
                                             </select>
-                                            <LanguageIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-400" />
+                                            <LanguageIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-400 dark:text-slate-500" />
                                         </div>
                                     </div>
-                                    <h3 className="font-bold text-lg text-zinc-700 border-b border-zinc-200 pt-2 pb-2">Authoritative Inputs</h3>
+                                    {/* --- MODIFIED: Dark theme text --- */}
+                                    <h3 className="font-bold text-lg text-zinc-700 dark:text-slate-300 border-b border-zinc-200 dark:border-slate-700 pt-2 pb-2">Authoritative Inputs</h3>
                                     <div>
-                                        <label htmlFor="contentStandard" className="block text-sm font-medium text-zinc-600 mb-1.5">Content Standard</label>
+                                        {/* --- MODIFIED: Dark theme text --- */}
+                                        <label htmlFor="contentStandard" className="block text-sm font-medium text-zinc-600 dark:text-slate-300 mb-1.5">Content Standard</label>
                                         <textarea
                                             id="contentStandard"
                                             name="contentStandard"
                                             value={inputs.contentStandard}
                                             onChange={handleInputChange}
-                                            className="form-input-ios"
+                                            className={neuInput}
                                             rows={3}
-                                            style={{ ...NEU_INPUT, width: '100%', minHeight: 72 }}
+                                            style={{ minHeight: 72 }}
                                         />
                                     </div>
                                     <div>
-                                        <label htmlFor="performanceStandard" className="block text-sm font-medium text-zinc-600 mb-1.5">Performance Standard</label>
+                                        {/* --- MODIFIED: Dark theme text --- */}
+                                        <label htmlFor="performanceStandard" className="block text-sm font-medium text-zinc-600 dark:text-slate-300 mb-1.5">Performance Standard</label>
                                         <textarea
                                             id="performanceStandard"
                                             name="performanceStandard"
                                             value={inputs.performanceStandard}
                                             onChange={handleInputChange}
-                                            className="form-input-ios"
+                                            className={neuInput}
                                             rows={3}
-                                            style={{ ...NEU_INPUT, width: '100%', minHeight: 72 }}
+                                            style={{ minHeight: 72 }}
                                         />
                                     </div>
                                     <div>
-                                        <label htmlFor="learningCompetencies" className="block text-sm font-medium text-zinc-600 mb-1.5">Learning Competencies</label>
+                                        {/* --- MODIFIED: Dark theme text --- */}
+                                        <label htmlFor="learningCompetencies" className="block text-sm font-medium text-zinc-600 dark:text-slate-300 mb-1.5">Learning Competencies</label>
                                         <textarea
                                             id="learningCompetencies"
                                             name="learningCompetencies"
                                             placeholder="One competency per line..."
                                             value={inputs.learningCompetencies}
                                             onChange={handleInputChange}
-                                            className="form-input-ios"
+                                            className={neuInput}
                                             rows={4}
-                                            style={{ ...NEU_INPUT, width: '100%', minHeight: 96 }}
+                                            style={{ minHeight: 96 }}
                                         />
                                     </div>
                                 </div>
                                 <div className="space-y-4">
-                                     <h3 className="font-bold text-lg text-zinc-700 border-b border-zinc-200 pb-2">Source Content</h3>
-                                    <div style={{ ...NEU_CARD, padding: 16 }}>
+                                     {/* --- MODIFIED: Dark theme text --- */}
+                                     <h3 className="font-bold text-lg text-zinc-700 dark:text-slate-300 border-b border-zinc-200 dark:border-slate-700 pb-2">Source Content</h3>
+                                    <div className={neuCard}>
                                         <SourceContentSelector
                                             selectedSubjectId={selectedSubjectId}
                                             handleSubjectChange={(e) => { setSelectedSubjectId(e.target.value); setSelectedUnitIds(new Set()); setScaffoldLessonIds(new Set()); }}
@@ -809,9 +775,11 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                                         />
                                     </div>
                                     {/* --- MODIFIED: Collapsible and Selectable Scaffold Section --- */}
-                                    <h3 className="font-bold text-lg text-zinc-700 border-b border-zinc-200 pt-2 pb-2">Scaffolding (Optional)</h3>
-                                    <div style={{ ...NEU_CARD, padding: 16, maxHeight: 256, overflowY: 'auto' }}>
-                                        <p className="text-xs text-zinc-500 mb-3">Select previous lessons to build upon. Default view is collapsed.</p>
+                                    {/* --- MODIFIED: Dark theme text --- */}
+                                    <h3 className="font-bold text-lg text-zinc-700 dark:text-slate-300 border-b border-zinc-200 dark:border-slate-700 pt-2 pb-2">Scaffolding (Optional)</h3>
+                                    <div className={`${neuInsetCard} max-h-[256px] overflow-y-auto`}>
+                                        {/* --- MODIFIED: Dark theme text --- */}
+                                        <p className="text-xs text-zinc-500 dark:text-slate-400 mb-3">Select previous lessons to build upon. Default view is collapsed.</p>
                                         {unitsForSubject.length > 0 ? (
                                             unitsForSubject.map(unit => {
                                                 const lessonsInUnit = lessonsForUnit.filter(lesson => lesson.unitId === unit.id);
@@ -824,9 +792,11 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
 
                                                 return (
                                                     <div key={unit.id} className="pt-2 first:pt-0">
-                                                        <div className="flex items-center" style={{ background: 'transparent', padding: 8, borderRadius: 8 }}>
+                                                        {/* --- MODIFIED: Dark theme card --- */}
+                                                        <div className="flex items-center p-2 rounded-lg bg-slate-200 dark:bg-neumorphic-base-dark shadow-[3px_3px_6px_#bdc1c6,-3px_-3px_6px_#ffffff] dark:shadow-lg transition-shadow">
                                                             <button onClick={() => handleToggleUnitExpansion(unit.id)} className="p-1">
-                                                                <ChevronRightIcon className={`h-4 w-4 text-zinc-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                                                                {/* --- MODIFIED: Dark theme icon --- */}
+                                                                <ChevronRightIcon className={`h-4 w-4 text-zinc-500 dark:text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                                                             </button>
                                                             <input
                                                                 type="checkbox"
@@ -834,9 +804,11 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                                                                 checked={isAllSelected}
                                                                 ref={el => { if(el) el.indeterminate = isPartiallySelected; }}
                                                                 onChange={() => handleUnitCheckboxChange(lessonsInUnit)}
-                                                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ml-2"
+                                                                // --- MODIFIED: Dark theme checkbox ---
+                                                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ml-2 dark:bg-slate-800 dark:border-slate-600"
                                                             />
-                                                            <label htmlFor={`scaffold-unit-${unit.id}`} className="ml-2 flex-1 text-sm font-semibold text-zinc-700 cursor-pointer">
+                                                            {/* --- MODIFIED: Dark theme text --- */}
+                                                            <label htmlFor={`scaffold-unit-${unit.id}`} className="ml-2 flex-1 text-sm font-semibold text-zinc-700 dark:text-slate-100 cursor-pointer">
                                                                 {unit.title}
                                                             </label>
                                                         </div>
@@ -855,9 +827,11 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                                                                                 else newSet.add(lesson.id);
                                                                                 setScaffoldLessonIds(newSet);
                                                                             }}
-                                                                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                                            // --- MODIFIED: Dark theme checkbox ---
+                                                                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600"
                                                                         />
-                                                                        <label htmlFor={`scaffold-lesson-${lesson.id}`} className="ml-2 block text-sm text-zinc-800">
+                                                                        {/* --- MODIFIED: Dark theme text --- */}
+                                                                        <label htmlFor={`scaffold-lesson-${lesson.id}`} className="ml-2 block text-sm text-zinc-800 dark:text-slate-300">
                                                                             {lesson.title}
                                                                         </label>
                                                                     </div>
@@ -868,44 +842,50 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                                                 );
                                             })
                                         ) : (
-                                            <p className="text-sm text-zinc-400">Select a subject to see available lessons for scaffolding.</p>
+                                            // --- MODIFIED: Dark theme text ---
+                                            <p className="text-sm text-zinc-400 dark:text-slate-500">Select a subject to see available lessons for scaffolding.</p>
                                         )}
                                     </div>
                                 </div>
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                <h2 className="text-xl font-bold text-zinc-800">Preview</h2>
-                                <div className="max-h-[65vh] overflow-y-auto border border-zinc-200 rounded-lg p-4 bg-zinc-100">
+                                {/* --- MODIFIED: Dark theme text --- */}
+                                <h2 className="text-xl font-bold text-zinc-800 dark:text-slate-100">Preview</h2>
+                                {/* --- MODIFIED: Dark theme preview bg --- */}
+                                <div className="max-h-[65vh] overflow-y-auto border border-zinc-200 dark:border-slate-700 rounded-lg p-4 bg-zinc-100 dark:bg-slate-900/50">
                                     {previewData?.generated_lessons?.[0] ? (
                                         previewData.generated_lessons.map((lesson, index) => (
                                             <div key={index}>
-                                                <h3 className="font-bold text-lg sticky top-0 bg-zinc-100/80 backdrop-blur-sm py-2">{lesson.lessonTitle}</h3>
-                                                {Array.isArray(lesson.pages) && lesson.pages.map((page, pageIndex) => <LessonPage key={`${index}-${pageIndex}`} page={page} />)}
+                                                {/* --- MODIFIED: Dark theme sticky header --- */}
+                                                <h3 className="font-bold text-lg sticky top-0 bg-zinc-100/80 dark:bg-slate-900/80 backdrop-blur-sm py-2 dark:text-slate-100">{lesson.lessonTitle}</h3>
+                                                {/* --- MODIFIED: Dark theme prose --- */}
+                                                <div className="prose prose-slate dark:prose-invert max-w-none">
+                                                    {Array.isArray(lesson.pages) && lesson.pages.map((page, pageIndex) => <LessonPage key={`${index}-${pageIndex}`} page={page} />)}
+                                                </div>
                                             </div>
                                         ))
-                                    ) : ( <p>Could not load preview. The AI may have returned an invalid format.</p> )}
+                                    ) : ( <p className="dark:text-slate-300">Could not load preview. The AI may have returned an invalid format.</p> )}
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    <div className="pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-zinc-200/80 mt-6">
+                    {/* --- MODIFIED: Dark theme footer --- */}
+                    <div className="pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-zinc-200/80 dark:border-slate-700/50 mt-6">
                         {previewData ? (
                             <>
                                 <button
                                     onClick={() => setPreviewData(null)}
                                     disabled={isSaving || isGenerating}
-                                    className="btn-secondary-ios w-full sm:w-auto"
-                                    style={{ ...NEU_BUTTON }}
+                                    className={`${neuButton} w-full sm:w-auto`}
                                 >
                                     Back to Edit
                                 </button>
                                 <button
                                     onClick={handleSave}
                                     disabled={isSaving || isGenerating}
-                                    className="btn-primary-ios w-full sm:w-auto"
-                                    style={{ ...NEU_BUTTON_PRIMARY }}
+                                    className={`${neuButtonPrimary} w-full sm:w-auto`}
                                 >
                                     {isSaving ? 'Saving...' : 'Accept & Save'}
                                 </button>
@@ -914,8 +894,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                             <button
                                 onClick={handleGenerate}
                                 disabled={isGenerating || !selectedUnitIds.size}
-                                className="btn-primary-ios ml-auto w-full sm:w-auto"
-                                style={{ ...NEU_BUTTON_PRIMARY }}
+                                className={`${neuButtonPrimary} ml-auto w-full sm:w-auto`}
                             >
                                 {isGenerating ? 'Generating...' : 'Generate Content'}
                             </button>

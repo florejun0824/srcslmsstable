@@ -126,7 +126,7 @@ const ProfileView = ({
                             className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-neumorphic-base rounded-xl transition-shadow duration-300 text-red-600 font-semibold shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:text-red-400 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark">
                             <ArrowLeftOnRectangleIcon className="w-6 h-6" />
                             <span>Logout</span>
-                        </button>Old
+                        </button>
                     </div>
                 </div>
             </div>

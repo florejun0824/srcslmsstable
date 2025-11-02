@@ -11,17 +11,23 @@ const questionTypes = [
 ];
 
 // --- Neumorphic Style Helpers ---
+// --- MODIFIED: Added dark theme styles ---
 const getSegmentedButtonClasses = (isActive) => {
-    const baseClasses = "flex-1 rounded-lg py-2.5 px-3 text-sm font-semibold transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 ring-offset-2 ring-offset-slate-200 ring-sky-500";
+    const baseClasses = "flex-1 rounded-lg py-2.5 px-3 text-sm font-semibold transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 ring-offset-2 ring-offset-slate-200 dark:ring-offset-neumorphic-base-dark ring-sky-500";
     if (isActive) {
-        return `${baseClasses} bg-slate-200 text-sky-600 shadow-[3px_3px_6px_#bdc1c6,-3px_-3px_6px_#ffffff] scale-100`;
+        return `${baseClasses} bg-slate-200 text-sky-600 shadow-[3px_3px_6px_#bdc1c6,-3px_-3px_6px_#ffffff] dark:bg-neumorphic-base-dark dark:text-sky-400 dark:shadow-lg scale-100`;
     }
-    return `${baseClasses} bg-transparent text-slate-600 hover:bg-slate-200/50`;
+    return `${baseClasses} bg-transparent text-slate-600 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-neumorphic-base-dark/50`;
 };
-const inputBaseStyles = "bg-slate-200 rounded-xl shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] focus:outline-none focus:ring-2 focus:ring-sky-500 placeholder:text-slate-400 border-none";
-const btnBase = "w-full inline-flex items-center justify-center px-4 py-3 text-sm font-semibold rounded-xl transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-200";
-const btnExtruded = `shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff]`;
-const btnDisabled = "disabled:opacity-60 disabled:text-slate-500 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff]";
+// --- MODIFIED: Added dark theme styles ---
+const inputBaseStyles = "bg-slate-200 dark:bg-neumorphic-base-dark rounded-xl shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:shadow-neumorphic-inset-dark focus:outline-none focus:ring-2 focus:ring-sky-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 border-none dark:text-slate-100";
+// --- MODIFIED: Added dark theme styles ---
+const btnBase = "w-full inline-flex items-center justify-center px-4 py-3 text-sm font-semibold rounded-xl transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-200 dark:focus:ring-offset-neumorphic-base-dark";
+// --- MODIFIED: Added dark theme styles ---
+const btnExtruded = `shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff]
+                   dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark`;
+// --- MODIFIED: Added dark theme styles ---
+const btnDisabled = "disabled:opacity-60 disabled:text-slate-500 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] dark:disabled:text-slate-600 dark:disabled:shadow-neumorphic-inset-dark";
 const uniqueId = () => `id_${Math.random().toString(36).substr(2, 9)}`;
 // ---------------------------------
 
@@ -378,14 +384,17 @@ export default function QuizFormModal({
   return (
     <Dialog open={isOpen} onClose={handleClose} static={true} className="relative z-50">
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm" aria-hidden="true" />
+      {/* --- MODIFIED: Added dark theme backdrop --- */}
+      <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm dark:bg-black/80" aria-hidden="true" />
 
       {/* Panel */}
       <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-        <DialogPanel className="max-w-7xl w-full bg-slate-200 rounded-3xl shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff] flex flex-col max-h-[90vh] transition-all relative">
+        {/* --- MODIFIED: Added dark theme panel --- */}
+        <DialogPanel className="max-w-7xl w-full bg-slate-200 dark:bg-neumorphic-base-dark rounded-3xl shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff] dark:shadow-lg flex flex-col max-h-[90vh] transition-all relative">
 
           {/* Close Button */}
-          <button onClick={handleClose} className={`absolute top-4 right-4 z-10 h-10 w-10 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 ${btnExtruded}`}>
+          {/* --- MODIFIED: Added dark theme button --- */}
+          <button onClick={handleClose} className={`absolute top-4 right-4 z-10 h-10 w-10 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 dark:bg-neumorphic-base-dark dark:text-slate-400 ${btnExtruded}`}>
             <XMarkIcon className="h-6 w-6" />
           </button>
 
@@ -393,12 +402,15 @@ export default function QuizFormModal({
           <div className="flex-1 overflow-y-auto p-8 pt-12 space-y-6">
 
             <div className="text-center">
-              <Title className="mt-4 text-2xl font-bold text-slate-800">{modalTitle}</Title>
+              {/* --- MODIFIED: Added dark theme text --- */}
+              <Title className="mt-4 text-2xl font-bold text-slate-800 dark:text-slate-100">{modalTitle}</Title>
             </div>
 
             {/* Quiz Title */}
-            <div className="p-5 rounded-2xl shadow-[inset_3px_3px_7px_#bdc1c6,inset_-3px_-3px_7px_#ffffff] space-y-3">
-              <label className="block text-sm font-medium text-slate-700">Quiz Title</label>
+            {/* --- MODIFIED: Added dark theme container --- */}
+            <div className="p-5 rounded-2xl shadow-[inset_3px_3px_7px_#bdc1c6,inset_-3px_-3px_7px_#ffffff] dark:shadow-neumorphic-inset-dark space-y-3">
+              {/* --- MODIFIED: Added dark theme text --- */}
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Quiz Title</label>
               <input
                 type="text"
                 value={title}
@@ -408,7 +420,8 @@ export default function QuizFormModal({
               />
             </div>
 
-            <h3 className="text-lg font-medium text-slate-800 border-t border-slate-300/70 pt-4">Questions</h3>
+            {/* --- MODIFIED: Added dark theme text/border --- */}
+            <h3 className="text-lg font-medium text-slate-800 dark:text-slate-100 border-t border-slate-300/70 dark:border-slate-700 pt-4">Questions</h3>
 
             {/* Questions List */}
             <div className="space-y-4">
@@ -422,12 +435,15 @@ export default function QuizFormModal({
 
                 return (
                   <div key={qIndex} /* Using index temporarily, consider stable IDs if reordering happens */
-                       className="p-5 rounded-2xl bg-slate-200 shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] space-y-4 relative">
+                       // --- MODIFIED: Added dark theme card ---
+                       className="p-5 rounded-2xl bg-slate-200 shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] dark:bg-neumorphic-base-dark dark:shadow-lg space-y-4 relative">
 
                     {/* Question Header */}
                     <div className="flex justify-between items-center">
-                      <label className="font-semibold text-slate-800 text-lg">{questionLabel}</label>
-                      <button onClick={() => handleRemoveQuestion(qIndex)} className={`h-9 w-9 flex items-center justify-center rounded-full bg-slate-200 text-red-500 ${btnExtruded} hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff]`}>
+                      {/* --- MODIFIED: Added dark theme text --- */}
+                      <label className="font-semibold text-slate-800 dark:text-slate-100 text-lg">{questionLabel}</label>
+                      {/* --- MODIFIED: Added dark theme button --- */}
+                      <button onClick={() => handleRemoveQuestion(qIndex)} className={`h-9 w-9 flex items-center justify-center rounded-full bg-slate-200 text-red-500 dark:bg-neumorphic-base-dark dark:text-red-500 ${btnExtruded} hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] dark:hover:shadow-neumorphic-inset-dark`}>
                         <TrashIcon className="h-5 w-5" />
                       </button>
                     </div>
@@ -449,7 +465,8 @@ export default function QuizFormModal({
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Type Select */}
                       <div>
-                        <label className="text-xs font-medium text-slate-500 mb-1.5 block">Question Type</label>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 block">Question Type</label>
                         <select
                           value={q.type || 'multiple-choice'} // Ensure controlled value
                           onChange={(e) => handleQuestionChange(qIndex, 'type', e.target.value)}
@@ -465,19 +482,22 @@ export default function QuizFormModal({
 
                       {/* Points Input */}
                       <div>
-                        <label className="text-xs font-medium text-slate-500 mb-1.5 block">Points</label>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 block">Points</label>
                         <input
                           type="number"
                           value={q.points || 1} // Ensure controlled value, default to 1
                           // Disable for types where points are auto-calculated
                           disabled={q.type === 'matching-type' || q.type === 'essay'}
                           onChange={(e) => handleQuestionChange(qIndex, 'points', Math.max(1, parseInt(e.target.value, 10) || 1))}
-                          className={`w-full ${inputBaseStyles} py-2.5 px-3 text-sm ${q.type === 'matching-type' || q.type === 'essay' ? 'opacity-70 bg-slate-100 cursor-not-allowed' : ''}`} // Added cursor style
+                          // --- MODIFIED: Added dark theme disabled styles ---
+                          className={`w-full ${inputBaseStyles} py-2.5 px-3 text-sm ${q.type === 'matching-type' || q.type === 'essay' ? 'opacity-70 bg-slate-100 cursor-not-allowed dark:opacity-70 dark:bg-neumorphic-base-dark/50 dark:cursor-not-allowed' : ''}`} // Added cursor style
                           min={1}
                         />
                          {/* Display auto-calculated points for clarity */}
                          {(q.type === 'matching-type' || q.type === 'essay') && (
-                            <p className="text-xs text-slate-500 mt-1">
+                            // --- MODIFIED: Added dark theme text ---
+                            <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
                                 Points auto-calculated based on {q.type === 'matching-type' ? 'prompts' : 'rubric'}.
                             </p>
                          )}
@@ -485,12 +505,14 @@ export default function QuizFormModal({
                     </div>
 
                     {/* Answer Section */}
-                    <div className="pt-2 pl-4 border-l-2 border-slate-300 space-y-3">
+                    {/* --- MODIFIED: Added dark theme border --- */}
+                    <div className="pt-2 pl-4 border-l-2 border-slate-300 dark:border-slate-700 space-y-3">
 
                       {/* Multiple Choice */}
                       {q.type === 'multiple-choice' && (
                         <div className="space-y-3">
-                          <p className="text-sm font-medium text-slate-700">Options (Select the correct one):</p>
+                          {/* --- MODIFIED: Added dark theme text --- */}
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Options (Select the correct one):</p>
                           {(q.options || []).map((opt, oIndex) => (
                             <div key={oIndex} className="flex items-center gap-3">
                               <input
@@ -498,7 +520,8 @@ export default function QuizFormModal({
                                 name={`correct-answer-${qIndex}`}
                                 checked={q.correctAnswerIndex === oIndex}
                                 onChange={() => handleQuestionChange(qIndex, 'correctAnswerIndex', oIndex)}
-                                className="form-radio h-5 w-5 text-sky-500 bg-slate-200 border-none shadow-[inset_1px_1px_2px_#bdc1c6,inset_-1px_-1px_2px_#ffffff] focus:ring-sky-500 focus:ring-1"
+                                // --- MODIFIED: Added dark theme radio ---
+                                className="form-radio h-5 w-5 text-sky-500 bg-slate-200 border-none shadow-[inset_1px_1px_2px_#bdc1c6,inset_-1px_-1px_2px_#ffffff] focus:ring-sky-500 focus:ring-1 dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:focus:ring-sky-600 dark:focus:ring-offset-0"
                               />
                               <input
                                 type="text"
@@ -515,7 +538,8 @@ export default function QuizFormModal({
                       {/* True/False */}
                       {q.type === 'true-false' && (
                         <div className="space-y-2">
-                          <p className="text-sm font-medium text-slate-700">Correct Answer:</p>
+                          {/* --- MODIFIED: Added dark theme text --- */}
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Correct Answer:</p>
                           <div className={`flex space-x-1 p-1 rounded-xl ${inputBaseStyles} max-w-xs`}>
                             <button type="button" onClick={() => handleQuestionChange(qIndex, 'correctAnswer', true)} className={getSegmentedButtonClasses(q.correctAnswer === true)}>True</button>
                             <button type="button" onClick={() => handleQuestionChange(qIndex, 'correctAnswer', false)} className={getSegmentedButtonClasses(q.correctAnswer === false)}>False</button>
@@ -526,7 +550,8 @@ export default function QuizFormModal({
                       {/* Identification */}
                       {q.type === 'identification' && (
                         <div className="space-y-2">
-                          <p className="text-sm font-medium text-slate-700">Correct Answer:</p>
+                          {/* --- MODIFIED: Added dark theme text --- */}
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Correct Answer:</p>
                           <input type="text" value={q.correctAnswer || ''} onChange={(e) => handleQuestionChange(qIndex, 'correctAnswer', e.target.value)} placeholder="Enter the exact answer" className={`w-full ${inputBaseStyles} py-2.5 px-3`}/>
                         </div>
                       )}
@@ -536,31 +561,39 @@ export default function QuizFormModal({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                            {/* Column A */}
                           <div className="space-y-3">
-                             <p className="text-sm font-medium text-slate-700">Column A (Prompts) - {(q.prompts || []).length} items</p>
+                             {/* --- MODIFIED: Added dark theme text --- */}
+                             <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Column A (Prompts) - {(q.prompts || []).length} items</p>
                              {(q.prompts || []).map((prompt, pIndex) => (
                               <div key={prompt.id || pIndex} className="flex items-center gap-2"> {/* Fallback key */}
-                                <span className="font-semibold text-slate-600 text-sm w-5 text-center">{pIndex + 1}.</span>
+                                {/* --- MODIFIED: Added dark theme text --- */}
+                                <span className="font-semibold text-slate-600 dark:text-slate-400 text-sm w-5 text-center">{pIndex + 1}.</span>
                                 <input type="text" value={prompt.text || ''} onChange={(e) => handleMatchingSubItemChange(qIndex, 'prompts', pIndex, e.target.value)} placeholder={`Prompt ${pIndex + 1}`} className={`w-full ${inputBaseStyles} py-2 px-3 text-sm`}/>
                                 <select value={q.correctPairs?.[prompt.id] || ''} onChange={(e) => handlePairChange(qIndex, prompt.id, e.target.value)} className={`w-40 ${inputBaseStyles} py-2 px-3 text-sm appearance-none`}>
                                   <option value="" disabled>Select Match</option>
                                   {(q.options || []).map((opt, oIndex) => (<option key={opt.id || oIndex} value={opt.id}>Option {String.fromCharCode(97 + oIndex)}</option>))} {/* Fallback key */}
                                 </select>
-                                <button onClick={() => handleRemoveMatchingSubItem(qIndex, 'prompts', pIndex)} className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 ${btnExtruded} text-xs`}><TrashIcon className="h-4 w-4" /></button>
+                                {/* --- MODIFIED: Added dark theme button --- */}
+                                <button onClick={() => handleRemoveMatchingSubItem(qIndex, 'prompts', pIndex)} className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 dark:bg-neumorphic-base-dark dark:text-red-500 ${btnExtruded} text-xs`}><TrashIcon className="h-4 w-4" /></button>
                               </div>
                             ))}
-                            <button onClick={() => handleAddMatchingSubItem(qIndex, 'prompts')} className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 text-xs py-2 w-auto`}><PlusCircleIcon className="h-4 w-4 mr-1" /> Add Prompt</button>
+                            {/* --- MODIFIED: Added dark theme button --- */}
+                            <button onClick={() => handleAddMatchingSubItem(qIndex, 'prompts')} className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 text-xs py-2 w-auto`}><PlusCircleIcon className="h-4 w-4 mr-1" /> Add Prompt</button>
                           </div>
                            {/* Column B */}
                           <div className="space-y-3">
-                             <p className="text-sm font-medium text-slate-700">Column B (Options) - {(q.options || []).length} items</p>
+                             {/* --- MODIFIED: Added dark theme text --- */}
+                             <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Column B (Options) - {(q.options || []).length} items</p>
                              {(q.options || []).map((option, oIndex) => (
                               <div key={option.id || oIndex} className="flex items-center gap-2"> {/* Fallback key */}
-                                <span className="font-semibold text-slate-600 text-sm w-8 text-center">{String.fromCharCode(97 + oIndex)}.</span>
+                                {/* --- MODIFIED: Added dark theme text --- */}
+                                <span className="font-semibold text-slate-600 dark:text-slate-400 text-sm w-8 text-center">{String.fromCharCode(97 + oIndex)}.</span>
                                 <input type="text" value={option.text || ''} onChange={(e) => handleMatchingSubItemChange(qIndex, 'options', oIndex, e.target.value)} placeholder={`Option ${String.fromCharCode(97 + oIndex)}`} className={`w-full ${inputBaseStyles} py-2 px-3 text-sm`}/>
-                                <button onClick={() => handleRemoveMatchingSubItem(qIndex, 'options', oIndex)} className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 ${btnExtruded} text-xs`}><TrashIcon className="h-4 w-4" /></button>
+                                {/* --- MODIFIED: Added dark theme button --- */}
+                                <button onClick={() => handleRemoveMatchingSubItem(qIndex, 'options', oIndex)} className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 dark:bg-neumorphic-base-dark dark:text-red-500 ${btnExtruded} text-xs`}><TrashIcon className="h-4 w-4" /></button>
                               </div>
                             ))}
-                            <button onClick={() => handleAddMatchingSubItem(qIndex, 'options')} className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 text-xs py-2 w-auto`}><PlusCircleIcon className="h-4 w-4 mr-1" /> Add Option (Distractor)</button>
+                            {/* --- MODIFIED: Added dark theme button --- */}
+                            <button onClick={() => handleAddMatchingSubItem(qIndex, 'options')} className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 text-xs py-2 w-auto`}><PlusCircleIcon className="h-4 w-4 mr-1" /> Add Option (Distractor)</button>
                           </div>
                         </div>
                       )}
@@ -569,7 +602,8 @@ export default function QuizFormModal({
                       {/* --- NEW: Essay Rubric UI --- */}
                       {q.type === 'essay' && (
                         <div className="space-y-3">
-                          <p className="text-sm font-medium text-slate-700">Rubric (Total Points: {q.points || 0})</p>
+                          {/* --- MODIFIED: Added dark theme text --- */}
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Rubric (Total Points: {q.points || 0})</p>
                           <div className="space-y-2">
                             {(q.rubric || []).map((item, rIndex) => (
                                 <div key={item.id || rIndex} className="flex items-center gap-2"> {/* Fallback key */}
@@ -588,13 +622,15 @@ export default function QuizFormModal({
                                       className={`w-24 ${inputBaseStyles} py-2 px-3 text-sm`}
                                       min={0}
                                     />
-                                    <button onClick={() => handleRemoveRubricItem(qIndex, rIndex)} className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 ${btnExtruded} text-xs`}>
+                                    {/* --- MODIFIED: Added dark theme button --- */}
+                                    <button onClick={() => handleRemoveRubricItem(qIndex, rIndex)} className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 dark:bg-neumorphic-base-dark dark:text-red-500 ${btnExtruded} text-xs`}>
                                         <TrashIcon className="h-4 w-4" />
                                     </button>
                                 </div>
                             ))}
                           </div>
-                          <button onClick={() => handleAddRubricItem(qIndex)} className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 text-xs py-2 w-auto`}>
+                          {/* --- MODIFIED: Added dark theme button --- */}
+                          <button onClick={() => handleAddRubricItem(qIndex)} className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 text-xs py-2 w-auto`}>
                               <PlusCircleIcon className="h-4 w-4 mr-1" /> Add Criteria
                           </button>
                         </div>
@@ -605,7 +641,8 @@ export default function QuizFormModal({
 
                     {/* Explanation */}
                     <div className="pt-3">
-                      <label className="text-sm font-medium text-slate-700">Rationale / Explanation (Optional)</label>
+                      {/* --- MODIFIED: Added dark theme text --- */}
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Rationale / Explanation (Optional)</label>
                       <textarea
                         value={q.explanation || ''} // Ensure controlled
                         onChange={(e) => handleQuestionChange(qIndex, 'explanation', e.target.value)}
@@ -623,7 +660,8 @@ export default function QuizFormModal({
             <button
               type="button"
               onClick={handleAddQuestion}
-              className={`${btnBase} bg-slate-200 text-slate-700 ${btnExtruded} w-auto self-start mt-4`} // Added margin-top
+              // --- MODIFIED: Added dark theme button ---
+              className={`${btnBase} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 ${btnExtruded} w-auto self-start mt-4`} // Added margin-top
             >
               <PlusCircleIcon className="h-5 w-5 mr-2" />
               Add Question
@@ -631,14 +669,17 @@ export default function QuizFormModal({
           </div>
 
           {/* Footer */}
-          <div className="flex-shrink-0 px-6 py-5 bg-slate-200/50 border-t border-slate-300/70">
-            {error && <p className="text-sm text-red-800 mb-4 text-center bg-red-200 p-3 rounded-lg shadow-[inset_1px_1px_2px_#d1d9e8,inset_-1px_-1px_2px_#ffffff]">{error}</p>}
+          {/* --- MODIFIED: Added dark theme footer --- */}
+          <div className="flex-shrink-0 px-6 py-5 bg-slate-200/50 dark:bg-transparent border-t border-slate-300/70 dark:border-t dark:border-slate-700/50">
+            {/* --- MODIFIED: Added dark theme error --- */}
+            {error && <p className="text-sm text-red-800 dark:text-red-400 mb-4 text-center bg-red-200 dark:bg-red-900/50 p-3 rounded-lg shadow-[inset_1px_1px_2px_#d1d9e8,inset_-1px_-1px_2px_#ffffff] dark:shadow-neumorphic-inset-dark">{error}</p>}
             <div className="flex justify-end gap-3">
               <button
                 type="button"
                 onClick={handleClose}
                 disabled={loading}
-                className={`${btnBase} bg-slate-200 text-slate-700 ${btnExtruded} ${btnDisabled}`}
+                // --- MODIFIED: Added dark theme button ---
+                className={`${btnBase} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 ${btnExtruded} ${btnDisabled}`}
               >
                 Cancel
               </button>
@@ -646,7 +687,8 @@ export default function QuizFormModal({
                 type="button"
                 onClick={handleSubmit}
                 disabled={loading}
-                className={`${btnBase} bg-sky-500 hover:bg-sky-600 text-white ${btnExtruded} ${btnDisabled}`}
+                // --- MODIFIED: Added dark theme button ---
+                className={`${btnBase} bg-sky-500 hover:bg-sky-600 text-white dark:bg-sky-600 dark:hover:bg-sky-700 ${btnExtruded} ${btnDisabled}`}
               >
                 {loading ? 'Saving...' : (submitText || 'Submit')}
               </button>

@@ -13,7 +13,8 @@ const PreviewScreen = lazy(() => import('./PreviewScreen'));
 
 // Fallback for Suspense
 const LoadingFallback = () => (
-    <div className="flex h-full min-h-[500px] w-full items-center justify-center">
+    // --- MODIFIED: Added dark theme background ---
+    <div className="flex h-full min-h-[500px] w-full items-center justify-center dark:bg-neumorphic-base-dark">
         <Spinner />
     </div>
 );
@@ -152,12 +153,16 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
     // They define a light shadow from the top-left and a dark shadow from the bottom-right.
     return (
         <Dialog open={isOpen} onClose={handleClose} className="relative z-50">
-            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" aria-hidden="true" />
+            {/* --- MODIFIED: Added dark theme backdrop --- */}
+            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm dark:bg-black/80" aria-hidden="true" />
             <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-                <Dialog.Panel className="relative flex flex-col w-full h-full max-w-5xl max-h-[90vh] rounded-2xl bg-slate-200 shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff] border border-slate-300/50">
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <Dialog.Panel className="relative flex flex-col w-full h-full max-w-5xl max-h-[90vh] rounded-2xl bg-slate-200 shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff] border border-slate-300/50 dark:bg-neumorphic-base-dark dark:shadow-lg dark:border-slate-700">
                     <button
                         onClick={handleClose}
-                        className="absolute top-4 right-4 p-2 rounded-full text-slate-600 bg-slate-200 shadow-[3px_3px_6px_#bdc1c6,-3px_-3px_6px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_3px_3px_6px_#bdc1c6,inset_-3px_-3px_6px_#ffffff] transition-shadow duration-150 z-10"
+                        // --- MODIFIED: Added dark theme styles ---
+                        className="absolute top-4 right-4 p-2 rounded-full text-slate-600 bg-slate-200 shadow-[3px_3px_6px_#bdc1c6,-3px_-3px_6px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_3px_3px_6px_#bdc1c6,inset_-3px_-3px_6px_#ffffff] transition-shadow duration-150 z-10
+                                   dark:bg-neumorphic-base-dark dark:text-slate-400 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark"
                         aria-label="Close"
                     >
                         <XMarkIcon className="w-5 h-5" />

@@ -27,17 +27,23 @@ const questionTypes = [
 ];
 
 // --- Neumorphic Style Helpers ---
+// --- MODIFIED: Added dark theme styles ---
 const getSegmentedButtonClasses = (isActive) => {
-    const baseClasses = "flex-1 rounded-lg py-2.5 px-3 text-sm font-semibold transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 ring-offset-2 ring-offset-slate-200 ring-sky-500";
+    const baseClasses = "flex-1 rounded-lg py-2.5 px-3 text-sm font-semibold transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 ring-offset-2 ring-offset-slate-200 dark:ring-offset-neumorphic-base-dark ring-sky-500";
     if (isActive) {
-        return `${baseClasses} bg-slate-200 text-sky-600 shadow-[3px_3px_6px_#bdc1c6,-3px_-3px_6px_#ffffff] scale-100`;
+        return `${baseClasses} bg-slate-200 text-sky-600 shadow-[3px_3px_6px_#bdc1c6,-3px_-3px_6px_#ffffff] dark:bg-neumorphic-base-dark dark:text-sky-400 dark:shadow-lg scale-100`;
     }
-    return `${baseClasses} bg-transparent text-slate-600 hover:bg-slate-200/50`;
+    return `${baseClasses} bg-transparent text-slate-600 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-neumorphic-base-dark/50`;
 };
-const inputBaseStyles = "bg-slate-200 rounded-xl shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] focus:outline-none focus:ring-2 focus:ring-sky-500 placeholder:text-slate-400 border-none";
-const btnBase = "w-full inline-flex items-center justify-center px-4 py-3 text-sm font-semibold rounded-xl transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-200";
-const btnExtruded = `shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff]`;
-const btnDisabled = "disabled:opacity-60 disabled:text-slate-500 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff]";
+// --- MODIFIED: Added dark theme styles ---
+const inputBaseStyles = "bg-slate-200 dark:bg-neumorphic-base-dark rounded-xl shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:shadow-neumorphic-inset-dark focus:outline-none focus:ring-2 focus:ring-sky-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 border-none dark:text-slate-100";
+// --- MODIFIED: Added dark theme styles ---
+const btnBase = "w-full inline-flex items-center justify-center px-4 py-3 text-sm font-semibold rounded-xl transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-200 dark:focus:ring-offset-neumorphic-base-dark";
+// --- MODIFIED: Added dark theme styles ---
+const btnExtruded = `shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff]
+                   dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark`;
+// --- MODIFIED: Added dark theme styles ---
+const btnDisabled = "disabled:opacity-60 disabled:text-slate-500 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] dark:disabled:text-slate-600 dark:disabled:shadow-neumorphic-inset-dark";
 const uniqueId = () => `id_${Math.random().toString(36).substr(2, 9)}`;
 
 // --- Icons for Markdown Toolbar ---
@@ -211,7 +217,8 @@ const MarkdownEditableField = ({
             icon={icon} 
             onClick={onClick || (() => applyMarkdown(syntax))} 
             tooltip={tooltip} 
-            className="p-2 rounded-lg"
+            // --- MODIFIED: Added dark theme styles ---
+            className="p-2 rounded-lg dark:text-slate-400 dark:hover:!bg-neumorphic-base-dark/60"
             onMouseDown={onMouseDown}
         />
     );
@@ -220,21 +227,25 @@ const MarkdownEditableField = ({
     if (isEditing) {
         const InputComponent = isTextarea ? 'textarea' : 'input';
         return (
+            // --- MODIFIED: Added dark theme styles ---
             <div className={`w-full ${inputBaseStyles} p-0 overflow-hidden`}>
-                <div className="flex items-center flex-wrap gap-1 p-2 border-b border-slate-300/50 bg-slate-200/50">
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <div className="flex items-center flex-wrap gap-1 p-2 border-b border-slate-300/50 dark:border-slate-700 bg-slate-200/50 dark:bg-neumorphic-base-dark/60">
                     <ToolbarButton icon={BoldIcon} syntax="bold" tooltip="Bold" onMouseDown={(e) => e.preventDefault()} />
                     <ToolbarButton icon={ItalicIcon} syntax="italic" tooltip="Italic" onMouseDown={(e) => e.preventDefault()} />
                     <ToolbarButton icon={QueueListIcon} syntax="list" tooltip="Bulleted List" onMouseDown={(e) => e.preventDefault()} />
                     <ToolbarButton icon={CodeBracketIcon} syntax="code" tooltip="Inline Code" onMouseDown={(e) => e.preventDefault()} />
                     <ToolbarButton icon={LinkIcon} syntax="link" tooltip="Link" onMouseDown={(e) => e.preventDefault()} />
-                    <div className="w-px h-6 bg-slate-300/70 mx-1"></div>
+                    {/* --- MODIFIED: Added dark theme styles --- */}
+                    <div className="w-px h-6 bg-slate-300/70 dark:bg-slate-700 mx-1"></div>
                     <div className="relative">
                         <ToolbarButton icon={PaintBrushIcon} tooltip="Text Color" onClick={() => setShowColorPicker(s => !s)} onMouseDown={(e) => e.preventDefault()} />
                         {showColorPicker && (
                             <div 
                                 onMouseDown={(e) => e.preventDefault()}
                                 onMouseLeave={() => setShowColorPicker(false)} 
-                                className="absolute top-full mt-2 z-10 bg-slate-100 p-2 rounded-lg shadow-lg flex gap-2"
+                                // --- MODIFIED: Added dark theme styles ---
+                                className="absolute top-full mt-2 z-10 bg-slate-100 dark:bg-neumorphic-base-dark dark:border dark:border-slate-700 p-2 rounded-lg shadow-lg flex gap-2"
                             >
                                 {TEXT_COLORS.map(color => (
                                     <button key={color.name} title={color.name} onClick={() => applyColor(color.hex)} className="w-6 h-6 rounded-full" style={{ backgroundColor: color.hex }} />
@@ -243,7 +254,8 @@ const MarkdownEditableField = ({
                         )}
                     </div>
                     <ToolbarButton icon={ChatBubbleLeftRightIcon} tooltip="Block Quote" onClick={applyBlockQuote} onMouseDown={(e) => e.preventDefault()} />
-                    <div className="w-px h-6 bg-slate-300/70 mx-1"></div>
+                    {/* --- MODIFIED: Added dark theme styles --- */}
+                    <div className="w-px h-6 bg-slate-300/70 dark:bg-slate-700 mx-1"></div>
                     <ToolbarButton icon={H1Icon} syntax="h1" tooltip="Heading 1" onMouseDown={(e) => e.preventDefault()} />
                     <ToolbarButton icon={H2Icon} syntax="h2" tooltip="Heading 2" onMouseDown={(e) => e.preventDefault()} />
                     <ToolbarButton icon={H3Icon} syntax="h3" tooltip="Heading 3" onMouseDown={(e) => e.preventDefault()} />
@@ -255,7 +267,8 @@ const MarkdownEditableField = ({
                     onChange={onChange}
                     onBlur={() => setEditingField(null)} 
                     autoFocus 
-                    className={`w-full ${isTextarea ? 'min-h-[80px]' : ''} p-3 text-sm bg-transparent border-none resize-none focus:outline-none focus:ring-0`}
+                    // --- MODIFIED: Added dark theme styles ---
+                    className={`w-full ${isTextarea ? 'min-h-[80px]' : ''} p-3 text-sm bg-transparent border-none resize-none focus:outline-none focus:ring-0 dark:text-slate-100 dark:placeholder-slate-500`}
                     rows={isTextarea ? 3 : undefined}
                     placeholder={placeholder}
                 />
@@ -263,18 +276,17 @@ const MarkdownEditableField = ({
         );
     }
 
-    // --- MODIFICATION: Fixed the layout expansion bug ---
-    // Added Tailwind arbitrary variants like [&_.prose_p]:my-0 to force-remove margins
+    // --- MODIFICATION: Fixed the layout expansion bug & added dark theme ---
     return (
         <div
             onClick={() => setEditingField(fieldId)}
             className={`w-full ${inputBaseStyles} ${isTextarea ? 'min-h-[80px] p-3' : 'min-h-[40px] py-2 px-3'} 
-                      text-sm cursor-text 
+                      text-sm cursor-text dark:prose-invert dark:text-slate-100
                       [&_.prose_p]:my-0 [&_.prose_ul]:my-0 [&_.prose_ol]:my-0 
                       [&_.prose_h1]:my-0 [&_.prose_h2]:my-0 [&_.prose_h3]:my-0 
                       [&_.prose_blockquote]:my-0`}
         >
-            <ContentRenderer text={value || <span className="text-slate-400">{placeholder}</span>} />
+            <ContentRenderer text={value || <span className="text-slate-400 dark:text-slate-500">{placeholder}</span>} />
         </div>
     );
 };
@@ -595,10 +607,12 @@ export default function ManualQuizCreator({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-200">
+    // --- MODIFIED: Added dark theme styles ---
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-200 dark:bg-neumorphic-base-dark">
       <button 
         onClick={() => handleAttemptNavigation(onBack)}
-        className={`absolute top-4 left-4 z-10 h-10 w-10 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 ${btnExtruded}`}
+        // --- MODIFIED: Added dark theme styles ---
+        className={`absolute top-4 left-4 z-10 h-10 w-10 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 dark:bg-neumorphic-base-dark dark:text-slate-400 ${btnExtruded}`}
       >
         <ArrowUturnLeftIcon className="h-6 w-6" />
       </button>
@@ -606,13 +620,17 @@ export default function ManualQuizCreator({
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden pt-12">
         
         {/* Left Pane: Question List */}
-        <div className="w-full md:w-1/3 lg:w-1/4 p-4 md:p-6 overflow-y-auto bg-slate-200/50 border-r border-slate-300/70 space-y-4">
-            <Title className="text-xl font-bold text-slate-800 text-center">
+        {/* --- MODIFIED: Added dark theme styles --- */}
+        <div className="w-full md:w-1/3 lg:w-1/4 p-4 md:p-6 overflow-y-auto bg-slate-200/50 dark:bg-neumorphic-base-dark/50 border-r border-slate-300/70 dark:border-r dark:border-slate-700/50 space-y-4">
+            {/* --- MODIFIED: Added dark theme text --- */}
+            <Title className="text-xl font-bold text-slate-800 dark:text-slate-100 text-center">
                 {hasInitialData ? 'Review Quiz' : 'Quiz Creator'}
             </Title>
             
-            <div className="p-4 rounded-2xl shadow-[inset_3px_3px_7px_#bdc1c6,inset_-3px_-3px_7px_#ffffff] space-y-2">
-                <label className="block text-sm font-medium text-slate-700">Quiz Title</label>
+            {/* --- MODIFIED: Added dark theme styles --- */}
+            <div className="p-4 rounded-2xl shadow-[inset_3px_3px_7px_#bdc1c6,inset_-3px_-3px_7px_#ffffff] dark:shadow-neumorphic-inset-dark space-y-2">
+                {/* --- MODIFIED: Added dark theme text --- */}
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Quiz Title</label>
                 <input
                     type="text"
                     value={title}
@@ -622,9 +640,12 @@ export default function ManualQuizCreator({
                 />
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-200 shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff]">
-                <p className="text-sm font-medium text-slate-600">Total Points</p>
-                <p className="text-3xl font-bold text-sky-600">{totalPoints}</p>
+            {/* --- MODIFIED: Added dark theme styles --- */}
+            <div className="p-4 rounded-2xl bg-slate-200 shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] dark:bg-neumorphic-base-dark dark:shadow-lg">
+                {/* --- MODIFIED: Added dark theme text --- */}
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Total Points</p>
+                {/* --- MODIFIED: Added dark theme text --- */}
+                <p className="text-3xl font-bold text-sky-600 dark:text-sky-400">{totalPoints}</p>
             </div>
 
             <div className="space-y-2">
@@ -635,10 +656,11 @@ export default function ManualQuizCreator({
                             setSelectedQuestionIndex(qIndex);
                             setEditingField(null);
                         }}
+                        // --- MODIFIED: Added dark theme styles ---
                         className={`w-full text-left p-3 rounded-xl transition-all ${
                             selectedQuestionIndex === qIndex
-                            ? 'bg-slate-50 text-sky-600 shadow-[3px_3px_6px_#bdc1c6,-3px_-3px_6px_#ffffff] ring-2 ring-sky-500'
-                            : `bg-slate-200 text-slate-700 ${btnExtruded}`
+                            ? 'bg-slate-50 text-sky-600 shadow-[3px_3px_6px_#bdc1c6,-3px_-3px_6px_#ffffff] ring-2 ring-sky-500 dark:bg-slate-100 dark:text-sky-600'
+                            : `bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 ${btnExtruded}`
                         }`}
                     >
                         <span className="font-semibold">{getQuestionLabel(q, qIndex)}</span>
@@ -650,7 +672,8 @@ export default function ManualQuizCreator({
             <button
               type="button"
               onClick={handleAddQuestion}
-              className={`${btnBase} bg-slate-200 text-slate-700 ${btnExtruded} w-full mt-4`}
+              // --- MODIFIED: Added dark theme styles ---
+              className={`${btnBase} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 ${btnExtruded} w-full mt-4`}
             >
               <PlusCircleIcon className="h-5 w-5 mr-2" />
               Add Question
@@ -660,7 +683,8 @@ export default function ManualQuizCreator({
         {/* Right Pane: Question Editor */}
         <div className="flex-1 w-full md:w-2/3 lg:w-3/4 p-4 md:p-8 overflow-y-auto">
             {!currentQuestion ? (
-                <div className="flex flex-col items-center justify-center h-full text-center text-slate-500">
+                // --- MODIFIED: Added dark theme text ---
+                <div className="flex flex-col items-center justify-center h-full text-center text-slate-500 dark:text-slate-400">
                     <DocumentTextIcon className="w-16 h-16 opacity-50" />
                     <p className="mt-4 text-lg font-semibold">
                         {questions.length === 0 ? "No questions yet" : "Select a question"}
@@ -670,13 +694,16 @@ export default function ManualQuizCreator({
                     </p>
                 </div>
             ) : (
-                <div className="p-5 rounded-2xl bg-slate-200 shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] space-y-4 relative">
+                // --- MODIFIED: Added dark theme styles ---
+                <div className="p-5 rounded-2xl bg-slate-200 shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] dark:bg-neumorphic-base-dark dark:shadow-lg space-y-4 relative">
                     
                     <div className="flex justify-between items-center">
-                      <label className="font-semibold text-slate-800 text-lg">
+                      {/* --- MODIFIED: Added dark theme text --- */}
+                      <label className="font-semibold text-slate-800 dark:text-slate-100 text-lg">
                         {getQuestionLabel(currentQuestion, selectedQuestionIndex)}
                       </label>
-                      <button onClick={() => handleRemoveQuestion(selectedQuestionIndex)} className={`h-9 w-9 flex items-center justify-center rounded-full bg-slate-200 text-red-500 ${btnExtruded} hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff]`}>
+                      {/* --- MODIFIED: Added dark theme styles --- */}
+                      <button onClick={() => handleRemoveQuestion(selectedQuestionIndex)} className={`h-9 w-9 flex items-center justify-center rounded-full bg-slate-200 text-red-500 dark:bg-neumorphic-base-dark dark:text-red-500 ${btnExtruded} hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] dark:hover:shadow-neumorphic-inset-dark`}>
                         <TrashIcon className="h-5 w-5" />
                       </button>
                     </div>
@@ -697,7 +724,8 @@ export default function ManualQuizCreator({
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <label className="text-xs font-medium text-slate-500 mb-1.5 block">Question Type</label>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 block">Question Type</label>
                         <select
                           value={currentQuestion.type || 'multiple-choice'} 
                           onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'type', e.target.value)}
@@ -712,28 +740,33 @@ export default function ManualQuizCreator({
                       </div>
 
                       <div>
-                        <label className="text-xs font-medium text-slate-500 mb-1.5 block">Points</label>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 block">Points</label>
                         <input
                           type="number"
                           value={currentQuestion.points || 1} 
                           disabled={currentQuestion.type === 'matching-type' || currentQuestion.type === 'essay'}
                           onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'points', Math.max(1, parseInt(e.target.value, 10) || 1))}
-                          className={`w-full ${inputBaseStyles} py-2.5 px-3 text-sm ${currentQuestion.type === 'matching-type' || currentQuestion.type === 'essay' ? 'opacity-70 bg-slate-100 cursor-not-allowed' : ''}`}
+                          // --- MODIFIED: Added dark theme disabled styles ---
+                          className={`w-full ${inputBaseStyles} py-2.5 px-3 text-sm ${currentQuestion.type === 'matching-type' || currentQuestion.type === 'essay' ? 'opacity-70 bg-slate-100 cursor-not-allowed dark:bg-neumorphic-base-dark/50' : ''}`}
                           min={1}
                         />
                          {(currentQuestion.type === 'matching-type' || currentQuestion.type === 'essay') && (
-                            <p className="text-xs text-slate-500 mt-1">
+                            // --- MODIFIED: Added dark theme text ---
+                            <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
                                 Points auto-calculated based on {currentQuestion.type === 'matching-type' ? 'prompts' : 'rubric'}.
                             </p>
                          )}
                       </div>
                     </div>
 
-                    <div className="pt-2 pl-4 border-l-2 border-slate-300 space-y-3">
+                    {/* --- MODIFIED: Added dark theme border --- */}
+                    <div className="pt-2 pl-4 border-l-2 border-slate-300 dark:border-slate-700 space-y-3">
                         
                       {currentQuestion.type === 'multiple-choice' && (
                         <div className="space-y-3">
-                          <p className="text-sm font-medium text-slate-700">Options (Select the correct one):</p>
+                          {/* --- MODIFIED: Added dark theme text --- */}
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Options (Select the correct one):</p>
                           {(currentQuestion.options || []).map((opt, oIndex) => (
                             <div key={oIndex} className="flex items-center gap-3">
                               <input
@@ -741,7 +774,9 @@ export default function ManualQuizCreator({
                                 name={`correct-answer-${selectedQuestionIndex}`}
                                 checked={currentQuestion.correctAnswerIndex === oIndex}
                                 onChange={() => handleQuestionChange(selectedQuestionIndex, 'correctAnswerIndex', oIndex)}
-                                className="form-radio h-5 w-5 text-sky-500 bg-slate-200 border-none shadow-[inset_1px_1px_2px_#bdc1c6,inset_-1px_-1px_2px_#ffffff] focus:ring-sky-500 focus:ring-1"
+                                // --- MODIFIED: Added dark theme styles ---
+                                className="form-radio h-5 w-5 text-sky-500 bg-slate-200 border-none shadow-[inset_1px_1px_2px_#bdc1c6,inset_-1px_-1px_2px_#ffffff] focus:ring-sky-500 focus:ring-1
+                                           dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:focus:ring-sky-600 dark:focus:ring-offset-0"
                               />
                               <div className="flex-1"> {/* Wrapper to make field take up space */}
                                 <MarkdownEditableField
@@ -758,7 +793,9 @@ export default function ManualQuizCreator({
                                 type="button"
                                 onClick={() => handleRemoveOption(selectedQuestionIndex, oIndex)}
                                 disabled={currentQuestion.options.length <= 3}
-                                className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 ${btnExtruded} text-xs disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff]`}
+                                // --- MODIFIED: Added dark theme styles ---
+                                className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 ${btnExtruded} text-xs disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff]
+                                           dark:bg-neumorphic-base-dark dark:text-red-500 dark:disabled:shadow-neumorphic-inset-dark`}
                                 title="Remove option"
                               >
                                 <TrashIcon className="h-4 w-4" />
@@ -769,7 +806,8 @@ export default function ManualQuizCreator({
                           <button 
                             type="button"
                             onClick={() => handleAddOption(selectedQuestionIndex)} 
-                            className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 text-xs py-2 w-auto`}
+                            // --- MODIFIED: Added dark theme styles ---
+                            className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 text-xs py-2 w-auto`}
                           >
                             <PlusCircleIcon className="h-4 w-4 mr-1" /> Add Option
                           </button>
@@ -778,7 +816,8 @@ export default function ManualQuizCreator({
 
                       {currentQuestion.type === 'true-false' && (
                         <div className="space-y-2">
-                          <p className="text-sm font-medium text-slate-700">Correct Answer:</p>
+                          {/* --- MODIFIED: Added dark theme text --- */}
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Correct Answer:</p>
                           <div className={`flex space-x-1 p-1 rounded-xl ${inputBaseStyles} max-w-xs`}>
                             <button type="button" onClick={() => handleQuestionChange(selectedQuestionIndex, 'correctAnswer', true)} className={getSegmentedButtonClasses(currentQuestion.correctAnswer === true)}>True</button>
                             <button type="button" onClick={() => handleQuestionChange(selectedQuestionIndex, 'correctAnswer', false)} className={getSegmentedButtonClasses(currentQuestion.correctAnswer === false)}>False</button>
@@ -788,7 +827,8 @@ export default function ManualQuizCreator({
 
                       {currentQuestion.type === 'identification' && (
                         <div className="space-y-2">
-                          <p className="text-sm font-medium text-slate-700">Correct Answer:</p>
+                          {/* --- MODIFIED: Added dark theme text --- */}
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Correct Answer:</p>
                           <MarkdownEditableField
                             value={currentQuestion.correctAnswer || ''}
                             onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'correctAnswer', e.target.value)}
@@ -803,10 +843,12 @@ export default function ManualQuizCreator({
                        {currentQuestion.type === 'matching-type' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-3">
-                             <p className="text-sm font-medium text-slate-700">Column A (Prompts) - {(currentQuestion.prompts || []).length} items</p>
+                             {/* --- MODIFIED: Added dark theme text --- */}
+                             <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Column A (Prompts) - {(currentQuestion.prompts || []).length} items</p>
                              {(currentQuestion.prompts || []).map((prompt, pIndex) => (
                               <div key={prompt.id || pIndex} className="flex items-center gap-2"> 
-                                <span className="font-semibold text-slate-600 text-sm w-5 text-center">{pIndex + 1}.</span>
+                                {/* --- MODIFIED: Added dark theme text --- */}
+                                <span className="font-semibold text-slate-600 dark:text-slate-400 text-sm w-5 text-center">{pIndex + 1}.</span>
                                 <MarkdownEditableField
                                     value={prompt.text || ''}
                                     onChange={(e) => handleMatchingSubItemChange(selectedQuestionIndex, 'prompts', pIndex, e.target.value)}
@@ -819,16 +861,20 @@ export default function ManualQuizCreator({
                                   <option value="" disabled>Select Match</option>
                                   {(currentQuestion.options || []).map((opt, oIndex) => (<option key={opt.id || oIndex} value={opt.id}>Option {String.fromCharCode(97 + oIndex)}</option>))}
                                 </select>
-                                <button onClick={() => handleRemoveMatchingSubItem(selectedQuestionIndex, 'prompts', pIndex)} className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 ${btnExtruded} text-xs`}><TrashIcon className="h-4 w-4" /></button>
+                                {/* --- MODIFIED: Added dark theme styles --- */}
+                                <button onClick={() => handleRemoveMatchingSubItem(selectedQuestionIndex, 'prompts', pIndex)} className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 dark:bg-neumorphic-base-dark dark:text-red-500 ${btnExtruded} text-xs`}><TrashIcon className="h-4 w-4" /></button>
                               </div>
                             ))}
-                            <button onClick={() => handleAddMatchingSubItem(selectedQuestionIndex, 'prompts')} className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 text-xs py-2 w-auto`}><PlusCircleIcon className="h-4 w-4 mr-1" /> Add Prompt</button>
+                            {/* --- MODIFIED: Added dark theme styles --- */}
+                            <button onClick={() => handleAddMatchingSubItem(selectedQuestionIndex, 'prompts')} className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 text-xs py-2 w-auto`}><PlusCircleIcon className="h-4 w-4 mr-1" /> Add Prompt</button>
                           </div>
                           <div className="space-y-3">
-                             <p className="text-sm font-medium text-slate-700">Column B (Options) - {(currentQuestion.options || []).length} items</p>
+                             {/* --- MODIFIED: Added dark theme text --- */}
+                             <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Column B (Options) - {(currentQuestion.options || []).length} items</p>
                              {(currentQuestion.options || []).map((option, oIndex) => (
                               <div key={option.id || oIndex} className="flex items-center gap-2">
-                                <span className="font-semibold text-slate-600 text-sm w-8 text-center">{String.fromCharCode(97 + oIndex)}.</span>
+                                {/* --- MODIFIED: Added dark theme text --- */}
+                                <span className="font-semibold text-slate-600 dark:text-slate-400 text-sm w-8 text-center">{String.fromCharCode(97 + oIndex)}.</span>
                                 <MarkdownEditableField
                                     value={option.text || ''}
                                     onChange={(e) => handleMatchingSubItemChange(selectedQuestionIndex, 'options', oIndex, e.target.value)}
@@ -837,17 +883,20 @@ export default function ManualQuizCreator({
                                     setEditingField={setEditingField}
                                     placeholder={`Option ${String.fromCharCode(97 + oIndex)}`}
                                 />
-                                <button onClick={() => handleRemoveMatchingSubItem(selectedQuestionIndex, 'options', oIndex)} className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 ${btnExtruded} text-xs`}><TrashIcon className="h-4 w-4" /></button>
+                                {/* --- MODIFIED: Added dark theme styles --- */}
+                                <button onClick={() => handleRemoveMatchingSubItem(selectedQuestionIndex, 'options', oIndex)} className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 dark:bg-neumorphic-base-dark dark:text-red-500 ${btnExtruded} text-xs`}><TrashIcon className="h-4 w-4" /></button>
                               </div>
                             ))}
-                            <button onClick={() => handleAddMatchingSubItem(selectedQuestionIndex, 'options')} className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 text-xs py-2 w-auto`}><PlusCircleIcon className="h-4 w-4 mr-1" /> Add Option (Distractor)</button>
+                            {/* --- MODIFIED: Added dark theme styles --- */}
+                            <button onClick={() => handleAddMatchingSubItem(selectedQuestionIndex, 'options')} className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 text-xs py-2 w-auto`}><PlusCircleIcon className="h-4 w-4 mr-1" /> Add Option (Distractor)</button>
                           </div>
                         </div>
                       )}
 
                       {currentQuestion.type === 'essay' && (
                         <div className="space-y-3">
-                          <p className="text-sm font-medium text-slate-700">Rubric (Total Points: {currentQuestion.points || 0})</p>
+                          {/* --- MODIFIED: Added dark theme text --- */}
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Rubric (Total Points: {currentQuestion.points || 0})</p>
                           <div className="space-y-2">
                             {(currentQuestion.rubric || []).map((item, rIndex) => (
                                 <div key={item.id || rIndex} className="flex items-center gap-2"> 
@@ -867,13 +916,15 @@ export default function ManualQuizCreator({
                                       className={`w-24 ${inputBaseStyles} py-2 px-3 text-sm`}
                                       min={0}
                                     />
-                                    <button onClick={() => handleRemoveRubricItem(selectedQuestionIndex, rIndex)} className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 ${btnExtruded} text-xs`}>
+                                    {/* --- MODIFIED: Added dark theme styles --- */}
+                                    <button onClick={() => handleRemoveRubricItem(selectedQuestionIndex, rIndex)} className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 dark:bg-neumorphic-base-dark dark:text-red-500 ${btnExtruded} text-xs`}>
                                         <TrashIcon className="h-4 w-4" />
                                     </button>
                                 </div>
                             ))}
                           </div>
-                          <button onClick={() => handleAddRubricItem(selectedQuestionIndex)} className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 text-xs py-2 w-auto`}>
+                          {/* --- MODIFIED: Added dark theme styles --- */}
+                          <button onClick={() => handleAddRubricItem(selectedQuestionIndex)} className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 text-xs py-2 w-auto`}>
                               <PlusCircleIcon className="h-4 w-4 mr-1" /> Add Criteria
                           </button>
                         </div>
@@ -881,7 +932,8 @@ export default function ManualQuizCreator({
                     </div>
 
                     <div className="pt-3">
-                      <label className="text-sm font-medium text-slate-700">Rationale / Explanation (Optional)</label>
+                      {/* --- MODIFIED: Added dark theme text --- */}
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Rationale / Explanation (Optional)</label>
                       <MarkdownEditableField
                         value={currentQuestion.explanation || ''}
                         onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'explanation', e.target.value)}
@@ -898,14 +950,17 @@ export default function ManualQuizCreator({
       </div>
 
       {/* Footer */}
-      <div className="flex-shrink-0 px-6 py-5 bg-slate-200/50 border-t border-slate-300/70">
-        {error && <p className={`text-sm mb-4 text-center p-3 rounded-lg shadow-[inset_1px_1px_2px_#d1d9e8,inset_-1px_-1px_2px_#ffffff] ${hasInitialData ? 'text-blue-800 bg-blue-100' : 'text-red-800 bg-red-200'}`}>{error}</p>}
+      {/* --- MODIFIED: Added dark theme styles --- */}
+      <div className="flex-shrink-0 px-6 py-5 bg-slate-200/50 dark:bg-transparent border-t border-slate-300/70 dark:border-t dark:border-slate-700/50">
+        {/* --- MODIFIED: Added dark theme styles --- */}
+        {error && <p className={`text-sm mb-4 text-center p-3 rounded-lg shadow-[inset_1px_1px_2px_#d1d9e8,inset_-1px_-1px_2px_#ffffff] dark:shadow-neumorphic-inset-dark ${hasInitialData ? 'text-blue-800 bg-blue-100 dark:text-blue-300 dark:bg-blue-900/50' : 'text-red-800 bg-red-200 dark:text-red-400 dark:bg-red-900/50'}`}>{error}</p>}
         <div className="flex justify-end gap-3">
           <button
             type="button"
             onClick={() => handleAttemptNavigation(onClose)}
             disabled={loading}
-            className={`${btnBase} bg-slate-200 text-slate-700 ${btnExtruded} ${btnDisabled}`}
+            // --- MODIFIED: Added dark theme styles ---
+            className={`${btnBase} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 ${btnExtruded} ${btnDisabled}`}
           >
             Cancel
           </button>
@@ -913,7 +968,8 @@ export default function ManualQuizCreator({
             type="button"
             onClick={handleSubmit}
             disabled={loading}
-            className={`${btnBase} ${hasInitialData ? 'bg-green-500 hover:bg-green-600' : 'bg-sky-500 hover:bg-sky-600'} text-white ${btnExtruded} ${btnDisabled}`}
+            // --- MODIFIED: Added dark theme styles ---
+            className={`${btnBase} ${hasInitialData ? 'bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700' : 'bg-sky-500 hover:bg-sky-600 dark:bg-sky-600 dark:hover:bg-sky-700'} text-white ${btnExtruded} ${btnDisabled}`}
           >
             {loading ? 'Saving...' : (hasInitialData ? 'Confirm & Save Quiz' : 'Add Quiz')}
           </button>
@@ -923,35 +979,42 @@ export default function ManualQuizCreator({
       {/* Warning Modal */}
       {isWarningModalOpen && (
           <div 
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 transition-opacity duration-150"
+            // --- MODIFIED: Added dark theme styles ---
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/80 p-4 transition-opacity duration-150"
             onClick={handleCancelLeave}
           >
             <div 
-              className="w-full max-w-md rounded-2xl bg-slate-200 p-6 shadow-[8px_8px_16px_#bdc1c6,-8px_-8px_16px_#ffffff] space-y-4"
+              // --- MODIFIED: Added dark theme styles ---
+              className="w-full max-w-md rounded-2xl bg-slate-200 dark:bg-neumorphic-base-dark p-6 shadow-[8px_8px_16px_#bdc1c6,-8px_-8px_16px_#ffffff] dark:shadow-lg space-y-4"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-3">
-                <div className={`h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 ${btnExtruded}`}>
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <div className={`h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 dark:bg-neumorphic-base-dark dark:text-red-500 ${btnExtruded}`}>
                     <ExclamationTriangleIcon className="h-6 w-6" />
                 </div>
-                <Title className="text-xl font-semibold text-slate-800">Unsaved Changes</Title>
+                {/* --- MODIFIED: Added dark theme text --- */}
+                <Title className="text-xl font-semibold text-slate-800 dark:text-slate-100">Unsaved Changes</Title>
               </div>
               
-              <p className="text-slate-600 sm:pl-[60px]">
+              {/* --- MODIFIED: Added dark theme text --- */}
+              <p className="text-slate-600 dark:text-slate-400 sm:pl-[60px]">
                 You have unsaved changes. Are you sure you want to leave? Your quiz will not be saved.
               </p>
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={handleCancelLeave}
-                  className={`${btnBase} bg-slate-200 text-slate-700 ${btnExtruded} w-auto`}
+                  // --- MODIFIED: Added dark theme styles ---
+                  className={`${btnBase} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 ${btnExtruded} w-auto`}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirmLeave}
-                  className={`${btnBase} bg-red-500 hover:bg-red-600 text-white ${btnExtruded} w-auto`}
+                  // --- MODIFIED: Added dark theme styles ---
+                  className={`${btnBase} bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white ${btnExtruded} w-auto`}
                 >
                   Yes, Leave
                 </button>
