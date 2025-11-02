@@ -428,7 +428,7 @@ const StudentDashboardUI = ({
                       {/* --- FIX: Added md:hidden to hide logo/text on desktop --- */}
                       <div className="flex items-center gap-3 md:hidden">
                         {/* --- MODIFIED: Themed logo container --- */}
-                        <div className="w-12 h-12 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic flex items-center justify-center flex-shrink-0">
+                        <div className="w-12 h-12 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark flex items-center justify-center flex-shrink-0">
                           <img
                             src="https://i.ibb.co/XfJ8scGX/1.png"
                             alt="SRCS Logo"
@@ -511,7 +511,7 @@ const StudentDashboardUI = ({
                             {({ isActive }) => (
                                 <>
                                     <div className="relative w-14 h-8 flex items-center justify-center">
-                                        {/* --- MODIFIED: Themed active background --- */}
+                                        {/* --- MODFIED: Themed active background --- */}
                                         <span className={`absolute top-0 left-0 w-full h-full rounded-full transition-opacity duration-200 ${isActive ? 'bg-red-100 dark:bg-red-900/30 opacity-100' : 'opacity-0 group-hover:opacity-100 group-hover:bg-slate-200/60 dark:group-hover:bg-slate-700/60'}`}></span>
                                         <item.icon className="h-6 w-6 z-10" />
                                     </div>

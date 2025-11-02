@@ -100,23 +100,8 @@ const findShapeByTextTag = (pageElements, tag) => {
     return null;
 };
 
-const findSpeakerNotesObjectId = async (presentationId, slideObjectId) => {
-    try {
-        const response = await window.gapi.client.slides.presentations.pages.get({
-            presentationId,
-            pageObjectId: slideObjectId,
-            // --- THIS IS FIX #1 (Slides API Error) ---
-            // Request the whole notesPage object. This is more robust and won't fail
-            // if the template slide doesn't have a speaker notes box.
-            fields: 'notesPage',
-        });
-        // Now, safely check the path to the ID in JavaScript
-        return response.result?.notesPage?.notesProperties?.speakerNotesObjectId || null;
-    } catch (error) {
-        console.error("Error fetching notes page for slide:", slideObjectId, error);
-        return null;
-    }
-};
+// --- REMOVED THE findSpeakerNotesObjectId FUNCTION ---
+// We will get this info directly from the slide object in the loop.
 
 export const createPresentationFromData = async (slideData, presentationTitle, subjectName, unitName) => {
     try {
@@ -183,32 +168,70 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                 }
             }
             
-            // This was the (other) error: `data.notes` was an object.
-            // It is now a string because TeacherDashboard.jsx formats it first.
-            const formattedNotes = data.notes;
-            const speakerNotesObjectId = await findSpeakerNotesObjectId(presentationId, slide.objectId);
+            // --- MODIFIED SPEAKER NOTES LOGIC ---
             
-            if (speakerNotesObjectId) {
+            // This is the notes *string* from TeacherDashboard.jsx
+            const formattedNotes = data.notes;
+            
+            // Get the notesPageId and speakerNotesObjectId directly from the slide object
+            const notesPageId = slide.notesPage?.objectId;
+            let speakerNotesObjectId = slide.notesPage?.notesProperties?.speakerNotesObjectId;
+            
+            // Only proceed if there are notes to add AND the slide has a notes page
+            if (formattedNotes && notesPageId) {
+                
+                // If the speaker notes *text box* doesn't exist, we must create it.
+                if (!speakerNotesObjectId) {
+                    speakerNotesObjectId = `notes_text_box_${slide.objectId}`; // Create a unique ID
+                    
+                    // 1. Create the shape
+                    populateRequests.push({
+                        createShape: {
+                            objectId: speakerNotesObjectId,
+                            shapeType: 'TEXT_BOX',
+                            elementProperties: {
+                                pageObjectId: notesPageId,
+                                // A standard size and position for a notes box
+                                // (These values are typical for a 16:9 slide)
+                                size: { height: { magnitude: 400, unit: 'PT' }, width: { magnitude: 550, unit: 'PT' } },
+                                transform: { scaleX: 1, scaleY: 1, translateX: 35, translateY: 60, unit: 'PT' }
+                            }
+                        }
+                    });
+                    
+                    // 2. Tell the API this shape is the *official* notes box ("BODY" placeholder)
+                    populateRequests.push({
+                       updateShapeProperties: {
+                           objectId: speakerNotesObjectId,
+                           shapeProperties: {
+                               placeholder: { type: 'BODY' }
+                           },
+                           fields: 'placeholder.type'
+                       } 
+                    });
+                }
+                
+                // 3. Now that we're SURE speakerNotesObjectId exists (or will exist),
+                // add requests to clear old text and insert the new notes.
                 populateRequests.push({
                     deleteText: {
                         objectId: speakerNotesObjectId,
                         textRange: { type: 'ALL' }
                     }
                 });
-                if (formattedNotes) {
-                    populateRequests.push({
-                        insertText: {
-                            objectId: speakerNotesObjectId,
-                            text: formattedNotes,
-                            insertionIndex: 0
-                        }
-                    });
-                }
+                populateRequests.push({
+                    insertText: {
+                        objectId: speakerNotesObjectId,
+                        text: formattedNotes,
+                        insertionIndex: 0
+                    }
+                });
             }
+            // --- END OF MODIFIED LOGIC ---
         }
 
         if (populateRequests.length > 0) {
-            const batchSize = 500;
+            const batchSize = 500; // Google's limit is ~1500, 500 is safe.
             for (let i = 0; i < populateRequests.length; i += batchSize) {
                 const batch = populateRequests.slice(i, i + batchSize);
                 await window.gapi.client.slides.presentations.batchUpdate({ presentationId, requests: batch });

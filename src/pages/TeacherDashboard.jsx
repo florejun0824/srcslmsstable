@@ -469,27 +469,44 @@ const TeacherDashboard = () => {
                     throw new Error("Selected lessons contain no usable content to generate slides."); 
                 }
                 
-                const presentationPrompt = `
+const presentationPrompt = `
                 You are a master educator and presentation designer. 
                 Your task is to generate a structured presentation preview from lesson content.
 
+                INSTRUCTIONS:
+                1.  Create slides that clearly summarize the main lesson content provided.
+                2.  After the content slides, carefully check the 'LESSON CONTENT TO PROCESS' for an existing assessment, quiz, or "End of Lesson Assessment", and its corresponding "Answer Key".
+                
+                3.  **IF ASSESSMENT EXISTS:**
+                    -   Transcribe the *exact* assessment questions from the lesson content onto new slides.
+                    -   Use titles like "Lesson Assessment".
+                    -   **IMPORTANT:** If there are many questions (e.g., more than 4-5), split them logically across multiple slides to prevent overflow (e.g., "Lesson Assessment (1/2)", "Lesson Assessment (2/2)").
+                    -   After the question slides, transcribe the "Answer Key" from the lesson content, also splitting it across multiple slides if it is long.
+
+                4.  **IF ASSESSMENT DOES NOT EXIST:**
+                    -   Create a new 5-10 question multiple-choice quiz based *only* on the lesson content.
+                    -   Create "Lesson Assessment" slides. If you create more than 4-5 questions, split them across multiple slides (e.g., "Lesson Assessment (1/2)").
+                    -   Create a final "Answer Key" slide (or slides) with the correct answers.
+                
                 ⚠️ IMPORTANT: 
-                - Respond ONLY with a single valid JSON object.
-                - Do NOT include explanations, notes, markdown fences, or extra text.
-                - Follow the exact schema below.
+                -   Respond ONLY with a single valid JSON object.
+                -   Do NOT include explanations, notes, markdown fences, or extra text.
+                -   Follow the exact schema below for *every* slide.
+                -   Ensure the body text for each slide is concise. **Prioritize splitting content across multiple slides** over creating one very long, overflowing slide.
 
                 SCHEMA:
                 {
                   "slides": [
                     {
-                      "title": "string - short, engaging slide title",
-                      "body": "string - main content of the slide, concise but clear",
+                      "title": "string - short, engaging slide title (e.g., 'Lesson Assessment (1/2)', 'Answer Key')",
+                      "body": "string - main content of the slide (e.g., 3-4 quiz questions, or part of the answer key)",
                       "notes": {
                         "talkingPoints": "string - bullet points the teacher can say",
                         "interactiveElement": "string - suggested activity, question, or visual",
                         "slideTiming": "string - recommended time in minutes"
                       }
                     }
+                    // ... more slides, ending with assessment and answer key
                   ]
                 }
 

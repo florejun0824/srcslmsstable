@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, Transition, TransitionChild } from '@headlessui/react';
 import { XMarkIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { ArrowPathIcon } from '@heroicons/react/20/solid';
@@ -19,6 +19,31 @@ const formatNotesToString = (notesObject) => {
 };
 
 export default function PresentationPreviewModal({ isOpen, onClose, previewData, onConfirm, isSaving }) {
+    // --- ADDED: Local state to track completion ---
+    const [isCreationComplete, setIsCreationComplete] = useState(false);
+    const prevIsSaving = useRef(isSaving);
+
+    // --- ADDED: Effect to reset on open ---
+    useEffect(() => {
+        if (isOpen) {
+            // When modal opens, reset the "complete" state
+            setIsCreationComplete(false);
+            prevIsSaving.current = isSaving; // Sync ref
+        }
+    }, [isOpen, isSaving]);
+
+    // --- ADDED: Effect to detect when saving finishes ---
+    useEffect(() => {
+        // Check if isSaving just changed from TRUE to FALSE
+        if (prevIsSaving.current === true && isSaving === false) {
+            // This means the save operation just finished.
+            // We assume it was successful because the parent didn't close the modal.
+            setIsCreationComplete(true);
+        }
+        // Update the ref for the next render
+        prevIsSaving.current = isSaving;
+    }, [isSaving]);
+
     if (!isOpen) return null;
 
     const slides = previewData?.slides || [];
@@ -110,29 +135,42 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                                     )}
                                 </div>
 
-                                {/* Footer Buttons */}
-                                {/* --- MODIFIED: Added dark theme border --- */}
+                                {/* --- MODIFIED: Footer Buttons logic --- */}
                                 <div className="pt-6 mt-6 border-t border-neumorphic-shadow-dark/20 dark:border-slate-700 flex justify-end">
-                                    <button
-                                        onClick={onConfirm}
-                                        disabled={isSaving}
-                                        // --- MODIFIED: Added dark theme button styles ---
-                                        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-blue-700 bg-gradient-to-br from-sky-100 to-blue-200 shadow-neumorphic hover:shadow-neumorphic-inset transition disabled:opacity-50
-                                                   dark:from-sky-700 dark:to-blue-800 dark:text-sky-100 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark"
-                                    >
-                                        {isSaving ? (
-                                            <>
-                                                <ArrowPathIcon className="h-5 w-5 animate-spin" />
-                                                Creating...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <CheckCircleIcon className="h-5 w-5" />
-                                                Create Presentation
-                                            </>
-                                        )}
-                                    </button>
+                                    {isCreationComplete ? (
+                                        // --- ADDED: "Close" button for after creation ---
+                                        <button
+                                            onClick={onClose}
+                                            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-slate-100 bg-gradient-to-br from-slate-500 to-slate-600 shadow-neumorphic hover:shadow-neumorphic-inset transition active:scale-[0.98]
+                                                       dark:from-slate-600 dark:to-slate-700 dark:text-slate-100 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark"
+                                        >
+                                            <XMarkIcon className="h-5 w-5" />
+                                            Close
+                                        </button>
+                                    ) : (
+                                        // --- MODIFIED: "Create" button with glow effect ---
+                                        <button
+                                            onClick={onConfirm}
+                                            disabled={isSaving}
+                                            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-blue-700 bg-gradient-to-br from-sky-100 to-blue-200 shadow-neumorphic hover:shadow-neumorphic-inset transition duration-150 disabled:opacity-50
+                                                       dark:from-sky-700 dark:to-blue-800 dark:text-sky-100 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark
+                                                       active:scale-[0.98] active:shadow-[0_0_15px_3px_rgba(56,189,248,0.6)] dark:active:shadow-[0_0_15px_3px_rgba(56,189,248,0.6)]"
+                                        >
+                                            {isSaving ? (
+                                                <>
+                                                    <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                                                    Creating...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <CheckCircleIcon className="h-5 w-5" />
+                                                    Create Presentation
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
                                 </div>
+                                {/* --- END: MODIFIED Footer Buttons --- */}
                             </Dialog.Panel>
                         </TransitionChild>
                     </div>
