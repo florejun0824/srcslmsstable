@@ -11,6 +11,7 @@
   background-color: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px); /* For Safari */
+  transition: background-color 0.3s ease; /* --- ADDED: Smooth transition --- */
 }
 
 .spinner-container {
@@ -73,7 +74,21 @@
   letter-spacing: 0.05em;
   opacity: 0; /* Start hidden */
   animation: text-fade-in 1s ease 0.5s forwards; /* Fade in after a delay */
+  transition: color 0.3s ease; /* --- ADDED: Smooth transition --- */
 }
+
+/* --- ADDED: Dark Mode Support --- */
+@media (prefers-color-scheme: dark) {
+  .spinner-overlay {
+    /* Dark glassmorphism */
+    background-color: rgba(10, 10, 20, 0.2);
+  }
+  .spinner-text {
+    color: #e2e8f0; /* slate-200 */
+  }
+}
+/* ------------------------------ */
+
 
 /* -- Keyframe Animations -- */
 @keyframes atom-spin {

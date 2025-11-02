@@ -1,5 +1,5 @@
 // src/pages/LoginPage.js
-import React, { useState, useEffect } from 'react'; // --- ADDED: useEffect
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import {
@@ -16,8 +16,12 @@ import RoleDock from '../components/common/RoleDock';
 import { BiometricAuth, BiometryErrorType } from '@aparajita/capacitor-biometric-auth';
 import { Preferences } from '@capacitor/preferences';
 
+// --- MODIFIED: Import our new modal ---
+import ConfirmBiometricModal from '../components/common/ConfirmBiometricModal'; // Adjust path if needed
+
 // (This component is unchanged)
 const HeliosBackground = ({ accentColor }) => {
+  // ... (no changes here)
   const colorMap = {
     blue: {
       primary: 'bg-blue-200 dark:bg-blue-900',
@@ -58,9 +62,13 @@ const LoginPage = () => {
 
   // --- ADDED: State to show the biometric button ---
   const [showBiometricButton, setShowBiometricButton] = useState(false);
+  
+  // --- MODIFIED: New state to handle the promise-based modal ---
+  const [biometricPromise, setBiometricPromise] = useState(null);
 
   // --- ADDED: Check for biometric support on page load ---
   useEffect(() => {
+    // ... (no changes in this function)
     const checkBiometricSupport = async () => {
       try {
         // 1. Check if hardware is available
@@ -90,17 +98,28 @@ const LoginPage = () => {
     setError('');
     setIsLoading(true);
     try {
-      const fullEmail = `${email}@srcs.edu`; //
+      const fullEmail = `${email}@srcs.edu`;
       await login(fullEmail, password, selectedRole);
 
-      // --- ADDED: Offer to save credentials on success ---
+      // --- MODIFIED: Offer to save credentials on success ---
       try {
         const { isAvailable } = await BiometricAuth.checkBiometry();
         if (isAvailable) {
           // Check if they've *already* saved
           const { value } = await Preferences.get({ key: 'userCredentials' });
           if (!value) { // Only ask if not already saved
-            if (window.confirm("Would you like to enable Biometric Login for next time?")) {
+            
+            // --- MODIFIED: This function "pauses" handleSubmit ---
+            const askToEnableBiometrics = () => {
+              return new Promise((resolve) => {
+                setBiometricPromise({ resolve });
+              });
+            };
+            
+            // This await will pause execution until the modal is clicked
+            const userAgreed = await askToEnableBiometrics(); 
+            
+            if (userAgreed) {
               const credentials = JSON.stringify({
                 email: fullEmail,
                 password: password,
@@ -108,7 +127,6 @@ const LoginPage = () => {
               });
 
               // Store credentials securely
-              // This uses Keychain on iOS and Encrypted SharedPreferences on Android
               await Preferences.set({
                 key: 'userCredentials',
                 value: credentials
@@ -121,7 +139,7 @@ const LoginPage = () => {
         console.error("Failed to save biometric credentials:", saveError);
         showToast("Could not enable biometric login.", 'error');
       }
-      // --- END ADDED SECTION ---
+      // --- END MODIFIED SECTION ---
 
     } catch (err) {
       setError(err.message);
@@ -133,6 +151,7 @@ const LoginPage = () => {
 
   // --- ADDED: New function to handle the biometric button click ---
   const handleBiometricLogin = async () => {
+    // ... (no changes in this function)
     setError('');
     setIsLoading(true);
     try {
@@ -182,7 +201,7 @@ const LoginPage = () => {
     }
   };
 
-
+  // ... (accentColor and other variables are unchanged)
   const accentColor = selectedRole === 'student' ? 'blue' : 'teal';
   const glowMap = {
     blue: 'from-blue-400 via-indigo-500 to-purple-500 dark:from-blue-500 dark:via-indigo-600 dark:to-purple-600',
@@ -197,6 +216,7 @@ const LoginPage = () => {
       <div className="relative z-10 w-full max-w-sm space-y-6 animate-fade-in-up">
         {/* Header */}
         <div className="text-center">
+          {/* ... (no changes here) */}
           <img
             src="https://i.ibb.co/XfJ8scGX/1.png"
             alt="SRCS Logo"
@@ -212,6 +232,7 @@ const LoginPage = () => {
 
         {/* Card Container */}
         <div className="bg-gray-100 dark:bg-neumorphic-base-dark p-8 rounded-3xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark space-y-6 transition-all duration-300">
+          {/* ... (no changes here) */}
           <div className="grid grid-cols-2 gap-4">
             <RoleDock
               role="student"
@@ -233,7 +254,7 @@ const LoginPage = () => {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Username */}
+            {/* ... (no changes to inputs) */}
             <div className="relative">
               <AtSymbolIcon className="absolute top-1/2 -translate-y-1/2 left-4 w-5 h-5 text-gray-400 dark:text-slate-400" />
               <input
@@ -247,7 +268,6 @@ const LoginPage = () => {
               />
             </div>
 
-            {/* Password */}
             <div className="relative">
               <LockClosedIcon className="absolute top-1/2 -translate-y-1/2 left-4 w-5 h-5 text-gray-400 dark:text-slate-400" />
               <input
@@ -292,7 +312,6 @@ const LoginPage = () => {
                 focus:outline-none focus:ring-2 focus:ring-${accentColor}-400 dark:focus:ring-${accentColor}-500
               `}
             >
-              {/* Soft gradient background */}
               <div
                 className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${buttonGlow} opacity-0 hover:opacity-80 active:opacity-100 transition-opacity duration-500`}
               ></div>
@@ -305,6 +324,7 @@ const LoginPage = () => {
           {/* --- ADDED: Biometric Button and "Or" divider --- */}
           {showBiometricButton && (
             <>
+              {/* ... (no changes here) */}
               <div className="flex items-center my-4">
                 <div className="flex-grow border-t border-gray-300 dark:border-slate-600"></div>
                 <span className="mx-4 text-gray-500 dark:text-slate-400 text-sm">Or</span>
@@ -325,11 +345,9 @@ const LoginPage = () => {
                   focus:outline-none focus:ring-2 focus:ring-${accentColor}-400 dark:focus:ring-${accentColor}-500
                 `}
               >
-                {/* Soft gradient background */}
                 <div
                   className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${buttonGlow} opacity-0 hover:opacity-80 active:opacity-100 transition-opacity duration-500`}
                 ></div>
-                {/* Fingerprint Icon */}
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6 z-10">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M7.864 4.243A7.5 7.5 0 0 1 19.5 12c0 2.21-.84 4.24-2.243 5.864m-1.13-1.13A5.96 5.96 0 0 0 18 12c0-1.774-.77-3.374-2.006-4.473m-9.02 9.02A5.96 5.96 0 0 0 6 12c0-1.774.77-3.374 2.006-4.473m-1.13 1.13A7.5 7.5 0 0 1 4.5 12c0 2.21.84 4.24 2.243 5.864m0 0a1.5 1.5 0 1 1-2.122-2.122 1.5 1.5 0 0 1 2.122 2.122Zm1.131 1.131a1.5 1.5 0 1 1-2.122-2.122 1.5 1.5 0 0 1 2.122 2.122Zm-1.131-4.242a1.5 1.5 0 1 1-2.122-2.122 1.5 1.5 0 0 1 2.122 2.122Zm1.131 1.131a1.5 1.5 0 1 1-2.122-2.122 1.5 1.5 0 0 1 2.122 2.122Zm-4.243-1.131a1.5 1.5 0 1 1-2.122-2.122 1.5 1.5 0 0 1 2.122 2.122Zm1.131 1.131a1.5 1.5 0 1 1-2.122-2.122 1.5 1.5 0 0 1 2.122 2.122Z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a.75.75 0 0 0 .75-.75V12a.75.75 0 0 0-1.5 0v6a.75.75 0 0 0 .75.75Z" />
@@ -347,6 +365,18 @@ const LoginPage = () => {
       <p className="text-sm text-gray-500 dark:text-slate-400/80 mt-8 absolute bottom-5 z-10 transition-colors">
         SRCS Learning Portal &copy; 2025
       </p>
+
+      {/* --- MODIFIED: Render the new modal --- */}
+      <ConfirmBiometricModal
+        isOpen={!!biometricPromise}
+        accentColor={accentColor}
+        onResolve={(agreed) => {
+          if (biometricPromise) {
+            biometricPromise.resolve(agreed);
+          }
+          setBiometricPromise(null);
+        }}
+      />
     </div>
   );
 };

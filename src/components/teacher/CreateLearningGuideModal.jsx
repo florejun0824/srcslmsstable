@@ -116,6 +116,8 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             case 'generation':
                 return (
                     <GenerationScreen
+                        // --- FIX: Add key prop tied to startLessonNumber to prevent unnecessary remounts during internal progress updates ---
+                        key={startLessonNumber} 
                         subject={subject}
                         unit={unit}
                         guideData={guideData}
