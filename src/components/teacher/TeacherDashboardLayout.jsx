@@ -1,6 +1,7 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, Suspense, lazy, Fragment } from 'react';
 import { CSSTransition, SwitchTransition } from 'react-transition-group';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { Menu, Transition } from '@headlessui/react';
 import {
     IconHome,
     IconUsers,
@@ -22,6 +23,7 @@ import { useToast } from '../../contexts/ToastContext';
 import Spinner from '../common/Spinner';
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
 import AnimatedRobot from './dashboard/widgets/AnimatedRobot';
+import ThemeToggle from '../common/ThemeToggle';
 
 // LAZY-LOADED VIEWS
 const AdminDashboard = lazy(() => import('../../pages/AdminDashboard'));
@@ -56,7 +58,88 @@ const DeleteConfirmationModal = lazy(() => import('./DeleteConfirmationModal'));
 const EditSubjectModal = lazy(() => import('./EditSubjectModal'));
 const DeleteSubjectModal = lazy(() => import('./DeleteSubjectModal'));
 
-// --- DESKTOP HEADER COMPONENT ---
+
+// --- ProfileDropdown Component (Unchanged) ---
+const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
+  const buttonSize = size === 'desktop' ? 'w-16 h-16' : 'w-9 h-9';
+  const avatarSize = size === 'desktop' ? 'full' : 'sm';
+
+  return (
+    <Menu as="div" className="relative z-50 flex-shrink-0">
+      <Menu.Button 
+        className={`flex items-center justify-center ${buttonSize} rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark overflow-hidden transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}
+      >
+        {userProfile?.photoURL ? (
+          <img
+            src={userProfile.photoURL}
+            alt="Profile"
+            className="w-full h-full object-cover rounded-full"
+          />
+        ) : (
+          <UserInitialsAvatar
+            firstName={userProfile?.firstName}
+            lastName={userProfile?.lastName}
+            id={userProfile?.id}
+            size={avatarSize}
+          />
+        )}
+      </Menu.Button>
+      <Transition
+        as={Fragment}
+        enter="transition ease-out duration-100"
+        enterFrom="transform opacity-0 scale-95"
+        enterTo="transform opacity-100 scale-100"
+        leave="transition ease-in duration-75"
+        leaveFrom="transform opacity-100 scale-100"
+        leaveTo="transform opacity-0 scale-95"
+      >
+        <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right divide-y divide-slate-200 dark:divide-slate-700 rounded-2xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark ring-1 ring-black ring-opacity-5 focus:outline-none p-2">
+          <div className="px-3 py-2">
+            <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+              {userProfile?.firstName} {userProfile?.lastName}
+            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
+              {userProfile?.email}
+            </p>
+          </div>
+          <div className="py-1">
+            <Menu.Item>
+              {({ active }) => (
+                <NavLink
+                  to="/dashboard/profile"
+                  className={`${
+                    active ? 'bg-slate-200 dark:bg-slate-700' : ''
+                  } group flex w-full items-center rounded-lg p-3 text-sm font-medium text-slate-800 dark:text-slate-200`}
+                >
+                  <IconUserCircle className="mr-3 h-5 w-5 text-slate-500 dark:text-slate-400" />
+                  Profile
+                </NavLink>
+              )}
+            </Menu.Item>
+          </div>
+          <div className="py-1">
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={onLogout}
+                  className={`${
+                    active ? 'bg-red-100 dark:bg-red-900/20' : ''
+                  } group flex w-full items-center rounded-lg p-3 text-sm font-medium text-red-600 dark:text-red-400`}
+                >
+                  <IconPower className="mr-3 h-5 w-5" />
+                  Logout
+                </button>
+              )}
+            </Menu.Item>
+          </div>
+        </Menu.Items>
+      </Transition>
+    </Menu>
+  );
+};
+
+
+// --- DESKTOP HEADER COMPONENT (Unchanged) ---
 const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
     const navItems = [
         { view: 'home', text: 'Home', icon: IconHome },
@@ -74,22 +157,22 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
         <div className="w-full flex items-center justify-between gap-6">
             {/* Left side: Logo + LMS Name */}
             <div className="flex items-center gap-4 flex-shrink-0">
-                <div className="w-16 h-16 bg-neumorphic-base rounded-full shadow-neumorphic flex items-center justify-center">
+                <div className="w-16 h-16 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic dark:shadow-neumorphic-dark flex items-center justify-center">
                     <img
                         src="https://i.ibb.co/XfJ8scGX/1.png"
                         alt="Logo"
                         className="w-12 h-12 rounded-full"
                     />
                 </div>
-                <div className="p-3 bg-neumorphic-base rounded-3xl shadow-neumorphic hidden xl:block">
-                    <span className="font-extrabold text-2xl text-slate-800">
+                <div className="p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark hidden xl:block">
+                    <span className="font-extrabold text-2xl text-slate-900 dark:text-slate-100">
                         SRCS Learning Portal
                     </span>
                 </div>
             </div>
 
             {/* Center: Navigation */}
-            <nav className="w-full max-w-2xl p-3 bg-neumorphic-base rounded-3xl shadow-neumorphic flex justify-center items-center gap-3">
+            <nav className="w-full max-w-2xl p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark flex justify-center items-center gap-3">
                 {navItems.map((item) => {
                     return (
                         <NavLink
@@ -99,8 +182,8 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
                             className={({ isActive }) => 
                                 `group relative flex-1 flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-200 ${
                                     isActive
-                                        ? 'shadow-neumorphic-inset'
-                                        : 'hover:shadow-neumorphic-inset active:shadow-neumorphic-inset'
+                                        ? 'shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark'
+                                        : 'hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark'
                                 }`
                             }
                             aria-label={item.text}
@@ -111,15 +194,15 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
                                         size={28}
                                         className={`transition-colors duration-200 ${
                                             isActive
-                                                ? 'text-sky-600'
-                                                : 'text-slate-500 group-hover:text-slate-700'
+                                                ? 'text-blue-600 dark:text-blue-400'
+                                                : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100'
                                         }`}
                                     />
                                     <span
                                         className={`mt-0.5 text-sm font-semibold ${
                                             isActive
-                                                ? 'text-sky-600'
-                                                : 'text-slate-500 group-hover:text-slate-700'
+                                                ? 'text-blue-600 dark:text-blue-400'
+                                                : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100'
                                         }`}
                                     >
                                         {item.text}
@@ -131,48 +214,13 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
                 })}
             </nav>
 
-            {/* Right side: Profile + Logout */}
+            {/* Right side: Profile Dropdown */}
             <div className="flex items-center gap-4 flex-shrink-0">
-			
-			<NavLink
-			  to="/dashboard/profile"
-			  className={({ isActive }) =>
-			    `w-16 h-16 rounded-full bg-neumorphic-base shadow-neumorphic
-			    flex items-center justify-center overflow-hidden cursor-pointer
-			    transition-shadow ${isActive ? 'shadow-neumorphic-inset' : 'hover:shadow-neumorphic-inset'}`
-              }
-			>
-			  {userProfile?.photoURL ? (
-			    <img
-			      src={userProfile.photoURL}
-			      alt="Profile"
-			      className="w-full h-full object-cover rounded-full block"
-			      style={{ display: 'block' }}
-			    />
-			  ) : (
-			    <UserInitialsAvatar
-			      firstName={userProfile?.firstName}
-			      lastName={userProfile?.lastName}
-			      id={userProfile?.id}
-			      size="full"
-			    />
-			  )}
-			</NavLink>
-
-                <div className="p-3 bg-neumorphic-base rounded-3xl shadow-neumorphic hidden xl:block">
-                    <span className="font-semibold text-lg text-slate-700">
-                        {userProfile?.firstName || 'Profile'}
-                    </span>
-                </div>
-                <div className="w-16 h-16 bg-neumorphic-base rounded-full shadow-neumorphic flex items-center justify-center">
-                    <button
-                        onClick={() => setIsLogoutModalOpen(true)}
-                        className="text-red-500 transition-transform hover:scale-110"
-                        title="Logout"
-                    >
-                        <IconPower size={26} />
-                    </button>
-                </div>
+              <ProfileDropdown 
+                userProfile={userProfile}
+                onLogout={() => setIsLogoutModalOpen(true)}
+                size="desktop"
+              />
             </div>
         </div>
     );
@@ -230,6 +278,7 @@ const TeacherDashboardLayout = (props) => {
     const [hoveredIconIndex, setHoveredIconIndex] = useState(null);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
+    // ... (All handlers: handleRenameCategory, handleEditCategory, etc. remain unchanged) ...
     const handleRenameCategory = async (newName) => {
         const oldName = categoryToEdit?.name;
         if (!oldName || !newName || oldName === newName) {
@@ -328,9 +377,9 @@ const TeacherDashboardLayout = (props) => {
         if (loading) return <LoadingFallback />;
         if (error) {
             return (
-                <div className="bg-red-100 border border-red-300 text-red-800 p-4 rounded-lg shadow-md m-4">
+                <div className="bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700/50 text-red-800 dark:text-red-200 p-4 rounded-lg shadow-md m-4">
                     <div className="flex items-start gap-3">
-                        <ExclamationTriangleIcon className="w-5 h-5 mt-1 text-red-600" />
+                        <ExclamationTriangleIcon className="w-5 h-5 mt-1 text-red-600 dark:text-red-400" />
                         <div>
                             <strong className="block">An error occurred</strong>
                             <span>{error}</span>
@@ -350,8 +399,21 @@ const TeacherDashboardLayout = (props) => {
                         {...rest}
                     />
                 );
+            
+            // --- H E R E   I S   T H E   F I X ---
 			case 'classes':
-			    return <ClassesView key={`${reloadKey}-classes`} activeClasses={activeClasses} {...rest} />;
+			    return (
+                    <ClassesView 
+                        key={`${reloadKey}-classes`} 
+                        activeClasses={activeClasses} 
+                        // We must explicitly pass the props down
+                        handleArchiveClass={props.handleArchiveClass} 
+                        handleDeleteClass={props.handleDeleteClass}
+                        {...rest} 
+                    />
+                );
+            // --- E N D   O F   F I X ---
+
             case 'courses':
                 return (
                     <CoursesView
@@ -372,7 +434,6 @@ const TeacherDashboardLayout = (props) => {
 						activeClasses={activeClasses}
                     />
                 );
-			// This is the FIXED code for TeacherDashboardLayout.jsx
 			case 'studentManagement':
 			    return <StudentManagementView key={`${reloadKey}-sm`} courses={courses} activeClasses={activeClasses} {...rest} />;
             case 'profile':
@@ -397,7 +458,7 @@ const TeacherDashboardLayout = (props) => {
                 return (
                     <div
                         key={`${reloadKey}-admin`}
-                        className="p-4 sm:p-6 text-gray-800"
+                        className="p-4 sm:p-6 text-slate-900 dark:text-slate-100" 
                     >
                         <AdminDashboard />
                     </div>
@@ -417,6 +478,7 @@ const TeacherDashboardLayout = (props) => {
     return (
         <>
             <style>{`
+                /* ... (all <style> tag content remains unchanged) ... */
                 .view-fade-enter { opacity: 0; transform: scale(0.98) translateY(10px); }
                 .view-fade-enter-active { opacity: 1; transform: scale(1) translateY(0); transition: opacity 300ms, transform 300ms; }
                 .view-fade-exit { opacity: 1; transform: scale(1) translateY(0); }
@@ -432,10 +494,10 @@ const TeacherDashboardLayout = (props) => {
                 .logout-modal-exit { opacity: 1; transform: scale(1); }
                 .logout-modal-exit-active { opacity: 0; transform: scale(0.9); transition: opacity 300ms, transform 300ms; }
             `}</style>
-
-            <div className="min-h-screen flex flex-col bg-neumorphic-base font-sans antialiased text-gray-800">
+            
+            <div className="min-h-screen flex flex-col bg-neumorphic-base dark:bg-neumorphic-base-dark font-sans antialiased text-slate-900 dark:text-slate-100">
                 {/* Mobile Header */}
-                <header className="sticky top-0 z-40 p-2 bg-neumorphic-base shadow-neumorphic lg:hidden">
+                <header className="sticky top-0 z-40 p-2 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark lg:hidden">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <img
@@ -443,52 +505,29 @@ const TeacherDashboardLayout = (props) => {
                                 alt="Logo"
                                 className="w-9 h-9 rounded-full"
                             />
-                            <span className="font-bold text-lg text-gray-800">
+                            <span className="font-bold text-lg text-slate-900 dark:text-slate-100">
                                 SRCS LMS
                             </span>
                         </div>
-                        <div className="flex items-center gap-1">
-							  <NavLink
-							    to="/dashboard/profile"
-                                className={({ isActive }) => 
-                                    `p-1 rounded-full cursor-pointer ${isActive ? 'shadow-neumorphic-inset' : 'hover:shadow-neumorphic-inset'}`
-                                }
-							  >
-							    {userProfile?.photoURL ? (
-							      <img
-							        src={userProfile.photoURL}
-							        alt="Profile"
-							        className="w-9 h-9 object-cover rounded-full"
-							      />
-							    ) : (
-							      <UserInitialsAvatar
-							        firstName={userProfile?.firstName}
-							        lastName={userProfile?.lastName}
-							        size="sm"
-							      />
-							    )}
-							  </NavLink>
-							  
-					
-                            
-                            <button
-                                onClick={() => setIsLogoutModalOpen(true)}
-                                className="p-2.5 rounded-full text-red-500 hover:shadow-neumorphic-inset"
-                                title="Logout"
-                            >
-                                <IconPower size={22} />
-                            </button>
+                        <div className="flex items-center gap-2">
+                            <ThemeToggle />
+                            <ProfileDropdown 
+                              userProfile={userProfile}
+                              onLogout={() => setIsLogoutModalOpen(true)}
+                              size="mobile"
+                            />
                         </div>
                     </div>
                 </header>
 
                 {/* Desktop Header */}
-                <div className="hidden lg:block sticky top-0 z-[10] bg-neumorphic-base px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
-                    <div className="w-full max-w-screen-2xl mx-auto">
+                <div className="hidden lg:block sticky top-0 z-[10] bg-neumorphic-base dark:bg-neumorphic-base-dark px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
+                    <div className="w-full max-w-screen-2xl mx-auto flex justify-between items-center">
                         <DesktopHeader
                             userProfile={userProfile}
                             setIsLogoutModalOpen={setIsLogoutModalOpen}
                         />
+                        <ThemeToggle />
                     </div>
                 </div>
 
@@ -519,6 +558,7 @@ const TeacherDashboardLayout = (props) => {
                     <AnimatedRobot onClick={() => setIsChatOpen(true)} />
                 </CSSTransition>
 
+                {/* ... (All Modals remain here, they will be themed internally) ... */}
                 {isAiHubOpen && (
                     <AiGenerationHub
                         isOpen={isAiHubOpen}
@@ -543,7 +583,7 @@ const TeacherDashboardLayout = (props) => {
                         onClose={() => rest.setIsArchivedModalOpen(false)}
                         archivedClasses={rest.archivedClasses}
                         onUnarchive={rest.handleUnarchiveClass}
-                        onDelete={(classId) => rest.handleDeleteClass(classId, true)}
+                        onDelete={props.handleDeleteClass} // <-- Pass down the correct prop
                     />
                 )}
                 {rest.isEditProfileModalOpen && (
@@ -698,17 +738,17 @@ const TeacherDashboardLayout = (props) => {
                 unmountOnExit
             >
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                    <div className="bg-neumorphic-base rounded-3xl shadow-neumorphic p-6 w-[90%] max-w-sm text-center">
-                        <h2 className="text-xl font-bold text-slate-800 mb-3">
+                    <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark p-6 w-[90%] max-w-sm text-center">
+                        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-3">
                             Confirm Logout
                         </h2>
-                        <p className="text-sm text-slate-600 mb-6">
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
                             Are you sure you want to log out?
                         </p>
                         <div className="flex justify-center gap-4">
                             <button
                                 onClick={() => setIsLogoutModalOpen(false)}
-                                className="px-5 py-2 rounded-full bg-neumorphic-base shadow-neumorphic text-slate-700 hover:shadow-neumorphic-inset transition"
+                                className="px-5 py-2 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark text-slate-600 dark:text-slate-300 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition"
                             >
                                 Cancel
                             </button>
@@ -727,7 +767,7 @@ const TeacherDashboardLayout = (props) => {
             </CSSTransition>
 
             {/* Mobile Footer Nav */}
-            <footer className="sticky bottom-0 z-50 p-2 bg-neumorphic-base shadow-neumorphic lg:hidden">
+            <footer className="sticky bottom-0 z-50 p-2 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark lg:hidden">
                 <div className="flex justify-around items-center">
                     {navItems.map((item) => {
                         return (
@@ -738,8 +778,8 @@ const TeacherDashboardLayout = (props) => {
                                 className={({ isActive }) => 
                                     `flex-1 flex flex-col items-center justify-center py-2 rounded-xl transition-all duration-300 ${
                                         isActive
-                                            ? 'shadow-neumorphic-inset'
-                                            : 'hover:shadow-neumorphic-inset'
+                                            ? 'shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark'
+                                            : 'hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'
                                     }`
                                 }
                             >
@@ -748,16 +788,16 @@ const TeacherDashboardLayout = (props) => {
                                         <item.icon
                                             className={`mb-0.5 transition-colors ${
                                                 isActive
-                                                    ? 'text-sky-600'
-                                                    : 'text-gray-500'
+                                                    ? 'text-blue-600 dark:text-blue-400'
+                                                    : 'text-slate-500 dark:text-slate-400'
                                             }`}
                                             size={24}
                                         />
                                         <span
                                             className={`text-xs font-semibold transition-colors ${
                                                 isActive
-                                                    ? 'text-sky-600'
-                                                    : 'text-gray-500'
+                                                    ? 'text-blue-600 dark:text-blue-400'
+                                                    : 'text-slate-500 dark:text-slate-400'
                                             }`}
                                         >
                                             {item.text}

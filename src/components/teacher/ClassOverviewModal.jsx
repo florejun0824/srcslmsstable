@@ -63,10 +63,10 @@ const fetchDocsInBatches = async (collectionName, ids) => {
 const PostHeader = ({ post, onEditDates }) => (
     // ... (no changes in this component)
     <>
-        <h3 className="font-bold text-slate-800 text-xl px-2 pt-1">{post.title}</h3>
-        <div className="text-xs text-slate-500 px-2 pb-2 mb-2 border-b border-slate-200/80 flex flex-wrap gap-x-3">
-            <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
-            {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
+        <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xl px-2 pt-1">{post.title}</h3>
+        <div className="text-xs text-slate-500 dark:text-slate-400 px-2 pb-2 mb-2 border-b border-slate-200/80 dark:border-slate-700/80 flex flex-wrap gap-x-3">
+            <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
+            {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
             {(() => {
                 let targetText = "Target: All Students";
                 if (post.targetAudience === 'all') {
@@ -74,9 +74,9 @@ const PostHeader = ({ post, onEditDates }) => (
                 } else if (post.targetAudience === 'specific') {
                     targetText = `Target: ${post.targetStudentIds?.length || 0} Student(s)`;
                 }
-                return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 text-slate-400" />{targetText}</span>;
+                return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />{targetText}</span>;
             })()}
-            <button onClick={onEditDates} title="Edit Availability" className="flex items-center gap-1 text-sky-600 hover:underline">
+            <button onClick={onEditDates} title="Edit Availability" className="flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:underline">
                 <PencilSquareIcon className="w-3 h-3" /> Edit
             </button>
         </div>
@@ -360,7 +360,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	            const quizIdArray = Array.from(removedQuizIds);
 	            const MAX_IN_CLAUSE = 30;
 	            for (let i = 0; i < quizIdArray.length; i += MAX_IN_CLAUSE) {
-	                const chunk = quizIdArray.slice(i, i + 30);
+	                const chunk = quizIdArray.slice(i, i + MAX_IN_CLAUSE);
 	                if (chunk.length === 0) continue;
 
 	                const submissionsQuery = query(
@@ -601,13 +601,14 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
     
     const renderContent = () => {
-        if (loading && activeTab !== 'announcements') return <div className="text-center py-10 text-slate-500 text-lg">Loading...</div>;
+        if (loading && activeTab !== 'announcements') return <div className="text-center py-10 text-slate-500 dark:text-slate-400 text-lg">Loading...</div>;
 
         const EmptyState = ({ icon: Icon, text, subtext }) => (
-            <div className="text-center p-8 sm:p-12 bg-neumorphic-base rounded-2xl shadow-neumorphic-inset mt-4">
-                <Icon className="h-16 w-16 mb-4 text-slate-300 mx-auto" />
-                <p className="text-lg sm:text-xl font-semibold text-slate-700">{text}</p>
-                <p className="mt-2 text-base text-slate-500">{subtext}</p>
+            // --- MODIFIED: Added dark mode classes ---
+            <div className="text-center p-8 sm:p-12 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark mt-4">
+                <Icon className="h-16 w-16 mb-4 text-slate-300 dark:text-slate-600 mx-auto" />
+                <p className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-200">{text}</p>
+                <p className="mt-2 text-base text-slate-500 dark:text-slate-400">{subtext}</p>
             </div>
         );
         const customUnitSort = (a, b) => {
@@ -622,14 +623,15 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             return a.localeCompare(b);
         };
         const ListItem = ({ children, isChecked }) => (
-            // --- MODIFICATION: Reduced vertical padding on mobile ---
-            <div className={`flex items-center justify-between gap-2 sm:gap-4 py-2 px-2 sm:py-3 sm:px-4 rounded-xl transition-colors ${isChecked ? 'bg-sky-100/50' : 'hover:bg-slate-50/50'}`}>
+            // --- MODIFIED: Added dark mode classes ---
+            <div className={`flex items-center justify-between gap-2 sm:gap-4 py-2 px-2 sm:py-3 sm:px-4 rounded-xl transition-colors ${isChecked ? 'bg-sky-100/50 dark:bg-sky-900/30' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/50'}`}>
                 {children}
             </div>
         );
         
         const PostGroup = ({ children }) => (
-            <div className="bg-neumorphic-base rounded-2xl shadow-neumorphic">
+            // --- MODIFIED: Added dark mode classes ---
+            <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark">
                 {children}
             </div>
         );
@@ -673,15 +675,16 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                 >
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-bold text-slate-800 text-lg sm:text-xl group-hover:text-sky-600 transition-colors truncate">{post.title}</h3>
-                                            <div className="text-xs text-slate-500 mt-2 flex flex-wrap gap-x-3">
-                                                <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
-                                                {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
+                                            {/* --- MODIFIED: Added dark mode classes --- */}
+                                            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors truncate">{post.title}</h3>
+                                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex flex-wrap gap-x-3">
+                                                <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
+                                                {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
                                                 {(() => {
                                                     let targetText = "Target: All Students";
                                                     if (post.targetAudience === 'all') targetText = "Target: All Students";
                                                     else if (post.targetAudience === 'specific') targetText = `Target: ${post.targetStudentIds?.length || 0} Student(s)`;
-                                                    return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 text-slate-400" />{targetText}</span>;
+                                                    return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />{targetText}</span>;
                                                 })()}
                                             </div>
                                         </div>
@@ -689,11 +692,11 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); handleEditDatesClick(post); }} 
                                                 title="Edit Availability" 
-                                                className="flex items-center gap-1 text-xs sm:text-sm text-sky-600 hover:underline p-1"
+                                                className="flex items-center gap-1 text-xs sm:text-sm text-sky-600 dark:text-sky-400 hover:underline p-1"
                                             >
                                                 <PencilSquareIcon className="w-4 h-4" /> <span className="hidden sm:inline">Manage</span>
                                             </button>
-                                            <ChevronDownIcon className={`h-6 w-6 text-slate-500 transition-transform ${isPostCollapsed ? '' : 'rotate-180'}`} />
+                                            <ChevronDownIcon className={`h-6 w-6 text-slate-500 dark:text-slate-400 transition-transform ${isPostCollapsed ? '' : 'rotate-180'}`} />
                                         </div>
                                     </div>
                                 </button>
@@ -709,18 +712,18 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                             const isAllSelected = lessonIdsInUnit.length > 0 && lessonIdsInUnit.every(id => selectedSet.has(id));
 
                                             return (
-                                                <div key={unitKey} className="bg-neumorphic-base rounded-xl shadow-neumorphic-inset">
-                                                    {/* --- MODIFICATION: Reduced padding and gap for mobile --- */}
-                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 border-b border-slate-200/80">
+                                                <div key={unitKey} className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
+                                                    {/* --- MODIFIED: Added dark mode classes --- */}
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 border-b border-slate-200/80 dark:border-slate-700/80">
                                                         <button className="flex-1 flex items-center gap-2 group min-w-0" onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}>
-                                                            {/* --- MODIFICATION: Reduced font size for mobile --- */}
-                                                            <h4 className="font-semibold text-sm sm:text-base text-slate-800 group-hover:text-sky-600 truncate">{unitDisplayName}</h4>
+                                                            <h4 className="font-semibold text-sm sm:text-base text-slate-800 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors truncate">{unitDisplayName}</h4>
                                                             <ChevronDownIcon className={`h-5 w-5 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
                                                         </button>
                                                         <label className="flex items-center justify-end gap-2 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0">
                                                             <input
                                                                 type="checkbox"
-                                                                className="h-4 w-4 rounded text-sky-600 border-slate-400 focus:ring-sky-500"
+                                                                // --- MODIFIED: Added dark mode classes ---
+                                                                className="h-4 w-4 rounded text-sky-600 border-slate-400 dark:border-slate-600 dark:bg-slate-700 focus:ring-sky-500"
                                                                 checked={isAllSelected}
                                                                 onChange={() => {
                                                                     const set = setSelectedLessons;
@@ -732,7 +735,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                     });
                                                                 }}
                                                             />
-                                                            <span className="text-sm font-semibold text-slate-700">Select All</span>
+                                                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Select All</span>
                                                         </label>
                                                     </div>
                                                     
@@ -742,21 +745,20 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                 const isChecked = selectedSet.has(lessonDetails.id);
                                                                 return (
                                                                     <ListItem key={lessonDetails.id} isChecked={isChecked}>
-                                                                        {/* --- MODIFICATION: Reduced padding --- */}
                                                                         <label className="p-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
                                                                             <input
                                                                                 type="checkbox"
-                                                                                className="h-5 w-5 rounded text-sky-600 border-slate-400 focus:ring-sky-500 focus:ring-2"
+                                                                                // --- MODIFIED: Added dark mode classes ---
+                                                                                className="h-5 w-5 rounded text-sky-600 border-slate-400 dark:border-slate-600 dark:bg-slate-700 focus:ring-sky-500 focus:ring-2"
                                                                                 checked={isChecked}
                                                                                 onChange={() => handleToggleSelection('lesson', lessonDetails.id)}
                                                                             />
                                                                         </label>
                                                                         <div className="flex-1 min-w-0" onClick={() => setViewLessonData(lessonDetails)}>
-                                                                            {/* --- MODIFICATION: Reduced font size for mobile --- */}
-                                                                            <p className="font-bold text-slate-800 text-sm sm:text-base cursor-pointer hover:text-sky-600 transition-colors truncate">{lessonDetails.title}</p>
+                                                                            <p className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors truncate">{lessonDetails.title}</p>
                                                                         </div>
                                                                         <div className="flex space-x-1 flex-shrink-0">
-                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, lessonDetails.id, 'lesson'); }} className="p-2 rounded-full text-red-500 hover:shadow-neumorphic-inset" title="Unshare Lesson"><TrashIcon className="w-5 h-5" /></button>
+                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, lessonDetails.id, 'lesson'); }} className="p-2 rounded-full text-red-500 dark:text-red-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Unshare Lesson"><TrashIcon className="w-5 h-5" /></button>
                                                                         </div>
                                                                     </ListItem>
                                                                 );
@@ -814,15 +816,15 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                 >
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-bold text-slate-800 text-lg sm:text-xl group-hover:text-sky-600 transition-colors truncate">{post.title}</h3>
-                                            <div className="text-xs text-slate-500 mt-2 flex flex-wrap gap-x-3">
-                                                <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
-                                                {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
+                                            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors truncate">{post.title}</h3>
+                                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex flex-wrap gap-x-3">
+                                                <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
+                                                {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
                                                 {(() => {
                                                     let targetText = "Target: All Students";
                                                     if (post.targetAudience === 'all') targetText = "Target: All Students";
                                                     else if (post.targetAudience === 'specific') targetText = `Target: ${post.targetStudentIds?.length || 0} Student(s)`;
-                                                    return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 text-slate-400" />{targetText}</span>;
+                                                    return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />{targetText}</span>;
                                                 })()}
                                             </div>
                                         </div>
@@ -830,11 +832,11 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); handleEditDatesClick(post); }} 
                                                 title="Edit Availability" 
-                                                className="flex items-center gap-1 text-xs sm:text-sm text-sky-600 hover:underline p-1"
+                                                className="flex items-center gap-1 text-xs sm:text-sm text-sky-600 dark:text-sky-400 hover:underline p-1"
                                             >
                                                 <PencilSquareIcon className="w-4 h-4" /> <span className="hidden sm:inline">Manage</span>
                                             </button>
-                                            <ChevronDownIcon className={`h-6 w-6 text-slate-500 transition-transform ${isPostCollapsed ? '' : 'rotate-180'}`} />
+                                            <ChevronDownIcon className={`h-6 w-6 text-slate-500 dark:text-slate-400 transition-transform ${isPostCollapsed ? '' : 'rotate-180'}`} />
                                         </div>
                                     </div>
                                 </button>
@@ -850,18 +852,16 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                             const isAllSelected = quizIdsInUnit.length > 0 && quizIdsInUnit.every(id => selectedSet.has(id));
 
                                             return (
-                                                <div key={unitKey} className="bg-neumorphic-base rounded-xl shadow-neumorphic-inset">
-                                                    {/* --- MODIFICATION: Reduced padding and gap for mobile --- */}
-                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 border-b border-slate-200/80">
+                                                <div key={unitKey} className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 border-b border-slate-200/80 dark:border-slate-700/80">
                                                         <button className="flex-1 flex items-center gap-2 group min-w-0" onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}>
-                                                            {/* --- MODIFICATION: Reduced font size for mobile --- */}
-                                                            <h4 className="font-semibold text-sm sm:text-base text-slate-800 group-hover:text-sky-600 truncate">{unitDisplayName}</h4>
+                                                            <h4 className="font-semibold text-sm sm:text-base text-slate-800 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 truncate">{unitDisplayName}</h4>
                                                             <ChevronDownIcon className={`h-5 w-5 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
                                                         </button>
                                                         <label className="flex items-center justify-end gap-2 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0">
                                                             <input
                                                                 type="checkbox"
-                                                                className="h-4 w-4 rounded text-sky-600 border-slate-400 focus:ring-sky-500"
+                                                                className="h-4 w-4 rounded text-sky-600 dark:border-slate-600 dark:bg-slate-700 border-slate-400 focus:ring-sky-500"
                                                                 checked={isAllSelected}
                                                                 onChange={() => {
                                                                     const set = setSelectedQuizzes;
@@ -873,7 +873,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                     });
                                                                 }}
                                                             />
-                                                            <span className="text-sm font-semibold text-slate-700">Select All</span>
+                                                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Select All</span>
                                                         </label>
                                                     </div>
                                                     
@@ -883,11 +883,10 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                 const isChecked = selectedSet.has(quizDetails.id);
                                                                 return (
                                                                     <ListItem key={quizDetails.id} isChecked={isChecked}>
-                                                                        {/* --- MODIFICATION: Reduced padding --- */}
                                                                         <label className="p-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
                                                                             <input
                                                                                 type="checkbox"
-                                                                                className="h-5 w-5 rounded text-sky-600 border-slate-400 focus:ring-sky-500 focus:ring-2"
+                                                                                className="h-5 w-5 rounded text-sky-600 dark:border-slate-600 dark:bg-slate-700 border-slate-400 focus:ring-sky-500 focus:ring-2"
                                                                                 checked={isChecked}
                                                                                 onChange={() => handleToggleSelection('quiz', quizDetails.id)}
                                                                             />
@@ -901,13 +900,12 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                                 availableUntil: post.availableUntil
                                                                             })}
                                                                         >
-                                                                            {/* --- MODIFICATION: Reduced font size for mobile --- */}
-                                                                            <p className="font-bold text-slate-800 text-sm sm:text-base cursor-pointer hover:text-purple-600 transition-colors truncate">
+                                                                            <p className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors truncate">
                                                                                 {quizDetails.title}
                                                                             </p>
                                                                         </div>
                                                                         <div className="flex space-x-1 flex-shrink-0">
-                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, quizDetails.id, 'quiz'); }} className="p-2 rounded-full text-red-500 hover:shadow-neumorphic-inset" title="Unshare Quiz"><TrashIcon className="w-5 h-5" /></button>
+                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, quizDetails.id, 'quiz'); }} className="p-2 rounded-full text-red-500 dark:text-red-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Unshare Quiz"><TrashIcon className="w-5 h-5" /></button>
                                                                         </div>
                                                                     </ListItem>
                                                                 );
@@ -926,7 +924,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             );
         }
         if (activeTab === 'scores') {
-            // ... (no changes in this block)
             const allQuizzesFromPosts = sharedContentPosts.flatMap(p => p.quizzes || []);
             const allLessonsFromPosts = sharedContentPosts.flatMap(p => p.lessons || []);
             
@@ -948,11 +945,11 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             );
         }
         if (activeTab === 'students') {
-            // ... (no changes in this block)
             return (
                  <div className="space-y-3 pr-2 max-h-full overflow-y-auto custom-scrollbar">
                     {(classData?.students && classData.students.length > 0) ? (
-                        <div className="bg-neumorphic-base rounded-2xl shadow-neumorphic-inset p-1">
+                        // --- MODIFIED: Added dark mode classes ---
+                        <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark p-1">
                             {classData.students.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(student => (
                                 <ListItem key={student.id} isChecked={false}>
                                     <div className="flex items-center gap-2 sm:gap-4">
@@ -960,11 +957,12 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                             <UserInitialsAvatar user={student} size="w-10 h-10" />
                                         </div>
                                         <div>
-                                            <p className="font-bold text-slate-800 text-sm sm:text-base">{student.lastName}, {student.firstName}</p>
-                                            <p className="text-xs sm:text-sm text-slate-500">ID: {student.id}</p>
+                                            {/* --- MODIFIED: Added dark mode classes --- */}
+                                            <p className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">{student.lastName}, {student.firstName}</p>
+                                            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">ID: {student.id}</p>
                                         </div>
                                     </div>
-                                    {onRemoveStudent && <button onClick={() => onRemoveStudent(classData.id, student)} className="p-2 rounded-full text-red-500 hover:shadow-neumorphic-inset" title={`Remove ${student.firstName}`}><TrashIcon className="w-5 h-5" /></button>}
+                                    <button onClick={() => onRemoveStudent(classData.id, student)} className="p-2 rounded-full text-red-500 dark:text-red-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title={`Remove ${student.firstName}`}><TrashIcon className="w-5 h-5" /></button>
                                 </ListItem>
                             ))}
                         </div>
@@ -974,7 +972,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
         
         return (
-            // ... (no changes in this block)
             <div className="flex flex-col pr-2 max-h-full overflow-y-auto custom-scrollbar">
                 {showAddForm && (<div className="mb-6 flex-shrink-0"><CreateClassAnnouncementForm classId={classData.id} onAnnouncementPosted={() => setShowAddForm(false)} /></div>)}
                 <div className="space-y-4 flex-grow">
@@ -986,7 +983,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
 
     const tabs = [
-        // ... (no changes in tabs array)
         { id: 'announcements', name: 'Announcements', icon: MegaphoneIcon },
         { id: 'lessons', name: 'Lessons', icon: BookOpenIcon },
         { id: 'quizzes', name: 'Quizzes', icon: AcademicCapIcon },
@@ -1006,39 +1002,38 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 contentClassName="p-0"
                 showCloseButton={true}
             >
-                {/* ... (no changes in this section) ... */}
-                <div className="p-2 sm:p-4 md:p-8 bg-neumorphic-base h-[95vh] sm:h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl">
+                <div className="p-2 sm:p-4 md:p-8 bg-neumorphic-base dark:bg-neumorphic-base-dark h-[95vh] sm:h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl">
                     
-                    <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex-shrink-0">
-                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">{classData?.name || 'Class Details'}</h1>
+                    <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark flex-shrink-0">
+                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">{classData?.name || 'Class Details'}</h1>
                         <div className="flex flex-wrap items-center gap-x-4 sm:gap-x-6 gap-y-2 mt-3">
-                            <p className="text-sm sm:text-base text-slate-600">
-                                <span className="font-medium text-slate-500">Grade Level:</span>
-                                <span className="font-semibold text-slate-700 ml-1.5">{classData?.gradeLevel}</span>
+                            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400">
+                                <span className="font-medium text-slate-500 dark:text-slate-400">Grade Level:</span>
+                                <span className="font-semibold text-slate-700 dark:text-slate-200 ml-1.5">{classData?.gradeLevel}</span>
                             </p>
                             
-                            <div className="flex items-center gap-1.5 text-sm sm:text-base text-slate-600">
-                                <span className="font-medium text-slate-500">Class Owner:</span>
+                            <div className="flex items-center gap-1.5 text-sm sm:text-base text-slate-600 dark:text-slate-400">
+                                <span className="font-medium text-slate-500 dark:text-slate-400">Class Owner:</span>
                                 <UserInitialsAvatar user={userProfile} size="w-6 h-6" />
-                                <span className="font-semibold text-slate-700">{userProfile?.displayName}</span>
+                                <span className="font-semibold text-slate-700 dark:text-slate-200">{userProfile?.displayName}</span>
                             </div>
                             
-                            <p className="text-sm sm:text-base text-slate-600">
-                                <span className="font-medium text-slate-500">Class Code:</span> 
-                                <span className="font-bold text-sky-600 ml-1.5 tracking-wider">{classData?.classCode}</span>
+                            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400">
+                                <span className="font-medium text-slate-500 dark:text-slate-400">Class Code:</span> 
+                                <span className="font-bold text-sky-600 dark:text-sky-400 ml-1.5 tracking-wider">{classData?.classCode}</span>
                             </p>
                         </div>
                     </div>
 
-                    <nav className="flex-shrink-0 flex items-center gap-2 p-2 bg-neumorphic-base rounded-2xl shadow-neumorphic overflow-x-auto">
+                    <nav className="flex-shrink-0 flex items-center gap-2 p-2 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark overflow-x-auto">
                         {tabs.map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => handleTabChange(tab.id)}
                                 className={`flex-shrink-0 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 ${
                                     activeTab === tab.id
-                                        ? 'shadow-neumorphic-inset text-sky-600'
-                                        : 'text-slate-700 hover:shadow-neumorphic-inset'
+                                        ? 'shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-sky-600 dark:text-sky-400'
+                                        : 'text-slate-700 dark:text-slate-300 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'
                                 }`}
                             >
                                 <tab.icon className="h-5 w-5" />
@@ -1047,8 +1042,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         ))}
                     </nav>
 
-                    <main className="flex-1 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col min-h-0 mt-4 sm:mt-6">
-                        <header className="px-4 pt-4 pb-4 sm:px-6 sm:pt-6 sm:pb-4 flex-shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80">
+                    <main className="flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic flex flex-col min-h-0 mt-4 sm:mt-6">
+                        <header className="px-4 pt-4 pb-4 sm:px-6 sm:pt-6 sm:pb-4 flex-shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-700/80">
                             
                             <div className="flex items-center gap-3">
                                 {activeTab === 'lessons' && selectedLessons.size > 0 && (
@@ -1087,7 +1082,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
                                 {activeTab === 'announcements' && userProfile?.role === 'teacher' && (
                                     <div>
-                                        <Button onClick={() => setShowAddForm(prev => !prev)} icon={PlusCircleIcon} className="font-semibold text-white bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset border-none">{showAddForm ? 'Cancel' : 'New'}</Button>
+                                        <Button onClick={() => setShowAddForm(prev => !prev)} icon={PlusCircleIcon} className="font-semibold text-blue-700 dark:text-blue-200 bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-800 dark:to-blue-900 shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset border-none">{showAddForm ? 'Cancel' : 'New'}</Button>
                                     </div>
                                 )}
                             </div>
@@ -1123,25 +1118,43 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 };
 
 const AnnouncementListItem = ({ post, isOwn, onEdit, onDelete, isEditing, editContent, onChangeEdit, onSaveEdit, onCancelEdit, onClick }) => {
-    // ... (no changes in this component)
-    const formattedDate = post.createdAt?.toDate().toLocaleString() || 'NA';
+    // --- MODIFIED: Added dark mode classes ---
     return (
-        <div className="group relative bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic transition-shadow duration-300 hover:shadow-neumorphic-inset cursor-pointer" onClick={!isEditing ? onClick : undefined}>
+        <div className="group relative bg-neumorphic-base dark:bg-neumorphic-base-dark p-5 rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow duration-300 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark cursor-pointer" onClick={!isEditing ? onClick : undefined}>
             {isEditing ? (
                 <div className="flex flex-col gap-3">
-                    <textarea className="w-full border-none p-2 rounded-lg text-base text-slate-800 focus:ring-0 bg-neumorphic-base shadow-neumorphic-inset" rows={3} value={editContent} onChange={onChangeEdit} onClick={(e) => e.stopPropagation()} />
+                    <textarea 
+                        className="w-full border-none p-2 rounded-lg text-base text-slate-800 dark:text-slate-100 focus:ring-0 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark" 
+                        rows={3} 
+                        value={editContent} 
+                        onChange={onChangeEdit} 
+                        onClick={(e) => e.stopPropagation()} 
+                    />
                     <div className="flex justify-end gap-2">
-                        <button className="px-4 py-1.5 text-sm rounded-full font-semibold bg-neumorphic-base text-slate-700 shadow-neumorphic hover:shadow-neumorphic-inset" onClick={(e) => { e.stopPropagation(); onCancelEdit(); }}>Cancel</button>
-                        <button className="px-4 py-1.5 text-sm rounded-full font-semibold bg-neumorphic-base text-sky-600 shadow-neumorphic hover:shadow-neumorphic-inset" onClick={(e) => { e.stopPropagation(); onSaveEdit(); }}>Save</button>
+                        <button 
+                            className="px-4 py-1.5 text-sm rounded-full font-semibold bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-700 dark:text-slate-200 shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" 
+                            onClick={(e) => { e.stopPropagation(); onCancelEdit(); }}
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            className="px-4 py-1.5 text-sm rounded-full font-semibold bg-neumorphic-base dark:bg-neumorphic-base-dark text-sky-600 dark:text-sky-400 shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" 
+                            onClick={(e) => { e.stopPropagation(); onSaveEdit(); }}
+                        >
+                            Save
+                        </button>
                     </div>
                 </div>
             ) : (
                 <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0 pr-4">
-                        <p className="font-semibold text-slate-800 text-base leading-snug group-hover:text-sky-600 transition-colors">{post.content}</p>
-                        <p className="text-sm text-slate-500 mt-2">Posted by <span className="font-medium">{post.teacherName}</span> on {formattedDate}</p>
+                        <p className="font-semibold text-slate-800 dark:text-slate-100 text-base leading-snug group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">{post.content}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Posted by <span className="font-medium">{post.teacherName}</span> on {formattedDate}</p>
                     </div>
-                    {isOwn && <div className="flex space-x-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit" className="p-2 rounded-full text-slate-500 hover:shadow-neumorphic-inset"><PencilSquareIcon className="w-5 h-5" /></button><button onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete" className="p-2 rounded-full text-red-500 hover:shadow-neumorphic-inset"><TrashIcon className="w-5 h-5" /></button></div>}
+                    {isOwn && <div className="flex space-x-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit" className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"><PencilSquareIcon className="w-5 h-5" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete" className="p-2 rounded-full text-red-500 dark:text-red-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"><TrashIcon className="w-5 h-5" /></button>
+                    </div>}
                 </div>
             )}
         </div>

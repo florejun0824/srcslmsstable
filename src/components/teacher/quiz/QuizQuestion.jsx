@@ -40,15 +40,20 @@ export default function QuizQuestion() {
         return (
             <div>
                 {/* Prompt */}
-                <div className="font-semibold text-base mb-4 bg-neumorphic-base p-3 rounded-2xl shadow-neumorphic-inset">
+                {/* --- MODIFIED: Added dark theme --- */}
+                <div className="font-semibold text-base mb-4 bg-neumorphic-base p-3 rounded-2xl shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
                     <ContentRenderer text={question.text || question.question || "Essay Prompt Missing"} />
-                    <span className="block text-xs text-slate-500 mt-1">({question.points || 0} points)</span>
+                    {/* --- MODIFIED: Added dark theme --- */}
+                    <span className="block text-xs text-slate-500 mt-1 dark:text-slate-400">({question.points || 0} points)</span>
                 </div>
                 {/* Rubric */}
                 {(question.rubric && question.rubric.length > 0) && (
-                    <div className="mb-4 p-3 bg-neumorphic-base shadow-neumorphic-inset rounded-2xl">
-                        <p className="text-sm font-bold text-slate-700 mb-2">Rubric</p>
-                        <ul className="list-disc list-inside space-y-1 text-sm text-slate-600">
+                    // --- MODIFIED: Added dark theme ---
+                    <div className="mb-4 p-3 bg-neumorphic-base shadow-neumorphic-inset rounded-2xl dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
+                        {/* --- MODIFIED: Added dark theme --- */}
+                        <p className="text-sm font-bold text-slate-700 mb-2 dark:text-slate-300">Rubric</p>
+                        {/* --- MODIFIED: Added dark theme --- */}
+                        <ul className="list-disc list-inside space-y-1 text-sm text-slate-600 dark:text-slate-400">
                             {question.rubric.map(item => (
                                 <li key={item.id || item.criteria}>
                                     <span className="font-semibold">{item.criteria || "Unnamed Criterion"}</span>: {item.points || 0} pts
@@ -63,7 +68,8 @@ export default function QuizQuestion() {
                     value={userAnswers[currentQ] || ''}
                     onChange={e => handleAnswer(e.target.value, 'essay')}
                     disabled={isTeacherView}
-                    className="w-full h-48 p-3 rounded-xl bg-neumorphic-base shadow-neumorphic-inset focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 disabled:opacity-70 disabled:cursor-not-allowed"
+                    // --- MODIFIED: Added dark theme ---
+                    className="w-full h-48 p-3 rounded-xl bg-neumorphic-base shadow-neumorphic-inset focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 disabled:opacity-70 disabled:cursor-not-allowed dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:focus:ring-blue-400 dark:text-slate-100"
                     aria-label={`Answer for essay question ${currentQ + 1}`}
                 />
             </div>
@@ -88,8 +94,8 @@ export default function QuizQuestion() {
                     style={style}
                     {...listeners}
                     {...attributes}
-                    // --- MODIFIED: Added 'touch-none' and 'select-none' ---
-                    className={`p-2 bg-neumorphic-base rounded-lg text-slate-700 text-sm transition-shadow ${isMatchingDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-grab active:cursor-grabbing shadow-neumorphic active:shadow-neumorphic-inset'} ${isDragging ? 'shadow-lg ring-2 ring-blue-500' : ''} touch-none select-none`}
+                    // --- MODIFIED: Added dark theme ---
+                    className={`p-2 bg-neumorphic-base rounded-lg text-slate-700 text-sm transition-shadow ${isMatchingDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-grab active:cursor-grabbing shadow-neumorphic active:shadow-neumorphic-inset'} ${isDragging ? 'shadow-lg ring-2 ring-blue-500' : ''} touch-none select-none dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark dark:ring-blue-400`}
                     // --- END MODIFICATION ---
                     aria-disabled={isMatchingDisabled}
                 >
@@ -105,22 +111,26 @@ export default function QuizQuestion() {
             return (
                 <div className="flex items-center gap-2">
                     {/* Prompt Text */}
-                    <div className="flex-1 p-2 bg-neumorphic-base shadow-neumorphic-inset rounded-lg text-slate-800 font-medium text-sm min-h-[3rem] flex items-center">
+                    {/* --- MODIFIED: Added dark theme --- */}
+                    <div className="flex-1 p-2 bg-neumorphic-base shadow-neumorphic-inset rounded-lg text-slate-800 font-medium text-sm min-h-[3rem] flex items-center dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:text-slate-100">
                         {text || "Prompt Text Missing"}
                     </div>
                     {/* Drop Zone */}
                     <div
                         ref={setNodeRef}
                         onClick={() => !isMatchingDisabled && onDrop(id)}
-                        className={`flex-1 h-12 p-1 border-2 border-dashed rounded-lg flex items-center justify-center transition-colors ${isOver ? 'border-blue-500 bg-blue-500/10' : 'border-slate-300'} ${isMatchingDisabled ? 'cursor-not-allowed bg-slate-100' : 'cursor-pointer'}`}
+                        // --- MODIFIED: Added dark theme ---
+                        className={`flex-1 h-12 p-1 border-2 border-dashed rounded-lg flex items-center justify-center transition-colors ${isOver ? 'border-blue-500 bg-blue-500/10 dark:border-blue-400 dark:bg-blue-500/20' : 'border-slate-300 dark:border-slate-700'} ${isMatchingDisabled ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800' : 'cursor-pointer'}`}
                         aria-label={`Drop area for prompt: ${text}`}
                     >
                         {matchedOption ? (
-                            <div className={`p-1 bg-slate-200 shadow-inner rounded-md w-full text-center text-slate-800 text-sm ${!isMatchingDisabled ? 'cursor-pointer' : ''}`}>
+                            // --- MODIFIED: Added dark theme ---
+                            <div className={`p-1 bg-slate-200 shadow-inner rounded-md w-full text-center text-slate-800 text-sm ${!isMatchingDisabled ? 'cursor-pointer' : ''} dark:bg-slate-700 dark:text-slate-100`}>
                                 {matchedOption.text || "Matched Option Missing"}
                             </div>
                             ) : (
-                            <span className="text-xs text-slate-400">{isMatchingDisabled ? 'Unanswered' : 'Drop here'}</span>
+                            // --- MODIFIED: Added dark theme ---
+                            <span className="text-xs text-slate-400 dark:text-slate-500">{isMatchingDisabled ? 'Unanswered' : 'Drop here'}</span>
                             )
                         }
                     </div>
@@ -157,9 +167,11 @@ export default function QuizQuestion() {
         return (
             <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
                 {/* Instruction */}
-                <div className="font-semibold text-base mb-4 bg-neumorphic-base p-3 rounded-2xl shadow-neumorphic-inset">
+                {/* --- MODIFIED: Added dark theme --- */}
+                <div className="font-semibold text-base mb-4 bg-neumorphic-base p-3 rounded-2xl shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
                     <ContentRenderer text={question.text || question.question || "Matching Instructions Missing"} />
-                    <span className="block text-xs text-slate-500 mt-1">({question.points || 0} points total)</span>
+                    {/* --- MODIFIED: Added dark theme --- */}
+                    <span className="block text-xs text-slate-500 mt-1 dark:text-slate-400">({question.points || 0} points total)</span>
                 </div>
                 {/* Columns */}
                 <div className="flex flex-col md:flex-row gap-4">
@@ -172,8 +184,10 @@ export default function QuizQuestion() {
                         })}
                     </div>
                     {/* Options (Draggable) */}
-                    <div className="w-full md:w-1/3 space-y-2 p-3 bg-neumorphic-base shadow-neumorphic-inset rounded-2xl">
-                        <p className="text-center text-xs text-slate-500 font-semibold mb-2">DRAGGABLE OPTIONS</p>
+                    {/* --- MODIFIED: Added dark theme --- */}
+                    <div className="w-full md:w-1/3 space-y-2 p-3 bg-neumorphic-base shadow-neumorphic-inset rounded-2xl dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
+                        {/* --- MODIFIED: Added dark theme --- */}
+                        <p className="text-center text-xs text-slate-500 font-semibold mb-2 dark:text-slate-400">DRAGGABLE OPTIONS</p>
                         {options
                             .filter(opt => !matchedOptionIds.includes(opt.id))
                             .map((option, index) => <DraggableOption key={option.id || index} id={option.id} text={option.text} />)}
@@ -184,7 +198,8 @@ export default function QuizQuestion() {
                     <div className="mt-4 text-center">
                         <button
                             onClick={handleConfirmMatchingAnswer}
-                            className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all"
+                            // --- MODIFIED: Added dark theme ---
+                            className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-blue-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
                         >
                             Confirm Answer
                         </button>
@@ -192,10 +207,13 @@ export default function QuizQuestion() {
                 )}
                 {/* Feedback after Confirm (This was in the original renderQuestion, so it stays) */}
                 {matchingResult && (
-                    <div className="mt-4 p-3 text-center font-semibold text-lg rounded-2xl bg-neumorphic-base shadow-neumorphic-inset">
-                        You correctly matched <span className="text-green-600">{matchingResult.correct}</span> out of <span className="text-slate-800">{matchingResult.total}</span> items.
+                    // --- MODIFIED: Added dark theme ---
+                    <div className="mt-4 p-3 text-center font-semibold text-lg rounded-2xl bg-neumorphic-base shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
+                        {/* --- MODIFIED: Added dark theme --- */}
+                        You correctly matched <span className="text-green-600 dark:text-green-400">{matchingResult.correct}</span> out of <span className="text-slate-800 dark:text-slate-100">{matchingResult.total}</span> items.
                         {question.explanation && (
-                             <p className="text-xs italic mt-2 text-slate-600">Explanation: <ContentRenderer text={question.explanation}/></p>
+                            // --- MODIFIED: Added dark theme ---
+                             <p className="text-xs italic mt-2 text-slate-600 dark:text-slate-400">Explanation: <ContentRenderer text={question.explanation}/></p>
                         )}
                     </div>
                 )}
@@ -212,9 +230,11 @@ export default function QuizQuestion() {
         return (
             <div>
                 {/* Question Text */}
-                <div className="font-semibold text-base mb-4 bg-neumorphic-base p-3 rounded-2xl shadow-neumorphic-inset">
+                {/* --- MODIFIED: Added dark theme --- */}
+                <div className="font-semibold text-base mb-4 bg-neumorphic-base p-3 rounded-2xl shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
                     <ContentRenderer text={question.text || question.question || "True/False Statement Missing"} />
-                    <span className="block text-xs text-slate-500 mt-1">({question.points || 0} points)</span>
+                    {/* --- MODIFIED: Added dark theme --- */}
+                    <span className="block text-xs text-slate-500 mt-1 dark:text-slate-400">({question.points || 0} points)</span>
                 </div>
                 {/* Buttons */}
                 <div className="grid grid-cols-2 gap-3">
@@ -223,7 +243,8 @@ export default function QuizQuestion() {
                             key={option.label}
                             onClick={() => handleAnswer(option.value, 'true-false')}
                             disabled={isDisabled}
-                            className={`w-full p-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-neumorphic-base ${isDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer active:shadow-neumorphic-inset'} ${userAnswers[currentQ] === option.value ? 'shadow-neumorphic-inset text-blue-700' : 'shadow-neumorphic text-slate-700'}`}
+                            // --- MODIFIED: Added dark theme ---
+                            className={`w-full p-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-neumorphic-base ${isDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer active:shadow-neumorphic-inset'} ${userAnswers[currentQ] === option.value ? 'shadow-neumorphic-inset text-blue-700 dark:text-blue-400' : 'shadow-neumorphic text-slate-700 dark:text-slate-300'} dark:bg-neumorphic-base-dark ${userAnswers[currentQ] !== option.value ? 'dark:shadow-lg' : 'dark:shadow-neumorphic-inset-dark'}`}
                             aria-pressed={userAnswers[currentQ] === option.value}
                         >
                             {option.label}
@@ -239,16 +260,19 @@ export default function QuizQuestion() {
     return (
         <div>
             {/* Question Text */}
-            <div className="font-semibold text-base mb-4 bg-neumorphic-base p-3 rounded-2xl shadow-neumorphic-inset">
+            {/* --- MODIFIED: Added dark theme --- */}
+            <div className="font-semibold text-base mb-4 bg-neumorphic-base p-3 rounded-2xl shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
                 <ContentRenderer text={question.text || question.question || "Question Text Missing"} />
-                <span className="block text-xs text-slate-500 mt-1">({question.points || 0} points)</span>
+                {/* --- MODIFIED: Added dark theme --- */}
+                <span className="block text-xs text-slate-500 mt-1 dark:text-slate-400">({question.points || 0} points)</span>
             </div>
 
             {/* Options (MC) or Input (ID) */}
             {question.type === 'multiple-choice' ? (
                 <div className="space-y-2">
                     {(question.options || []).map((option, idx) => (
-                        <label key={idx} className={`relative flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 bg-neumorphic-base ${isDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer active:shadow-neumorphic-inset'} ${userAnswers[currentQ] === idx ? 'shadow-neumorphic-inset' : 'shadow-neumorphic'}`}>
+                        // --- MODIFIED: Added dark theme ---
+                        <label key={idx} className={`relative flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 bg-neumorphic-base ${isDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer active:shadow-neumorphic-inset'} ${userAnswers[currentQ] === idx ? 'shadow-neumorphic-inset' : 'shadow-neumorphic'} dark:bg-neumorphic-base-dark ${userAnswers[currentQ] === idx ? 'dark:shadow-neumorphic-inset-dark' : 'dark:shadow-lg dark:active:shadow-neumorphic-inset-dark'}`}>
                             <input
                                 type="radio"
                                 name={`question-${currentQ}`}
@@ -259,10 +283,12 @@ export default function QuizQuestion() {
                                 className="absolute opacity-0 w-0 h-0 peer"
                                 aria-label={`Option ${idx + 1}`}
                             />
-                            <span className={`flex-shrink-0 w-5 h-5 rounded-full border-2 border-slate-400 peer-focus:ring-2 peer-focus:ring-blue-500 peer-focus:ring-offset-2 peer-focus:ring-offset-neumorphic-base flex items-center justify-center transition-colors ${userAnswers[currentQ] === idx ? 'bg-blue-600 border-blue-600' : 'bg-neumorphic-inset'}`} aria-hidden="true">
+                            {/* --- MODIFIED: Added dark theme --- */}
+                            <span className={`flex-shrink-0 w-5 h-5 rounded-full border-2 border-slate-400 peer-focus:ring-2 peer-focus:ring-blue-500 peer-focus:ring-offset-2 peer-focus:ring-offset-neumorphic-base flex items-center justify-center transition-colors ${userAnswers[currentQ] === idx ? 'bg-blue-600 border-blue-600 dark:bg-blue-500 dark:border-blue-500' : 'bg-neumorphic-inset dark:border-slate-500 dark:bg-neumorphic-inset-dark'} dark:peer-focus:ring-offset-neumorphic-base-dark`} aria-hidden="true">
                                  {userAnswers[currentQ] === idx && <span className="w-2 h-2 rounded-full bg-white"></span>}
                             </span>
-                            <span className="text-sm text-slate-700"><ContentRenderer text={option.text || option || `Option ${idx + 1} Missing`} /></span>
+                            {/* --- MODIFIED: Added dark theme --- */}
+                            <span className="text-sm text-slate-700 dark:text-slate-300"><ContentRenderer text={option.text || option || `Option ${idx + 1} Missing`} /></span>
                         </label>
                     ))}
                 </div>
@@ -274,13 +300,15 @@ export default function QuizQuestion() {
                         value={userAnswers[currentQ] || ''}
                         onChange={e => setUserAnswers({ ...userAnswers, [currentQ]: e.target.value })}
                         disabled={isDisabled}
-                        className="w-full p-3 rounded-xl bg-neumorphic-base shadow-neumorphic-inset focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 disabled:opacity-70 disabled:cursor-not-allowed"
+                        // --- MODIFIED: Added dark theme ---
+                        className="w-full p-3 rounded-xl bg-neumorphic-base shadow-neumorphic-inset focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 disabled:opacity-70 disabled:cursor-not-allowed dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:focus:ring-blue-400 dark:text-slate-100"
                         aria-label={`Answer for identification question ${currentQ + 1}`}
                     />
                     {!isDisabled && (
                         <button
                             onClick={() => handleAnswer(userAnswers[currentQ] || '', 'identification')}
-                            className="mt-4 w-full py-3 rounded-2xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all"
+                            // --- MODIFIED: Added dark theme ---
+                            className="mt-4 w-full py-3 rounded-2xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-blue-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
                         >
                             Submit Answer
                         </button>

@@ -103,17 +103,20 @@ const ImportToClassModal = ({
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-50 p-4 font-sans">
-      <div className="relative bg-neumorphic-base rounded-3xl shadow-neumorphic p-6 w-full max-w-lg flex flex-col" style={{ minHeight: '400px', maxHeight: '90vh' }}>
+      {/* --- MODIFIED: Added dark mode classes --- */}
+      <div className="relative bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark p-6 w-full max-w-lg flex flex-col" style={{ minHeight: '400px', maxHeight: '90vh' }}>
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg sm:text-xl font-bold text-slate-800">
+          {/* --- MODIFIED: Added dark mode classes --- */}
+          <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100">
             Add to Class
           </h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-full shadow-neumorphic hover:shadow-neumorphic-inset transition-all"
+            // --- MODIFIED: Added dark mode classes ---
+            className="p-2 rounded-full shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all"
           >
-            <X className="w-5 h-5 text-slate-600" />
+            <X className="w-5 h-5 text-slate-600 dark:text-slate-300" />
           </button>
         </div>
 
@@ -124,10 +127,12 @@ const ImportToClassModal = ({
             placeholder="Search your classes..." // <-- Updated placeholder
             value={classSearchTerm}
             onChange={(e) => setClassSearchTerm(e.target.value)}
-            className="w-full bg-neumorphic-base shadow-neumorphic-inset text-slate-800 px-4 py-3 pl-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            // --- MODIFIED: Added dark mode classes ---
+            className="w-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-slate-800 dark:text-slate-100 px-4 py-3 pl-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-500 placeholder:text-slate-500 dark:placeholder:text-slate-400"
             autoFocus
           />
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+          {/* --- MODIFIED: Added dark mode classes --- */}
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 pointer-events-none" />
         </div>
 
         {/* Content Area (Class List or Error) */}
@@ -135,22 +140,25 @@ const ImportToClassModal = ({
           {!validation.valid ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-4">
               <AlertCircle className="w-12 h-12 text-red-500 mb-3" />
-              <h3 className="font-semibold text-slate-700">Import Blocked</h3>
-              <p className="text-sm text-slate-500">{validation.error}</p>
+              {/* --- MODIFIED: Added dark mode classes --- */}
+              <h3 className="font-semibold text-slate-700 dark:text-slate-200">Import Blocked</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{validation.error}</p>
             </div>
           ) : availableClasses.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-xs text-slate-500 mb-2 px-1">
+              {/* --- MODIFIED: Added dark mode classes --- */}
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 px-1">
                 {/* Updated text to be more general */}
                 Showing your classes matching grade: <span className="font-semibold">{validation.grade}</span>
               </p>
               {availableClasses.map(cls => (
                 <label 
                   key={cls.id}
+                  // --- MODIFIED: Added dark mode classes ---
                   className={`flex items-center p-3 rounded-lg cursor-pointer transition-all ${
                     selectedClass?.id === cls.id 
-                    ? 'bg-indigo-100 shadow-neumorphic-inset' 
-                    : 'bg-neumorphic-base hover:shadow-neumorphic-inset'
+                    ? 'bg-indigo-100 dark:bg-indigo-900/30 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark' 
+                    : 'bg-neumorphic-base dark:bg-neumorphic-base-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'
                   }`}
                 >
                   <input
@@ -158,16 +166,18 @@ const ImportToClassModal = ({
                     name="class-selection"
                     checked={selectedClass?.id === cls.id}
                     onChange={() => setSelectedClass(cls)}
-                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                    // --- MODIFIED: Added dark mode classes ---
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 dark:bg-slate-700 dark:border-slate-600"
                   />
-
-                  <span className="ml-3 font-medium text-slate-700">{cls.name}</span>
+                  {/* --- MODIFIED: Added dark mode classes --- */}
+                  <span className="ml-3 font-medium text-slate-700 dark:text-slate-200">{cls.name}</span>
                 </label>
               ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center p-4">
-              <p className="text-slate-500">
+              {/* --- MODIFIED: Added dark mode classes --- */}
+              <p className="text-slate-500 dark:text-slate-400">
                 {/* Updated text to be more general */}
                 No classes you handle were found matching your search or grade level (<span className="font-semibold">{validation.grade}</span>).
               </p>
@@ -176,11 +186,13 @@ const ImportToClassModal = ({
         </div>
 
         {/* Footer Buttons */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 mt-4">
+        {/* --- MODIFIED: Added dark mode classes --- */}
+        <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700 mt-4">
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl font-semibold text-slate-700 bg-neumorphic-base shadow-neumorphic hover:shadow-neumorphic-inset transition-all"
+            // --- MODIFIED: Added dark mode classes ---
+            className="px-5 py-2 rounded-xl font-semibold text-slate-700 dark:text-slate-200 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all"
           >
             Cancel
           </button>
@@ -190,7 +202,7 @@ const ImportToClassModal = ({
             disabled={!selectedClass || isSubmitting}
             className="px-5 py-2 rounded-xl font-semibold text-white bg-indigo-600 shadow-lg shadow-indigo-500/40 hover:bg-indigo-700 transition-all disabled:bg-slate-400 disabled:shadow-none"
           >
-            {isSubmitting ? <Spinner size="sm" /> : 'Next'}
+            {isSubmitting ? <Spinner size="sm" /> : 'Import'}
           </button>
         </div>
       </div>
@@ -199,4 +211,3 @@ const ImportToClassModal = ({
 };
 
 export default ImportToClassModal;
-

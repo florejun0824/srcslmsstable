@@ -3,12 +3,12 @@ import Modal from '../common/Modal';
 import { collection, getDocs, query, orderBy, doc, getDoc, where } from 'firebase/firestore';
 import { CheckIcon, MagnifyingGlassIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 
-// --- MODIFIED: Made buttons responsive ---
-const primaryButtonStyles = "w-full sm:w-auto px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base font-semibold text-white bg-blue-600 rounded-full shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all duration-200 disabled:opacity-50 active:scale-95";
-const secondaryButtonStyles = "w-full sm:w-auto px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base font-semibold text-gray-900 bg-neumorphic-base rounded-full shadow-neumorphic hover:text-blue-600 transition-all disabled:opacity-50 active:scale-95";
+// --- MODIFIED: Added dark theme styles ---
+const primaryButtonStyles = "w-full sm:w-auto px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base font-semibold text-white bg-blue-600 rounded-full shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400 dark:focus-visible:outline-blue-500 transition-all duration-200 disabled:opacity-50 active:scale-95";
+const secondaryButtonStyles = "w-full sm:w-auto px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base font-semibold text-gray-900 bg-neumorphic-base rounded-full shadow-neumorphic hover:text-blue-600 dark:bg-neumorphic-base-dark dark:text-slate-200 dark:shadow-lg dark:hover:text-blue-400 dark:active:shadow-neumorphic-inset-dark transition-all disabled:opacity-50 active:scale-95";
 
+// --- MODIFIED: Added dark theme styles ---
 const NeumorphicCheckbox = React.memo(({ checked, indeterminate, ...props }) => {
-    // ... (This component is unchanged) ...
     const ref = React.useRef(null);
     useEffect(() => {
         if (ref.current) {
@@ -25,20 +25,20 @@ const NeumorphicCheckbox = React.memo(({ checked, indeterminate, ...props }) => 
                 {...props} 
                 className="sr-only peer" 
             />
-            <span className="w-full h-full bg-neumorphic-base rounded-md shadow-neumorphic-inset flex items-center justify-center transition-all peer-checked:bg-blue-500 peer-checked:shadow-neumorphic">
+            <span className="w-full h-full bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-md shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark flex items-center justify-center transition-all peer-checked:bg-blue-500 peer-checked:dark:bg-blue-400 peer-checked:shadow-neumorphic peer-checked:dark:shadow-lg">
                 <CheckIcon className={`w-4 h-4 text-white transition-opacity ${checked ? 'opacity-100' : 'opacity-0'}`} />
             </span>
         </div>
     );
 });
 
-// --- MODIFIED: Made empty state responsive ---
+// --- MODIFIED: Added dark theme styles ---
 const StudentListMessage = ({ icon, title, message }) => {
     const IconComponent = icon;
     return (
-        <div className="flex flex-col items-center justify-center h-full text-center p-8 text-gray-500">
-            {IconComponent && <IconComponent className="w-10 h-10 sm:w-12 h-12 mb-4 text-gray-400" />}
-            <h3 className="font-semibold text-gray-700 text-base sm:text-lg">{title}</h3>
+        <div className="flex flex-col items-center justify-center h-full text-center p-8 text-gray-500 dark:text-slate-400">
+            {IconComponent && <IconComponent className="w-10 h-10 sm:w-12 h-12 mb-4 text-gray-400 dark:text-slate-500" />}
+            <h3 className="font-semibold text-gray-700 dark:text-slate-200 text-base sm:text-lg">{title}</h3>
             <p className="text-sm">{message}</p>
         </div>
     );
@@ -223,15 +223,17 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
     };
 
     const filteredClasses = useMemo(() => {
-        return allClasses.filter(c => 
-            c.label.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        return allClasses
+            .filter(c => 
+                c.label.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+            // --- MODIFIED: Added sorting logic ---
+            .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
     }, [allClasses, searchTerm]);
 
     const classListContent = useMemo(() => {
-        // ... (This function's logic is unchanged) ...
         if (filteredClasses.length === 0) {
-            return <div className="p-4 text-center text-gray-500">No classes match search.</div>
+            return <div className="p-4 text-center text-gray-500 dark:text-slate-400">No classes match search.</div>
         }
         
         return filteredClasses.map(cls => {
@@ -245,12 +247,12 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
             return (
                 <div 
                     key={cls.value} 
-                    // --- MODIFIED: Reduced mobile padding ---
-                    className={`flex items-center gap-3 p-2 sm:p-3 rounded-xl cursor-pointer transition-all ${activeClassId === cls.value ? 'bg-blue-500/10 shadow-neumorphic' : 'hover:bg-black/5'}`}
+                    // --- MODIFIED: Added dark theme classes ---
+                    className={`flex items-center gap-3 p-2 sm:p-3 rounded-xl cursor-pointer transition-all ${activeClassId === cls.value ? 'bg-blue-500/10 dark:bg-blue-500/20 shadow-neumorphic dark:shadow-lg' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}
                 >
                     <div className="flex-shrink-0">
                         {isLoading ? (
-                            <ArrowPathIcon className="w-5 h-5 text-gray-400 animate-spin" />
+                            <ArrowPathIcon className="w-5 h-5 text-gray-400 dark:text-slate-400 animate-spin" />
                         ) : (
                             <NeumorphicCheckbox 
                                 checked={isChecked}
@@ -264,9 +266,9 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
                         className="flex-grow select-none min-w-0" // Added min-w-0 for truncation
                         onClick={() => setActiveClassId(cls.value)}
                     >
-                        {/* --- MODIFIED: Made text responsive and added truncation --- */}
-                        <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{cls.label}</div>
-                        <div className="text-sm text-gray-500">
+                        {/* --- MODIFIED: Added dark theme classes --- */}
+                        <div className="font-medium text-gray-900 dark:text-slate-100 text-sm sm:text-base truncate">{cls.label}</div>
+                        <div className="text-sm text-gray-500 dark:text-slate-400">
                             {selection.size} / {totalCount} selected
                         </div>
                     </div>
@@ -276,7 +278,6 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
     }, [filteredClasses, activeClassId, tempSelectionMap, loadingClassStudents]);
 
     const studentListContent = useMemo(() => {
-        // ... (This function's logic is unchanged) ...
         if (loadingStudents) {
             return <StudentListMessage icon={ArrowPathIcon} title="Loading Students..." message="Please wait..." />;
         }
@@ -293,8 +294,8 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
 
         return (
             <>
-                {/* --- MODIFIED: Made header responsive --- */}
-                <header className="flex-shrink-0 flex items-center gap-3 p-3 sm:p-4 border-b border-black/10">
+                {/* --- MODIFIED: Added dark theme classes --- */}
+                <header className="flex-shrink-0 flex items-center gap-3 p-3 sm:p-4 border-b border-black/10 dark:border-slate-700">
                     <NeumorphicCheckbox
                         checked={allVisibleSelected}
                         indeterminate={isIndeterminate}
@@ -303,11 +304,11 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
                     />
                     <label
                         onClick={handleToggleAllStudents}
-                        // --- MODIFIED: Made text responsive ---
-                        className="font-semibold text-gray-900 cursor-pointer select-none flex-grow text-sm sm:text-base"
+                        // --- MODIFIED: Added dark theme classes ---
+                        className="font-semibold text-gray-900 dark:text-slate-100 cursor-pointer select-none flex-grow text-sm sm:text-base"
                     >
                         Select all students
-                        <span className="text-gray-500 font-normal ml-2">
+                        <span className="text-gray-500 dark:text-slate-400 font-normal ml-2">
                             ({students.filter(s => currentSet.has(s.id)).length}/{students.length})
                         </span>
                     </label>
@@ -320,12 +321,12 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
                             <li 
                                 key={student.id} 
                                 onClick={() => handleToggleStudent(student.id)}
-                                // --- MODIFIED: Made list item responsive ---
-                                className={`flex items-center gap-3 p-3 sm:p-4 cursor-pointer transition-colors ${isSelected ? 'bg-blue-500/10' : 'hover:bg-black/5'} border-t border-black/5`}
+                                // --- MODIFIED: Added dark theme classes ---
+                                className={`flex items-center gap-3 p-3 sm:p-4 cursor-pointer transition-colors ${isSelected ? 'bg-blue-500/10 dark:bg-blue-500/20' : 'hover:bg-black/5 dark:hover:bg-white/5'} border-t border-black/5 dark:border-slate-700/50`}
                             >
                                 <NeumorphicCheckbox checked={isSelected} readOnly className="pointer-events-none" />
-                                {/* --- MODIFIED: Made text responsive --- */}
-                                <span className="text-gray-800 select-none text-sm sm:text-base">{student.displayName}</span>
+                                {/* --- MODIFIED: Added dark theme classes --- */}
+                                <span className="text-gray-800 dark:text-slate-200 select-none text-sm sm:text-base">{student.displayName}</span>
                             </li>
                         );
                     })}
@@ -341,55 +342,55 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses, cu
             onClose={onClose} 
             title="Select Classes & Students"
             description="Select classes and the specific students you want to share with."
-            // --- MODIFIED: Reduced max size from 6xl to 4xl ---
             size="4xl"
-            contentClassName="bg-neumorphic-base"
+            // --- MODIFIED: Added dark theme class ---
+            contentClassName="bg-neumorphic-base dark:bg-neumorphic-base-dark"
         >
             <div className="flex flex-col h-[80vh] md:h-[70vh]">
                 
-                {/* --- MODIFIED: Reduced gap for mobile --- */}
                 <main className="flex-grow flex flex-col md:flex-row gap-2 sm:gap-4 min-h-0">
                     
                     {/* Column 1: Search */}
-                    {/* --- MODIFIED: Made responsive --- */}
-                    <div className="w-full md:w-1/3 p-3 sm:p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col">
-                        <h3 className="text-base sm:text-lg font-semibold mb-3 text-gray-900">Search</h3>
+                    {/* --- MODIFIED: Added dark theme classes --- */}
+                    <div className="w-full md:w-1/3 p-3 sm:p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-lg flex flex-col">
+                        <h3 className="text-base sm:text-lg font-semibold mb-3 text-gray-900 dark:text-slate-100">Search</h3>
                         <div className="relative">
                             <input 
                                 type="text"
                                 placeholder="Search class name..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                // --- MODIFIED: Made input responsive ---
-                                className="w-full p-2.5 sm:p-3 pl-10 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm sm:text-base"
+                                // --- MODIFIED: Added dark theme classes ---
+                                className="w-full p-2.5 sm:p-3 pl-10 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all text-sm sm:text-base text-gray-900 dark:text-slate-100 placeholder:text-gray-500 dark:placeholder:text-slate-500"
                             />
-                            <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 dark:text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                             {searchTerm && (
                                 <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1">
-                                    <XMarkIcon className="w-4 h-4 text-gray-500" />
+                                    <XMarkIcon className="w-4 h-4 text-gray-500 dark:text-slate-400" />
                                 </button>
                             )}
                         </div>
                     </div>
 
                     {/* Column 2: Class list */}
-                    {/* --- MODIFIED: Made responsive --- */}
-                    <div className="w-full md:w-1/3 p-3 sm:p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col flex-grow min-h-0">
-                        <h3 className="text-base sm:text-lg font-semibold mb-3 text-gray-900">Class list</h3>
+                    {/* --- MODIFIED: Added dark theme classes --- */}
+                    <div className="w-full md:w-1D/3 p-3 sm:p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-lg flex flex-col flex-grow min-h-0">
+                        <h3 className="text-base sm:text-lg font-semibold mb-3 text-gray-900 dark:text-slate-100">Class list</h3>
                         <div className="flex-grow overflow-y-auto space-y-2 -m-1 p-1">
                             {classListContent}
                         </div>
                     </div>
 
                     {/* Column 3: Student list */}
-                    <div className="w-full md:w-1/3 bg-neumorphic-base rounded-2xl shadow-neumorphic flex flex-col flex-grow min-h-0 overflow-hidden">
+                    {/* --- MODIFIED: Added dark theme classes --- */}
+                    <div className="w-full md:w-1/3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-lg flex flex-col flex-grow min-h-0 overflow-hidden">
                         {studentListContent}
                     </div>
 
                 </main>
                 
-                {/* --- MODIFIED: Made footer responsive --- */}
-                <footer className="flex-shrink-0 pt-4 sm:pt-5 mt-4 sm:mt-5 border-t border-black/10">
+                {/* --- MODIFIED: Added dark theme classes --- */}
+                <footer className="flex-shrink-0 pt-4 sm:pt-5 mt-4 sm:mt-5 border-t border-black/10 dark:border-slate-700">
                     <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                         <button type="button" onClick={onClose} className={secondaryButtonStyles}>Cancel</button>
                         <button onClick={handleDone} className={primaryButtonStyles}>

@@ -69,16 +69,17 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, activeClasses, handle
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <motion.div
                 {...fadeProps}
-                // MODIFIED: Replaced all glassmorphism styles with the Neumorphic "popped up" card style.
-                className="lg:col-span-1 p-6 bg-neumorphic-base rounded-3xl shadow-neumorphic"
+                // --- MODIFIED: Added dark mode classes for bg and shadow ---
+                className="lg:col-span-1 p-6 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark"
             >
                 <div className="flex items-center gap-4 mb-6">
-                    {/* MODIFIED: The icon container is now a "pressed in" element. */}
-                    <div className="bg-neumorphic-base p-3 rounded-2xl shadow-neumorphic-inset">
+                    {/* --- MODIFIED: Added dark mode classes for bg and shadow --- */}
+                    <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark p-3 rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
                         <Megaphone className="w-6 h-6 text-sky-500" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-slate-800">Create Announcement</h2>
+                        {/* --- MODIFIED: Added dark mode text color --- */}
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Create Announcement</h2>
                     </div>
                 </div>
                 {/* NOTE: The <CreateAnnouncement /> component will need its internal styles updated to be transparent against its new parent. */}
@@ -87,7 +88,8 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, activeClasses, handle
 
             <div className="lg:col-span-2 space-y-6">
                 <motion.div {...fadeProps} className="flex items-center gap-3">
-                    <h2 className="text-2xl font-bold text-slate-800">Activity Feed</h2>
+                    {/* --- MODIFIED: Added dark mode text color --- */}
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Activity Feed</h2>
                 </motion.div>
                 <AnimatePresence>
                     {sortedAnnouncements && sortedAnnouncements.length > 0 ? sortedAnnouncements.map((post) => (
@@ -116,10 +118,10 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, activeClasses, handle
                         <motion.div
                             key="no-announcements"
                             {...fadeProps}
-                            // MODIFIED: The placeholder is now a "pressed in" card to look like an empty slot.
-                            className="text-center text-slate-500 py-12 rounded-3xl bg-neumorphic-base shadow-neumorphic-inset"
+                            // --- MODIFIED: Added dark mode classes for bg, shadow, and text ---
+                            className="text-center text-slate-500 dark:text-slate-400 py-12 rounded-3xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark"
                         >
-                            <Megaphone className="w-12 h-12 mx-auto text-slate-400 mb-4" />
+                            <Megaphone className="w-12 h-12 mx-auto text-slate-400 dark:text-slate-500 mb-4" />
                             <p className="text-lg font-semibold">No new announcements.</p>
                             <p className="text-sm">Be the first to post an update!</p>
                         </motion.div>
@@ -127,7 +129,8 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, activeClasses, handle
                 </AnimatePresence>
             </div>
             
-            <Suspense fallback={<div>Loading...</div>}>
+            {/* --- MODIFIED: Added dark mode text color to fallback --- */}
+            <Suspense fallback={<div className="text-slate-900 dark:text-slate-100">Loading...</div>}>
                 {isAnnouncementModalOpen && (
                     <AnnouncementModal
                         isOpen={isAnnouncementModalOpen}

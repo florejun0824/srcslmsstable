@@ -32,9 +32,8 @@ const HomeView = ({
     const closeScheduleModal = () => setIsScheduleModalOpen(false);
     
     return (
-        // MODIFIED: Replaced the entire background with our new solid 'neumorphic-base' color.
-        // This creates the neutral canvas for our "popped up" elements.
-        <div className="min-h-screen p-3 sm:p-4 md:p-6 bg-neumorphic-base font-sans">
+        // --- MODIFICATION: Replaced bg-neumorphic-base with bg-base ---
+        <div className="min-h-screen p-3 sm:p-4 md:p-6 bg-base font-sans">
             
             {/* REMOVED: The decorative divs for the old "aurora" background are gone. */}
 
@@ -60,7 +59,8 @@ const HomeView = ({
                 />
             </div>
             
-            <Suspense fallback={<div>Loading Schedule...</div>}>
+            {/* --- MODIFIED: Added text-primary to fallback --- */}
+            <Suspense fallback={<div className="text-primary">Loading Schedule...</div>}>
                 {isScheduleModalOpen && (
                      <ScheduleModal
                         isOpen={isScheduleModalOpen}

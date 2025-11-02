@@ -119,25 +119,45 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
       const isDirectVideo = embedUrl && embedUrl.match(/\.(mp4|webm|ogg)$/i); 
       return ( 
         <div className="my-6"> 
-          {shouldRenderTitle && ( <h4 className="text-xl font-bold text-slate-700 mb-4"> {page.title} </h4> )} 
-          {embedUrl ? ( isDirectVideo ? ( <video controls className="w-full rounded-lg shadow-md aspect-video bg-black"> <source src={embedUrl} type={`video/${embedUrl.split(".").pop()}`} /> Your browser does not support the video tag. </video> ) : ( <div className="aspect-video"> <iframe className="w-full h-full rounded-lg shadow-md" src={embedUrl} title={page.title || "Lesson Video"} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen ></iframe> </div> ) ) : ( <div className="text-center text-red-600 p-4 bg-red-50 rounded-lg"> Invalid or unsupported video URL. </div> )} 
+          {/* --- MODIFIED: Themed title --- */}
+          {shouldRenderTitle && ( <h4 className="text-xl font-bold text-slate-700 dark:text-slate-200 mb-4"> {page.title} </h4> )} 
+          {embedUrl ? ( 
+              isDirectVideo ? ( 
+                <video controls className="w-full rounded-lg shadow-md aspect-video bg-black"> 
+                    <source src={embedUrl} type={`video/${embedUrl.split(".").pop()}`} /> 
+                    Your browser does not support the video tag. 
+                </video> 
+              ) : ( 
+                <div className="aspect-video"> 
+                    <iframe className="w-full h-full rounded-lg shadow-md" src={embedUrl} title={page.title || "Lesson Video"} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen ></iframe> 
+                </div> 
+              ) 
+          ) : ( 
+            <div className="text-center text-red-600 dark:text-red-400 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg"> 
+                Invalid or unsupported video URL. 
+            </div> 
+          )} 
         </div> 
       );
     }
     case "diagram-data": {
       return (
-        <div className="my-6 p-4 border-2 border-dashed rounded-lg bg-slate-50 select-none">
-          {shouldRenderTitle && <h4 className="text-xl font-bold text-slate-700 mb-2">{page.title}</h4>}
+        // --- MODIFIED: Themed container ---
+        <div className="my-6 p-4 border-2 border-dashed rounded-lg bg-slate-50 dark:bg-slate-900/20 dark:border-slate-700 select-none">
+          {/* --- MODIFIED: Themed title --- */}
+          {shouldRenderTitle && <h4 className="text-xl font-bold text-slate-700 dark:text-slate-200 mb-2">{page.title}</h4>}
 
           <div
-            className="relative w-full max-w-4xl mx-auto bg-white"
+            // --- MODIFIED: Themed image container ---
+            className="relative w-full max-w-4xl mx-auto bg-white dark:bg-slate-800"
             ref={imageContainerRef}
             onMouseMove={(e) => { if (activeImageDrag) handleImageMouseMove(e); if (activeDrag) handleLabelMouseMove(e); }}
             onMouseUp={() => { handleImageMouseUp(); handleLabelMouseUp(); }}
             onMouseLeave={() => { handleImageMouseUp(); handleLabelMouseUp(); }}
             style={{ minHeight: 480 }}
           >
-            {images.length === 0 && ( <div className="text-center text-slate-500 p-6 bg-slate-100 rounded-lg"> No diagram available. Add an image to begin. </div> )}
+            {/* --- MODIFIED: Themed empty state --- */}
+            {images.length === 0 && ( <div className="text-center text-slate-500 dark:text-slate-400 p-6 bg-slate-100 dark:bg-slate-700 rounded-lg"> No diagram available. Add an image to begin. </div> )}
             <div className="absolute top-0 left-0 w-full h-full" style={{ zIndex: 1 }}> 
               {images.map((img, idx) => ( 
                 <div key={idx} style={{ position: "absolute", left: `${img.left}%`, top: `${img.top}%`, width: `${img.width}%`, transform: "translate(-50%, -50%)", cursor: isEditable ? "move" : "default", pointerEvents: isEditable ? "auto" : "none", }} onMouseDown={ isEditable ? onImageMouseDown(idx, "move") : undefined } draggable={false} > 
@@ -145,7 +165,8 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
                     <img src={img.url} alt={`diagram-${idx + 1}`} className="block w-full h-auto rounded-lg shadow-lg" draggable={false} /> 
                     {isEditable && ( 
                       <> 
-                        <div onMouseDown={onImageMouseDown(idx, "resize")} className="absolute w-3.5 h-3.5 -right-1.5 -bottom-1.5 rounded-sm bg-white border-2 border-gray-400 cursor-nwse-resize pointer-events-auto" /> 
+                        {/* --- MODIFIED: Themed resize handle --- */}
+                        <div onMouseDown={onImageMouseDown(idx, "resize")} className="absolute w-3.5 h-3.5 -right-1.5 -bottom-1.5 rounded-sm bg-white dark:bg-slate-700 border-2 border-gray-400 dark:border-slate-500 cursor-nwse-resize pointer-events-auto" /> 
                         <button title="Remove image" onClick={(e) => { e.stopPropagation(); handleRemoveImage(idx); }} className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-red-600 text-white flex items-center justify-center shadow z-10" > <TrashIcon className="h-4 w-4" /> 
                         </button> 
                       </> 
@@ -165,22 +186,26 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
             <div className="absolute top-0 left-0 w-full h-full" style={{ zIndex: 3, pointerEvents: 'none' }}> 
               {labels.map((label, index) => ( 
                 <div key={index} onMouseDown={isEditable ? handleLabelMouseDown(index, "label") : null} onClick={() => handleLabelClick(index)} onDoubleClick={() => handleLabelDoubleClick(index)} className={`absolute p-1 rounded font-bold text-white shadow-lg pointer-events-auto ${ isEditable ? "cursor-move" : "cursor-default" } ${label.isPlaced ? "bg-green-600" : "bg-blue-600"} ${ selectedLabelIndex === index ? "ring-2 ring-yellow-400" : "" }`} style={{ left: `${label.labelX}%`, top: `${label.labelY}%`, transform: "translate(-50%, -50%)", fontSize: `${label.fontSize}px`, }} > 
-                  {editingLabelIndex === index ? ( <input type="text" value={label.text} onChange={handleLabelTextChange} onBlur={handleLabelTextBlur} onKeyDown={(e) => e.key === "Enter" && handleLabelTextBlur()} autoFocus className="bg-transparent text-white w-full outline-none border-b border-white" /> ) : ( label.text )} 
+                  {editingLabelIndex === index ? ( 
+                    /* --- MODIFIED: Themed input --- */
+                    <input type="text" value={label.text} onChange={handleLabelTextChange} onBlur={handleLabelTextBlur} onKeyDown={(e) => e.key === "Enter" && handleLabelTextBlur()} autoFocus className="bg-transparent text-white w-full outline-none border-b border-white" /> ) : ( label.text )} 
                 </div> 
               ))} 
             </div>
           </div>
           
           {isEditable && selectedLabelIndex !== null && (
-            <div className="flex justify-center items-center gap-1 p-1 bg-slate-200 rounded-lg mt-4">
-              <button onClick={() => handleFontSizeChange(-1)} className="px-2 py-1 bg-white rounded shadow hover:bg-slate-100"><MinusIcon className="h-4 w-4" /></button>
-              <span className="text-xs font-semibold w-6 text-center">{labels[selectedLabelIndex]?.fontSize}pt</span>
-              <button onClick={() => handleFontSizeChange(1)} className="px-2 py-1 bg-white rounded shadow hover:bg-slate-100"><PlusIcon className="h-4 w-4" /></button>
+            /* --- MODIFIED: Themed control bar --- */
+            <div className="flex justify-center items-center gap-1 p-1 bg-slate-200 dark:bg-slate-700 rounded-lg mt-4">
+              <button onClick={() => handleFontSizeChange(-1)} className="px-2 py-1 bg-white dark:bg-slate-800 rounded shadow hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-800 dark:text-slate-100"><MinusIcon className="h-4 w-4" /></button>
+              <span className="text-xs font-semibold w-6 text-center text-slate-800 dark:text-slate-100">{labels[selectedLabelIndex]?.fontSize}pt</span>
+              <button onClick={() => handleFontSizeChange(1)} className="px-2 py-1 bg-white dark:bg-slate-800 rounded shadow hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-800 dark:text-slate-100"><PlusIcon className="h-4 w-4" /></button>
               <button onClick={handleDeleteLabel} className="px-2 py-1 bg-red-500 text-white rounded shadow hover:bg-red-600 ml-2"><TrashIcon className="h-4 w-4" /></button>
             </div>
           )}
 
-          {error && <div className="text-red-500 text-sm mt-4 text-center">{error}</div>}
+          {/* --- MODIFIED: Themed error text --- */}
+          {error && <div className="text-red-500 dark:text-red-400 text-sm mt-4 text-center">{error}</div>}
         </div>
       );
     }
@@ -189,26 +214,23 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
         const content = page.content;
         return (
             <div className="my-6">
-                {shouldRenderTitle && <h4 className="font-semibold text-gray-700 mb-2">{page.title}</h4>}
+                {/* --- MODIFIED: Themed title --- */}
+                {shouldRenderTitle && <h4 className="font-semibold text-gray-700 dark:text-slate-200 mb-2">{page.title}</h4>}
                 
-                {/* Container for the finalized diagram.
-                  - A fixed 'height' is now used instead of 'minHeight' to be more explicit
-                    and prevent the container from collapsing vertically. This provides a stable
-                    frame for the absolutely positioned image inside.
-                */}
+                {/* Container for the finalized diagram. */}
                 <div 
-                    className="relative block w-full max-w-4xl mx-auto bg-gray-100 rounded-lg shadow-md overflow-hidden" 
-                    style={{ height: '480px' }} // Use fixed height for stability
+                    // --- MODIFIED: Themed image container ---
+                    className="relative block w-full max-w-4xl mx-auto bg-gray-100 dark:bg-slate-800 rounded-lg shadow-md overflow-hidden" 
+                    style={{ height: '480px' }}
                 >
                     {content && content.generatedImageUrl ? (
                         <img
                             src={content.generatedImageUrl}
                             alt="Finalized Diagram"
-                            // These classes center the image and scale it to fit without cropping.
                             className="absolute top-1/2 left-1/2 h-full w-full -translate-x-1/2 -translate-y-1/2 object-contain"
                         />
                     ) : (
-                        <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center text-gray-500">
+                        <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center text-gray-500 dark:text-slate-400">
                             Diagram image not available.
                         </div>
                     )}
@@ -221,11 +243,9 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
       const content = page.content; 
       const contentString = (typeof content === 'string') ? content : JSON.stringify(content, null, 2); 
       return (
-        // --- THIS IS THE CHANGE ---
-        // Added `overflow-x-auto` to this div. This will make this block
-        // horizontally scrollable if its content (like a table) is too wide.
         <div className="mb-6 last:mb-0 overflow-x-auto"> 
-          {shouldRenderTitle && ( <h4 className="font-semibold text-gray-700 mb-2">{page.title}</h4> )} 
+          {/* --- MODIFIED: Themed title --- */}
+          {shouldRenderTitle && ( <h4 className="font-semibold text-gray-700 dark:text-slate-200 mb-2">{page.title}</h4> )} 
           <ContentRenderer text={contentString} /> 
         </div> 
       );

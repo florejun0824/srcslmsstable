@@ -35,27 +35,28 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
         <>
             <motion.header
                 {...fadeProps}
-                className="relative p-4 md:p-6 bg-neumorphic-base rounded-3xl shadow-neumorphic overflow-hidden"
+                // --- MODIFIED: bg-base, shadow-neumorphic ---
+                className="relative p-4 md:p-6 bg-base rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark overflow-hidden"
             >
                 {isSpecialBannerActive ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full items-center">
                         <div className="col-span-1 text-center md:text-left">
-                             <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 leading-tight">
+                             {/* --- MODIFIED: text-primary, text-secondary --- */}
+                             <h1 className="text-2xl sm:text-3xl font-bold text-primary leading-tight">
                                 Welcome, {userProfile?.firstName}!
                             </h1>
-                            <p className="text-sm text-slate-600 mt-1">Here's your dashboard at a glance.</p>
+                            <p className="text-sm text-secondary mt-1">Here's your dashboard at a glance.</p>
                         </div>
                          <div
                             className="col-span-1 flex items-center justify-center h-full w-full order-first md:order-none"
                             onClick={handleBannerClick}
                             style={{ cursor: userProfile?.role === 'admin' ? 'pointer' : 'default' }}
                         >
-                            {/* ADDED: A wrapper div to create the "pressed in" frame effect. */}
-                            <div className="bg-neumorphic-base shadow-neumorphic-inset rounded-3xl p-2 transition-shadow hover:shadow-none">
+                            {/* --- MODIFIED: bg-base, shadow-neumorphic-inset --- */}
+                            <div className="bg-base shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-3xl p-2 transition-shadow hover:shadow-none">
                                 <motion.img
                                     src={bannerSettings.imageUrl}
                                     alt="Promotional Banner"
-                                    // MODIFIED: Removed drop-shadow and added rounding to fit the new frame.
                                     className="block h-24 md:h-36 w-auto object-contain rounded-2xl"
                                     onError={(e) => { e.target.onerror = null; e.target.src = 'https://i.ibb.co/FqJPnT1J/buwan-ng-wika.png'; }}
                                     initial={{ scale: 0.9, opacity: 0 }}
@@ -68,8 +69,10 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
                             className="col-span-1 flex items-center justify-center h-full"
                             onClick={onOpenScheduleModal}
                         >
-                            <div className="bg-neumorphic-base text-slate-800 rounded-2xl shadow-neumorphic-inset w-full h-full p-4 flex flex-col justify-between cursor-pointer transition-shadow duration-300 hover:shadow-none">
-                                <p className="font-bold text-sky-700 flex items-center gap-2">
+                            {/* --- MODIFIED: bg-base, text-primary, shadow-neumorphic-inset --- */}
+                            <div className="bg-base text-primary rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark w-full h-full p-4 flex flex-col justify-between cursor-pointer transition-shadow duration-300 hover:shadow-none">
+                                {/* --- MODIFIED: text-brand-text --- */}
+                                <p className="font-bold text-brand-text flex items-center gap-2">
                                     <CalendarDays className="w-5 h-5" />
                                     <span className="text-lg">Today's Schedule</span>
                                 </p>
@@ -85,38 +88,44 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
                                                 exit={{ opacity: 0, y: -10 }}
                                                 transition={{ duration: 0.3 }}
                                             >
-                                                <span className="font-bold text-xl text-slate-800 leading-tight block">{currentActivity.title}</span>
+                                                {/* --- MODIFIED: text-primary, text-secondary --- */}
+                                                <span className="font-bold text-xl text-primary leading-tight block">{currentActivity.title}</span>
                                                 {currentActivity.time && currentActivity.time !== 'N/A' && (
-                                                    <span className="flex items-center text-md justify-center mt-1 text-slate-600 font-light">
+                                                    <span className="flex items-center text-md justify-center mt-1 text-secondary font-light">
                                                         <Clock className="w-4 h-4 mr-2 opacity-70" /> {currentActivity.time}
                                                     </span>
                                                 )}
                                             </motion.div>
                                         ) : (
                                             <motion.div key="no-activities" className="text-center" {...fadeProps}>
-                                               <p className="text-lg font-semibold text-slate-500">All Clear!</p>
-                                               <p className="text-sm text-slate-400">No more activities today.</p>
+                                               {/* --- MODIFIED: text-secondary, text-subtle --- */}
+                                               <p className="text-lg font-semibold text-secondary">All Clear!</p>
+                                               <p className="text-sm text-subtle">No more activities today.</p>
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
                                 </div>
-                                <p className="text-xs text-center pt-2 text-slate-600 border-t border-neumorphic-shadow-dark/50">Stay on top of your day!</p>
+                                {/* --- MODIFIED: text-secondary, border-border --- */}
+                                <p className="text-xs text-center pt-2 text-secondary border-t border-border">Stay on top of your day!</p>
                             </div>
                         </div>
                     </div>
                 ) : (
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between h-full w-full py-4">
                         <div className="flex-1 text-center md:text-left">
-                            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-800 leading-tight">
+                            {/* --- MODIFIED: text-primary, text-secondary --- */}
+                            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-primary leading-tight">
                                  Welcome, {userProfile?.firstName}!
                             </h1>
-                            <p className="text-base md:text-lg text-slate-600 mt-2">Here's your dashboard at a glance.</p>
+                            <p className="text-base md:text-lg text-secondary mt-2">Here's your dashboard at a glance.</p>
                         </div>
                         <div 
-                            className="mt-6 md:mt-0 md:ml-6 p-4 bg-neumorphic-base text-slate-800 rounded-2xl shadow-neumorphic-inset w-full max-w-sm flex-shrink-0 flex flex-col justify-between cursor-pointer transition-shadow duration-300 hover:shadow-none"
+                            // --- MODIFIED: bg-base, text-primary, shadow-neumorphic-inset ---
+                            className="mt-6 md:mt-0 md:ml-6 p-4 bg-base text-primary rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark w-full max-w-sm flex-shrink-0 flex flex-col justify-between cursor-pointer transition-shadow duration-300 hover:shadow-none"
                             onClick={onOpenScheduleModal}
                         >
-                            <p className="font-bold text-sky-700 flex items-center gap-2">
+                            {/* --- MODIFIED: text-brand-text --- */}
+                            <p className="font-bold text-brand-text flex items-center gap-2">
                                 <CalendarDays className="w-5 h-5" />
                                 <span className="text-lg">Today's Schedule</span>
                             </p>
@@ -124,28 +133,32 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
                                 <AnimatePresence mode="wait">
                                     {currentActivity ? (
                                         <motion.div key={currentActivity.id} className="flex flex-col items-center justify-center" {...fadeProps}>
-                                            <span className="font-bold text-2xl text-slate-800 leading-tight block">{currentActivity.title}</span>
+                                            {/* --- MODIFIED: text-primary, text-secondary --- */}
+                                            <span className="font-bold text-2xl text-primary leading-tight block">{currentActivity.title}</span>
                                             {currentActivity.time && currentActivity.time !== 'N/A' && (
-                                                <span className="flex items-center text-xl justify-center mt-1 text-slate-600 font-light">
+                                                <span className="flex items-center text-xl justify-center mt-1 text-secondary font-light">
                                                     <Clock className="w-4 h-4 mr-2 opacity-70" /> {currentActivity.time}
                                                 </span>
                                             )}
                                         </motion.div>
                                     ) : (
                                         <motion.div key="no-activities" className="text-center" {...fadeProps}>
-                                           <p className="text-lg font-semibold text-slate-500">All Clear!</p>
-                                           <p className="text-sm text-slate-400">No more activities today.</p>
+                                           {/* --- MODIFIED: text-secondary, text-subtle --- */}
+                                           <p className="text-lg font-semibold text-secondary">All Clear!</p>
+                                           <p className="text-sm text-subtle">No more activities today.</p>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
                             </div>
-                            <p className="text-xs text-center pt-2 text-slate-600 border-t border-neumorphic-shadow-dark/50">Stay on top of your day!</p>
+                            {/* --- MODIFIED: text-secondary, border-border --- */}
+                            <p className="text-xs text-center pt-2 text-secondary border-t border-border">Stay on top of your day!</p>
                         </div>
                     </div>
                 )}
             </motion.header>
 
-            <Suspense fallback={<div>Loading Editor...</div>}>
+            {/* --- MODIFIED: text-primary --- */}
+            <Suspense fallback={<div className="text-primary">Loading Editor...</div>}>
                 {isBannerEditModalOpen && (
                     <AdminBannerEditModal
                         isOpen={isBannerEditModalOpen}

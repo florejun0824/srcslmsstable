@@ -1,3 +1,5 @@
+### UI Enhancements
+- Dark mode is now supported
 ### Performance and Stability
 - Conducted a general audit of the application to identify and address potential memory leaks and performance issues.
 - Ensured that all components with event listeners and timers have proper cleanup functions to prevent memory leaks and improve application stability.

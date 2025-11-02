@@ -10,18 +10,19 @@ const ClassesView = ({
     setIsHoveringActions,
     setClassOverviewModal,
     handleOpenEditClassModal,
-    handleArchiveClass,
-    handleDeleteClass,
+    // --- MODIFIED: Renamed to reflect new purpose ---
+    handleArchiveClass, // This is now handleInitiateArchive
+    handleDeleteClass,  // This is now handleInitiateDelete
+    // --- END MODIFICATION ---
     showToast,
     setIsArchivedModalOpen,
     setCreateClassModalOpen,
 }) => {
-    // These gradient classes require the `tailwind.config.js` safelist to be updated.
     const classVisuals = [
-        { icon: AcademicCapIcon, gradient: 'from-white to-blue-50', iconColor: 'text-blue-300' },
-        { icon: UserGroupIcon, gradient: 'from-white to-green-50', iconColor: 'text-green-300' },
-        { icon: ClipboardDocumentListIcon, gradient: 'from-white to-amber-50', iconColor: 'text-amber-300' },
-        { icon: ShieldCheckIcon, gradient: 'from-white to-red-50', iconColor: 'text-red-300' },
+        { icon: AcademicCapIcon, iconColor: 'text-blue-400 dark:text-blue-500' },
+        { icon: UserGroupIcon, iconColor: 'text-green-400 dark:text-green-500' },
+        { icon: ClipboardDocumentListIcon, iconColor: 'text-amber-400 dark:text-amber-500' },
+        { icon: ShieldCheckIcon, iconColor: 'text-red-400 dark:text-red-500' },
     ];
 
     const sortedClasses = [...(activeClasses || [])].sort((a, b) => {
@@ -33,24 +34,24 @@ const ClassesView = ({
     });
 
     return (
-        <div className="bg-neumorphic-base min-h-screen text-slate-800 font-sans p-6 sm:p-8">
+        <div className="min-h-screen text-slate-800 dark:text-slate-100 font-sans p-6 sm:p-8">
             <div className="max-w-7xl mx-auto">
                 <div className="mb-12 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
                     <div>
-                        <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">Class Dashboard</h1>
-                        <p className="text-slate-600 mt-2 text-lg">Manage your active classes below.</p>
+                        <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Class Dashboard</h1>
+                        <p className="text-slate-600 dark:text-slate-400 mt-2 text-lg">Manage your active classes below.</p>
                     </div>
                     <div className="flex flex-shrink-0 gap-3">
                         <button 
-                            onClick={() => setIsArchivedModalOpen(true)} 
-                            className="flex items-center px-5 py-2.5 bg-neumorphic-base text-slate-700 rounded-xl shadow-neumorphic transition-shadow duration-200 hover:shadow-neumorphic-inset active:shadow-neumorphic-inset text-sm font-semibold"
+                            onClick={() => setIsArchivedModalOpen(true)}
+                            className="flex items-center px-5 py-2.5 bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-700 dark:text-slate-200 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow duration-200 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark text-sm font-semibold"
                         >
-                            <ArchiveBoxIcon className="w-5 h-5 mr-2 text-slate-500" />
+                            <ArchiveBoxIcon className="w-5 h-5 mr-2 text-slate-500 dark:text-slate-400" />
                             Archived
                         </button>
                         <button 
-                            onClick={() => setCreateClassModalOpen(true)} 
-                            className="flex items-center px-5 py-2.5 bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 rounded-xl shadow-neumorphic transition-shadow duration-200 hover:shadow-neumorphic-inset active:shadow-neumorphic-inset text-sm font-semibold"
+                            onClick={() => setCreateClassModalOpen(true)}
+                            className="flex items-center px-5 py-2.5 bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-800 dark:to-blue-900 text-blue-700 dark:text-blue-200 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow duration-200 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark text-sm font-semibold"
                         >
                             <PlusCircleIcon className="w-5 h-5 mr-2" />
                             Create Class
@@ -60,13 +61,13 @@ const ClassesView = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                     {sortedClasses.length > 0 ? sortedClasses.map((c, index) => {
-                        const { icon: Icon, gradient, iconColor } = classVisuals[index % classVisuals.length];
+                        const { icon: Icon, iconColor } = classVisuals[index % classVisuals.length];
                         return (
                             <div
                                 key={c.id}
-                                className={`group relative bg-gradient-to-br ${gradient} p-7 rounded-3xl shadow-neumorphic overflow-hidden transition-shadow duration-300 ease-in-out hover:shadow-neumorphic-inset`}
+                                className={`group relative bg-neumorphic-base dark:bg-neumorphic-base-dark p-7 rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark overflow-hidden transition-shadow duration-300 ease-in-out hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark`}
                             >
-                                <div className="absolute -top-10 -right-10 opacity-15 transform rotate-12 transition-all duration-500 ease-in-out group-hover:rotate-0 group-hover:scale-125 group-hover:-translate-x-2 group-hover:-translate-y-2">
+                                <div className="absolute -top-10 -right-10 opacity-15 dark:opacity-20 transform rotate-12 transition-all duration-500 ease-in-out group-hover:rotate-0 group-hover:scale-125 group-hover:-translate-x-2 group-hover:-translate-y-2">
                                     <Icon className={`w-32 h-32 ${iconColor}`} />
                                 </div>
 
@@ -76,21 +77,21 @@ const ClassesView = ({
                                     style={{ minHeight: '220px' }}
                                 >
                                     <div className="mb-6">
-                                        <h2 className="text-2xl font-bold tracking-tight leading-tight text-slate-800">{c.name}</h2>
-                                        <p className="text-slate-600 text-base font-light mt-1">{c.gradeLevel} &bull; {c.section}</p>
+                                        <h2 className="text-2xl font-bold tracking-tight leading-tight text-slate-800 dark:text-slate-100">{c.name}</h2>
+                                        <p className="text-slate-600 dark:text-slate-400 text-base font-light mt-1">{c.gradeLevel} &bull; {c.section}</p>
                                     </div>
                                     
                                     {c.classCode && (
                                         <div className="mt-auto">
-                                            <div className="flex items-center justify-between gap-2 bg-neumorphic-base shadow-neumorphic-inset px-4 py-2.5 rounded-xl">
-                                                <p className="font-mono text-lg tracking-wider text-slate-700">{c.classCode}</p>
+                                            <div className="flex items-center justify-between gap-2 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark px-4 py-2.5 rounded-xl">
+                                                <p className="font-mono text-lg tracking-wider text-slate-700 dark:text-slate-200">{c.classCode}</p>
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         navigator.clipboard.writeText(c.classCode);
                                                         showToast("Class code copied!", "success");
                                                     }}
-                                                    className="p-1.5 rounded-md text-slate-500 hover:shadow-neumorphic-inset transition-colors duration-200"
+                                                    className="p-1.5 rounded-md text-slate-500 dark:text-slate-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-colors duration-200"
                                                     title="Copy code"
                                                 >
                                                     <ClipboardIcon className="w-5 h-5" />
@@ -105,24 +106,26 @@ const ClassesView = ({
                                     onMouseEnter={() => setIsHoveringActions(true)}
                                     onMouseLeave={() => setIsHoveringActions(false)}
                                 >
-                                    <div className="flex gap-1 p-1 bg-white/50 shadow-neumorphic rounded-full transition-all duration-300 ease-in-out opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100">
+                                    <div className="flex gap-1 p-1 bg-white/50 dark:bg-slate-900/50 shadow-neumorphic dark:shadow-neumorphic-dark rounded-full transition-all duration-300 ease-in-out opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100">
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleOpenEditClassModal(c); }}
-                                            className="p-2 rounded-full text-slate-700 hover:shadow-neumorphic-inset transition-colors"
+                                            className="p-2 rounded-full text-slate-700 dark:text-slate-300 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-colors"
                                             title="Edit"
                                         >
                                             <PencilSquareIcon className="w-5 h-5" />
                                         </button>
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); handleArchiveClass(c.id); }}
-                                            className="p-2 rounded-full text-slate-700 hover:shadow-neumorphic-inset transition-colors"
+                                            // --- MODIFIED: Call new prop ---
+                                            onClick={(e) => { e.stopPropagation(); handleArchiveClass(c.id, c.name); }}
+                                            className="p-2 rounded-full text-slate-700 dark:text-slate-300 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-colors"
                                             title="Archive"
                                         >
                                             <ArchiveBoxIcon className="w-5 h-5" />
                                         </button>
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); handleDeleteClass(c.id); }}
-                                            className="p-2 rounded-full text-red-600 hover:shadow-neumorphic-inset transition-colors"
+                                            // --- MODIFIED: Call new prop ---
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteClass(c.id, false); }}
+                                            className="p-2 rounded-full text-red-600 dark:text-red-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-colors"
                                             title="Delete"
                                         >
                                             <TrashIcon className="w-5 h-5" />
@@ -132,10 +135,10 @@ const ClassesView = ({
                             </div>
                         );
                     }) : (
-                        <div className="col-span-full text-center py-24 px-6 flex flex-col items-center justify-center bg-neumorphic-base rounded-3xl shadow-neumorphic-inset">
-                            <SquaresPlusIcon className="w-16 h-16 text-slate-300 mb-5" />
-                            <p className="text-xl font-semibold text-slate-700">Your dashboard is empty</p>
-                            <p className="mt-2 max-w-sm text-base text-slate-500">Get started by creating your first class. All your active classes will appear here.</p>
+                        <div className="col-span-full text-center py-24 px-6 flex flex-col items-center justify-center bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
+                            <SquaresPlusIcon className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-5" />
+                            <p className="text-xl font-semibold text-slate-700 dark:text-slate-200">Your dashboard is empty</p>
+                            <p className="mt-2 max-w-sm text-base text-slate-500 dark:text-slate-400">Get started by creating your first class. All your active classes will appear here.</p>
                         </div>
                     )}
                 </div>

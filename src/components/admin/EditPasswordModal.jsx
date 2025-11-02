@@ -22,12 +22,14 @@ const EditPasswordModal = ({ user, onSubmit, onClose }) => {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="New Password"
             required
-            className="w-full p-3 pr-10 rounded-xl bg-neumorphic-base shadow-neumorphic-inset text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all"
+            // --- MODIFIED: Added dark mode classes ---
+            className="w-full p-3 pr-10 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-gray-800 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-500 transition-all"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute inset-y-0 right-3 flex items-center text-gray-500 hover:text-gray-700"
+            // --- MODIFIED: Added dark mode classes ---
+            className="absolute inset-y-0 right-3 flex items-center text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
           >
             {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
           </button>
@@ -36,7 +38,8 @@ const EditPasswordModal = ({ user, onSubmit, onClose }) => {
         {/* Submit Button */}
         <button
           type="submit"
-          className="w-full px-5 py-3 rounded-xl bg-neumorphic-base text-gray-800 font-medium shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset transition-all"
+          // --- MODIFIED: Added dark mode classes ---
+          className="w-full px-5 py-3 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark text-gray-800 dark:text-slate-100 font-medium shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark transition-all"
         >
           Update Password
         </button>

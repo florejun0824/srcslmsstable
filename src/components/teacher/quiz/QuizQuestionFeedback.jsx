@@ -87,23 +87,30 @@ export default function QuizQuestionFeedback() {
     if (question.type === 'essay') {
          if (!currentQuestionAttempted) return null; // Only show if saved
         return (
-            <div className="p-4 sm:p-6 rounded-3xl bg-neumorphic-base shadow-neumorphic">
+            // --- MODIFIED: Added dark theme ---
+            <div className="p-4 sm:p-6 rounded-3xl bg-neumorphic-base shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg">
                  <div className="flex items-center gap-3 sm:gap-4 mb-4">
-                    <div className="p-2 sm:p-3 rounded-full bg-neumorphic-base shadow-neumorphic">
-                        <CheckCircleIcon className="h-7 w-7 sm:h-8 sm:w-8 text-blue-600" />
+                    {/* --- MODIFIED: Added dark theme --- */}
+                    <div className="p-2 sm:p-3 rounded-full bg-neumorphic-base shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg">
+                        {/* --- MODIFIED: Added dark theme --- */}
+                        <CheckCircleIcon className="h-7 w-7 sm:h-8 sm:w-8 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <h3 className="text-xl sm:text-2xl font-extrabold text-blue-800">Answer Saved</h3>
+                    {/* --- MODIFIED: Added dark theme --- */}
+                    <h3 className="text-xl sm:text-2xl font-extrabold text-blue-800 dark:text-blue-300">Answer Saved</h3>
                 </div>
-                <div className="text-sm sm:text-base text-slate-700 space-y-2 bg-neumorphic-base p-3 sm:p-4 rounded-2xl shadow-neumorphic-inset">
+                {/* --- MODIFIED: Added dark theme --- */}
+                <div className="text-sm sm:text-base text-slate-700 space-y-2 bg-neumorphic-base p-3 sm:p-4 rounded-2xl shadow-neumorphic-inset dark:text-slate-300 dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
                     <p>Your essay answer has been saved. It will be reviewed by your teacher after you submit the quiz.</p>
                 </div>
                  <div className="mt-6">
                      {currentQ < totalQuestions - 1 ? (
-                         <button onClick={handleNextQuestion} className="flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-2xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all">
+                        // --- MODIFIED: Added dark theme ---
+                         <button onClick={handleNextQuestion} className="flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-2xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-blue-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark">
                              Next <ArrowRightIcon className="h-5 w-5"/>
                          </button>
                      ) : (
-                         <button onClick={handleSubmit} className="w-full px-5 py-2.5 rounded-2xl bg-neumorphic-base text-green-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all">
+                        // --- MODIFIED: Added dark theme ---
+                         <button onClick={handleSubmit} className="w-full px-5 py-2.5 rounded-2xl bg-neumorphic-base text-green-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-green-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark">
                              Submit Quiz
                          </button>
                      )}
@@ -115,35 +122,43 @@ export default function QuizQuestionFeedback() {
     // --- Matching Type Confirmed Feedback ---
     if (question.type === 'matching-type' && matchingResult) {
         return (
-             <div className="mt-4 p-4 sm:p-6 rounded-3xl bg-neumorphic-base shadow-neumorphic">
+            // --- MODIFIED: Added dark theme ---
+             <div className="mt-4 p-4 sm:p-6 rounded-3xl bg-neumorphic-base shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg">
                  {/* --- ADDED: Confetti for matching --- */}
                  {matchingResult.correct === matchingResult.total && (
                     <Confetti numberOfPieces={150} recycle={false} />
                  )}
                  {/* --- END ADDED --- */}
                  <div className="flex items-center gap-3 sm:gap-4 mb-4">
-                    <div className={`p-2 sm:p-3 rounded-full bg-neumorphic-base shadow-neumorphic`}>
-                         <CheckCircleIcon className="h-7 w-7 sm:h-8 sm:w-8 text-blue-600" />
+                    {/* --- MODIFIED: Added dark theme --- */}
+                    <div className={`p-2 sm:p-3 rounded-full bg-neumorphic-base shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg`}>
+                        {/* --- MODIFIED: Added dark theme --- */}
+                         <CheckCircleIcon className="h-7 w-7 sm:h-8 sm:w-8 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <h3 className={`text-xl sm:text-2xl font-extrabold text-blue-800`}>Answer Confirmed</h3>
+                    {/* --- MODIFIED: Added dark theme --- */}
+                    <h3 className={`text-xl sm:text-2xl font-extrabold text-blue-800 dark:text-blue-300`}>Answer Confirmed</h3>
                 </div>
-                <div className="text-sm sm:text-base text-slate-700 space-y-2 bg-neumorphic-base p-3 sm:p-4 rounded-2xl shadow-neumorphic-inset">
+                {/* --- MODIFIED: Added dark theme --- */}
+                <div className="text-sm sm:text-base text-slate-700 space-y-2 bg-neumorphic-base p-3 sm:p-4 rounded-2xl shadow-neumorphic-inset dark:text-slate-300 dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
                     <p className="font-semibold text-center">
                         You correctly matched {matchingResult.correct} out of {matchingResult.total} items.
                     </p> {/* <-- THIS IS THE FIX (was </S>) */}
                     {question.explanation && (
-                         <div className="mt-3 pt-3 border-t border-slate-300/80 text-xs italic">
+                        // --- MODIFIED: Added dark theme ---
+                         <div className="mt-3 pt-3 border-t border-slate-300/80 text-xs italic dark:border-slate-700">
                             <span className='font-semibold not-italic'>Explanation:</span> <ContentRenderer text={question.explanation}/>
                          </div>
                     )}
                 </div>
                 <div className="mt-6">
                      {currentQ < totalQuestions - 1 ? (
-                         <button onClick={handleNextQuestion} className="flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-2xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all">
+                        // --- MODIFIED: Added dark theme ---
+                         <button onClick={handleNextQuestion} className="flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-2xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-blue-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark">
                              Next <ArrowRightIcon className="h-5 w-5"/>
                          </button>
                      ) : (
-                         <button onClick={handleSubmit} className="w-full px-5 py-2.5 rounded-2xl bg-neumorphic-base text-green-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all">
+                        // --- MODIFIED: Added dark theme ---
+                         <button onClick={handleSubmit} className="w-full px-5 py-2.5 rounded-2xl bg-neumorphic-base text-green-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-green-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark">
                              Submit Quiz
                          </button>
                      )}
@@ -184,7 +199,8 @@ export default function QuizQuestionFeedback() {
     }
 
     return (
-        <div className={`p-4 sm:p-6 rounded-3xl bg-neumorphic-base shadow-neumorphic`}>
+        // --- MODIFIED: Added dark theme ---
+        <div className={`p-4 sm:p-6 rounded-3xl bg-neumorphic-base shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg`}>
             {/* --- ADDED: Confetti --- */}
             {isCorrect && (
                 <Confetti numberOfPieces={150} recycle={false} />
@@ -192,47 +208,59 @@ export default function QuizQuestionFeedback() {
             {/* --- END ADDED --- */}
 
             <div className="flex items-center gap-3 sm:gap-4 mb-4">
-                <div className={`p-2 sm:p-3 rounded-full bg-neumorphic-base ${isCorrect ? 'shadow-neumorphic' : 'shadow-neumorphic-inset'}`}>
-                    {isCorrect ? <CheckCircleIcon className="h-7 w-7 sm:h-8 sm:w-8 text-green-600" /> : <XCircleIcon className="h-7 w-7 sm:h-8 sm:w-8 text-red-600" />}
+                {/* --- MODIFIED: Added dark theme --- */}
+                <div className={`p-2 sm:p-3 rounded-full bg-neumorphic-base ${isCorrect ? 'shadow-neumorphic dark:shadow-lg' : 'shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark'} dark:bg-neumorphic-base-dark`}>
+                    {isCorrect ? <CheckCircleIcon className="h-7 w-7 sm:h-8 sm:w-8 text-green-600 dark:text-green-400" /> : <XCircleIcon className="h-7 w-7 sm:h-8 sm:w-8 text-red-600 dark:text-red-400" />}
                 </div>
-                <h3 className={`text-xl sm:text-2xl font-extrabold ${isCorrect ? 'text-green-800' : 'text-red-800'}`}>{isCorrect ? "Correct!" : "Incorrect"}</h3>
+                {/* --- MODIFIED: Added dark theme --- */}
+                <h3 className={`text-xl sm:text-2xl font-extrabold ${isCorrect ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'}`}>{isCorrect ? "Correct!" : "Incorrect"}</h3>
             </div>
 
             {/* --- ADDED: Gamification Feedback --- */}
             {isCorrect && answerStreak > 1 && (
-                <h4 className="text-lg font-bold text-orange-500 animate-pulse text-center -mt-2 mb-3">
+                // --- MODIFIED: Added dark theme ---
+                <h4 className="text-lg font-bold text-orange-500 animate-pulse text-center -mt-2 mb-3 dark:text-orange-400">
                     🔥 {answerStreak} in a row!
                 </h4>
             )}
             {showSpeedBonus && (
-                <h4 className="text-lg font-bold text-blue-500 text-center -mt-2 mb-3">
+                // --- MODIFIED: Added dark theme ---
+                <h4 className="text-lg font-bold text-blue-500 text-center -mt-2 mb-3 dark:text-blue-400">
                     ⚡️ Speed Bonus!
                 </h4>
             )}
             {/* --- END ADDED --- */}
 
-            <div className="text-sm sm:text-base text-slate-700 space-y-2 bg-neumorphic-base p-3 sm:p-4 rounded-2xl shadow-neumorphic-inset">
-                <p><span className="font-semibold text-slate-800">Your Answer:</span> <ContentRenderer text={String(userAnswerText)} /></p>
-                {!isCorrect && (<p><span className="font-semibold text-slate-800">Correct Answer:</span> <ContentRenderer text={String(correctAnswerText)} /></p>)}
+            {/* --- MODIFIED: Added dark theme --- */}
+            <div className="text-sm sm:text-base text-slate-700 space-y-2 bg-neumorphic-base p-3 sm:p-4 rounded-2xl shadow-neumorphic-inset dark:text-slate-300 dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
+                {/* --- MODIFIED: Added dark theme --- */}
+                <p><span className="font-semibold text-slate-800 dark:text-slate-100">Your Answer:</span> <ContentRenderer text={String(userAnswerText)} /></p>
+                {!isCorrect && (<p><span className="font-semibold text-slate-800 dark:text-slate-100">Correct Answer:</span> <ContentRenderer text={String(correctAnswerText)} /></p>)}
             </div>
             {question.explanation && (
-                <div className="mt-4 pt-4 border-t border-slate-300/80">
+                // --- MODIFIED: Added dark theme ---
+                <div className="mt-4 pt-4 border-t border-slate-300/80 dark:border-slate-700">
                     <div className="flex items-start gap-3">
-                        <InformationCircleIcon className="h-6 w-6 text-blue-500 flex-shrink-0 mt-0.5" />
+                        {/* --- MODIFIED: Added dark theme --- */}
+                        <InformationCircleIcon className="h-6 w-6 text-blue-500 flex-shrink-0 mt-0.5 dark:text-blue-400" />
                         <div>
-                            <h4 className="font-semibold text-blue-700 mb-1">Explanation</h4>
-                            <div className="text-sm sm:text-base text-slate-700"><ContentRenderer text={question.explanation} /></div>
+                            {/* --- MODIFIED: Added dark theme --- */}
+                            <h4 className="font-semibold text-blue-700 mb-1 dark:text-blue-300">Explanation</h4>
+                            {/* --- MODIFIED: Added dark theme --- */}
+                            <div className="text-sm sm:text-base text-slate-700 dark:text-slate-300"><ContentRenderer text={question.explanation} /></div>
                         </div>
                     </div>
                 </div>
             )}
              <div className="mt-6">
                  {currentQ < totalQuestions - 1 ? (
-                     <button onClick={handleNextQuestion} className="flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-2xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all">
+                    // --- MODIFIED: Added dark theme ---
+                     <button onClick={handleNextQuestion} className="flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-2xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-blue-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark">
                          Next <ArrowRightIcon className="h-5 w-5"/>
                      </button>
                  ) : (
-                     <button onClick={handleSubmit} className="w-full px-5 py-2.5 rounded-2xl bg-neumorphic-base text-green-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all">
+                    // --- MODIFIED: Added dark theme ---
+                     <button onClick={handleSubmit} className="w-full px-5 py-2.5 rounded-2xl bg-neumorphic-base text-green-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-green-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark">
                          Submit Quiz
                      </button>
                  )}

@@ -21,28 +21,31 @@ const InspirationCard = ({ className }) => {
         setQuote(dailyQuote);
     }, []);
 
+    // --- MODIFIED: Added dark mode text colors to all styles ---
     const colorStyles = {
-        blue: { text: 'text-blue-500' },
-        green: { text: 'text-green-500' },
-        purple: { text: 'text-purple-500' },
-        red: { text: 'text-red-500' },
-        indigo: { text: 'text-indigo-500' },
-        pink: { text: 'text-pink-500' },
-        gray: { text: 'text-gray-500' },
+        blue: { text: 'text-blue-500 dark:text-blue-400' },
+        green: { text: 'text-green-500 dark:text-green-400' },
+        purple: { text: 'text-purple-500 dark:text-purple-400' },
+        red: { text: 'text-red-500 dark:text-red-400' },
+        indigo: { text: 'text-indigo-500 dark:text-indigo-400' },
+        pink: { text: 'text-pink-500 dark:text-pink-400' },
+        gray: { text: 'text-gray-500 dark:text-gray-400' },
     };
     const currentColors = colorStyles[quote.color] || colorStyles.gray;
 
     return (
         <div className={`p-6 h-full flex flex-col justify-center ${className}`}>
             <div className="flex items-start gap-4">
-                <div className="p-3 bg-neumorphic-base rounded-full shadow-neumorphic-inset">
+                {/* --- MODIFIED: Added dark mode classes for icon container --- */}
+                <div className="p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
                     <LightBulbIcon className={`w-7 h-7 ${currentColors.text}`} />
                 </div>
                 <div>
-                    <p className="font-bold text-slate-800">Inspiration for the Day</p>
+                    {/* --- MODIFIED: Added dark mode text colors --- */}
+                    <p className="font-bold text-slate-800 dark:text-slate-100">Inspiration for the Day</p>
                     <blockquote className="mt-1">
-                        <p className="text-slate-600 text-sm">"{quote.text}"</p>
-                        <cite className="block text-right not-italic text-xs text-slate-500 mt-2">- {quote.author}</cite>
+                        <p className="text-slate-600 dark:text-slate-300 text-sm">"{quote.text}"</p>
+                        <cite className="block text-right not-italic text-xs text-slate-500 dark:text-slate-400 mt-2">- {quote.author}</cite>
                     </blockquote>
                 </div>
             </div>

@@ -127,7 +127,7 @@ const AnalyticsView = ({ activeClasses }) => {
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
   const [isClassDropdownOpen, setIsClassDropdownOpen] = useState(false); 
-  const [isQuarterDropdownOpen, setIsQuarterDropdownOpen] = useState(false); // <-- MODIFICATION: ADDED THIS LINE
+  const [isQuarterDropdownOpen, setIsQuarterDropdownOpen] = useState(false);
   
 
   const selectedClass = activeClasses.find((c) => c.id === selectedClassId);
@@ -594,7 +594,7 @@ const AnalyticsView = ({ activeClasses }) => {
       const lessonLanguage = lessonData?.language || "the same language as the original lesson";
       const lessonText = (lessonData.pages || [])
         .map((p) => `${p.title ? p.title + "\n" : ""}${p.content || ""}`)
-        img.join("\n\n");
+        .join("\n\n"); // Fixed img.join error
       const weakTopicsString = weakItems
         .map((item) => `- ${item.question} (Difficulty: ${item.difficulty})`)
         .join("\n");
@@ -872,7 +872,6 @@ const AnalyticsView = ({ activeClasses }) => {
   const openViewModal = (recDoc) => { setViewingRec(recDoc); setViewModalOpen(true); };
   const openEditModal = (recDoc) => { setEditingRec(recDoc); setEditModalOpen(true); };
 
-  // --- MODIFICATION: ADDED THIS ARRAY ---
   const quarterOptions = [
     { value: "", label: "-- Select Quarter --" },
     { value: "1", label: "Quarter 1" },
@@ -883,19 +882,23 @@ const AnalyticsView = ({ activeClasses }) => {
 
   // (Return/JSX is unchanged, as the logic changes were in the effects)
   return (
-    <div className="p-4 sm:p-6 md:p-8 h-full overflow-y-auto">
-      <h1 className="text-3xl font-extrabold text-slate-900 mb-6">Class Analytics</h1>
+    // --- MODIFIED: Added dark theme base ---
+    <div className="p-4 sm:p-6 md:p-8 h-full overflow-y-auto dark:bg-neumorphic-base-dark">
+      {/* --- MODIFIED: Added dark theme text --- */}
+      <h1 className="text-3xl font-extrabold text-slate-900 dark:text-slate-100 mb-6">Class Analytics</h1>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Sidebar */}
         <div className="md:col-span-1 space-y-6">
           {/* --- MODIFICATION START --- */}
-          {/* Replaced native <select> with custom HTML dropdown to fix mobile rendering bug */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-slate-700 mb-2">Select a Class to Analyze</label>
-            <div className="border rounded-lg bg-neumorphic-base shadow-neumorphic">
+            {/* --- MODIFIED: Added dark theme text --- */}
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Select a Class to Analyze</label>
+            {/* --- MODIFIED: Added dark theme styles --- */}
+            <div className="border rounded-lg bg-neumorphic-base shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg dark:border-slate-700">
               <button 
                 onClick={() => setIsClassDropdownOpen(prev => !prev)} 
-                className="w-full flex justify-between items-center px-4 py-3 font-semibold text-slate-700 hover:text-sky-700"
+                // --- MODIFIED: Added dark theme text/hover ---
+                className="w-full flex justify-between items-center px-4 py-3 font-semibold text-slate-700 hover:text-sky-700 dark:text-slate-200 dark:hover:text-sky-400"
               >
                 <span className="text-base">
                   {selectedClass ? selectedClass.name : "-- Choose a Class --"}
@@ -911,7 +914,8 @@ const AnalyticsView = ({ activeClasses }) => {
                       setSelectedQuizId(""); // Clear dependent state
                       setIsClassDropdownOpen(false); // Close dropdown
                     }}
-                    className={`block w-full text-left px-3 py-2 rounded-md text-sm transition ${selectedClassId === "" ? "bg-sky-100 text-sky-700 font-semibold" : "hover:bg-slate-100 text-slate-700"}`}
+                    // --- MODIFIED: Added dark theme active/hover/text ---
+                    className={`block w-full text-left px-3 py-2 rounded-md text-sm transition ${selectedClassId === "" ? "bg-sky-100 text-sky-700 font-semibold dark:bg-sky-500/20 dark:text-sky-400" : "hover:bg-slate-100 text-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-200"}`}
                   >
                     -- Choose a Class --
                   </button>
@@ -924,7 +928,8 @@ const AnalyticsView = ({ activeClasses }) => {
                         setSelectedQuizId(""); // Clear dependent state
                         setIsClassDropdownOpen(false); // Close dropdown
                       }}
-                      className={`block w-full text-left px-3 py-2 rounded-md text-sm transition ${selectedClassId === cls.id ? "bg-sky-100 text-sky-700 font-semibold" : "hover:bg-slate-100 text-slate-700"}`}
+                      // --- MODIFIED: Added dark theme active/hover/text ---
+                      className={`block w-full text-left px-3 py-2 rounded-md text-sm transition ${selectedClassId === cls.id ? "bg-sky-100 text-sky-700 font-semibold dark:bg-sky-500/20 dark:text-sky-400" : "hover:bg-slate-100 text-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-200"}`}
                     >
                       {cls.name}
                     </button>
@@ -936,19 +941,21 @@ const AnalyticsView = ({ activeClasses }) => {
           {/* --- MODIFICATION END --- */}
 
           <div className="flex flex-col gap-2">
-            <button onClick={() => setAnalysisType("students")} className={`px-4 py-2 rounded-xl transition-all shadow-neumorphic ${analysisType === "students" ? "bg-neumorphic-base shadow-neumorphic-inset text-sky-700 font-bold" : "bg-neumorphic-base text-slate-600 hover:text-sky-600"}`}>At-Risk Students</button>
-            <button onClick={() => setAnalysisType("quizzes")} className={`px-4 py-2 rounded-xl transition-all shadow-neumorphic ${analysisType === "quizzes" ? "bg-neumorphic-base shadow-neumorphic-inset text-sky-700 font-bold" : "bg-neumorphic-base text-slate-600 hover:text-sky-600"}`}>Quiz Item Analysis</button>
-            <button onClick={() => setAnalysisType("recommendations")} className={`px-4 py-2 rounded-xl transition-all shadow-neumorphic ${analysisType === "recommendations" ? "bg-neumorphic-base shadow-neumorphic-inset text-sky-700 font-bold" : "bg-neumorphic-base text-slate-600 hover:text-sky-600"}`}>Recommendations & Remediations</button>
+            {/* --- MODIFIED: Added dark theme styles for all 3 buttons --- */}
+            <button onClick={() => setAnalysisType("students")} className={`px-4 py-2 rounded-xl transition-all shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg ${analysisType === "students" ? "bg-neumorphic-base shadow-neumorphic-inset text-sky-700 font-bold dark:shadow-neumorphic-inset-dark dark:text-sky-400" : "bg-neumorphic-base text-slate-600 hover:text-sky-600 dark:text-slate-300 dark:hover:text-sky-400"}`}>At-Risk Students</button>
+            <button onClick={() => setAnalysisType("quizzes")} className={`px-4 py-2 rounded-xl transition-all shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg ${analysisType === "quizzes" ? "bg-neumorphic-base shadow-neumorphic-inset text-sky-700 font-bold dark:shadow-neumorphic-inset-dark dark:text-sky-400" : "bg-neumorphic-base text-slate-600 hover:text-sky-600 dark:text-slate-300 dark:hover:text-sky-400"}`}>Quiz Item Analysis</button>
+            <button onClick={() => setAnalysisType("recommendations")} className={`px-4 py-2 rounded-xl transition-all shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg ${analysisType === "recommendations" ? "bg-neumorphic-base shadow-neumorphic-inset text-sky-700 font-bold dark:shadow-neumorphic-inset-dark dark:text-sky-400" : "bg-neumorphic-base text-slate-600 hover:text-sky-600 dark:text-slate-300 dark:hover:text-sky-400"}`}>Recommendations & Remediations</button>
           </div>
           
           {/* --- MODIFICATION START --- */}
-          {/* Replaced native <select> with custom HTML dropdown for "Select Quarter" */}
           {analysisType === "students" && (
             <div className="mt-4">
-              <div className="border rounded-lg bg-neumorphic-base shadow-neumorphic">
+              {/* --- MODIFIED: Added dark theme styles --- */}
+              <div className="border rounded-lg bg-neumorphic-base shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg dark:border-slate-700">
                 <button 
                   onClick={() => setIsQuarterDropdownOpen(prev => !prev)} 
-                  className="w-full flex justify-between items-center px-4 py-3 font-semibold text-slate-700 hover:text-sky-700"
+                  // --- MODIFIED: Added dark theme text/hover ---
+                  className="w-full flex justify-between items-center px-4 py-3 font-semibold text-slate-700 hover:text-sky-700 dark:text-slate-200 dark:hover:text-sky-400"
                 >
                   <span className="text-base">
                     {(quarterOptions.find(q => q.value === selectedQuarter) || quarterOptions[0]).label}
@@ -964,7 +971,8 @@ const AnalyticsView = ({ activeClasses }) => {
                           setSelectedQuarter(opt.value);
                           setIsQuarterDropdownOpen(false); // Close dropdown
                         }}
-                        className={`block w-full text-left px-3 py-2 rounded-md text-sm transition ${selectedQuarter === opt.value ? "bg-sky-100 text-sky-700 font-semibold" : "hover:bg-slate-100 text-slate-700"}`}
+                        // --- MODIFIED: Added dark theme active/hover/text ---
+                        className={`block w-full text-left px-3 py-2 rounded-md text-sm transition ${selectedQuarter === opt.value ? "bg-sky-100 text-sky-700 font-semibold dark:bg-sky-500/20 dark:text-sky-400" : "hover:bg-slate-100 text-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-200"}`}
                       >
                         {opt.label}
                       </button>
@@ -984,16 +992,18 @@ const AnalyticsView = ({ activeClasses }) => {
                 acc[unitName].push(quiz);
                 return acc;
               }, {})).sort(customUnitSort).map((unitName) => (
-                <div key={unitName} className="border rounded-lg bg-neumorphic-base shadow-neumorphic">
-                  <button onClick={() => setOpenUnit(openUnit === unitName ? null : unitName)} className="w-full flex justify-between items-center px-4 py-2 font-semibold text-slate-700 hover:text-sky-700">
+                // --- MODIFIED: Added dark theme styles ---
+                <div key={unitName} className="border rounded-lg bg-neumorphic-base shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg dark:border-slate-700">
+                  {/* --- MODIFIED: Added dark theme text/hover --- */}
+                  <button onClick={() => setOpenUnit(openUnit === unitName ? null : unitName)} className="w-full flex justify-between items-center px-4 py-2 font-semibold text-slate-700 hover:text-sky-700 dark:text-slate-200 dark:hover:text-sky-400">
                     <span>{unitName}</span>
                     <IconChevronDown className={`h-5 w-5 transition-transform ${openUnit === unitName ? "rotate-180" : ""}`} />
                   </button>
                   {openUnit === unitName && (
-                    // <-- FIX: Added overflow-y-auto and max-h-60 for mobile screen compatibility
                     <div className="pl-4 pr-2 pb-2 space-y-1 overflow-y-auto max-h-60">
                       {quizzesInClass.filter((q) => (q.unitDisplayName || "Uncategorized") === unitName).sort((a, b) => a.title.localeCompare(b.title)).map((q) => (
-                        <button key={q.id} onClick={() => setSelectedQuizId(q.id)} className={`block w-full text-left px-3 py-2 rounded-md text-sm transition ${selectedQuizId === q.id ? "bg-sky-100 text-sky-700 font-semibold" : "hover:bg-slate-100 text-slate-700"}`}>
+                        // --- MODIFIED: Added dark theme active/hover/text ---
+                        <button key={q.id} onClick={() => setSelectedQuizId(q.id)} className={`block w-full text-left px-3 py-2 rounded-md text-sm transition ${selectedQuizId === q.id ? "bg-sky-100 text-sky-700 font-semibold dark:bg-sky-500/20 dark:text-sky-400" : "hover:bg-slate-100 text-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-200"}`}>
                           {q.title}
                         </button>
                       ))}
@@ -1015,47 +1025,62 @@ const AnalyticsView = ({ activeClasses }) => {
                     atRiskByQuarter[selectedQuarter]?.length > 0 ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {atRiskByQuarter[selectedQuarter].map((st) => (
-                          <div key={st.id} className="p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic border-l-4 border-amber-500">
-                            <div className="flex items-center gap-3"><IconAlertTriangle className="h-6 w-6 text-amber-600 flex-shrink-0" /><h3 className="font-bold text-slate-800">{st.name}</h3></div>
-                            <ul className="mt-2 ml-9 text-sm text-slate-600 list-disc list-inside">{st.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>
+                          // --- MODIFIED: Added dark theme card styles ---
+                          <div key={st.id} className="p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic border-l-4 border-amber-500 dark:bg-neumorphic-base-dark dark:shadow-lg dark:border-amber-400">
+                            {/* --- MODIFIED: Added dark theme icon/text --- */}
+                            <div className="flex items-center gap-3"><IconAlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400 flex-shrink-0" /><h3 className="font-bold text-slate-800 dark:text-slate-100">{st.name}</h3></div>
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <ul className="mt-2 ml-9 text-sm text-slate-600 dark:text-slate-400 list-disc list-inside">{st.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>
                           </div>
                         ))}
                       </div>
-                    ) : (<p className="text-slate-500 text-sm ml-2">No at-risk students found for this quarter.</p>)
+                    ) : (
+                      // --- MODIFIED: Added dark theme text ---
+                      <p className="text-slate-500 dark:text-slate-400 text-sm ml-2">No at-risk students found for this quarter.</p>
+                    )
                   ) : (
-                    selectedClassId && <p className="text-slate-500 text-sm ml-2">Please select a quarter to view at-risk students.</p>
+                    // --- MODIFIED: Added dark theme text ---
+                    selectedClassId && <p className="text-slate-500 dark:text-slate-400 text-sm ml-2">Please select a quarter to view at-risk students.</p>
                   )}
                 </div>
               )}
               {analysisType === "quizzes" && (
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-800 mb-4">Quiz Item Analysis</h2>
+                  {/* --- MODIFIED: Added dark theme text --- */}
+                  <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4">Quiz Item Analysis</h2>
                   {selectedQuizId && itemAnalysisData && itemAnalysisData.length > 0 && (
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
-                        <button onClick={exportItemAnalysisToCSV} className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm">
+                        {/* --- MODIFIED: Added dark theme button styles --- */}
+                        <button onClick={exportItemAnalysisToCSV} className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-400 flex items-center gap-2 text-sm">
                             <IconDownload size={16} /><span>Download Analysis</span>
                         </button>
-                        <button onClick={generateAnalysisReport} disabled={isAnalyzing} className="px-3 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 disabled:opacity-50 flex items-center gap-2 text-sm">
+                        {/* --- MODIFIED: Added dark theme button styles --- */}
+                        <button onClick={generateAnalysisReport} disabled={isAnalyzing} className="px-3 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 disabled:opacity-50 dark:bg-sky-500 dark:hover:bg-sky-400 dark:disabled:opacity-50 flex items-center gap-2 text-sm">
                           {isAnalyzing && <Spinner size="sm" />}
                           {isAnalyzing ? "Analyzing..." : "Analyze Performance"}
                         </button>
                       </div>
-                      <div className="text-sm text-slate-500">Weak threshold: &lt; 75% mastery</div>
+                      {/* --- MODIFIED: Added dark theme text --- */}
+                      <div className="text-sm text-slate-500 dark:text-slate-400">Weak threshold: &lt; 75% mastery</div>
                     </div>
                   )}
                   {selectedQuizId && itemAnalysisData && itemAnalysisData.length > 0 ? (
-                    <div className="overflow-x-auto bg-neumorphic-base rounded-2xl shadow-neumorphic mb-6">
+                    // --- MODIFIED: Added dark theme table container ---
+                    <div className="overflow-x-auto bg-neumorphic-base rounded-2xl shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg mb-6">
                       <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-slate-700 uppercase bg-neumorphic-base shadow-neumorphic-inset"><tr><th className="px-6 py-3">Question</th><th className="px-6 py-3 text-center">Correct / Total</th><th className="px-6 py-3 text-right">Mastery Level</th></tr></thead>
+                        {/* --- MODIFIED: Added dark theme table head --- */}
+                        <thead className="text-xs text-slate-700 uppercase bg-neumorphic-base shadow-neumorphic-inset dark:text-slate-300 dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark"><tr><th className="px-6 py-3">Question</th><th className="px-6 py-3 text-center">Correct / Total</th><th className="px-6 py-3 text-right">Mastery Level</th></tr></thead>
 					<tbody>
 					  {itemAnalysisData.map((item, i) => {
 					    const isExpanded = expandedRows[i] || false;
 
 					    return (
 					      <React.Fragment key={i}>
-					        <tr className="border-t border-slate-200">
-					          <td className="px-6 py-4 font-medium text-slate-900">
+                            {/* --- MODIFIED: Added dark theme table row border --- */}
+					        <tr className="border-t border-slate-200 dark:border-t dark:border-slate-700">
+                              {/* --- MODIFIED: Added dark theme text --- */}
+					          <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">
 					            <div className="flex items-center justify-between">
 						<span>
 						  {item.type === "matching-type"
@@ -1064,6 +1089,7 @@ const AnalyticsView = ({ activeClasses }) => {
 						</span>
 					              
 					              {item.type === "matching-type" && item.breakdown && (
+                                    // --- MODIFIED: Added dark theme text ---
 					                <button
 					                  onClick={() =>
 					                    setExpandedRows((prev) => ({
@@ -1071,7 +1097,7 @@ const AnalyticsView = ({ activeClasses }) => {
 					                      [i]: !prev[i],
 					                    }))
 					                  }
-					                  className="ml-3 text-xs text-sky-600 hover:underline focus:outline-none"
+					                  className="ml-3 text-xs text-sky-600 hover:underline focus:outline-none dark:text-sky-400"
 					                >
 					                  {isExpanded ? "Hide Details" : "View Details"}
 					                </button>
@@ -1086,15 +1112,18 @@ const AnalyticsView = ({ activeClasses }) => {
 
 					        {/* 🔹 Expandable breakdown row */}
 							{item.type === "matching-type" && item.breakdown && isExpanded && (
-							  <tr className="border-t border-slate-100 bg-slate-50">
+                              // --- MODIFIED: Added dark theme expanded row ---
+							  <tr className="border-t border-slate-100 bg-slate-50 dark:border-t dark:border-slate-700 dark:bg-slate-800">
 							    <td colSpan={3} className="px-6 py-4">
-							      <div className="text-sm text-slate-700">
+                                  {/* --- MODIFIED: Added dark theme text --- */}
+							      <div className="text-sm text-slate-700 dark:text-slate-300">
 							        <strong>Matching Breakdown:</strong>
 							        <ul className="ml-4 mt-2 space-y-1 list-disc">
 							          {item.breakdown.map((pair, idx) => (
+                                        // --- MODIFIED: Added dark theme text colors ---
 							            <li
 							              key={idx}
-							              className={pair.isCorrect ? "text-green-600" : "text-red-600"}
+							              className={pair.isCorrect ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}
 							            >
 							              <span className="font-medium">Prompt:</span>{" "}
 							              {pair.promptText || `#${pair.promptId}`} <br />
@@ -1118,35 +1147,47 @@ const AnalyticsView = ({ activeClasses }) => {
 							</tbody>
                       </table>
                     </div>
-                  ) : (selectedQuizId ? <p className="text-center text-slate-500 mt-8">No submissions found for this quiz.</p> : (selectedClassId && <p className="text-center text-slate-500 mt-8">Select a quiz from the list to see its item analysis.</p>))}
+                  ) : (
+                    // --- MODIFIED: Added dark theme text ---
+                    selectedQuizId ? <p className="text-center text-slate-500 dark:text-slate-400 mt-8">No submissions found for this quiz.</p> : (selectedClassId && <p className="text-center text-slate-500 dark:text-slate-400 mt-8">Select a quiz from the list to see its item analysis.</p>)
+                  )}
                 </div>
               )}
               {analysisType === "recommendations" && (
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-800 mb-4">Saved Recommendations</h2>
+                  {/* --- MODIFIED: Added dark theme text --- */}
+                  <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4">Saved Recommendations</h2>
                   <div className="space-y-3">
-                    {Object.keys(groupedSavedRecs).length === 0 && <p className="text-slate-500 text-sm">No saved recommendations yet for this class.</p>}
+                    {/* --- MODIFIED: Added dark theme text --- */}
+                    {Object.keys(groupedSavedRecs).length === 0 && <p className="text-slate-500 dark:text-slate-400 text-sm">No saved recommendations yet for this class.</p>}
                     {Object.keys(groupedSavedRecs).sort(customUnitSort).map((unitTitle) => (
-                      <div key={unitTitle} className="border rounded-lg bg-neumorphic-base shadow-neumorphic">
-                        <button onClick={() => setOpenRecsUnit(openRecsUnit === unitTitle ? null : unitTitle)} className="w-full flex justify-between items-center px-4 py-2 font-semibold text-slate-700 hover:text-sky-700">
+                      // --- MODIFIED: Added dark theme card ---
+                      <div key={unitTitle} className="border rounded-lg bg-neumorphic-base shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg dark:border-slate-700">
+                        {/* --- MODIFIED: Added dark theme button text/hover --- */}
+                        <button onClick={() => setOpenRecsUnit(openRecsUnit === unitTitle ? null : unitTitle)} className="w-full flex justify-between items-center px-4 py-2 font-semibold text-slate-700 hover:text-sky-700 dark:text-slate-200 dark:hover:text-sky-400">
                           <span>{unitTitle}</span>
                           <IconChevronDown className={`h-5 w-5 transition-transform ${openRecsUnit === unitTitle ? "rotate-180" : ""}`} />
                         </button>
                         {openRecsUnit === unitTitle && (
-                          // <-- FIX: Added overflow-y-auto and max-h-60 for mobile screen compatibility
                           <div className="pl-4 pr-2 pb-3 space-y-2 overflow-y-auto max-h-60">
                             {groupedSavedRecs[unitTitle].map((recDoc) => (
-                              <div key={recDoc.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200 shadow-sm">
+                              // --- MODIFIED: Added dark theme inner card ---
+                              <div key={recDoc.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200 shadow-sm dark:bg-slate-800 dark:border-slate-700">
                                 <button onClick={() => openViewModal(recDoc)} className="text-left flex-1">
-                                  <div className="font-medium text-slate-800">{recDoc.lessonTitle || "Unnamed Lesson"} Remediation</div>
-                                  <div className="text-xs text-slate-500">{recDoc.createdAt?.toDate ? recDoc.createdAt.toDate().toLocaleString() : ""}</div>
+                                  {/* --- MODIFIED: Added dark theme text --- */}
+                                  <div className="font-medium text-slate-800 dark:text-slate-100">{recDoc.lessonTitle || "Unnamed Lesson"} Remediation</div>
+                                  {/* --- MODIFIED: Added dark theme text --- */}
+                                  <div className="text-xs text-slate-500 dark:text-slate-400">{recDoc.createdAt?.toDate ? recDoc.createdAt.toDate().toLocaleString() : ""}</div>
                                 </button>
                                 <div className="flex items-center gap-1">
-                                  <button title="Export PDF" onClick={() => exportRecToPDF(recDoc)} disabled={exportingPdfId === recDoc.id} className="p-2 rounded-full hover:bg-slate-100 disabled:opacity-50">
+                                  {/* --- MODIFIED: Added dark theme button styles --- */}
+                                  <button title="Export PDF" onClick={() => exportRecToPDF(recDoc)} disabled={exportingPdfId === recDoc.id} className="p-2 rounded-full hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-700 dark:disabled:opacity-50">
                                     {exportingPdfId === recDoc.id ? <Spinner size="sm" /> : <IconFileExport size={16} />}
                                   </button>
-                                  <button title="Edit" onClick={() => openEditModal(recDoc)} className="p-2 rounded-full hover:bg-slate-100"><IconEdit size={16} /></button>
-                                  <button title="Delete" onClick={() => deleteRecommendation(recDoc)} className="p-2 rounded-full hover:bg-slate-100 text-red-600"><IconTrash size={16} /></button>
+                                  {/* --- MODIFIED: Added dark theme button styles --- */}
+                                  <button title="Edit" onClick={() => openEditModal(recDoc)} className="p-2 rounded-full hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"><IconEdit size={16} /></button>
+                                  {/* --- MODIFIED: Added dark theme button styles --- */}
+                                  <button title="Delete" onClick={() => deleteRecommendation(recDoc)} className="p-2 rounded-full hover:bg-slate-100 text-red-600 dark:text-red-400 dark:hover:bg-slate-700"><IconTrash size={16} /></button>
                                 </div>
                               </div>
                             ))}
@@ -1163,8 +1204,9 @@ const AnalyticsView = ({ activeClasses }) => {
       </div>
       {!selectedClassId && !isLoading && ( // Only show placeholder if not loading
         <div className="text-center mt-16">
-          <IconAnalyze size={48} className="mx-auto text-slate-400" />
-          <p className="mt-4 text-slate-500">Please select a class to view its analytics.</p>
+          {/* --- MODIFIED: Added dark theme icon/text --- */}
+          <IconAnalyze size={48} className="mx-auto text-slate-400 dark:text-slate-500" />
+          <p className="mt-4 text-slate-500 dark:text-slate-400">Please select a class to view its analytics.</p>
         </div>
       )}
 

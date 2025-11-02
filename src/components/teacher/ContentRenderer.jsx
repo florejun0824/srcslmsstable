@@ -9,7 +9,7 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import 'katex/dist/katex.min.css';
 import mermaid from 'mermaid';
-import { ChevronDownIcon } from '@heroicons/react/24/solid'; // --- ADDED ---
+import { ChevronDownIcon } from '@heroicons/react/24/solid';
 
 // --- SVG cleaner ---
 const processSvgContent = (svgString) => {
@@ -123,7 +123,7 @@ export default function ContentRenderer({ htmlContent, text }) {
             className="max-w-full rounded shadow"
           />
           {Array.isArray(text.labels) && text.labels.length > 0 && (
-            <ul className="mt-2 text-sm text-gray-600 list-disc list-inside">
+            <ul className="mt-2 text-sm text-gray-600 dark:text-gray-400 list-disc list-inside">
               {text.labels.map((label, idx) => (
                 <li key={idx}>{label}</li>
               ))}
@@ -236,7 +236,8 @@ export default function ContentRenderer({ htmlContent, text }) {
     processedText = normalizeLatex(processedText);
 
     return (
-      <div className="content-renderer prose max-w-full">
+      // --- MODIFIED: Added dark:prose-invert to automatically style markdown in dark mode ---
+      <div className="content-renderer prose max-w-full dark:prose-invert">
         <ReactMarkdown
           children={processedText}
           remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
@@ -244,11 +245,12 @@ export default function ContentRenderer({ htmlContent, text }) {
           components={{
             blockquote: ({ node, ...props }) => {
               const textContent = getNodeText(node);
-              let styleClass = 'border-blue-500 bg-blue-50 text-blue-800';
+              // --- MODIFIED: Added dark mode classes ---
+              let styleClass = 'border-blue-500 bg-blue-50 text-blue-800 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-200';
               if (textContent.toLowerCase().includes('tip:')) {
-                styleClass = 'border-green-500 bg-green-50 text-green-800';
+                styleClass = 'border-green-500 bg-green-50 text-green-800 dark:border-green-400 dark:bg-green-900/30 dark:text-green-200';
               } else if (textContent.toLowerCase().includes('warning:')) {
-                styleClass = 'border-yellow-500 bg-yellow-50 text-yellow-800';
+                styleClass = 'border-yellow-500 bg-yellow-50 text-yellow-800 dark:border-yellow-400 dark:bg-yellow-900/30 dark:text-yellow-200';
               }
               return (
                 <blockquote
@@ -258,7 +260,8 @@ export default function ContentRenderer({ htmlContent, text }) {
               );
             },
             strong: ({ node, ...props }) => {
-              return <strong className="font-bold text-slate-800" {...props} />;
+              // --- MODIFIED: Added dark mode text color (prose-invert also handles this, but this is a safe override) ---
+              return <strong className="font-bold text-slate-800 dark:text-slate-100" {...props} />;
             },
             img: ({ node, ...props }) => (
               <img {...props} alt="" className="max-w-full" />
@@ -285,13 +288,15 @@ export default function ContentRenderer({ htmlContent, text }) {
 
               return (
                 <details 
-                  className="my-4 bg-neumorphic-base rounded-2xl shadow-neumorphic group overflow-hidden" 
+                  // --- MODIFIED: Added dark mode classes ---
+                  className="my-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-lg group overflow-hidden" 
                   {...props}
                 >
                   {summaryChild}
                   <div className="p-4 pt-0">
                     {/* This inset box contains the hidden content */}
-                    <div className="p-4 rounded-xl bg-neumorphic-base shadow-neumorphic-inset prose max-w-full">
+                    {/* --- MODIFIED: Added dark mode classes AND dark:prose-invert --- */}
+                    <div className="p-4 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark prose max-w-full dark:prose-invert">
                       {contentChildren}
                     </div>
                   </div>
@@ -300,12 +305,13 @@ export default function ContentRenderer({ htmlContent, text }) {
             },
             summary: ({ node, ...props }) => (
               <summary 
-                className="flex items-center justify-between p-4 cursor-pointer select-none list-none font-semibold text-gray-800 transition-all active:shadow-neumorphic-inset"
+                // --- MODIFIED: Added dark mode classes ---
+                className="flex items-center justify-between p-4 cursor-pointer select-none list-none font-semibold text-gray-800 dark:text-slate-100 transition-all active:shadow-neumorphic-inset active:dark:shadow-neumorphic-inset-dark"
                 {...props}
               >
                 {/* This renders the text inside the summary */}
                 {props.children} 
-                <ChevronDownIcon className="w-5 h-5 text-gray-500 transition-transform duration-200 group-open:rotate-180" />
+                <ChevronDownIcon className="w-5 h-5 text-gray-500 dark:text-slate-400 transition-transform duration-200 group-open:rotate-180" />
               </summary>
             ),
             // --- END ADDED ---

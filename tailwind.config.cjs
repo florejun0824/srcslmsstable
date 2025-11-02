@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: 'selector',
   content: [
     "./index.html",
     "./src/**/*.{js,jsx,ts,tsx}",
@@ -68,6 +69,11 @@ module.exports = {
         'neumorphic-base': '#F0F2F5',
         'neumorphic-shadow-dark': '#C8CDD3',
         'neumorphic-shadow-light': '#FFFFFF',
+
+        // --- ADDED: Dark Mode Neumorphic Colors ---
+        'neumorphic-base-dark': '#1e293b', // slate-800
+        'neumorphic-shadow-dark-dark': '#0f172a', // slate-900 (the dark shadow in dark mode)
+        'neumorphic-shadow-light-dark': '#334155', // slate-700 (the light shadow in dark mode)
       },
       animation: {
         'spin-slow': 'spin 4s linear infinite',
@@ -99,6 +105,11 @@ module.exports = {
         'neumorphic': '6px 6px 12px #C8CDD3, -6px -6px 12px #FFFFFF',
         'neumorphic-inset': 'inset 6px 6px 12px #C8CDD3, inset -6px -6px 12px #FFFFFF',
         'neumorphic-flat-inset': 'inset 2px 2px 4px #C8CDD3, inset -2px -2px 4px #FFFFFF',
+
+        // --- ADDED: Dark Mode Neumorphic Shadows ---
+        'neumorphic-dark': '6px 6px 12px #0f172a, -6px -6px 12px #334155',
+        'neumorphic-inset-dark': 'inset 6px 6px 12px #0f172a, inset -6px -6px 12px #334155',
+        'neumorphic-flat-inset-dark': 'inset 2px 2px 4px #0f172a, inset -2px -2px 4px #334155',
       },
       fontFamily: {
         sans: ['"Inter var"', "system-ui", "sans-serif"],
@@ -133,6 +144,16 @@ module.exports = {
             },
             'blockquote p:last-of-type::after': {
               content: '',
+            },
+          },
+        },
+        // --- THIS IS THE FIX: Changed 'dark' to 'invert' ---
+        invert: {
+          css: {
+            blockquote: {
+              color: theme('colors.slate.400'),
+              backgroundColor: theme('colors.neumorphic-base-dark'),
+              boxShadow: theme('boxShadow.neumorphic-flat-inset-dark'),
             },
           },
         },

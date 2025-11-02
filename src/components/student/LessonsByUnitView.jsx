@@ -15,16 +15,17 @@ import { useToast } from '../../contexts/ToastContext';
 import { db } from '../../services/firebase';
 import { doc, updateDoc, increment, arrayUnion } from 'firebase/firestore';
 
-// ---------- Empty state (unchanged) ----------
+// ---------- Empty state (themed) ----------
 const EmptyState = ({ icon: Icon, text, subtext }) => (
+  // --- MODIFIED: Added dark mode classes ---
   <div className="text-center py-20 px-6 animate-fadeIn">
-    <Icon className="h-14 w-14 mb-4 text-slate-300 mx-auto" />
-    <p className="text-lg font-semibold text-slate-600">{text}</p>
-    <p className="mt-2 text-base text-slate-400">{subtext}</p>
+    <Icon className="h-14 w-14 mb-4 text-slate-300 dark:text-slate-600 mx-auto" />
+    <p className="text-lg font-semibold text-slate-600 dark:text-slate-300">{text}</p>
+    <p className="mt-2 text-base text-slate-400 dark:text-slate-500">{subtext}</p>
   </div>
 );
 
-// ---------- Enhanced LessonListItem (mobile-friendly & neumorphic) ----------
+// ---------- Enhanced LessonListItem (themed) ----------
 const LessonListItem = ({ lesson, onClick, completedLessons }) => {
   const isLessonCompleted =
     lesson.isCompleted || (completedLessons && completedLessons.includes(lesson.id));
@@ -34,13 +35,16 @@ const LessonListItem = ({ lesson, onClick, completedLessons }) => {
 
   if (isLessonCompleted) {
     progressText = 'Completed';
-    badgeClasses = 'bg-green-100 text-green-800';
+    // --- MODIFIED: Added dark mode classes ---
+    badgeClasses = 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
   } else if (lesson.pagesRead && lesson.totalPages && lesson.pagesRead > 0) {
     progressText = `In Progress: Page ${lesson.pagesRead} of ${lesson.totalPages}`;
-    badgeClasses = 'bg-yellow-100 text-yellow-800';
+    // --- MODIFIED: Added dark mode classes ---
+    badgeClasses = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
   } else {
     progressText = 'Not Started';
-    badgeClasses = 'bg-slate-100 text-slate-600';
+    // --- MODIFIED: Added dark mode classes ---
+    badgeClasses = 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300';
   }
 
   return (
@@ -48,9 +52,10 @@ const LessonListItem = ({ lesson, onClick, completedLessons }) => {
       onClick={onClick}
       role="button"
       tabIndex={0}
+      // --- MODIFIED: Themed main container, shadows, and hover ---
       className="group relative flex items-center gap-4 p-4 cursor-pointer rounded-2xl
-                 bg-neumorphic-base shadow-neumorphic transition-all duration-200
-                 hover:shadow-neumorphic-inset active:scale-[0.98]"
+                 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark transition-all duration-200
+                 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:scale-[0.98]"
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
     >
       {/* Lesson Icon */}
@@ -62,10 +67,11 @@ const LessonListItem = ({ lesson, onClick, completedLessons }) => {
 
       {/* Lesson Info */}
       <div className="flex-1 min-w-0">
-        <h3 className="text-sm sm:text-base font-semibold text-slate-800 truncate">
+        {/* --- MODIFIED: Themed text --- */}
+        <h3 className="text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-100 truncate">
           {lesson.title}
         </h3>
-        <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{lesson.description || ''}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{lesson.description || ''}</p>
       </div>
 
       {/* Progress Badge */}
@@ -76,25 +82,29 @@ const LessonListItem = ({ lesson, onClick, completedLessons }) => {
       </span>
 
       {/* Right Arrow */}
-      <ChevronRightIcon className="absolute right-3 h-4 w-4 text-slate-400 group-hover:text-red-600 transition-colors" />
+      <ChevronRightIcon className="absolute right-3 h-4 w-4 text-slate-400 dark:text-slate-500 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors" />
     </div>
   );
 };
 
-// ---------- Unit header ----------
+// ---------- Unit header (themed) ----------
 const UnitSectionHeader = ({ title, isCollapsed, onClick }) => (
   <button
     onClick={onClick}
-    className="w-full flex justify-between items-center px-4 py-2 rounded-xl
-               bg-neumorphic-base shadow-neumorphic text-left transition-all duration-200
-               hover:shadow-neumorphic-inset"
+    className="w-full flex justify-between items-center p-2 group"
   >
-    <span className="text-sm font-semibold text-slate-700">{title}</span>
-    {isCollapsed ? (
-      <ChevronDownIcon className="h-5 w-5 text-slate-400" />
-    ) : (
-      <ChevronUpIcon className="h-5 w-5 text-slate-400" />
-    )}
+    {/* --- MODIFIED: Themed pill background, shadow, and text --- */}
+    <span className="bg-neumorphic-base dark:bg-neumorphic-base-dark px-4 py-2 rounded-full shadow-neumorphic dark:shadow-neumorphic-dark text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 transition-transform group-hover:scale-105">
+        {title}
+    </span>
+    <div className="p-2 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic dark:shadow-neumorphic-dark group-hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-shadow duration-200">
+        {/* --- MODIFIED: Themed icons --- */}
+        {isCollapsed ? (
+            <ChevronDownIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+        ) : (
+            <ChevronUpIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+        )}
+    </div>
   </button>
 );
 
@@ -305,12 +315,13 @@ const LessonsByUnitView = ({ selectedClass, lessons, units, onBack, onContentUpd
   // ---------- Render ----------
   return (
     <div className="min-h-full font-sans antialiased">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6" ref={containerRef}>
         <button
           onClick={onBack}
-          className="flex items-center gap-2 px-4 py-2 mb-4 text-sm sm:text-base font-semibold text-red-600
-                     bg-neumorphic-base rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset
-                     hover:text-red-700 transition-all duration-200"
+          // --- MODIFIED: Themed back button ---
+          className="flex items-center gap-2 px-4 py-2 mb-4 text-sm sm:text-base font-semibold text-red-600 dark:text-red-400
+                     bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark
+                     hover:text-red-700 dark:hover:text-red-300 transition-all duration-200"
         >
           <ChevronLeftIcon className="h-5 w-5" />
           All Classes
@@ -318,24 +329,26 @@ const LessonsByUnitView = ({ selectedClass, lessons, units, onBack, onContentUpd
 
         <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 mb-1">Lessons</h1>
-            <p className="text-sm sm:text-base text-slate-500">For {selectedClass?.name}</p>
+            {/* --- MODIFIED: Themed text --- */}
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-1">Lessons</h1>
+            <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400">For {selectedClass?.name}</p>
           </div>
 
           {/* Expand / Collapse All */}
           <div className="flex items-center gap-3">
             <button
               onClick={handleExpandCollapseAll}
+              // --- MODIFIED: Themed button ---
               className="flex items-center gap-2 px-3 py-2 text-sm sm:text-base font-semibold
-                         text-slate-700 bg-neumorphic-base rounded-xl shadow-neumorphic
-                         hover:shadow-neumorphic-inset hover:text-red-600 active:scale-[0.97]
+                         text-slate-700 dark:text-slate-200 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark
+                         hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark hover:text-red-600 dark:hover:text-red-400 active:scale-[0.97]
                          transition-all duration-200"
             >
-              <ArrowsUpDownIcon className="h-4 w-4 text-slate-500" />
+              <ArrowsUpDownIcon className="h-4 w-4 text-slate-500 dark:text-slate-400" />
               {collapsedUnits.size === 0 ? 'Collapse All' : 'Expand All'}
             </button>
 
-            {/* Manual refresh button (for platforms where pull-to-refresh may not be used) */}
+            {/* Manual refresh button */}
             <button
               onClick={async () => {
                 setIsRefreshing(true);
@@ -350,11 +363,12 @@ const LessonsByUnitView = ({ selectedClass, lessons, units, onBack, onContentUpd
                   setIsRefreshing(false);
                 }
               }}
-              className="px-3 py-2 text-sm font-medium text-slate-600 bg-neumorphic-base rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset"
+              className="px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
             >
 			  {isRefreshing ? (
 			    <div className="flex items-center gap-2">
-			      <svg className="animate-spin h-4 w-4 text-red-600" viewBox="0 0 24 24">
+			      {/* --- MODIFIED: Themed spinner --- */}
+			      <svg className="animate-spin h-4 w-4 text-red-600 dark:text-red-400" viewBox="0 0 24 24">
 			        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
 			        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
 			      </svg>
@@ -378,9 +392,16 @@ const LessonsByUnitView = ({ selectedClass, lessons, units, onBack, onContentUpd
             onMouseDown={handleTouchStart}
             onMouseMove={handleTouchMove}
             onMouseUp={handleTouchEnd}
-            className="space-y-4"
+            className="space-y-1"
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
+            {/* Pull-to-refresh text indicator (simplified for cleanliness) */}
+            {isRefreshing && (
+              <div className="text-center text-red-600 dark:text-red-400 text-sm font-semibold pt-2">
+                <ArrowUturnLeftIcon className="h-4 w-4 inline mr-1 animate-spin" /> Fetching updates...
+              </div>
+            )}
+            
             {sortedUnitTitles.map((unitTitle) => {
               const isCollapsed = collapsedUnits.has(unitTitle);
               return (
@@ -391,7 +412,8 @@ const LessonsByUnitView = ({ selectedClass, lessons, units, onBack, onContentUpd
                     onClick={() => toggleUnitCollapse(unitTitle)}
                   />
                   {!isCollapsed && (
-                    <div className="bg-neumorphic-base rounded-2xl shadow-neumorphic p-2 sm:p-3 space-y-2">
+                    // --- MODIFIED: Themed unit content container ---
+                    <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark p-2 sm:p-3 space-y-2">
                       {lessonsByUnit[unitTitle].map((lesson) => (
                         <LessonListItem
                           key={lesson.id}

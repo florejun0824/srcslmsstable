@@ -16,10 +16,8 @@ if (typeof window !== "undefined") {
 }
 
 import React, { useState, useEffect } from 'react';
-// --- MODIFICATION START ---
 // Import routing components
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-// --- MODIFICATION END ---
 
 import { Capacitor } from '@capacitor/core';
 import { StatusBar } from '@capacitor/status-bar';
@@ -33,10 +31,8 @@ import TestPage from './pages/TestPage';
 import { handleAuthRedirect, createPresentationFromData } from './services/googleSlidesService';
 import PostLoginExperience from "./components/PostLoginExperience";
 import UpdateOverlay from './components/UpdateOverlay';
-// --- MODIFICATION START ---
 // Fixed the typo from '*s' to '* as'
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
-// --- MODIFICATION END ---
 import './index.css';
 
 const AVERAGE_BUILD_SECONDS = 300; // 5 minutes
@@ -89,8 +85,6 @@ const AppRouter = () => {
   // Show a top-level spinner while auth is loading
   if (loading) return <Spinner />;
 
-  // --- MODIFICATION START ---
-  // Replace all conditional logic with <Routes>
   return (
     <Routes>
       {/* Publicly accessible routes */}
@@ -132,9 +126,6 @@ const AppRouter = () => {
       />
 
       {/* Teacher/Admin Dashboard Routes (Protected) */}
-      {/* This "/*" is the key. It allows TeacherDashboard to handle
-          all nested routes like /dashboard/home, /dashboard/classes, etc.
-      */}
       <Route 
         path="/dashboard/*" 
         element={
@@ -152,7 +143,6 @@ const AppRouter = () => {
       />
       
       {/* Default Fallback Route */}
-      {/* Redirects "/" to the correct starting page */}
       <Route 
         path="/" 
         element={
@@ -168,7 +158,6 @@ const AppRouter = () => {
       />
     </Routes>
   );
-  // --- MODIFICATION END ---
 };
 
 export default function App() {
@@ -264,7 +253,11 @@ export default function App() {
   // Wrap the app in <BrowserRouter>
   return (
     <BrowserRouter>
-      <div className="bg-gray-100 min-h-screen">
+      {/* REPLACED: "bg-gray-100 min-h-screen"
+        with our new neumorphic colors from tailwind.config.cjs
+        This will be the base background for the entire application.
+      */}
+      <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-900 dark:text-slate-100 min-h-screen">
         <AppRouter />
       </div>
     </BrowserRouter>

@@ -6,13 +6,13 @@ import Linkify from 'react-linkify'; // We still need this
 
 // Original reaction icons for mapping text to actual emoji characters and their associated colors/labels
 const reactionIconsHomeView = {
-  like: { component: (props) => (<span {...props}>👍</span>), label: 'Like', color: 'text-blue-500' },
-  heart: { component: (props) => (<span {...props}>❤️</span>), label: 'Love', color: 'text-red-500' },
-  haha: { component: (props) => (<span {...props}>😂</span>), label: 'Haha', color: 'text-yellow-500' },
-  wow: { component: (props) => (<span {...props}>😮</span>), label: 'Wow', color: 'text-amber-500' },
-  sad: { component: (props) => (<span {...props}>😢</span>), label: 'Sad', color: 'text-slate-500' },
-  angry: { component: (props) => (<span {...props}>😡</span>), label: 'Angry', color: 'text-red-700' },
-  care: { component: (props) => (<span {...props}>🤗</span>), label: 'Care', color: 'text-pink-500' },
+  like: { component: (props) => (<span {...props}>👍</span>), label: 'Like', color: 'text-blue-500 dark:text-blue-400' },
+  heart: { component: (props) => (<span {...props}>❤️</span>), label: 'Love', color: 'text-red-500 dark:text-red-400' },
+  haha: { component: (props) => (<span {...props}>😂</span>), label: 'Haha', color: 'text-yellow-500 dark:text-yellow-400' },
+  wow: { component: (props) => (<span {...props}>😮</span>), label: 'Wow', color: 'text-amber-500 dark:text-amber-400' },
+  sad: { component: (props) => (<span {...props}>😢</span>), label: 'Sad', color: 'text-slate-500 dark:text-slate-400' },
+  angry: { component: (props) => (<span {...props}>😡</span>), label: 'Angry', color: 'text-red-700 dark:text-red-500' },
+  care: { component: (props) => (<span {...props}>🤗</span>), label: 'Care', color: 'text-pink-500 dark:text-pink-400' },
 };
 
 // Themed reaction icons for the picker. These will be neumorphed.
@@ -37,7 +37,8 @@ const componentDecorator = (href, text, key) => (
         key={key} 
         target="_blank" 
         rel="noopener noreferrer"
-        className="text-blue-600 hover:underline font-semibold"
+        // --- MODIFIED: Added dark mode link color ---
+        className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
         onClick={(e) => e.stopPropagation()} // Prevents card click when clicking link
     >
         {text}
@@ -79,7 +80,8 @@ const AnnouncementCard = ({
         color: reactionColor
     } = currentUserReaction && reactionIconsHomeView[currentUserReaction]
         ? reactionIconsHomeView[currentUserReaction]
-        : { component: ThumbsUp, label: 'Like', color: 'text-slate-600' };
+        // --- MODIFIED: Added dark mode default text color ---
+        : { component: ThumbsUp, label: 'Like', color: 'text-slate-600 dark:text-slate-400' };
 
     // ... (rest of the handlers from handleReactionOptionsMouseEnter to formatReactionCount remain unchanged) ...
     // --- Reaction Hover/Touch Handlers ---
@@ -137,8 +139,8 @@ const AnnouncementCard = ({
                         return (
                             <div
                                 key={index}
-                                // MODIFIED: Apply subtle neumorphic inset to reaction count emojis
-                                className={`relative w-6 h-6 flex items-center justify-center rounded-full bg-neumorphic-base shadow-neumorphic-inset ring-2 ring-neumorphic-base ${index > 0 ? '-ml-2' : ''}`}
+                                // --- MODIFIED: Apply dark mode classes to reaction count emojis ---
+                                className={`relative w-6 h-6 flex items-center justify-center rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark ring-2 ring-neumorphic-base dark:ring-neumorphic-base-dark ${index > 0 ? '-ml-2' : ''}`}
                                 style={{ zIndex: 3 - index }}
                             >
                                 <Icon className="text-xl" />
@@ -146,7 +148,8 @@ const AnnouncementCard = ({
                         );
                     })}
                 </div>
-                <span className="text-sm text-slate-600 font-medium ml-2 hover:underline">{totalReactions}</span>
+                {/* --- MODIFIED: Added dark mode text color --- */}
+                <span className="text-sm text-slate-600 dark:text-slate-400 font-medium ml-2 hover:underline">{totalReactions}</span>
             </div>
         );
     };
@@ -158,10 +161,12 @@ const AnnouncementCard = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.4 }}
-            className={`bg-neumorphic-base rounded-3xl p-6 relative group transition-shadow duration-300 shadow-neumorphic`}
+            // --- MODIFIED: Added dark mode classes ---
+            className={`bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl p-6 relative group transition-shadow duration-300 shadow-neumorphic dark:shadow-neumorphic-dark`}
         >
             {post.isPinned && (
-                <div className="absolute top-4 left-4 flex items-center gap-2 text-sky-700 bg-neumorphic-base shadow-neumorphic px-3 py-1 rounded-full text-xs font-semibold z-10">
+                // --- MODIFIED: Added dark mode classes ---
+                <div className="absolute top-4 left-4 flex items-center gap-2 text-sky-700 dark:text-sky-400 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark px-3 py-1 rounded-full text-xs font-semibold z-10">
                     <Pin className="w-3 h-3" />
                     <span>Pinned</span>
                 </div>
@@ -171,20 +176,25 @@ const AnnouncementCard = ({
                     <UserInitialsAvatar user={authorProfile} size="w-10 h-10" />
                 </div>
                 <div className="ml-3">
-                    <p className="font-bold text-slate-800">{post.teacherName}</p>
-                    <p className="text-xs text-slate-500">{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString() : ''}</p>
+                    {/* --- MODIFIED: Added dark mode text colors --- */}
+                    <p className="font-bold text-slate-800 dark:text-slate-100">{post.teacherName}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString() : ''}</p>
                 </div>
                 {canModify && (
-                    <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-neumorphic-base shadow-neumorphic rounded-full p-1">
+                    // --- MODIFIED: Added dark mode classes ---
+                    <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark rounded-full p-1">
                          {userProfile?.role === 'admin' && (
-                            <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); onTogglePin(post.id, post.isPinned); }} className={`p-2 rounded-full hover:shadow-neumorphic-inset transition-shadow ${post.isPinned ? 'text-sky-500' : 'text-slate-500'}`} title={post.isPinned ? "Unpin Announcement" : "Pin Announcement"}>
+                            // --- MODIFIED: Added dark mode classes ---
+                            <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); onTogglePin(post.id, post.isPinned); }} className={`p-2 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-shadow ${post.isPinned ? 'text-sky-500 dark:text-sky-400' : 'text-slate-500 dark:text-slate-400'}`} title={post.isPinned ? "Unpin Announcement" : "Pin Announcement"}>
                                 <Pin className="w-5 h-5" />
                             </motion.button>
                         )}
-                        <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); onStartEdit(post); }} className="p-2 rounded-full text-slate-500 hover:shadow-neumorphic-inset transition-shadow" title="Edit Announcement">
+                        {/* --- MODIFIED: Added dark mode classes --- */}
+                        <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); onStartEdit(post); }} className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-shadow" title="Edit Announcement">
                             <Pencil className="w-5 h-5" />
                         </motion.button>
-                        <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); onDelete(post.id); }} className="p-2 rounded-full text-red-500 hover:shadow-neumorphic-inset transition-shadow" title="Delete Announcement">
+                        {/* --- MODIFIED: Added dark mode classes --- */}
+                        <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); onDelete(post.id); }} className="p-2 rounded-full text-red-500 dark:text-red-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-shadow" title="Delete Announcement">
                             <Trash2 className="w-5 h-5" />
                         </motion.button>
                     </div>
@@ -193,42 +203,42 @@ const AnnouncementCard = ({
 
             {isEditing ? (
                 <>
+                    {/* --- MODIFIED: Added dark mode classes --- */}
                     <textarea
-                        className="w-full p-3 border-none ring-0 focus:ring-0 rounded-lg bg-neumorphic-base text-slate-800 resize-none mb-4 shadow-neumorphic-inset"
+                        className="w-full p-3 border-none ring-0 focus:ring-0 rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 resize-none mb-4 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark"
                         rows="5"
                         value={editingText}
                         onChange={(e) => onTextChange(e.target.value)}
                         onClick={(e) => e.stopPropagation()}
                     />
                     <div className="flex justify-end gap-2">
-                        <button className="px-5 py-2 rounded-full font-semibold text-slate-700 bg-neumorphic-base shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset" onClick={(e) => { e.stopPropagation(); onCancelEdit(); }}>Cancel</button>
-                        <button className="px-5 py-2 rounded-full font-semibold text-sky-600 bg-neumorphic-base shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset" onClick={(e) => { e.stopPropagation(); onSave(); }}>Save</button>
+                        {/* --- MODIFIED: Added dark mode classes --- */}
+                        <button className="px-5 py-2 rounded-full font-semibold text-slate-700 dark:text-slate-200 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark" onClick={(e) => { e.stopPropagation(); onCancelEdit(); }}>Cancel</button>
+                        <button className="px-5 py-2 rounded-full font-semibold text-sky-600 dark:text-sky-400 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark" onClick={(e) => { e.stopPropagation(); onSave(); }}>Save</button>
                     </div>
                 </>
             ) : (
-                // --- MODIFIED SECTION ---
                 post.content && (
-                    <p className="text-slate-700 text-base leading-relaxed whitespace-pre-wrap break-words">
+                    // --- MODIFIED: Added dark mode classes ---
+                    <p className="text-slate-700 dark:text-slate-300 text-base leading-relaxed whitespace-pre-wrap break-words">
                         {isTruncated && !isExpanded ? (
-                            // Truncated view: Still plain text
                             post.content.substring(0, ANNOUNCEMENT_TRUNCATE_LENGTH) + '...'
                         ) : (
-                            // Full/Expanded view: Wrap in Linkify and use our new decorator
                             <Linkify componentDecorator={componentDecorator}>
                                 {post.content}
                             </Linkify>
                         )}
                         {isTruncated && (
+                             // --- MODIFIED: Added dark mode classes ---
                             <button
                                 onClick={() => onToggleExpansion(post.id)}
-                                className="text-sky-600 hover:underline ml-1 font-semibold"
+                                className="text-sky-600 dark:text-sky-400 hover:underline ml-1 font-semibold"
                             >
                                 {isExpanded ? 'Show Less' : 'See More'}
                             </button>
                         )}
                     </p>
                 )
-                // --- END OF MODIFIED SECTION ---
             )}
             
             {post.photoURL && !isEditing && (
@@ -236,17 +246,20 @@ const AnnouncementCard = ({
                     <img 
                         src={post.photoURL} 
                         alt="Announcement" 
-                        className="rounded-xl max-h-96 w-full object-contain bg-slate-100"
+                        // --- MODIFIED: Added dark mode classes ---
+                        className="rounded-xl max-h-96 w-full object-contain bg-slate-100 dark:bg-slate-800"
                         onError={(e) => { e.target.style.display = 'none'; }}
                     />
                     {post.caption && (
-                        <p className="text-sm text-slate-600 mt-2 text-center italic">{post.caption}</p>
+                        // --- MODIFIED: Added dark mode classes ---
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 text-center italic">{post.caption}</p>
                     )}
                 </div>
             )}
 
             {((postReactions && Object.keys(postReactions).length > 0) || (post.commentsCount || 0) > 0) && (
-                <div className="flex justify-between items-center text-sm text-slate-500 mt-4">
+                // --- MODIFIED: Added dark mode classes ---
+                <div className="flex justify-between items-center text-sm text-slate-500 dark:text-slate-400 mt-4">
                     {formatReactionCount()}
                     <span className="cursor-pointer hover:underline font-medium" onClick={() => onViewComments(post)}>
                         View Comments
@@ -254,7 +267,8 @@ const AnnouncementCard = ({
                 </div>
             )}
 
-            <div className="flex justify-around items-center pt-3 mt-4 border-t border-neumorphic-shadow-dark/30">
+            {/* --- MODIFIED: Added dark mode classes --- */}
+            <div className="flex justify-around items-center pt-3 mt-4 border-t border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30">
                 <div
                     className="relative"
                     onMouseEnter={handleReactionOptionsMouseEnter}
@@ -265,7 +279,8 @@ const AnnouncementCard = ({
                 >
                     <motion.button
                         whileTap={{ scale: 0.95 }}
-                        className={`flex items-center space-x-2 py-2 px-4 rounded-full transition-all duration-200 w-full justify-center ${currentUserReaction ? reactionColor : 'text-slate-600'} hover:shadow-neumorphic-inset`}
+                        // --- MODIFIED: Added dark mode classes ---
+                        className={`flex items-center space-x-2 py-2 px-4 rounded-full transition-all duration-200 w-full justify-center ${currentUserReaction ? reactionColor : 'text-slate-600 dark:text-slate-400'} hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark`}
                         onClick={() => onToggleReaction(post.id, 'like')} // Default toggle is 'like'
                     >
                         {currentUserReaction ? (
@@ -293,7 +308,8 @@ const AnnouncementCard = ({
                                     visible: { transition: { staggerChildren: 0.05 } },
                                     hidden: { transition: { staggerChildren: 0.05, staggerDirection: -1 } }
                                 }}
-                                className="absolute bottom-full mb-2 bg-neumorphic-base rounded-full shadow-neumorphic p-2 flex space-x-1 z-50"
+                                // --- MODIFIED: Added dark mode classes for reaction picker ---
+                                className="absolute bottom-full mb-2 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic dark:shadow-neumorphic-dark p-2 flex space-x-1 z-50"
                                 onMouseEnter={handleReactionOptionsMouseEnter}
                                 onMouseLeave={handleReactionOptionsMouseLeave}
                             >
@@ -305,10 +321,12 @@ const AnnouncementCard = ({
                                         className="p-1 rounded-full group/reaction relative"
                                         onClick={() => handleReactionOptionClick(type)}
                                     >
-                                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-neumorphic-base transition-shadow duration-200 cursor-pointer hover:shadow-neumorphic-inset">
+                                        {/* --- MODIFIED: Added dark mode classes for emoji button --- */}
+                                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark transition-shadow duration-200 cursor-pointer hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark">
                                             <span className="text-2xl">{emoji}</span>
                                         </div>
-                                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs font-semibold px-2 py-1 rounded-md opacity-0 group-hover/reaction:opacity-100 transition-opacity whitespace-nowMrap">
+                                        {/* --- MODIFIED: Added dark mode classes for tooltip --- */}
+                                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 text-xs font-semibold px-2 py-1 rounded-md opacity-0 group-hover/reaction:opacity-100 transition-opacity whitespace-nowrap">
                                             {label}
                                         </div>
                                     </motion.div>
@@ -320,7 +338,8 @@ const AnnouncementCard = ({
 
                 <motion.button
                     whileTap={{ scale: 0.95 }}
-                    className="flex items-center space-x-2 py-2 px-4 rounded-full text-slate-600 transition-shadow hover:shadow-neumorphic-inset"
+                    // --- MODIFIED: Added dark mode classes ---
+                    className="flex items-center space-x-2 py-2 px-4 rounded-full text-slate-600 dark:text-slate-400 transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
                     onClick={() => onViewComments(post)}
                 >
                     <MessageCircle className="h-5 w-5" />

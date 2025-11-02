@@ -119,11 +119,11 @@ const ScoresTab = ({
         // MODIFIED: Reduced mobile spacing
         <div className="space-y-4 sm:space-y-6">
             {allQuizzes.length === 0 ? (
-                // MODIFIED: Made empty state responsive
-                <div className="text-center p-6 sm:p-12 bg-neumorphic-base rounded-2xl shadow-neumorphic-inset mt-4">
-                    <ChartBarIcon className="h-12 w-12 sm:h-16 sm:w-16 mb-4 text-slate-300 mx-auto" />
-                    <p className="text-lg sm:text-xl font-semibold text-slate-700">No Quizzes with Scores</p>
-                    <p className="mt-2 text-sm sm:text-base text-slate-500">Scores for shared quizzes will appear here once students complete them.</p>
+                // --- MODIFIED: Added dark mode classes ---
+                <div className="text-center p-6 sm:p-12 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark mt-4">
+                    <ChartBarIcon className="h-12 w-12 sm:h-16 sm:w-16 mb-4 text-slate-300 dark:text-slate-600 mx-auto" />
+                    <p className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-200">No Quizzes with Scores</p>
+                    <p className="mt-2 text-sm sm:text-base text-slate-500 dark:text-slate-400">Scores for shared quizzes will appear here once students complete them.</p>
                 </div>
             ) : (
                 postEntries.map(({ post, units: unitsInPost }) => {
@@ -131,7 +131,8 @@ const ScoresTab = ({
                     const isPostCollapsed = collapsedPosts.has(post.id);
 
                     return (
-                        <div key={post.id} className="bg-neumorphic-base rounded-2xl shadow-neumorphic">
+                        // --- MODIFIED: Added dark mode classes ---
+                        <div key={post.id} className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark">
                             <button 
                                 // MODIFIED: Reduced mobile padding
                                 className="w-full text-left p-3 sm:p-4 group"
@@ -139,23 +140,23 @@ const ScoresTab = ({
                             >
                                 <div className="flex justify-between items-start">
                                     <div className="flex-1 min-w-0">
-                                        {/* MODIFIED: Reduced mobile font size */}
-                                        <h3 className="font-bold text-slate-800 text-lg sm:text-xl group-hover:text-sky-600 transition-colors truncate">{post.title}</h3>
-                                        <div className="text-xs text-slate-500 mt-2 flex flex-wrap gap-x-3">
-                                            {/* (Post details unchanged, already small) */}
-                                            <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
-                                            {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
+                                        {/* --- MODIFIED: Added dark mode classes --- */}
+                                        <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors truncate">{post.title}</h3>
+                                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex flex-wrap gap-x-3">
+                                            {/* --- MODIFIED: Added dark mode classes --- */}
+                                            <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
+                                            {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
                                             {(() => {
                                                 let targetText = "Target: All Students";
                                                 if (post.targetAudience === 'all') targetText = "Target: All Students";
                                                 else if (post.targetAudience === 'specific') targetText = `Target: ${post.targetStudentIds?.length || 0} Student(s)`;
-                                                return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 text-slate-400" />{targetText}</span>;
+                                                return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />{targetText}</span>;
                                             })()}
                                         </div>
                                     </div>
-                                    {/* MODIFIED: Reduced mobile padding */}
+                                    {/* --- MODIFIED: Added dark mode classes --- */}
                                     <div className="flex-shrink-0 flex items-center gap-2 pl-2 sm:pl-4">
-                                        <ChevronDownIcon className={`h-6 w-6 text-slate-500 transition-transform ${isPostCollapsed ? '' : 'rotate-180'}`} />
+                                        <ChevronDownIcon className={`h-6 w-6 text-slate-500 dark:text-slate-400 transition-transform ${isPostCollapsed ? '' : 'rotate-180'}`} />
                                     </div>
                                 </div>
                             </button>
@@ -169,14 +170,15 @@ const ScoresTab = ({
                                         const isUnitCollapsed = collapsedUnits.has(unitKey);
 
                                         return (
-                                            <div key={unitKey} className="bg-neumorphic-base rounded-xl shadow-neumorphic-inset">
+                                            // --- MODIFIED: Added dark mode classes ---
+                                            <div key={unitKey} className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
                                                 <button 
                                                     // MODIFIED: Reduced mobile padding and font size
-                                                    className="flex items-center justify-between w-full p-3 sm:p-4 font-semibold text-base sm:text-lg text-slate-800 group" 
+                                                    className="flex items-center justify-between w-full p-3 sm:p-4 font-semibold text-base sm:text-lg text-slate-800 dark:text-slate-100 group" 
                                                     onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}
                                                 >
-                                                    <span className="group-hover:text-sky-600 truncate">{unitDisplayName}</span>
-                                                    <ChevronDownIcon className={`h-6 w-6 text-slate-500 transition-transform ${isUnitCollapsed ? '' : 'rotate-180'}`} />
+                                                    <span className="group-hover:text-sky-600 dark:group-hover:text-sky-400 truncate">{unitDisplayName}</span>
+                                                    <ChevronDownIcon className={`h-6 w-6 text-slate-500 dark:text-slate-400 transition-transform ${isUnitCollapsed ? '' : 'rotate-180'}`} />
                                                 </button>
 
                                                 {!isUnitCollapsed && (
@@ -184,20 +186,19 @@ const ScoresTab = ({
                                                         {quizzesInUnit.sort((a, b) => (a.order || 0) - (b.order || 0) || a.title.localeCompare(b.title)).map(quiz => {
                                                             const stats = getQuizStats(quiz.id);
                                                             return (
-                                                                // MODIFIED: Reduced mobile padding and gap
-                                                                <div key={quiz.id} className="flex items-center justify-between gap-2 sm:gap-4 py-3 px-2 sm:px-4 transition-shadow rounded-xl hover:bg-slate-50/50">
+                                                                // --- MODIFIED: Added dark mode hover class ---
+                                                                <div key={quiz.id} className="flex items-center justify-between gap-2 sm:gap-4 py-3 px-2 sm:px-4 transition-shadow rounded-xl hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
                                                                     <div className="flex-1 min-w-0">
-                                                                        {/* MODIFIED: Reduced mobile font size */}
-                                                                        <p className="font-bold text-slate-800 text-sm sm:text-base truncate">{quiz.title}</p>
-                                                                        {/* MODIFIED: Reduced mobile font size and margin */}
-                                                                        <p className="text-xs sm:text-sm text-slate-500 mt-0.5 sm:mt-1">
+                                                                        {/* --- MODIFIED: Added dark mode classes --- */}
+                                                                        <p className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base truncate">{quiz.title}</p>
+                                                                        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1">
                                                                             {stats.studentsWhoTook} Student(s) took this quiz ({stats.submissions} total submissions)
                                                                         </p>
                                                                     </div>
                                                                     <button
                                                                         onClick={() => handleViewScores(quiz, post)}
-                                                                        // MODIFIED: Reduced mobile padding and font size for button
-                                                                        className="flex-shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
+                                                                        // --- MODIFIED: Added dark mode classes ---
+                                                                        className="flex-shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
                                                                     >
                                                                         <span className="hidden sm:inline">View Scores</span>
                                                                         <span className="sm:hidden">Scores</span>

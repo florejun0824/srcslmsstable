@@ -14,7 +14,6 @@ const loadingMessages = [
 ];
 
 const SpinningRings = memo(() => (
-  // --- CHANGE 2: Added motion.div and animation props for a "pulse" ---
   <motion.div 
     className="relative h-16 w-16 flex-shrink-0"
     animate={{ scale: [1, 1.04, 1] }} // Keyframes for pulse
@@ -26,7 +25,9 @@ const SpinningRings = memo(() => (
       } 
     }}
   >
-    <div className="absolute inset-2 h-12 w-12 rounded-full bg-neumorphic-base shadow-neumorphic-inset flex items-center justify-center">
+    {/* Inner circle background */}
+    {/* --- MODIFIED: Added dark mode classes --- */}
+    <div className="absolute inset-2 h-12 w-12 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark flex items-center justify-center">
         <img
           src="https://i.ibb.co/XfJ8scGX/1.png"
           alt="School Logo"
@@ -35,7 +36,6 @@ const SpinningRings = memo(() => (
     </div>
     <motion.svg
       viewBox="0 0 100 100"
-      // --- CHANGE 3: Added a soft "glow" using drop-shadow filter ---
       className="absolute inset-0 [filter:drop-shadow(0_0_6px_rgba(96,165,250,0.5))]"
       animate={{ rotate: 360 }}
       transition={{ 
@@ -63,7 +63,6 @@ const SpinningRings = memo(() => (
     </motion.svg>
     <motion.svg
       viewBox="0 0 100 100"
-      // --- CHANGE 3: Added a soft "glow" using drop-shadow filter ---
       className="absolute inset-0 [filter:drop-shadow(0_0_4px_rgba(94,234,212,0.5))]"
       animate={{ rotate: -360 }}
       transition={{ 
@@ -118,7 +117,8 @@ const Spinner = ({ isLoading = true }) => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.4 }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/10 backdrop-blur-sm font-sans"
+          // --- MODIFIED: Themed backdrop ---
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/10 dark:bg-black/30 backdrop-blur-sm font-sans"
           role="status"
           aria-live="polite"
         >
@@ -127,7 +127,8 @@ const Spinner = ({ isLoading = true }) => {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
             transition={{ type: 'spring', damping: 20, stiffness: 150 }}
-            className="flex w-[320px] items-center gap-4 rounded-full bg-neumorphic-base p-4 shadow-neumorphic"
+            // --- MODIFIED: Themed card ---
+            className="flex w-[320px] items-center gap-4 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark p-4 shadow-neumorphic dark:shadow-neumorphic-dark"
           >
             
             <SpinningRings />
@@ -144,7 +145,8 @@ const Spinner = ({ isLoading = true }) => {
                   animate={{ y: 0, opacity: 1 }}
                   exit={{ y: -10, opacity: 0 }}
                   transition={{ duration: 0.3 }}
-                  className="text-sm text-slate-600"
+                  // --- MODIFIED: Themed message text ---
+                  className="text-sm text-slate-600 dark:text-slate-300"
                 >
                   {message}
                 </motion.p>

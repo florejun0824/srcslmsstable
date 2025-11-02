@@ -23,8 +23,8 @@ const QuizWarningModal = ({ isOpen, warnings, maxWarnings, onStay, onLeave, isLo
 
     return (
         <Transition show={isOpen} as={React.Fragment}>
+            {/* --- MODIFIED: Added dark theme to overlay --- */}
             <Dialog as="div" className="relative z-[1000] font-sans" onClose={isLocked ? onStay : onStay}>
-                {/* Neumorphic Design Changes: Removed backdrop-blur for a clean overlay */}
                 <TransitionChild
                     as={React.Fragment}
                     enter="ease-out duration-300"
@@ -34,10 +34,11 @@ const QuizWarningModal = ({ isOpen, warnings, maxWarnings, onStay, onLeave, isLo
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-black/40 transition-opacity" />
+                    {/* --- MODIFIED: Added dark theme to backdrop --- */}
+                    <div className="fixed inset-0 bg-black/50 dark:bg-black/70" aria-hidden="true" />
                 </TransitionChild>
 
-                <div className="fixed inset-0 z-[1000] w-screen overflow-y-auto">
+                <div className="fixed inset-0 overflow-y-auto">
                     <div className="flex min-h-full items-center justify-center p-4 text-center">
                         <TransitionChild
                             as={React.Fragment}
@@ -48,40 +49,44 @@ const QuizWarningModal = ({ isOpen, warnings, maxWarnings, onStay, onLeave, isLo
                             leaveFrom="opacity-100 scale-100"
                             leaveTo="opacity-0 scale-95"
                         >
-                            {/* Neumorphic Design Changes: Replaced glassmorphism with neumorphic styles */}
-                            <DialogPanel className="relative transform overflow-hidden rounded-3xl bg-neumorphic-base text-center shadow-neumorphic transition-all sm:w-full sm:max-w-sm">
-                                <div className="p-6">
-                                    {/* Neumorphic Design Changes: Icon container is now "pressed in" with an inset shadow */}
-                                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-neumorphic-base shadow-neumorphic-inset">
-                                        <ExclamationTriangleIcon className="h-10 w-10 text-red-500" aria-hidden="true" />
+                            {/* --- MODIFIED: Added dark theme to modal panel --- */}
+                            <DialogPanel className="w-full max-w-md transform overflow-hidden rounded-3xl bg-neumorphic-base p-6 text-left align-middle shadow-neumorphic transition-all dark:bg-neumorphic-base-dark dark:shadow-lg">
+                                
+                                <div className="flex flex-col items-center">
+                                    {/* --- MODIFIED: Added dark theme to icon wrapper --- */}
+                                    <div className="mx-auto inline-block p-3 rounded-full bg-neumorphic-base shadow-neumorphic-inset mb-4 dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
+                                        <ExclamationTriangleIcon className={`h-8 w-8 ${isLocked ? 'text-red-500' : 'text-yellow-500'}`} />
                                     </div>
-                                    <div className="mt-4">
-                                        <DialogTitle as="h3" className="text-lg font-bold text-slate-800">
-                                            {getTitle()}
-                                        </DialogTitle>
-                                        <div className="mt-2">
-                                            <p className="text-sm text-slate-600">
-                                                {getMessage()}
-                                            </p>
-                                        </div>
+                                    
+                                    {/* --- MODIFIED: Added dark theme to title --- */}
+                                    <DialogTitle as="h3" className="text-xl font-extrabold leading-6 text-slate-900 dark:text-slate-100">
+                                        {getTitle()}
+                                    </DialogTitle>
+                                    
+                                    {/* --- MODIFIED: Added dark theme to message body --- */}
+                                    <div className="mt-2 text-center">
+                                        <p className="text-sm text-slate-600 dark:text-slate-300">
+                                            {getMessage()}
+                                        </p>
                                     </div>
                                 </div>
 
-                                {/* Neumorphic Design Changes: Buttons are now distinct, extruded elements */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 pt-0">
+                                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {!isLocked ? (
                                         <>
                                             <button
                                                 type="button"
                                                 onClick={onStay}
-                                                className="w-full py-3 text-center text-sm font-semibold bg-neumorphic-base text-slate-700 rounded-xl shadow-neumorphic active:shadow-neumorphic-inset transition-all hover:text-slate-900"
+                                                // --- MODIFIED: Added dark theme styles for onStay ---
+                                                className="w-full py-3 text-center text-sm font-semibold bg-neumorphic-base text-blue-700 rounded-xl shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-blue-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
                                             >
                                                 Stay in Quiz
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={onLeave}
-                                                className="w-full py-3 text-center text-sm font-semibold bg-neumorphic-base text-red-600 rounded-xl shadow-neumorphic active:shadow-neumorphic-inset transition-all hover:text-red-700"
+                                                // --- MODIFIED: Added dark theme styles for onLeave ---
+                                                className="w-full py-3 text-center text-sm font-semibold bg-neumorphic-base text-red-600 rounded-xl shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-red-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
                                             >
                                                 Leave & Get Warning
                                             </button>
@@ -91,7 +96,8 @@ const QuizWarningModal = ({ isOpen, warnings, maxWarnings, onStay, onLeave, isLo
                                             <button
                                                 type="button"
                                                 onClick={onStay}
-                                                className="w-full py-3 text-center text-sm font-semibold bg-neumorphic-base text-primary-700 rounded-xl shadow-neumorphic active:shadow-neumorphic-inset transition-all hover:text-primary-600"
+                                                // --- MODIFIED: Added dark theme styles for acknowledge button ---
+                                                className="w-full py-3 text-center text-sm font-semibold bg-neumorphic-base text-slate-700 rounded-xl shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
                                             >
                                                 Acknowledge
                                             </button>

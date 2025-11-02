@@ -53,32 +53,37 @@ const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) 
   // A simple inline spinner component
   const Spinner = () => (
     <svg 
+      // --- MODIFIED: Themed spinner color ---
       className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" 
       xmlns="http://www.w3.org/2000/svg" 
       fill="none" 
       viewBox="0 0 24 24"
     >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+      {/* --- MODIFIED: Themed spinner track color --- */}
+      <circle className="opacity-25 text-gray-300" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
     </svg>
   );
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-50 p-4 font-sans">
-      <div className="relative bg-neumorphic-base rounded-3xl shadow-neumorphic p-6 w-full max-w-md">
+      {/* --- MODIFIED: Added dark mode classes --- */}
+      <div className="relative bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark p-6 w-full max-w-md">
         
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2">
-            <PencilSquareIcon className="w-6 h-6 text-indigo-600" />
+          {/* --- MODIFIED: Added dark mode classes --- */}
+          <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <PencilSquareIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             Edit "{classData.name}"
           </h2>
           <button
             onClick={onClose}
             disabled={isSubmitting} // <-- Disable close button while submitting
-            className="p-2 rounded-full shadow-neumorphic hover:shadow-neumorphic-inset transition-all disabled:opacity-50"
+            // --- MODIFIED: Added dark mode classes ---
+            className="p-2 rounded-full shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all disabled:opacity-50"
           >
-            <XMarkIcon className="w-5 h-5 text-slate-600" />
+            <XMarkIcon className="w-5 h-5 text-slate-600 dark:text-slate-300" />
           </button>
         </div>
 
@@ -86,7 +91,8 @@ const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) 
         <form onSubmit={handleSave} className="space-y-5">
           {/* --- Class Name Input --- */}
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">
+            {/* --- MODIFIED: Added dark mode classes --- */}
+            <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
               Class Name
             </label>
             <input
@@ -94,20 +100,23 @@ const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) 
               value={editedName}
               onChange={(e) => setEditedName(e.target.value)}
               disabled={isSubmitting} // <-- Disable field
-              className="w-full p-3 bg-neumorphic-base rounded-xl shadow-neumorphic-inset text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-70"
+              // --- MODIFIED: Added dark mode classes ---
+              className="w-full p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-slate-700 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-500 disabled:opacity-70"
             />
           </div>
 
           {/* --- Subject Selector Dropdown --- */}
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">
+            {/* --- MODIFIED: Added dark mode classes --- */}
+            <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
               Assign Subject
             </label>
             <select
               value={selectedSubjectId}
               onChange={(e) => setSelectedSubjectId(e.target.value)}
               disabled={isSubmitting} // <-- Disable field
-              className="w-full p-3 bg-neumorphic-base rounded-xl shadow-neumorphic-inset text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-70"
+              // --- MODIFIED: Added dark mode classes ---
+              className="w-full p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-500 disabled:opacity-70"
             >
               <option value="">No Subject Assigned</option>
               {courses.map((course) => (
@@ -120,14 +129,16 @@ const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) 
 
           {/* --- Grade Level Selector Dropdown --- */}
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">
+            {/* --- MODIFIED: Added dark mode classes --- */}
+            <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
               Grade Level
             </label>
             <select
               value={selectedGradeLevel}
               onChange={(e) => setSelectedGradeLevel(e.target.value)}
               disabled={isSubmitting} // <-- Disable field
-              className="w-full p-3 bg-neumorphic-base rounded-xl shadow-neumorphic-inset text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-70"
+              // --- MODIFIED: Added dark mode classes ---
+              className="w-full p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-500 disabled:opacity-70"
             >
               <option value="">Select Grade Level</option>
               {gradeLevels.map((grade) => (
@@ -144,14 +155,16 @@ const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) 
               type="button"
               onClick={onClose}
               disabled={isSubmitting} // <-- Disable button
-              className="px-5 py-2 rounded-xl font-semibold text-slate-700 bg-neumorphic-base shadow-neumorphic hover:shadow-neumorphic-inset transition-all disabled:opacity-50"
+              // --- MODIFIED: Added dark mode classes ---
+              className="px-5 py-2 rounded-xl font-semibold text-slate-700 dark:text-slate-200 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting} // <-- Disable button
-              className="flex items-center justify-center px-5 py-2 rounded-xl font-semibold text-white bg-indigo-600 shadow-lg shadow-indigo-500/40 hover:bg-indigo-700 transition-all disabled:bg-slate-400 disabled:shadow-none"
+              // --- MODIFIED: Added dark mode classes for disabled state ---
+              className="flex items-center justify-center px-5 py-2 rounded-xl font-semibold text-white bg-indigo-600 shadow-lg shadow-indigo-500/40 hover:bg-indigo-700 transition-all disabled:bg-slate-400 dark:disabled:bg-slate-600 disabled:shadow-none"
             >
               {isSubmitting ? (
                 <>

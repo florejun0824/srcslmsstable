@@ -154,7 +154,8 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                 {/* Backdrop */}
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" />
                 
-                <DialogPanel className={`quiz-container relative flex flex-col w-full max-w-lg md:max-w-3xl rounded-3xl bg-neumorphic-base shadow-neumorphic max-h-[95vh] sm:max-h-[90vh] overflow-hidden ${quizThemeClass}`}>
+                {/* --- MODIFIED: Added dark theme --- */}
+                <DialogPanel className={`quiz-container relative flex flex-col w-full max-w-lg md:max-w-3xl rounded-3xl bg-neumorphic-base shadow-neumorphic max-h-[95vh] sm:max-h-[90vh] overflow-hidden ${quizThemeClass} dark:bg-neumorphic-base-dark dark:shadow-lg`}>
                     
                     <Watermark
                         userProfile={userProfile}
@@ -163,15 +164,19 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                     />
                     
                     {/* Header */}
-                    <div className="relative z-20 flex-shrink-0 p-4 pb-3 border-b border-slate-300/50">
-                        <button onClick={handleClose} className="absolute top-4 right-4 p-2 rounded-full bg-neumorphic-base text-slate-500 shadow-neumorphic active:shadow-neumorphic-inset transition-all hover:text-slate-700" aria-label="Close Quiz">
+                    {/* --- MODIFIED: Added dark theme --- */}
+                    <div className="relative z-20 flex-shrink-0 p-4 pb-3 border-b border-slate-300/50 dark:border-slate-700">
+                        {/* --- MODIFIED: Added dark theme --- */}
+                        <button onClick={handleClose} className="absolute top-4 right-4 p-2 rounded-full bg-neumorphic-base text-slate-500 shadow-neumorphic active:shadow-neumorphic-inset transition-all hover:text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark dark:hover:text-slate-200" aria-label="Close Quiz">
                             <XMarkIcon className="h-6 w-6" />
                         </button>
                         <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
                             <div className="flex-1">
-                                <h2 className="text-lg sm:text-xl font-bold text-slate-900 leading-tight pr-8 sm:pr-0">{quiz?.title || "Quiz"}</h2>
+                                {/* --- MODIFIED: Added dark theme --- */}
+                                <h2 className="text-lg sm:text-xl font-bold text-slate-900 leading-tight pr-8 sm:pr-0 dark:text-slate-100">{quiz?.title || "Quiz"}</h2>
                                 {isTeacherView && (
-                                    <button onClick={handleExportPdf} className="flex items-center gap-1 mt-2 px-3 py-1 rounded-lg bg-neumorphic-base text-blue-600 text-xs font-semibold shadow-neumorphic active:shadow-neumorphic-inset transition-all hover:text-blue-800">
+                                    /* --- MODIFIED: Added dark theme --- */
+                                    <button onClick={handleExportPdf} className="flex items-center gap-1 mt-2 px-3 py-1 rounded-lg bg-neumorphic-base text-blue-600 text-xs font-semibold shadow-neumorphic active:shadow-neumorphic-inset transition-all hover:text-blue-800 dark:bg-neumorphic-base-dark dark:text-blue-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark dark:hover:text-blue-300">
                                         <DocumentArrowDownIcon className="h-4 w-4"/> Export PDF
                                     </button>
                                 )}
@@ -190,15 +195,17 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                 />
 
                                 {!isTeacherView && classId && !quizState.isLocked && quizState.score === null && !quizState.hasSubmitted && (quiz?.settings?.lockOnLeave ?? false) && quizState.isAvailable && (
-                                    <div className="flex items-center gap-1 bg-neumorphic-base text-amber-800 px-3 py-1 rounded-full shadow-neumorphic-inset flex-shrink-0" title="Anti-cheat warnings">
-                                        <ShieldExclamationIcon className="w-4 h-4 text-amber-600"/>
+                                    /* --- MODIFIED: Added dark theme --- */
+                                    <div className="flex items-center gap-1 bg-neumorphic-base text-amber-800 px-3 py-1 rounded-full shadow-neumorphic-inset flex-shrink-0 dark:bg-neumorphic-base-dark dark:text-amber-300 dark:shadow-neumorphic-inset-dark" title="Anti-cheat warnings">
+                                        <ShieldExclamationIcon className="w-4 h-4 text-amber-600 dark:text-amber-500"/>
                                         <span className="text-xs font-semibold">{quizState.warnings} / {quizState.MAX_WARNINGS}</span>
                                     </div>
                                 )}
                             </div>
                         </div>
                         {isTeacherView && (
-                            <p className="text-center text-xs font-semibold text-blue-800 bg-blue-500/10 p-2 rounded-lg mt-3 shadow-neumorphic-inset">
+                            /* --- MODIFIED: Added dark theme --- */
+                            <p className="text-center text-xs font-semibold text-blue-800 bg-blue-500/10 p-2 rounded-lg mt-3 shadow-neumorphic-inset dark:text-blue-200 dark:bg-blue-500/20 dark:shadow-neumorphic-inset-dark">
                                 Teacher Preview - Answers shown, anti-cheat disabled.
                             </p>
                         )}
@@ -212,16 +219,19 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                     </div>
 
                     {/* Footer */}
-                    <div className="relative z-20 flex-shrink-0 p-4 pt-3 border-t border-slate-300/50">
+                    {/* --- MODIFIED: Added dark theme --- */}
+                    <div className="relative z-20 flex-shrink-0 p-4 pt-3 border-t border-slate-300/50 dark:border-slate-700">
                         {(!isTeacherView && quizState.isAvailable && !quizState.isLocked && quizState.score === null && !quizState.hasSubmitted && !quizState.questionResult && !quizState.matchingResult) && (
                             (quizState.currentQuestionAttempted || (quizState.shuffledQuestions[quizState.currentQ]?.type === 'essay' && quizState.userAnswers[quizState.currentQ]?.trim())) ? (
                                 <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
                                     <div className="text-center sm:text-left flex-shrink-0">
-                                        <span className="text-sm font-medium text-slate-600">
+                                        {/* --- MODIFIED: Added dark theme --- */}
+                                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
                                             {quizState.renderQuestionNumber()} ({quizState.shuffledQuestions[quizState.currentQ]?.points || 0} pts)
                                             <span className="hidden sm:inline"> / {quizState.questionNumbering.totalItems} Total Points</span>
                                         </span>
-                                        <span className="block text-xs text-slate-500 mt-0.5">Attempt {quizState.attemptsTaken + 1} of {quizState.maxAttempts}</span>
+                                        {/* --- MODIFIED: Added dark theme --- */}
+                                        <span className="block text-xs text-slate-500 dark:text-slate-400 mt-0.5">Attempt {quizState.attemptsTaken + 1} of {quizState.maxAttempts}</span>
                                     </div>
                                     <div className="flex gap-2 w-full sm:w-auto">
                                         {!(quiz?.settings?.preventBackNavigation) && quizState.currentQ > 0 && (
@@ -233,7 +243,8 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                                     quizState.setCurrentQ(prev => prev - 1);
                                                     quizState.setQuestionStartTime(Date.now());
                                                 }}
-                                                className="flex items-center justify-center gap-1 w-full sm:w-auto px-4 py-2.5 rounded-xl bg-neumorphic-base text-slate-600 font-semibold shadow-neumorphic active:shadow-neumorphic-inset transition-all"
+                                                /* --- MODIFIED: Added dark theme --- */
+                                                className="flex items-center justify-center gap-1 w-full sm:w-auto px-4 py-2.5 rounded-xl bg-neumorphic-base text-slate-600 font-semibold shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
                                                 aria-label="Previous Question"
                                             >
                                                 <ArrowLeftIcon className="h-5 w-5"/> Back
@@ -243,7 +254,8 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                             <button
                                                 onClick={quizState.handleNextQuestion}
                                                 disabled={quizState.shuffledQuestions[quizState.currentQ]?.type === 'essay' && !quizState.userAnswers[quizState.currentQ]?.trim()}
-                                                className="flex items-center justify-center gap-1 w-full sm:w-auto px-5 py-2.5 rounded-xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all disabled:opacity-50 disabled:text-slate-400 disabled:shadow-neumorphic-inset"
+                                                /* --- MODIFIED: Added dark theme --- */
+                                                className="flex items-center justify-center gap-1 w-full sm:w-auto px-5 py-2.5 rounded-xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all disabled:opacity-50 disabled:text-slate-400 disabled:shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:text-blue-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark dark:disabled:text-slate-500 dark:disabled:shadow-neumorphic-inset-dark"
                                                 aria-label="Next Question"
                                             >
                                                 Next <ArrowRightIcon className="h-5 w-5"/>
@@ -252,7 +264,8 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                             <button
                                                 onClick={quizState.handleSubmit}
                                                 disabled={quizState.shuffledQuestions[quizState.currentQ]?.type === 'essay' && !quizState.userAnswers[quizState.currentQ]?.trim()}
-                                                className="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-neumorphic-base text-green-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all disabled:opacity-50 disabled:text-slate-400 disabled:shadow-neumorphic-inset"
+                                                /* --- MODIFIED: Added dark theme --- */
+                                                className="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-neumorphic-base text-green-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all disabled:opacity-50 disabled:text-slate-400 disabled:shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:text-green-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark dark:disabled:text-slate-500 dark:disabled:shadow-neumorphic-inset-dark"
                                                 aria-label="Submit Quiz"
                                             >
                                                 Submit Quiz
@@ -271,12 +284,14 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                         quizState.setQuestionStartTime(Date.now());
                                     }}
                                     disabled={quizState.currentQ === 0}
-                                    className="flex items-center gap-1 px-4 py-2 rounded-xl bg-neumorphic-base text-slate-700 font-semibold shadow-neumorphic active:shadow-neumorphic-inset disabled:opacity-50 transition-all"
+                                    /* --- MODIFIED: Added dark theme --- */
+                                    className="flex items-center gap-1 px-4 py-2 rounded-xl bg-neumorphic-base text-slate-700 font-semibold shadow-neumorphic active:shadow-neumorphic-inset disabled:opacity-50 transition-all dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
                                     aria-label="Previous Question"
                                 >
                                     <ArrowLeftIcon className="h-5 w-5"/>Previous
                                 </button>
-                                <span className="text-xs text-center font-medium text-slate-600">
+                                {/* --- MODIFIED: Added dark theme --- */}
+                                <span className="text-xs text-center font-medium text-slate-600 dark:text-slate-400">
                                     {quizState.renderQuestionNumber()} ({quizState.shuffledQuestions[quizState.currentQ]?.points || 0} pts)
                                     <br/>(Item {quizState.currentQ + 1} of {quizState.shuffledQuestions.length})
                                 </span>
@@ -286,7 +301,8 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                         quizState.setQuestionStartTime(Date.now());
                                     }}
                                     disabled={quizState.currentQ === quizState.shuffledQuestions.length - 1}
-                                    className="flex items-center gap-1 px-4 py-2 rounded-xl bg-neumorphic-base text-slate-700 font-semibold shadow-neumorphic active:shadow-neumorphic-inset disabled:opacity-50 transition-all"
+                                    /* --- MODIFIED: Added dark theme --- */
+                                    className="flex items-center gap-1 px-4 py-2 rounded-xl bg-neumorphic-base text-slate-700 font-semibold shadow-neumorphic active:shadow-neumorphic-inset disabled:opacity-50 transition-all dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
                                     aria-label="Next Question"
                                 >
                                     Next<ArrowRightIcon className="h-5 w-5"/>

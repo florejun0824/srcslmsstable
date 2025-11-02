@@ -194,7 +194,7 @@ const processLatex = (text) => {
 };
 
 
-// Lazy load modals for better code splitting and initial load performance
+// Lazy load modals
 const AddLessonModal = lazy(() => import('./AddLessonModal'));
 const AddQuizModal = lazy(() => import('./AddQuizModal'));
 const EditLessonModal = lazy(() => import('./EditLessonModal'));
@@ -352,7 +352,8 @@ const MenuPortal = ({ children, menuStyle, onClose }) => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [onClose]);
-    return createPortal(<div ref={menuRef} style={menuStyle} className="fixed bg-neumorphic-base rounded-md shadow-neumorphic z-[5000]"><div className="py-1" onClick={onClose}>{children}</div></div>, document.body);
+    // --- MODIFIED: Added dark mode classes ---
+    return createPortal(<div ref={menuRef} style={menuStyle} className="fixed bg-neumorphic-base dark:bg-slate-800 rounded-md shadow-neumorphic dark:shadow-neumorphic-dark z-[5000]"><div className="py-1" onClick={onClose}>{children}</div></div>, document.body);
 };
 
 const ActionMenu = ({ children }) => {
@@ -373,7 +374,8 @@ const ActionMenu = ({ children }) => {
     };
     return (
         <>
-            <div role="button" tabIndex={0} ref={iconRef} onClick={handleToggle} onPointerDown={(e) => e.stopPropagation()} className="p-2 text-slate-500 hover:text-slate-900 rounded-full cursor-pointer transition-shadow hover:shadow-neumorphic-inset">
+            {/* --- MODIFIED: Added dark mode classes --- */}
+            <div role="button" tabIndex={0} ref={iconRef} onClick={handleToggle} onPointerDown={(e) => e.stopPropagation()} className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 rounded-full cursor-pointer transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark">
                 <EllipsisVerticalIcon className="h-5 w-5" />
             </div>
             {isOpen && <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>{children}</MenuPortal>}
@@ -382,7 +384,8 @@ const ActionMenu = ({ children }) => {
 };
 
 const MenuItem = ({ icon: Icon, text, onClick, disabled = false, loading = false }) => (
-    <button onClick={onClick} disabled={disabled || loading} className="flex items-center w-full px-4 py-2 text-sm text-left text-slate-700 rounded-lg hover:shadow-neumorphic-inset disabled:opacity-50 disabled:cursor-not-allowed">
+    // --- MODIFIED: Added dark mode classes ---
+    <button onClick={onClick} disabled={disabled || loading} className="flex items-center w-full px-4 py-2 text-sm text-left text-slate-700 dark:text-slate-200 rounded-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark disabled:opacity-50 disabled:cursor-not-allowed">
         <Icon className={`h-5 w-5 mr-3 ${loading ? 'animate-spin' : ''}`} />
         <span>{text}</span>
     </button>
@@ -423,7 +426,8 @@ const AddContentButton = ({ onAddLesson, onAddQuiz }) => {
                 ref={buttonRef}
                 onClick={handleToggle}
                 onPointerDown={(e) => e.stopPropagation()} // Prevent DND kit from capturing
-                className="flex items-center gap-2 text-sm font-semibold bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 py-2 px-4 rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
+                // --- MODIFIED: Added dark mode classes ---
+                className="flex items-center gap-2 text-sm font-semibold bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-800 dark:to-blue-900 text-blue-700 dark:text-blue-200 py-2 px-4 rounded-full shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
             >
                 <PlusIcon className="w-5 h-5" />
                 Add Content
@@ -445,7 +449,7 @@ const AddContentButton = ({ onAddLesson, onAddQuiz }) => {
         </>
     );
 };
-// --- MODIFICATION END ---
+// --- END MODIFICATION ---
 
 function SortableContentItem({ item, isReordering, ...props }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
@@ -457,24 +461,27 @@ function SortableContentItem({ item, isReordering, ...props }) {
     
     const isLesson = item.type === 'lesson';
     const Icon = isLesson ? DocumentTextIcon : ClipboardDocumentListIcon;
-    const iconColor = isLesson ? 'text-blue-600' : 'text-purple-600';
+    const iconColor = isLesson ? 'text-blue-600 dark:text-blue-400' : 'text-purple-600 dark:text-purple-400';
 
     return (
         <div ref={setNodeRef} style={style} {...attributes} className="mb-3 touch-none"> 
-            <div className={`w-full flex items-center p-3 bg-neumorphic-base rounded-2xl shadow-neumorphic transition-all duration-200 ${isReordering ? 'ring-2 ring-sky-400' : 'hover:shadow-neumorphic-inset'}`}>
+            {/* --- MODIFIED: Added dark mode classes --- */}
+            <div className={`w-full flex items-center p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark transition-all duration-200 ${isReordering ? 'ring-2 ring-sky-400' : 'hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'}`}>
                 {isReordering && (
-                    <button {...listeners} className="p-2 rounded-full text-slate-500 hover:text-slate-700 cursor-grab flex-shrink-0" title="Drag to reorder">
+                    <button {...listeners} className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-grab flex-shrink-0" title="Drag to reorder">
                         <Bars3Icon className="w-5 h-5" />
                     </button>
                 )}
                 
-                <div className={`h-12 w-12 flex-shrink-0 rounded-full flex items-center justify-center bg-neumorphic-base shadow-neumorphic-inset mx-3`}>
+                {/* --- MODIFIED: Added dark mode classes for icon container --- */}
+                <div className={`h-12 w-12 flex-shrink-0 rounded-full flex items-center justify-center bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark mx-3`}>
                     <Icon className={`h-6 w-6 ${iconColor}`} />
                 </div>
                 
                 <div className="flex-grow min-w-0">
+                    {/* --- MODIFIED: Added dark mode classes --- */}
                     <h4 
-                        className={`font-semibold text-slate-800 leading-tight line-clamp-2 ${!isReordering ? 'cursor-pointer hover:text-sky-600' : 'cursor-default'}`}
+                        className={`font-semibold text-slate-800 dark:text-slate-100 leading-tight line-clamp-2 ${!isReordering ? 'cursor-pointer hover:text-sky-600 dark:hover:text-sky-400' : 'cursor-default'}`}
                         onClick={() => !isReordering && props.onView()}
                     >
                         {item.title || 'Untitled'}
@@ -509,18 +516,23 @@ function SortableUnitCard(props) {
     const { icon: Icon, gradient, iconColor } = visuals;
     return (
         <div ref={setNodeRef} style={style} {...attributes} className="touch-none">
-            <div onClick={() => onSelect(unit)} className={`group relative p-6 rounded-2xl shadow-neumorphic transition-shadow duration-300 cursor-pointer overflow-hidden flex flex-col justify-between h-full bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset`}>
-                <button {...listeners} className="absolute top-3 left-3 p-1.5 text-slate-500 hover:text-slate-800 cursor-grab opacity-50 group-hover:opacity-100 transition-opacity" title="Drag to reorder"><ArrowsUpDownIcon className="h-5 w-5" /></button>
+            {/* --- MODIFIED: Added dark mode classes to Unit Card --- */}
+            <div onClick={() => onSelect(unit)} className={`group relative p-6 rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow duration-300 cursor-pointer overflow-hidden flex flex-col justify-between h-full bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark`}>
+                <button {...listeners} className="absolute top-3 left-3 p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 cursor-grab opacity-50 group-hover:opacity-100 transition-opacity" title="Drag to reorder"><ArrowsUpDownIcon className="h-5 w-5" /></button>
+                {/* --- MODIFIED: Added dark mode classes to action buttons --- */}
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={(e) => { e.stopPropagation(); onOpenAiHub(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 text-slate-700 shadow-neumorphic hover:shadow-neumorphic-inset" title="AI Tools for this unit"><SparklesIcon className="w-5 h-5" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); onEdit(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 text-slate-700 shadow-neumorphic hover:shadow-neumorphic-inset" title="Edit Unit"><PencilIcon className="w-5 h-5" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); onDelete(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 text-red-600 shadow-neumorphic hover:shadow-neumorphic-inset" title="Delete Unit"><TrashIcon className="w-5 h-5" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); onOpenAiHub(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 dark:bg-slate-700/50 text-slate-700 dark:text-slate-200 shadow-neumorphic hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="AI Tools for this unit"><SparklesIcon className="w-5 h-5" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); onEdit(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 dark:bg-slate-700/50 text-slate-700 dark:text-slate-200 shadow-neumorphic hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Edit Unit"><PencilIcon className="w-5 h-5" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 dark:bg-slate-700/50 text-red-600 dark:text-red-400 shadow-neumorphic hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Delete Unit"><TrashIcon className="w-5 h-5" /></button>
                 </div>
                 <div className="relative z-10">
-                    <div className="mb-4 p-3 bg-neumorphic-base rounded-lg inline-block shadow-neumorphic-inset"><Icon className={`w-8 h-8 ${iconColor}`} /></div>
-                    <h2 className="text-lg font-bold text-slate-800">{unit.title}</h2>
+                    {/* --- MODIFIED: Added dark mode classes to icon container --- */}
+                    <div className="mb-4 p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-lg inline-block shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark"><Icon className={`w-8 h-8 ${iconColor}`} /></div>
+                    {/* --- MODIFIED: Added dark mode classes to text --- */}
+                    <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">{unit.title}</h2>
                 </div>
-                <p className="relative z-10 text-slate-600 text-sm mt-2">Select to view content</p>
+                {/* --- MODIFIED: Added dark mode classes to text --- */}
+                <p className="relative z-10 text-slate-600 dark:text-slate-300 text-sm mt-2">Select to view content</p>
             </div>
         </div>
     );
@@ -657,7 +669,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         }
 	}
 	
-	const handleExportDocx = async (lesson) => {
+	async function handleExportDocx(lesson) {
 		    if (isExportingRef.current) return;
 		    isExportingRef.current = true;
 		    setExportingLessonId(lesson.id);
@@ -841,10 +853,13 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 
         ulpHtmlContent = ulpHtmlContent.replace(
           /<tr>(\s*<td[^>]*>Learning Focus<\/td>\s*<td[^>]*>Learning Process<\/td>\s*)<\/tr>/i,
-          `<tr style="font-weight:bold; color:white;">
-            <td bgcolor="#374151" style="padding:8px; width:108px;">Learning Focus</td>
-            <td bgcolor="#374151" style="padding:8px;">Learning Process</td>
-          </tr>`
+          (match, offset, full) =>
+            offset < full.indexOf("Learning Focus")
+              ? match
+              : `<tr style="font-weight:bold; color:white;">
+                  <td bgcolor="#374151" style="padding:8px; width:108px;">Learning Focus</td>
+                  <td bgcolor="#374151" style="padding:8px;">Learning Process</td>
+                </tr>`
         );
         ulpHtmlContent = ulpHtmlContent.replace(
           /<td/gi,
@@ -855,6 +870,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                 ? match
                 : `${match} style="width:108px;"`
         );
+
 
         const headerBase64 = await fetchImageAsBase64("https://i.ibb.co/xt5CY6GY/header-port.png");
         const footerBase64 = await fetchImageAsBase64("https://i.ibb.co/kgrMBfDr/Footer.png");
@@ -1042,9 +1058,10 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 		};
     
     const unitVisuals = useMemo(() => [
-        { icon: RectangleStackIcon, gradient: 'from-white to-blue-50', iconColor: 'text-blue-500' },
-        { icon: BookOpenIcon, gradient: 'from-white to-green-50', iconColor: 'text-green-500' },
-        { icon: QueueListIcon, gradient: 'from-white to-purple-50', iconColor: 'text-purple-500' },
+        // --- MODIFIED: Added dark mode gradient classes ---
+        { icon: RectangleStackIcon, gradient: 'from-white to-blue-50 dark:from-slate-800 dark:to-blue-900/50', iconColor: 'text-blue-500 dark:text-blue-400' },
+        { icon: BookOpenIcon, gradient: 'from-white to-green-50 dark:from-slate-800 dark:to-green-900/50', iconColor: 'text-green-500 dark:text-green-400' },
+        { icon: QueueListIcon, gradient: 'from-white to-purple-50 dark:from-slate-800 dark:to-purple-900/50', iconColor: 'text-purple-500 dark:text-purple-400' },
     ], []);
     
     const unifiedContent = useMemo(() => {
@@ -1064,22 +1081,25 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                             <div>
                                 <button
                                     onClick={() => { onSetActiveUnit(null); setIsReordering(false); }}
-                                    className="flex items-center gap-1.5 mb-6 text-sm font-semibold text-slate-600 p-2 rounded-lg hover:shadow-neumorphic-inset"
+                                    // --- MODIFIED: Added dark mode classes ---
+                                    className="flex items-center gap-1.5 mb-6 text-sm font-semibold text-slate-600 dark:text-slate-400 p-2 rounded-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
                                 >
                                     <ChevronLeftIcon className="w-4 h-4" />
                                     <span>Back to All Units</span>
                                 </button>
                                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                                     <div className="min-w-0">
-                                        <h2 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">{activeUnit.title}</h2>
-                                        <p className="mt-1 text-sm text-slate-600">Structure the learning path for this unit.</p>
+                                        {/* --- MODIFIED: Added dark mode classes --- */}
+                                        <h2 className="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">{activeUnit.title}</h2>
+                                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Structure the learning path for this unit.</p>
                                     </div>
                                     <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 flex-shrink-0 self-end sm:self-center">
                                         {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
                                         <button 
                                             onClick={() => setIsReordering(prev => !prev)} 
-                                            className={`font-semibold px-4 py-2 rounded-full transition-all text-sm shadow-neumorphic hover:shadow-neumorphic-inset ${
-                                                isReordering ? 'bg-sky-600 text-white' : 'bg-neumorphic-base text-slate-700'
+                                            // --- MODIFIED: Added dark mode classes ---
+                                            className={`font-semibold px-4 py-2 rounded-full transition-all text-sm shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark ${
+                                                isReordering ? 'bg-sky-600 dark:bg-sky-500 text-white dark:text-slate-900' : 'bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-700 dark:text-slate-200'
                                             }`}
                                         >
                                             {isReordering ? 'Done' : 'Reorder'}
@@ -1094,7 +1114,8 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                     <div className="w-full flex justify-center items-center p-20"><Spinner /></div>
                                 ) : unifiedContent.length > 0 ? (
                                     <div className={`p-1 sm:p-2 md:p-4 rounded-2xl transition-colors ${
-                                        isReordering ? 'bg-sky-50' : 'bg-neumorphic-base shadow-neumorphic-inset'
+                                        // --- MODIFIED: Added dark mode classes for reordering background ---
+                                        isReordering ? 'bg-sky-50 dark:bg-slate-700/50' : 'bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark'
                                     }`}>
                                         <SortableContext items={unifiedContent.map(item => item.id)} strategy={verticalListSortingStrategy}>
                                             {unifiedContent.map(item => (
@@ -1113,10 +1134,10 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                         </SortableContext>
                                     </div>
                                 ) : (
-                                    <div className="text-center py-16 bg-neumorphic-base rounded-2xl shadow-neumorphic-inset">
-                                        <RectangleStackIcon className="mx-auto h-12 w-12 text-slate-400" />
-                                        <h3 className="mt-2 text-lg font-semibold text-slate-800">This unit is empty</h3>
-                                        <p className="mt-1 text-sm text-slate-500">Add a lesson or a quiz to get started.</p>
+                                    <div className="text-center py-16 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
+                                        <RectangleStackIcon className="mx-auto h-12 w-12 text-slate-400 dark:text-slate-600 mb-5" />
+                                        <h3 className="mt-2 text-lg font-semibold text-slate-800 dark:text-slate-100">This unit is empty</h3>
+                                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Add a lesson or a quiz to get started.</p>
                                     </div>
                                 )}
                             </div>
@@ -1140,7 +1161,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                             </div>
                         </SortableContext>
                     ) : (
-                        <p className="text-center text-slate-500 py-10">
+                        <p className="text-center text-slate-500 dark:text-slate-400 py-10">
                             No units in this subject yet. Add one to get started!
                         </p>
                     )

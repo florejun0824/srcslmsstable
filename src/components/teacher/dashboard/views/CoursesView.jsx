@@ -18,28 +18,36 @@ import {
     ShareIcon,
 } from '@heroicons/react/24/solid';
 
-// Style constants (MODIFIED FOR RESPONSIVENESS)
-const commonContainerClasses = "min-h-screen p-4 sm:p-6 bg-neumorphic-base";
-const windowContainerClasses = "bg-neumorphic-base rounded-3xl p-4 sm:p-8 shadow-neumorphic w-full max-w-7xl mx-auto my-6 sm:my-12 transition-all duration-500";
-const baseButtonStyles = "font-semibold rounded-xl transition-shadow duration-200 active:shadow-neumorphic-inset disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-neumorphic-inset flex items-center gap-2";
-const primaryButton = `${baseButtonStyles} px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 shadow-neumorphic hover:shadow-neumorphic-inset`;
-const secondaryButton = `${baseButtonStyles} px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-neumorphic-base text-slate-700 shadow-neumorphic hover:shadow-neumorphic-inset`;
-const iconButton = `${baseButtonStyles} p-2 sm:p-2.5 bg-neumorphic-base text-slate-600 shadow-neumorphic hover:shadow-neumorphic-inset rounded-full`;
-const destructiveIconButton = `${baseButtonStyles} p-2 sm:p-2.5 bg-neumorphic-base text-red-600 shadow-neumorphic hover:shadow-neumorphic-inset rounded-full`;
+// --- MODIFIED STYLE CONSTANTS (Theme-Aware) ---
+const commonContainerClasses = "min-h-screen p-4 sm:p-6 bg-neumorphic-base dark:bg-neumorphic-base-dark";
+const windowContainerClasses = "bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl p-4 sm:p-8 shadow-neumorphic dark:shadow-neumorphic-dark w-full max-w-7xl mx-auto my-6 sm:my-12 transition-all duration-500";
+
+const neumorphicHoverActiveClasses = "hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark";
+const baseButtonStyles = `font-semibold rounded-xl transition-shadow duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-neumorphic-inset dark:disabled:shadow-neumorphic-inset-dark flex items-center gap-2`;
+
+const primaryButton = `${baseButtonStyles} px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-800 dark:to-blue-900 text-blue-700 dark:text-blue-200 shadow-neumorphic dark:shadow-neumorphic-dark ${neumorphicHoverActiveClasses}`;
+
+const secondaryButton = `${baseButtonStyles} px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-700 dark:text-slate-200 shadow-neumorphic dark:shadow-neumorphic-dark ${neumorphicHoverActiveClasses}`;
+
+const iconButton = `${baseButtonStyles} p-2 sm:p-2.5 bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-600 dark:text-slate-300 shadow-neumorphic dark:shadow-neumorphic-dark ${neumorphicHoverActiveClasses} rounded-full`;
+
+const destructiveIconButton = `${baseButtonStyles} p-2 sm:p-2.5 bg-neumorphic-base dark:bg-neumorphic-base-dark text-red-600 dark:text-red-400 shadow-neumorphic dark:shadow-neumorphic-dark ${neumorphicHoverActiveClasses} rounded-full`;
+// --- END MODIFIED STYLE CONSTANTS ---
 
 const getSubjectStyling = (subjectTitle) => {
-    // ... (This function is unchanged) ...
     const lowerCaseTitle = subjectTitle.toLowerCase();
     let IconComponent = BookOpenIcon;
-    let iconColor = 'text-gray-500';
-    let gradient = 'from-white to-slate-100';
-    if (lowerCaseTitle.includes('math')) { IconComponent = CalculatorIcon; iconColor = 'text-blue-500'; gradient = 'from-white to-blue-50'; }
-    else if (lowerCaseTitle.includes('english') || lowerCaseTitle.includes('filipino')) { IconComponent = BookOpenIcon; iconColor = 'text-teal-500'; gradient = 'from-white to-teal-50'; }
-    else if (lowerCaseTitle.includes('religious education')) { IconComponent = BookOpenIcon; iconColor = 'text-amber-500'; gradient = 'from-white to-amber-50'; }
-    else if (lowerCaseTitle.includes('science')) { IconComponent = BeakerIcon; iconColor = 'text-green-500'; gradient = 'from-white to-green-50'; }
-    else if (lowerCaseTitle.includes('araling panlipunan')) { IconComponent = GlobeAltIcon; iconColor = 'text-red-500'; gradient = 'from-white to-red-50'; }
-    else if (lowerCaseTitle.includes('mapeh')) { IconComponent = MusicalNoteIcon; iconColor = 'text-pink-500'; gradient = 'from-white to-pink-50'; }
-    else if (lowerCaseTitle.includes('tle')) { IconComponent = WrenchScrewdriverIcon; iconColor = 'text-purple-500'; gradient = 'from-white to-purple-50'; }
+    // --- MODIFIED: Added dark mode icon colors ---
+    let iconColor = 'text-gray-500 dark:text-gray-400';
+    let gradient = 'from-white to-slate-100 dark:from-slate-800 dark:to-slate-700'; // Neutral dark gradient
+    
+    if (lowerCaseTitle.includes('math')) { IconComponent = CalculatorIcon; iconColor = 'text-blue-500 dark:text-blue-400'; gradient = 'from-white to-blue-50 dark:from-slate-800 dark:to-blue-900/50'; }
+    else if (lowerCaseTitle.includes('english') || lowerCaseTitle.includes('filipino')) { IconComponent = BookOpenIcon; iconColor = 'text-teal-500 dark:text-teal-400'; gradient = 'from-white to-teal-50 dark:from-slate-800 dark:to-teal-900/50'; }
+    else if (lowerCaseTitle.includes('religious education')) { IconComponent = BookOpenIcon; iconColor = 'text-amber-500 dark:text-amber-400'; gradient = 'from-white to-amber-50 dark:from-slate-800 dark:to-amber-900/50'; }
+    else if (lowerCaseTitle.includes('science')) { IconComponent = BeakerIcon; iconColor = 'text-green-500 dark:text-green-400'; gradient = 'from-white to-green-50 dark:from-slate-800 dark:to-green-900/50'; }
+    else if (lowerCaseTitle.includes('araling panlipunan')) { IconComponent = GlobeAltIcon; iconColor = 'text-red-500 dark:text-red-400'; gradient = 'from-white to-red-50 dark:from-slate-800 dark:to-red-900/50'; }
+    else if (lowerCaseTitle.includes('mapeh')) { IconComponent = MusicalNoteIcon; iconColor = 'text-pink-500 dark:text-pink-400'; gradient = 'from-white to-pink-50 dark:from-slate-800 dark:to-pink-900/50'; }
+    else if (lowerCaseTitle.includes('tle')) { IconComponent = WrenchScrewdriverIcon; iconColor = 'text-purple-500 dark:text-purple-400'; gradient = 'from-white to-purple-50 dark:from-slate-800 dark:to-purple-900/50'; }
     return { icon: IconComponent, iconColor, gradient };
 };
 
@@ -139,7 +147,8 @@ const SubjectDetail = (props) => {
 
     return (
         <div className={commonContainerClasses}>
-            <div className={`${windowContainerClasses} bg-gradient-to-br from-white to-slate-50`}>
+            {/* --- MODIFIED: Removed inline gradient from card, using windowContainerClasses --- */}
+            <div className={`${windowContainerClasses}`}>
                 {/* --- MODIFIED: Made header responsive --- */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-3">
                     <div className="flex items-center gap-2 sm:gap-3 flex-wrap"> {/* Added flex-wrap */}
@@ -150,7 +159,8 @@ const SubjectDetail = (props) => {
                             <ArrowUturnLeftIcon className="w-5 h-5" />
                             <span className="hidden sm:inline">Back</span>
                         </button>
-                        <h2 className="text-lg sm:text-xl font-bold text-slate-800 tracking-tight">
+                        {/* --- MODIFIED: Added dark mode text --- */}
+                        <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
                             {activeSubject.title}
                         </h2>
                         <button
@@ -185,7 +195,7 @@ const SubjectDetail = (props) => {
                     {isLoadingUnitsAndLessons ? (
                         <div className="flex justify-center items-center py-10">
                             <Spinner />
-                            <p className="ml-4 text-slate-500">Loading content...</p>
+                            <p className="ml-4 text-slate-500 dark:text-slate-400">Loading content...</p>
                         </div>
                     ) : (
                         <UnitAccordion
@@ -220,23 +230,23 @@ const SubjectDetail = (props) => {
                 </div>
             </div>
 
-            {/* --- MODIFIED: Lesson Picker Modal (Responsive) --- */}
+            {/* --- MODIFIED: Lesson Picker Modal (Themed) --- */}
             {showLessonPicker && activeUnitForPicker && (
                 <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-5 p-4">
-                    <div className="bg-gradient-to-br from-white to-slate-100 rounded-3xl shadow-neumorphic w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
-                        {/* --- MODIFIED: Responsive padding --- */}
-                        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-neumorphic-shadow-dark/30 flex justify-between items-center">
+                    {/* --- MODIFIED: Added dark mode classes --- */}
+                    <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+                        
+                        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30 flex justify-between items-center">
                             <div>
-                                {/* --- MODIFIED: Responsive text --- */}
-                                <h2 className="text-base sm:text-lg font-bold text-slate-800">Select Lessons</h2>
-                                <p className="text-sm text-slate-600 mt-1">
+                                {/* --- MODIFIED: Added dark mode classes --- */}
+                                <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">Select Lessons</h2>
+                                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                                     From unit: <span className="font-medium">{activeUnitForPicker.name}</span>
                                 </p>
                             </div>
                             <button onClick={() => setShowLessonPicker(false)} className={iconButton}>✕</button>
                         </div>
 
-                        {/* --- MODIFIED: Responsive padding --- */}
                         <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4 space-y-3">
                             {allLessonsForSubject
                                 .filter((lesson) => lesson.unitId === activeUnitForPicker.id)
@@ -246,18 +256,18 @@ const SubjectDetail = (props) => {
                                 .map((lesson) => (
                                     <label
                                         key={lesson.id}
-                                        // --- MODIFIED: Responsive padding ---
-                                        className={`flex items-center justify-between p-3 sm:p-4 rounded-2xl transition-all cursor-pointer bg-neumorphic-base ${
+                                        // --- MODIFIED: Added dark mode classes ---
+                                        className={`flex items-center justify-between p-3 sm:p-4 rounded-2xl transition-all cursor-pointer bg-neumorphic-base dark:bg-neumorphic-base-dark ${
                                             selectedLessons.has(lesson.id)
-                                                ? 'shadow-neumorphic-inset'
-                                                : 'shadow-neumorphic'
+                                                ? 'shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark'
+                                                : 'shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'
                                         }`}
                                     >
                                         <div className="min-w-0">
-                                            {/* --- MODIFIED: Responsive text --- */}
-                                            <div className="text-slate-800 font-medium truncate text-sm sm:text-base">{lesson.title}</div>
+                                            {/* --- MODIFIED: Added dark mode classes --- */}
+                                            <div className="text-slate-800 dark:text-slate-100 font-medium truncate text-sm sm:text-base">{lesson.title}</div>
                                             {lesson.subtitle && (
-                                                <div className="text-xs text-slate-500 mt-1 truncate">
+                                                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">
                                                     {lesson.subtitle}
                                                 </div>
                                             )}
@@ -266,20 +276,18 @@ const SubjectDetail = (props) => {
                                             type="checkbox"
                                             checked={selectedLessons.has(lesson.id)}
                                             onChange={() => handleLessonSelect(lesson.id)}
-                                            className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300"
+                                            // --- MODIFIED: Added dark mode classes ---
+                                            className="w-5 h-5 rounded text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400 border-gray-300 dark:border-slate-600 dark:bg-slate-700"
                                         />
                                     </label>
                                 ))}
 
-                            {allLessonsForSubject.filter((l) => l.unitId === activeUnitForPicker.id).length === 0 && (
-                                <p className="text-center text-slate-500 py-6">
+                            <p className="text-center text-slate-500 dark:text-slate-400 py-6">
                                     No lessons available in this unit.
-                                </p>
-                            )}
+                            </p>
                         </div>
 
-                        {/* --- MODIFIED: Responsive padding --- */}
-                        <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-neumorphic-shadow-dark/30 flex justify-end gap-3">
+                        <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30 flex justify-end gap-3">
                             <button onClick={() => setShowLessonPicker(false)} className={secondaryButton}>
                                 Cancel
                             </button>
@@ -323,25 +331,22 @@ const SubjectList = (props) => {
 
     return (
         <div className={commonContainerClasses}>
-            <div className={`${windowContainerClasses} bg-gradient-to-br from-white to-slate-50`}>
-                {/* --- MODIFIED: Made header responsive --- */}
-		<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-		    <div className="flex items-start gap-2 sm:gap-4"> {/* <-- MODIFICATION 1: Aligns button to the top */}
-		        <button onClick={() => navigate(`/dashboard/courses/${contentGroup}`)} className={secondaryButton}><ArrowUturnLeftIcon className="w-5 h-5" /></button>
-		        {/* --- MODIFIED: Responsive header text --- */}
-		        {/* MODIFICATION 2 & 3: Removed 'truncate' and made text smaller */}
-		        <h1 className="text-xl sm:text-3xl font-extrabold text-slate-800 leading-tight">{decodedCategoryName.replace(/\s\((Teacher|Learner)'s Content\)/i, '')}</h1>
-		    </div>
-		    <button onClick={() => { if (onAddSubjectClick) { onAddSubjectClick(decodedCategoryName); } }} className={primaryButton}><PlusCircleIcon className="w-5 h-5" />Add Subject</button>
-		</div>
+            {/* --- MODIFIED: Removed gradient from card, using windowContainerClasses --- */}
+            <div className={windowContainerClasses}>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                    <div className="flex items-start gap-2 sm:gap-4">
+                        <button onClick={() => navigate(`/dashboard/courses/${contentGroup}`)} className={secondaryButton}><ArrowUturnLeftIcon className="w-5 h-5" /></button>
+                        <h1 className="text-xl sm:text-3xl font-extrabold text-slate-800 dark:text-slate-100 leading-tight">{decodedCategoryName.replace(/\s\((Teacher|Learner)'s Content\)/i, '')}</h1>
+                    </div>
+                    <button onClick={() => { if (onAddSubjectClick) { onAddSubjectClick(decodedCategoryName); } }} className={primaryButton}><PlusCircleIcon className="w-5 h-5" />Add Subject</button>
+                </div>
                 <div className="mb-6">
                     <div className="relative">
-                        <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        {/* --- MODIFIED: Responsive search input --- */}
-                        <input type="text" placeholder={`Search in ${decodedCategoryName}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full max-w-md p-3 pl-10 sm:pl-12 rounded-xl focus:ring-0 border-none bg-neumorphic-base shadow-neumorphic-inset text-slate-800 placeholder:text-slate-500 text-sm sm:text-base" />
+                        <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        {/* --- MODIFIED: Themed search input --- */}
+                        <input type="text" placeholder={`Search in ${decodedCategoryName}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full max-w-md p-3 pl-10 sm:pl-12 rounded-xl focus:ring-0 border-none bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-slate-800 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm sm:text-base" />
                     </div>
                 </div>
-                {/* --- MODIFIED: Responsive grid gap --- */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {filteredCourses.length > 0 ? (
                         filteredCourses.map((course) => {
@@ -351,23 +356,23 @@ const SubjectList = (props) => {
                                 <Link 
                                     key={course.id} 
                                     to={course.id}
-                                    // --- MODIFIED: Responsive padding ---
-                                    className={`group relative rounded-3xl p-4 sm:p-6 shadow-neumorphic transition-shadow duration-300 cursor-pointer bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset`}
+                                    // --- MODIFIED: Added dark mode classes, kept light gradient ---
+                                    className={`group relative rounded-3xl p-4 sm:p-6 shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow duration-300 cursor-pointer bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark`}
                                 >
                                     <div className="relative z-5 flex flex-col h-full justify-between">
                                         <div>
-                                            {/* --- MODIFIED: Responsive icon box --- */}
-                                            <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mb-3 sm:mb-4 bg-neumorphic-base shadow-neumorphic-inset">
+                                            {/* --- MODIFIED: Themed icon box --- */}
+                                            <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mb-3 sm:mb-4 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
                                                 <Icon className={`w-6 h-6 sm:w-7 h-7 ${iconColor}`} />
                                             </div>
-											{/* --- MODIFIED: Responsive text --- */}
-											<h2 className="text-base sm:text-lg font-bold text-slate-800 mb-1">
+											{/* --- MODIFIED: Themed text --- */}
+											<h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">
 											    {course.title}
 											</h2>
                                         </div>
-                                        <p className="text-sm text-slate-500 mt-2 font-medium">{unitCount} {unitCount === 1 ? 'Unit' : 'Units'}</p>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium">{unitCount} {unitCount === 1 ? 'Unit' : 'Units'}</p>
                                     </div>
-                                    <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-5">
+                                    <div className="absolute top-4 right-4 z-5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                         <button onClick={(e) => { e.stopPropagation(); e.preventDefault(); props.handleOpenEditSubject(course); }} className={iconButton} title="Edit Subject Name"><PencilSquareIcon className="w-5 h-5" /></button>
                                         <button onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleInitiateDelete('subject', course.id, course.title); }} className={destructiveIconButton} title="Delete Subject"><TrashIcon className="w-5 h-5" /></button>
                                     </div>
@@ -375,7 +380,7 @@ const SubjectList = (props) => {
                             );
                         })
                     ) : (
-                        <p className="col-span-full text-center text-slate-500 py-10">No subjects found matching your search.</p>
+                        <p className="col-span-full text-center text-slate-500 dark:text-slate-400 py-10">No subjects found matching your search.</p>
                     )}
                 </div>
             </div>
@@ -411,17 +416,15 @@ const CategoryList = (props) => {
 
     return (
         <div className={commonContainerClasses}>
-            <div className={`${windowContainerClasses} bg-gradient-to-br from-white to-slate-50`}>
-                {/* --- MODIFIED: Made header responsive --- */}
+            {/* --- MODIFIED: Removed gradient from card, using windowContainerClasses --- */}
+            <div className={windowContainerClasses}>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                     <div className="flex items-center gap-2 sm:gap-4">
                         <button onClick={() => navigate('/dashboard/courses')} className={secondaryButton} title="Back to Content Types"><ArrowUturnLeftIcon className="w-5 h-5" /></button>
-                        {/* --- MODIFIED: Responsive header text (User's specific request) --- */}
-                        <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-800 leading-tight truncate">{title}</h1>
+                        <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-800 dark:text-slate-100 leading-tight truncate">{title}</h1>
                     </div>
                     <button onClick={() => setCreateCategoryModalOpen(true)} className={primaryButton}><PlusCircleIcon className="w-5 h-5" />Add Category</button>
                 </div>
-                {/* --- MODIFIED: Responsive grid gap --- */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
                     {categoriesToShow.map((cat) => {
                         const courseCount = courses.filter(c => c.category === cat.name).length;
@@ -431,17 +434,17 @@ const CategoryList = (props) => {
                             <Link 
                                 key={cat.id} 
                                 to={encodeURIComponent(cat.name)} // Encode the name for the URL
-                                // --- MODIFIED: Responsive padding ---
-                                className={`group relative p-4 sm:p-6 rounded-3xl shadow-neumorphic transition-shadow cursor-pointer bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset h-full flex flex-col justify-between`}
+                                // --- MODIFIED: Added dark mode classes, kept light gradient ---
+                                className={`group relative p-4 sm:p-6 rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow cursor-pointer bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark h-full flex flex-col justify-between`}
                             >
                                 <div className="relative z-5 flex-grow">
-                                    {/* --- MODIFIED: Responsive icon box --- */}
-                                    <div className="p-3 sm:p-4 inline-block bg-neumorphic-base shadow-neumorphic-inset rounded-xl mb-4"><Icon className={`w-7 h-7 sm:w-8 h-8 ${iconColor}`} /></div>
-                                    {/* --- MODIFIED: Responsive text --- */}
-                                    <h2 className="text-lg sm:text-xl font-bold text-slate-800 mb-1">
+                                    {/* --- MODIFIED: Themed icon box --- */}
+                                    <div className="p-3 sm:p-4 inline-block bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-xl mb-4"><Icon className={`w-7 h-7 sm:w-8 h-8 ${iconColor}`} /></div>
+                                    {/* --- MODIFIED: Themed text --- */}
+                                    <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 mb-1">
                                         {cleanName}
                                     </h2>
-                                    <p className="text-slate-500 text-sm sm:text-base">{courseCount} {courseCount === 1 ? 'Subject' : 'Subjects'}</p>
+                                    <p className="text-slate-500 dark:text-slate-400 text-sm sm:text-base">{courseCount} {courseCount === 1 ? 'Subject' : 'Subjects'}</p>
                                 </div>
                                 <div className="absolute top-4 right-4 z-5 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleEditCategory(cat); }} className={iconButton} title={`Edit category ${cat.name}`}><PencilSquareIcon className="w-5 h-5" /></button>
@@ -467,32 +470,25 @@ const ContentGroupSelector = (props) => {
     return (
         <div className={commonContainerClasses}>
             <div className={windowContainerClasses}>
-                {/* --- MODIFIED: Responsive gap --- */}
                 <div className="flex flex-col md:flex-row items-stretch justify-center gap-4 md:gap-12">
-                    {/* --- MODIFIED: Responsive padding --- */}
-                    <Link to="learner" className="group relative p-6 sm:p-12 rounded-3xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset cursor-pointer flex-1 bg-gradient-to-br from-white to-sky-100 flex flex-col justify-between items-start">
+                    {/* --- MODIFIED: Learner Card (Themed) --- */}
+                    <Link to="learner" className="group relative p-6 sm:p-12 rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark cursor-pointer flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark flex flex-col justify-between items-start">
                         <div className="relative z-5">
-                            {/* --- MODIFIED: Responsive icon box --- */}
-                            <div className="p-4 sm:p-5 bg-neumorphic-base shadow-neumorphic-inset rounded-2xl mb-4 sm:mb-6 inline-block"><LearnerIcon className="w-10 h-10 sm:w-12 h-12 text-sky-600" /></div>
-                            {/* --- MODIFIED: Responsive text --- */}
-                            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-800">Learner's Content</h2>
-                            <p className="text-slate-600 mt-2 text-base sm:text-lg">Access a world of knowledge and curated subjects designed for students.</p>
+                            <div className="p-4 sm:p-5 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-2xl mb-4 sm:mb-6 inline-block"><LearnerIcon className="w-10 h-10 sm:w-12 h-12 text-sky-600 dark:text-sky-400" /></div>
+                            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-800 dark:text-slate-100">Learner's Content</h2>
+                            <p className="text-slate-600 dark:text-slate-400 mt-2 text-base sm:text-lg">Access a world of knowledge and curated subjects designed for students.</p>
                         </div>
-                        {/* --- MODIFIED: Responsive "button" --- */}
-                        <div className="relative z-10 mt-8 px-5 py-2 sm:px-6 sm:py-3 bg-neumorphic-base shadow-neumorphic rounded-full font-semibold text-sm sm:text-base">Explore Now</div>
+                        <div className="relative z-10 mt-8 px-5 py-2 sm:px-6 sm:py-3 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark rounded-full font-semibold text-sm sm:text-base">Explore Now</div>
                     </Link>
 
-                    {/* --- MODIFIED: Responsive padding --- */}
-                    <Link to="teacher" className="group relative p-6 sm:p-12 rounded-3xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset cursor-pointer flex-1 bg-gradient-to-br from-white to-emerald-100 flex flex-col justify-between items-start">
+                    {/* --- MODIFIED: Teacher Card (Themed) --- */}
+                    <Link to="teacher" className="group relative p-6 sm:p-12 rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark cursor-pointer flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark flex flex-col justify-between items-start">
                         <div className="relative z-5">
-                            {/* --- MODIFIED: Responsive icon box --- */}
-                            <div className="p-4 sm:p-5 bg-neumorphic-base shadow-neumorphic-inset rounded-2xl mb-4 sm:mb-6 inline-block"><TeacherIcon className="w-10 h-10 sm:w-12 h-12 text-emerald-600" /></div>
-                            {/* --- MODIFIED: Responsive text --- */}
-                            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-800">Teacher's Content</h2>
-                            <p className="text-slate-600 mt-2 text-base sm:text-lg">Discover powerful tools and resources to manage subjects and lessons.</p>
+                            <div className="p-4 sm:p-5 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-2xl mb-4 sm:mb-6 inline-block"><TeacherIcon className="w-10 h-10 sm:w-12 h-12 text-emerald-600 dark:text-emerald-400" /></div>
+                            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-800 dark:text-slate-100">Teacher's Content</h2>
+                            <p className="text-slate-600 dark:text-slate-400 mt-2 text-base sm:text-lg">Discover powerful tools and resources to manage subjects and lessons.</p>
                         </div>
-                        {/* --- MODIFIED: Responsive "button" --- */}
-                        <div className="relative z-5 mt-8 px-5 py-2 sm:px-6 sm:py-3 bg-neumorphic-base shadow-neumorphic rounded-full font-semibold text-sm sm:text-base">Manage Content</div>
+                        <div className="relative z-5 mt-8 px-5 py-2 sm:px-6 sm:py-3 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark rounded-full font-semibold text-sm sm:text-base">Manage Content</div>
                     </Link>
                 </div>
             </div>
@@ -503,13 +499,8 @@ const ContentGroupSelector = (props) => {
 
 // --- MAIN COURSES VIEW COMPONENT ---
 const CoursesView = (props) => {
-    // ... (This component is unchanged) ...
     return (
         <Routes>
-            {/* This <Route> wrapper is the fix.
-              It tells the nested routes that they all live under the "courses"
-              path, which is matched by the parent router in App.jsx.
-            */}
             <Route path="courses"> 
                 <Route index element={<ContentGroupSelector {...props} />} />
                 <Route path=":contentGroup" element={<CategoryList {...props} />} />

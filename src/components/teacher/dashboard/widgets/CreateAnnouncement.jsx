@@ -29,7 +29,8 @@ const CreateAnnouncement = ({ classes, onPost }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <textarea
-        className="w-full p-3 border-none ring-0 focus:ring-1 focus:ring-sky-400 rounded-lg bg-neumorphic-base text-slate-800 resize-none shadow-neumorphic placeholder:text-slate-500 text-base transition"
+        // --- MODIFIED: Added dark mode classes ---
+        className="w-full p-3 border-none ring-0 focus:ring-1 focus:ring-sky-400 dark:focus:ring-sky-500 rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 resize-none shadow-neumorphic dark:shadow-neumorphic-dark placeholder:text-slate-500 dark:placeholder:text-slate-400 text-base transition"
         rows="3"
         placeholder="Share a new announcement..."
         value={content}
@@ -39,18 +40,21 @@ const CreateAnnouncement = ({ classes, onPost }) => {
       {audience === "teachers" && (
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <ImageIcon className="w-5 h-5 text-slate-400 flex-shrink-0" />
+            {/* --- MODIFIED: Added dark mode classes --- */}
+            <ImageIcon className="w-5 h-5 text-slate-400 dark:text-slate-500 flex-shrink-0" />
             <input
               id="photoURL"
               type="text"
-              className="w-full p-2 border-none ring-0 focus:ring-1 focus:ring-sky-400 rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic placeholder:text-slate-500 text-sm transition"
+              // --- MODIFIED: Added dark mode classes ---
+              className="w-full p-2 border-none ring-0 focus:ring-1 focus:ring-sky-400 dark:focus:ring-sky-500 rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 shadow-neumorphic dark:shadow-neumorphic-dark placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm transition"
               placeholder="Optional: Paste an image URL..."
               value={photoURL}
               onChange={(e) => setPhotoURL(e.target.value)}
             />
           </div>
           {photoURL && (
-            <div className="relative group p-2 rounded-xl bg-neumorphic-base shadow-neumorphic">
+            // --- MODIFIED: Added dark mode classes ---
+            <div className="relative group p-2 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark">
               <img
                 src={photoURL}
                 alt="Preview"
@@ -64,7 +68,8 @@ const CreateAnnouncement = ({ classes, onPost }) => {
               <button
                 type="button"
                 onClick={() => setPhotoURL("")}
-                className="absolute top-3 right-3 bg-neumorphic-base text-slate-600 rounded-full p-1.5 shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
+                // --- MODIFIED: Added dark mode classes ---
+                className="absolute top-3 right-3 bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-600 dark:text-slate-300 rounded-full p-1.5 shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark"
                 aria-label="Remove photo"
               >
                 <XIcon className="w-4 h-4" />
@@ -74,25 +79,31 @@ const CreateAnnouncement = ({ classes, onPost }) => {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-4 items-center pt-3 border-t border-neumorphic-shadow-dark/30">
+      {/* --- MODIFIED: Added dark mode border color --- */}
+      <div className="flex flex-col sm:flex-row gap-4 items-center pt-3 border-t border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30">
         <div className="w-full">
           <label
             htmlFor="audience"
-            className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 mb-1.5"
+            // --- MODIFIED: Added dark mode classes ---
+            className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1.5"
           >
-            <Users className="w-4 h-4 text-slate-500" /> Audience
+            {/* --- MODIFIED: Added dark mode classes --- */}
+            <Users className="w-4 h-4 text-slate-500 dark:text-slate-400" /> Audience
           </label>
-          <div className="relative w-full p-2 rounded-xl bg-neumorphic-base shadow-neumorphic focus-within:ring-1 focus-within:ring-sky-400 transition">
+          {/* --- MODIFIED: Added dark mode classes --- */}
+          <div className="relative w-full p-2 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark focus-within:ring-1 focus-within:ring-sky-400 dark:focus-within:ring-sky-500 transition">
              <select
                 id="audience"
-                className="w-full bg-transparent border-none text-slate-800 focus:ring-0 appearance-none"
+                // --- MODIFIED: Added dark mode classes ---
+                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 focus:ring-0 appearance-none"
                 value={audience}
                 onChange={(e) => setAudience(e.target.value)}
               >
                 <option value="teachers">All Teachers</option>
                 <option value="students">Students in a Class</option>
               </select>
-              <ChevronDown className="w-5 h-5 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              {/* --- MODIFIED: Added dark mode classes --- */}
+              <ChevronDown className="w-5 h-5 text-slate-500 dark:text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
 
@@ -100,14 +111,18 @@ const CreateAnnouncement = ({ classes, onPost }) => {
           <div className="w-full">
             <label
               htmlFor="class"
-              className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 mb-1.5"
+              // --- MODIFIED: Added dark mode classes ---
+              className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1.5"
             >
-              <GraduationCap className="w-4 h-4 text-slate-500" /> Class
+              {/* --- MODIFIED: Added dark mode classes --- */}
+              <GraduationCap className="w-4 h-4 text-slate-500 dark:text-slate-400" /> Class
             </label>
-             <div className="relative w-full p-2 rounded-xl bg-neumorphic-base shadow-neumorphic focus-within:ring-1 focus-within:ring-sky-400 transition">
+             {/* --- MODIFIED: Added dark mode classes --- */}
+             <div className="relative w-full p-2 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark focus-within:ring-1 focus-within:ring-sky-400 dark:focus-within:ring-sky-500 transition">
                 <select
                     id="class"
-                    className="w-full bg-transparent border-none text-slate-800 focus:ring-0 appearance-none"
+                    // --- MODIFIED: Added dark mode classes ---
+                    className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 focus:ring-0 appearance-none"
                     value={classId}
                     onChange={(e) => setClassId(e.target.value)}
                     required
@@ -121,7 +136,8 @@ const CreateAnnouncement = ({ classes, onPost }) => {
                         </option>
                     ))}
                 </select>
-                <ChevronDown className="w-5 h-5 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                {/* --- MODIFIED: Added dark mode classes --- */}
+                <ChevronDown className="w-5 h-5 text-slate-500 dark:text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
         )}
@@ -129,8 +145,8 @@ const CreateAnnouncement = ({ classes, onPost }) => {
 
       <button
         type="submit"
-        // MODIFIED: Removed gradient and colored text for a uniform, monochromatic look.
-        className="w-full py-3 px-4 rounded-xl font-semibold text-sky-600 bg-neumorphic-base shadow-neumorphic transition-all duration-200 hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:shadow-neumorphic-inset disabled:opacity-60 disabled:cursor-not-allowed"
+        // --- MODIFIED: Added dark mode classes ---
+        className="w-full py-3 px-4 rounded-xl font-semibold text-sky-600 dark:text-sky-400 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark transition-all duration-200 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark disabled:shadow-neumorphic-inset dark:disabled:shadow-neumorphic-inset-dark disabled:opacity-60 disabled:cursor-not-allowed"
         disabled={!content.trim() && !photoURL.trim()}
       >
         Post Announcement

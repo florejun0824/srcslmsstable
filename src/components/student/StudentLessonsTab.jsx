@@ -1,3 +1,4 @@
+// src/pages/StudentLessonsTab.jsx
 import React, { useState, useEffect } from 'react';
 // Import hooks for routing
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -6,10 +7,11 @@ import Spinner from '../common/Spinner';
 import LessonsByUnitView from './LessonsByUnitView';
 
 const EmptyState = ({ icon: Icon, text, subtext }) => (
-  <div className="text-center py-10 px-5 bg-neumorphic-base rounded-xl shadow-neumorphic">
-    <Icon className="h-12 w-12 mb-2 text-slate-400 mx-auto" />
-    <p className="text-base font-semibold text-slate-700">{text}</p>
-    <p className="mt-1 text-xs text-slate-500">{subtext}</p>
+  // --- MODIFIED: Themed EmptyState ---
+  <div className="text-center py-10 px-5 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark">
+    <Icon className="h-12 w-12 mb-2 text-slate-400 dark:text-slate-600 mx-auto" />
+    <p className="text-base font-semibold text-slate-700 dark:text-slate-200">{text}</p>
+    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtext}</p>
   </div>
 );
 
@@ -127,31 +129,34 @@ const StudentLessonsTab = ({
 
   return (
     <div className="min-h-[60vh] relative pb-24 sm:pb-10">
-      {/* Header always visible (unchanged) */}
+      {/* Header always visible */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Lessons</h1>
-          <p className="mt-1 text-sm text-slate-500 max-w-md">
+          {/* --- MODIFIED: Themed header text --- */}
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Lessons</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-md">
             Select a class to view its lessons, organized by unit.
           </p>
         </div>
 
-        {/* Desktop Refresh (unchanged) */}
+        {/* Desktop Refresh */}
         <button
           onClick={handleRefreshClick}
           disabled={isRefreshing}
-          className="hidden sm:inline-flex items-center gap-2 bg-neumorphic-base rounded-xl shadow-neumorphic
-                     px-4 py-2 text-sm font-semibold text-slate-700 hover:shadow-neumorphic-inset 
-                     hover:text-red-600 active:scale-[0.98] transition-all duration-200"
+          // --- MODIFIED: Themed button ---
+          className="hidden sm:inline-flex items-center gap-2 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark
+                     px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark
+                     hover:text-red-600 dark:hover:text-red-400 active:scale-[0.98] transition-all duration-200"
         >
+          {/* --- MODIFIED: Themed icon --- */}
           <ArrowPathIcon
-            className={`h-4 w-4 ${isRefreshing ? 'animate-spin text-red-600' : 'text-slate-500'}`}
+            className={`h-4 w-4 ${isRefreshing ? 'animate-spin text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}
           />
           {isRefreshing ? 'Checking...' : 'Check for New Lessons'}
         </button>
       </div>
 
-      {/* Main content (unchanged) */}
+      {/* Main content */}
       <div>
         {isFetchingContent || isFetchingUnits ? (
           <div className="flex justify-center items-center py-16">
@@ -164,28 +169,34 @@ const StudentLessonsTab = ({
               return (
                 <div
                   key={classData.id || className}
-                  className="group relative p-3 rounded-lg bg-neumorphic-base shadow-neumorphic 
-                             hover:shadow-neumorphic-inset transition-all duration-300 cursor-pointer
+                  // --- MODIFIED: Themed card container ---
+                  className="group relative p-3 rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark
+                             hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all duration-300 cursor-pointer
                              flex flex-col"
                   onClick={() => handleClassCardClick(classData)} // Use new handler
                 >
-                  {/* Icon + Title (unchanged) */}
+                  {/* Icon + Title */}
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <div className="w-9 h-9 flex items-center justify-center rounded-md bg-neumorphic-base shadow-neumorphic-inset">
-                      <Squares2X2Icon className="h-5 w-5 text-red-600" />
+                    {/* --- MODIFIED: Themed icon container --- */}
+                    <div className="w-9 h-9 flex items-center justify-center rounded-md bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
+                      <Squares2X2Icon className="h-5 w-5 text-red-600 dark:text-red-400" />
                     </div>
-                    <h3 className="text-sm font-bold text-slate-800 truncate flex-1 group-hover:text-red-700 transition-colors">
+                    {/* --- MODIFIED: Themed text --- */}
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate flex-1 group-hover:text-red-700 dark:group-hover:text-red-400 transition-colors">
                       {classData.name}
                     </h3>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-neumorphic-base shadow-neumorphic-inset text-red-700">
+                    {/* --- MODIFIED: Themed badge --- */}
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-neumorphic-base dark:bg-slate-700 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-red-700 dark:text-red-300">
                       {classData.lessons.length} Lessons
                     </span>
                   </div>
 
-                  <div className="border-t border-slate-200/70 my-2"></div>
+                  {/* --- MODIFIED: Themed divider --- */}
+                  <div className="border-t border-slate-200/70 dark:border-slate-700/70 my-2"></div>
 
-                  {/* Footer (unchanged) */}
-                  <div className="flex items-center justify-between text-red-600 group-hover:text-red-700 font-medium text-xs">
+                  {/* Footer */}
+                  {/* --- MODIFIED: Themed footer text --- */}
+                  <div className="flex items-center justify-between text-red-600 dark:text-red-400 group-hover:text-red-700 dark:group-hover:text-red-300 font-medium text-xs">
                     <span>View Lessons</span>
                     <ArrowRightIcon className="h-4 w-4 transition-transform duration-200 transform group-hover:translate-x-1" />
                   </div>

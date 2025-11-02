@@ -31,28 +31,31 @@ const Modal = ({
           />
 
           {/* Modal Panel */}
+          {/* --- MODIFIED: Added dark mode classes for bg and shadow --- */}
           <motion.div
             initial={{ scale: 0.9, opacity: 0, y: 30 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 30 }}
             transition={{ type: 'spring', stiffness: 260, damping: 25 }}
-            className={`relative w-full bg-neumorphic-base shadow-neumorphic flex flex-col ${roundedClass} ${sizeClasses[size]}`}
+            className={`relative w-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark flex flex-col ${roundedClass} ${sizeClasses[size]}`}
           >
             {/* Header Area */}
             {(title || showCloseButton) && (
-              <div className="text-center p-6 pb-4 relative border-b border-gray-200">
-                <h3 className="text-2xl font-bold text-slate-800">{title}</h3>
+              // --- MODIFIED: Added dark mode classes for border, title, and description ---
+              <div className="text-center p-6 pb-4 relative border-b border-gray-200 dark:border-slate-700">
+                <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{title}</h3>
                 {description && (
-                  <p className="mt-2 text-slate-500">{description}</p>
+                  <p className="mt-2 text-slate-500 dark:text-slate-400">{description}</p>
                 )}
 
                 {showCloseButton && (
                   <button
                     onClick={onClose}
-                    className="absolute top-4 right-4 p-2 rounded-full bg-neumorphic-base shadow-neumorphic transition-all hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
+                    // --- MODIFIED: Added dark mode classes for button bg, shadow, and icon ---
+                    className="absolute top-4 right-4 p-2 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark transition-all hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark"
                     aria-label="Close modal"
                   >
-                    <XMarkIcon className="w-5 h-5 text-slate-600" />
+                    <XMarkIcon className="w-5 h-5 text-slate-600 dark:text-slate-300" />
                   </button>
                 )}
               </div>

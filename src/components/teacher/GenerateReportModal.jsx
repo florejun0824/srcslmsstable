@@ -434,51 +434,49 @@ export default function GenerateReportModal({
 
     return (
         <Dialog open={isOpen} onClose={handleClose} static={true} className={className}>
-            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" aria-hidden="true" />
+            {/* --- MODIFIED: Backdrop for dark mode --- */}
+            <div className="fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm" aria-hidden="true" />
             
             <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-                {/* --- MODIFIED: Changed size to max-w-7xl and h-[90vh] --- */}
                 <DialogPanel as={motion.div}
                     variants={dropIn}
                     initial="hidden"
                     animate="visible"
                     exit="exit"
-                    className="w-full max-w-7xl rounded-2xl bg-neumorphic-base flex flex-col overflow-hidden shadow-neumorphic"
+                    // --- MODIFIED: Main modal panel classes for dark mode ---
+                    className="w-full max-w-7xl rounded-2xl bg-neumorphic-base dark:bg-neumorphic-base-dark flex flex-col overflow-hidden shadow-neumorphic dark:shadow-neumorphic-dark"
                     style={{ height: '90vh' }}
                 >
-                {/* --- END MODIFICATION --- */}
 
-                    <header className="flex items-center justify-between p-5 border-b border-neumorphic-shadow-dark/30 flex-shrink-0">
+                    <header className="flex items-center justify-between p-5 border-b border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30 flex-shrink-0">
                         <div className="flex items-center gap-3">
-                            <DocumentChartBarIcon className="h-6 w-6 text-sky-600" />
-                            <h3 className="text-xl font-bold text-slate-900">
+                            <DocumentChartBarIcon className="h-6 w-6 text-sky-600 dark:text-sky-400" />
+                            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                                 Generate Score Report
                             </h3>
                         </div>
-                        <button onClick={handleClose} className="p-2 rounded-full text-slate-500 hover:shadow-neumorphic-inset transition-colors">
+                        <button onClick={handleClose} className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-colors">
                             <XMarkIcon className="h-5 w-5" />
                         </button>
                     </header>
 
-                    {/* --- MODIFIED: Main content area is now a 2-col grid, parent overflow-y-auto removed --- */}
+                    {/* --- MODIFIED: Grid container uses dark mode bg --- */}
                     <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-6 p-6 min-h-0">
                         
-                        {/* --- MODIFIED: COLUMN 1: Select Quizzes (with overflow-hidden) --- */}
-                        <div className="bg-neumorphic-base p-5 rounded-xl shadow-neumorphic flex flex-col overflow-hidden">
-                            <label className="flex items-center text-lg font-bold text-slate-800 mb-4 flex-shrink-0">
-                                <span className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-200 to-blue-300 text-blue-700 text-sm font-bold flex items-center justify-center mr-3 shadow-neumorphic">1</span>
+                        {/* --- COLUMN 1: Select Quizzes --- */}
+                        <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark p-5 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark flex flex-col overflow-hidden">
+                            <label className="flex items-center text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex-shrink-0">
+                                <span className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-200 to-blue-300 dark:from-sky-800 dark:to-blue-900 text-blue-700 dark:text-blue-200 text-sm font-bold flex items-center justify-center mr-3 shadow-neumorphic dark:shadow-neumorphic-dark">1</span>
                                 Select Quizzes
                             </label>
                             {quizzes.length === 0 ? (
-                                <p className="text-slate-500 text-sm px-2 py-4 text-center">No quizzes have been shared with this class yet.</p>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm px-2 py-4 text-center">No quizzes have been shared with this class yet.</p>
                             ) : (
-                                // --- MODIFIED: This div is now the scrolling container ---
                                 <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar -mr-2 pr-2">
                                     {postEntries.map(({ post, units: unitsInPost }) => {
                                         const isPostCollapsed = collapsedPosts.has(post.id);
                                         const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
                                         
-                                        // --- MODIFIED: Get date and all quiz IDs for this post ---
                                         const sentDate = post.createdAt?.toDate()
                                             ? post.createdAt.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
                                             : 'Date not available';
@@ -490,9 +488,9 @@ export default function GenerateReportModal({
                                         const someSelectedInPost = allQuizIdsInPost.some(id => selectedQuizIds.includes(id)) && !allSelectedInPost;
 
                                         return (
-                                            <div key={post.id} className="bg-neumorphic-base rounded-lg shadow-neumorphic-inset">
+                                            <div key={post.id} className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-lg shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
                                                 {/* --- MODIFIED: Selectable Post Header with Date --- */}
-                                                <div className="flex items-center justify-between w-full p-3 font-semibold text-base text-slate-800 bg-slate-100/50 rounded-t-lg border-b border-neumorphic-shadow-dark/30">
+                                                <div className="flex items-center justify-between w-full p-3 font-semibold text-base text-slate-800 dark:text-slate-100 bg-slate-100/50 dark:bg-slate-700/50 rounded-t-lg border-b border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30">
                                                     <div className="flex items-center flex-1 min-w-0 gap-3">
                                                         <input
                                                             type="checkbox"
@@ -500,26 +498,25 @@ export default function GenerateReportModal({
                                                             ref={el => el && (el.indeterminate = someSelectedInPost)}
                                                             onChange={() => handleUnitSelectionToggle(allQuizIdsInPost)}
                                                             onClick={(e) => e.stopPropagation()} 
-                                                            className="h-4 w-4 rounded text-sky-600 border-slate-300 focus:ring-sky-500 flex-shrink-0"
+                                                            className="h-4 w-4 rounded text-sky-600 dark:text-sky-400 border-slate-300 dark:border-slate-600 dark:bg-slate-700 focus:ring-sky-500 flex-shrink-0"
                                                         />
                                                         <button
                                                             className="text-left flex-1 group min-w-0"
                                                             onClick={() => togglePostCollapse(post.id)}
                                                         >
-                                                            <span className="group-hover:text-sky-600 transition-colors truncate block">{post.title}</span>
-                                                            <span className="text-xs text-slate-500 font-normal block mt-1">
+                                                            <span className="group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors truncate block">{post.title}</span>
+                                                            <span className="text-xs text-slate-500 dark:text-slate-400 font-normal block mt-1">
                                                                 Sent on: {sentDate}
                                                             </span>
                                                         </button>
                                                     </div>
                                                     <button onClick={() => togglePostCollapse(post.id)} className="p-1">
-                                                        {isPostCollapsed ? <ChevronDownIcon className="h-5 w-5 text-slate-400" /> : <ChevronUpIcon className="h-5 w-5 text-slate-400" />}
+                                                        <ChevronDownIcon className="h-5 w-5 text-slate-400 dark:text-slate-500" />
                                                     </button>
                                                 </div>
                                                 
-                                                {/* (Collapsible content remains the same) */}
                                                 {!isPostCollapsed && (
-                                                    <div className="p-2 space-y-2 border-t border-neumorphic-shadow-dark/30">
+                                                    <div className="p-2 space-y-2 border-t border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30">
                                                         {sortedUnitKeys.map(unitDisplayName => {
                                                             const quizzesInUnit = unitsInPost[unitDisplayName] || [];
                                                             const quizIdsInUnit = quizzesInUnit.map(q => q.id);
@@ -530,9 +527,9 @@ export default function GenerateReportModal({
                                                             const isUnitCollapsed = collapsedUnits.has(unitKey);
 
                                                             return (
-                                                                <div key={unitKey} className="bg-neumorphic-base rounded-md shadow-neumorphic-inset">
+                                                                <div key={unitKey} className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-md shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
                                                                     <button 
-                                                                        className="flex items-center justify-between w-full p-3 font-semibold text-sm text-slate-700 hover:bg-slate-200/50 transition-colors" 
+                                                                        className="flex items-center justify-between w-full p-3 font-semibold text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors" 
                                                                         onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}
                                                                     >
                                                                         <div className="flex items-center flex-1 min-w-0">
@@ -542,24 +539,24 @@ export default function GenerateReportModal({
                                                                                 ref={el => el && (el.indeterminate = someSelected)}
                                                                                 onChange={() => handleUnitSelectionToggle(quizIdsInUnit)}
                                                                                 onClick={(e) => e.stopPropagation()}
-                                                                                className="h-4 w-4 rounded text-sky-600 border-slate-300 focus:ring-sky-500 mr-3 flex-shrink-0"
+                                                                                className="h-4 w-4 rounded text-sky-600 dark:text-sky-400 border-slate-300 dark:border-slate-600 dark:bg-slate-700 focus:ring-sky-500 mr-3 flex-shrink-0"
                                                                             />
                                                                             <span className="truncate">{unitDisplayName}</span>
                                                                         </div>
-                                                                        {isUnitCollapsed ? <ChevronDownIcon className="h-5 w-5 text-slate-400" /> : <ChevronUpIcon className="h-5 w-5 text-slate-400" />}
+                                                                        {isUnitCollapsed ? <ChevronDownIcon className="h-5 w-5 text-slate-400 dark:text-slate-500" /> : <ChevronUpIcon className="h-5 w-5 text-slate-400 dark:text-slate-500" />}
                                                                     </button>
                                                                     
                                                                     {!isUnitCollapsed && (
-                                                                        <div className="pt-1 pb-2 px-2 border-t border-neumorphic-shadow-dark/30">
+                                                                        <div className="pt-1 pb-2 px-2 border-t border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30">
                                                                             {quizzesInUnit.sort((a,b) => a.title.localeCompare(b.title)).map(quiz => (
-                                                                                <label key={quiz.id} className={`flex items-center p-2 rounded-md cursor-pointer transition-colors text-sm ${selectedQuizIds.includes(quiz.id) ? 'bg-sky-100/60' : 'hover:bg-slate-200/50'}`}>
+                                                                                <label key={quiz.id} className={`flex items-center p-2 rounded-md cursor-pointer transition-colors text-sm ${selectedQuizIds.includes(quiz.id) ? 'bg-sky-100/60 dark:bg-sky-900/30' : 'hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
                                                                                     <input
                                                                                         type="checkbox"
                                                                                         checked={selectedQuizIds.includes(quiz.id)}
                                                                                         onChange={() => handleQuizSelection(quiz.id)}
-                                                                                        className="h-4 w-4 rounded text-sky-600 border-slate-300 focus:ring-sky-500 mr-3"
+                                                                                        className="h-4 w-4 rounded text-sky-600 dark:text-sky-400 border-slate-300 dark:border-slate-600 dark:bg-slate-700 focus:ring-sky-500 mr-3"
                                                                                     />
-                                                                                    <span className="text-slate-800">{quiz.title}</span>
+                                                                                    <span className="text-slate-800 dark:text-slate-100">{quiz.title}</span>
                                                                                 </label>
                                                                             ))}
                                                                         </div>
@@ -577,21 +574,21 @@ export default function GenerateReportModal({
                         </div>
                         
                         {/* --- COLUMN 2: Sort Options (No scrolling) --- */}
-                        <div className="bg-neumorphic-base p-5 rounded-xl shadow-neumorphic">
-                             <label className="flex items-center text-lg font-bold text-slate-800 mb-4">
-                                <span className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-200 to-blue-300 text-blue-700 text-sm font-bold flex items-center justify-center mr-3 shadow-neumorphic">2</span>
+                        <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark p-5 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark">
+                             <label className="flex items-center text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">
+                                <span className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-200 to-blue-300 dark:from-sky-800 dark:to-blue-900 text-blue-700 dark:text-blue-200 text-sm font-bold flex items-center justify-center mr-3 shadow-neumorphic dark:shadow-neumorphic-dark">2</span>
                                 Sort Students By
                             </label>
-                            <div className="p-1 bg-neumorphic-base rounded-full flex gap-1 shadow-neumorphic-inset">
+                            <div className="p-1 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full flex gap-1 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
                                 <label className={`relative w-full text-center cursor-pointer py-2 px-3 rounded-full font-semibold text-sm transition-all`}>
                                     <input type="radio" name="sortOption" value="gender-lastName" checked={sortOption === 'gender-lastName'} onChange={e => setSortOption(e.target.value)} className="sr-only" />
-                                    {sortOption === 'gender-lastName' && <motion.div layoutId="sort-pill" className="absolute inset-0 bg-neumorphic-base shadow-neumorphic rounded-full" />}
-                                    <span className={`relative transition-colors ${sortOption === 'gender-lastName' ? 'text-sky-700' : 'text-slate-500'}`}>Gender, then Last Name</span>
+                                    {sortOption === 'gender-lastName' && <motion.div layoutId="sort-pill" className="absolute inset-0 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark rounded-full" />}
+                                    <span className={`relative transition-colors ${sortOption === 'gender-lastName' ? 'text-sky-700 dark:text-sky-400' : 'text-slate-500 dark:text-slate-400'}`}>Gender, then Last Name</span>
                                 </label>
                                 <label className={`relative w-full text-center cursor-pointer py-2 px-3 rounded-full font-semibold text-sm transition-all`}>
                                     <input type="radio" name="sortOption" value="gender-firstName" checked={sortOption === 'gender-firstName'} onChange={e => setSortOption(e.target.value)} className="sr-only" />
-                                    {sortOption === 'gender-firstName' && <motion.div layoutId="sort-pill" className="absolute inset-0 bg-neumorphic-base shadow-neumorphic rounded-full" />}
-                                    <span className={`relative transition-colors ${sortOption === 'gender-firstName' ? 'text-sky-700' : 'text-slate-500'}`}>Gender, then First Name</span>
+                                    {sortOption === 'gender-firstName' && <motion.div layoutId="sort-pill" className="absolute inset-0 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark rounded-full" />}
+                                    <span className={`relative transition-colors ${sortOption === 'gender-firstName' ? 'text-sky-700 dark:text-sky-400' : 'text-slate-500 dark:text-slate-400'}`}>Gender, then First Name</span>
                                 </label>
                             </div>
                         </div>
@@ -599,8 +596,8 @@ export default function GenerateReportModal({
                     {/* --- END 2-COL GRID --- */}
 
 
-                    <footer className="flex justify-end gap-3 p-4 bg-neumorphic-base border-t border-neumorphic-shadow-dark/30 flex-shrink-0">
-                        <button onClick={handleClose} className="px-5 py-2.5 bg-neumorphic-base text-slate-800 rounded-lg font-semibold text-sm transition-shadow shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset">
+                    <footer className="flex justify-end gap-3 p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark border-t border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30 flex-shrink-0">
+                        <button onClick={handleClose} className="px-5 py-2.5 bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-200 rounded-lg font-semibold text-sm transition-shadow shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset active:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark">
                             Cancel
                         </button>
                         <button
@@ -608,8 +605,8 @@ export default function GenerateReportModal({
                             disabled={selectedQuizIds.length === 0}
                             className={`px-5 py-2.5 rounded-lg font-semibold text-sm transition-all active:shadow-neumorphic-inset
                                 ${selectedQuizIds.length === 0
-                                    ? 'bg-neumorphic-base shadow-neumorphic-inset text-slate-400 cursor-not-allowed'
-                                    : 'bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 shadow-neumorphic hover:shadow-neumorphic-inset'}`}
+                                    ? 'bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                                    : 'bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-800 dark:to-blue-900 text-blue-700 dark:text-blue-200 shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'}`}
                         >
                             Generate Report
                         </button>

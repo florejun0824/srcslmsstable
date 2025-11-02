@@ -21,9 +21,12 @@ import { updateStudentDetailsInClasses } from '../services/firestoreService';
 // Neumorphic styled input field
 const NeumorphicFormField = ({ label, icon: Icon, children, className = '' }) => (
     <div className={className}>
-        <label className="block text-sm font-medium text-slate-600 mb-1.5 px-1">{label}</label>
-        <div className="flex items-center gap-3 bg-neumorphic-base shadow-neumorphic-inset rounded-xl px-4">
-            {Icon && <Icon className="h-5 w-5 text-slate-400" aria-hidden="true" />}
+        {/* --- MODIFIED: Added dark theme text --- */}
+        <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5 px-1">{label}</label>
+        {/* --- MODIFIED: Added dark theme styles --- */}
+        <div className="flex items-center gap-3 bg-neumorphic-base shadow-neumorphic-inset rounded-xl px-4 dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
+            {/* --- MODIFIED: Added dark theme icon --- */}
+            {Icon && <Icon className="h-5 w-5 text-slate-400 dark:text-slate-500" aria-hidden="true" />}
             {children}
         </div>
     </div>
@@ -36,25 +39,31 @@ const XPProgressBar = ({ level, currentXP, xpInThisLevel, xpNeededForThisLevel, 
     return (
         <div className="mt-4 relative">
             <div className="flex justify-between items-center mb-1">
-                <span className="text-sm font-bold text-blue-600">Level {level}</span>
-                <span className="text-xs font-medium text-slate-500">
+                {/* --- MODIFIED: Added dark theme text --- */}
+                <span className="text-sm font-bold text-blue-600 dark:text-blue-400">Level {level}</span>
+                {/* --- MODIFIED: Added dark theme text --- */}
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                     {xpInThisLevel.toLocaleString()} / {xpNeededForThisLevel.toLocaleString()} XP
                 </span>
             </div>
 
-            <div className="relative w-full bg-neumorphic-base shadow-neumorphic-inset rounded-full h-3 overflow-hidden">
+            {/* --- MODIFIED: Added dark theme styles --- */}
+            <div className="relative w-full bg-neumorphic-base shadow-neumorphic-inset rounded-full h-3 overflow-hidden dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
 	  <div
-	    className={`h-full rounded-full transition-all duration-700 ease-out ${xpGain > 0 ? 'xp-pulse' : 'bg-blue-500'}`}
+        // --- MODIFIED: Added dark theme bg ---
+	    className={`h-full rounded-full transition-all duration-700 ease-out ${xpGain > 0 ? 'xp-pulse' : 'bg-blue-500 dark:bg-blue-400'}`}
 	    style={{ width: `${percentage}%` }}
 	  />
                 {xpGain > 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center text-xs text-blue-600 font-bold animate-pulse">
+                    // --- MODIFIED: Added dark theme text ---
+                    <div className="absolute inset-0 flex items-center justify-center text-xs text-blue-600 dark:text-blue-300 font-bold animate-pulse">
                         +{xpGain} XP
                     </div>
                 )}
             </div>
 
-            <div className="text-right text-xs text-slate-400 mt-1">
+            {/* --- MODIFIED: Added dark theme text --- */}
+            <div className="text-right text-xs text-slate-400 dark:text-slate-500 mt-1">
                 Total XP: {currentXP.toLocaleString()}
             </div>
         </div>
@@ -76,7 +85,6 @@ const BADGE_MAP = {
     'badge_master': { icon: '🌟', title: 'Master' },
     'badge_legend': { icon: '👑', title: 'Legend' },
 };
-
 const StudentProfilePage = () => {
     const { user, userProfile, refreshUserProfile, loading: authLoading, setUserProfile } = useAuth();
     const { showToast } = useToast();
@@ -133,7 +141,7 @@ const StudentProfilePage = () => {
 	  if (newXp > prevXp) {
 	    const gained = newXp - prevXp;
 	    setXpGain(gained);
-	    showToast(`🎉 You gained +${gained} XP!`, 'success');
+	 
 
 	    // Animate bar
 	    setProfile(prev => ({ ...prev, xp: newXp, level: userProfile.level || prev.level }));
@@ -145,7 +153,7 @@ const StudentProfilePage = () => {
 	  }
 	}, [userProfile?.xp]); 
 	
-	// 🎯 Detect and set level up (no toast on load)
+	// 識 Detect and set level up (no toast on load)
 	useEffect(() => {
 	  if (!userProfile) return;
 
@@ -271,9 +279,11 @@ const StudentProfilePage = () => {
 
     return (
         <div className={`max-w-4xl mx-auto ${backgroundClass}`}>
-            <div className="bg-neumorphic-base p-6 sm:p-8 rounded-3xl shadow-neumorphic">
+            {/* --- MODIFIED: Added dark theme styles --- */}
+            <div className="bg-neumorphic-base p-6 sm:p-8 rounded-3xl shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg">
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row items-center gap-6 mb-8 border-b border-slate-200/80 pb-8">
+                {/* --- MODIFIED: Added dark theme border --- */}
+                <div className="flex flex-col sm:flex-row items-center gap-6 mb-8 border-b border-slate-200/80 dark:border-slate-700 pb-8">
                     <UserInitialsAvatar
                         user={userProfile}
                         size="xl"
@@ -283,7 +293,8 @@ const StudentProfilePage = () => {
                     />
                     <div className="text-center sm:text-left flex-1 w-full">
                         <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
-                            <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
                                 {userProfile?.displayName || 'Student Profile'}
                                 {xpGain > 0 && (
                                     <SparklesIcon className="h-5 w-5 text-yellow-400 animate-ping" />
@@ -295,12 +306,15 @@ const StudentProfilePage = () => {
                                 </span>
                             )}
                         </div>
-                        <p className="text-md text-slate-500 flex items-center justify-center sm:justify-start gap-2 mt-1">
-                            <EnvelopeIcon className="h-5 w-5 text-slate-400" /> {userProfile?.email}
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <p className="text-md text-slate-500 dark:text-slate-400 flex items-center justify-center sm:justify-start gap-2 mt-1">
+                            {/* --- MODIFIED: Added dark theme icon --- */}
+                            <EnvelopeIcon className="h-5 w-5 text-slate-400 dark:text-slate-500" /> {userProfile?.email}
                         </p>
                         {canSetBio && customBio && (
                             <p
-                                className="mt-2 text-sm text-slate-600 italic px-2 py-1 bg-neumorphic-base shadow-neumorphic-inset rounded-lg inline-block max-w-full truncate"
+                                // --- MODIFIED: Added dark theme styles ---
+                                className="mt-2 text-sm text-slate-600 dark:text-slate-300 italic px-2 py-1 bg-neumorphic-base shadow-neumorphic-inset rounded-lg inline-block max-w-full truncate dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark"
                                 title={customBio}
                             >
                                 "{customBio}"
@@ -319,7 +333,8 @@ const StudentProfilePage = () => {
                 {/* Badges */}
                 {badges.length > 0 && (
                     <div className="mb-8">
-                        <h2 className="text-xl font-bold text-slate-800 mb-4">Your Badges</h2>
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">Your Badges</h2>
                         <div className="flex flex-wrap gap-4">
                             {badges.map(badgeKey => {
                                 const badge = BADGE_MAP[badgeKey];
@@ -327,11 +342,13 @@ const StudentProfilePage = () => {
                                 return (
                                     <div
                                         key={badgeKey}
-                                        className="flex flex-col items-center justify-center text-center p-4 w-28 h-28 bg-neumorphic-base rounded-2xl shadow-neumorphic"
+                                        // --- MODIFIED: Added dark theme styles ---
+                                        className="flex flex-col items-center justify-center text-center p-4 w-28 h-28 bg-neumorphic-base rounded-2xl shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg"
                                         title={badge.title}
                                     >
                                         <span className="text-4xl">{badge.icon}</span>
-                                        <span className="text-xs font-semibold text-slate-600 mt-2">
+                                        {/* --- MODIFIED: Added dark theme text --- */}
+                                        <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-2">
                                             {badge.title}
                                         </span>
                                     </div>
@@ -342,10 +359,13 @@ const StudentProfilePage = () => {
                 )}
 
                 {/* --- Cosmetics Toggle --- */}
-                <div className="mb-8 bg-neumorphic-base p-4 rounded-2xl shadow-neumorphic flex items-center justify-between">
-                    <label htmlFor="cosmetics-toggle-profile" className="font-semibold text-slate-800 cursor-pointer">
+                {/* --- MODIFIED: Added dark theme styles --- */}
+                <div className="mb-8 bg-neumorphic-base p-4 rounded-2xl shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg flex items-center justify-between">
+                    {/* --- MODIFIED: Added dark theme text --- */}
+                    <label htmlFor="cosmetics-toggle-profile" className="font-semibold text-slate-800 dark:text-slate-100 cursor-pointer">
                         Enable Cosmetic Effects
-                        <span className="block text-xs text-slate-500">
+                        {/* --- MODIFIED: Added dark theme text --- */}
+                        <span className="block text-xs text-slate-500 dark:text-slate-400">
                             Toggles borders, backgrounds, titles, etc.
                         </span>
                     </label>
@@ -356,12 +376,14 @@ const StudentProfilePage = () => {
                         aria-checked={cosmeticsEnabled}
                         onClick={() => handleToggleCosmetics(!cosmeticsEnabled)}
                         disabled={isTogglingCosmetics}
-                        className={`relative w-14 h-8 flex-shrink-0 rounded-full cursor-pointer transition-all duration-300 ease-in-out ${cosmeticsEnabled ? 'bg-green-500 shadow-neumorphic-inset' : 'bg-neumorphic-base shadow-neumorphic'} disabled:opacity-50`}
+                        // --- MODIFIED: Added dark theme styles ---
+                        className={`relative w-14 h-8 flex-shrink-0 rounded-full cursor-pointer transition-all duration-300 ease-in-out ${cosmeticsEnabled ? 'bg-green-500 shadow-neumorphic-inset dark:bg-green-400 dark:shadow-neumorphic-inset-dark' : 'bg-neumorphic-base shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg'} disabled:opacity-50`}
                     >
                         <span className="sr-only">Toggle Cosmetic Effects</span>
                         <span
                             aria-hidden="true"
-                            className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transform transition-all duration-300 ease-in-out ${cosmeticsEnabled ? 'translate-x-6 shadow-none' : 'translate-x-0'}`}
+                            // --- MODIFIED: Added dark theme bg ---
+                            className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white dark:bg-slate-300 shadow-md transform transition-all duration-300 ease-in-out ${cosmeticsEnabled ? 'translate-x-6 shadow-none' : 'translate-x-0'}`}
                         />
                     </button>
                 </div>
@@ -369,7 +391,8 @@ const StudentProfilePage = () => {
 
 
                 {/* Profile Form */}
-                <h2 className="text-xl font-bold text-slate-800 mb-4">Edit Profile</h2>
+                {/* --- MODIFIED: Added dark theme text --- */}
+                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">Edit Profile</h2>
                 <form onSubmit={handleProfileSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Basic Info */}
@@ -381,7 +404,8 @@ const StudentProfilePage = () => {
                                     setProfile({ ...profile, firstName: e.target.value })
                                 }
                                 placeholder="Your first name"
-                                className="w-full bg-transparent py-3 text-slate-800 placeholder-slate-400 outline-none border-none focus:ring-0"
+                                // --- MODIFIED: Added dark theme text/placeholder ---
+                                className="w-full bg-transparent py-3 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 outline-none border-none focus:ring-0"
                             />
                         </NeumorphicFormField>
                         <NeumorphicFormField label="Last Name" icon={UserCircleIcon}>
@@ -392,7 +416,8 @@ const StudentProfilePage = () => {
                                     setProfile({ ...profile, lastName: e.target.value })
                                 }
                                 placeholder="Your last name"
-                                className="w-full bg-transparent py-3 text-slate-800 placeholder-slate-400 outline-none border-none focus:ring-0"
+                                // --- MODIFIED: Added dark theme text/placeholder ---
+                                className="w-full bg-transparent py-3 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 outline-none border-none focus:ring-0"
                             />
                         </NeumorphicFormField> 
                         {/* --- THIS IS THE FIX --- */}
@@ -404,7 +429,8 @@ const StudentProfilePage = () => {
                                     setProfile({ ...profile, photoURL: e.target.value })
                                 }
                                 placeholder="https://example.com/image.jpg"
-                                className="w-full bg-transparent py-3 text-slate-800 placeholder-slate-400 outline-none border-none focus:ring-0"
+                                // --- MODIFIED: Added dark theme text/placeholder ---
+                                className="w-full bg-transparent py-3 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 outline-none border-none focus:ring-0"
                             />
                         </NeumorphicFormField>
                         <NeumorphicFormField label="Gender" icon={IdentificationIcon}>
@@ -413,7 +439,8 @@ const StudentProfilePage = () => {
                                 onChange={(e) =>
                                     setProfile({ ...profile, gender: e.target.value })
                                 }
-                                className="w-full bg-transparent py-3 text-slate-800 outline-none border-none appearance-none cursor-pointer focus:ring-0"
+                                // --- MODIFIED: Added dark theme text ---
+                                className="w-full bg-transparent py-3 text-slate-800 dark:text-slate-100 outline-none border-none appearance-none cursor-pointer focus:ring-0"
                             >
                                 <option value="Not specified">Select Gender</option>
                                 <option value="Male">Male</option>
@@ -440,7 +467,8 @@ const StudentProfilePage = () => {
                                     }
                                     placeholder="Write something about yourself..."
                                     maxLength={100}
-                                    className="w-full bg-transparent py-3 text-slate-800 placeholder-slate-400 outline-none border-none focus:ring-0"
+                                    // --- MODIFIED: Added dark theme text/placeholder ---
+                                    className="w-full bg-transparent py-3 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 outline-none border-none focus:ring-0"
                                 />
                             </NeumorphicFormField>
                         )}
@@ -448,15 +476,19 @@ const StudentProfilePage = () => {
 
                     {/* Feedback */}
                     {error && (
-                        <div className="mt-6 p-4 rounded-xl bg-red-50 border-l-4 border-red-400 flex items-center gap-3">
-                            <ExclamationCircleIcon className="h-6 w-6 text-red-500 flex-shrink-0" />
-                            <p className="text-sm text-red-800">{error}</p>
+                        // --- MODIFIED: Added dark theme styles ---
+                        <div className="mt-6 p-4 rounded-xl bg-red-50 border-l-4 border-red-400 flex items-center gap-3 dark:bg-red-900/20 dark:border-red-500">
+                            <ExclamationCircleIcon className="h-6 w-6 text-red-500" />
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
                         </div>
                     )}
                     {successMessage && (
-                        <div className="mt-6 p-4 rounded-xl bg-green-50 border-l-4 border-green-400 flex items-center gap-3">
-                            <CheckCircleIcon className="h-6 w-6 text-green-600 flex-shrink-0" />
-                            <p className="text-sm text-green-800">{successMessage}</p>
+                        // --- MODIFIED: Added dark theme styles ---
+                        <div className="mt-6 p-4 rounded-xl bg-green-50 border-l-4 border-green-400 flex items-center gap-3 dark:bg-green-900/20 dark:border-green-500">
+                            <CheckCircleIcon className="h-6 w-6 text-green-600" />
+                            {/* --- MODIFIED: Added dark theme text --- */}
+                            <p className="text-sm text-green-800 dark:text-green-200">{successMessage}</p>
                         </div>
                     )}
 
@@ -464,7 +496,8 @@ const StudentProfilePage = () => {
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="w-full sm:w-auto bg-neumorphic-base text-red-600 font-bold py-3 px-8 rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300 ease-in-out transform hover:scale-[1.03]"
+                            // --- MODIFIED: Added dark theme styles ---
+                            className="w-full sm:w-auto bg-neumorphic-base text-red-600 font-bold py-3 px-8 rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300 ease-in-out transform hover:scale-[1.03] dark:bg-neumorphic-base-dark dark:text-red-400 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark"
                         >
                             {isSubmitting ? "Saving..." : "Save Changes"}
                         </button>

@@ -32,7 +32,7 @@ const getUserGradient = (id) => {
 };
 
 // Maps borderType identifiers to Tailwind classes
-export const getBorderClasses = (borderType) => { // <-- MODIFIED: Added export
+export const getBorderClasses = (borderType) => { 
     switch (borderType) {
         case 'border_basic':
             // Level 5: Gemini-style rotating gradient border.
@@ -46,16 +46,14 @@ export const getBorderClasses = (borderType) => { // <-- MODIFIED: Added export
             return 'bg-gradient-advanced animate-gradient-pan animate-gentle-pulse';
 
         case 'border_advanced_animated':
-            // This border uses the "ring" method.
-            return 'ring-4 ring-offset-2 ring-offset-neumorphic-base border-t-transparent border-solid border-green-500 animate-spin-slow';
+            // The offset color is now applied in the component's wrapper
+            return 'ring-4 ring-offset-2 border-t-transparent border-solid border-green-500 animate-spin-slow';
 
         case 'border_elite_animated':
-             // This border uses the "ring" method.
-            return 'ring-4 ring-transparent ring-offset-2 ring-offset-neumorphic-base bg-gradient-elite animate-gradient-glow';
+            return 'ring-4 ring-transparent ring-offset-2 bg-gradient-elite animate-gradient-glow';
         
         case 'border_legendary_animated':
-            // This border uses the "ring" method.
-            return 'ring-4 ring-transparent ring-offset-2 ring-offset-neumorphic-base bg-gradient-legendary animate-legendary-sparkle';
+            return 'ring-4 ring-transparent ring-offset-2 bg-gradient-legendary animate-legendary-sparkle';
         
         default:
             return ''; // No border
@@ -63,7 +61,7 @@ export const getBorderClasses = (borderType) => { // <-- MODIFIED: Added export
 };
 
 // Helper function to identify borders that use the padding method vs. the ring method
-export const isGradientPaddingBorder = (borderType) => { // <-- MODIFIED: Added export
+export const isGradientPaddingBorder = (borderType) => { 
     return borderType === 'border_basic' || borderType === 'border_animated';
 };
 
@@ -109,11 +107,18 @@ const UserInitialsAvatar = ({
   const isGradientBorder = effectsEnabled && isGradientPaddingBorder(borderType);
 
   // Separate classes for the two rendering methods
-  const gradientBorderClasses = isGradientBorder ? allClasses : '';
   const ringBorderClasses = !isGradientBorder ? allClasses : '';
 
-  // Base wrapper class: Apply ring-based borders here, and conditional padding
-  const wrapperBase = `relative rounded-full box-border flex items-center justify-center ${sizeClasses} ${className} ${isGradientBorder ? 'p-1' : ''} ${ringBorderClasses} bg-neumorphic-base shadow-neumorphic`;
+  // Base wrapper class:
+  // 1. Applies all ring-based border classes.
+  // 2. Applies conditional padding for gradient borders.
+  // 3. Applies the light/dark background colors.
+  // 4. Applies the light/dark RING OFFSET colors (fixes bug).
+  // 5. Applies light neumorphic shadow, but a standard dark shadow (removes glow).
+  const wrapperBase = `relative rounded-full box-border flex items-center justify-center ${sizeClasses} ${className} ${isGradientBorder ? 'p-1' : ''} ${ringBorderClasses} 
+                       bg-neumorphic-base dark:bg-neumorphic-base-dark 
+                       shadow-neumorphic dark:shadow-lg 
+                       ring-offset-neumorphic-base dark:ring-offset-neumorphic-base-dark`;
   // --- END MODIFIED LOGIC ---
 
   // Photo case
@@ -122,7 +127,8 @@ const UserInitialsAvatar = ({
       <div className={wrapperBase}>
         {/* Render inner div ONLY for gradient padding borders */}
         {isGradientBorder && (
-             <div className={`absolute inset-0 rounded-full z-0 pointer-events-none ${gradientBorderClasses}`}></div>
+             // --- REMOVED JS COMMENT FROM TEMPLATE LITERAL ---
+             <div className={`absolute inset-0 rounded-full z-0 pointer-events-none ${allClasses}`}></div>
         )}
         
         {/* Image needs relative and z-10 to sit above the border */}
@@ -142,7 +148,8 @@ const UserInitialsAvatar = ({
     <div className={wrapperBase + ' cursor-pointer'}>
         {/* Render inner div ONLY for gradient padding borders */}
         {isGradientBorder && (
-             <div className={`absolute inset-0 rounded-full z-0 pointer-events-none ${gradientBorderClasses}`}></div>
+             // --- REMOVED JS COMMENT FROM TEMPLATE LITERAL ---
+             <div className={`absolute inset-0 rounded-full z-0 pointer-events-none ${allClasses}`}></div>
         )}
 
       {/* Gradient background - Needs relative, z-10, and rounded-full to clip inside padding */}

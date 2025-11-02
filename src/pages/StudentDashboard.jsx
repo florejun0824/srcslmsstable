@@ -202,7 +202,6 @@ const StudentDashboard = () => {
 
   //
   // 3b) This function is no longer needed, as fetchContent will be used for real-time.
-  // We can leave it, but it won't be called by the listener.
   //
   const fetchLessonsOnly = useCallback(async () => {
     try {
@@ -308,10 +307,19 @@ const StudentDashboard = () => {
   //
   // 5) Real-time listener for ALL content (Lessons AND Quizzes)
   //
+  // --- ADDED: Re-enabled listener with performance gate ---
   useEffect(() => {
     if (authLoading || !userProfile?.id || myClasses.length === 0 || isFirstContentLoad.current) {
       return;
     }
+
+    // --- Performance Gate: Only sync if the user is actively viewing content tabs ---
+    const shouldAutoSync = view === 'lessons' || view === 'quizzes';
+    if (!shouldAutoSync) {
+        // console.log('Skipping real-time sync: User not on content tab.');
+        return;
+    }
+    // --- END Performance Gate ---
 
     console.log('Attaching real-time content listeners...');
     
@@ -334,7 +342,8 @@ const StudentDashboard = () => {
       listeners.forEach(unsubscribe => unsubscribe());
     };
     
-  }, [authLoading, userProfile?.id, myClasses, fetchContent, isFirstContentLoad.current]);
+  }, [authLoading, userProfile?.id, myClasses, fetchContent, isFirstContentLoad.current, view]); 
+  // --- END ADDED LISTENER ---
 
   //
   // 6) This effect is NO LONGER NEEDED and has been removed.
@@ -428,7 +437,8 @@ const StudentDashboard = () => {
   //
   if (authLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
+      // --- MODIFIED: Added dark mode classes ---
+      <div className="flex h-screen items-center justify-center bg-neumorphic-base dark:bg-neumorphic-base-dark">
         <Spinner />
       </div>
     );

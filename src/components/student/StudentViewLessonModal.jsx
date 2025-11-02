@@ -363,37 +363,38 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
         <Dialog open={isOpen} onClose={handleClose} className={`fixed inset-0 z-50 flex items-center justify-center font-sans ${className}`}>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="fixed inset-0 bg-black/20" aria-hidden="true" />
             
-            {/* --- MODIFIED: Added h-full and responsive max-h --- */}
-            <Dialog.Panel as={motion.div} variants={modalVariants} initial="hidden" animate="visible" exit="exit" className="relative bg-neumorphic-base rounded-2xl shadow-neumorphic w-full max-w-5xl z-10 flex flex-col h-full md:h-[90vh] md:max-h-[700px] overflow-hidden">
+            {/* --- MODIFIED: Added dark mode classes --- */}
+            <Dialog.Panel as={motion.div} variants={modalVariants} initial="hidden" animate="visible" exit="exit" className="relative bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-lg w-full max-w-5xl z-10 flex flex-col h-full md:h-[90vh] md:max-h-[700px] overflow-hidden">
                 
-                <div className="w-full bg-neumorphic-base h-1.5 flex-shrink-0 shadow-neumorphic-flat-inset">
+                {/* --- MODIFIED: Added dark mode class --- */}
+                <div className="w-full bg-neumorphic-base dark:bg-neumorphic-base-dark h-1.5 flex-shrink-0 shadow-neumorphic-flat-inset">
                     <div className="bg-red-600 h-1.5 transition-all duration-500 ease-out rounded-r-full" style={{ width: `${progressPercentage}%` }} />
                 </div>
 
-                {/* --- MODIFIED: Made header responsive --- */}
-                <header className="flex justify-between items-center p-4 sm:p-5 bg-neumorphic-base flex-shrink-0 z-10 border-b border-neumorphic-shadow-dark/10">
+                {/* --- MODIFIED: Added dark mode classes --- */}
+                <header className="flex justify-between items-center p-4 sm:p-5 bg-neumorphic-base dark:bg-neumorphic-base-dark flex-shrink-0 z-10 border-b border-neumorphic-shadow-dark/10 dark:border-slate-700">
                     <div className="flex items-center gap-3 overflow-hidden">
-                        {/* --- MODIFIED: Responsive text --- */}
-                        <Dialog.Title className="text-base sm:text-xl font-bold text-tremor-content-strong truncate">{lessonTitle}</Dialog.Title>
+                        {/* --- MODIFIED: Added dark mode text --- */}
+                        <Dialog.Title className="text-base sm:text-xl font-bold text-tremor-content-strong dark:text-slate-100 truncate">{lessonTitle}</Dialog.Title>
                         
                         {currentLesson.studyGuideUrl ? (
-                            // --- MODIFIED: Responsive button ---
+                            // --- MODIFIED: Added dark mode classes ---
                             <a 
                                 href={currentLesson.studyGuideUrl} 
                                 download 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                className="inline-flex items-center gap-2 px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-full shadow-neumorphic active:shadow-neumorphic-inset transition-shadow duration-150 ease-out whitespace-nowrap"
+                                className="inline-flex items-center gap-2 px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic dark:shadow-lg active:shadow-neumorphic-inset active:dark:shadow-neumorphic-inset-dark transition-shadow duration-150 ease-out whitespace-nowrap"
                             >
                                 <ArrowDownTrayIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                                 <span className="hidden sm:inline">Study Guide</span>
                             </a>
                         ) : (
-                            // --- MODIFIED: Responsive button ---
+                            // --- MODIFIED: Added dark mode classes ---
                             <button
                                 onClick={() => handleExportLessonPdf(currentLesson)}
                                 disabled={!!exportingLessonId}
-                                className="inline-flex items-center gap-2 px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-full shadow-neumorphic active:shadow-neumorphic-inset transition-shadow duration-150 ease-out whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
+                                className="inline-flex items-center gap-2 px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic dark:shadow-lg active:shadow-neumorphic-inset active:dark:shadow-neumorphic-inset-dark transition-shadow duration-150 ease-out whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                                 <ArrowDownTrayIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                                 <span className="hidden sm:inline">
@@ -402,30 +403,30 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
                             </button>
                         )}
                     </div>
-                    {/* --- MODIFIED: Responsive button --- */}
-                    <button onClick={handleClose} className="p-1.5 sm:p-2 rounded-full text-slate-600 bg-neumorphic-base shadow-neumorphic active:shadow-neumorphic-inset hover:text-slate-800 transition-all duration-150 ease-out flex-shrink-0 ml-4" aria-label="Close lesson">
+                    {/* --- MODIFIED: Added dark mode classes --- */}
+                    <button onClick={handleClose} className="p-1.5 sm:p-2 rounded-full text-slate-600 dark:text-slate-300 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-lg active:shadow-neumorphic-inset active:dark:shadow-neumorphic-inset-dark hover:text-slate-800 hover:dark:text-slate-100 transition-all duration-150 ease-out flex-shrink-0 ml-4" aria-label="Close lesson">
                         <XMarkIcon className="w-5 h-5 sm:w-6 h-6" />
                     </button>
                 </header>
                 
-                {/* --- MODIFIED: Made main padding responsive --- */}
-                <main ref={contentRef} className="flex-grow overflow-y-auto custom-scrollbar bg-neumorphic-base flex flex-col items-center p-4 sm:p-8">
+                {/* --- MODIFIED: Added dark mode class --- */}
+                <main ref={contentRef} className="flex-grow overflow-y-auto custom-scrollbar bg-neumorphic-base dark:bg-neumorphic-base-dark flex flex-col items-center p-4 sm:p-8">
                     <div className="w-full max-w-3xl flex-grow">
                         <AnimatePresence initial={false} mode="wait">
-                            {/* --- MODIFIED: Made content padding responsive --- */}
-                            <motion.div key={currentPage} variants={pageTransitionVariants} initial="hidden" animate="visible" exit="exit" className="w-full min-h-full bg-neumorphic-base rounded-xl shadow-neumorphic p-4 sm:p-8">
+                            {/* --- MODIFIED: Added dark mode classes --- */}
+                            <motion.div key={currentPage} variants={pageTransitionVariants} initial="hidden" animate="visible" exit="exit" className="w-full min-h-full bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-lg p-4 sm:p-8">
                                 
                                 {currentPage === 0 && objectives.length > 0 && (
-                                    // --- MODIFIED: Made objectives responsive ---
-                                    <motion.div variants={objectivesContainerVariants} initial="hidden" animate="visible" className="mb-6 sm:mb-8 p-4 sm:p-5 bg-neumorphic-base rounded-xl shadow-neumorphic-inset">
-                                        <h3 className="flex items-center gap-3 text-base sm:text-lg font-bold text-tremor-content-strong mb-4">
-                                            <ListBulletIcon className="h-5 w-5 sm:h-6 sm:w-6 text-red-600" />
+                                    // --- MODIFIED: Added dark mode classes ---
+                                    <motion.div variants={objectivesContainerVariants} initial="hidden" animate="visible" className="mb-6 sm:mb-8 p-4 sm:p-5 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
+                                        <h3 className="flex items-center gap-3 text-base sm:text-lg font-bold text-tremor-content-strong dark:text-slate-100 mb-4">
+                                            <ListBulletIcon className="h-5 w-5 sm:h-6 sm:w-6 text-red-600 dark:text-red-400" />
                                             {objectivesLabel}
                                         </h3>
-                                        {/* --- MODIFIED: Font size changed from text-base --- */}
-                                        <ul className="space-y-3 text-xs sm:text-sm text-slate-700">{objectives.map((objective, index) => (
+                                        {/* --- MODIFIED: Added dark mode classes --- */}
+                                        <ul className="space-y-3 text-xs sm:text-sm text-slate-700 dark:text-slate-300">{objectives.map((objective, index) => (
                                             <motion.li key={index} variants={objectiveItemVariants} className="flex items-start gap-3">
-                                                <CheckCircleIcon className="h-5 w-5 text-red-500 flex-shrink-0 mt-1" />
+                                                <CheckCircleIcon className="h-5 w-5 text-red-500 dark:text-red-400 flex-shrink-0 mt-1" />
                                                 <div className="flex-1"><ContentRenderer text={objective} /></div>
                                             </motion.li>
                                         ))}</ul>
@@ -433,8 +434,8 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
                                 )}
 
                                 {pageData ? (
-                                    // --- MODIFIED: Font size changed from text-sm ---
-                                    <div className="text-sm">
+                                    // --- MODIFIED: Added dark mode text ---
+                                    <div className="text-sm dark:text-slate-300">
                                         <LessonPage
                                             ref={lessonPageRef}
                                             page={pageData}
@@ -444,9 +445,10 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
                                     </div>
                                 ) : (
                                     currentPage === 0 && objectives.length > 0 ? null : ( 
-                                        <div className="flex flex-col items-center justify-center text-center text-slate-500 h-full py-12">
-                                            <QuestionMarkCircleIcon className="w-16 h-16 text-slate-300 mb-4" />
-                                            <p className="text-lg font-medium">No content for this page.</p>
+                                        // --- MODIFIED: Added dark mode classes ---
+                                        <div className="flex flex-col items-center justify-center text-center text-slate-500 dark:text-slate-400 h-full py-12">
+                                            <QuestionMarkCircleIcon className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4" />
+                                            <p className="text-lg font-medium text-slate-700 dark:text-slate-200">No content for this page.</p>
                                         </div>
                                     )
                                 )}
@@ -455,15 +457,15 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
                     </div>
                 </main>
                 
-                {/* --- MODIFIED: Made footer responsive --- */}
-                <footer className="grid grid-cols-3 items-center p-3 sm:p-4 bg-neumorphic-base border-t border-neumorphic-shadow-dark/10 flex-shrink-0 z-10">
+                {/* --- MODIFIED: Added dark mode classes --- */}
+                <footer className="grid grid-cols-3 items-center p-3 sm:p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark border-t border-neumorphic-shadow-dark/10 dark:border-t dark:border-slate-700 flex-shrink-0 z-10">
                     <div className="flex items-center gap-2 sm:gap-4 justify-start">
-                        {/* --- MODIFIED: Responsive button --- */}
-                        <button onClick={goToPreviousPage} disabled={currentPage === 0} className="p-2 sm:p-3 rounded-full text-slate-600 bg-neumorphic-base shadow-neumorphic active:shadow-neumorphic-inset disabled:shadow-none disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-150 ease-out" aria-label="Previous page">
+                        {/* --- MODIFIED: Added dark mode classes --- */}
+                        <button onClick={goToPreviousPage} disabled={currentPage === 0} className="p-2 sm:p-3 rounded-full text-slate-600 dark:text-slate-300 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-lg active:shadow-neumorphic-inset active:dark:shadow-neumorphic-inset-dark disabled:shadow-none disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-150 ease-out" aria-label="Previous page">
                             <ArrowLeftIcon className="h-5 w-5" />
                         </button>
-                        {/* --- MODIFIED: Responsive text --- */}
-                        <span className="text-xs sm:text-sm font-semibold text-tremor-content whitespace-nowrap">{totalPages > 0 ? `Page ${currentPage + 1} / ${totalPages}` : 'No Pages'}</span>
+                        {/* --- MODIFIED: Added dark mode text --- */}
+                        <span className="text-xs sm:text-sm font-semibold text-tremor-content dark:text-slate-400 whitespace-nowrap">{totalPages > 0 ? `Page ${currentPage + 1} / ${totalPages}` : 'No Pages'}</span>
                     </div>
                     
                     <div className="flex items-center gap-2 justify-center">
@@ -479,13 +481,13 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
                                     : handleFinishLesson
                             }
                             disabled={totalPages === 0}
-                            // --- MODIFIED: Responsive button ---
-                            className={`flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full font-semibold transition-shadow duration-150 ease-out bg-neumorphic-base shadow-neumorphic active:shadow-neumorphic-inset
+                            // --- MODIFIED: Added dark mode classes ---
+                            className={`flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full font-semibold transition-shadow duration-150 ease-out bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-lg active:shadow-neumorphic-inset active:dark:shadow-neumorphic-inset-dark
                                 ${currentPage < totalPages - 1 
-                                    ? 'text-red-600 hover:text-red-700' 
+                                    ? 'text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300' 
                                     : xpAwarded 
-                                        ? 'text-green-800 bg-green-200/50 hover:bg-green-300/50'
-                                        : 'text-green-600 hover:text-green-700'
+                                        ? 'text-green-800 bg-green-200/50 hover:bg-green-300/50 dark:text-green-200 dark:bg-green-500/30 dark:hover:bg-green-500/40'
+                                        : 'text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300'
                                 }
                                 ${totalPages === 0 ? 'opacity-50 cursor-not-allowed' : ''}
                             `}

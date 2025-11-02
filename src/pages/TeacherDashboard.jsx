@@ -16,6 +16,11 @@ import { createPresentationFromData } from '../services/googleSlidesService';
 import TeacherDashboardLayout from '../components/teacher/TeacherDashboardLayout';
 import GlobalAiSpinner from '../components/common/GlobalAiSpinner';
 
+// --- MODIFIED: Imported the confirmation modal ---
+// (We can move this to /common later, but for now this works)
+// Make sure AdminDashboard.jsx exports this component: export { ConfirmActionModal };
+import { ConfirmActionModal } from './AdminDashboard'; 
+
 // Lazy load modals to improve initial page load performance
 const PresentationPreviewModal = lazy(() => import('../components/teacher/PresentationPreviewModal'));
 const BetaWarningModal = lazy(() => import('../components/teacher/BetaWarningModal'));
@@ -145,6 +150,15 @@ const TeacherDashboard = () => {
   const [isBetaWarningModalOpen, setIsBetaWarningModalOpen] = useState(false);
   const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState([]);
   const [reloadKey, setReloadKey] = useState(0);
+
+  // --- NEW STATE for Archive Modal ---
+  const [confirmArchiveModalState, setConfirmArchiveModalState] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+  // --- END NEW STATE ---
 
     // --- useEffect Hooks ---
     useEffect(() => {
@@ -516,10 +530,22 @@ const TeacherDashboard = () => {
         finally { setIsSavingPresentation(false); }
     };
 
+    // --- MODIFIED: Renamed to be more generic ---
     const handleInitiateDelete = (type, id, name, subjectId = null) => {
         setDeleteTarget({ type, id, name, subjectId });
         setIsDeleteModalOpen(true);
     };
+    
+    // --- NEW: Handler to open archive confirmation modal ---
+    const handleInitiateArchive = (classId, className) => {
+        setConfirmArchiveModalState({
+            isOpen: true,
+            title: "Archive Class?",
+            message: `Are you sure you want to archive "${className}"? Students will no longer see it, but you can restore it later.`,
+            onConfirm: () => handleArchiveClass(classId)
+        });
+    };
+    // --- END NEW ---
 
     async function deleteQuizAndSubmissions(batch, quizId) {
         const submissionsQuery = query(
@@ -540,6 +566,25 @@ const TeacherDashboard = () => {
             return;
         }
         const { type, id, name, subjectId } = deleteTarget;
+
+        // --- NEW: Added 'class' type ---
+        if (type === 'class') {
+            setIsAiGenerating(true); // Show loading spinner
+            try {
+                await firestoreService.deleteClass(id); 
+                showToast("Class permanently deleted.", "success");
+                setIsArchivedModalOpen(false); // Close archived modal if open
+            } catch (error) {
+                showToast("Failed to delete class.", "error");
+            } finally {
+                setIsAiGenerating(false);
+                setIsDeleteModalOpen(false);
+                setDeleteTarget(null);
+            }
+            return;
+        }
+        // --- END NEW ---
+
         if (type === 'unit') {
             await handleDeleteUnit(id, subjectId);
             setIsDeleteModalOpen(false);
@@ -645,6 +690,7 @@ const TeacherDashboard = () => {
         setReloadKey(prevKey => prevKey + 1);
     };
     
+    // --- MODIFIED: Renamed function ---
     const handleViewChangeWrapper = (view) => {
         if (activeView === view) { 
             setReloadKey(prevKey => prevKey + 1); 
@@ -655,6 +701,7 @@ const TeacherDashboard = () => {
             // setIsSidebarOpen(false); // handleViewChange already does this
         }
     };
+    // --- END MODIFICATION ---
     
     const handleCategoryClick = (categoryName) => { setSelectedCategory(categoryName); };
     const handleBackToCategoryList = () => { setSelectedCategory(null); };
@@ -678,11 +725,13 @@ const TeacherDashboard = () => {
         } catch (err) { showToast('Failed to change password.', 'error'); console.error(err); }
     };
 
+    // --- MODIFIED: This is now the *action* not the confirmation ---
     const handleArchiveClass = async (classId) => {
-        if (window.confirm("Are you sure you want to archive this class?")) {
-            try { await firestoreService.updateClassArchiveStatus(classId, true); showToast("Class archived.", "success"); }
-            catch (error) { showToast("Failed to archive class.", "error"); }
+        try { 
+            await firestoreService.updateClassArchiveStatus(classId, true); 
+            showToast("Class archived.", "success"); 
         }
+        catch (error) { showToast("Failed to archive class.", "error"); }
     };
 	const handleUpdateClass = async (classId, newData) => {
 	    try {
@@ -701,12 +750,12 @@ const TeacherDashboard = () => {
         catch (error) { showToast("Failed to restore class.", "error"); }
     };
 
+    // --- MODIFIED: This is now just a wrapper for handleInitiateDelete ---
     const handleDeleteClass = async (classId, isArchivedView = false) => {
-        if (window.confirm("PERMANENTLY DELETE? This cannot be undone.")) {
-            try { await firestoreService.deleteClass(classId); showToast("Class permanently deleted.", "success"); if (isArchivedView) setIsArchivedModalOpen(false); }
-            catch (error) { showToast("Failed to delete class.", "error"); }
-        }
+        const classToDel = classes.find(c => c.id === classId);
+        handleInitiateDelete('class', classId, classToDel?.name || 'this class');
     };
+    // --- END MODIFICATION ---
 
     const handleStartEditAnn = (post) => { setEditingAnnId(post.id); setEditingAnnText(post.content); };
     const handleUpdateTeacherAnn = async () => {
@@ -797,6 +846,7 @@ const TeacherDashboard = () => {
                 loading={loading}
                 error={error}
                 activeView={activeView}
+                // --- MODIFIED: Pass new handler ---
                 handleViewChange={handleViewChangeWrapper}
                 isSidebarOpen={isSidebarOpen}
                 setIsSidebarOpen={setIsSidebarOpen}
@@ -804,6 +854,11 @@ const TeacherDashboard = () => {
                 showToast={showToast}
                 activeClasses={activeClasses}
                 archivedClasses={archivedClasses}
+                // --- MODIFIED: Pass new handlers down ---
+                handleArchiveClass={handleInitiateArchive} // Pass the "initiate" function
+                handleDeleteClass={handleDeleteClass} // Pass the wrapper
+                handleInitiateDelete={handleInitiateDelete} // Pass the generic one
+                // --- END MODIFICATION ---
                 courses={courses}
                 courseCategories={courseCategories}
                 teacherAnnouncements={teacherAnnouncements}
@@ -815,8 +870,6 @@ const TeacherDashboard = () => {
                 activeUnit={activeUnit}
                 onSetActiveUnit={setActiveUnit}
                 handleOpenEditClassModal={handleOpenEditClassModal}
-                handleArchiveClass={handleArchiveClass}
-                handleDeleteClass={handleDeleteClass}
                 isHoveringActions={isHoveringActions}
                 setIsHoveringActions={setIsHoveringActions}
                 setClassOverviewModal={setClassOverviewModal}
@@ -828,7 +881,6 @@ const TeacherDashboard = () => {
                 handleOpenEditSubject={handleOpenEditSubject}
                 handleOpenDeleteSubject={handleOpenDeleteSubject}
                 setShareContentModalOpen={setShareContentModalOpen}
-                handleInitiateDelete={handleInitiateDelete}
                 handleGenerateQuizForLesson={handleGenerateQuizForLesson}
                 onGeneratePresentationPreview={handleInitiatePresentationGeneration}
                 isAiGenerating={isAiGenerating}
@@ -874,7 +926,7 @@ const TeacherDashboard = () => {
                 isEditClassModalOpen={isEditClassModalOpen}
                 setEditClassModalOpen={setEditClassModalOpen}
                 classToEdit={classToEdit}
-isAddUnitModalOpen={isAddUnitModalOpen}
+                isAddUnitModalOpen={isAddUnitModalOpen}
                 setAddUnitModalOpen={setAddUnitModalOpen}
                 editUnitModalOpen={editUnitModalOpen}
                 setEditUnitModalOpen={setEditUnitModalOpen}
@@ -944,6 +996,17 @@ isAddUnitModalOpen={isAddUnitModalOpen}
                     />
                 )}
             </Suspense>
+
+            {/* --- NEW: Render the Archive Confirmation Modal --- */}
+            <ConfirmActionModal
+                isOpen={confirmArchiveModalState.isOpen}
+                onClose={() => setConfirmArchiveModalState({ ...confirmArchiveModalState, isOpen: false })}
+                onConfirm={confirmArchiveModalState.onConfirm}
+                title={confirmArchiveModalState.title}
+                message={confirmArchiveModalState.message}
+                confirmText="Archive"
+                variant="warning"
+            />
         </>
     );
 };

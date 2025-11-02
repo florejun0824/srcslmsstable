@@ -21,14 +21,16 @@ const UnitPillHeader = ({ title, isCollapsed, onClick }) => (
         onClick={onClick}
         className="w-full flex justify-between items-center p-2 group"
     >
-        <span className="bg-neumorphic-base px-4 py-2 rounded-full shadow-neumorphic text-xs font-bold uppercase tracking-wider text-slate-700 transition-transform group-hover:scale-105">
+        {/* --- MODIFIED: Themed pill background and text --- */}
+        <span className="bg-neumorphic-base dark:bg-neumorphic-base-dark px-4 py-2 rounded-full shadow-neumorphic dark:shadow-neumorphic-dark text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 transition-transform group-hover:scale-105">
             {title}
         </span>
-        <div className="p-2 bg-neumorphic-base rounded-full shadow-neumorphic group-hover:shadow-neumorphic-inset transition-shadow duration-200">
+        <div className="p-2 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic dark:shadow-neumorphic-dark group-hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-shadow duration-200">
+            {/* --- MODIFIED: Themed icons --- */}
             {isCollapsed ? (
-                <ChevronDownIcon className="h-5 w-5 text-slate-500" />
+                <ChevronDownIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
             ) : (
-                <ChevronUpIcon className="h-5 w-5 text-slate-500" />
+                <ChevronUpIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
             )}
         </div>
     </button>
@@ -162,8 +164,8 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
     const getTabClasses = (tabName) => `
         flex items-center justify-center flex-1 gap-2 px-4 py-3 font-semibold text-sm rounded-xl transition-all duration-200
         ${activeTab === tabName 
-            ? 'bg-neumorphic-base text-red-600 shadow-neumorphic-inset' // Active tab is "pressed in"
-            : 'bg-neumorphic-base text-slate-700 shadow-neumorphic hover:text-red-600 active:shadow-neumorphic-inset' // Inactive tab is "popped out"
+            ? 'bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-red-600 dark:text-red-400' // Active tab is "pressed in"
+            : 'bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark text-slate-700 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark' // Inactive tab is "popped out"
         }
     `;
 
@@ -171,10 +173,11 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
         if (loading) return <div className="flex justify-center p-10"><Spinner /></div>;
 
         const EmptyState = ({ icon: Icon, text, subtext }) => (
-            <div className="text-center py-16 px-4 bg-neumorphic-base rounded-2xl shadow-neumorphic">
-                <Icon className="h-16 w-16 mb-4 text-slate-300 mx-auto" />
-                <p className="text-xl font-semibold text-slate-600">{text}</p>
-                <p className="mt-2 text-md text-slate-400">{subtext}</p>
+            // --- MODIFIED: Themed EmptyState ---
+            <div className="text-center py-16 px-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic max-w-4xl mx-auto dark:shadow-neumorphic-dark">
+                <Icon className="h-16 w-16 mb-4 text-slate-300 dark:text-slate-600 mx-auto" />
+                <p className="text-xl font-semibold text-slate-800 dark:text-slate-100">{text}</p>
+                <p className="mt-2 text-md text-slate-500 dark:text-slate-400">{subtext}</p>
             </div>
         );
 
@@ -191,7 +194,8 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
                                     onClick={() => toggleUnitCollapse(unitTitle)}
                                 />
                                 {!collapsedUnits.has(unitTitle) && (
-                                    <div className="mt-2 bg-neumorphic-base rounded-2xl shadow-neumorphic">
+                                    // --- MODIFIED: Themed content container ---
+                                    <div className="mt-2 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark">
                                         {lessonsByUnit[unitTitle].map(lesson => (
                                             <LessonListItemForStudent 
                                                 key={lesson.id} 
@@ -208,7 +212,7 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
             case 'announcements':
             default:
                 return announcements.length > 0 ? (
-                    <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar bg-neumorphic-base rounded-2xl shadow-neumorphic">
+                    <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark">
                         {announcements.map(announcement => (
                             <AnnouncementListItemForStudent 
                                 key={announcement.id} 
@@ -223,19 +227,22 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
 
     return (
         <>
-            <div className="bg-neumorphic-base p-6 sm:p-8 rounded-3xl shadow-neumorphic max-w-4xl mx-auto animate-scale-in">
+            <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark p-6 sm:p-8 rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark max-w-4xl mx-auto animate-scale-in">
                 {/* Updated "Back" button with popped out style */}
                 <button
                     onClick={onBack}
-                    className="flex items-center bg-neumorphic-base text-red-600 font-semibold text-sm px-4 py-2 rounded-xl shadow-neumorphic active:shadow-neumorphic-inset transition-all mb-5 group hover:text-red-700"
+                    // --- MODIFIED: Themed button ---
+                    className="flex items-center bg-neumorphic-base dark:bg-neumorphic-base-dark text-red-600 dark:text-red-400 font-semibold text-sm px-4 py-2 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset transition-all mb-5 group hover:text-red-700 dark:hover:text-red-300"
                 >
                     <ArrowLeftIcon className="h-4 w-4 mr-2 group-hover:-translate-x-0.5 transition-transform" /> 
                     Back to All Classes
                 </button>
-                <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">{selectedClass.name}</h1>
-                <p className="text-base sm:text-lg text-slate-500 mb-8">{selectedClass.gradeLevel} - {selectedClass.section}</p>
+                {/* --- MODIFIED: Themed text --- */}
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">{selectedClass.name}</h1>
+                <p className="text-base sm:text-lg text-slate-500 dark:text-slate-400 mb-8">{selectedClass.gradeLevel} - {selectedClass.section}</p>
                 
-                <div className="bg-neumorphic-base rounded-xl flex items-center mb-6 p-1.5 shadow-neumorphic-inset">
+                {/* --- MODIFIED: Themed Tab Navigation --- */}
+                <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl flex items-center mb-6 p-1.5 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
                     <nav className="flex flex-1 space-x-2">
                         <button onClick={() => setActiveTab('announcements')} className={getTabClasses('announcements')}>
                             <MegaphoneIcon className="h-5 w-5" />
@@ -247,6 +254,7 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
                         </button>
                     </nav>
                 </div>
+                {/* --- MODIFIED: Themed main container --- */}
                 <div>{renderContent()}</div>
             </div>
 
@@ -268,17 +276,21 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
 // --- Sub-components ---
 const LessonListItemForStudent = ({ lesson, onClick }) => (
     <div 
-        className="group p-3 bg-transparent hover:shadow-neumorphic-inset transition-all duration-200 cursor-pointer flex items-center space-x-3 rounded-xl"
+        // --- MODIFIED: Themed list item ---
+        className="group p-3 bg-transparent hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all duration-200 cursor-pointer flex items-center space-x-3 rounded-xl"
         onClick={onClick}
     >
-        <div className="flex-shrink-0 p-2 rounded-full bg-neumorphic-base shadow-neumorphic-inset">
-            <SparklesIcon className="h-5 w-5 text-sky-600" />
+        {/* --- MODIFIED: Themed icon container --- */}
+        <div className="flex-shrink-0 p-2 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
+            <SparklesIcon className="h-5 w-5 text-sky-600 dark:text-sky-400" />
         </div>
         <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-slate-800 group-hover:text-sky-700 transition-colors line-clamp-2">{lesson.title}</h3>
-            {lesson.description && <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{lesson.description}</p>}
+            {/* --- MODIFIED: Themed text --- */}
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors line-clamp-2">{lesson.title}</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{lesson.description}</p>
         </div>
-        <div className="flex-shrink-0 text-slate-400 group-hover:text-sky-500 transition-colors">
+        {/* --- MODIFIED: Themed icon --- */}
+        <div className="flex-shrink-0 text-slate-400 dark:text-slate-500 group-hover:text-sky-500 dark:group-hover:text-sky-300 transition-colors">
             <ArrowRightIcon className="h-5 w-5" />
         </div>
     </div>
@@ -290,17 +302,21 @@ const AnnouncementListItemForStudent = ({ announcement, onClick }) => {
         : 'N/A';
     return (
         <div 
-            className="group p-4 bg-transparent hover:shadow-neumorphic-inset transition-all duration-200 cursor-pointer flex items-center space-x-4 rounded-xl"
+            // --- MODIFIED: Themed list item ---
+            className="group p-4 bg-transparent hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all duration-200 cursor-pointer flex items-center space-x-4 rounded-xl"
             onClick={onClick}
         >
-            <div className="flex-shrink-0 p-2.5 rounded-full bg-neumorphic-base shadow-neumorphic-inset">
-                <MegaphoneIcon className="h-6 w-6 text-blue-600" />
+            {/* --- MODIFIED: Themed icon container --- */}
+            <div className="flex-shrink-0 p-2.5 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
+                <MegaphoneIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
             </div>
             <div className="flex-1 min-w-0">
-                <h3 className="text-base font-bold text-slate-800 group-hover:text-blue-800 transition-colors line-clamp-2">{announcement.content}</h3>
-                <p className="text-sm text-slate-500 mt-1">Posted on {formattedDate}</p>
+                {/* --- MODIFIED: Themed text --- */}
+                <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-800 dark:group-hover:text-blue-300 transition-colors line-clamp-2">{announcement.content}</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Posted on {formattedDate}</p>
             </div>
-            <div className="flex-shrink-0 text-slate-400 group-hover:text-blue-500 transition-colors">
+            {/* --- MODIFIED: Themed icon --- */}
+            <div className="flex-shrink-0 text-slate-400 dark:text-slate-500 group-hover:text-blue-500 dark:hover:text-blue-300 transition-colors">
                 <ArrowRightIcon className="h-5 w-5" />
             </div>
         </div>

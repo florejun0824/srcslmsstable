@@ -21,30 +21,28 @@ const StudentRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => 
       {/* ==================================
         MOBILE CARD VIEW (default)
         ================================== */}
-      {/* --- MODIFIED: p-3 mb-2 --- */}
-      <div className="block md:hidden p-3 mb-2 bg-neumorphic-base rounded-2xl shadow-neumorphic">
+      {/* --- MODIFIED: Added dark mode classes --- */}
+      <div className="block md:hidden p-3 mb-2 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark">
         {/* Top: Name and Actions */}
         <div className="flex justify-between items-start">
-          {/* --- MODIFIED: gap-2.5 --- */}
           <div className="flex items-start gap-2.5">
             <input
               type="checkbox"
               checked={isSelected}
               onChange={onSelect}
-              // --- MODIFIED: mt-1 h-4 w-4 ---
-              className="mt-1 h-4 w-4 rounded border-gray-400 text-indigo-600 focus:ring-indigo-500"
+              // --- MODIFIED: Added dark mode classes ---
+              className="mt-1 h-4 w-4 rounded border-gray-400 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-slate-700"
             />
-            {/* --- MODIFIED: mb-1.5 --- */}
             <div className="mb-1.5">
-              {/* --- MODIFIED: text-base to text-sm --- */}
-      <div className="font-bold text-slate-800 text-sm">{user.firstName} {user.lastName}</div>
-      {/* --- MODIFIED: text-sm to text-xs --- */}
-      <div className="text-xs text-slate-500">{user.gradeLevel || 'N/A'}</div>
+              {/* --- MODIFIED: Added dark mode classes --- */}
+              <div className="font-bold text-slate-800 dark:text-slate-100 text-sm">{user.firstName} {user.lastName}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">{user.gradeLevel || 'N/A'}</div>
             </div>
           </div>
           <button
             onClick={onEdit}
-            className="p-2 rounded-full text-slate-600 shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
+            // --- MODIFIED: Added dark mode classes ---
+            className="p-2 rounded-full text-slate-600 dark:text-slate-300 shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark"
             title="Edit User"
           >
             <Cog size={18} />
@@ -52,53 +50,54 @@ const StudentRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => 
         </div>
 
         {/* Bottom: Enrolled Classes */}
-        {/* --- MODIFIED: pt-2.5 --- */}
-        <div className="border-t border-slate-200 pt-2.5">
-          {/* --- MODIFIED: text-sm to text-xs, mb-0.5 --- */}
-      <div className="text-xs font-semibold text-slate-600 mb-0.5">Enrolled Classes:</div>
-      {enrolledClasses.length > 0 ? (
+        {/* --- MODIFIED: Added dark mode classes --- */}
+        <div className="border-t border-slate-200 dark:border-slate-700 pt-2.5">
+          <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-0.5">Enrolled Classes:</div>
+          {enrolledClasses.length > 0 ? (
             enrolledClasses.map(className => (
-      // --- MODIFIED: text-sm to text-xs ---
-      <div key={className} className="text-xs text-slate-500 truncate">{className}</div>
-      ))
+              <div key={className} className="text-xs text-slate-500 dark:text-slate-400 truncate">{className}</div>
+            ))
           ) : (
-      // --- MODIFIED: text-sm to text-xs ---
-      <div className="text-xs text-slate-400 italic">No classes</div>
-      )}
+            <div className="text-xs text-slate-400 dark:text-slate-500 italic">No classes</div>
+          )}
         </div>
       </div>
 
       {/* ==================================
         DESKTOP TABLE ROW (md:table-row)
         ================================== */}
-      <tr className={`hidden md:table-row ${isSelected ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}>
+      {/* --- MODIFIED: Added dark mode classes --- */}
+      <tr className={`hidden md:table-row ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
         <td className="px-4 py-3 text-center">
           <input
               type="checkbox"
               checked={isSelected}
               onChange={onSelect}
-              className="h-5 w-5 rounded border-gray-400 text-indigo-600 focus:ring-indigo-500"
+              // --- MODIFIED: Added dark mode classes ---
+              className="h-5 w-5 rounded border-gray-400 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-slate-700"
             />
         </td>
-        <td className="px-4 py-3 whitespace-nowrap font-medium text-slate-800">
+        {/* --- MODIFIED: Added dark mode classes --- */}
+        <td className="px-4 py-3 whitespace-nowrap font-medium text-slate-800 dark:text-slate-100">
           {user.firstName} {user.lastName}
         </td>
-        <td className="px-4 py-3 whitespace-nowrap text-slate-600 capitalize">
+        <td className="px-4 py-3 whitespace-nowrap text-slate-600 dark:text-slate-300 capitalize">
           {user.gradeLevel || 'N/A'}
         </td>
-        <td className="px-4 py-3 text-slate-600">
+        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
           {enrolledClasses.length > 0 ? (
             enrolledClasses.map(className => (
               <div key={className} className="truncate">{className}</div>
             ))
           ) : (
-            <span className="text-slate-400 italic">No classes</span>
+            <span className="text-slate-400 dark:text-slate-500 italic">No classes</span>
           )}
         </td>
         <td className="px-4 py-3 whitespace-nowrap text-right">
           <button
             onClick={onEdit}
-            className="p-2 rounded-full text-slate-600 shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset"
+            // --- MODIFIED: Added dark mode classes ---
+            className="p-2 rounded-full text-slate-600 dark:text-slate-300 shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark"
             title="Edit User"
           >
             <Cog size={18} />
@@ -253,17 +252,19 @@ const StudentManagementView = () => {
   const allVisibleSelected = filteredStudents.length > 0 && selectedStudentIds.size === filteredStudents.length;
 
   return (
-    <div className="bg-slate-100 min-h-screen p-4 md:p-6">
+    // --- MODIFIED: Added dark mode classes ---
+    <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark min-h-screen p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         
         {/* Header */}
         <header className="mb-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+              {/* --- MODIFIED: Added dark mode classes --- */}
+              <h1 className="text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
                 Students
               </h1>
-              <p className="mt-1 text-slate-600">
+              <p className="mt-1 text-slate-600 dark:text-slate-400">
                 Manage all active student accounts.
               </p>
             </div>
@@ -271,8 +272,9 @@ const StudentManagementView = () => {
         </header>
 
         {/* Filter Bar */}
-        <div className="mb-6 p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic">
-          <h2 className="text-lg font-bold text-slate-800 mb-4">Table Settings</h2>
+        {/* --- MODIFIED: Added dark mode classes --- */}
+        <div className="mb-6 p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark">
+          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">Table Settings</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             
             {/* Class Filter Search */}
@@ -281,35 +283,40 @@ const StudentManagementView = () => {
                 type="text"
                 placeholder="Filter by any class..."
                 value={selectedFilterClass ? selectedFilterClass.name : classFilterSearch}
-                onFocus={() => setIsClassFilterOpen(true)} // <-- MODIFIED
-                onBlur={() => setTimeout(() => setIsClassFilterOpen(false), 150)} // <-- MODIFIED
+                onFocus={() => setIsClassFilterOpen(true)}
+                onBlur={() => setTimeout(() => setIsClassFilterOpen(false), 150)}
                 onChange={(e) => {
                   setClassFilterSearch(e.target.value);
                   setSelectedFilterClass(null);
-                  setIsClassFilterOpen(true); // <-- MODIFIED
+                  setIsClassFilterOpen(true);
                 }}
                 disabled={!!selectedFilterClass}
-                className="w-full bg-neumorphic-base shadow-neumorphic-inset text-slate-800 px-4 py-3 pl-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                // --- MODIFIED: Added dark mode classes ---
+                className="w-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-slate-800 dark:text-slate-100 px-4 py-3 pl-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-500"
               />
-              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+              {/* --- MODIFIED: Added dark mode classes --- */}
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 pointer-events-none" />
               {selectedFilterClass && (
                 <button 
                   onClick={() => {
                     setSelectedFilterClass(null); 
                     setClassFilterSearch('');
                   }}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-red-500"
+                  // --- MODIFIED: Added dark mode classes ---
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400"
                 >
                   <X size={18} />
                 </button>
               )}
-              {/* --- MODIFIED: Dropdown logic updated --- */}
+              
               {isClassFilterOpen && classFilterOptions.length > 0 && !selectedFilterClass && (
-                <div className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg max-h-60 overflow-auto custom-scrollbar">
+                // --- MODIFIED: Added dark mode classes ---
+                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 rounded-lg shadow-lg max-h-60 overflow-auto custom-scrollbar border border-slate-200 dark:border-slate-700">
                   {classFilterOptions.map(cls => (
                     <div 
                       key={cls.id} 
-                      className="px-4 py-2 hover:bg-indigo-50 cursor-pointer"
+                      // --- MODIFIED: Added dark mode classes ---
+                      className="px-4 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-800 dark:text-slate-100 cursor-pointer"
                       onClick={() => {
                         setSelectedFilterClass(cls);
                         setClassFilterSearch('');
@@ -330,14 +337,17 @@ const StudentManagementView = () => {
                 placeholder="Search by student name..."
                 value={studentSearchTerm}
                 onChange={(e) => setStudentSearchTerm(e.target.value)}
-                className="w-full bg-neumorphic-base shadow-neumorphic-inset text-slate-800 px-4 py-3 pl-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                // --- MODIFIED: Added dark mode classes ---
+                className="w-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-slate-800 dark:text-slate-100 px-4 py-3 pl-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-500"
               />
-              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+              {/* --- MODIFIED: Added dark mode classes --- */}
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 pointer-events-none" />
             </div>
           </div>
 
           {/* --- IMPORT BUTTON --- */}
-          <div className="mt-6 border-t border-slate-200 pt-4">
+          {/* --- MODIFIED: Added dark mode classes --- */}
+          <div className="mt-6 border-t border-slate-200 dark:border-slate-700 pt-4">
             <button
               onClick={() => setIsImportModalOpen(true)}
               disabled={selectedStudentIds.size === 0}
@@ -353,23 +363,27 @@ const StudentManagementView = () => {
         {loading ? (
           <div className="flex flex-col justify-center items-center h-96">
             <Spinner />
-            <p className="mt-4 text-slate-500 font-semibold">Fetching student data...</p>
+            {/* --- MODIFIED: Added dark mode classes --- */}
+            <p className="mt-4 text-slate-500 dark:text-slate-400 font-semibold">Fetching student data...</p>
           </div>
         ) : (
-          <div className="bg-neumorphic-base rounded-2xl shadow-neumorphic">
+          // --- MODIFIED: Added dark mode classes ---
+          <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark">
             
             {/* Desktop Table */}
             <div className="hidden md:block overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="text-slate-600">
+                  {/* --- MODIFIED: Added dark mode classes --- */}
+                  <tr className="text-slate-600 dark:text-slate-400">
                     <th className="px-4 py-3 text-center w-16">
                       <input
                         type="checkbox"
                         checked={allVisibleSelected}
                         onChange={handleSelectAll}
                         disabled={filteredStudents.length === 0}
-                        className="h-5 w-5 rounded border-gray-400 text-indigo-600 focus:ring-indigo-500"
+                        // --- MODIFIED: Added dark mode classes ---
+                        className="h-5 w-5 rounded border-gray-400 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-slate-700"
                         title="Select all visible students"
                       />
                     </th>
@@ -379,7 +393,8 @@ const StudentManagementView = () => {
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                {/* --- MODIFIED: Added dark mode classes --- */}
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                   {filteredStudents.length > 0 ? (
                     filteredStudents.map(user => (
                       <StudentRow 
@@ -393,7 +408,8 @@ const StudentManagementView = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="5" className="text-center text-slate-500 py-12">
+                      {/* --- MODIFIED: Added dark mode classes --- */}
+                      <td colSpan="5" className="text-center text-slate-500 dark:text-slate-400 py-12">
                         No students found matching your criteria.
                       </td>
                     </tr>
@@ -405,15 +421,18 @@ const StudentManagementView = () => {
             {/* Mobile Card List */}
             <div className="block md:hidden p-4">
               {filteredStudents.length > 0 && (
-                <div className="flex items-center gap-3 px-2 py-3 border-b-2 border-slate-200 mb-3">
+                // --- MODIFIED: Added dark mode classes ---
+                <div className="flex items-center gap-3 px-2 py-3 border-b-2 border-slate-200 dark:border-slate-700 mb-3">
                   <input
                     type="checkbox"
                     checked={allVisibleSelected}
                     onChange={handleSelectAll}
-                    className="h-5 w-5 rounded border-gray-400 text-indigo-600 focus:ring-indigo-500"
+                    // --- MODIFIED: Added dark mode classes ---
+                    className="h-5 w-5 rounded border-gray-400 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-slate-700"
                   />
                   <label 
-                    className="font-semibold text-slate-700"
+                    // --- MODIFIED: Added dark mode classes ---
+                    className="font-semibold text-slate-700 dark:text-slate-200"
                     onClick={handleSelectAll}
                   >
                     Select all ({filteredStudents.length})
@@ -433,7 +452,8 @@ const StudentManagementView = () => {
                   />
                 ))
               ) : (
-                <div className="text-center text-slate-500 py-12">
+                // --- MODIFIED: Added dark mode classes ---
+                <div className="text-center text-slate-500 dark:text-slate-400 py-12">
                   No students found matching your criteria.
                 </div>
               )}
