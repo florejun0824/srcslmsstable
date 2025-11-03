@@ -5,14 +5,21 @@ import { doc, getDoc, updateDoc, setDoc, increment } from 'firebase/firestore';
 
 // --- API KEYS AND ENDPOINTS ---
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY; // <-- ADD THIS TO YOUR .env
+const GEMINI_FALLBACK_API_KEY = import.meta.env.VITE_GEMINI_FALLBACK_API_KEY;
+const GEMINI_FALLBACK_API_KEY_2 = import.meta.env.VITE_GEMINI_FALLBACK_API_KEY_2;
+const GEMINI_FALLBACK_API_KEY_3 = import.meta.env.VITE_GEMINI_FALLBACK_API_KEY_3;
+const GEMINI_FALLBACK_API_KEY_4 = import.meta.env.VITE_GEMINI_FALLBACK_API_KEY_4; // Fifth key
 
-// CORRECTED: Using the 'gemini-2.5-flash' model name
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+// All keys will use the same model
+const GEMINI_MODEL = 'gemini-2.5-flash';
 
-// --- NEW: FALLBACK MODEL CONSTANTS ---
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_FALLBACK_MODEL = 'openai/gpt-oss-120b'; // User-specified model
+// Define all five API URLs
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_FALLBACK_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_FALLBACK_API_KEY}`;
+const GEMINI_FALLBACK_API_URL_2 = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_FALLBACK_API_KEY_2}`;
+const GEMINI_FALLBACK_API_URL_3 = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_FALLBACK_API_KEY_3}`;
+const GEMINI_FALLBACK_API_URL_4 = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_FALLBACK_API_KEY_4}`;
+
 
 const FREE_API_CALL_LIMIT_PER_MONTH = 500000;
 
@@ -29,7 +36,6 @@ const CACHE_DURATION_MS = 60000; // Cache for 60 seconds
 
 /**
  * Checks the AI usage against the monthly limit using a cache.
- * (This function is unchanged)
  * @returns {Promise<boolean>} True if the limit has been reached, false otherwise.
  */
 const checkAiLimitReached = async () => {
@@ -80,88 +86,82 @@ const checkAiLimitReached = async () => {
 };
 
 
-// --- NEW: FALLBACK API CALLER ---
 /**
- * Internal function to call the Groq API as a fallback.
- * Includes exponential backoff for its own rate limits.
+ * Internal function to call a specific Gemini API endpoint.
+ * This handles the actual fetch and error parsing.
  * @param {string} prompt The prompt to send.
  * @param {boolean} jsonMode Whether to request JSON output.
- * @param {number} retries Retries for 429/503 errors.
- * @param {number} backoff Initial backoff.
+ * @param {string} apiUrl The full API URL with key.
  * @returns {Promise<string>} The raw text response from the AI.
  */
-const callGroqApi = async (prompt, jsonMode = false, retries = 5, backoff = 2000) => {
-    console.warn(`Attempting fallback call to Groq (model: ${GROQ_FALLBACK_MODEL})...`);
-
-    const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GROQ_API_KEY}`
-    };
-
+const callGeminiApiInternal = async (prompt, jsonMode = false, apiUrl) => {
     const body = {
-        model: GROQ_FALLBACK_MODEL,
-        messages: [{ role: "user", content: prompt }]
+        contents: [{ parts: [{ text: prompt }] }],
+        safetySettings: [
+           { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+         ],
     };
 
     if (jsonMode) {
-        body.response_format = { "type": "json_object" };
+        body.generationConfig = { responseMimeType: "application/json" };
     }
 
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+
+    // Check for retryable server errors
+    if (response.status === 429 || response.status === 503) {
+        const error = new Error(response.status === 429 ? "Rate limit exceeded." : "Model is overloaded or unavailable.");
+        error.status = response.status;
+        throw error; // Throw to trigger fallback
+    }
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Gemini API call failed: ${response.status}. Response: ${errorText}`);
+        throw new Error(`Gemini API failed: ${response.status}. ${errorText.substring(0, 200)}`);
+    }
+
+    let data;
+    let rawResponseTextForError = '';
     try {
-        const response = await fetch(GROQ_API_URL, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(body),
-        });
-
-        if (response.status === 429 || response.status === 503) {
-            const error = new Error(response.status === 429 ? "Groq rate limit exceeded." : "Groq model is overloaded.");
-            error.status = response.status;
-            throw error; // Trigger retry
-        }
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`Groq API call failed: ${response.status}. Response: ${errorText}`);
-            throw new Error(`Groq API failed: ${response.status}. ${errorText.substring(0, 200)}`);
-        }
-
-        const data = await response.json();
-
-        if (!data.choices?.[0]?.message?.content) {
-            const finishReason = data.choices?.[0]?.finish_reason;
-            if (finishReason === 'content_filter') {
-                 console.warn("Groq response blocked by content filter.");
-                 throw new Error("Groq response blocked by content filter.");
-            }
-            console.error("Invalid response structure from Groq:", JSON.stringify(data, null, 2));
-            throw new Error("Groq response was not in the expected format.");
-        }
-
-        const textResponse = data.choices[0].message.content;
-        return textResponse; // Return the raw text (which might be a JSON string if jsonMode=true)
-
-    } catch (error) {
-        if ((error.status === 429 || error.status === 503) && retries > 0) {
-            console.warn(`Groq API Error (${error.status}): ${error.message} Retrying in ${backoff / 1000}s... (${retries} retries left)`);
-            await delay(backoff);
-            return callGroqApi(prompt, jsonMode, retries - 1, backoff * 2);
-        }
-        console.error("Error calling Groq fallback service:", error);
-        throw new Error(`Groq fallback failed: ${error.message}`); // Propagate error
+        rawResponseTextForError = await response.text();
+        data = JSON.parse(rawResponseTextForError);
+    } catch (jsonError) {
+        console.error("Failed to parse AI response as JSON.", jsonError);
+        console.error("Raw AI Response (non-JSON):", rawResponseTextForError);
+        throw new Error(`AI response was not valid JSON. Raw: ${rawResponseTextForError.substring(0, 500)}...`);
     }
+
+    // Validate structure
+    const textPart = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!textPart) {
+         if (data.candidates?.[0]?.finishReason === 'SAFETY') {
+             console.warn("AI response blocked due to safety settings:", data.candidates[0].safetyRatings);
+             throw new Error("AI response blocked due to safety settings.");
+         }
+         if(data.promptFeedback?.blockReason){
+             console.warn("AI prompt blocked:", data.promptFeedback.blockReason, data.promptFeedback.safetyRatings);
+             throw new Error(`AI prompt blocked: ${data.promptFeedback.blockReason}`);
+         }
+        console.error("Invalid response structure from AI:", JSON.stringify(data, null, 2));
+        throw new Error("AI response was not in the expected format.");
+    }
+
+    return jsonMode ? textPart : textPart.replace(/^```json\s*|```$/g, '').trim();
 };
 
 
 /**
- * A reusable function to call the Gemini API that includes free-tier usage checks
- * and automatic failover to Groq for 429/503 errors.
+ * MODIFIED: This function now has a 5-layer-deep automatic failover.
+ * It will try Key A, then B, then C, then D, then E.
  * @param {string} prompt The prompt to send to the AI.
- * @param {boolean} jsonMode Whether to request JSON output. // --- FIX: Add new parameter
  * @returns {Promise<string>} The text response from the AI.
- * @throws {Error} Throws an error with message "LIMIT_REACHED" or a generic error if retries fail.
  */
-export const callGeminiWithLimitCheck = async (prompt, jsonMode = false) => { // --- FIX: Add new parameter
+export const callGeminiWithLimitCheck = async (prompt) => {
     // Check limit before proceeding
     const limitReached = await checkAiLimitReached();
     if (limitReached) {
@@ -170,133 +170,114 @@ export const callGeminiWithLimitCheck = async (prompt, jsonMode = false) => { //
 
     // Optimistically update cache (will be reverted on failure)
     usageCache.callCount += 1;
-    usageCache.lastChecked = Date.now(); // Update last checked time
+    usageCache.lastChecked = Date.now();
 
     try {
-        // --- FIX: Build body object ---
-        const body = {
-            contents: [{ parts: [{ text: prompt }] }],
-        };
-
-        // --- FIX: Add generationConfig if jsonMode is true ---
-        if (jsonMode) {
-            body.generationConfig = {
-                responseMimeType: "application/json",
-            };
-        }
-        // --- END FIX ---
-
-        const response = await fetch(GEMINI_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body), // --- FIX: Use body object
-        });
-
-        // Check for retryable server errors
-        if (response.status === 429 || response.status === 503) {
-            const error = new Error(response.status === 429 ? "Rate limit exceeded." : "Model is overloaded or unavailable.");
-            error.status = response.status;
-            throw error; // Throw to trigger fallback logic
-        }
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`API call failed with status: ${response.status}. Raw Response: ${errorText}`);
-            throw new Error(`API call failed: ${response.status}. ${errorText.substring(0, 200)}`);
-        }
-
-        let data;
-        let rawResponseTextForError = '';
-        try {
-            rawResponseTextForError = await response.text();
-            data = JSON.parse(rawResponseTextForError);
-        } catch (jsonError) {
-            console.error("Failed to parse AI response as JSON.", jsonError);
-            console.error("Raw AI Response (non-JSON):", rawResponseTextForError);
-            throw new Error(`AI response was not valid JSON. Raw: ${rawResponseTextForError.substring(0, 500)}...`);
-        }
-
-        // Validate structure
-        if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-             if (data.candidates?.[0]?.finishReason === 'SAFETY') {
-                 console.warn("AI response blocked due to safety settings:", data.candidates[0].safetyRatings);
-                 throw new Error("AI response blocked due to safety settings.");
-             }
-             if(data.promptFeedback?.blockReason){
-                 console.warn("AI prompt blocked:", data.promptFeedback.blockReason, data.promptFeedback.safetyRatings);
-                 throw new Error(`AI prompt blocked: ${data.promptFeedback.blockReason}`);
-             }
-            console.error("Invalid response structure from AI:", JSON.stringify(data, null, 2));
-            throw new Error("AI response was not in the expected format.");
-        }
-
-        const textResponse = data.candidates[0].content.parts[0].text;
-
-        // --- Final Write Operation ---
-        // Increment Firestore count *after* successful API call
+        // 1. Try Main API (Key A)
+        console.log("Attempting main Gemini API (Key A)...");
+        const textResponse = await callGeminiApiInternal(prompt, false, GEMINI_API_URL);
+        
+        // SUCCESS (Key A): Increment counter and return
         const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
         await updateDoc(usageDocRef, { callCount: increment(1) });
+        return textResponse;
 
-        // --- FIX: Only strip backticks if NOT in jsonMode ---
-        if (jsonMode) {
-            return textResponse; // This is a raw JSON string
-        }
-        return textResponse.replace(/^```json\s*|```$/g, '').trim();
-        // --- END FIX ---
-
-    } catch (error) {
-        // Revert optimistic cache update on any failure
-        usageCache.callCount -= 1;
-
-        // --- MODIFIED: FALLBACK LOGIC ---
-        if (error.status === 429 || error.status === 503) {
-            console.warn(`Gemini API Error (${error.status}): ${error.message}. Failing over to Groq...`);
+    } catch (errorA) {
+        // 2. If Main API (Key A) fails (429/503), try Fallback 1 (Key B)
+        if (errorA.status === 429 || errorA.status === 503) {
+            console.warn(`Main Gemini (Key A) Error: ${errorA.message}. Failing over to Fallback 1 (Key B)...`);
             try {
-                // 1. Re-increment cache for the fallback attempt
-                usageCache.callCount += 1;
-                usageCache.lastChecked = Date.now();
-
-                // 2. Call fallback
-                // --- FIX: Pass jsonMode to fallback ---
-                const fallbackResponse = await callGroqApi(prompt, jsonMode);
-                // --- END FIX ---
-
-                // 3. If fallback succeeds, update Firestore
+                // 3. Call Fallback 1 API (Key B)
+                const fallbackResponseB = await callGeminiApiInternal(prompt, false, GEMINI_FALLBACK_API_URL);
+                
+                // SUCCESS (Key B): Increment counter and return
                 const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
                 await updateDoc(usageDocRef, { callCount: increment(1) });
+                console.log("Fallback Gemini (Key B) successful.");
+                return fallbackResponseB;
 
-                // 4. Return fallback response
-                // --- FIX: Only strip backticks if NOT in jsonMode ---
-                if (jsonMode) {
-                    return fallbackResponse; // This is a raw JSON string
+            } catch (errorB) {
+                // 4. If Fallback 1 (Key B) *also* fails (429/503), try Fallback 2 (Key C)
+                if (errorB.status === 429 || errorB.status === 503) {
+                     console.warn(`Fallback Gemini (Key B) Error: ${errorB.message}. Failing over to Fallback 2 (Key C)...`);
+                     try {
+                        // 5. Call Fallback 2 API (Key C)
+                        const fallbackResponseC = await callGeminiApiInternal(prompt, false, GEMINI_FALLBACK_API_URL_2);
+                        
+                        // SUCCESS (Key C): Increment counter and return
+                        const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
+                        await updateDoc(usageDocRef, { callCount: increment(1) });
+                        console.log("Fallback Gemini (Key C) successful.");
+                        return fallbackResponseC;
+
+                     } catch (errorC) {
+                        // 6. If Fallback 2 (Key C) *also* fails (429/503), try Fallback 3 (Key D)
+                         if (errorC.status === 429 || errorC.status === 503) {
+                            console.warn(`Fallback Gemini (Key C) Error: ${errorC.message}. Failing over to Fallback 3 (Key D)...`);
+                            try {
+                                // 7. Call Fallback 3 API (Key D)
+                                const fallbackResponseD = await callGeminiApiInternal(prompt, false, GEMINI_FALLBACK_API_URL_3);
+
+                                // SUCCESS (Key D): Increment counter and return
+                                const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
+                                await updateDoc(usageDocRef, { callCount: increment(1) });
+                                console.log("Fallback Gemini (Key D) successful.");
+                                return fallbackResponseD;
+                                
+                            } catch (errorD) {
+                                // 8. If Fallback 3 (Key D) *also* fails (429/503), try Fallback 4 (Key E)
+                                if (errorD.status === 429 || errorD.status === 503) {
+                                    console.warn(`Fallback Gemini (Key D) Error: ${errorD.message}. Failing over to Fallback 4 (Key E)...`);
+                                    try {
+                                        // 9. Call Fallback 4 API (Key E)
+                                        const fallbackResponseE = await callGeminiApiInternal(prompt, false, GEMINI_FALLBACK_API_URL_4);
+                                        
+                                        // SUCCESS (Key E): Increment counter and return
+                                        const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
+                                        await updateDoc(usageDocRef, { callCount: increment(1) });
+                                        console.log("Fallback Gemini (Key E) successful.");
+                                        return fallbackResponseE;
+                                        
+                                    } catch (errorE) {
+                                        // 10. All five failed
+                                        usageCache.callCount -= 1;
+                                        console.error("All five Gemini keys failed.", errorE);
+                                        throw new Error(`All Gemini keys failed: A(${errorA.message}), B(${errorB.message}), C(${errorC.message}), D(${errorD.message}), E(${errorE.message})`);
+                                    }
+                                } else {
+                                    // If Fallback 3 (Key D) fails for a *non-retryable* reason
+                                    usageCache.callCount -= 1;
+                                    console.error("Fallback Gemini (Key D) failed with non-retryable error.", errorD);
+                                    throw errorD; // Throw non-retryable error from Key D
+                                }
+                            }
+                         } else {
+                            // If Fallback 2 (Key C) fails for a *non-retryable* reason
+                            usageCache.callCount -= 1;
+                            console.error("Fallback Gemini (Key C) failed with non-retryable error.", errorC);
+                            throw errorC; // Throw non-retryable error from Key C
+                         }
+                     }
+                } else {
+                    // If Fallback 1 (Key B) fails for a *non-retryable* reason
+                    usageCache.callCount -= 1;
+                    console.error("Fallback Gemini (Key B) failed with non-retryable error.", errorB);
+                    throw errorB; // Throw the non-retryable error from Key B
                 }
-                return fallbackResponse.replace(/^```json\s*|```$/g, '').trim();
-                // --- END FIX ---
-
-            } catch (fallbackError) {
-                // 5. If fallback *also* fails, revert the cache increment
-                usageCache.callCount -= 1;
-                console.error("Groq fallback also failed.", fallbackError);
-                throw new Error(`Gemini failed (${error.message}) and Groq fallback failed (${fallbackError.message})`);
             }
+        } else {
+            // If Main API (Key A) fails for a *non-retryable* reason
+            usageCache.callCount -= 1;
+            console.error("Main Gemini (Key A) failed with non-retryable error.", errorA);
+            throw errorA; // Throw the non-retryable error from Key A
         }
-        // --- END FALLBACK LOGIC ---
-
-        console.error("Error calling AI service (callGeminiWithLimitCheck):", error);
-        // Propagate other errors (limit reached, network errors, parsing errors, safety blocks etc.)
-        throw error;
     }
 };
 
 
-// --- NEW FUNCTION: gradeEssayWithAI ---
 /**
- * Grades a student's essay using the Gemini AI based on a provided rubric.
- * Includes usage limit checks and failover to Groq.
- * @param {string} promptText The essay question/prompt given to the student.
- * @param {Array<object>} rubric Array of rubric items, e.g., [{ id: '...', criteria: '...', points: number }]
- * @param {string} studentAnswer The student's written answer.
- * @returns {Promise<object>} A JSON object with the grading results: { scores: [{ criteria, pointsAwarded, justification }], totalScore, overallFeedback }
+ * MODIFIED: This function now has a 5-layer-deep automatic failover for grading.
+ * @returns {Promise<object>} A JSON object with the grading results.
  */
 export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
     // 1. Check Limit
@@ -313,26 +294,21 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
     const rubricJson = JSON.stringify(validRubric, null, 2);
     const maxTotalPoints = validRubric.reduce((sum, item) => sum + Number(item.points), 0);
 
-    // This prompt is now shared by both Gemini and Groq
     const gradingPrompt = `
     You are a fair and objective teacher grading a student's essay based on a specific rubric.
     Evaluate the student's answer STRICTLY based on the provided prompt and rubric criteria.
-
     **Essay Prompt:**
     \`\`\`
     ${promptText}
     \`\`\`
-
     **Rubric (Total Possible Points: ${maxTotalPoints}):**
     \`\`\`json
     ${rubricJson}
     \`\`\`
-
     **Student's Answer:**
     \`\`\`
     ${studentAnswer || "(No answer provided)"}
     \`\`\`
-
     **Instructions:**
     1.  Carefully read the student's answer in relation to the essay prompt.
     2.  For EACH criterion in the rubric JSON, assign points based *only* on how well the student's answer meets that specific criterion. Adhere strictly to the definition and maximum points for each criterion.
@@ -340,7 +316,6 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
     4.  Calculate the total score by summing the points awarded for all criteria. This total score MUST NOT exceed the total possible points (${maxTotalPoints}).
     5.  Provide brief overall feedback (2-3 sentences) summarizing the answer's key strengths and areas for improvement based *only* on the rubric criteria.
     6.  Return ONLY a single, valid JSON object matching the specified structure EXACTLY. Ensure all keys and value types match. Do NOT include any text, notes, or markdown formatting before or after the JSON block.
-
     **JSON Output Structure (Strict):**
     \`\`\`json
     {
@@ -358,129 +333,121 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
     usageCache.lastChecked = Date.now();
 
     try {
-        console.log("Sending grading prompt to AI (Gemini)...");
-        // 4. Call Gemini API
-        const response = await fetch(GEMINI_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                 contents: [{ parts: [{ text: gradingPrompt }] }],
-                 generationConfig: {
-                     responseMimeType: "application/json",
-                 },
-                 safetySettings: [
-                   { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-                 ],
-            }),
-        });
+        // 1. Try Main API (Key A - JSON Mode)
+        console.log("Sending grading prompt to AI (Main Gemini - Key A)...");
+        const mainResponseText = await callGeminiApiInternal(gradingPrompt, true, GEMINI_API_URL);
+        const dataA = JSON.parse(mainResponseText);
+        const validatedDataA = validateAndCleanGradingResponse(dataA, validRubric, "Main Gemini (Key A)");
 
-        // Handle retries (same logic as callGeminiWithLimitCheck)
-        if (response.status === 429 || response.status === 503) {
-            const error = new Error(response.status === 429 ? "Rate limit exceeded." : "Model is overloaded or unavailable.");
-            error.status = response.status;
-            throw error; // Trigger fallback
-        }
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`AI Grading API call failed: ${response.status}. Response: ${errorText}`);
-            throw new Error(`AI Grading API failed: ${response.status}. ${errorText.substring(0, 200)}`);
-        }
-
-        let data;
-        let rawResponseTextForError = '';
-        try {
-            rawResponseTextForError = await response.text();
-             const preliminaryData = JSON.parse(rawResponseTextForError);
-
-             if (!preliminaryData.candidates?.[0]?.content?.parts?.[0]?.text) {
-                if (preliminaryData.candidates?.[0]?.finishReason === 'SAFETY') throw new Error("AI response blocked for safety reasons.");
-                if(preliminaryData.promptFeedback?.blockReason) throw new Error(`AI prompt blocked: ${preliminaryData.promptFeedback.blockReason}`);
-                throw new Error("AI response structure unexpected (missing text part).");
-             }
-
-             // Parse the JSON *string* returned within the 'text' field
-             data = JSON.parse(preliminaryData.candidates[0].content.parts[0].text);
-
-        } catch (jsonError) {
-            console.error("Failed to parse AI grading response JSON.", jsonError);
-            console.error("Raw AI Response:", rawResponseTextForError);
-            throw new Error(`AI grading response was not valid JSON. Raw: ${rawResponseTextForError.substring(0, 500)}...`);
-        }
-
-        // 5. Validate the Parsed JSON Grading Data (Gemini)
-        // (This logic is now reused for Groq response)
-        const validatedData = validateAndCleanGradingResponse(data, validRubric);
-
-        // 6. Increment Firestore count
+        // SUCCESS (Key A): Increment counter and return
         const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
         await updateDoc(usageDocRef, { callCount: increment(1) });
+        console.log("AI Grading (Main Gemini - Key A) successful:", validatedDataA);
+        return validatedDataA;
 
-        console.log("AI Grading (Gemini) successful:", validatedData);
-        return validatedData;
-
-    } catch (error) {
-        // Revert optimistic cache update on error
-        usageCache.callCount -= 1;
-
-        // --- MODIFIED: FALLBACK LOGIC ---
-        if (error.status === 429 || error.status === 503) {
-            console.warn(`Gemini Grading Error (${error.status}): ${error.message}. Failing over to Groq...`);
+    } catch (errorA) {
+        // 2. If Main API (Key A) fails (429/503), try Fallback 1 (Key B)
+        if (errorA.status === 429 || errorA.status === 503) {
+            console.warn(`Main Gemini Grading (Key A) Error: ${errorA.message}. Failing over to Fallback 1 (Key B)...`);
             try {
-                // 1. Re-increment cache for the fallback attempt
-                usageCache.callCount += 1;
-                usageCache.lastChecked = Date.now();
+                // 3. Call Fallback 1 API (Key B - JSON Mode)
+                const fallbackResponseTextB = await callGeminiApiInternal(gradingPrompt, true, GEMINI_FALLBACK_API_URL);
+                const dataB = JSON.parse(fallbackResponseTextB);
+                const validatedDataB = validateAndCleanGradingResponse(dataB, validRubric, "Fallback Gemini (Key B)");
 
-                // 2. Call fallback in JSON mode
-                const fallbackResponseText = await callGroqApi(gradingPrompt, true);
-
-                // 3. Parse the Groq JSON response
-                let data;
-                try {
-                    data = JSON.parse(fallbackResponseText);
-                } catch (jsonError) {
-                    console.error("Failed to parse Groq grading response JSON.", jsonError);
-                    console.error("Raw Groq Response:", fallbackResponseText);
-                    throw new Error(`Groq grading response was not valid JSON. Raw: ${fallbackResponseText.substring(0, 500)}...`);
-                }
-
-                // 4. Validate the Parsed JSON (Groq)
-                const validatedData = validateAndCleanGradingResponse(data, validRubric, "Groq");
-
-                // 5. Increment Firestore count
+                // SUCCESS (Key B): Increment counter and return
                 const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
                 await updateDoc(usageDocRef, { callCount: increment(1) });
+                console.log("AI Grading (Fallback Gemini - Key B) successful:", validatedDataB);
+                return validatedDataB;
 
-                console.log("AI Grading (Groq Fallback) successful:", validatedData);
-                return validatedData;
+            } catch (errorB) {
+                // 4. If Fallback 1 (Key B) *also* fails (429/503), try Fallback 2 (Key C)
+                if (errorB.status === 429 || errorB.status === 503) {
+                    console.warn(`Fallback Gemini Grading (Key B) Error: ${errorB.message}. Failing over to Fallback 2 (Key C)...`);
+                    try {
+                        // 5. Call Fallback 2 API (Key C - JSON Mode)
+                        const fallbackResponseTextC = await callGeminiApiInternal(gradingPrompt, true, GEMINI_FALLBACK_API_URL_2);
+                        const dataC = JSON.parse(fallbackResponseTextC);
+                        const validatedDataC = validateAndCleanGradingResponse(dataC, validRubric, "Fallback Gemini (Key C)");
 
-            } catch (fallbackError) {
-                // 6. If fallback *also* fails, revert the cache increment
-                usageCache.callCount -= 1;
-                console.error("Groq fallback grading also failed.", fallbackError);
-                throw new Error(`Gemini grading failed (${error.message}) and Groq fallback failed (${fallbackError.message})`);
+                        // SUCCESS (Key C): Increment counter and return
+                        const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
+                        await updateDoc(usageDocRef, { callCount: increment(1) });
+                        console.log("AI Grading (Fallback Gemini - Key C) successful:", validatedDataC);
+                        return validatedDataC;
+
+                    } catch (errorC) {
+                        // 6. If Fallback 2 (Key C) *also* fails (429/503), try Fallback 3 (Key D)
+                        if (errorC.status === 429 || errorC.status === 503) {
+                            console.warn(`Fallback Gemini Grading (Key C) Error: ${errorC.message}. Failing over to Fallback 3 (Key D)...`);
+                            try {
+                                // 7. Call Fallback 3 API (Key D - JSON Mode)
+                                const fallbackResponseTextD = await callGeminiApiInternal(gradingPrompt, true, GEMINI_FALLBACK_API_URL_3);
+                                const dataD = JSON.parse(fallbackResponseTextD);
+                                const validatedDataD = validateAndCleanGradingResponse(dataD, validRubric, "Fallback Gemini (Key D)");
+
+                                // SUCCESS (Key D): Increment counter and return
+                                const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
+                                await updateDoc(usageDocRef, { callCount: increment(1) });
+                                console.log("AI Grading (Fallback Gemini - Key D) successful:", validatedDataD);
+                                return validatedDataD;
+
+                            } catch (errorD) {
+                                // 8. If Fallback 3 (Key D) *also* fails (429/503), try Fallback 4 (Key E)
+                                if (errorD.status === 429 || errorD.status === 503) {
+                                    console.warn(`Fallback Gemini Grading (Key D) Error: ${errorD.message}. Failing over to Fallback 4 (Key E)...`);
+                                    try {
+                                        // 9. Call Fallback 4 API (Key E - JSON Mode)
+                                        const fallbackResponseTextE = await callGeminiApiInternal(gradingPrompt, true, GEMINI_FALLBACK_API_URL_4);
+                                        const dataE = JSON.parse(fallbackResponseTextE);
+                                        const validatedDataE = validateAndCleanGradingResponse(dataE, validRubric, "Fallback Gemini (Key E)");
+
+                                        // SUCCESS (Key E): Increment counter and return
+                                        const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
+                                        await updateDoc(usageDocRef, { callCount: increment(1) });
+                                        console.log("AI Grading (Fallback Gemini - Key E) successful:", validatedDataE);
+                                        return validatedDataE;
+                                        
+                                    } catch (errorE) {
+                                        // 10. All five failed
+                                        usageCache.callCount -= 1;
+                                        console.error("All five Gemini grading keys failed.", errorE);
+                                        throw new Error(`All Gemini keys failed: A(${errorA.message}), B(${errorB.message}), C(${errorC.message}), D(${errorD.message}), E(${errorE.message})`);
+                                    }
+                                } else {
+                                    // If Fallback 3 (Key D) fails for a *non-retryable* reason
+                                    usageCache.callCount -= 1;
+                                    console.error("Fallback Gemini Grading (Key D) failed with non-retryable error.", errorD);
+                                    throw errorD; // Throw non-retryable error from Key D
+                                }
+                            }
+                        } else {
+                            // If Fallback 2 (Key C) fails for a *non-retryable* reason
+                            usageCache.callCount -= 1;
+                            console.error("Fallback Gemini Grading (Key C) failed with non-retryable error.", errorC);
+                            throw errorC; // Throw non-retryable error from Key C
+                        }
+                    }
+                } else {
+                    // If Fallback 1 (Key B) fails for a *non-retryable* reason
+                    usageCache.callCount -= 1;
+                    console.error("Fallback Gemini Grading (Key B) failed with non-retryable error.", errorB);
+                    throw errorB; // Throw non-retryable error from Key B
+                }
             }
+        } else {
+            // 9. If Main API (Key A) fails for a *non-retryable* reason
+            usageCache.callCount -= 1;
+            console.error("Main Gemini Grading (Key A) failed with non-retryable error.", errorA);
+            throw errorA; // Throw non-retryable error from Key A
         }
-        // --- END FALLBACK LOGIC ---
-
-
-        console.error("Error during AI essay grading (gradeEssayWithAI):", error);
-        if (error.message === "LIMIT_REACHED") throw error;
-        if (error.message.includes("blocked due to safety")) throw new Error("AI grading response blocked for safety reasons.");
-        if (error.message.includes("AI prompt blocked")) throw new Error(error.message);
-        
-        throw new Error(`AI essay grading failed: ${error.message}`);
     }
 };
 
 
 /**
  * Helper function to validate the JSON structure from an AI grading response.
- * @param {object} data The parsed JSON object from the AI.
- * @param {Array} validRubric The original rubric used for validation.
- * @param {string} [source="AI"] The source of the AI (e.g., "Gemini", "Groq") for logging.
- * @returns {object} The validated and cleaned grading data.
- * @throws {Error} If the structure is invalid.
  */
 function validateAndCleanGradingResponse(data, validRubric, source = "AI") {
      if (!data || !Array.isArray(data.scores) || typeof data.totalScore !== 'number' || data.scores.length === 0) {
@@ -488,7 +455,6 @@ function validateAndCleanGradingResponse(data, validRubric, source = "AI") {
         throw new Error(`${source} grading response JSON structure is invalid.`);
     }
 
-    // --- Detailed Validation and Correction ---
     let calculatedTotal = 0;
     const validatedScores = [];
     const originalCriteriaNames = validRubric.map(item => item.criteria);
@@ -532,4 +498,22 @@ function validateAndCleanGradingResponse(data, validRubric, source = "AI") {
         overallFeedback: data.overallFeedback || "No overall feedback provided."
     };
 }
-// --- END NEW FUNCTION ---
+
+/**
+ * A dedicated function for the chatbot.
+ * This uses the main callGeminiWithLimitCheck, so it gets
+ * the same 5-layer Main -> FB1 -> FB2 -> FB3 -> FB4 protection.
+ * @param {string} prompt The prompt to send to the AI.
+ * @returns {Promise<string>} The text response from the AI.
+ * @throws {Error} Throws "LIMIT_REACHED" or other errors from callGeminiWithLimitCheck.
+ */
+export const callChatbotAi = async (prompt) => {
+    try {
+        const response = await callGeminiWithLimitCheck(prompt);
+        return response;
+    } catch (error) {
+        console.error("Error in callChatbotAi:", error);
+        // Re-throw the error to be handled by the UI
+        throw error;
+    }
+};

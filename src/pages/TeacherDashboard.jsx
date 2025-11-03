@@ -8,7 +8,7 @@ import {
   runTransaction, Timestamp
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
-import { callGeminiWithLimitCheck } from '../services/aiService';
+import { callGeminiWithLimitCheck, callChatbotAi } from '../services/aiService';
 import { createPresentationFromData } from '../services/googleSlidesService';
 import TeacherDashboardLayout from '../components/teacher/TeacherDashboardLayout';
 import GlobalAiSpinner from '../components/common/GlobalAiSpinner';
@@ -347,7 +347,7 @@ const TeacherDashboard = () => {
         const lmsKnowledge = `You are an AI assistant for a Learning Management System (LMS) named SRCS Learning Portal, used by teachers. The developer is Florejun Flores. When asked about the LMS, refer to this knowledge. Otherwise, act as a general helpful AI. Knowledge Base: Teachers can manage classes (create, edit, archive, delete), organize content into courses/subjects and then units/lessons, generate quizzes, lessons, and Google Slides presentations with AI, post announcements to students or other teachers, manage students in classes (including importing from other classes), and edit their own profile/password.`;
         const prompt = `${lmsKnowledge}\n\n${conversationHistory}`;
         try {
-            const aiResponseText = await callGeminiWithLimitCheck(prompt);
+           const aiResponseText = await callChatbotAi(prompt);
             setMessages(prev => [...prev, { sender: 'ai', text: aiResponseText }]);
         } catch (error) {
             setMessages(prev => [...prev, { sender: 'ai', text: "I seem to be having trouble connecting. My apologies. Please try again in a moment." }]);

@@ -36,6 +36,30 @@
               inset -6px -6px 10px rgba(255,255,255,0.9);
 }
 
+/* --- ADDED DARK MODE STYLES --- */
+.dark .floating-chat-button {
+  /* A dark slate color (Tailwind's slate-700) */
+  background: #334155; 
+  
+  /* Reversed neumorphic shadows for dark bg */
+  box-shadow: 8px 8px 16px rgba(0, 0, 0, 0.4),
+              -8px -8px 16px rgba(71, 85, 105, 0.8); /* Like slate-600 @ 80% */
+}
+
+.dark .floating-chat-button:hover {
+  /* Inset shadows for dark bg */
+  box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.3),
+              inset -4px -4px 8px rgba(71, 85, 105, 0.7); /* Like slate-600 @ 70% */
+}
+
+.dark .floating-chat-button:active {
+  /* Deeper inset shadows for dark bg */
+  box-shadow: inset 6px 6px 10px rgba(0, 0, 0, 0.4),
+              inset -6px -6px 10px rgba(71, 85, 105, 0.8); /* Like slate-600 @ 80% */
+}
+/* --- END DARK MODE STYLES --- */
+
+
 .floating-chat-button.dragging {
   cursor: grabbing;
   transform: scale(1.05);
