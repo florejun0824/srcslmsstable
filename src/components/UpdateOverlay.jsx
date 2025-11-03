@@ -64,7 +64,7 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
   const estimatedTime = timeLeft ? formatTime(timeLeft) : "Rebuilding...";
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-[#f1f4f8] to-[#e4e7ec] flex items-center justify-center z-[9999] font-[Inter] text-slate-600 select-none overflow-hidden">
+    <div className="fixed inset-0 bg-neumorphic-base dark:bg-neumorphic-base-dark flex items-center justify-center z-[9999] font-[Inter] text-slate-600 dark:text-slate-300 select-none overflow-hidden">
       <AnimatePresence mode="wait">
         {status === "building" && (
           <motion.div
@@ -73,17 +73,20 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            className="flex flex-col items-center justify-center gap-8 bg-[#eef2f7] rounded-3xl shadow-[10px_10px_20px_#c9d0d9,-10px_-10px_20px_#ffffff] px-10 py-12 max-w-md w-[90%]"
+            className="flex flex-col items-center justify-center gap-8 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark px-10 py-12 max-w-md w-[90%]"
           >
             {/* Circular progress ring */}
             <div className="relative">
               <motion.div
                 className="absolute inset-0 rounded-full"
                 style={{
+                  // Note: conic-gradient in inline styles can't easily read Tailwind's dark mode.
+                  // We'll keep the light-mode track color (#d9dee6), which is neutral enough.
+                  // The progress color (#86c8ff) is vibrant on both backgrounds.
                   background: `conic-gradient(#86c8ff ${progress * 3.6}deg, #d9dee6 0deg)`,
                 }}
               ></motion.div>
-              <div className="w-40 h-40 bg-[#eef2f7] rounded-full shadow-[inset_5px_5px_10px_#c9d0d9,inset_-5px_-5px_10px_#ffffff] flex items-center justify-center relative overflow-hidden">
+              <div className="w-40 h-40 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark flex items-center justify-center relative overflow-hidden">
                 <motion.img
                   src="https://i.ibb.co/XfJ8scGX/1.png"
                   alt="LMS Logo"
@@ -104,12 +107,12 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
             </div>
 
             {/* Status text */}
-            <div className="text-center text-sm bg-[#eef2f7] rounded-2xl px-6 py-4 shadow-[inset_3px_3px_6px_#c9d0d9,inset_-3px_-3px_6px_#ffffff] w-full">
-              <p className="text-xs text-slate-500 mb-1 tracking-wide">
+            <div className="text-center text-sm bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl px-6 py-4 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark w-full">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 tracking-wide">
                 SYSTEM STATUS: UPDATING
               </p>
-              <p className="font-medium text-slate-700">{message}</p>
-              <p className="text-xs text-slate-400 mt-2">
+              <p className="font-medium text-slate-700 dark:text-slate-200">{message}</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
                 {progress}% Complete • Est. time {estimatedTime}
               </p>
             </div>
@@ -123,7 +126,7 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className="flex flex-col items-center gap-6 bg-[#eef2f7] rounded-3xl shadow-[10px_10px_20px_#c9d0d9,-10px_-10px_20px_#ffffff] px-10 py-12 max-w-md w-[90%]"
+            className="flex flex-col items-center gap-6 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark px-10 py-12 max-w-md w-[90%]"
           >
             <motion.img
               src="https://i.ibb.co/XfJ8scGX/1.png"
@@ -141,26 +144,17 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
                 ease: "easeInOut",
               }}
             />
-            <h2 className="text-slate-700 font-semibold text-lg text-center">
+            <h2 className="text-slate-700 dark:text-slate-200 font-semibold text-lg text-center">
               Update Complete
             </h2>
-            <p className="text-slate-500 text-sm text-center max-w-xs">
+            <p className="text-slate-500 dark:text-slate-400 text-sm text-center max-w-xs">
               All systems are now up to date. You can safely enter the new
               version of the LMS.
             </p>
             <motion.button
               onClick={onEnter}
-              whileHover={{
-                scale: 1.05,
-                boxShadow:
-                  "inset 3px 3px 6px #c9d0d9, inset -3px -3px 6px #ffffff",
-              }}
-              whileTap={{
-                scale: 0.97,
-                boxShadow:
-                  "inset 3px 3px 6px #c9d0d9, inset -3px -3px 6px #ffffff",
-              }}
-              className="px-8 py-3 rounded-xl font-semibold text-blue-600 bg-[#eef2f7] shadow-[6px_6px_12px_#c9d0d9,-6px_-6px_12px_#ffffff] transition-all"
+              whileTap={{ scale: 0.97 }}
+              className="px-8 py-3 rounded-xl font-semibold text-blue-600 dark:text-blue-400 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark transition-all hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark"
             >
               Enter
             </motion.button>
