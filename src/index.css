@@ -167,41 +167,74 @@
 }
 .animate-slide-in-right { animation: slide-in-right 0.6s ease-out forwards; }
 
-/* --- Keyframes for Borders --- */
+/* ================================================================
+   MODIFIED: Keyframes for Borders
+   ================================================================ */
+
 @keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  /* MODIFIED: Added hue-rotate for "spectral ring" effect (Advanced) */
+  from { transform: rotate(0deg); filter: hue-rotate(0deg); }
+  to { transform: rotate(360deg); filter: hue-rotate(360deg); }
 }
 
 @keyframes spin-fast {
+  0% { transform: rotate(0deg) scale(1); opacity: 0.9; }
+  50% { transform: rotate(180deg) scale(1.05); opacity: 1; }
+  100% { transform: rotate(360deg) scale(1); opacity: 0.9; }
+}
+
+@keyframes gradient-glow {
+  /* MODIFIED: Added hue-rotate for "iridescence" (Elite) */
+  0% { filter: brightness(1) drop-shadow(0 0 4px rgba(255, 255, 255, 0.3)) hue-rotate(-20deg); }
+  50% { filter: brightness(1.3) drop-shadow(0 0 10px rgba(255, 255, 255, 0.7)) hue-rotate(20deg); }
+  100% { filter: brightness(1) drop-shadow(0 0 4px rgba(255, 255, 255, 0.3)) hue-rotate(-20deg); }
+}
+
+@keyframes legendary-sparkle {
+  /* This is the "particle sparkle" effect */
+  0% { filter: brightness(1.1) saturate(1.1); }
+  15% { filter: brightness(1.5) saturate(1.5) drop-shadow(0 0 8px #fff); } /* The "sparkle" */
+  30% { filter: brightness(1.1) saturate(1.1); }
+  100% { filter: brightness(1.1) saturate(1.1); }
+}
+
+/* --- NEW: Keyframe for Legendary "Light Orbit" --- */
+@keyframes light-orbit {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
-@keyframes gradient-glow { /* Example glow effect */
-  0%, 100% { box-shadow: 0 0 5px 2px rgba(255, 165, 0, 0.5); } /* Example orange glow */
-  50% { box-shadow: 0 0 15px 5px rgba(255, 165, 0, 0.8); }
+@keyframes gentle-pulse-glow {
+  /* This is the "soft pulse shimmer" (now for Basic) */
+  0% { opacity: 0.7; transform: scale(1); filter: hue-rotate(0deg) brightness(1.1); }
+  50% { opacity: 1; transform: scale(1.05); filter: hue-rotate(45deg) brightness(1.3); }
+  100% { opacity: 0.7; transform: scale(1); filter: hue-rotate(0deg) brightness(1.1); }
 }
 
-@keyframes legendary-sparkle { /* Example sparkle - very basic */
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; transform: scale(1.05); }
-}
-
-/* --- NEW: Keyframes for Level 10 "Breathing" Effect --- */
+/* --- MODIFIED: Pan animation for Lvl 20 Background --- */
 @keyframes gradient-pan {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
 
-@keyframes gentle-pulse-glow {
-  0% { opacity: 0.7; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.03); }
-  100% { opacity: 0.7; transform: scale(1); }
+/* --- NEW: Lvl 60 "Elite" Sonar Pulse --- */
+@keyframes pulsing-waves {
+  from {
+    transform: scale(0.5);
+    opacity: 0.5;
+  }
+  to {
+    transform: scale(1.5);
+    opacity: 0;
+  }
 }
-/* --- END NEW --- */
 
+/* --- NEW: Lvl 90 "Legendary" Falling Stars --- */
+@keyframes falling-stars {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 0% 100%; }
+}
 
 /* ==========================================================================
    Custom Reusable Component Layer
@@ -339,6 +372,7 @@
 @layer utilities {
     /* --- Border Animations & Gradients --- */
     .animate-spin-slow {
+        /* This animation is modified in @keyframes to include hue-rotate */
         animation: spin-slow 4s linear infinite;
     }
 
@@ -347,21 +381,35 @@
     }
 
     .animate-gradient-glow {
+        /* This animation is modified in @keyframes to include hue-rotate */
         animation: gradient-glow 3s ease-in-out infinite;
     }
     .animate-legendary-sparkle {
+        /* This is for the LEGENDARY border */
+        animation: legendary-sparkle 2.5s ease-in-out infinite,
+                   light-orbit 10s linear infinite;
+    }
+    
+    /* --- MODIFIED: Renamed to match its new purpose --- */
+    .animate-spin-and-sparkle {
+        /* This is for the new ANIMATED border (AVATAR ONLY) */
+        animation: spin-fast 2s linear infinite,
+                   legendary-sparkle 2.5s ease-in-out infinite;
+    }
+    
+    .animate-sparkle-only {
+        /* This is for the new ANIMATED border (CARD/MODAL ONLY) */
         animation: legendary-sparkle 2.5s ease-in-out infinite;
     }
     
-    /* --- NEW: Level 10 Animation Classes --- */
     .animate-gradient-pan {
-        animation: gradient-pan 3s ease-in-out infinite; /* <-- Set to 3s for a lively pan */
-        background-size: 200% 200%; /* Important for panning */
+        animation: gradient-pan 8s ease-in-out infinite; /* 8s duration */
+        background-size: 200% 200%;
     }
     .animate-gentle-pulse {
         animation: gentle-pulse-glow 3s ease-in-out infinite;
     }
-    /* --- END NEW --- */
+    /* --- END --- */
 
     .bg-gradient-gemini {
         background-image: conic-gradient(
@@ -375,12 +423,12 @@
         );
     }
     
-    /* --- NEW: Level 10 Gradient Class --- */
+    /* --- Level 10 Gradient Class (MODIFIED for new border-basic) --- */
     .bg-gradient-advanced {
-        /* A purple/pink/blue gradient */
-        background-image: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        /* A purple/pink/blue gradient for panning */
+        background-image: linear-gradient(135deg, #6a11cb 0%, #2575fc 50%, #EC4899 100%);
     }
-    /* --- END NEW --- */
+    /* --- END --- */
 
     .bg-gradient-elite {
         /* Define your elite gradient */
@@ -392,60 +440,201 @@
     }
 }
 
-/* ==========================================================================
-   Profile Backgrounds (Placeholders - Define your actual styles)
-   ========================================================================== */
-.profile-bg-pattern-1 {
-  /* Example: Subtle dots using radial gradients */
-  background-color: #f3f4f6; /* bg-gray-100 */
-  background-image: radial-gradient(#d1d5db 0.5px, transparent 0.5px);
-  background-size: 10px 10px;
-}
-.profile-bg-pattern-2 {
-  /* Example: Subtle grid */
-  background-color: #e5e7eb; /* bg-gray-200 */
-   background-image:
-    linear-gradient(to right, #d1d5db 1px, transparent 1px),
-    linear-gradient(to bottom, #d1d5db 1px, transparent 1px);
-  background-size: 20px 20px;
-}
-.profile-bg-elite {
-  /* Example: Soft gradient */
-  background-image: linear-gradient(to top, #dfe9f3 0%, white 100%);
-}
+/* ================================================================
+   PROFILE BACKGROUNDS — AURORA & COSMIC SERIES (ENHANCED)
+   ================================================================ */
+
+/* --- UNIVERSAL GLASS & DEPTH EFFECTS --- */
+.profile-bg-pattern-1,
+.profile-bg-pattern-2,
+.profile-bg-elite,
 .profile-bg-legendary {
-  /* Example: More vibrant gradient */
-   background-image: linear-gradient(120deg, #f6d365 0%, #fda085 100%);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border-radius: 1.5rem;
+}
+.profile-bg-pattern-1::after,
+.profile-bg-pattern-2::after,
+.profile-bg-elite::after,
+.profile-bg-legendary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 60%);
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 1;
 }
 
-/* --- DARK MODE for Profile Backgrounds --- */
+/* ================================================================
+   AURORA VEIL (Light Mode)
+   ================================================================ */
+.profile-bg-pattern-1 {
+  background: linear-gradient(120deg, #b3ecff 0%, #dcb9ff 50%, #ffb3d9 100%);
+  background-size: 250% 250%;
+  animation: auroraFlowLight 12s ease-in-out infinite alternate;
+}
+@keyframes auroraFlowLight {
+  0% { background-position: 0% 50%; filter: hue-rotate(0deg) brightness(1); }
+  50% { background-position: 100% 50%; filter: hue-rotate(30deg) brightness(1.15); }
+  100% { background-position: 0% 50%; filter: hue-rotate(0deg) brightness(1); }
+}
+
+/* ================================================================
+   AURORA VEIL (Enhanced Dark Mode)
+   ================================================================ */
 .dark .profile-bg-pattern-1 {
-  background-color: #1e293b; /* slate-800 */
-  background-image: radial-gradient(#475569 0.5px, transparent 0.5px); /* slate-600 */
+  background:
+    radial-gradient(ellipse at 20% 30%, rgba(77, 255, 255, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 60%, rgba(255, 77, 255, 0.12) 0%, transparent 50%),
+    linear-gradient(120deg, #101926 0%, #152d3d 40%, #1b263b 100%);
+  background-size: 200% 200%;
+  animation: auroraFlowDark 10s ease-in-out infinite alternate;
+  filter: brightness(1.2);
+}
+.dark .profile-bg-pattern-1::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background: conic-gradient(
+    from 90deg,
+    rgba(0, 255, 255, 0.2),
+    rgba(255, 0, 255, 0.15),
+    rgba(0, 255, 200, 0.25),
+    rgba(255, 0, 255, 0.1)
+  );
+  animation: auroraRibbon 15s ease-in-out infinite alternate;
+  filter: blur(50px);
+  z-index: 0;
+}
+@keyframes auroraFlowDark {
+  0% { background-position: 0% 50%; filter: hue-rotate(0deg) brightness(1); }
+  50% { background-position: 100% 50%; filter: hue-rotate(50deg) brightness(1.4); }
+  100% { background-position: 0% 50%; filter: hue-rotate(0deg) brightness(1); }
+}
+@keyframes auroraRibbon {
+  0% { transform: rotate(0deg) scale(1); opacity: 0.8; }
+  50% { transform: rotate(10deg) scale(1.2); opacity: 1; }
+  100% { transform: rotate(-10deg) scale(1); opacity: 0.8; }
+}
+
+/* ================================================================
+   NEBULA FIELD
+   ================================================================ */
+.profile-bg-pattern-2 {
+  background: radial-gradient(circle at 10% 10%, rgba(255,255,255,0.2) 0%, transparent 40%),
+              linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%);
+  background-size: 300% 300%;
+  animation: nebulaDriftLight 15s linear infinite;
+}
+@keyframes nebulaDriftLight {
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
 }
 .dark .profile-bg-pattern-2 {
-  background-color: #0f172a; /* slate-900 */
-   background-image:
-    linear-gradient(to right, #334155 1px, transparent 1px), /* slate-700 */
-    linear-gradient(to bottom, #334155 1px, transparent 1px); /* slate-700 */
+  background: radial-gradient(circle at 60% 50%, rgba(255,255,255,0.06) 0%, transparent 50%),
+              linear-gradient(135deg, #1a2a6c 0%, #b21f1f 50%, #fdbb2d 100%);
+  background-size: 400% 400%;
+  animation: nebulaDriftDark 20s ease-in-out infinite;
+  filter: brightness(1.1);
+}
+@keyframes nebulaDriftDark {
+  0% { background-position: 0% 0%; filter: hue-rotate(0deg); }
+  50% { background-position: 100% 100%; filter: hue-rotate(60deg); }
+  100% { background-position: 0% 0%; filter: hue-rotate(0deg); }
+}
+
+/* ================================================================
+   CELESTIAL RIPPLE (Elite)
+   ================================================================ */
+.profile-bg-elite {
+  background: linear-gradient(135deg, #fddb92 0%, #d1fdff 100%);
+}
+.profile-bg-elite::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 180%;
+  height: 180%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+  transform: translate(-50%, -50%) scale(0.3);
+  animation: rippleWave 5s ease-out infinite;
+  z-index: 0;
+}
+@keyframes rippleWave {
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0.6; }
+  70% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.1; }
+  100% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
 }
 .dark .profile-bg-elite {
-  background-image: linear-gradient(to top, #1e293b 0%, #334155 100%);
+  background: linear-gradient(135deg, #232526 0%, #414345 100%);
+}
+
+/* ================================================================
+   GALACTIC PRISM (Legendary)
+   ================================================================ */
+.profile-bg-legendary {
+  background: linear-gradient(120deg, #ff9a9e 0%, #fad0c4 40%, #fbc2eb 100%);
+  background-size: 300% 300%;
+  animation: prismShiftLight 10s linear infinite;
+}
+.profile-bg-legendary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(white 1px, transparent 1px);
+  background-size: 2px 2px;
+  opacity: 0.15;
+  animation: starScroll 40s linear infinite;
+  z-index: 0;
+}
+@keyframes prismShiftLight {
+  0% { background-position: 0% 50%; filter: hue-rotate(0deg); }
+  50% { background-position: 100% 50%; filter: hue-rotate(60deg); }
+  100% { background-position: 0% 50%; filter: hue-rotate(0deg); }
+}
+@keyframes starScroll {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100%); }
 }
 .dark .profile-bg-legendary {
-  background-image: linear-gradient(120deg, #374151 0%, #1e293b 100%);
+  background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  animation: prismShiftDark 15s linear infinite;
+  filter: brightness(1.2);
+}
+@keyframes prismShiftDark {
+  0% { background-position: 0% 50%; filter: hue-rotate(0deg) brightness(1); }
+  50% { background-position: 100% 50%; filter: hue-rotate(100deg) brightness(1.4); }
+  100% { background-position: 0% 50%; filter: hue-rotate(0deg) brightness(1); }
 }
 
 
 /* ==========================================================================
-   Quiz Modal Theming
+   Quiz Modal Theming (MODIFIED)
    ========================================================================== */
-.quiz-container {
+
+/* --- MODIFIED: Shared base styles for pseudo-element borders --- */
+.quiz-container,
+.theme-border-basic,
+.theme-border-animated,
+.theme-border-advanced,
+.theme-border-elite,
+.theme-border-legendary {
     position: relative; /* Needed for pseudo-elements */
 }
 
-/* Base style for the pseudo-element border */
-.quiz-container::before {
+/* --- MODIFIED: Base style for the pseudo-element border --- */
+/* This now applies to .quiz-container AND all .theme-border-* classes */
+.quiz-container::before,
+.theme-border-basic::before,
+.theme-border-animated::before,
+.theme-border-advanced::before,
+.theme-border-elite::before,
+.theme-border-legendary::before {
     content: '';
     position: absolute;
     inset: -2px; /* Control border distance from edge */
@@ -463,22 +652,33 @@
 
 /* Specific theme styles applied to the pseudo-element */
 .theme-border-basic::before {
-    @apply bg-blue-500; /* Use Tailwind color */
+    /* --- SWAPPED --- */
+    /* Now the "Majestic Pan" + Pulse */
+    @apply bg-gradient-advanced animate-gradient-pan animate-gentle-pulse;
+    background-size: 200% 200%; /* Required for gradient-pan */
 }
 .theme-border-animated::before {
-    @apply bg-purple-500 animate-pulse; /* Tailwind animation */
+    /* --- SWAPPED & FIXED --- */
+    /* Now the "Marching Ants" + particle sparkles for cards/modals */
+    @apply bg-gradient-gemini animate-gradient-pan animate-sparkle-only;
+    background-size: 200% 200%; /* Required for gradient-pan */
 }
 .theme-border-advanced::before {
-    /* Use custom animation and potentially border properties for spinning segment */
+    /* 💚 Advanced: Rotating spectral ring */
+    /* This inherits the modified 'spin-slow' keyframe (with hue-rotate) */
     @apply border-t-transparent border-solid border-green-500 animate-spin-slow border-4;
     background-color: transparent !important; /* Override background if using border */
     inset: -4px; /* Adjust inset if using border */
     padding: 0; /* Remove padding if using border */
 }
 .theme-border-elite::before {
+    /* 💎 Elite: Prismatic crystal shimmer */
+    /* This inherits the modified 'gradient-glow' keyframe (with hue-rotate) */
     @apply bg-gradient-elite animate-gradient-glow;
 }
 .theme-border-legendary::before {
+    /* 🌌 Legendary: Celestial halo with particle sparkles */
+    /* This inherits the modified 'animate-legendary-sparkle' utility (with light-orbit) */
     @apply bg-gradient-legendary animate-legendary-sparkle;
 }
 

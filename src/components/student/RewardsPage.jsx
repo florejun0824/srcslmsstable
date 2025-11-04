@@ -19,29 +19,7 @@ import {
 // Import the border logic from your Avatar component
 // (Adjust path if needed)
 import { getBorderClasses, isGradientPaddingBorder } from '../common/UserInitialsAvatar';
-
-
-// --- Rewards Configuration ---
-// (No changes)
-const REWARDS_CONFIG = {
-    'border_basic': { level: 5, type: 'border', name: 'Basic Border', icon: PaintBrushIcon, description: 'A simple, clean border.' },
-    'border_animated': { level: 10, type: 'border', name: 'Animated Border', icon: PaintBrushIcon, description: 'A subtly pulsing border.' },
-    'border_advanced_animated': { level: 30, type: 'border', name: 'Advanced Animated Border', icon: PaintBrushIcon, description: 'A spinning, eye-catching border.' },
-    'border_elite_animated': { level: 50, type: 'border', name: 'Elite Animated Border', icon: PaintBrushIcon, description: 'A highly stylized border.' },
-    'border_legendary_animated': { level: 80, type: 'border', name: 'Legendary Animated Border', icon: PaintBrushIcon, description: 'A border with striking visual effects.' },
-    'bg_pattern_1': { level: 20, type: 'background', name: 'Subtle Pattern Background', icon: PhotoIcon, description: 'A gentle pattern for your profile.' },
-    'bg_pattern_2': { level: 40, type: 'background', name: 'Intricate Pattern Background', icon: PhotoIcon, description: 'A more detailed background design.' },
-    'bg_pattern_elite': { level: 60, type: 'background', name: 'Elite Background', icon: PhotoIcon, description: 'A premium background theme.' },
-    'bg_pattern_legendary': { level: 90, type: 'background', name: 'Legendary Background', icon: PhotoIcon, description: 'A top-tier background.' },
-    'canSetBio': { level: 15, type: 'feature', name: 'Custom Bio', icon: UserCircleIcon, description: 'Unlock the ability to set a custom bio.' },
-    'title_adept': { level: 35, type: 'title', name: 'Title: Adept', icon: AcademicCapIcon, description: 'Display the "Adept" title.' },
-    'title_guru': { level: 70, type: 'title', name: 'Title: Guru', icon: AcademicCapIcon, description: 'Display the "Guru" title.' },
-    'title_legend': { level: 100, type: 'title', name: 'Title: Legend', icon: AcademicCapIcon, description: 'Display the ultimate "Legend" title.' },
-    'badge_scholar': { level: 25, type: 'badge', name: 'Scholar Badge', icon: AcademicCapIcon, description: 'Awarded for reaching Level 25.' },
-    'badge_master': { level: 45, type: 'badge', name: 'Master Badge', icon: AcademicCapIcon, description: 'Awarded for reaching Level 45.' },
-    'badge_legend': { level: 100, type: 'badge', name: 'Legend Badge', icon: AcademicCapIcon, description: 'Awarded for reaching Level 100.' },
-};
-// --- End Rewards Configuration ---
+import { REWARDS_CONFIG } from '../../config/gameConfig';
 
 const RewardsPage = () => {
     // ... (State and handlers remain unchanged) ...
@@ -117,17 +95,33 @@ const RewardsPage = () => {
             let classes = getBorderClasses(id);
 
             // --- THIS IS THE FIX ---
-            // If this is the 'border_basic' (Level 5), replace its spinning animation
-            // with the panning animation, which looks better on rectangles.
-            if (id === 'border_basic') {
-                classes = classes.replace('animate-spin-fast', 'animate-gradient-pan');
-            }
-            // --- END FIX ---
+            // Check if this border is the spinning one ('border_animated').
+            // The "gradient padding" method (isGradientPaddingBorder) ONLY works for circles.
+            // On a rectangle, we MUST use the "ring" method with a pseudo-element.
+            const isSpinningBorderOnCard = (id === 'border_animated');
 
-            if (isGradientPaddingBorder(id)) {
+            if (isGradientPaddingBorder(id) && !isSpinningBorderOnCard) {
+                // This is for 'border_basic' (panning) - it's safe for cards.
                 isGradientBorder = true;
                 activeBorderClasses = classes;
+            } else if (isSpinningBorderOnCard) {
+                // This is for 'border_animated' (spinning).
+                // We will use the pseudo-element "ring" method.
+                isRingBorder = true;
+                
+                // We map the border ID to the CSS theme class from index.css
+                // This class (theme-border-animated) has the "marching ants" pseudo-element.
+                if (id === 'border_animated') {
+                    activeBorderClasses = 'theme-border-animated'; 
+                }
+                // Add other mappings here if you create more spinning borders
+                // else if (id === 'border_new_spin') {
+                //     activeBorderClasses = 'theme-border-new-spin';
+                // }
+
             } else {
+                // This is for 'border_advanced_animated', 'elite', 'legendary', etc.
+                // These are already ring-based and will work fine.
                 isRingBorder = true;
                 activeBorderClasses = classes;
             }
@@ -138,12 +132,13 @@ const RewardsPage = () => {
             <div
                 key={id}
                 // --- MODIFIED: Added dark theme ---
+                // The 'isRingBorder' class (now including 'theme-border-animated') is applied here.
                 className={`relative bg-neumorphic-base rounded-xl shadow-neumorphic transition-all duration-300 ease-in-out dark:bg-neumorphic-base-dark dark:shadow-lg 
                             ${status === 'locked' ? 'opacity-60' : 'hover:-translate-y-1 hover:shadow-neumorphic-lg dark:hover:shadow-lg'} 
                             ${isRingBorder ? activeBorderClasses : ''} 
                             ${isGradientBorder ? 'p-1' : ''}`} // Add padding for gradient
             >
-                {/* Gradient border element (if needed) */}
+                {/* Gradient border element (if needed) - Used by 'border_basic' (panning) */}
                 {isGradientBorder && (
                     <div className={`absolute inset-0 rounded-xl z-0 pointer-events-none ${activeBorderClasses}`}></div>
                 )}

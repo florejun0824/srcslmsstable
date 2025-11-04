@@ -15,6 +15,10 @@ import {
     AcademicCapIcon,
     InboxIcon,
     ChevronRightIcon,
+RocketLaunchIcon,
+    TrophyIcon,
+    StarIcon,
+    SparklesIcon
 } from '@heroicons/react/24/solid';
 import StudentProfilePage from './StudentProfilePage';
 import RewardsPage from '../components/student/RewardsPage';
@@ -34,12 +38,11 @@ import ThemeToggle from '../components/common/ThemeToggle';
 // --- END ADDED IMPORT ---
 
 const BADGE_MAP = {
-    // --- MODIFIED: Added dark mode colors to badges ---
-    'first_quiz': { icon: '🚀', title: 'First Quiz', color: 'bg-amber-100 dark:bg-amber-900/30', textColor: 'text-amber-600 dark:text-amber-300' },
-    'perfect_score': { icon: '🏆', title: 'Perfect Score', color: 'bg-yellow-100 dark:bg-yellow-900/30', textColor: 'text-yellow-700 dark:text-yellow-300' },
-    'badge_scholar': { icon: '🎓', title: 'Scholar', color: 'bg-indigo-100 dark:bg-indigo-900/30', textColor: 'text-indigo-700 dark:text-indigo-300' },
-    'badge_master': { icon: '🌟', title: 'Master', color: 'bg-green-100 dark:bg-green-900/30', textColor: 'text-green-700 dark:text-green-300' },
-    'badge_legend': { icon: '👑', title: 'Legend', color: 'bg-purple-100 dark:bg-purple-900/30', textColor: 'text-purple-700 dark:text-purple-300' },
+  'first_quiz': { icon: RocketLaunchIcon, title: 'First Quiz' },
+  'perfect_score': { icon: TrophyIcon, title: 'Perfect Score' },
+  'badge_scholar': { icon: AcademicCapIcon, title: 'Scholar' },
+  'badge_master': { icon: StarIcon, title: 'Master' },
+  'badge_legend': { icon: SparklesIcon, title: 'Legend' },
 };
 
 const XPProgressRing = ({ xp = 0, level = 1 }) => {
@@ -234,25 +237,49 @@ const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewCha
                     <button onClick={() => handleViewChange('profile')} className="text-xs text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"> View all </button>
                 </div>
                 <div className="flex gap-3 overflow-x-auto no-scrollbar py-1 px-1">
-                    {genericBadges.length > 0 ? (
-                        genericBadges.map((b, idx) => {
-                            const meta = BADGE_MAP[b] || { icon: '⭐', title: b, color: 'bg-slate-100', textColor: 'text-slate-700' };
-                            return (
-                                <motion.div
-                                    key={`${b}-${idx}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, delay: idx * 0.06 }}
-                                    // --- MODIFIED: Themed Badge Card ---
-                                    className="min-w-[120px] flex-shrink-0 bg-neumorphic-base dark:bg-neumorphic-base-dark p-3 rounded-lg shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={`${meta.color} h-12 w-12 rounded-lg flex items-center justify-center`}> <span className="text-lg">{meta.icon}</span> </div>
-                                        <div className="min-w-0">
-                                            <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{meta.title}</div>
-                                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Unlocked</div>
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            );
-                        })
+			{genericBadges.length > 0 ? (
+			                        genericBadges.map((badgeKey, idx) => {
+			                            const badge = BADGE_MAP[badgeKey];
+			                            // Fallback for any badges not in the map
+			                            if (!badge) {
+			                                return (
+			                                     <motion.div
+			                                        key={`${badgeKey}-${idx}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, delay: idx * 0.06 }}
+			                                        className="min-w-[120px] flex-shrink-0 bg-neumorphic-base dark:bg-neumorphic-base-dark p-3 rounded-lg shadow-neumorphic dark:shadow-neumorphic-dark"
+			                                    >
+			                                        <div className="flex items-center gap-3">
+			                                            <div className="bg-slate-100 dark:bg-slate-700 h-12 w-12 rounded-lg flex items-center justify-center"> <span className="text-lg">⭐</span> </div>
+			                                            <div className="min-w-0">
+			                                                <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{badgeKey}</div>
+			                                                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Unlocked</div>
+			                                            </div>
+			                                        </div>
+			                                    </motion.div>
+			                                );
+			                            }
+                            
+			                            // Destructure the icon component and title
+			                            const { icon: Icon, title } = badge;
+			                            return (
+			                                <motion.div
+			                                    key={`${badgeKey}-${idx}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, delay: idx * 0.06 }}
+			                                    className="min-w-[120px] flex-shrink-0 bg-neumorphic-base dark:bg-neumorphic-base-dark p-3 rounded-lg shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
+			                                    title={title}
+			                                >
+			                                    <div className="flex items-center gap-3">
+			                                        {/* This is the updated part */}
+			                                        <div className="h-12 w-12 rounded-lg flex items-center justify-center bg-blue-100 dark:bg-blue-900/30">
+			                                            <Icon className="h-7 w-7 text-blue-600 dark:text-blue-400" />
+			                                        </div>
+			                                        {/* This part is the same */}
+			                                        <div className="min-w-0">
+			                                            <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{title}</div>
+			                                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Unlocked</div>
+			                                        </div>
+			                                    </div>
+			                                </motion.div>
+			                            );
+			                        })
                     ) : (
                         <div className="min-w-[160px] flex-shrink-0 bg-neumorphic-base dark:bg-neumorphic-base-dark p-3 rounded-lg shadow-neumorphic dark:shadow-neumorphic-dark">
                             <div className="flex items-center gap-3">

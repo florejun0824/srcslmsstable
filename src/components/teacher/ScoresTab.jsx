@@ -108,7 +108,9 @@ const ScoresTab = ({
         setSelectedQuizForScores({ 
             ...quiz, 
             availableUntil: post.availableUntil,
-            settings: post.quizSettings 
+            settings: post.quizSettings,
+postId: post.id,       // <-- ADD THIS LINE
+            classId: post.classId  // <-- ADD THIS LINE 
         });
         setScoresDetailModalOpen(true);
     };

@@ -15,7 +15,7 @@ import TimerDisplay from '../quiz/TimerDisplay'; // Adjust path if needed
 const QuizContext = createContext(null);
 export const useQuiz = () => useContext(QuizContext);
 
-export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userProfile, classId, isTeacherView = false }) {
+export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userProfile, classId, isTeacherView = false, postId }) {
 
     const quizState = useQuizState({
         isOpen,
@@ -23,7 +23,8 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         userProfile,
         classId,
         isTeacherView,
-        onComplete
+        onComplete,
+		postId
     });
 
     const [showWarningModal, setShowWarningModal] = useState(false);

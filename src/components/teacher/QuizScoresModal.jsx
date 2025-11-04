@@ -166,22 +166,28 @@ const QuizScoresModal = ({
     }, [quizScores, quiz?.id]); // Re-run when scores or quiz changes
 
 
-    // Memoize processed student data for efficient sorting and display
+// Memoize processed student data for efficient sorting and display
     const processedStudentData = useMemo(() => {
-        // Return empty array if essential data is missing
-        if (!classData?.students || !quiz?.id) return [];
+        // 1. UPDATE THE GUARD CLAUSE
+        if (!classData?.students || !quiz?.id || !quiz?.postId) return [];
 
         // Get availableUntil from the quiz prop (passed from ScoresTab)
         const availableUntilDate = quiz?.availableUntil?.toDate();
 
         const allStudents = classData.students.map(student => {
-            // Find all attempts by this student for this specific quiz
-            const studentAttempts = quizScores.filter(s => s.studentId === student.id && s.quizId === quiz.id)
+            // 2. THIS IS THE CRITICAL FIX: UPDATE THE FILTER
+            // Find all attempts by this student for this specific quiz AND post
+            const studentAttempts = quizScores.filter(s => 
+                                              s.studentId === student.id && 
+                                              s.quizId === quiz.id &&
+                                              s.postId === quiz.postId // <-- ADD THIS FILTER
+                                          )
                                           // Sort attempts chronologically (attempt 1 first)
                                           .sort((a, b) => (a.attemptNumber || 0) - (b.attemptNumber || 0));
 
             // Check if this student is locked for this specific quiz
-            const isLocked = quizLocks.some(l => l.studentId === student.id && l.quizId === quiz.id);
+            // This filter is likely fine, as locks are probably by quizId
+            const isLocked = quizLocks.some(l => l.studentId === student.id && l.quizId === quiz.id && l.postId === quiz.postId);
 
             // Determine overall status and find the attempt representing the highest score
             let status = 'Not Started';

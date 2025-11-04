@@ -35,15 +35,14 @@ const getUserGradient = (id) => {
 export const getBorderClasses = (borderType) => { 
     switch (borderType) {
         case 'border_basic':
-            // Level 5: Gemini-style rotating gradient border.
-            // Uses the "gradient padding" method.
-            return 'bg-gradient-gemini animate-spin-fast';
+            // --- SWAPPED ---
+            // Now the "Majestic Pan" + Pulse
+            return 'bg-gradient-advanced animate-gradient-pan animate-gentle-pulse';
         
         case 'border_animated':
-            // NEW Level 10: "Breathing" Panning Gradient
-            // A more sophisticated, slower pan and pulse.
-            // Also uses the "gradient padding" method.
-            return 'bg-gradient-advanced animate-gradient-pan animate-gentle-pulse';
+            // --- SWAPPED ---
+            // Now the fast spin + particle sparkles, using the new combined class
+            return 'bg-gradient-gemini animate-spin-and-sparkle';
 
         case 'border_advanced_animated':
             // The offset color is now applied in the component's wrapper
@@ -62,6 +61,7 @@ export const getBorderClasses = (borderType) => {
 
 // Helper function to identify borders that use the padding method vs. the ring method
 export const isGradientPaddingBorder = (borderType) => { 
+    // Both 'basic' (now pan) and 'animated' (now spin) use the padding method.
     return borderType === 'border_basic' || borderType === 'border_animated';
 };
 

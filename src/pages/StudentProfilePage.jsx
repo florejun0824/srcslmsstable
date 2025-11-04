@@ -15,7 +15,11 @@ import {
     PencilIcon,
     SparklesIcon,
     // --- ADDED: Icon for biometrics ---
-    FingerPrintIcon
+    FingerPrintIcon,
+RocketLaunchIcon,
+    TrophyIcon,
+    AcademicCapIcon,
+    StarIcon
 } from '@heroicons/react/24/solid';
 import { updateStudentDetailsInClasses } from '../services/firestoreService';
 
@@ -76,11 +80,11 @@ const TITLE_MAP = {
 };
 
 const BADGE_MAP = {
-    'first_quiz': { icon: '🚀', title: 'First Quiz' },
-    'perfect_score': { icon: '🏆', title: 'Perfect Score' },
-    'badge_scholar': { icon: '🎓', title: 'Scholar' },
-    'badge_master': { icon: '🌟', title: 'Master' },
-    'badge_legend': { icon: '👑', title: 'Legend' },
+  'first_quiz': { icon: RocketLaunchIcon, title: 'First Quiz' },
+  'perfect_score': { icon: TrophyIcon, title: 'Perfect Score' },
+  'badge_scholar': { icon: AcademicCapIcon, title: 'Scholar' },
+  'badge_master': { icon: StarIcon, title: 'Master' },
+  'badge_legend': { icon: SparklesIcon, title: 'Legend' },
 };
 
 const StudentProfilePage = () => {
@@ -326,8 +330,10 @@ const StudentProfilePage = () => {
     const backgroundClass = getBackgroundClass();
 
     return (
-        <div className={`max-w-4xl mx-auto ${backgroundClass}`}>
-            <div className="bg-neumorphic-base p-6 sm:p-8 rounded-3xl shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg">
+        // --- MODIFICATION: Removed backgroundClass from here ---
+        <div className="max-w-4xl mx-auto">
+            {/* --- MODIFICATION: Added backgroundClass HERE --- */}
+            <div className={`bg-neumorphic-base p-6 sm:p-8 rounded-3xl shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg ${backgroundClass}`}>
                 <div className="flex flex-col sm:flex-row items-center gap-6 mb-8 border-b border-slate-200/80 dark:border-slate-700 pb-8">
                     <UserInitialsAvatar
                         user={userProfile}
@@ -366,25 +372,28 @@ const StudentProfilePage = () => {
                     </div>
                 </div>
 
-                {badges.length > 0 && (
-                    <div className="mb-8">
-                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">Your Badges</h2>
-                        <div className="flex flex-wrap gap-4">
-                            {badges.map(badgeKey => {
-                                const badge = BADGE_MAP[badgeKey];
-                                if (!badge) return null;
-                                return (
-                                    <div key={badgeKey} className="flex flex-col items-center justify-center text-center p-4 w-28 h-28 bg-neumorphic-base rounded-2xl shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg" title={badge.title}>
-                                        <span className="text-4xl">{badge.icon}</span>
-                                        <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-2">
-                                            {badge.title}
-                                        </span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
+							{badges.length > 0 && (
+							                    <div className="mb-8">
+							                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">Your Badges</h2>
+							                        <div className="flex flex-wrap gap-4">
+							                            {badges.map(badgeKey => {
+							                                const badge = BADGE_MAP[badgeKey];
+							                                if (!badge) return null;
+							                                // Destructure the icon as a component
+							                                const { icon: Icon, title } = badge;
+							                                return (
+							                                    <div key={badgeKey} className="flex flex-col items-center justify-center text-center p-4 w-28 h-28 bg-neumorphic-base rounded-2xl shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg" title={title}>
+							                                        {/* Render the icon component */}
+							                                        <Icon className="h-12 w-12 text-blue-600 dark:text-blue-400" />
+							                                        <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-2">
+							                                            {title}
+							                                        </span>
+							                                    </div>
+							                                );
+							                            })}
+							                        </div>
+							                    </div>
+							                )}
 
                 <div className="mb-8 bg-neumorphic-base p-4 rounded-2xl shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg flex items-center justify-between">
                     <label htmlFor="cosmetics-toggle-profile" className="font-semibold text-slate-800 dark:text-slate-100 cursor-pointer">

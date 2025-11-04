@@ -12,8 +12,9 @@ import { shuffleArray } from '../components/teacher/quiz/quizUtils'; // Adjust p
 // Import the hooks we created
 import useQuizAntiCheat from './useQuizAntiCheat';
 import useQuizGamification from './useQuizGamification';
+import { XP_PER_QUIZ_QUESTION } from '../config/gameConfig';
 
-export default function useQuizState({ isOpen, quiz, userProfile, classId, isTeacherView = false, onComplete }) {
+export default function useQuizState({ isOpen, quiz, userProfile, classId, isTeacherView = false, onComplete, postId }) {
     // --- All State Hooks ---
     const [currentQ, setCurrentQ] = useState(0);
     const [userAnswers, setUserAnswers] = useState({});
@@ -232,7 +233,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
         const finalScore = Math.round(calculatedScore);
         setScore(finalScore);
 
-        const xpGainedCalc = finalScore * 10;
+        const xpGainedCalc = finalScore * XP_PER_QUIZ_QUESTION;
         setXPGained(xpGainedCalc);
 
         localStorage.removeItem(warningKey);
@@ -245,6 +246,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
 
         try {
             const submissionData = {
+				postId: postId,
                 quizId: quiz.id,
                 quizTitle: quiz.title,
                 classId: classId,
@@ -437,7 +439,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
         const setupQuiz = async () => {
             
             const fetchSubmission = async () => {
-                if (!quiz?.id || !userProfile?.id || !classId || isTeacherView) { 
+                if (!quiz?.id || !userProfile?.id || !classId || !postId || isTeacherView) {
                     setScore(null);
                     setLatestSubmission(null);
                     setAttemptsTaken(0);
@@ -467,9 +469,8 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
 
                         const submissionsRef = collection(db, 'quizSubmissions');
                         const q = query(submissionsRef,
-                            where("quizId", "==", quiz.id),
+                            where("postId", "==", postId),
                             where("studentId", "==", userProfile.id),
-                            where("classId", "==", classId)
                         );
                         const querySnapshot = await getDocs(q);
                         dbSubmissions = querySnapshot.docs.map(d => ({ id: d.id, ...d.data(), submittedAt: d.data().submittedAt?.toDate ? d.data().submittedAt.toDate() : d.data().submittedAt }));
@@ -480,8 +481,8 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                     setIsLocked(isDbLocked || isLocallyLocked);
 
                     const offlineSubmissions = await localforage.getItem("quiz-submission-outbox") || [];
-                    const myOfflineAttempts = offlineSubmissions.filter(sub =>
-                        sub.quizId === quiz.id && sub.studentId === userProfile.id && sub.classId === classId
+					const myOfflineAttempts = offlineSubmissions.filter(sub =>
+					                        sub.postId === postId && sub.studentId === userProfile.id
                     );
 
                     const dbSubmissionIds = new Set(dbSubmissions.map(s => s.submissionId));

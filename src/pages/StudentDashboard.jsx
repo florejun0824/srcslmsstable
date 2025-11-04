@@ -12,12 +12,16 @@ import {
   documentId,
   doc,
   updateDoc,
-  increment,
+  // increment, // No longer needed for lessons
   arrayUnion,
   orderBy,
   limit
 } from 'firebase/firestore';
 import { useToast } from '../contexts/ToastContext';
+
+// --- MODIFIED: Import hook and lesson XP constant ---
+import useQuizGamification from '../hooks/useQuizGamification'; // Adjust path if needed
+import { XP_FOR_LESSON } from '../config/gameConfig'; // Adjust path if needed
 
 import StudentDashboardUI from './StudentDashboardUI';
 import JoinClassModal from '../components/student/JoinClassModal';
@@ -28,6 +32,8 @@ import Spinner from '../components/common/Spinner';
 const StudentDashboard = () => {
   const { userProfile, logout, loading: authLoading, setUserProfile } = useAuth();
   const { showToast } = useToast();
+  // --- ADDED: Initialize the gamification hook ---
+  const { handleGamificationUpdate } = useQuizGamification();
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -377,7 +383,7 @@ const StudentDashboard = () => {
         if (isOverdue) {
           categorized.overdue.push({ ...quizItem, status: 'overdue', isExam });
         } else if (isScheduled) {
-          categorized.active.push({ ...quizItem, status: 'scheduled', isExam });
+          categorized.active.push({ ...quizItem, status: 'active', isExam });
         } else {
           categorized.active.push({ ...quizItem, status: 'active', isExam });
         }
@@ -402,35 +408,50 @@ const StudentDashboard = () => {
   //
   // 8) handleLessonComplete
   //
+  // --- REPLACED THIS ENTIRE FUNCTION ---
   const handleLessonComplete = async (progress) => {
     if (!progress?.isFinished || !userProfile?.id || !progress?.lessonId) return;
+
     const completedLessons = userProfile.completedLessons || [];
     if (completedLessons.includes(progress.lessonId)) {
       showToast('Lesson already completed.', 'info');
       return;
     }
-    const XP_FOR_LESSON = 100;
+
     try {
+      // --- 1. Call the unified gamification hook ---
+      // We pass 0 for quiz-specific fields
+      await handleGamificationUpdate({
+          xpGained: XP_FOR_LESSON,
+          userProfile,
+          refreshUserProfile,
+          showToast,
+          finalScore: 0, 
+          totalPoints: 0,
+          attemptsTaken: 0 
+      });
+
+      // --- 2. Update the lesson-specific part ---
       const userRef = doc(db, 'users', userProfile.id);
       await updateDoc(userRef, {
-        xp: increment(XP_FOR_LESSON),
-        completedLessons: arrayUnion(progress.lessonId)
+          completedLessons: arrayUnion(progress.lessonId)
       });
-      setUserProfile(prev => {
-        if (!prev) return prev;
-        const updatedUser = {
+
+      // --- 3. Manually update local profile for 'completedLessons' ---
+      // (refreshUserProfile() will get the rest of the new data)
+      setUserProfile(prev => prev ? ({
           ...prev,
-          xp: (prev.xp || 0) + XP_FOR_LESSON,
           completedLessons: [...(prev.completedLessons || []), progress.lessonId]
-        };
-        return updatedUser;
-      });
+      }) : prev);
+
       showToast(`Lesson finished! You earned ${XP_FOR_LESSON} XP!`, 'success');
+
     } catch (err) {
       console.error('Error awarding lesson XP:', err);
       showToast('An error occurred while saving your progress.', 'error');
     }
   };
+  // --- END OF REPLACED FUNCTION ---
 
   //
   // UI guard
@@ -483,6 +504,7 @@ const StudentDashboard = () => {
         quiz={quizToTake}
         userProfile={userProfile}
         classId={quizToTake?.classId}
+		postId={quizToTake?.postId}
       />
 
       <StudentViewLessonModal

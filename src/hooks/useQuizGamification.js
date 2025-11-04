@@ -1,6 +1,8 @@
-import { doc, updateDoc, increment, arrayUnion } from 'firebase/firestore';
+// src/hooks/useQuizGamification.js
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../services/firebase'; // Adjust path if needed
-import { REWARDS_BY_LEVEL, TITLE_ORDER } from '../utils/gamificationConstants'; // Adjust path if needed
+// --- MODIFIED: Import from our new config file ---
+import { REWARDS_CONFIG, calculateLevelFromXp } from '../config/gameConfig'; // Adjust path if needed
 
 /**
  * A custom hook to manage gamification logic (XP, levels, rewards).
@@ -9,15 +11,15 @@ import { REWARDS_BY_LEVEL, TITLE_ORDER } from '../utils/gamificationConstants'; 
 export default function useQuizGamification() {
 
     /**
-     * Handles updating user XP, level, and rewards after a quiz submission.
+     * Handles updating user XP, level, and rewards after a quiz or lesson.
      * @param {object} params
-     * @param {number} params.xpGained - The amount of XP gained from the quiz.
+     * @param {number} params.xpGained - The amount of XP gained.
      * @param {object} params.userProfile - The current user's profile object.
      * @param {function} params.refreshUserProfile - Function from useAuth to refresh profile data.
      * @param {function} params.showToast - Function to show a toast message.
-     * @param {number} params.finalScore - The final score on the quiz.
-     * @param {number} params.totalPoints - The total possible points for the quiz.
-     * @param {number} params.attemptsTaken - The number of attempts taken (before this one).
+     * @param {number} params.finalScore - The final score (0 for lessons).
+     * @param {number} params.totalPoints - The total points (0 for lessons).
+     * @param {number} params.attemptsTaken - The number of attempts taken (0 for lessons).
      */
     const handleGamificationUpdate = async ({
         xpGained,
@@ -38,44 +40,41 @@ export default function useQuizGamification() {
             const currentXP = userProfile.xp || 0;
             const newTotalXP = currentXP + xpGained;
 
-            let newLevel = currentLevel;
-            let leveledUp = false;
-            let xpThresholdForNextLevel = (newLevel * (newLevel + 1) / 2) * 500;
+            // --- MODIFIED: Use new calculation function ---
+            const newLevel = calculateLevelFromXp(newTotalXP);
+            const leveledUp = newLevel > currentLevel;
 
-            while (newTotalXP >= xpThresholdForNextLevel) {
-                newLevel++;
-                leveledUp = true;
-                xpThresholdForNextLevel = (newLevel * (newLevel + 1) / 2) * 500;
-            }
-
-            const updateData = { xp: increment(xpGained) };
+            // --- MODIFIED: Update XP with newTotalXP, not increment ---
+            const updateData = { xp: newTotalXP };
             let newlyUnlockedRewards = []; // Track rewards to add to unlockedRewards
 
             if (leveledUp) {
                 updateData.level = newLevel;
                 showToast(`🎉 Level Up! You've reached Level ${newLevel}!`, "success", 4000);
 
-                // Collect all rewards from currentLevel + 1 up to newLevel
-                for (let levelReached = currentLevel + 1; levelReached <= newLevel; levelReached++) {
-                    if (REWARDS_BY_LEVEL[levelReached]) {
-                        newlyUnlockedRewards.push(...REWARDS_BY_LEVEL[levelReached]);
+                // --- MODIFIED: Iterate over the new REWARDS_CONFIG ---
+                for (const [rewardId, config] of Object.entries(REWARDS_CONFIG)) {
+                    // If reward is in the new level range and not already unlocked
+                    if (
+                        config.level > currentLevel &&
+                        config.level <= newLevel &&
+                        !userProfile.unlockedRewards?.includes(rewardId)
+                    ) {
+                        newlyUnlockedRewards.push(rewardId);
                     }
                 }
+                
+                // --- MODIFIED: Check features from the new config ---
+                if (newLevel >= 15 && !userProfile.canSetBio) { 
+                    updateData.canSetBio = true; 
+                }
 
-                // Handle specific boolean/string fields based on *highest* level reached
-                if (newLevel >= 15) { updateData.canSetBio = true; }
-
+                // --- MODIFIED: Simplified title logic ---
                 let bestTitle = userProfile.displayTitle || null;
-                let bestTitleIndex = bestTitle ? TITLE_ORDER.indexOf(bestTitle) : -1;
+                if (newLevel >= 100) { bestTitle = 'title_legend'; }
+                else if (newLevel >= 70 && bestTitle !== 'title_legend') { bestTitle = 'title_guru'; }
+                else if (newLevel >= 35 && bestTitle !== 'title_legend' && bestTitle !== 'title_guru') { bestTitle = 'title_adept'; }
 
-                TITLE_ORDER.forEach((titleId, index) => {
-                    // Check if this title's level is reached AND it's better than the current best
-                    const levelForTitle = Object.keys(REWARDS_BY_LEVEL).find(lvl => REWARDS_BY_LEVEL[lvl].includes(titleId));
-                    if (levelForTitle && newLevel >= parseInt(levelForTitle) && index > bestTitleIndex) {
-                        bestTitle = titleId;
-                        bestTitleIndex = index;
-                    }
-                });
                 if (bestTitle !== userProfile.displayTitle) {
                     updateData.displayTitle = bestTitle;
                 }
@@ -94,19 +93,23 @@ export default function useQuizGamification() {
 
             // Handle Badges specifically (add to genericBadges)
             let newBadges = [];
-            if (finalScore > 0 && finalScore === totalPoints) { newBadges.push('perfect_score'); }
-            if (attemptsTaken === 0) { newBadges.push('first_quiz'); } // This was the first attempt
+            // Check for perfect score (only if totalPoints > 0, meaning it's a quiz)
+            if (totalPoints > 0 && finalScore > 0 && finalScore === totalPoints) { 
+                newBadges.push('perfect_score'); 
+            }
+            // Check for first quiz attempt (only if totalPoints > 0, meaning it's a quiz)
+            if (totalPoints > 0 && attemptsTaken === 0) { 
+                newBadges.push('first_quiz'); 
+            }
             // Add badges unlocked by level up
             newBadges.push(...newlyUnlockedRewards.filter(r => r.startsWith('badge_')));
             
             if (newBadges.length > 0) {
-                updateData.genericBadges = arrayUnion(...newBadges);
-                // Optionally show badge-specific toasts here or rely on the generic one
+                updateData.genericBadges = arrayUnion(...newBadges.filter(b => !userProfile.genericBadges?.includes(b)));
             }
 
-            if (Object.keys(updateData).length > 1 || updateData.xp) { // Ensure there's something to update
-                await updateDoc(userRef, updateData);
-            }
+            // Update Firestore
+            await updateDoc(userRef, updateData);
             await refreshUserProfile();
             
         } catch (error) {
