@@ -1,5 +1,6 @@
 /* src/index.css */
 @import "react-datepicker/dist/react-datepicker.css";
+@import "react-quill/dist/quill.snow.css";
 
 /* 1. Tailwind Directives (Must be at the top) */
 @tailwind base;
@@ -465,7 +466,8 @@
   background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 60%);
   mix-blend-mode: overlay;
   pointer-events: none;
-  z-index: 1;
+  /* --- THIS IS THE FIX --- */
+  z-index: 0; /* Changed from 1 to 0 */
 }
 
 /* ================================================================
@@ -659,9 +661,9 @@
 }
 .theme-border-animated::before {
     /* --- SWAPPED & FIXED --- */
-    /* Now the "Marching Ants" + particle sparkles for cards/modals */
+    /* Now the "Marching Ants" (pan) + particle sparkles for cards/modals */
     @apply bg-gradient-gemini animate-gradient-pan animate-sparkle-only;
-    background-size: 200% 200%; /* Required for gradient-pan */
+    background-size: 400% 400%; /* Needs a larger size for panning */
 }
 .theme-border-advanced::before {
     /* 💚 Advanced: Rotating spectral ring */
@@ -913,4 +915,67 @@
 
 .xp-pulse {
   animation: xpPulse 1.2s ease-in-out;
+}
+/* ==========================================================================
+   ReactQuill Dark Mode Theme Override
+   ========================================================================== */
+.dark .ql-snow {
+  border-color: #334155 !important; /* slate-700 */
+}
+
+.dark .ql-toolbar {
+  background: #1e293b; /* slate-800 */
+  border-bottom-color: #334155 !important; /* slate-700 */
+  border-top-left-radius: 0.75rem; /* 12px */
+  border-top-right-radius: 0.75rem; /* 12px */
+}
+
+.dark .ql-container {
+  background: #0f172a; /* slate-900 */
+  border-bottom-left-radius: 0.75rem; /* 12px */
+  border-bottom-right-radius: 0.75rem; /* 12px */
+}
+
+.dark .ql-editor {
+  color: #cbd5e1; /* slate-300 */
+}
+
+.dark .ql-editor.ql-blank::before {
+  color: #64748b !important; /* slate-500 */
+}
+
+.dark .ql-stroke {
+  stroke: #94a3b8 !important; /* slate-400 */
+}
+.dark .ql-picker-label {
+  color: #94a3b8 !important; /* slate-400 */
+}
+/* ==========================================================================
+   Custom Bio Display Styles (OPTIMIZED)
+   ========================================================================== */
+
+.bio-content-display {
+  /* Ensure the overall container doesn't get too tall */
+  max-height: 150px; /* Adjust this value if needed, e.g., 100px-150px */
+  overflow: hidden; /* Hides content that exceeds max-height */
+  text-overflow: ellipsis;
+  white-space: normal;
+  display: block; /* Ensure it takes up its own block */
+}
+
+.bio-content-display p {
+  /* Make paragraphs stack instead of being inline */
+  display: block;
+  margin-bottom: 0.25rem; /* Reduced margin */
+  line-height: 1.25;
+}
+
+.bio-content-display img {
+  /* --- MODIFIED: Reduced max-height for large GIFs/images --- */
+  max-width: 100%;    /* Fit to container */
+  max-height: 65px;   /* Reduced height to ~1/2 of 120px */
+  border-radius: 4px; /* Slightly reduced border radius */
+  margin: 4px 0;
+  display: inline-block; 
+  object-fit: contain; /* Ensures the GIF is not cropped, but scaled down */
 }

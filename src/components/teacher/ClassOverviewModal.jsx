@@ -5,6 +5,7 @@ import QuizScoresModal from './QuizScoresModal';
 import ScoresTab from './ScoresTab';
 import { db } from '../../services/firebase';
 import {
+    // ... (no changes to imports)
     collection,
     query,
     where,
@@ -22,6 +23,7 @@ import {
 } from 'firebase/firestore';
 import { Button } from '@tremor/react';
 import {
+    // ... (no changes to imports)
     PencilSquareIcon,
     TrashIcon,
     CalendarDaysIcon,
@@ -45,6 +47,9 @@ import ViewQuizModal from './ViewQuizModal';
 import GenerateReportModal from './GenerateReportModal';
 import EditAvailabilityModal from './EditAvailabilityModal';
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
+
+// --- ADDED: Import Spinner ---
+import Spinner from '../common/Spinner';
 
 const fetchDocsInBatches = async (collectionName, ids) => {
     // ... (no changes in this function)
@@ -85,7 +90,6 @@ const PostHeader = ({ post, onEditDates }) => (
 
 
 const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => {
-    // ... (no changes in state or effects)
     const { userProfile } = useAuth();
     const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState('announcements');
@@ -112,6 +116,10 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const [selectedLessons, setSelectedLessons] = useState(new Set());
     const [selectedQuizzes, setSelectedQuizzes] = useState(new Set());
 
+    // --- ADDED: State for the fresh student list ---
+    const [freshStudentData, setFreshStudentData] = useState([]);
+    const [loadingStudents, setLoadingStudents] = useState(false);
+
     useEffect(() => {
         if (isOpen && classData?.id) {
             setActiveTab('announcements');
@@ -127,11 +135,51 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             setClassQuizIds([]);
             setSelectedLessons(new Set());
             setSelectedQuizzes(new Set());
+            // --- ADDED: Clear student list state on close ---
+            setFreshStudentData([]);
+            setLoadingStudents(false);
         }
     }, [isOpen, classData?.id]);
 
+    // --- ADDED: Effect to fetch fresh student data when 'Students' tab is active ---
     useEffect(() => {
-        // ... (no changes in this effect)
+        const fetchFreshStudentData = async () => {
+            if (activeTab !== 'students' || !classData?.students || classData.students.length === 0) {
+                setFreshStudentData([]); // Clear if not on tab or no students
+                return;
+            }
+
+            setLoadingStudents(true);
+            try {
+                // 1. Get just the IDs from the stale classData
+                const studentIds = classData.students.map(s => s.id);
+
+                // 2. Fetch fresh user documents using the existing helper function
+                const students = await fetchDocsInBatches('users', studentIds);
+
+                // 3. Sort them for display
+                const sortedStudents = students.sort((a, b) => 
+                    (a.lastName || '').localeCompare(b.lastName || '')
+                );
+                
+                setFreshStudentData(sortedStudents);
+
+            } catch (err) {
+                console.error("Error fetching fresh student data:", err);
+                showToast("Could not load updated student list.", "error");
+                // Fallback: use the stale data if fetch fails
+                setFreshStudentData(classData.students.sort((a,b) => (a.lastName || '').localeCompare(b.lastName || '')));
+            } finally {
+                setLoadingStudents(false);
+            }
+        };
+
+        fetchFreshStudentData();
+    }, [activeTab, classData?.students, showToast]); // Re-run if tab or classData.students array changes
+
+
+    useEffect(() => {
+        // ... (no changes in this effect - announcements)
         if (!isOpen || !classData?.id) return;
         let active = true;
         const annQuery = query(collection(db, "studentAnnouncements"), where("classId", "==", classData.id), orderBy("createdAt", "desc"));
@@ -144,7 +192,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     }, [isOpen, classData?.id]);
 
     useEffect(() => {
-        // ... (no changes in this effect)
+        // ... (no changes in this effect - posts/content)
         if (!isOpen || !classData?.id) return;
         let active = true;
         const postsQuery = query(collection(db, `classes/${classData.id}/posts`), orderBy('createdAt', 'asc'));
@@ -172,7 +220,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     }, [isOpen, classData?.id]);
 
     useEffect(() => {
-        // ... (no changes in this effect)
+        // ... (no changes in this effect - scores)
         if (!isOpen || !classData?.id) return;
         setLoading(true);
         let active = true;
@@ -190,7 +238,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     }, [isOpen, classData?.id]);
 
     useEffect(() => {
-        // ... (no changes in this effect)
+        // ... (no changes in this effect - quiz locks)
         if (!isOpen || !classData?.id) {
              setQuizLocks([]); // Clear locks if modal is closed or no class
              return;
@@ -258,7 +306,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const onChangeEdit = (e) => setEditContent(e.target.value);
 
     useEffect(() => {
-        // ... (no changes in this effect)
+        // ... (no changes in this effect - collapse logic)
         if (isOpen && classData?.id && (activeTab === 'lessons' || activeTab === 'quizzes')) {
             const newCollapsedPosts = new Set();
             const newCollapsedUnits = new Set();
@@ -601,10 +649,16 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
     
     const renderContent = () => {
-        if (loading && activeTab !== 'announcements') return <div className="text-center py-10 text-slate-500 dark:text-slate-400 text-lg">Loading...</div>;
+        // --- MODIFIED: Loading check ---
+        if ((loading && activeTab !== 'announcements') || (loadingStudents && activeTab === 'students')) {
+            return (
+                <div className="flex justify-center items-center h-full min-h-[200px]">
+                    <Spinner size="lg" />
+                </div>
+            );
+        }
 
         const EmptyState = ({ icon: Icon, text, subtext }) => (
-            // --- MODIFIED: Added dark mode classes ---
             <div className="text-center p-8 sm:p-12 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark mt-4">
                 <Icon className="h-16 w-16 mb-4 text-slate-300 dark:text-slate-600 mx-auto" />
                 <p className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-200">{text}</p>
@@ -623,22 +677,20 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             return a.localeCompare(b);
         };
         const ListItem = ({ children, isChecked }) => (
-            // --- MODIFIED: Added dark mode classes ---
             <div className={`flex items-center justify-between gap-2 sm:gap-4 py-2 px-2 sm:py-3 sm:px-4 rounded-xl transition-colors ${isChecked ? 'bg-sky-100/50 dark:bg-sky-900/30' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/50'}`}>
                 {children}
             </div>
         );
         
         const PostGroup = ({ children }) => (
-            // --- MODIFIED: Added dark mode classes ---
             <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark">
                 {children}
             </div>
         );
 
         if (activeTab === 'lessons') {
+            // ... (no changes in this block)
             const lessonsByPostAndUnit = sharedContentPosts.reduce((acc, post) => {
-                // ... (no changes in this logic)
                 const postLessons = (post.lessons || []);
                 if (postLessons.length === 0) return acc;
                 if (!acc[post.id]) {
@@ -675,7 +727,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                 >
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1 min-w-0">
-                                            {/* --- MODIFIED: Added dark mode classes --- */}
                                             <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors truncate">{post.title}</h3>
                                             <div className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex flex-wrap gap-x-3">
                                                 <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
@@ -713,7 +764,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
                                             return (
                                                 <div key={unitKey} className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
-                                                    {/* --- MODIFIED: Added dark mode classes --- */}
                                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 border-b border-slate-200/80 dark:border-slate-700/80">
                                                         <button className="flex-1 flex items-center gap-2 group min-w-0" onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}>
                                                             <h4 className="font-semibold text-sm sm:text-base text-slate-800 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors truncate">{unitDisplayName}</h4>
@@ -722,7 +772,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                         <label className="flex items-center justify-end gap-2 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0">
                                                             <input
                                                                 type="checkbox"
-                                                                // --- MODIFIED: Added dark mode classes ---
                                                                 className="h-4 w-4 rounded text-sky-600 border-slate-400 dark:border-slate-600 dark:bg-slate-700 focus:ring-sky-500"
                                                                 checked={isAllSelected}
                                                                 onChange={() => {
@@ -748,7 +797,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                         <label className="p-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
                                                                             <input
                                                                                 type="checkbox"
-                                                                                // --- MODIFIED: Added dark mode classes ---
                                                                                 className="h-5 w-5 rounded text-sky-600 border-slate-400 dark:border-slate-600 dark:bg-slate-700 focus:ring-sky-500 focus:ring-2"
                                                                                 checked={isChecked}
                                                                                 onChange={() => handleToggleSelection('lesson', lessonDetails.id)}
@@ -778,8 +826,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
         
         if (activeTab === 'quizzes') {
+            // ... (no changes in this block)
             const quizzesByPostAndUnit = sharedContentPosts.reduce((acc, post) => {
-                // ... (no changes in this logic)
                 const postQuizzes = (post.quizzes || []);
                 if (postQuizzes.length === 0) return acc;
                 if (!acc[post.id]) {
@@ -924,6 +972,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             );
         }
         if (activeTab === 'scores') {
+            // ... (no changes in this block)
             const allQuizzesFromPosts = sharedContentPosts.flatMap(p => p.quizzes || []);
             const allLessonsFromPosts = sharedContentPosts.flatMap(p => p.lessons || []);
             
@@ -945,30 +994,44 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             );
         }
         if (activeTab === 'students') {
+            // --- MODIFIED: This entire block is changed ---
+            if (loadingStudents) {
+                return (
+                    <div className="flex justify-center items-center h-full min-h-[200px]">
+                        <Spinner size="lg" />
+                    </div>
+                );
+            }
+
             return (
                  <div className="space-y-3 pr-2 max-h-full overflow-y-auto custom-scrollbar">
-                    {(classData?.students && classData.students.length > 0) ? (
-                        // --- MODIFIED: Added dark mode classes ---
+                    {(freshStudentData.length > 0) ? (
                         <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark p-1">
-                            {classData.students.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(student => (
+                            {/* --- MODIFIED: Map over freshStudentData --- */}
+                            {freshStudentData.map(student => (
                                 <ListItem key={student.id} isChecked={false}>
                                     <div className="flex items-center gap-2 sm:gap-4">
                                         <div className="w-10 h-10 rounded-full flex-shrink-0">
+                                            {/* --- MODIFIED: Pass fresh student object --- */}
                                             <UserInitialsAvatar user={student} size="w-10 h-10" />
                                         </div>
                                         <div>
-                                            {/* --- MODIFIED: Added dark mode classes --- */}
-                                            <p className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">{student.lastName}, {student.firstName}</p>
+                                            {/* --- MODIFIED: Use fresh student names --- */}
+                                            <p className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">{student.lastName || '[N/A]'}, {student.firstName || '[N/A]'}</p>
                                             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">ID: {student.id}</p>
                                         </div>
                                     </div>
-                                    <button onClick={() => onRemoveStudent(classData.id, student)} className="p-2 rounded-full text-red-500 dark:text-red-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title={`Remove ${student.firstName}`}><TrashIcon className="w-5 h-5" /></button>
+                                    {/* --- MODIFIED: Pass fresh student object to onRemoveStudent --- */}
+                                    <button onClick={() => onRemoveStudent(classData.id, student)} className="p-2 rounded-full text-red-500 dark:text-red-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title={`Remove ${student.firstName}`}>
+                                        <TrashIcon className="w-5 h-5" />
+                                    </button>
                                 </ListItem>
                             ))}
                         </div>
                     ) : <EmptyState icon={UsersIcon} text="No students enrolled" subtext="Share the class code to get students enrolled." />}
                 </div>
             );
+            // --- END OF MODIFIED BLOCK ---
         }
         
         return (
@@ -983,6 +1046,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
 
     const tabs = [
+        // ... (no changes in this array)
         { id: 'announcements', name: 'Announcements', icon: MegaphoneIcon },
         { id: 'lessons', name: 'Lessons', icon: BookOpenIcon },
         { id: 'quizzes', name: 'Quizzes', icon: AcademicCapIcon },
@@ -993,6 +1057,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     return (
         <>
             <Modal
+                // ... (no changes to Modal props)
                 isOpen={isOpen}
                 onClose={onClose}
                 title=""
@@ -1005,6 +1070,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 <div className="p-2 sm:p-4 md:p-8 bg-neumorphic-base dark:bg-neumorphic-base-dark h-[95vh] sm:h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl">
                     
                     <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark flex-shrink-0">
+                        {/* ... (no changes to header) */}
                         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">{classData?.name || 'Class Details'}</h1>
                         <div className="flex flex-wrap items-center gap-x-4 sm:gap-x-6 gap-y-2 mt-3">
                             <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400">
@@ -1026,6 +1092,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                     </div>
 
                     <nav className="flex-shrink-0 flex items-center gap-2 p-2 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark overflow-x-auto">
+                        {/* ... (no changes to tabs) */}
                         {tabs.map(tab => (
                             <button
                                 key={tab.id}
@@ -1046,6 +1113,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         <header className="px-4 pt-4 pb-4 sm:px-6 sm:pt-6 sm:pb-4 flex-shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-700/80">
                             
                             <div className="flex items-center gap-3">
+                                {/* ... (no changes to header buttons) */}
                                 {activeTab === 'lessons' && selectedLessons.size > 0 && (
                                     <Button 
                                         onClick={() => handleDeleteSelected('lesson')} 
@@ -1108,6 +1176,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 			   className="z-[120]"
 			 />
 
+            {/* ... (no changes to other modals) ... */}
             <ViewLessonModal isOpen={!!viewLessonData} onClose={() => setViewLessonData(null)} lesson={viewLessonData} className="z-[120]" />
             <ViewQuizModal isOpen={!!viewQuizData} onClose={() => setViewQuizData(null)} quiz={viewQuizData} userProfile={userProfile} classId={classData?.id} isTeacherView={userProfile.role === 'teacher' || userProfile.role === 'admin'} className="z-[120]" />
             <EditAvailabilityModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} post={postToEdit} classId={classData?.id} onUpdate={handlePostUpdate} classData={classData} className="z-[120]" />
@@ -1118,7 +1187,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 };
 
 const AnnouncementListItem = ({ post, isOwn, onEdit, onDelete, isEditing, editContent, onChangeEdit, onSaveEdit, onCancelEdit, onClick }) => {
-    // --- MODIFIED: Added dark mode classes ---
+    // ... (no changes in this component)
+    const formattedDate = post.createdAt?.toDate ? post.createdAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '...';
     return (
         <div className="group relative bg-neumorphic-base dark:bg-neumorphic-base-dark p-5 rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow duration-300 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark cursor-pointer" onClick={!isEditing ? onClick : undefined}>
             {isEditing ? (

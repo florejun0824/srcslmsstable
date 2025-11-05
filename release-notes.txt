@@ -1,7 +1,8 @@
-========================================
-     S R C S   L M S
-     R E L E A S E   N O T E S (November Update)
-========================================
+===============================
+   S R C S   L M S
+   R E L E A S E   N O T E S
+   (November Update)
+===============================
 
 ### Bug Fixes & Core Logic Improvements
 

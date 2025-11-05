@@ -9,8 +9,8 @@ import {
 } from '@heroicons/react/24/solid';
 
 // --- XP Constants ---
-export const XP_FOR_LESSON = 200; // Doubled from 100
-export const XP_PER_QUIZ_QUESTION = 30;
+export const XP_FOR_LESSON = 400; // Doubled from 100
+export const XP_PER_QUIZ_QUESTION = 50;
 
 // --- REWARDS CONFIG (The Single Source of Truth - NOW WITH ALL DATA) ---
 export const REWARDS_CONFIG = {
