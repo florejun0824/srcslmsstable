@@ -15,10 +15,11 @@ import {
     AcademicCapIcon,
     InboxIcon,
     ChevronRightIcon,
-RocketLaunchIcon,
+    RocketLaunchIcon,
     TrophyIcon,
     StarIcon,
-    SparklesIcon
+    SparklesIcon,
+    VideoCameraIcon // <-- ADDED THIS ICON
 } from '@heroicons/react/24/solid';
 import StudentProfilePage from './StudentProfilePage';
 import RewardsPage from '../components/student/RewardsPage';
@@ -98,7 +99,7 @@ const DailyQuote = ({ compact = false }) => {
   const [quote, setQuote] = useState("");
   const today = new Date();
   const index = today.getDate() % quotes.length;
-  useEffect(() => { setQuote(quotes[index]); }, [index]);
+  useEffect(() => { setQuote(quotes[index]); }, [index, quotes]);
   return (
     <motion.div
       key={quote} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
@@ -302,32 +303,74 @@ const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewCha
                 {(!myClasses || myClasses.length === 0) ? (
                     <EmptyState icon={InboxIcon} title="No Classes Yet" message="You haven't joined any classes. Click 'Join Class' in the header to get started." />
                 ) : (
+                    // --- ENTIRE CLASS CARD SECTION MODIFIED ---
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {myClasses.map((classItem, idx) => (
-                            <motion.button
-                                key={classItem.id || idx} onClick={() => setSelectedClass(classItem)} whileTap={{ scale: 0.97 }} whileHover={{ y: -2 }}
-                                // --- MODIFIED: Themed Class Button ---
-                                className="relative w-full text-left bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl p-3 sm:p-4 shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all duration-200"
-                            >
-                                <div className="flex items-start gap-3">
-                                    <div className="h-10 w-10 rounded-lg bg-red-500 flex items-center justify-center shadow-inner flex-shrink-0"> <BookOpenIcon className="h-5 w-5 text-white" /> </div>
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <h3 className="text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-100 truncate flex-1 group-hover:text-red-700 dark:group-hover:text-red-400 transition-colors">
-                                                {classItem.name}
-                                            </h3> <ChevronRightIcon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                        {myClasses.map((classItem, idx) => {
+                            // --- LOGIC FOR THE JOIN BUTTON ---
+                            const isLive = classItem.videoConference?.isLive || false;
+                            const meetLink = classItem.meetLink || null;
+                            const canJoin = isLive && meetLink;
+
+                            return (
+                                // 1. Changed from motion.button to motion.div to allow two click targets
+                                <motion.div
+                                    key={classItem.id || idx}
+                                    whileHover={{ y: -2 }}
+                                    className="relative w-full text-left bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl p-3 sm:p-4 shadow-neumorphic dark:shadow-neumorphic-dark transition-all duration-200 flex flex-col"
+                                >
+                                    {/* 2. This button handles "View Details" */}
+                                    <button
+                                        onClick={() => setSelectedClass(classItem)}
+                                        className="flex-grow flex flex-col text-left group"
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <div className="h-10 w-10 rounded-lg bg-red-500 flex items-center justify-center shadow-inner flex-shrink-0"> <BookOpenIcon className="h-5 w-5 text-white" /> </div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <h3 className="text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-100 truncate flex-1 group-hover:text-red-700 dark:group-hover:text-red-400 transition-colors">
+                                                        {classItem.name}
+                                                    </h3>
+                                                    <ChevronRightIcon className="h-4 w-4 text-slate-400 dark:text-slate-500 group-hover:translate-x-1 transition-transform" />
+                                                </div>
+                                                <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-1 truncate">{classItem.description || 'No description'}</p>
+                                            </div>
                                         </div>
-                                        <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-1 truncate">{classItem.description || 'No description'}</p>
+                                        
+                                        {/* Spacer to push footer to bottom */}
+                                        <div className="flex-grow" />
+
                                         <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
                                             <span className="text-[12px] text-slate-400 dark:text-slate-500">Taught by <span className="text-slate-700 dark:text-slate-300 font-medium">{getTeacherName(classItem)}</span></span>
                                             <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-full text-[11px]">{classItem.subject}</span>
                                         </div>
+                                    </button>
+
+                                    {/* 3. This is the new "Join Online Class" button */}
+                                    <div className="mt-3">
+                                        <button
+                                            onClick={(e) => {
+                                                if (canJoin) {
+                                                    window.open(meetLink, '_blank');
+                                                }
+                                                e.preventDefault(); // Prevent any other clicks
+                                            }}
+                                            disabled={!canJoin}
+                                            className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200
+                                                ${canJoin
+                                                    ? 'bg-red-600 text-white shadow-md hover:bg-red-700 animate-pulse' // Pulse when live
+                                                    : 'bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                                                }`}
+                                        >
+                                            <VideoCameraIcon className="h-5 w-5" />
+                                            <span>{canJoin ? 'Join Online Class' : 'Class is Offline'}</span>
+                                        </button>
                                     </div>
-                                </div>
-                            </motion.button>
-                        ))}
+                                </motion.div>
+                            );
+                        })}
                     </div>
                 )}
+                {/* --- END OF MODIFIED SECTION --- */}
             </div>
         </div>
     );

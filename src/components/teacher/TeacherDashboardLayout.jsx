@@ -11,11 +11,12 @@ import {
     IconShieldCog,
     IconPower,
 	IconChartBar,
+	
 } from '@tabler/icons-react';
 import { NavLink } from 'react-router-dom';
 
 // FIREBASE & SERVICES
-import { getDocs, writeBatch, doc, where, query, collection } from 'firebase/firestore';
+import { getDocs, writeBatch, doc, where, query, collection, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -372,6 +373,48 @@ const TeacherDashboardLayout = (props) => {
         if (distance === 2) return 1.05;
         return 1;
     };
+	// FIREBASE IMPORTS CHECK:
+	// Ensure 'updateDoc' is imported from 'firebase/firestore' along with 'doc' and 'db'.
+	// import { getDocs, writeBatch, doc, where, query, collection, updateDoc } from 'firebase/firestore'; 
+
+	const handleStartOnlineClass = async (classId, meetingCode, meetLink) => {
+		    try {
+		        // 1. Update Firestore: Mark the class as live
+		        const classRef = doc(db, 'classes', classId);
+		        await updateDoc(classRef, {
+		            videoConference: {
+		                isLive: true,
+		                meetingCode: meetingCode,
+		                platform: 'GOOGLE_MEET',
+		                startTime: new Date().toISOString(),
+		            },
+		        });
+        
+		        // 2. Notify user and open the meeting
+		        showToast(`Class ${meetingCode} is now live! Opening Google Meet...`, 'success');
+		        window.open(meetLink, '_blank');
+
+		    } catch (error) {
+		        console.error("Error starting online class:", error);
+		        showToast('Failed to start the online class due to a system error.', 'error');
+		    }
+		};
+		const handleEndOnlineClass = async (classId) => {
+		    try {
+		        const classRef = doc(db, 'classes', classId);
+		        // Clear the live status and meeting data
+		        await updateDoc(classRef, {
+		            'videoConference.isLive': false,
+		            'videoConference.meetingCode': null,
+		            'videoConference.startTime': null,
+		        });
+		        showToast('Online class successfully ended.', 'info');
+
+		    } catch (error) {
+		        console.error("Error ending online class:", error);
+		        showToast('Failed to end the online class.', 'error');
+		    }
+		};
 
     const renderMainContent = () => {
         if (loading) return <LoadingFallback />;
@@ -402,6 +445,7 @@ const TeacherDashboardLayout = (props) => {
             
             // --- H E R E   I S   T H E   F I X ---
 			case 'classes':
+				
 			    return (
                     <ClassesView 
                         key={`${reloadKey}-classes`} 
@@ -409,6 +453,8 @@ const TeacherDashboardLayout = (props) => {
                         // We must explicitly pass the props down
                         handleArchiveClass={props.handleArchiveClass} 
                         handleDeleteClass={props.handleDeleteClass}
+						handleStartOnlineClass={handleStartOnlineClass}
+						handleEndOnlineClass={handleEndOnlineClass}
                         {...rest} 
                     />
                 );

@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { useToast } from '../../contexts/ToastContext';
-import { db } from '../../services/firebase';
+// --- MODIFICATION: Removed 'functions' and 'httpsCallable' ---
+import { db } from '../../services/firebase'; 
 import { collection, addDoc } from 'firebase/firestore';
+// import { httpsCallable } from 'firebase/functions'; // No longer needed
+// --- END MODIFICATION ---
 import Modal from '../common/Modal';
 import { ChevronUpDownIcon, CheckIcon } from '@heroicons/react/24/solid';
 
 const generateClassCode = () => {
+    // ... (This function is unchanged)
     const chars = 'ABCDEFGHIJKLMNPQRSTUVWXYZ123456789';
     let result = '';
     for (let i = 0; i < 6; i++) {
@@ -14,11 +18,16 @@ const generateClassCode = () => {
     return result;
 };
 
+// --- MODIFICATION: Removed function reference ---
+// const createClassMeetLink = httpsCallable(functions, 'createClassMeetLink');
+// --- END MODIFICATION ---
+
 const CreateClassModal = ({ isOpen, onClose, teacherId, courses }) => {
     const [className, setClassName] = useState('');
     const [section, setSection] = useState('');
     const [gradeLevel, setGradeLevel] = useState('Grade 7');
     const [selectedSubjectId, setSelectedSubjectId] = useState('');
+    const [meetLink, setMeetLink] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [gradeDropdownOpen, setGradeDropdownOpen] = useState(false);
     const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
@@ -26,14 +35,34 @@ const CreateClassModal = ({ isOpen, onClose, teacherId, courses }) => {
 
     const gradeLevels = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
 
+    // --- MODIFIED: handleSubmit no longer generates link ---
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!className.trim() || !section.trim() || !gradeLevel) {
             showToast("Please fill out all fields.", "error");
             return;
         }
+
         setIsSubmitting(true);
+        let finalMeetLink = meetLink.trim(); // Get user-entered link
+
         try {
+            // 1. --- NEW VALIDATION ---
+            // Instead of generating, we make it required.
+            if (!finalMeetLink) {
+                showToast("A persistent Google Meet link is required.", "error");
+                setIsSubmitting(false);
+                return;
+            }
+            
+            // 2. Validate the manually-entered link
+            if (!finalMeetLink.startsWith("https://meet.google.com/")) {
+                showToast("Please enter a valid Google Meet URL (e.g., https://meet.google.com/xxx-yyy-zzz)", "warning");
+                setIsSubmitting(false);
+                return;
+            }
+
+            // 3. Now, create the class with the final link
             const newClassCode = generateClassCode();
             await addDoc(collection(db, "classes"), {
                 name: className,
@@ -44,23 +73,32 @@ const CreateClassModal = ({ isOpen, onClose, teacherId, courses }) => {
                 classCode: newClassCode,
                 isArchived: false,
                 subjectId: selectedSubjectId,
+                meetLink: finalMeetLink, // <-- SAVE the manually provided link
             });
+            
             showToast(`Class created successfully! Code: ${newClassCode}`, 'success');
-            onClose();
+            onClose(); // Close modal
+            
+            // Reset all fields
             setClassName('');
             setSection('');
             setSelectedSubjectId('');
+            setMeetLink('');
+            setGradeLevel('Grade 7'); 
+
         } catch (error) {
             console.error("Error creating class: ", error);
-            showToast("Failed to create class.", 'error');
+            showToast(`Failed to create class: ${error.message}`, 'error');
         } finally {
             setIsSubmitting(false);
         }
     };
+    // --- END MODIFICATION ---
 
     const inputClasses =
         "w-full p-3 mt-2 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0 placeholder:text-slate-500 dark:bg-neumorphic-base-dark dark:text-slate-100 dark:shadow-neumorphic-inset-dark dark:placeholder:text-slate-400";
-
+    
+    // ... (rest of your style definitions are unchanged)
     const dropdownBase =
         "relative mt-2 rounded-lg shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark bg-neumorphic-base dark:bg-neumorphic-base-dark cursor-pointer select-none";
 
@@ -81,6 +119,7 @@ const CreateClassModal = ({ isOpen, onClose, teacherId, courses }) => {
             contentClassName="bg-neumorphic-base dark:bg-neumorphic-base-dark"
         >
             <form onSubmit={handleSubmit} className="space-y-6 relative">
+                {/* ... (Class Name, Section, Grade, Subject fields are unchanged) ... */}
                 <div>
                     <label htmlFor="className" className="block text-sm font-semibold text-slate-700 dark:text-slate-200">
                         Class Name
@@ -196,6 +235,26 @@ const CreateClassModal = ({ isOpen, onClose, teacherId, courses }) => {
                         )}
                     </div>
                 </div>
+
+                {/* --- MODIFIED: Google Meet Link Input --- */}
+                <div>
+                    <label htmlFor="meetLink" className="block text-sm font-semibold text-slate-700 dark:text-slate-200">
+                        Google Meet Link <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                        type="url"
+                        id="meetLink"
+                        value={meetLink}
+                        onChange={(e) => setMeetLink(e.target.value)}
+                        placeholder="https://meet.google.com/xxx-yyyy-zzz"
+                        className={inputClasses}
+                        required // Added browser-level validation
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        A persistent Google Meet link is required.
+                    </p>
+                </div>
+                {/* --- END MODIFICATION --- */}
 
                 <div className="pt-4">
                     <button type="submit" disabled={isSubmitting} className={primaryButtonStyles}>

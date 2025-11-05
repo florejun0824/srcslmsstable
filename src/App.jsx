@@ -21,6 +21,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import { Capacitor } from '@capacitor/core';
 import { StatusBar } from '@capacitor/status-bar';
+import { PushNotifications } from '@capacitor/push-notifications'; // ⬅️ 1. ADD THIS IMPORT
 import { useAuth } from './contexts/AuthContext'; 
 import Spinner from './components/common/Spinner';
 import LoginPage from './pages/LoginPage';
@@ -37,6 +38,7 @@ import './index.css';
 
 const AVERAGE_BUILD_SECONDS = 300; // 5 minutes
 
+// --- AppRouter Component (Unchanged) ---
 const AppRouter = () => {
   const { userProfile, loading } = useAuth();
 
@@ -159,6 +161,8 @@ const AppRouter = () => {
     </Routes>
   );
 };
+// --- End of AppRouter Component ---
+
 
 export default function App() {
   const [buildStatus, setBuildStatus] = useState('ready');
@@ -178,6 +182,41 @@ export default function App() {
     };
     hideStatusBar();
   }, []);
+
+  // --- ⬇️ 2. ADD THIS NEW EFFECT FOR PUSH NOTIFICATIONS ⬇️ ---
+  useEffect(() => {
+    const registerPush = async () => {
+      // Only run on native platforms (Android/iOS)
+      if (!Capacitor.isNativePlatform()) {
+        return;
+      }
+
+      // 1. Check permission status
+      let permStatus = await PushNotifications.checkPermissions();
+
+      if (permStatus.receive === 'prompt') {
+        // 'prompt' means not yet asked. Show the pop-up.
+        permStatus = await PushNotifications.requestPermissions();
+      }
+
+      // 2. Handle user's decision
+      if (permStatus.receive !== 'granted') {
+        // User denied
+        console.warn('User denied notification permissions.');
+        return;
+      }
+
+      // 3. Permission is granted! Register for push.
+      // This will now trigger the listener events
+      console.log('Notification permission granted. Registering for push...');
+      await PushNotifications.register();
+    };
+
+    // Call the function
+    registerPush();
+  }, []); // Empty dependency array means this runs once on app start
+  // --- END OF NEW PUSH NOTIFICATION EFFECT ---
+
 
   // --- Service Worker Effect (Unchanged) ---
   useEffect(() => {

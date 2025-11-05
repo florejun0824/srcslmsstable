@@ -23,6 +23,9 @@ import { useToast } from '../contexts/ToastContext';
 import useQuizGamification from '../hooks/useQuizGamification'; // Adjust path if needed
 import { XP_FOR_LESSON } from '../config/gameConfig'; // Adjust path if needed
 
+// --- 1. ADDED: Import the notification setup function ---
+import { requestNotificationPermission } from '../services/firebaseMessagingSetup';
+
 import StudentDashboardUI from './StudentDashboardUI';
 import JoinClassModal from '../components/student/JoinClassModal';
 import ViewQuizModal from '../components/teacher/ViewQuizModal';
@@ -88,6 +91,18 @@ const StudentDashboard = () => {
   const [quizToTake, setQuizToTake] = useState(null);
   const [lessonToView, setLessonToView] = useState(null);
   const isFirstContentLoad = useRef(true);
+
+  // --- 2. ADDED: Effect to request notification permission ---
+  useEffect(() => {
+    // Only run if auth is loaded and we have a user ID
+    if (!authLoading && userProfile?.id) {
+      // We pass the user's ID to the function so it knows
+      // which user document to save the token to.
+      requestNotificationPermission(userProfile.id);
+    }
+  }, [authLoading, userProfile?.id]); // Runs once when auth is ready
+  // --- END ADDITION ---
+
 
   //
   // 1) Listen for classes

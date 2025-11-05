@@ -7,16 +7,7 @@ import AntiCheatPlugin from '../plugins/AntiCheatPlugin'; // Adjust path if need
 /**
  * A custom hook to encapsulate all anti-cheat logic for the quiz.
  * @param {object} params
- * @param {boolean} params.isOpen - Whether the quiz modal is open.
- * @param {boolean} params.isTeacherView - Disables anti-cheat for teachers.
- * @param {object} params.quizSettings - The quiz.settings object.
- * @param {boolean} params.isLocked - Whether the quiz is locked.
- * @param {number|null} params.score - The current score (null if in progress).
- * @param {boolean} params.hasSubmitted - Whether the user has submitted this attempt.
- * @param {boolean} params.isInfractionActive - Whether an infraction is currently detected.
- * @param {function} params.setIsInfractionActive - Setter for infraction state.
- * @param {function} params.issueWarning - Function to call to issue a warning.
- * @param {function} params.showToast - Function to show a toast message.
+// ... (rest of JSDoc comments remain the same)
  */
 export default function useQuizAntiCheat({
     isOpen,
@@ -36,10 +27,47 @@ export default function useQuizAntiCheat({
     const warnOnPaste = quizSettings?.warnOnPaste ?? false;
     const detectDevTools = quizSettings?.detectDevTools ?? false;
 
+    // 🟢 NEW: Native Plugin Enable/Disable Control (Fixes the recurring toast)
+    useEffect(() => {
+        // Only run on native Android/iOS and when not in teacher view
+        if (!Capacitor.isNativePlatform() || isTeacherView) return;
+
+        const toggleNativeAntiCheat = async () => {
+            // Anti-cheat should be ON only if the modal is OPEN and the quiz is IN PROGRESS
+            const shouldBeActive = isOpen && !isLocked && score === null && !hasSubmitted;
+            
+            try {
+                if (shouldBeActive) {
+                    // This calls the enableAntiCheat method added to your AntiCheatPlugin.java
+                    await AntiCheatPlugin.enableAntiCheat();
+                    console.log("Native AntiCheat: ENABLED");
+                } else {
+                    // This calls the disableAntiCheat method added to your AntiCheatPlugin.java
+                    await AntiCheatPlugin.disableAntiCheat();
+                    console.log("Native AntiCheat: DISABLED");
+                }
+            } catch (e) {
+                // Ignore if the plugin is not found or not built correctly
+                console.error("Failed to toggle native anti-cheat plugin:", e);
+            }
+        };
+
+        toggleNativeAntiCheat();
+
+        // Cleanup: Ensure it is disabled when the component unmounts
+        return () => {
+            if (Capacitor.isNativePlatform() && !isTeacherView) {
+                AntiCheatPlugin.disableAntiCheat().catch(e => console.error("Error disabling native anti-cheat on unmount", e));
+            }
+        };
+    }, [isOpen, isTeacherView, isLocked, score, hasSubmitted]);
+    // -----------------------------------------------------------------------
+
     // App State Change Listener (Native)
     useEffect(() => {
         let listener;
         if (isOpen && Capacitor.isNativePlatform() && !isTeacherView && lockOnLeave && !isLocked && !hasSubmitted) {
+// ... (rest of App State Change Listener remains the same)
             listener = App.addListener('appStateChange', ({ isActive }) => {
                 if (!isActive) {
                     setIsInfractionActive(true);
@@ -54,6 +82,7 @@ export default function useQuizAntiCheat({
 
     // Unified Anti-Cheat (Plugin, AppState, Native Bridge Fallback)
     useEffect(() => {
+// ... (rest of Unified Anti-Cheat remains the same)
         if (!Capacitor.isNativePlatform() || isTeacherView || !lockOnLeave) return;
 
         const canWarn = () => isOpen && !isLocked && !hasSubmitted && lockOnLeave;
@@ -102,6 +131,7 @@ export default function useQuizAntiCheat({
 
     // Strict Overlay Detection (Native Bridge)
     useEffect(() => {
+// ... (rest of Strict Overlay Detection remains the same)
         if (!Capacitor.isNativePlatform() || isTeacherView || !lockOnLeave) return;
 
         const canWarn = () => isOpen && !isLocked && !hasSubmitted && lockOnLeave;
@@ -113,6 +143,7 @@ export default function useQuizAntiCheat({
 
     // Web Blur/Focus Listeners
     useEffect(() => {
+// ... (rest of Web Blur/Focus Listeners remains the same)
         if (Capacitor.isNativePlatform() || isTeacherView || !lockOnLeave) return;
 
         const canWarn = () => isOpen && !isLocked && !hasSubmitted && lockOnLeave;
@@ -130,6 +161,7 @@ export default function useQuizAntiCheat({
 
     // Visibility Change Listener (Web/Mobile Web)
     useEffect(() => {
+// ... (rest of Visibility Change Listener remains the same)
         if (Capacitor.isNativePlatform() || isTeacherView || !lockOnLeave) return;
 
         const canWarn = () => isOpen && !isLocked && !hasSubmitted && lockOnLeave;
@@ -144,6 +176,7 @@ export default function useQuizAntiCheat({
 
     // Continuous Warning Timer (When Infraction Active)
     useEffect(() => {
+// ... (rest of Continuous Warning Timer remains the same)
         let warningInterval = null;
         const canIssueWarning = isOpen && !isTeacherView && !isLocked && !hasSubmitted && lockOnLeave;
         
@@ -162,6 +195,7 @@ export default function useQuizAntiCheat({
 
     // Before Unload Listener (Web)
     useEffect(() => {
+// ... (rest of Before Unload Listener remains the same)
         if (Capacitor.isNativePlatform() || isTeacherView || !lockOnLeave) return;
 
         const handleBeforeUnload = (event) => {
@@ -179,6 +213,7 @@ export default function useQuizAntiCheat({
 
     // Privacy Screen
     useEffect(() => {
+// ... (rest of Privacy Screen remains the same)
         const setPrivacyScreen = async () => {
             if (Capacitor.isNativePlatform()) {
                 try {
@@ -204,6 +239,7 @@ export default function useQuizAntiCheat({
 
     // Clipboard/DevTools Listeners
     useEffect(() => {
+// ... (rest of Clipboard/DevTools Listeners remains the same)
         if (isTeacherView || !isOpen || score !== null || isLocked || hasSubmitted) return;
 
         const handleClipboardAction = (e) => {
