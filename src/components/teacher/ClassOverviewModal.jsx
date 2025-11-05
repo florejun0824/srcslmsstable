@@ -1004,19 +1004,28 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             }
 
             return (
-                 <div className="space-y-3 pr-2 max-h-full overflow-y-auto custom-scrollbar">
-                    {(freshStudentData.length > 0) ? (
-                        <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark p-1">
-                            {/* --- MODIFIED: Map over freshStudentData --- */}
-                            {freshStudentData.map(student => (
-                                <ListItem key={student.id} isChecked={false}>
-                                    <div className="flex items-center gap-2 sm:gap-4">
-                                        <div className="w-10 h-10 rounded-full flex-shrink-0">
-                                            {/* --- MODIFIED: Pass fresh student object --- */}
-                                            <UserInitialsAvatar user={student} size="w-10 h-10" />
-                                        </div>
-                                        <div>
-                                            {/* --- MODIFIED: Use fresh student names --- */}
+				                 <div className="space-y-3 pr-2 max-h-full overflow-y-auto custom-scrollbar">
+				                    {(freshStudentData.length > 0) ? (
+				                        <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark p-1">
+				                            {/* --- MODIFIED: Map over freshStudentData --- */}
+				                            {freshStudentData.map(student => (
+		<ListItem key={student.id} isChecked={false}>
+		                                    <div className="flex items-center gap-2 sm:gap-4">
+		                                        {/* MODIFIED: 
+		                                          1. This parent div now controls the responsive size.
+		                                             It's w-8 h-8 (32px) on mobile, and w-10 h-10 (40px) on desktop.
+		                                          2. overflow-hidden clips the avatar inside.
+		                                        */}
+		                                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex-shrink-0 overflow-hidden">
+		                                            {/* MODIFIED: 
+		                                              1. Pass size="full". The avatar component will see this
+		                                                 and apply its internal "w-full h-full" classes,
+		                                                 making it fill the parent div perfectly.
+		                                            */}
+		                                            <UserInitialsAvatar user={student} size="full" />
+		                                        </div>
+		                                        <div>
+				                                            {/* --- MODIFIED: Use fresh student names --- */}
                                             <p className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">{student.lastName || '[N/A]'}, {student.firstName || '[N/A]'}</p>
                                             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">ID: {student.id}</p>
                                         </div>

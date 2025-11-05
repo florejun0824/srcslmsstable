@@ -8,8 +8,6 @@ const Modal = ({
   title,
   description,
   children,
-  footer, 
-  onSubmit, 
   size = 'md',
   roundedClass = 'rounded-3xl',
   containerClassName = '',
@@ -19,14 +17,8 @@ const Modal = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        // --- MODIFIED THIS LINE ---
-        // Was: `... p-4 ${containerClassName}`
-        // Now: `... p-4 pb-24 md:pb-4 ${containerClassName}`
-        // This adds 6rem (96px) of padding to the bottom on mobile,
-        // pushing the modal up to clear the nav bar.
-        // It resets to p-4 (1rem) on medium screens (md:) and larger.
         <div
-          className={`fixed inset-0 z-[100] flex items-center justify-center p-4 pb-24 md:pb-4 ${containerClassName}`}
+          className={`fixed inset-0 z-[100] flex items-center justify-center p-4 ${containerClassName}`}
         >
           {/* Backdrop */}
           <motion.div
@@ -37,18 +29,20 @@ const Modal = ({
             className="absolute inset-0 bg-black/30 backdrop-blur-sm"
             onClick={onClose}
           />
-          
-          <motion.form
-            onSubmit={onSubmit} 
+
+          {/* Modal Panel */}
+          {/* --- MODIFIED: Added dark mode classes for bg and shadow --- */}
+          <motion.div
             initial={{ scale: 0.9, opacity: 0, y: 30 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 30 }}
             transition={{ type: 'spring', stiffness: 260, damping: 25 }}
-            className={`relative w-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark flex flex-col ${roundedClass} ${sizeClasses[size]} max-h-[95vh]`}
+            className={`relative w-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark flex flex-col ${roundedClass} ${sizeClasses[size]}`}
           >
             {/* Header Area */}
             {(title || showCloseButton) && (
-              <div className="text-center p-6 pb-4 relative border-b border-gray-200 dark:border-slate-700 flex-shrink-0">
+              // --- MODIFIED: Added dark mode classes for border, title, and description ---
+              <div className="text-center p-6 pb-4 relative border-b border-gray-200 dark:border-slate-700">
                 <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{title}</h3>
                 {description && (
                   <p className="mt-2 text-slate-500 dark:text-slate-400">{description}</p>
@@ -56,8 +50,8 @@ const Modal = ({
 
                 {showCloseButton && (
                   <button
-                    type="button" 
                     onClick={onClose}
+                    // --- MODIFIED: Added dark mode classes for button bg, shadow, and icon ---
                     className="absolute top-4 right-4 p-2 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark transition-all hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark"
                     aria-label="Close modal"
                   >
@@ -67,18 +61,11 @@ const Modal = ({
               </div>
             )}
 
-            {/* Content Area (Scrollable) */}
-            <div className={`p-6 overflow-y-auto ${contentClassName}`}>
+            {/* Content Area */}
+            <div className={`p-8 overflow-y-auto ${contentClassName}`}>
               {children}
             </div>
-
-            {/* Footer Area (Sticky) */}
-            {footer && (
-              <div className="p-6 pt-4 border-t border-gray-200 dark:border-slate-700 flex-shrink-0">
-                {footer}
-              </div>
-            )}
-          </motion.form>
+          </motion.div>
         </div>
       )}
     </AnimatePresence>

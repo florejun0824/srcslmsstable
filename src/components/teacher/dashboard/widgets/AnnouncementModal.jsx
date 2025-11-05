@@ -608,11 +608,11 @@ const AnnouncementModal = ({
                   commentReactions[comment.id]?.[currentUserId]
 
                 return (
-                  <div key={comment.id} className="flex items-start space-x-3">
-                    <div className="w-8 h-8 flex-shrink-0 mt-1">
+                  <div key={comment.id} className="flex items-start space-x-4">
+                    <div className="w-9 h-9 flex-shrink-0 mt-2">
                       <UserInitialsAvatar
                         user={usersMap[comment.userId]}
-                        size="w-8 h-8 text-sm leading-none"
+                        size="w-6 h-6 text-xs leading-none"
                       />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -735,12 +735,12 @@ const AnnouncementModal = ({
                         return (
                           <div
                             key={reply.id}
-                            className="flex items-start space-x-3 mt-2"
+                            className="flex items-start space-x-4 mt-2"
                           >
-                            <div className="w-7 h-7 flex-shrink-0 mt-1">
+                            <div className="w-5 h-5 flex-shrink-0 mt-2">
                               <UserInitialsAvatar
                                 user={usersMap[reply.userId]}
-                                size="w-7 h-7 text-xs leading-none"
+                                size="w-4 h-4 text-3xs leading-none"
                               />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -895,11 +895,11 @@ const AnnouncementModal = ({
                 </button>
               </div>
             )}
-            <div className="flex items-start space-x-3">
-              <div className="w-8 h-8 flex-shrink-0">
+            <div className="flex items-start space-x-4">
+              <div className="w-10 h-10 flex-shrink-0">
                 <UserInitialsAvatar
                   user={userProfile}
-                  size="w-8 h-8 text-sm leading-none"
+                  size="w-6 h-6 text-sm leading-none"
                 />
               </div>
               <div className="relative flex-grow">
@@ -927,7 +927,7 @@ const AnnouncementModal = ({
                   >
                     <FaPaperPlane
                       // --- MODIFIED: Added dark mode classes ---
-                      className={`w-4 h-4 transition-colors ${
+                      className={`w-5 h-5 transition-colors ${
                         newCommentText.trim() ? 'text-sky-600 dark:text-sky-400' : 'text-slate-400 dark:text-slate-500'
                       }`}
                     />
