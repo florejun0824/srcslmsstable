@@ -505,18 +505,19 @@ const StudentDashboardUI = ({
                             className="w-10 h-10 rounded-full"
                           />
                         </div>
-                        {/* --- MODIFIED: Themed text --- */}
-                        <span className="font-extrabold text-lg sm:text-xl text-slate-800 dark:text-slate-100">
+                        {/* --- MODIFICATION 1: Reduced text-lg to text-base --- */}
+                        <span className="font-extrabold text-base sm:text-xl text-slate-800 dark:text-slate-100">
                           <span className="sm:hidden">SRCS LMS</span>
                           <span className="hidden sm:inline">SRCS LMS</span>
                         </span>
                       </div>
-                      <div className="flex items-center gap-4 relative">
+                      {/* --- Original gap-2 from previous step is fine --- */}
+                      <div className="flex items-center gap-2 relative">
                             <ThemeToggle />
                         <InstallPWA />
-                        {/* --- MODIFIED: Themed Join Class Button --- */}
-                        <button onClick={() => setJoinClassModalOpen(true)} className="flex items-center justify-center gap-2 bg-neumorphic-base dark:bg-neumorphic-base-dark text-red-600 dark:text-red-400 font-semibold border-none rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all duration-300 ease-in-out transform hover:scale-[1.03] py-2.5 px-4">
-                          <PlusCircleIcon className="h-5 w-5" /> <span>Join Class</span>
+                        {/* --- MODIFICATION 2: Removed icon, changed text-sm to text-xs, px-3 to px-2.5 --- */}
+                        <button onClick={() => setJoinClassModalOpen(true)} className="flex items-center justify-center bg-neumorphic-base dark:bg-neumorphic-base-dark text-red-600 dark:text-red-400 font-semibold border-none rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all duration-300 ease-in-out transform hover:scale-[1.03] py-2 px-2.5 text-xs">
+                          <span>Join Class</span>
                         </button>
                         {userProfile && (
                           <div ref={profileMenuRef}>

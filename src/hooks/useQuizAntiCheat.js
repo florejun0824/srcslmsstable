@@ -22,10 +22,19 @@ export default function useQuizAntiCheat({
     showToast
 }) {
 
-    const lockOnLeave = quizSettings?.lockOnLeave ?? false;
-    const preventScreenCapture = quizSettings?.preventScreenCapture ?? false;
-    const warnOnPaste = quizSettings?.warnOnPaste ?? false;
-    const detectDevTools = quizSettings?.detectDevTools ?? false;
+    // --- ⬇⬇⬇ START OF FIX ⬇⬇⬇ ---
+
+    // 1. Determine if anti-cheat is globally enabled for this quiz.
+    const isAntiCheatEnabled = quizSettings?.enabled ?? false;
+
+    // 2. Gate ALL feature flags by this main setting.
+    // If isAntiCheatEnabled is false, all these consts will also be false.
+    const lockOnLeave = isAntiCheatEnabled && (quizSettings?.lockOnLeave ?? false);
+    const preventScreenCapture = isAntiCheatEnabled && (quizSettings?.preventScreenCapture ?? false);
+    const warnOnPaste = isAntiCheatEnabled && (quizSettings?.warnOnPaste ?? false);
+    const detectDevTools = isAntiCheatEnabled && (quizSettings?.detectDevTools ?? false);
+
+    // --- ⬆⬆⬆ END OF FIX ⬆⬆⬆ ---
 
     // 🟢 NEW: Native Plugin Enable/Disable Control (Fixes the recurring toast)
     useEffect(() => {
@@ -33,8 +42,11 @@ export default function useQuizAntiCheat({
         if (!Capacitor.isNativePlatform() || isTeacherView) return;
 
         const toggleNativeAntiCheat = async () => {
-            // Anti-cheat should be ON only if the modal is OPEN and the quiz is IN PROGRESS
-            const shouldBeActive = isOpen && !isLocked && score === null && !hasSubmitted;
+            
+            // --- ⬇⬇⬇ MODIFIED LINE ⬇⬇⬇ ---
+            // 3. This check must also respect the global flag.
+            const shouldBeActive = isOpen && !isLocked && score === null && !hasSubmitted && isAntiCheatEnabled;
+            // --- ⬆⬆⬆ MODIFIED LINE ⬆⬆⬆ ---
             
             try {
                 if (shouldBeActive) {
@@ -60,12 +72,15 @@ export default function useQuizAntiCheat({
                 AntiCheatPlugin.disableAntiCheat().catch(e => console.error("Error disabling native anti-cheat on unmount", e));
             }
         };
-    }, [isOpen, isTeacherView, isLocked, score, hasSubmitted]);
+    // --- ⬇⬇⬇ MODIFIED DEPENDENCY ⬇⬇⬇ ---
+    }, [isOpen, isTeacherView, isLocked, score, hasSubmitted, isAntiCheatEnabled]); // 4. Add isAntiCheatEnabled
+    // --- ⬆⬆⬆ MODIFIED DEPENDENCY ⬆⬆⬆ ---
     // -----------------------------------------------------------------------
 
     // App State Change Listener (Native)
     useEffect(() => {
         let listener;
+        // This hook is now correct because `lockOnLeave` will be false if `isAntiCheatEnabled` is false.
         if (isOpen && Capacitor.isNativePlatform() && !isTeacherView && lockOnLeave && !isLocked && !hasSubmitted) {
 // ... (rest of App State Change Listener remains the same)
             listener = App.addListener('appStateChange', ({ isActive }) => {
@@ -83,6 +98,7 @@ export default function useQuizAntiCheat({
     // Unified Anti-Cheat (Plugin, AppState, Native Bridge Fallback)
     useEffect(() => {
 // ... (rest of Unified Anti-Cheat remains the same)
+        // This hook is now correct because `lockOnLeave` will be false if `isAntiCheatEnabled` is false.
         if (!Capacitor.isNativePlatform() || isTeacherView || !lockOnLeave) return;
 
         const canWarn = () => isOpen && !isLocked && !hasSubmitted && lockOnLeave;
@@ -132,6 +148,7 @@ export default function useQuizAntiCheat({
     // Strict Overlay Detection (Native Bridge)
     useEffect(() => {
 // ... (rest of Strict Overlay Detection remains the same)
+        // This hook is now correct because `lockOnLeave` will be false if `isAntiCheatEnabled` is false.
         if (!Capacitor.isNativePlatform() || isTeacherView || !lockOnLeave) return;
 
         const canWarn = () => isOpen && !isLocked && !hasSubmitted && lockOnLeave;
@@ -144,6 +161,7 @@ export default function useQuizAntiCheat({
     // Web Blur/Focus Listeners
     useEffect(() => {
 // ... (rest of Web Blur/Focus Listeners remains the same)
+        // This hook is now correct because `lockOnLeave` will be false if `isAntiCheatEnabled` is false.
         if (Capacitor.isNativePlatform() || isTeacherView || !lockOnLeave) return;
 
         const canWarn = () => isOpen && !isLocked && !hasSubmitted && lockOnLeave;
@@ -162,6 +180,7 @@ export default function useQuizAntiCheat({
     // Visibility Change Listener (Web/Mobile Web)
     useEffect(() => {
 // ... (rest of Visibility Change Listener remains the same)
+        // This hook is now correct because `lockOnLeave` will be false if `isAntiCheatEnabled` is false.
         if (Capacitor.isNativePlatform() || isTeacherView || !lockOnLeave) return;
 
         const canWarn = () => isOpen && !isLocked && !hasSubmitted && lockOnLeave;
@@ -177,6 +196,7 @@ export default function useQuizAntiCheat({
     // Continuous Warning Timer (When Infraction Active)
     useEffect(() => {
 // ... (rest of Continuous Warning Timer remains the same)
+        // This hook is now correct because `lockOnLeave` will be false if `isAntiCheatEnabled` is false.
         let warningInterval = null;
         const canIssueWarning = isOpen && !isTeacherView && !isLocked && !hasSubmitted && lockOnLeave;
         
@@ -196,6 +216,7 @@ export default function useQuizAntiCheat({
     // Before Unload Listener (Web)
     useEffect(() => {
 // ... (rest of Before Unload Listener remains the same)
+        // This hook is now correct because `lockOnLeave` will be false if `isAntiCheatEnabled` is false.
         if (Capacitor.isNativePlatform() || isTeacherView || !lockOnLeave) return;
 
         const handleBeforeUnload = (event) => {
@@ -214,6 +235,7 @@ export default function useQuizAntiCheat({
     // Privacy Screen
     useEffect(() => {
 // ... (rest of Privacy Screen remains the same)
+        // This hook is now correct because `preventScreenCapture` will be false if `isAntiCheatEnabled` is false.
         const setPrivacyScreen = async () => {
             if (Capacitor.isNativePlatform()) {
                 try {
@@ -240,6 +262,7 @@ export default function useQuizAntiCheat({
     // Clipboard/DevTools Listeners
     useEffect(() => {
 // ... (rest of Clipboard/DevTools Listeners remains the same)
+        // This hook is now correct because `warnOnPaste` and `detectDevTools` will be false if `isAntiCheatEnabled` is false.
         if (isTeacherView || !isOpen || score !== null || isLocked || hasSubmitted) return;
 
         const handleClipboardAction = (e) => {

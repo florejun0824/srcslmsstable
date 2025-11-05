@@ -13,20 +13,7 @@ import {
 } from '@heroicons/react/24/solid';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const SegmentButton = ({ label, filterName }) => (
-    <button
-        onClick={() => setQuizFilter(filterName)}
-        className={`flex-1 capitalize py-2 px-3 text-sm font-semibold rounded-xl transition-all duration-300 
-                    ${quizFilter === filterName 
-                        // --- Themed active state ---
-                        ? 'bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-red-600 dark:text-red-400' 
-                        // --- Themed inactive state ---
-                        : 'text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'}`}
-    >
-        {label}
-    </button>
-);
-
+// EmptyState Component
 const EmptyState = ({ icon: Icon, text, subtext }) => (
     // --- Themed EmptyState ---
     <div className="text-center py-20 px-4">
@@ -36,6 +23,7 @@ const EmptyState = ({ icon: Icon, text, subtext }) => (
     </div>
 );
 
+// QuizListItem Component
 const QuizListItem = ({ quiz, onClick }) => {
     const maxAttempts = quiz.settings?.maxAttempts ?? 3;
     const hasAttemptsLeft =
@@ -103,124 +91,105 @@ const QuizListItem = ({ quiz, onClick }) => {
     );
 };
 
-const GroupedQuizList = ({ quizzesToDisplay, onQuizClick, emptyStateProps, units }) => {
-    
-    // --- FIX: Grouping logic is memoized ---
-    const quizzesByClassAndUnit = useMemo(() => {
-        return quizzesToDisplay.reduce((acc, quiz) => {
-            const className = quiz.className || 'General';
-            const unitName = (units.find(u => u.id === quiz.unitId)?.title) || 'Uncategorized';
+// GroupedQuizList Component (Now receives state from parent)
+const GroupedQuizList = ({
+    onQuizClick,
+    emptyStateProps,
+    quizzesByPostAndUnit, // <-- NEW: Receives pre-grouped data
+    collapsedGroups,      // <-- NEW: Receives collapse state
+    toggleUnitCollapse    // <-- NEW: Receives toggle function
+}) => {
 
-            if (!acc[className]) acc[className] = {};
-            if (!acc[className][unitName]) acc[className][unitName] = [];
-            
-            acc[className][unitName].push(quiz);
-            return acc;
-        }, {});
-    }, [quizzesToDisplay, units]);
-
-    // --- FIX: Create the initial set of ALL collapsed groups ---
-    const initialCollapsedSet = useMemo(() => {
-        const allGroupKeys = new Set();
-        for (const className in quizzesByClassAndUnit) {
-            for (const unitName in quizzesByClassAndUnit[className]) {
-                allGroupKeys.add(`${className}-${unitName}`);
-            }
-        }
-        return allGroupKeys;
-    }, [quizzesByClassAndUnit]);
-
-    // --- FIX: Initialize state with all groups collapsed ---
-    const [collapsedGroups, setCollapsedGroups] = useState(initialCollapsedSet);
-    
-    // --- FIX: Reset the collapsed state when the filter (and thus initialCollapsedSet) changes ---
-    useEffect(() => {
-        setCollapsedGroups(initialCollapsedSet);
-    }, [initialCollapsedSet]);
-
-    const sortedClassNames = Object.keys(quizzesByClassAndUnit).sort();
-
-    const toggleUnitCollapse = (groupKey) => {
-        setCollapsedGroups(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(groupKey)) newSet.delete(groupKey);
-            else newSet.add(groupKey);
-            return newSet;
+    // --- MODIFIED: Sort by post creation time, just like the modal ---
+    const sortedPostTitles = useMemo(() => {
+        return Object.keys(quizzesByPostAndUnit).sort((a, b) => {
+            const postA = quizzesByPostAndUnit[a];
+            const postB = quizzesByPostAndUnit[b];
+            const timeA = postA.postCreatedAt?.toDate ? postA.postCreatedAt.toDate().getTime() : 0;
+            const timeB = postB.postCreatedAt?.toDate ? postB.postCreatedAt.toDate().getTime() : 0;
+            return timeA - timeB; // Sort ascending
         });
-    };
+    }, [quizzesByPostAndUnit]);
+    // --- END MODIFICATION ---
 
-    if (quizzesToDisplay.length === 0) {
+    if (sortedPostTitles.length === 0) {
         return <EmptyState {...emptyStateProps} />;
     }
 
     return (
         <div className="space-y-6">
-            {sortedClassNames.map(className => (
-                <div key={className}>
-                    <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2 px-2">{className}</h2>
-                    <div className="space-y-2">
-                        {Object.keys(quizzesByClassAndUnit[className])
-                            .sort((a, b) => {
-                                const numA = parseInt(a.match(/\d+/)?.[0] || 0, 10);
-                                const numB = parseInt(b.match(/\d+/)?.[0] || 0, 10);
-                                return numA - numB;
-                            })
-                            .map(unitName => {
-                                const groupKey = `${className}-${unitName}`;
-                                const isCollapsed = collapsedGroups.has(groupKey); // This line checks the state
-                                return (
-                                    <div
-                                        key={groupKey}
-                                        className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark overflow-hidden"
-                                    >
-                                        <button
-                                            className="w-full flex justify-between items-center p-2.5 text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 transition-all"
-                                            onClick={() => toggleUnitCollapse(groupKey)}
+            {/* --- MODIFIED: Map over sortedPostTitles --- */}
+            {sortedPostTitles.map(postTitle => {
+                const postData = quizzesByPostAndUnit[postTitle];
+                const unitsInPost = postData.units;
+                return (
+                    <div key={postTitle}>
+                        {/* --- MODIFIED: Use postTitle for heading --- */}
+                        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2 px-2">{postTitle}</h2>
+                        <div className="space-y-2">
+                            {/* --- MODIFIED: Map over unitsInPost --- */}
+                            {Object.keys(unitsInPost)
+                                .sort((a, b) => {
+                                    const numA = parseInt(a.match(/\d+/)?.[0] || 0, 10);
+                                    const numB = parseInt(b.match(/\d+/)?.[0] || 0, 10);
+                                    return numA - numB;
+                                })
+                                .map(unitName => {
+                                    // --- MODIFIED: Use postTitle for groupKey ---
+                                    const groupKey = `${postTitle}-${unitName}`;
+                                    const isCollapsed = collapsedGroups.has(groupKey);
+                                    return (
+                                        <div
+                                            key={groupKey}
+                                            className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark overflow-hidden"
                                         >
-                                            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-200 text-left">{unitName}</h3>
-                                            {/* --- Icon changes based on collapsed state --- */}
-                                            {isCollapsed ? (
-                                                <ChevronDownIcon className="h-5 w-5 text-slate-400 dark:text-slate-500" />
-                                            ) : (
-                                                <ChevronUpIcon className="h-5 w-5 text-slate-400 dark:text-slate-500" />
-                                            )}
-                                        </button>
-                                        <AnimatePresence>
-                                            {/* --- Renders only if NOT collapsed --- */}
-                                            {!isCollapsed && (
-                                                <motion.div
-                                                    initial={{ height: 0, opacity: 0 }}
-                                                    animate={{ height: 'auto', opacity: 1 }}
-                                                    exit={{ height: 0, opacity: 0 }}
-                                                    transition={{ duration: 0.2, ease: 'easeInOut' }}
-                                                    className="overflow-hidden"
-                                                >
-                                                    <div className='p-2 space-y-1'>
-                                                        {quizzesByClassAndUnit[className][unitName].map(quiz => (
-                                                            <QuizListItem
-                                                                key={quiz.id}
-                                                                quiz={quiz}
-                                                                onClick={() => onQuizClick(quiz)}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                );
-                            })}
+                                            <button
+                                                className="w-full flex justify-between items-center p-2.5 text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 transition-all"
+                                                onClick={() => toggleUnitCollapse(groupKey)}
+                                            >
+                                                <h3 className="text-sm font-medium text-slate-700 dark:text-slate-200 text-left">{unitName}</h3>
+                                                {isCollapsed ? (
+                                                    <ChevronDownIcon className="h-5 w-5 text-slate-400 dark:text-slate-500" />
+                                                ) : (
+                                                    <ChevronUpIcon className="h-5 w-5 text-slate-400 dark:text-slate-500" />
+                                                )}
+                                            </button>
+                                            <AnimatePresence>
+                                                {!isCollapsed && (
+                                                    <motion.div
+                                                        initial={{ height: 0, opacity: 0 }}
+                                                        animate={{ height: 'auto', opacity: 1 }}
+                                                        exit={{ height: 0, opacity: 0 }}
+                                                        transition={{ duration: 0.2, ease: 'easeInOut' }}
+                                                        className="overflow-hidden"
+                                                    >
+                                                        <div className='p-2 space-y-1'>
+                                                            {/* --- MODIFIED: Map quizzes from unitsInPost --- */}
+                                                            {unitsInPost[unitName].map(quiz => (
+                                                                <QuizListItem
+                                                                    key={quiz.id}
+                                                                    quiz={quiz}
+                                                                    onClick={() => onQuizClick(quiz)}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
+                                    );
+                                })}
+                        </div>
                     </div>
-                </div>
-            ))}
+                );
+            })}
         </div>
     );
 };
 
-
+// Main Component
 const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingContent }) => {
     const [quizFilter, setQuizFilter] = useState('active');
-    // const [allCollapsed, setAllCollapsed] = useState(true); // This state is now managed inside GroupedQuizList
 
     const onQuizClick = (quiz) => {
         const maxAttempts = quiz.settings?.maxAttempts ?? 3;
@@ -243,34 +212,66 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
         </button>
     );
     
-    // Logic to calculate if all groups are collapsed (for toggle button)
-    const calculateAllCollapsed = (quizzesToDisplay, currentCollapsedSet) => {
-        const uniqueGroups = new Set();
-        quizzesToDisplay.forEach(quiz => {
-            const className = quiz.className || 'General';
+    // --- MODIFIED: All grouping and collapse logic is lifted here ---
+    const quizzesToDisplay = quizzes[quizFilter] || [];
+
+    const quizzesByPostAndUnit = useMemo(() => {
+        return (quizzesToDisplay || []).reduce((acc, quiz) => {
+            const postTitle = quiz.postTitle || 'General Posts';
+            const postCreatedAt = quiz.postCreatedAt || null;
             const unitName = (units.find(u => u.id === quiz.unitId)?.title) || 'Uncategorized';
-            uniqueGroups.add(`${className}-${unitName}`);
+            
+            if (!acc[postTitle]) {
+                acc[postTitle] = { postCreatedAt: postCreatedAt, units: {} };
+            }
+            if (!acc[postTitle].units[unitName]) {
+                acc[postTitle].units[unitName] = [];
+            }
+            
+            acc[postTitle].units[unitName].push(quiz);
+            return acc;
+        }, {});
+    }, [quizzesToDisplay, units]);
+
+    const initialCollapsedSet = useMemo(() => {
+        const allGroupKeys = new Set();
+        for (const postTitle in quizzesByPostAndUnit) {
+            for (const unitName in quizzesByPostAndUnit[postTitle].units) {
+                allGroupKeys.add(`${postTitle}-${unitName}`);
+            }
+        }
+        return allGroupKeys;
+    }, [quizzesByPostAndUnit]);
+
+    const [collapsedGroups, setCollapsedGroups] = useState(initialCollapsedSet);
+    
+    useEffect(() => {
+        setCollapsedGroups(initialCollapsedSet);
+    }, [initialCollapsedSet]);
+
+    const toggleUnitCollapse = (groupKey) => {
+        setCollapsedGroups(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(groupKey)) newSet.delete(groupKey);
+            else newSet.add(groupKey);
+            return newSet;
         });
-        
-        if (uniqueGroups.size === 0) return true; // Empty list is considered "collapsed"
-        return Array.from(uniqueGroups).every(key => currentCollapsedSet.has(key));
     };
+    
+    const allAreCollapsed = initialCollapsedSet.size === 0 || 
+                          (initialCollapsedSet.size === collapsedGroups.size && 
+                           Array.from(initialCollapsedSet).every(key => collapsedGroups.has(key)));
 
     const toggleAll = () => {
-        const quizzesToDisplay = quizzes[quizFilter] || [];
-        const groups = quizzesToDisplay.reduce((acc, quiz) => {
-            const className = quiz.className || 'General';
-            const unitName = (units.find(u => u.id === quiz.unitId)?.title) || 'Uncategorized';
-            acc.add(`${className}-${unitName}`);
-            return acc;
-        }, new Set());
-
-        // This is complex because GroupedQuizList manages its own collapse state.
-        // We'll rely on the GroupedQuizList to handle the rendering, but the button should trigger the full collapse logic.
-        // For simplicity, we just trigger the full list render state change, which will cascade.
+        if (allAreCollapsed) {
+            setCollapsedGroups(new Set()); // Expand all
+        } else {
+            setCollapsedGroups(initialCollapsedSet); // Collapse all
+        }
     };
+    // --- END OF LIFTED LOGIC ---
 
-    const quizzesToDisplay = quizzes[quizFilter] || [];
+
     const emptyStateProps = {
         active: {
             icon: ClipboardDocumentCheckIcon,
@@ -302,12 +303,13 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
                     </div>
                     {quizzesToDisplay.length > 0 && (
                         <button
-                            // Temporarily remove toggleAll which is tricky due to nested state
-                            onClick={() => {/* no-op */}} 
+                            // --- MODIFIED: onClick and text are now functional ---
+                            onClick={toggleAll} 
                             className="px-3 py-1.5 text-sm rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark text-red-600 dark:text-red-400 font-semibold transition-all"
                         >
-                            Toggle All
+                            {allAreCollapsed ? 'Expand All' : 'Collapse All'}
                         </button>
+                        // --- END MODIFICATION ---
                     )}
                 </div>
 
@@ -334,12 +336,15 @@ const StudentQuizzesTab = ({ quizzes, units, handleTakeQuizClick, isFetchingCont
                         )}
                     </AnimatePresence>
 
+                    {/* --- MODIFIED: Pass new props to GroupedQuizList --- */}
                     <GroupedQuizList
-                        quizzesToDisplay={quizzesToDisplay}
                         onQuizClick={onQuizClick}
                         emptyStateProps={emptyStateProps}
-                        units={units} // Pass units down
+                        quizzesByPostAndUnit={quizzesByPostAndUnit}
+                        collapsedGroups={collapsedGroups}
+                        toggleUnitCollapse={toggleUnitCollapse}
                     />
+                    {/* --- END MODIFICATION --- */}
                 </div>
             </div>
         </div>

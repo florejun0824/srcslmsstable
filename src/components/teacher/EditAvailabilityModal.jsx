@@ -33,7 +33,7 @@ const NeumorphicCheckbox = React.memo(({ checked, indeterminate, ...props }) => 
                 {...props} 
                 className="sr-only peer" 
             />
-            <span className="w-full h-full bg-neumorphic-base rounded-md shadow-neumorphic-inset flex items-center justify-center transition-all peer-checked:bg-blue-500 peer-checked:shadow-neumorphic">
+            <span className="w-full h-full bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-md shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark flex items-center justify-center transition-all peer-checked:bg-blue-500 peer-checked:shadow-neumorphic dark:peer-checked:shadow-neumorphic-dark">
                 <CheckIcon className={`w-4 h-4 text-white transition-opacity ${checked ? 'opacity-100' : 'opacity-0'}`} />
             </span>
         </div>
@@ -43,10 +43,10 @@ const NeumorphicCheckbox = React.memo(({ checked, indeterminate, ...props }) => 
 // --- (Reusable ToggleSwitch component remains unchanged) ---
 const ToggleSwitch = ({ label, enabled, onChange, disabled = false }) => (
     <label className={`flex items-center justify-between ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
-        <span className="font-medium text-slate-800">{label}</span>
+        <span className="font-medium text-slate-800 dark:text-slate-100">{label}</span>
         <div className="relative">
             <input type="checkbox" className="sr-only" checked={enabled} onChange={onChange} disabled={disabled} />
-            <div className={`block w-14 h-8 rounded-full transition-colors ${enabled ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
+            <div className={`block w-14 h-8 rounded-full transition-colors ${enabled ? 'bg-blue-500' : 'bg-gray-300 dark:bg-slate-700'}`}></div>
             <div className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${enabled ? 'translate-x-6' : ''}`}></div>
         </div>
     </label>
@@ -66,10 +66,10 @@ const defaultQuizSettings = {
 
 // --- (Empty State for 3rd Column remains unchanged) ---
 const EmptyState = ({ icon: Icon, text, subtext }) => (
-    <div className="text-center p-8 bg-neumorphic-base rounded-2xl shadow-neumorphic-inset h-full flex flex-col justify-center items-center">
-        <Icon className="h-16 w-16 mb-4 text-slate-300 mx-auto" />
-        <p className="text-xl font-semibold text-slate-700">{text}</p>
-        <p className="mt-2 text-base text-slate-500">{subtext}</p>
+    <div className="text-center p-8 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark h-full flex flex-col justify-center items-center">
+        <Icon className="h-16 w-16 mb-4 text-slate-300 dark:text-slate-600 mx-auto" />
+        <p className="text-xl font-semibold text-slate-700 dark:text-slate-200">{text}</p>
+        <p className="mt-2 text-base text-slate-500 dark:text-slate-400">{subtext}</p>
     </div>
 );
 
@@ -142,7 +142,7 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
         }
     }, [post, allStudents]); 
 
-    // (All helper functions and handlers remain unchanged)
+    // (All helper functions and handlers remain unchanged, except for the handleUpdate)
     const handleDateChange = (date, field) => {
         const setter = field === 'from' ? setAvailableFrom : setAvailableUntil;
         const currentDate = field === 'from' ? availableFrom : availableUntil;
@@ -192,6 +192,8 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
     const handleQuizSettingsChange = useCallback((field, value) => {
         setQuizSettings(prev => ({ ...prev, [field]: value }));
     }, []);
+    
+    // --- (handleUpdate remains unchanged from your provided file) ---
     const handleUpdate = async () => {
         if (!post?.id || !classId) { showToast("Missing information to update dates.", "error"); return; }
         if (!postTitle.trim()) { showToast("Title cannot be empty.", "error"); return; }
@@ -200,6 +202,22 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
         if (recipientIdsArray.length === 0) { showToast("You must select at least one student.", "error"); return; }
         const unselectedOriginals = Array.from(originalRecipientIds).filter(id => !tempRecipientIds.has(id));
         if (unselectedOriginals.length > 0) { showToast("Cannot unselect a student who already received the post.", "error"); return; }
+        
+        // --- (This logic remains the same as your fix) ---
+        const finalQuizSettings = { ...quizSettings };
+        const finalAttempts = parseInt(finalQuizSettings.maxAttempts, 10);
+        
+        if (isNaN(finalAttempts) || finalAttempts < 1) {
+            finalQuizSettings.maxAttempts = 1; // Enforce minimum
+        } else if (finalAttempts > 10) {
+            finalQuizSettings.maxAttempts = 10; // Enforce maximum
+        } else {
+            finalQuizSettings.maxAttempts = finalAttempts; // Ensure it's a number
+        }
+
+        setQuizSettings(finalQuizSettings);
+        // --- (End of validation logic) ---
+
         setIsSubmitting(true);
         try {
             const batch = writeBatch(db);
@@ -213,7 +231,7 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                 availableUntil: Timestamp.fromDate(availableUntil),
                 targetAudience: isAllStudentsSelected ? 'all' : 'specific',
                 targetStudentIds: isAllStudentsSelected ? [] : recipientIdsArray, 
-                quizSettings: quizSettings,
+                quizSettings: finalQuizSettings, // Use the validated settings
             };
 
             const postRef = doc(db, `classes/${classId}/posts`, post.id);
@@ -232,6 +250,8 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
             setIsSubmitting(false);
         }
     };
+    
+    // --- (handleDelete remains unchanged) ---
     const handleDelete = async () => {
         if (!window.confirm("Are you sure? This will permanently delete the post and all associated student submissions. This cannot be undone.")) return;
         if (!post?.id || !classId) { showToast("Cannot delete. Missing required information.", "error"); return; }
@@ -310,6 +330,7 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
             setIsSubmitting(false);
         }
     };
+    // --- (formatTime, filteredStudents, isAllSelectedInClass, isPartiallySelected remain unchanged) ---
     const formatTime = (date) => {
         if (!date) return '';
         return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
@@ -335,29 +356,29 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
             title="" 
             size="screen"
             roundedClass="rounded-2xl"
-            containerClassName="h-full p-2 sm:p-4 bg-black/30 backdrop-blur-sm" // MODIFIED: p-4 to p-2 sm:p-4
+            containerClassName="h-full p-2 sm:p-4 bg-black/30 backdrop-blur-sm"
             contentClassName="p-0"
             showCloseButton={true}
         >
-            <div className="p-2 sm:p-4 md:p-6 bg-neumorphic-base h-[95vh] sm:h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl rounded-2xl"> {/* MODIFIED: Padding and height */}
+            <div className="p-2 sm:p-4 md:p-6 bg-neumorphic-base dark:bg-neumorphic-base-dark h-[95vh] sm:h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl rounded-2xl">
                 
-                <header className="mb-4 p-3 sm:p-4 bg-neumorphic-base rounded-2xl shadow-neumorphic flex-shrink-0"> {/* MODIFIED: Padding */}
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Edit Activity Settings</h1> {/* MODIFIED: Text size */}
-                    <p className="text-base sm:text-lg text-slate-600 mt-1 truncate"> {/* MODIFIED: Text size & added truncate */}
+                <header className="mb-4 p-3 sm:p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark flex-shrink-0">
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Edit Activity Settings</h1>
+                    <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400 mt-1 truncate">
                         {postTitle || 'Untitled Activity'}
                     </p>
                 </header>
 
-                {/* --- NEW: MOBILE TAB NAVIGATION --- */}
-                <nav className="lg:hidden flex-shrink-0 flex items-center gap-2 p-2 bg-neumorphic-base rounded-2xl shadow-neumorphic overflow-x-auto mb-4">
+                {/* --- (Mobile tab navigation remains unchanged) --- */}
+                <nav className="lg:hidden flex-shrink-0 flex items-center gap-2 p-2 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark overflow-x-auto mb-4">
                     {mobileTabs.map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setMobileTab(tab.id)}
                             className={`flex-shrink-0 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 ${
                                 mobileTab === tab.id
-                                    ? 'shadow-neumorphic-inset text-blue-600'
-                                    : 'text-slate-700 hover:shadow-neumorphic-inset'
+                                    ? 'shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-blue-600 dark:text-blue-400'
+                                    : 'text-slate-700 dark:text-slate-300 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'
                             }`}
                         >
                             <tab.icon className="h-5 w-5" />
@@ -366,97 +387,93 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                     ))}
                 </nav>
                 
-                {/* --- MODIFIED: Main content area is now a grid, columns are conditionally hidden on mobile --- */}
+                {/* --- (Main content grid remains unchanged) --- */}
                 <main className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
 
-                    {/* --- COLUMN 1: General Settings --- */}
-                    {/* MODIFIED: Added conditional classes, removed overflow-y-auto, and added a scrolling wrapper inside */}
+                    {/* --- (COLUMN 1: General Settings - Unchanged) --- */}
                     <div className={`
                         ${mobileTab === 'general' ? 'flex' : 'hidden'} 
                         lg:flex flex-col min-h-0
                     `}>
-                        <h2 className="text-xl font-bold text-slate-800 flex-shrink-0 mb-4">General Settings</h2>
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex-shrink-0 mb-4">General Settings</h2>
                         
-                        {/* This new wrapper handles scrolling for this column's content */}
                         <div className="flex-1 flex flex-col space-y-6 overflow-y-auto custom-scrollbar p-2 pr-4 min-h-0">
-                            <div className="bg-neumorphic-base p-5 rounded-xl shadow-neumorphic space-y-4"> 
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
+                            <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark p-5 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark space-y-4"> 
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Title</label>
                                 <input
                                     type="text"
                                     value={postTitle}
                                     onChange={(e) => setPostTitle(e.target.value)}
-                                    className="w-full p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
+                                    className="w-full p-2.5 border-none rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark focus:ring-0"
                                 />
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Comments (Optional)</label>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Comments (Optional)</label>
                                 <textarea
                                     value={postContent}
                                     onChange={(e) => setPostContent(e.target.value)}
                                     placeholder="Add an optional comment for your students..."
                                     rows={3}
-                                    className="w-full p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0 resize-none"
+                                    className="w-full p-2.5 border-none rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark focus:ring-0 resize-none"
                                 />
                             </div>
 
-                            <div className="bg-neumorphic-base p-5 rounded-xl shadow-neumorphic space-y-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Period: Available From</label>
+                            <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark p-5 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark space-y-4">
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Period: Available From</label>
                                 <div className="flex gap-2">
                                     <DatePicker
                                         selected={availableFrom}
                                         onChange={(date) => handleDateChange(date, 'from')}
                                         dateFormat="MMMM d, yyyy"
-                                        className="w-2/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
+                                        className="w-2/3 p-2.5 border-none rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark focus:ring-0"
                                     />
                                     <input
                                         type="time"
                                         value={formatTime(availableFrom)}
                                         onChange={(e) => handleTimeChange(e, 'from')}
-                                        className="w-1/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
+                                        className="w-1/3 p-2.5 border-none rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark focus:ring-0"
                                     />
                                 </div>
 
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Available Until</label>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Available Until</label>
                                 <div className="flex gap-2">
                                     <DatePicker
                                         selected={availableUntil}
                                         onChange={(date) => handleDateChange(date, 'until')}
                                         dateFormat="MMMM d, yyyy"
-                                        className="w-2/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
+                                        className="w-2/3 p-2.5 border-none rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark focus:ring-0"
                                     />
                                     <input
                                         type="time"
                                         value={formatTime(availableUntil)}
                                         onChange={(e) => handleTimeChange(e, 'until')}
-                                        className="w-1/3 p-2.5 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
+                                        className="w-1/3 p-2.5 border-none rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark focus:ring-0"
                                     />
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    {/* --- COLUMN 2: Recipients --- */}
-                    {/* MODIFIED: Added conditional classes, removed space-y-4, and added margins to children */}
+                    {/* --- (COLUMN 2: Recipients - Unchanged) --- */}
                     <div className={`
                         ${mobileTab === 'recipients' ? 'flex' : 'hidden'} 
                         lg:flex flex-col min-h-0
                     `}>
-                        <h2 className="text-xl font-bold text-slate-800 mb-4">Recipients ({classData?.name || 'Class Roster'})</h2>
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">Recipients ({classData?.name || 'Class Roster'})</h2>
                         
                         <div className="relative flex-shrink-0 mb-4">
                             <input
                                 type="text"
                                 placeholder="Search student..."
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full p-3 pl-10 bg-neumorphic-base shadow-neumorphic-inset rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-slate-800"
+                                onChange={(e) => setSearchTerm(e.g.value)}
+                                className="w-full p-3 pl-10 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-slate-800 dark:text-slate-100"
                             />
-                            <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                         </div>
 
-                        {/* This wrapper is now a flex-1 child of a flex-col parent, so it will fill space and allow its own child (the ul) to scroll */}
-                        <div className="flex-1 bg-neumorphic-base rounded-xl shadow-neumorphic overflow-hidden flex flex-col min-h-0">
+                        <div className="flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark overflow-hidden flex flex-col min-h-0">
                             <header 
                                 onClick={handleToggleAllStudents}
-                                className="flex items-center gap-3 p-4 border-b border-black/10 cursor-pointer hover:bg-black/5 flex-shrink-0"
+                                className="flex items-center gap-3 p-4 border-b border-black/10 dark:border-white/10 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 flex-shrink-0"
                             >
                                 <NeumorphicCheckbox
                                     checked={isAllSelectedInClass}
@@ -464,10 +481,10 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                                     onChange={handleToggleAllStudents}
                                     aria-label="Select all students"
                                 />
-                                <label className="font-semibold text-slate-800 flex-grow cursor-pointer select-none">
+                                <label className="font-semibold text-slate-800 dark:text-slate-100 flex-grow cursor-pointer select-none">
                                     Select all students
                                 </label>
-                                <span className="text-sm text-slate-500 font-normal">
+                                <span className="text-sm text-slate-500 dark:text-slate-400 font-normal">
                                     ({tempRecipientIds.size}/{allStudents.length})
                                 </span>
                             </header>
@@ -481,89 +498,113 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                                         <li
                                             key={student.id}
                                             onClick={() => handleToggleStudent(student.id)}
-                                            className={`flex items-center gap-3 p-4 transition-colors border-t border-black/5 first:border-t-0 ${
-                                                isDisabled ? 'bg-gray-100 cursor-default opacity-80' : 
-                                                isSelected ? 'bg-blue-500/10 cursor-pointer' : 'hover:bg-black/5 cursor-pointer'
+                                            className={`flex items-center gap-3 p-4 transition-colors border-t border-black/5 dark:border-white/5 first:border-t-0 ${
+                                                isDisabled ? 'bg-gray-100 dark:bg-slate-800 cursor-default opacity-80' : 
+                                                isSelected ? 'bg-blue-500/10 dark:bg-blue-900/30 cursor-pointer' : 'hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer'
                                             }`}
                                         >
                                             <NeumorphicCheckbox checked={isSelected} readOnly disabled={isDisabled} />
-                                            <span className="text-slate-800 flex-grow select-none">{studentName}</span>
-                                            {isSelected && <CheckIcon className="h-5 w-5 text-blue-600 flex-shrink-0" />}
+                                            <span className="text-slate-800 dark:text-slate-100 flex-grow select-none">{studentName}</span>
+                                            {isSelected && <CheckIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />}
                                         </li>
                                     );
                                 }) : (
-                                    <li className="p-8 text-center text-slate-500">
+                                    <li className="p-8 text-center text-slate-500 dark:text-slate-400">
                                         <UserGroupIcon className="w-8 h-8 mx-auto mb-2 text-slate-400" />
                                         No students match your search.
                                     </li>
+
                                 )}
                             </ul>
                         </div>
                     </div>
 
-                    {/* --- COLUMN 3: Security Settings --- */}
-                    {/* MODIFIED: Added conditional classes, removed space-y-6, and added margin to h2 */}
+                    {/* --- COLUMN 3: Security Settings (MODIFIED) --- */}
                     <div className={`
                         ${mobileTab === 'security' ? 'flex' : 'hidden'} 
                         lg:flex flex-col min-h-0
                     `}>
-                        <h2 className="text-xl font-bold text-slate-800 flex-shrink-0 mb-4">Quiz Security Settings</h2>
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex-shrink-0 mb-4">Quiz Settings</h2>
                         
                         {hasQuizzes ? (
-                            // This wrapper will now correctly take up flex-1 space and allow its content to scroll
-                            <div className="flex-1 bg-neumorphic-base p-5 rounded-xl shadow-neumorphic space-y-4 overflow-y-auto custom-scrollbar min-h-0 pr-4">
+                            <div className="flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark p-5 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark space-y-4 overflow-y-auto custom-scrollbar min-h-0 pr-4">
                                 <div className="space-y-4">
-                                    <ToggleSwitch
-                                        label="Enable Anti-Cheating Features"
-                                        enabled={quizSettings.enabled}
-                                        onChange={() => handleQuizSettingsChange('enabled', !quizSettings.enabled)}
-                                    />
-                                    {quizSettings.enabled && (
-                                        <div className="pl-4 pt-4 mt-4 border-t border-black/10 space-y-3">
-                                            <ToggleSwitch
-                                                label="Shuffle Questions"
-                                                enabled={quizSettings.shuffleQuestions}
-                                                onChange={() => handleQuizSettingsChange('shuffleQuestions', !quizSettings.shuffleQuestions)}
-                                            />
-                                            <ToggleSwitch
-                                                label="Lock on Leaving Quiz Tab/App"
-                                                enabled={quizSettings.lockOnLeave}
-                                                onChange={() => handleQuizSettingsChange('lockOnLeave', !quizSettings.lockOnLeave)}
-                                            />
-                                            <ToggleSwitch
-                                                label="Prevent Screen Recording & Screenshots"
-                                                enabled={quizSettings.preventScreenCapture}
-                                                onChange={() => handleQuizSettingsChange('preventScreenCapture', !quizSettings.preventScreenCapture)}
-                                            />
-                                            <ToggleSwitch
-                                                label="Detect Developer Tools (Desktop)"
-                                                enabled={quizSettings.detectDevTools}
-                                                onChange={() => handleQuizSettingsChange('detectDevTools', !quizSettings.detectDevTools)}
-                                            />
-                                            <ToggleSwitch
-                                                label="Issue Warning on Paste"
-                                                enabled={quizSettings.warnOnPaste}
-                                                onChange={() => handleQuizSettingsChange('warnOnPaste', !quizSettings.warnOnPaste)}
-                                            />
-                                            <ToggleSwitch
-                                                label="Prevent Going Back to Questions"
-                                                enabled={quizSettings.preventBackNavigation}
-                                                onChange={() => handleQuizSettingsChange('preventBackNavigation', !quizSettings.preventBackNavigation)}
-                                            />
-                                            
-                                            <div className="flex items-center justify-between pt-2">
-                                                <label className="font-medium text-slate-800">Max Attempts</label>
-                                                <input
-                                                    type="number"
-                                                    min="1"
-                                                    max="10"
-                                                    value={quizSettings.maxAttempts}
-                                                    onChange={(e) => handleQuizSettingsChange('maxAttempts', Math.max(1, parseInt(e.target.value, 10) || 1))}
-                                                    className="w-20 p-2 border-none rounded-lg bg-neumorphic-base text-slate-800 shadow-neumorphic-inset focus:ring-0"
+                                    
+                                    {/* --- ⬇⬇⬇ START OF MODIFICATION ⬇⬇⬇ --- */}
+
+                                    {/* MAX ATTEMPTS IS NOW SEPARATE AND ALWAYS VISIBLE */}
+                                    <div className="flex items-center justify-between pt-2">
+                                        <label className="font-medium text-slate-800 dark:text-slate-100">Max Attempts</label>
+                                        <input
+                                            type="tel"
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
+                                            value={quizSettings.maxAttempts}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (val === '' || /^[0-9]+$/.test(val)) {
+                                                    handleQuizSettingsChange('maxAttempts', val === '' ? '' : parseInt(val, 10));
+                                                }
+                                            }}
+                                            onBlur={() => {
+                                                const currentVal = parseInt(quizSettings.maxAttempts, 10);
+                                                if (isNaN(currentVal) || currentVal < 1) {
+                                                    handleQuizSettingsChange('maxAttempts', 1); // Default to 1
+                                                } else if (currentVal > 10) {
+                                                    handleQuizSettingsChange('maxAttempts', 10); // Enforce max
+                                                } else {
+                                                    handleQuizSettingsChange('maxAttempts', currentVal);
+                                                }
+                                            }}
+                                            className="w-20 p-2 border-none rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark focus:ring-0"
+                                        />
+                                    </div>
+
+                                    {/* SECURITY FEATURES ARE IN THEIR OWN GROUP */}
+                                    <div className="pt-4 border-t border-black/10 dark:border-white/10">
+                                        <ToggleSwitch
+                                            label="Enable Anti-Cheating Features"
+                                            enabled={quizSettings.enabled}
+                                            onChange={() => handleQuizSettingsChange('enabled', !quizSettings.enabled)}
+                                        />
+                                        {quizSettings.enabled && (
+                                            <div className="pl-4 pt-4 mt-4 border-t border-black/10 dark:border-white/10 space-y-3">
+                                                <ToggleSwitch
+                                                    label="Shuffle Questions"
+                                                    enabled={quizSettings.shuffleQuestions}
+                                                    onChange={() => handleQuizSettingsChange('shuffleQuestions', !quizSettings.shuffleQuestions)}
+                                                />
+                                                <ToggleSwitch
+                                                    label="Lock on Leaving Quiz Tab/App"
+                                                    enabled={quizSettings.lockOnLeave}
+                                                    onChange={() => handleQuizSettingsChange('lockOnLeave', !quizSettings.lockOnLeave)}
+                                                />
+                                                <ToggleSwitch
+                                                    label="Prevent Screen Recording & Screenshots"
+                                                    enabled={quizSettings.preventScreenCapture}
+                                                    onChange={() => handleQuizSettingsChange('preventScreenCapture', !quizSettings.preventScreenCapture)}
+                                                />
+                                                <ToggleSwitch
+                                                    label="Detect Developer Tools (Desktop)"
+                                                    enabled={quizSettings.detectDevTools}
+                                                    onChange={() => handleQuizSettingsChange('detectDevTools', !quizSettings.detectDevTools)}
+                                                />
+                                                <ToggleSwitch
+                                                    label="Issue Warning on Paste"
+                                                    enabled={quizSettings.warnOnPaste}
+                                                    onChange={() => handleQuizSettingsChange('warnOnPaste', !quizSettings.warnOnPaste)}
+                                                />
+                                                <ToggleSwitch
+                                                    label="Prevent Going Back to Questions"
+                                                    enabled={quizSettings.preventBackNavigation}
+                                                    onChange={() => handleQuizSettingsChange('preventBackNavigation', !quizSettings.preventBackNavigation)}
                                                 />
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
+                                    
+                                    {/* --- ⬆⬆⬆ END OF MODIFICATION ⬆⬆⬆ --- */}
+
                                 </div>
                             </div>
                         ) : (
@@ -575,23 +616,22 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                         )}
                     </div>
                 </main>
-                {/* --- END MODIFICATION --- */}
-
-                {/* --- Footer (Unchanged from last step) --- */}
-                <footer className="flex-shrink-0 flex justify-between items-center pt-6 border-t border-black/10 mt-6">
+                
+                {/* --- (Footer remains unchanged) --- */}
+                <footer className="flex-shrink-0 flex flex-wrap justify-between items-center pt-6 border-t border-black/10 dark:border-white/10 mt-6 gap-2">
                     <button
                         onClick={handleDelete}
-                        className="px-4 py-2 text-sm font-semibold text-red-600 bg-neumorphic-base rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50"
+                        className="px-4 py-2 text-sm font-semibold text-red-600 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark disabled:opacity-50"
                         disabled={isSubmitting}
                     >
                         Delete Post
                     </button>
                     
                     <div className="flex justify-end gap-2">
-                        <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50" disabled={isSubmitting}>
+                        <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark disabled:opacity-50" disabled={isSubmitting}>
                             Cancel
                         </button>
-                        <button onClick={handleUpdate} className="px-4 py-2 text-sm font-semibold text-blue-700 bg-gradient-to-br from-sky-100 to-blue-200 rounded-xl shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-50" disabled={isSubmitting || tempRecipientIds.size === 0 || !postTitle.trim()}>
+                        <button onClick={handleUpdate} className="px-4 py-2 text-sm font-semibold text-blue-700 dark:text-blue-300 bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-800 dark:to-blue-900 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark disabled:opacity-50" disabled={isSubmitting || tempRecipientIds.size === 0 || !postTitle.trim()}>
                             {isSubmitting ? 'Saving...' : 'Save Settings'}
                         </button>
                     </div>

@@ -50,7 +50,8 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         }
         // --- END MODIFIED ---
 
-        const antiCheatEnabled = quiz?.settings?.lockOnLeave ?? false;
+        // --- ⬇⬇⬇ THIS IS THE FIX FROM LAST TIME (KEEPING IT) ⬇⬇⬇ ---
+        const antiCheatEnabled = (quiz?.settings?.enabled ?? false) && (quiz?.settings?.lockOnLeave ?? false);
 
         // Check quizState for quiz progress
         if (isOpen && classId && !quizState.isLocked && quizState.score === null && !quizState.hasSubmitted && !isTeacherView && antiCheatEnabled && quizState.isAvailable) {
@@ -195,13 +196,20 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                     hasSubmitted={quizState.hasSubmitted}
                                 />
 
-                                {!isTeacherView && classId && !quizState.isLocked && quizState.score === null && !quizState.hasSubmitted && (quiz?.settings?.lockOnLeave ?? false) && quizState.isAvailable && (
+                                {/* --- ⬇⬇⬇ START OF FIX ⬇⬇⬇ --- */}
+                                {/* This condition now checks quiz.settings.enabled FIRST.
+                                    The warning counter will now only show if anti-cheat is
+                                    globally enabled AND lockOnLeave is enabled.
+                                */}
+                                {!isTeacherView && classId && !quizState.isLocked && quizState.score === null && !quizState.hasSubmitted && (quiz?.settings?.enabled ?? false) && (quiz?.settings?.lockOnLeave ?? false) && quizState.isAvailable && (
                                     /* --- MODIFIED: Added dark theme --- */
                                     <div className="flex items-center gap-1 bg-neumorphic-base text-amber-800 px-3 py-1 rounded-full shadow-neumorphic-inset flex-shrink-0 dark:bg-neumorphic-base-dark dark:text-amber-300 dark:shadow-neumorphic-inset-dark" title="Anti-cheat warnings">
                                         <ShieldExclamationIcon className="w-4 h-4 text-amber-600 dark:text-amber-500"/>
                                         <span className="text-xs font-semibold">{quizState.warnings} / {quizState.MAX_WARNINGS}</span>
                                     </div>
                                 )}
+                                {/* --- ⬆⬆⬆ END OF FIX ⬆⬆⬆ --- */}
+
                             </div>
                         </div>
                         {isTeacherView && (

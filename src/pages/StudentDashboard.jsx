@@ -15,16 +15,14 @@ import {
   // increment, // No longer needed for lessons
   arrayUnion,
   orderBy,
-  limit
+  limit,
+  getDoc // --- MODIFICATION: Added getDoc ---
 } from 'firebase/firestore';
 import { useToast } from '../contexts/ToastContext';
 
 // --- MODIFIED: Import hook and lesson XP constant ---
 import useQuizGamification from '../hooks/useQuizGamification'; // Adjust path if needed
 import { XP_FOR_LESSON } from '../config/gameConfig'; // Adjust path if needed
-
-// --- 1. ADDED: Import the notification setup function ---
-import { requestNotificationPermission } from '../services/firebaseMessagingSetup';
 
 import StudentDashboardUI from './StudentDashboardUI';
 import JoinClassModal from '../components/student/JoinClassModal';
@@ -33,7 +31,7 @@ import StudentViewLessonModal from '../components/student/StudentViewLessonModal
 import Spinner from '../components/common/Spinner';
 
 const StudentDashboard = () => {
-  const { userProfile, logout, loading: authLoading, setUserProfile } = useAuth();
+  const { userProfile, logout, loading: authLoading, setUserProfile, refreshUserProfile } = useAuth(); // --- MODIFIED: Added refreshUserProfile ---
   const { showToast } = useToast();
   // --- ADDED: Initialize the gamification hook ---
   const { handleGamificationUpdate } = useQuizGamification();
@@ -91,18 +89,6 @@ const StudentDashboard = () => {
   const [quizToTake, setQuizToTake] = useState(null);
   const [lessonToView, setLessonToView] = useState(null);
   const isFirstContentLoad = useRef(true);
-
-  // --- 2. ADDED: Effect to request notification permission ---
-  useEffect(() => {
-    // Only run if auth is loaded and we have a user ID
-    if (!authLoading && userProfile?.id) {
-      // We pass the user's ID to the function so it knows
-      // which user document to save the token to.
-      requestNotificationPermission(userProfile.id);
-    }
-  }, [authLoading, userProfile?.id]); // Runs once when auth is ready
-  // --- END ADDITION ---
-
 
   //
   // 1) Listen for classes
@@ -210,7 +196,8 @@ const StudentDashboard = () => {
           if (targetAudience === 'specific') {
             isRecipient = targetStudentIds.includes(studentId);
           } else {
-            isRecipient = targetAudience !== 'specific' && (targetStudentIds.length === 0 || !targetAudience);
+            // --- FIX: This ensures 'all' (empty targetStudentIds) is also included ---
+            isRecipient = targetAudience !== 'specific';
           }
           if (isRecipient) allPosts.push(post);
         });
@@ -262,7 +249,17 @@ const StudentDashboard = () => {
       
       // Process Quizzes
       const allQuizzesFromPosts = allPosts.flatMap(post =>
-        (post.quizzes || []).map(quiz => ({ ...quiz, className: post.className, classId: post.classId, postId: post.id, availableFrom: post.availableFrom, availableUntil: post.availableUntil, settings: post.quizSettings }))
+        (post.quizzes || []).map(quiz => ({ 
+          ...quiz, 
+          className: post.className, 
+          classId: post.classId, 
+          postId: post.id, 
+          postTitle: post.title, // Added in previous step
+          postCreatedAt: post.createdAt, // Added in previous step
+          availableFrom: post.availableFrom, 
+          availableUntil: post.availableUntil, 
+          settings: post.quizSettings 
+        }))
       );
 
       // Fetch Submissions
@@ -288,7 +285,9 @@ const StudentDashboard = () => {
       // Combine Quizzes with Submissions
       const quizzesWithDetails = allQuizzesFromPosts.map(q => {
         const subs = submissionsByQuizId.get(q.id) || [];
-        return { ...q, attemptsTaken: subs.length };
+        // --- FIX: Filter by postId to ensure correct attempt count ---
+        const relevantSubs = subs.filter(s => s.postId === q.postId);
+        return { ...q, attemptsTaken: relevantSubs.length };
       });
       
       // Set all state at the end
@@ -335,7 +334,7 @@ const StudentDashboard = () => {
     }
 
     // --- Performance Gate: Only sync if the user is actively viewing content tabs ---
-    const shouldAutoSync = view === 'lessons' || view === 'quizzes';
+    const shouldAutoSync = view === 'lessons' || view === 'quizzes' || view === 'classes'; // Also sync on home dashboard
     if (!shouldAutoSync) {
         // console.log('Skipping real-time sync: User not on content tab.');
         return;
@@ -387,19 +386,24 @@ const StudentDashboard = () => {
         const isExam = maxAttempts === 1;
         const attemptsTaken = quizItem.attemptsTaken ?? 0;
         const isCompleted = attemptsTaken >= maxAttempts;
+        
+        const availableFromDate = quizItem.availableFrom?.toDate ? quizItem.availableFrom.toDate() : (quizItem.availableFrom instanceof Date ? quizItem.availableFrom : null);
+        const availableUntilDate = quizItem.availableUntil?.toDate ? quizItem.availableUntil.toDate() : (quizItem.availableUntil instanceof Date ? quizItem.availableUntil : null);
+
+        const isScheduled = availableFromDate && availableFromDate > now;
+        const isOverdue = availableUntilDate && now > availableUntilDate;
+
         if (isCompleted) {
           categorized.completed.push({ ...quizItem, status: 'completed', isExam });
           return;
         }
-        const availableFromDate = quizItem.availableFrom?.toDate ? quizItem.availableFrom.toDate() : (quizItem.availableFrom instanceof Date ? quizItem.availableFrom : null);
-        const availableUntilDate = quizItem.availableUntil?.toDate ? quizItem.availableUntil.toDate() : (quizItem.availableUntil instanceof Date ? quizItem.availableUntil : null);
-        const isScheduled = availableFromDate && availableFromDate > now;
-        const isOverdue = availableUntilDate && now > availableUntilDate;
+        
         if (isOverdue) {
           categorized.overdue.push({ ...quizItem, status: 'overdue', isExam });
         } else if (isScheduled) {
-          categorized.active.push({ ...quizItem, status: 'active', isExam });
+          categorized.active.push({ ...quizItem, status: 'scheduled', isExam }); // <-- Changed to 'scheduled'
         } else {
+          // It's not completed, not overdue, and not scheduled, so it must be active
           categorized.active.push({ ...quizItem, status: 'active', isExam });
         }
       });
@@ -413,7 +417,46 @@ const StudentDashboard = () => {
   //
   // handlers: quiz open/close/submit
   //
-  const handleTakeQuizClick = (quiz) => setQuizToTake(quiz);
+
+  // --- MODIFICATION: handleTakeQuizClick is now async ---
+  const handleTakeQuizClick = async (quiz) => {
+    if (!quiz.postId || !quiz.classId) {
+      showToast("Error: Missing quiz information.", "error");
+      return;
+    }
+
+    try {
+      // Fetch the MOST RECENT post data to get fresh settings
+      const postRef = doc(db, `classes/${quiz.classId}/posts`, quiz.postId);
+      const postSnap = await getDoc(postRef);
+      
+      if (!postSnap.exists()) {
+        showToast("Error: This quiz is no longer available.", "error");
+        // Manually refresh content to remove the deleted post
+        fetchContent(false);
+        return;
+      }
+      
+      const postData = postSnap.data();
+      
+      // Combine the (stale) quiz details with fresh settings & availability
+      const quizWithFreshSettings = {
+        ...quiz, // (e.g., title, questions array, unitId)
+        settings: postData.quizSettings, // Fresh settings from post
+        availableFrom: postData.availableFrom, // Fresh start date
+        availableUntil: postData.availableUntil // Fresh end date
+      };
+      
+      // Open the modal with the updated, fresh data
+      setQuizToTake(quizWithFreshSettings);
+      
+    } catch (err) {
+      console.error("Error fetching fresh quiz settings:", err);
+      showToast("Could not load quiz. Please check your connection and try again.", "error");
+    }
+  };
+  // --- END MODIFICATION ---
+
   const handleQuizClose = () => setQuizToTake(null);
   const handleQuizSubmit = () => {
     fetchContent(false); // Manually fetch after submit
@@ -519,7 +562,10 @@ const StudentDashboard = () => {
         quiz={quizToTake}
         userProfile={userProfile}
         classId={quizToTake?.classId}
-		postId={quizToTake?.postId}
+		    postId={quizToTake?.postId}
+        // --- THIS IS THE CORRECTED FIX ---
+        isTeacherView={userProfile?.role === 'teacher' || userProfile?.role ==='admin'}
+        // --- END OF FIX ---
       />
 
       <StudentViewLessonModal

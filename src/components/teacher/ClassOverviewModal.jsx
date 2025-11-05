@@ -120,6 +120,16 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const [freshStudentData, setFreshStudentData] = useState([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
 
+    // --- ADDED: State for the custom confirmation modal ---
+    const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        message: '',
+        onConfirm: () => {},
+        confirmText: 'Delete',
+        confirmColor: 'red',
+    });
+
+
     useEffect(() => {
         if (isOpen && classData?.id) {
             setActiveTab('announcements');
@@ -141,7 +151,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
     }, [isOpen, classData?.id]);
 
-    // --- ADDED: Effect to fetch fresh student data when 'Students' tab is active ---
+    // --- (useEffect for freshStudentData remains unchanged) ---
     useEffect(() => {
         const fetchFreshStudentData = async () => {
             if (activeTab !== 'students' || !classData?.students || classData.students.length === 0) {
@@ -175,7 +185,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         };
 
         fetchFreshStudentData();
-    }, [activeTab, classData?.students, showToast]); // Re-run if tab or classData.students array changes
+    }, [activeTab, classData?.students, showToast]);
 
 
     useEffect(() => {
@@ -366,20 +376,35 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         });
     };
 
-	const handleDeleteSelected = async (contentType) => {
-	    // ... (no changes in this function)
-	    if (!classData?.id) return;
+    // --- MODIFIED: This function now just opens the confirmation modal ---
+	const handleDeleteSelected = (contentType) => {
+	    // --- ⬇⬇⬇ START OF BUG FIX ⬇⬇⬇ ---
+        // Defensively ensure selectedSet is a Set, fixing the error.
+        const selectedSet = new Set(contentType === 'lesson' ? selectedLessons : selectedQuizzes);
+        // --- ⬆⬆⬆ END OF BUG FIX ⬆⬆⬆ ---
 
-	    const selectedSet = contentType === 'lesson' ? selectedLessons : setSelectedQuizzes;
 	    if (selectedSet.size === 0) return;
 
-	    const fieldToUpdate = contentType === 'quiz' ? 'quizzes' : 'lessons';
 	    const confirmMessage =
 	        contentType === 'quiz'
 	            ? `Are you sure you want to unshare these ${selectedSet.size} quizzes? This will also delete all student submissions and quiz locks for these quizzes in this class.`
 	            : `Are you sure you want to unshare these ${selectedSet.size} lessons?`;
 
-	    if (!window.confirm(confirmMessage)) return;
+        // --- MODIFIED: Open modal instead of window.confirm ---
+	    setConfirmModal({
+            isOpen: true,
+            message: confirmMessage,
+            confirmText: 'Delete',
+            confirmColor: 'red',
+            onConfirm: () => executeDeleteSelected(contentType, selectedSet) // Pass the Set
+        });
+	};
+
+    // --- NEW: This function contains the original deletion logic ---
+	const executeDeleteSelected = async (contentType, selectedSet) => {
+	    if (!classData?.id || selectedSet.size === 0) return;
+
+	    const fieldToUpdate = contentType === 'quiz' ? 'quizzes' : 'lessons';
 
 	    try {
 	        const batch = writeBatch(db);
@@ -391,7 +416,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	            if (currentContent.length === 0) continue;
 
 	            const contentToKeep = currentContent.filter((item) => {
-	                const isSelected = selectedSet.has(item.id);
+                    // --- BUG FIX (already applied in wrapper, but good to have here too) ---
+	                const isSelected = selectedSet.has(item.id); 
 	                if (isSelected && contentType === 'quiz') {
 	                    removedQuizIds.add(item.id);
 	                }
@@ -490,9 +516,19 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	    }
 	};
 
-    const handleUnlockQuiz = async (quizId, studentId) => {
-        // ... (no changes in this function)
-        if (!window.confirm("Are you sure you want to unlock this quiz?")) return;
+    // --- MODIFIED: This function now just opens the confirmation modal ---
+    const handleUnlockQuiz = (quizId, studentId) => {
+        setConfirmModal({
+            isOpen: true,
+            message: "Are you sure you want to unlock this quiz?",
+            confirmText: 'Unlock',
+            confirmColor: 'blue',
+            onConfirm: () => executeUnlockQuiz(quizId, studentId)
+        });
+    };
+
+    // --- NEW: This function contains the original unlock logic ---
+    const executeUnlockQuiz = async (quizId, studentId) => {
         try {
             await deleteDoc(doc(db, 'quizLocks', `${quizId}_${studentId}`));
             showToast("Quiz unlocked.", "success");
@@ -500,14 +536,15 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             showToast("Failed to unlock quiz.", "error");
         }
     };
+
     const handleEditDatesClick = (post) => {
         // ... (no changes in this function)
         setPostToEdit(post);
         setIsEditModalOpen(true);
     };
 
-	const handleDeleteContentFromPost = async (postId, contentIdToRemove, contentType) => {
-	    // ... (no changes in this function)
+	// --- MODIFIED: This function now just opens the confirmation modal ---
+	const handleDeleteContentFromPost = (postId, contentIdToRemove, contentType) => {
 	    if (!classData?.id) return;
 
 	    const confirmMessage =
@@ -515,8 +552,18 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	            ? `Are you sure you want to unshare this quiz? This will also delete all student submissions and quiz locks for this quiz in this class.`
 	            : `Are you sure you want to unshare this lesson?`;
 
-	    if (!window.confirm(confirmMessage)) return;
+        // --- MODIFIED: Open modal instead of window.confirm ---
+	    setConfirmModal({
+            isOpen: true,
+            message: confirmMessage,
+            confirmText: 'Delete',
+            confirmColor: 'red',
+            onConfirm: () => executeDeleteContentFromPost(postId, contentIdToRemove, contentType)
+        });
+	};
 
+    // --- NEW: This function contains the original deletion logic ---
+	const executeDeleteContentFromPost = async (postId, contentIdToRemove, contentType) => {
 	    const fieldToUpdate = contentType === 'quiz' ? 'quizzes' : 'lessons';
 
 	    try {
@@ -602,6 +649,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	    }
 	};
 
+
     const handleDeleteUnitContent = async (unitDisplayName, contentType) => {
         // ... (no changes in this function)
         console.warn("handleDeleteUnitContent is deprecated with the new layout.");
@@ -622,9 +670,19 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
     };
 
-    const handleDelete = async (id) => {
-        // ... (no changes in this function)
-        if (!window.confirm("Are you sure you want to delete this announcement?")) return;
+    // --- MODIFIED: This function now just opens the confirmation modal ---
+    const handleDelete = (id) => {
+        setConfirmModal({
+            isOpen: true,
+            message: "Are you sure you want to delete this announcement?",
+            confirmText: 'Delete',
+            confirmColor: 'red',
+            onConfirm: () => executeDeleteAnnouncement(id)
+        });
+    };
+
+    // --- NEW: This function contains the original announcement delete logic ---
+    const executeDeleteAnnouncement = async (id) => {
         try {
             await deleteDoc(doc(db, 'studentAnnouncements', id));
             showToast("Announcement deleted.", "success");
@@ -632,6 +690,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             showToast("Failed to delete announcement.", "error");
         }
     };
+
     const handleEditSave = async (id) => {
         // ... (no changes in this function)
         const trimmedContent = editContent.trim();
@@ -649,7 +708,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
     
     const renderContent = () => {
-        // --- MODIFIED: Loading check ---
+        // ... (All sub-components and rendering logic remain unchanged) ...
         if ((loading && activeTab !== 'announcements') || (loadingStudents && activeTab === 'students')) {
             return (
                 <div className="flex justify-center items-center h-full min-h-[200px]">
@@ -666,7 +725,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             </div>
         );
         const customUnitSort = (a, b) => {
-            // ... (no changes in this function)
             if (a === 'Uncategorized') return 1;
             if (b === 'Uncategorized') return -1;
             const numA = parseInt(a.match(/\d+/)?.[0], 10);
@@ -994,7 +1052,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             );
         }
         if (activeTab === 'students') {
-            // --- MODIFIED: This entire block is changed ---
+            // ... (no changes in this block - uses freshStudentData)
             if (loadingStudents) {
                 return (
                     <div className="flex justify-center items-center h-full min-h-[200px]">
@@ -1007,30 +1065,17 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 				                 <div className="space-y-3 pr-2 max-h-full overflow-y-auto custom-scrollbar">
 				                    {(freshStudentData.length > 0) ? (
 				                        <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark p-1">
-				                            {/* --- MODIFIED: Map over freshStudentData --- */}
 				                            {freshStudentData.map(student => (
 		<ListItem key={student.id} isChecked={false}>
 		                                    <div className="flex items-center gap-2 sm:gap-4">
-		                                        {/* MODIFIED: 
-		                                          1. This parent div now controls the responsive size.
-		                                             It's w-8 h-8 (32px) on mobile, and w-10 h-10 (40px) on desktop.
-		                                          2. overflow-hidden clips the avatar inside.
-		                                        */}
 		                                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex-shrink-0 overflow-hidden">
-		                                            {/* MODIFIED: 
-		                                              1. Pass size="full". The avatar component will see this
-		                                                 and apply its internal "w-full h-full" classes,
-		                                                 making it fill the parent div perfectly.
-		                                            */}
 		                                            <UserInitialsAvatar user={student} size="full" />
 		                                        </div>
 		                                        <div>
-				                                            {/* --- MODIFIED: Use fresh student names --- */}
                                             <p className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">{student.lastName || '[N/A]'}, {student.firstName || '[N/A]'}</p>
                                             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">ID: {student.id}</p>
                                         </div>
                                     </div>
-                                    {/* --- MODIFIED: Pass fresh student object to onRemoveStudent --- */}
                                     <button onClick={() => onRemoveStudent(classData.id, student)} className="p-2 rounded-full text-red-500 dark:text-red-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title={`Remove ${student.firstName}`}>
                                         <TrashIcon className="w-5 h-5" />
                                     </button>
@@ -1040,7 +1085,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                     ) : <EmptyState icon={UsersIcon} text="No students enrolled" subtext="Share the class code to get students enrolled." />}
                 </div>
             );
-            // --- END OF MODIFIED BLOCK ---
         }
         
         return (
@@ -1118,11 +1162,11 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         ))}
                     </nav>
 
-                    <main className="flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic flex flex-col min-h-0 mt-4 sm:mt-6">
+                    <main className="flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark flex flex-col min-h-0 mt-4 sm:mt-6">
                         <header className="px-4 pt-4 pb-4 sm:px-6 sm:pt-6 sm:pb-4 flex-shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-700/80">
                             
                             <div className="flex items-center gap-3">
-                                {/* ... (no changes to header buttons) */}
+                                {/* ... (no changes to header buttons, logic is now in handleDeleteSelected) */}
                                 {activeTab === 'lessons' && selectedLessons.size > 0 && (
                                     <Button 
                                         onClick={() => handleDeleteSelected('lesson')} 
@@ -1170,6 +1214,40 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         </div>
                     </main>
 
+                </div>
+            </Modal>
+
+            {/* --- NEW: Custom Confirmation Modal --- */}
+            <Modal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                title="Confirm Action"
+                size="sm"
+                className="z-[200]" // Ensure it's on top
+                contentClassName="p-0"
+                roundedClass="rounded-2xl"
+            >
+                <div className="p-6 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl">
+                    <p className="text-lg text-slate-800 dark:text-slate-100">{confirmModal.message}</p>
+                    <div className="flex justify-end gap-3 mt-6">
+                        <Button 
+                            variant="secondary" 
+                            onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                            className="font-semibold text-slate-700 dark:text-slate-200 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark border-none"
+                        >
+                            Cancel
+                        </Button>
+                        <Button 
+                            color={confirmModal.confirmColor}
+                            onClick={() => {
+                                confirmModal.onConfirm();
+                                setConfirmModal(prev => ({ ...prev, isOpen: false })); // Close on confirm
+                            }}
+                            className="font-semibold"
+                        >
+                            {confirmModal.confirmText}
+                        </Button>
+                    </div>
                 </div>
             </Modal>
 

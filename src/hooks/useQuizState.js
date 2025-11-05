@@ -77,9 +77,18 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
     const issueWarning = useCallback(async (type = 'general') => {
         if (isTeacherView || isLocked || score !== null || showReview || hasSubmitted.current) return;
 
+        // --- ⬇⬇⬇ START OF FIX ⬇⬇⬇ ---
+        // Create gated feature flags, just like in useQuizAntiCheat.js
+        const isAntiCheatEnabled = quiz?.settings?.enabled ?? false;
+        const lockOnLeave = isAntiCheatEnabled && (quiz?.settings?.lockOnLeave ?? false);
+        const detectDevTools = isAntiCheatEnabled && (quiz?.settings?.detectDevTools ?? false);
+        const warnOnPaste = isAntiCheatEnabled && (quiz?.settings?.warnOnPaste ?? false);
+        // --- ⬆⬆⬆ END OF FIX ⬆⬆⬆ ---
+
         try {
             if (type === 'devTools') {
-                if (!(quiz?.settings?.detectDevTools ?? false)) return;
+                // --- MODIFIED: Use gated flag ---
+                if (!detectDevTools) return;
                 const newDevToolWarningCount = devToolWarnings + 1;
                 setDevToolWarnings(newDevToolWarningCount);
                 localStorage.setItem(devToolWarningKey, newDevToolWarningCount.toString());
@@ -88,7 +97,15 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                     setIsLocked(true);
                     if (navigator.onLine) {
                         const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
-                        await setDoc(lockRef, { quizId: quiz.id, studentId: userProfile.id, studentName: `${userProfile.firstName} ${userProfile.lastName}`, classId: classId, lockedAt: serverTimestamp(), reason: 'Developer tools opened too many times' });
+                        await setDoc(lockRef, { 
+                            quizId: quiz.id, 
+                            studentId: userProfile.id, 
+                            studentName: `${userProfile.firstName} ${userProfile.lastName}`, 
+                            classId: classId, 
+                            postId: postId,
+                            lockedAt: serverTimestamp(), 
+                            reason: 'Developer tools opened too many times' 
+                        });
                     }
                     showToast(`Quiz Locked: Developer tools warning limit reached.`, "error", 5000);
                 } else {
@@ -96,7 +113,8 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                 }
 
             } else if (type === 'paste') {
-                if (!(quiz?.settings?.warnOnPaste ?? false)) return;
+                // --- MODIFIED: Use gated flag ---
+                if (!warnOnPaste) return;
                 const newWarningCount = warnings + 1;
                 setWarnings(newWarningCount);
                 localStorage.setItem(warningKey, newWarningCount.toString());
@@ -105,12 +123,21 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                     setIsLocked(true);
                     if (navigator.onLine) {
                         const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
-                        await setDoc(lockRef, { quizId: quiz.id, studentId: userProfile.id, studentName: `${userProfile.firstName} ${userProfile.lastName}`, classId: classId, lockedAt: serverTimestamp(), reason: 'Pasting content too many times' });
+                        await setDoc(lockRef, { 
+                            quizId: quiz.id, 
+                            studentId: userProfile.id, 
+                            studentName: `${userProfile.firstName} ${userProfile.lastName}`, 
+                            classId: classId, 
+                            postId: postId,
+                            lockedAt: serverTimestamp(), 
+                            reason: 'Pasting content too many times' 
+                        });
                     }
                 }
 
             } else if (type === 'general') {
-                if (!(quiz?.settings?.lockOnLeave ?? false)) return;
+                // --- MODIFIED: Use gated flag ---
+                if (!lockOnLeave) return;
                 const newWarningCount = warnings + 1;
                 setWarnings(newWarningCount);
                 localStorage.setItem(warningKey, newWarningCount.toString());
@@ -119,7 +146,15 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                     setIsLocked(true);
                     if (navigator.onLine) {
                         const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
-                        await setDoc(lockRef, { quizId: quiz.id, studentId: userProfile.id, studentName: `${userProfile.firstName} ${userProfile.lastName}`, classId: classId, lockedAt: serverTimestamp(), reason: 'Too many unauthorized attempts to navigate away' });
+                        await setDoc(lockRef, { 
+                            quizId: quiz.id, 
+                            studentId: userProfile.id, 
+                            studentName: `${userProfile.firstName} ${userProfile.lastName}`, 
+                            classId: classId, 
+                            postId: postId,
+                            lockedAt: serverTimestamp(), 
+                            reason: 'Too many unauthorized attempts to navigate away' 
+                        });
                     }
                 }
             }
@@ -127,7 +162,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
             console.error("Failed to issue warning or update lock status:", error);
             showToast("Could not process warning. Please proceed with caution.", "error");
         }
-    }, [warnings, devToolWarnings, warningKey, devToolWarningKey, quiz, userProfile, classId, isLocked, score, showReview, isTeacherView, showToast, hasSubmitted]);
+    }, [warnings, devToolWarnings, warningKey, devToolWarningKey, quiz, userProfile, classId, postId, isLocked, score, showReview, isTeacherView, showToast, hasSubmitted]);
 
     // handleSubmit
     const handleSubmit = useCallback(async () => {
@@ -301,7 +336,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
             setXPGained(0);
         }
     }, [
-        userAnswers, score, shuffledQuestions, quiz, userProfile, classId, attemptsTaken,
+        userAnswers, score, shuffledQuestions, quiz, userProfile, classId, postId, attemptsTaken,
         warningKey, devToolWarningKey, shuffleKey, isLocked, showToast, onComplete, questionNumbering.totalItems,
         refreshUserProfile, handleGamificationUpdate
     ]);
@@ -347,7 +382,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
         }
         // --- END ADDED ---
         
-    }, [quiz, shuffleKey, showToast]); // --- MODIFIED: Added showToast ---
+    }, [quiz, shuffleKey, showToast]);
 
     // Countdown Timer Logic
     useEffect(() => {
@@ -591,10 +626,9 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
         setupQuiz();
 
     }, [
-        isOpen, quiz, isTeacherView, warningKey, devToolWarningKey, shuffleKey, // <-- FIX: Replaced 'What' with 'shuffleKey'
-        userProfile?.id, classId, maxAttempts
-    ]); // --- MODIFIED: REMOVED showToast from dependencies & fixed typo ---
-    // --- END MODIFIED: Main setup useEffect ---
+        isOpen, quiz, isTeacherView, warningKey, devToolWarningKey, shuffleKey,
+        userProfile?.id, classId, postId, maxAttempts, showToast
+    ]);
 
 
     // handleAnswer
