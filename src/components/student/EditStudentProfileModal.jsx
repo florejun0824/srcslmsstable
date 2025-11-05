@@ -45,13 +45,13 @@ const EditStudentProfileModal = ({ user, canSetBio, onSubmit, onClose, isLoading
         isOpen={true} 
         onClose={onClose} 
         title="Edit Your Profile"
-        contentClassName="p-0 h-full flex flex-col"
+        contentClassName="p-0"
       >
         {/* --- MODIFIED: Removed onSubmit and onKeyDown from <form> --- */}
-        <form className="flex flex-col h-full">
+        <form>
         
           {/* --- This is the SCROLLABLE part --- */}
-          <div className="space-y-5 overflow-y-auto p-6">
+          <div className="space-y-5 p-6">
             {/* First Name */}
             <div>
               <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">
@@ -132,7 +132,7 @@ const EditStudentProfileModal = ({ user, canSetBio, onSubmit, onClose, isLoading
           {/* --- END of scrollable part --- */}
 
           {/* --- This is the STICKY FOOTER part --- */}
-          <div className="flex-shrink-0 p-6 pt-4 border-t border-gray-200 dark:border-slate-700">
+          <div className="p-6 pt-4 border-t border-gray-200 dark:border-slate-700">
               {/* Error and Success Message Display */}
               {error && (
                 <div className="mb-4 p-4 rounded-xl bg-red-50 border-l-4 border-red-400 flex items-center gap-3 dark:bg-red-900/20 dark:border-red-500">

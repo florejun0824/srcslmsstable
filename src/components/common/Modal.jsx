@@ -37,7 +37,7 @@ const Modal = ({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 30 }}
             transition={{ type: 'spring', stiffness: 260, damping: 25 }}
-            className={`relative w-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark flex flex-col ${roundedClass} ${sizeClasses[size]}`}
+            className={`relative w-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark flex flex-col ${roundedClass} ${sizeClasses[size]} max-h-full`}
           >
             {/* Header Area */}
             {(title || showCloseButton) && (
@@ -62,7 +62,7 @@ const Modal = ({
             )}
 
             {/* Content Area */}
-            <div className={`p-8 overflow-y-auto ${contentClassName}`}>
+            <div className={`p-8 overflow-y-auto flex-1 ${contentClassName}`}>
               {children}
             </div>
           </motion.div>
