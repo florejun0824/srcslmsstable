@@ -1,285 +1,600 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 import InteractiveLoadingScreen from '../common/InteractiveLoadingScreen';
 import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
+// We need the *big* sanitizer for the Planner call
+import { sanitizeLessonsJson as sanitizeJsonBlock } from './sanitizeLessonText'; // Corrected path
 
-// Helper functions from your original CreateLearningGuideModal.jsx file
-const extractJson = (text) => {
-    let match = text.match(/```json\s*([\s\S]*?)\s*```/);
-    if (!match) match = text.match(/```([\s\S]*?)```/);
-    if (match && match[1]) return match[1].trim();
-    const firstBrace = text.indexOf('{');
-    const lastBrace = text.lastIndexOf('}');
-    if (firstBrace > -1 && lastBrace > firstBrace) return text.substring(firstBrace, lastBrace + 1);
-    throw new Error("AI response did not contain a valid JSON object.");
+/**
+ * --- Micro-Worker Sanitizer ---
+ * (This function is unchanged)
+ */
+const sanitizeJsonComponent = (aiResponse) => {
+    try {
+        const startIndex = aiResponse.indexOf('{');
+        const endIndex = aiResponse.lastIndexOf('}');
+        if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
+            throw new Error('No valid JSON object ({...}) found in AI response.');
+        }
+        const jsonString = aiResponse.substring(startIndex, endIndex + 1);
+        return JSON.parse(jsonString);
+    } catch (error) {
+        console.error("sanitizeJsonComponent error:", error.message, "Preview:", aiResponse.substring(0, 300));
+        throw new Error(`The AI component response was not valid JSON. Preview: ${aiResponse.substring(0, 150)}`);
+    }
 };
 
-const tryParseJson = (jsonString) => {
-    try {
-        const sanitizedString = jsonString.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\');
-        return JSON.parse(sanitizedString);
-    } catch (e) {
-        console.warn("Standard JSON.parse failed. Attempting to fix trailing commas.", e);
-        const sanitizedWithCommas = jsonString.replace(/,\s*([}\]])/g, '$1');
+/**
+ * --- Base Context Builder ---
+ * (This function is unchanged)
+ */
+const getBasePromptContext = (guideData, existingSubjectContext) => {
+    const languageAndGradeInstruction = `
+        **TARGET AUDIENCE (NON-NEGOTIABLE):**
+        - **Grade Level:** The entire output MUST be tailored for **Grade ${guideData.gradeLevel}** students.
+        - **Language:** The entire output MUST be written in **${guideData.language}**.
+        ${guideData.language === 'Filipino' ? `
+        - **CRITICAL FILIPINO LANGUAGE RULE:** You are strictly forbidden from using English or any form of code-switching (Taglish). The output must be pure, academic Filipino.
+        ` : ''}
+    `;
+
+    const catholicSubjects = ["Christian Social Living 7-10", "Religious Education 11-12"];
+    let perspectiveInstruction = '';
+    if (catholicSubjects.includes(guideData.subjectName)) {
+        perspectiveInstruction = `
+            **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. All explanations must align with Catholic teachings.
+            **CRITICAL SOURCE REQUIREMENT (NON-NEGOTIABLE):** Prioritize citing and referencing official Catholic sources (CCC, Youcat, Encyclicals, etc.).
+        `;
+    }
+
+    const scaffoldingInstruction = `
+        **CONTEXT: PREVIOUSLY COVERED MATERIAL**
+        This section lists topics from lessons that already exist.
+
+        **YOUR SCAFFOLDING TASK (NON-NEGOTIABLE):**
+        1.  **DO NOT RE-TEACH:** You are strictly forbidden from re-teaching the specific concepts, keywords, or learning objectives listed below.
+        2.  **BUILD UPON:** Your new lesson MUST act as a logical "next step." It must **actively build upon this previous knowledge**.
+        3.  **CREATE A BRIDGE:** Where appropriate, the introduction of your new lesson should briefly reference a concept from the prerequisite lessons to create a smooth transition, but it must immediately move into new, more advanced material.
+
+        ---
+        **PREVIOUSLY COVERED MATERIAL (DO NOT RE-TEACH):**
+        - **User-Selected Prerequisites:** ${guideData.scaffoldedLessons.length > 0 ? guideData.scaffoldedLessons.map(l => `- ${l.title}`).join('\n') : "N/A"}
+        - **Other Existing Lessons:** ${existingSubjectContext || "N/A"}
+        ---
+    `;
+
+    const standardsInstruction = `
+        **UNIT STANDARDS (NON-NEGOTIABLE CONTEXT):**
+        - **Content Standard:** ${guideData.contentStandard || "Not provided."}
+        - **Performance Standard:** ${guideData.performanceStandard || "Not provided."}
+        - **Learning Competencies (Master List):** ${guideData.learningCompetencies || "Not provided."}
+    `;
+
+    return {
+        languageAndGradeInstruction,
+        perspectiveInstruction,
+        scaffoldingInstruction,
+        standardsInstruction,
+    };
+};
+
+/**
+ * --- Planner Prompt Generator ---
+ * (This function is unchanged)
+ */
+const getPlannerPrompt = (guideData, baseContext) => {
+    const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
+    
+    return `
+    You are an expert curriculum planner. Your *only* task is to take a main topic and break it down into a logical, scaffolded lesson plan.
+    
+    ${languageAndGradeInstruction}
+    ${perspectiveInstruction}
+    ${standardsInstruction}
+    ${scaffoldingInstruction}
+
+    **CRITICAL TASK: GENERATE A LESSON PLAN**
+    You must analyze the user's main topic and break it down into a series of lessons.
+    - **User's Main Topic:** "${guideData.content}"
+    - **User's Requested Number of Lessons:** ${guideData.lessonCount}
+
+    **YOUR RULES:**
+    1.  **Respect the Count:** You MUST generate **exactly ${guideData.lessonCount}** lesson(s).
+    2.  **Logical Flow:** The lessons MUST be in a logical, scaffolded order. Lesson 2 must build on Lesson 1.
+    3.  **Scaffolding:** Your plan MUST obey the "SCAFFOLDING TASK" and not repeat any topics from the "PREVIOUSLY COVERED MATERIAL."
+    4.  **Titles:** Lesson titles must be formal, academic, and descriptive.
+    5.  **Summaries:** Provide a 1-2 sentence summary for *each* lesson you plan, explaining what that specific part of the topic will cover.
+
+    **CRITICAL QUOTE ESCAPING:** All double quotes (") inside string values MUST be escaped (\\").
+
+    =============================
+    JSON OUTPUT FORMAT (PLAN ONLY)
+    =============================
+    {
+      "lessons": [
+        {
+          "lessonTitle": "Lesson 1: [Proposed Title for Lesson 1]",
+          "summary": "A 1-2 sentence summary of what this specific lesson will cover."
+        },
+        {
+          "lessonTitle": "Lesson 2: [Proposed Title for Lesson 2]",
+          "summary": "A 1-2 sentence summary for the next lesson, building on the first."
+        }
+        // ... (exactly ${guideData.lessonCount} total items)
+      ]
+    }
+    `;
+};
+
+/**
+ * --- Micro-Worker Prompt Generator ---
+ * (This function is unchanged)
+ */
+const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, styleRules, extraData = {}) => {
+    const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
+    
+    // Labels
+    const objectivesLabel = guideData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
+    const letsGetStartedLabel = guideData.language === 'Filipino' ? 'Simulan Natin!' : "Let's Get Started!";
+    const checkUnderstandingLabel = guideData.language === 'Filipino' ? 'Suriin ang Pag-unawa' : "Check for Understanding";
+    const lessonSummaryLabel = guideData.language === 'Filipino' ? 'Buod ng Aralin' : "Lesson Summary";
+    const wrapUpLabel = guideData.language === 'Filipino' ? 'Pagbubuod' : "Wrap-Up";
+    const endOfLessonAssessmentLabel = guideData.language === 'Filipino' ? 'Pagtatasa sa Katapusan ng Aralin' : "End-of-Lesson Assessment";
+    const referencesLabel = guideData.language === 'Filipino' ? 'Mga Sanggunian' : "References";
+    const answerKeyLabel = guideData.language === 'Filipino' ? 'Susi sa Pagwawasto' : 'Answer Key';
+    
+    let taskInstruction, jsonFormat;
+
+    const commonHeader = `
+    You are an expert curriculum designer. Your task is to generate *only* the specific component requested.
+    
+    ${languageAndGradeInstruction}
+    ${perspectiveInstruction}
+    ${scaffoldingInstruction}
+    ${standardsInstruction}
+
+    **LESSON CONTEXT:**
+    - **Main Topic:** ${guideData.content}
+    - **Current Lesson Title:** ${lessonPlan.lessonTitle}
+    - **Current Lesson Focus:** ${lessonPlan.summary}
+    `;
+
+    // styleRules is now passed in directly.
+
+    switch (componentType) {
+        case 'objectives':
+            taskInstruction = `Generate 3-5 specific, measurable, and student-friendly learning objectives for this lesson. They must be based *only* on the lesson's focus: "${lessonPlan.summary}"`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "objectives": [\n    "Objective 1...",\n    "Objective 2..."\n  ]\n}`;
+            break;
+        
+        case 'competencies':
+            taskInstruction = `Analyze the "Learning Competencies (Master List)" from the context and select 1-3 competencies that are *directly* addressed by this specific lesson: "${lessonPlan.lessonTitle} - ${lessonPlan.summary}"`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "competencies": [\n    "Competency 1 from master list...",\n    "Competency 2 from master list..."\n  ]\n}`;
+            break;
+
+        case 'Introduction':
+            taskInstruction = 'Generate the "Engaging Introduction" page. It MUST have a thematic, captivating subheader title. The content must hook attention for this specific lesson.';
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "A Captivating Thematic Title (NOT 'Introduction')",\n    "content": "Engaging intro markdown..."\n  }\n}`;
+            break;
+        
+        case 'LetsGetStarted':
+            taskInstruction = `Generate the "${letsGetStartedLabel}" page. This must be a short, simple, interactive warm-up activity relevant to this lesson.`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${letsGetStartedLabel}",\n    "content": "Warm-up activity instructions..."\n  }\n}`;
+            break;
+
+        case 'CoreContentPlanner':
+            taskInstruction = `Analyze the focus for this lesson: "${lessonPlan.summary}".
+            **CRITICAL CONTENT FIDELITY (NON-NEGOTIABLE):** Your task is to identify *all* the main sub-topics required to cover the *entire* content for this single lesson.
+            - If the lesson's topic is simple, you might only return 1 or 2 titles.
+            - If the lesson's topic is complex (e.g., "The Light-Dependent Reactions"), you MUST return as many titles as needed (e.g., "Capturing Light," "The Electron Transport Chain," "Creating ATP and NADPH") to cover it fully.
+            - Do **NOT** include titles for "Introduction," "Warm-Up," "Summary," etc. Just the main, teachable content topics.`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "coreContentTitles": [\n    "First Sub-Topic Title",\n    "Second Sub-Topic Title"\n    // ... (as many as necessary)
+      ]\n}`;
+            break;
+
+        case 'CoreContentPage':
+            taskInstruction = `Generate *one* core content page for this lesson.
+            - **Page Title:** It MUST be exactly: "${extraData.contentTitle}"
+            - **Content:** The content MUST be detail-rich, narrative-driven, and relevant to this page title, adhering to all Master Instructions.`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${extraData.contentTitle}",\n    "content": "Detailed markdown content for this specific page, including interactive blockquotes..."\n  }\n}`;
+            break;
+        
+        case 'CheckForUnderstanding':
+            taskInstruction = `Generate the "${checkUnderstandingLabel}" page. This must be a short, formative activity with 3-4 concept questions based on the lesson's core content.`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${checkUnderstandingLabel}",\n    "content": "1. Question 1...\n2. Question 2..."\n  }\n}`;
+            break;
+
+        case 'LessonSummary':
+            taskInstruction = `Generate the "${lessonSummaryLabel}" page. This must be a concise recap of the most important points from *this lesson only*.`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${lessonSummaryLabel}",\n    "content": "Concise recap in markdown..."\n  }\n}`;
+            break;
+        
+        case 'WrapUp':
+            taskInstruction = `Generate the "${wrapUpLabel}" page. This must be a motivational, inspiring closure that ties *this lesson* back to the big picture.`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${wrapUpLabel}",\n    "content": "Motivational closure in markdown..."\n  }\n}`;
+            break;
+
+        case 'EndofLessonAssessment':
+            taskInstruction = `Generate the "${endOfLessonAssessmentLabel}" page. This must be 5-8 questions (mix of multiple-choice, short-answer) that align with *this lesson's* objectives.`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${endOfLessonAssessmentLabel}",\n    "content": "### Multiple Choice\n1. Question...\n\n### Short Answer\n4. Question..."\n  }\n}`;
+            break;
+
+        case 'AnswerKey':
+            taskInstruction = `Generate the "${answerKeyLabel}" page. Provide clear answers to all questions from the "End of Lesson Assessment".`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${answerKeyLabel}",\n    "content": "1. Answer...\n4. Answer..."\n  }\n}`;
+            break;
+
+        case 'References':
+            taskInstruction = `Generate the "${referencesLabel}" page. This must be an academic-style reference list for *this lesson*.`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${referencesLabel}",\n    "content": "- Source 1...\n- Source 2..."\n  }\n}`;
+            break;
+
+        default:
+            throw new Error(`Unknown component type: ${componentType}`);
+    }
+
+    return `
+    ${commonHeader}
+
+    =============================
+    YOUR SPECIFIC TASK
+    =============================
+    ${taskInstruction}
+
+    ${styleRules}
+
+    =============================
+    JSON OUTPUT FORMAT
+    =============================
+    ${jsonFormat}
+    `;
+};
+
+/**
+ * --- Micro-Worker Function with Retries ---
+ * (This function is unchanged, it includes the "polite" 1.5s delay)
+ */
+const generateLessonComponent = async (
+    guideData, 
+    baseContext, 
+    lessonPlan, 
+    componentType, 
+    isMounted, 
+    masterInstructions,
+    styleRules,
+    extraData = {}, 
+    maxRetries = 3
+) => {
+    
+    const prompt = getComponentPrompt(
+        guideData, 
+        baseContext, 
+        lessonPlan, 
+        componentType, 
+        styleRules, 
+        extraData
+    );
+    
+    // Combine master instructions for the component worker
+    const finalPrompt = `
+    ${prompt}
+
+    =============================
+    MASTER INSTRUCTION SET (Apply these to your task)
+    =============================
+    ${masterInstructions}
+    `;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        // --- ABORT FIX ---
+        if (!isMounted.current) throw new Error("Generation aborted by user.");
+
         try {
-            return JSON.parse(sanitizedWithCommas);
-        } catch (finalError) {
-            console.error("Sanitization failed. The error is likely in the generated JSON structure.", finalError);
-            throw e;
+            const aiResponse = await callGeminiWithLimitCheck(finalPrompt);
+
+            // --- ABORT FIX ---
+            if (!isMounted.current) throw new Error("Generation aborted by user.");
+            
+            const jsonData = sanitizeJsonComponent(aiResponse);
+
+            // --- "POLITE" THROTTLING FIX ---
+            await new Promise(res => setTimeout(res, 1500));
+            // --- END "POLITE" THROTTLING FIX ---
+            
+            // --- ABORT FIX ---
+            if (!isMounted.current) throw new Error("Generation aborted by user.");
+
+            return jsonData;
+
+        } catch (error) {
+            // --- ABORT FIX ---
+            if (!isMounted.current) throw new Error("Generation aborted by user.");
+
+            console.warn(
+                `Attempt ${attempt + 1} of ${maxRetries} failed for component: ${componentType} (Lesson: ${lessonPlan.lessonTitle})`,
+                error.message
+            );
+            if (attempt === maxRetries - 1) {
+                console.error(`All ${maxRetries} retries failed for component: ${componentType}. Aborting.`);
+                throw new Error(`Failed to generate component ${componentType} after ${maxRetries} attempts: ${error.message}`);
+            }
+
+            // --- "RETRY" THROTTLING FIX ---
+            await new Promise(res => setTimeout(res, 5000));
+            // --- ABORT FIX ---
+            if (!isMounted.current) throw new Error("Generation aborted by user.");
+            // --- END "RETRY" THROTTLING FIX ---
         }
     }
 };
 
-// --- START OF FIX: Accept startLessonNumber prop ---
-export default function GenerationScreen({ subject, unit, guideData, startLessonNumber, onGenerationComplete, onBack }) {
-// --- END OF FIX ---
+/**
+ * --- Master Instructions Function ---
+ * (This function is unchanged)
+ */
+const getMasterInstructions = async (guideData) => {
+    const objectivesLabel = guideData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
+    const letsGetStartedLabel = guideData.language === 'Filipino' ? 'Simulan Natin!' : "Let's Get Started!";
+    const checkUnderstandingLabel = guideData.language === 'Filipino' ? 'Suriin ang Pag-unawa' : "Check for Understanding";
+    const lessonSummaryLabel = guideData.language === 'Filipino' ? 'Buod ng Aralin' : "Lesson Summary";
+    const wrapUpLabel = guideData.language === 'Filipino' ? 'Pagbubuod' : "Wrap-Up";
+    const endOfLessonAssessmentLabel = guideData.language === 'Filipino' ? 'Pagtatasa sa Katapusan ng Aralin' : "End-of-Lesson Assessment";
+    const referencesLabel = guideData.language === 'Filipino' ? 'Mga Sanggunian' : "References";
+    const answerKeyLabel = guideData.language === 'Filipino' ? 'Susi sa Pagwawasto' : 'Answer Key';
+    const catholicSubjects = ["Christian Social Living 7-10", "Religious Education 11-12"];
+    let perspectiveInstruction = '';
+    if (catholicSubjects.includes(guideData.subjectName)) {
+        perspectiveInstruction = `
+            **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. This is non-negotiable. All explanations, examples, and interpretations must align with Catholic teachings, doctrines, and values. You must integrate principles from the Catechism of the Catholic Church, relevant encyclicals, and Sacred Scripture where appropriate.
+            **CRITICAL SOURCE REQUIREMENT (NON-NEGOTIABLE):** For all content and for the "${referencesLabel}" section, you MUST prioritize citing and referencing official Catholic sources. This includes, but is not limited to: the **Catechism of the Catholic Church (CCC)**, the **Youth Catechism (Youcat)**, relevant **Apostolic Letters**, **Encyclical Letters**, and documents from Vatican II. Secular sources may be used sparingly, but the core foundation must be these official Church documents.
+        `;
+    }
+
+    const masterInstructions = `
+        **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer.
+        **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${guideData.gradeLevel}**.
+        ${perspectiveInstruction}
+        **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the concept. Explain the "why" and "how". Use vivid analogies.
+        
+        **CRITICAL INSTRUCTION FOR INTERACTIVITY (NON-NEGOTIABLE):** You MUST embed small, interactive elements directly within the core content pages.
+        - Use Markdown blockquotes (\`>\`) to format these.
+        - **Examples:**
+            - **> Think About It:** If gravity suddenly disappeared, what's the first thing that would happen?
+            - **> Quick Poll:** Raise your hand if you think plants breathe.
+
+        **Textbook Chapter Structure (NON-NEGOTIABLE):** You MUST generate the lesson pages in this exact sequence. The 'title' field for each special section MUST be exactly as specified.
+        1. **${objectivesLabel}:** (Handled by 'objectives' call)
+        2. **Engaging Introduction:** (Handled by 'Introduction' call)
+        3. **Introductory Activity ("${letsGetStartedLabel}"):** (Handled by 'LetsGetStarted' call)
+        4. **Core Content Sections:** (Handled by 'CoreContentPage' calls)
+        5. **Check for Understanding ("${checkUnderstandingLabel}"):** (Handled by 'CheckForUnderstanding' call)
+        6. **Summary ("${lessonSummaryLabel}"):** (Handled by 'LessonSummary' call)
+        7. **Conclusion ("${wrapUpLabel}"):** (Handled by 'WrapUp' call)
+        8. **Assessment ("${endOfLessonAssessmentLabel}"):** (Handled by 'EndofLessonAssessment' call)
+        9. **Answer Key ("${answerKeyLabel}"):** (Handled by 'AnswerKey' call)
+        10. **References ("${referencesLabel}"):** (Handled by 'References' call)
+    `;
+
+    const styleRules = `
+        **CRITICAL FORMATTING RULE (NON-NEGOTIABLE):** You MUST NOT use Markdown code block formatting (like indenting with four spaces or using triple backticks \\\`\\\`\\\`) for regular content like bulleted lists or standard paragraphs.
+        
+        **CRITICAL JSON STRING RULE (NON-NEGOTIABLE):** When writing text content inside the JSON, do NOT escape standard quotation marks.
+        - **Correct:** \\\`"title": "The Art of \\"How Much?\\""\\\`
+        - **Incorrect:** \\\`"title": "The Art of \\\\\\"How Much?\\\\\\""\\\`
+        
+        **CRITICAL TEXT FORMATTING RULE (NON-NEGOTIABLE):**
+        - To make text bold, you MUST use Markdown's double asterisks (**).
+        - You are STRICTLY FORBIDDEN from using LaTeX commands like \\textbf{} or \\textit{}.
+        - **✅ NEW (ABSOLUTE RULE):** You are **STRICTLY FORBIDDEN** from bolding the introductory phrase or "title" of a bullet point.
+            - **Correct:** \`* Handle with Care: Carry glassware with two hands if it's large.\`
+            - **INCORRECT:** \`* **Handle with Care**: Carry glassware with two hands if it's large.\`
+
+        **CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
+        You MUST use LaTeX for all mathematical equations, variables, and chemical formulas.
+        - **For INLINE formulas**, use single dollar signs: $H_2O$.
+        - **For BLOCK formulas**, use double dollar signs: $$...$$
+        - **CRITICAL LATEX ESCAPING IN JSON:** Every single backslash \`\\\` in your LaTeX code MUST be escaped with a second backslash (\`\\\\\`).
+        - **CORRECT EXAMPLE:** \`"content": "$$% \\\\text{ by Mass} = \\\\frac{\\\\text{Mass of Solute}}{\\\\text{Mass of Solution}} \\\\times 100\\%%$$"\`
+        
+        **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, a heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \\\`"title": ""\\\`.
+        
+        **CRITICAL INSTRUCTION FOR REFERENCES (NON-NEGOTIABLE):** All sources cited in the "${referencesLabel}" section MUST be as up-to-date as possible.
+
+        **ABSOLUTE RULE FOR SVG DIAGRAMS (NON-NEGOTIABLE):**
+        When a visual aid is necessary, you MUST generate valid, self-contained SVG code.
+        - The page 'type' MUST be **"svg"**.
+        - The 'content' MUST be a string containing the SVG code.
+        - All styles MUST be inline attributes (e.g., \`stroke="#212121"\`). DO NOT use \`<style>\` tags.
+        - Use a clean, educational textbook style.
+    `;
+
+    // Return both, so the component prompt can use the styles
+    // and the micro-worker can use the master instructions.
+    return { masterInstructions, styleRules };
+};
+
+// --- This is the "Orchestrator" ---
+export default function GenerationScreen({ 
+    subject, 
+    unit, 
+    guideData, 
+    initialLessonPlan, 
+    existingLessons, 
+    startLessonNumber, 
+    onGenerationComplete, 
+    onBack 
+}) {
     const { showToast } = useToast();
     const [lessonProgress, setLessonProgress] = useState({ current: 0, total: 0 });
-
-    const getMasterInstructions = () => {
-        const objectivesLabel = guideData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
-        const letsGetStartedLabel = guideData.language === 'Filipino' ? 'Simulan Natin!' : "Let's Get Started!";
-        const checkUnderstandingLabel = guideData.language === 'Filipino' ? 'Suriin ang Pag-unawa' : "Check for Understanding";
-        const lessonSummaryLabel = guideData.language === 'Filipino' ? 'Buod ng Aralin' : "Lesson Summary";
-        const wrapUpLabel = guideData.language === 'Filipino' ? 'Pagbubuod' : "Wrap-Up";
-        const endOfLessonAssessmentLabel = guideData.language === 'Filipino' ? 'Pagtatasa sa Katapusan ng Aralin' : "End-of-Lesson Assessment";
-        const referencesLabel = guideData.language === 'Filipino' ? 'Mga Sanggunian' : "References";
-        const answerKeyLabel = guideData.language === 'Filipino' ? 'Susi sa Pagwawasto' : 'Answer Key';
-        const catholicSubjects = ["Christian Social Living 7-10", "Religious Education 11-12"];
-        let perspectiveInstruction = '';
-        if (catholicSubjects.includes(guideData.subjectName)) {
-            perspectiveInstruction = `
-                **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. This is non-negotiable. All explanations, examples, and interpretations must align with Catholic teachings, doctrines, and values. You must integrate principles from the Catechism of the Catholic Church, relevant encyclicals, and Sacred Scripture where appropriate.
-                **CRITICAL SOURCE REQUIREMENT (NON-NEGOTIABLE):** For all content and for the "${referencesLabel}" section, you MUST prioritize citing and referencing official Catholic sources. This includes, but is not limited to: the **Catechism of the Catholic Church (CCC)**, the **Youth Catechism (Youcat)**, relevant **Apostolic Letters**, **Encyclical Letters**, and documents from Vatican II. Secular sources may be used sparingly, but the core foundation must be these official Church documents.
-            `;
-        }
-
-        return `
-            **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer. Think of yourself as writing a chapter for a "page-turner" textbook that makes readers feel smarter. Do not explicitly state your role or persona.
-            **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${guideData.gradeLevel}**. Your writing must be clear, accessible, and tailored to the cognitive and developmental level of this grade. The complexity of vocabulary, sentence structure, and conceptual depth should be appropriate for a ${guideData.gradeLevel}th grader.
-            ${perspectiveInstruction}
-            **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the science or the concept. Go beyond surface-level definitions; explain the "why" and "how". Introduce key figures, explore historical context, and delve into fascinating real-world applications. Use vivid analogies and metaphors to illuminate complex ideas. The content should flow logically and build on itself, like a well-structured story.
-            
-            **CRITICAL INSTRUCTION FOR INTERACTIVITY (NON-NEGOTIABLE):** To keep students engaged, you MUST embed small, interactive elements directly within the core content pages. These are not full-page activities, but rather short, thought-provoking prompts that break up the text.
-            - Use Markdown blockquotes (\`>\`) to format these interactive elements.
-            - Precede the prompt with a bolded label.
-            - **Examples:**
-                - **> Think About It:** If gravity suddenly disappeared, what's the first thing that would happen to you?
-                - **> Quick Poll:** Raise your hand if you think plants breathe. We'll find out the answer in the next section!
-                - **> Case Study Spotlight:** Let's look at how the discovery of penicillin was a complete accident...
-
-            **CRITICAL FORMATTING RULE (NON-NEGOTIABLE):** You MUST NOT use Markdown code block formatting (like indenting with four spaces or using triple backticks \\\`\\\`\\\`) for regular content like bulleted lists or standard paragraphs. Code block formatting is reserved ONLY for actual programming code snippets.
-            
-            **CRITICAL JSON STRING RULE (NON-NEGOTIABLE):** When writing text content inside the JSON, do NOT escape standard quotation marks.
-            - **Correct:** \\\`"title": "The Art of \\"How Much?\\""\\\`
-            - **Incorrect:** \\\`"title": "The Art of \\\\\\"How Much?\\\\\\""\\\`
-            
-            **CRITICAL TEXT FORMATTING RULE (NON-NEGOTIABLE):**
-            - To make text bold, you MUST use Markdown's double asterisks (**).
-            - You are STRICTLY FORBIDDEN from using LaTeX commands like \\textbf{} or \\textit{} for text formatting.
-            - **✅ NEW (ABSOLUTE RULE):** You are **STRICTLY FORBIDDEN** from bolding the introductory phrase or "title" of a bullet point. Bolding should only be used for genuine emphasis on specific words within a sentence.
-                - **Correct:** \`* Handle with Care: Carry glassware with two hands if it's large.\`
-                - **INCORRECT:** \`* **Handle with Care**: Carry glassware with two hands if it's large.\`
-
-            **CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
-            You MUST use LaTeX for all mathematical equations, variables, and chemical formulas.
-            - **For INLINE formulas** (within a sentence), you MUST use single dollar signs. Correct: The formula for water is $H_2O$.
-            - **For BLOCK formulas** (on their own line), you MUST use double dollar signs. This is for larger, centered formulas.
-            - **CRITICAL LATEX ESCAPING IN JSON:** To prevent the JSON from breaking, every single backslash \`\\\` in your LaTeX code MUST be escaped with a second backslash. So, \`\\\` becomes \`\\\\\`.
-            - **CORRECT EXAMPLE:** To write the LaTeX formula \`$$% \\text{ by Mass} = \\frac{\\text{Mass of Solute}}{\\text{Mass of Solution}} \\times 100\\%%$$\`, you MUST write it in the JSON string like this:
-            \\\`- "content": "$$% \\\\text{ by Mass} = \\\\frac{\\\\text{Mass of Solute}}{\\\\text{Mass of Solution}} \\\\times 100\\%%$$"\\\`
-            \\\`- **INCORRECT (This will break):** "content": "$$% \\\\text{ by Mass} ..."\\\`
-            
-            **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, a heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \\\`"title": ""\\\`.
-            
-            **CRITICAL INSTRUCTION FOR REFERENCES (NON-NEGOTIABLE):** All sources cited in the "${referencesLabel}" section MUST be as up-to-date as possible. Prioritize scholarly articles, textbooks, and official publications from the last 5-10 years, unless citing foundational historical documents.
-
-            **Textbook Chapter Structure (NON-NEGOTIABLE):** You MUST generate the lesson pages in this exact sequence. The 'title' field for each special section MUST be exactly as specified.
-            1. **${objectivesLabel}:** The lesson MUST begin with the learning objectives (in the "learningObjectives" array).
-            2. **Engaging Introduction:** The first page of the 'pages' array must be a captivating opening.
-            3. **Introductory Activity ("${letsGetStartedLabel}"):** A single page with a short warm-up activity. The 'title' MUST be exactly "${letsGetStartedLabel}".
-            4. **Core Content Sections:** The main narrative content across multiple pages. This should be a continuous, well-structured story that is rich with detail and flows logically from one page to the next. Do not use page numbers in the content or titles.
-            5. **Check for Understanding ("${checkUnderstandingLabel}"):** A page with a thoughtful activity. The 'title' MUST be exactly "${checkUnderstandingLabel}".
-            6. **Summary ("${lessonSummaryLabel}"):** A page with a concise summary.
-            7. **Conclusion ("${wrapUpLabel}"):** A page with a powerful concluding statement.
-            8. **Assessment ("${endOfLessonAssessmentLabel}"):** A multi-page assessment section. The first page's 'title' MUST be "${endOfLessonAssessmentLabel}". It must contain 8-10 questions.
-            9. **Answer Key ("${answerKeyLabel}"):** A page with the answers. The 'title' MUST be exactly "${answerKeyLabel}".
-            10. **References ("${referencesLabel}"):** The absolute last page must ONLY contain references. The 'title' MUST be exactly "${referencesLabel}".
-
-            **ABSOLUTE RULE FOR SVG DIAGRAMS (NON-NEGOTIABLE):**
-            When a visual aid is necessary to explain a concept, you MUST generate valid, self-contained SVG code.
-            - The page 'type' MUST be **"svg"**.
-            - The 'content' MUST be a string containing the SVG code.
-            - **Styling Rules:**
-                - Use a clean, minimalist, educational textbook style.
-                - All styles MUST be inline attributes (e.g., \`stroke="#212121"\`, \`fill="#E3F2FD"\`). DO NOT use \`<style>\` tags.
-                - Use a consistent color palette: Main lines/text: \`#212121\`, Primary emphasis color: \`#4285F4\`, Fill color: \`#E3F2FD\`.
-                - Use a standard sans-serif font like 'Arial' or 'Helvetica' via the \`font-family\` attribute. Font size should be legible, around 12-14px.
-            - **Labeling Rules:**
-                - All key parts of the diagram MUST be clearly labeled using \`<text>\` elements.
-                - Use \`<line>\` or \`<path>\` elements for leader lines pointing from labels to the correct part of the diagram.
-            - **Code Quality:** The SVG code MUST be valid and well-formatted.
-
-            **EXAMPLE of a good SVG diagram:**
-            - "content": "<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"300\\" height=\\"250\\" viewBox=\\"0 0 300 250\\"> <path d=\\"M60 50 H240 L220 220 H80 Z\\" stroke=\\"#212121\\" stroke-width=\\"2\\" fill=\\"#E3F2FD\\"/> <path d=\\"M60 50 Q150 20 240 50\\" stroke=\\"#212121\\" stroke-width=\\"2\\" fill=\\"none\\"/> <rect x=\\"80\\" y=\\"100\\" width=\\"140\\" height=\\"120\\" fill=\\"#4285F4\\" fill-opacity=\\"0.5\\"/> <text x=\\"230\\" y=\\"40\\" font-family=\\"Arial\\" font-size=\\"12\\" fill=\\"#212121\\">Pouring Spout</text> <line x1=\\"220\\" y1=\\"45\\" x2=\\"210\\" y2=\\"50\\" stroke=\\"#212121\\" stroke-width=\\"1\\"/> <text x=\\"10\\" y=\\"160\\" font-family=\\"Arial\\" font-size=\\"12\\" fill=\\"#212121\\">100ml Mark</text> <line x1=\\"60\\" y1=\\"160\\" x2=\\"80\\" y2=\\"160\\" stroke=\\"#212121\\" stroke-width=\\"1\\"/> </svg>"
-
-            **CRITICAL LANGUAGE RULE: You MUST generate the entire response exclusively in ${guideData.language}.**
-        `;
-    };
-
-    const generateSingleLesson = async (lessonNumber, totalLessons, previousLessonsContext, existingSubjectContext) => {
-        let lastError = null;
-        let lastResponseText = null;
-        const masterInstructions = getMasterInstructions(guideData, subject.title);
-        
-        const scaffoldInfo = {
-            summary: guideData.scaffoldedLessons.length > 0
-                ? guideData.scaffoldedLessons.map(l => `- ${l.title}`).join('\n')
-                : 'No specific prerequisite lessons were selected.'
-        };
-
-        const scaffoldingInstruction = `
-        **PRIMARY ANALYSIS TASK (NON-NEGOTIABLE):** Before generating anything, you MUST act as a curriculum continuity expert. Your most critical task is to meticulously analyze all the provided context below to prevent any topical repetition.
-
-        ---
-        ### CONTEXT: PREVIOUSLY COVERED MATERIAL
-        This section contains all topics, objectives, and keywords from lessons that have already been created. You are strictly forbidden from re-teaching these specific concepts.
-
-        **1. User-Selected Prerequisite Lessons:**
-        ${scaffoldInfo.summary}
-
-        **2. Other Lessons Existing in this Subject:**
-        ${existingSubjectContext || "No other lessons exist yet."}
-
-        **3. Lessons Just Generated in this Session:**
-        ${previousLessonsContext || "No other lessons have been generated in this session."}
-        ---
-
-        ### YOUR GENERATION RULES (ABSOLUTE)
-        1.  **DO NOT REPEAT:** You are strictly forbidden from creating a lesson, activity, or assessment question that covers the same learning objectives or keywords mentioned in the context above.
-        2.  **IDENTIFY THE GAP:** Your new lesson must address a logical "next step" or a knowledge gap that is not covered by the existing material.
-        3.  **BUILD A BRIDGE:** If appropriate, your introduction should briefly reference a concept from a prerequisite lesson to create a smooth transition, but it must immediately move into new material.
-
-        **YOUR TASK:** Based on your analysis of the context above, generate a new, unique lesson about **"${guideData.content}"**.
-        `;
+    const [currentLessonPlan, setCurrentLessonPlan] = useState(initialLessonPlan);
+    const [currentLessons, setCurrentLessons] = useState(existingLessons || []);
     
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            let prompt;
-            if (attempt === 1) {
-                prompt = `You are an expert instructional designer.
-                      **ABSOLUTE PRIMARY RULE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
-                      **JSON SYNTAX RULES (NON-NEGOTIABLE):** 1. All keys in quotes. 2. Colon after every key. 3. Backslashes escaped (\\\\). 4. No trailing commas.
-                      **CRITICAL PRE-FLIGHT CHECK:** Before outputting, verify: 1. No missing colons? 2. No missing commas? 3. Brackets/braces matched? 4. Backslashes escaped?
-                      
-                      **OUTPUT JSON STRUCTURE:** {"generated_lessons": [{"lessonTitle": "...", "learningObjectives": [...], "assignedCompetencies": ["Competency 1...", "Competency 2..."], "pages": [...]}]}
-                      ---
-                      **GENERATION TASK DETAILS**
-                      ---
-                      **Core Content:** Subject: "${guideData.subjectName}", Grade: ${guideData.gradeLevel}, Topic: "${guideData.content}"
-                      
-                      **Learning Competencies (Master List):** "${guideData.learningCompetencies}"
-                      
-                      **CRITICAL OBJECTIVES INSTRUCTION:** Generate 'learningObjectives' array with 3-5 objectives.
+    // --- ABORT FIX: Add ref to track mounted state ---
+    const isMounted = useRef(false);
 
-                      **CRITICAL COMPETENCY ASSIGNMENT (NON-NEGOTIABLE):** The "Learning Competencies (Master List)" provided above is for the *entire* topic. For the specific lesson you are generating (Lesson ${lessonNumber}), you MUST analyze this master list and select 1-3 competencies that are *directly addressed* by this single lesson. You MUST add these selected competencies as a new array of strings under the key \`"assignedCompetencies"\`.
-
-                      **CRITICAL INSTRUCTION FOR LESSON TITLES (NON-NEGOTIABLE):** The "lessonTitle" MUST be academic, formal, and descriptive. It must clearly state the core topic of the lesson.
-                          - **GOOD Example:** "Lesson 1: The Principles of Newtonian Mechanics"
-                          - **BAD Example:** "Lesson 1: Fun with Physics!"
-                      **Lesson Details:** You are generating **Lesson ${lessonNumber} of ${totalLessons}**. The "lessonTitle" MUST be unique and start with "Lesson ${lessonNumber}: ".
-                      ${scaffoldingInstruction}
-                      ---
-                      **MASTER INSTRUCTION SET:**
-                      ---
-                      ${masterInstructions}`;
-            } else {
-                showToast(`AI response was invalid. Retrying Lesson ${lessonNumber} (Attempt ${attempt})...`, "warning");
-                prompt = `The following text is not valid JSON and produced this error: "${lastError.message}". Correct the "broken" JSON and return ONLY the valid JSON object. BROKEN JSON: ${lastResponseText}`;
-            }
-
-            try {
-                const aiResponse = await callGeminiWithLimitCheck(prompt);
-                lastResponseText = extractJson(aiResponse);
-                const parsedResponse = tryParseJson(lastResponseText);
-                return parsedResponse;
-            } catch (error) {
-                console.error(`Attempt ${attempt} for Lesson ${lessonNumber} failed:`, error);
-                lastError = error;
-            }
-        }
-        throw lastError;
+    const findSummaryContent = (lesson) => {
+        if (!lesson || !lesson.pages) return "No summary available.";
+        const lessonSummaryLabel = guideData.language === 'Filipino' ? 'Buod ng Aralin' : "Lesson Summary";
+        const summaryPage = lesson.pages.find(p => p.title === lessonSummaryLabel);
+        return summaryPage ? summaryPage.content : "Summary page not found.";
     };
 
-
-    const runGenerationLoop = async (startLessonNum = 1) => { // --- FIX: Use parameter ---
-        let currentLessons = []; // Start fresh
-        const lessonSummaryLabel = guideData.language === 'Filipino' ? 'Buod ng Aralin' : "Lesson Summary";
-
-        const findSummaryContent = (lesson) => {
-            if (!lesson || !lesson.pages) return "No summary available.";
-            const summaryPage = lesson.pages.find(p => p.title === lessonSummaryLabel);
-            return summaryPage ? summaryPage.content : "Summary page not found.";
-        };
-        
-        const existingSubjectContext = "No existing content found."; // Simplified for this component
+    /**
+     * --- Orchestrator Loop ---
+     * (This function is unchanged, but it now calls the refactored/more efficient micro-worker)
+     */
+    const runGenerationLoop = useCallback(async () => {
+        let plans = currentLessonPlan;
+        let lessonsSoFar = [...currentLessons];
 
         try {
-            if (!guideData.content || !guideData.learningCompetencies) {
-                throw new Error("Please provide the Main Content/Topic and Learning Competencies.");
+            // --- STEP 1: Planner (Only run if no plan exists) ---
+            if (!plans) {
+                showToast("Generating lesson plan...", "info");
+                setLessonProgress({ current: 0, total: guideData.lessonCount }); // Show "0 of N"
+                
+                const existingSubjectContext = "No existing content found."; // Simplified
+                const baseContext = getBasePromptContext(guideData, existingSubjectContext);
+                const plannerPrompt = getPlannerPrompt(guideData, baseContext);
+
+                const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt);
+                
+                // --- ABORT FIX ---
+                if (!isMounted.current) return; 
+
+                const parsedPlan = sanitizeJsonBlock(plannerResponse); 
+                
+                if (!parsedPlan || parsedPlan.length === 0) {
+                    throw new Error("The AI failed to create a lesson plan.");
+                }
+                
+                plans = parsedPlan;
+                setCurrentLessonPlan(plans); // Save the plan
             }
 
-            // --- START OF FIX: Use startLessonNum in loop ---
-            for (let i = startLessonNum; i <= guideData.lessonCount; i++) {
-            // --- END OF FIX ---
-                setLessonProgress({ current: i, total: guideData.lessonCount });
-                showToast(`Generating Lesson ${i} of ${guideData.lessonCount}...`, "info", 10000);
-                
-                const previousLessonsContext = currentLessons
-                    .map((lesson, index) => `Lesson ${index + 1}: "${lesson.lessonTitle}"\nSummary: ${findSummaryContent(lesson)}`)
-                    .join('\n---\n');
+            // --- REFACTORED: Get instructions ONCE before the loop ---
+            const { masterInstructions, styleRules } = await getMasterInstructions(guideData);
+            // --- ABORT FIX ---
+            if (!isMounted.current) return;
 
-                const singleLessonData = await generateSingleLesson(
-                    i, 
-                    guideData.lessonCount, 
-                    previousLessonsContext,
-                    existingSubjectContext
-                );
+            // --- STEP 2: Orchestrator (Loop through the plan) ---
+            const lessonsToProcess = plans.slice(startLessonNumber - 1);
+            setLessonProgress({ current: startLessonNumber - 1, total: plans.length });
+
+            for (const [index, plan] of lessonsToProcess.entries()) {
+                // --- ABORT FIX ---
+                if (!isMounted.current) return; 
+
+                const currentLessonIndex = (startLessonNumber - 1) + index;
+                setLessonProgress({ current: currentLessonIndex + 1, total: plans.length });
+                showToast(`Generating Lesson ${currentLessonIndex + 1} of ${plans.length}: "${plan.lessonTitle}"...`, "info", 10000);
+
+                // Build the scaffolding context *for this specific lesson*
+                const previousLessonsContext = lessonsSoFar
+                    .map((lesson, idx) => `Lesson ${idx + 1}: "${lesson.lessonTitle}"\nSummary: ${findSummaryContent(lesson)}`)
+                    .join('\n---\n');
                 
-                if (singleLessonData && singleLessonData.generated_lessons && singleLessonData.generated_lessons.length > 0) {
-                    currentLessons.push(...singleLessonData.generated_lessons);
-                } else {
-                    throw new Error(`Received invalid or empty data for lesson ${i}.`);
+                const existingSubjectContext = "No existing content found."; // Simplified
+                const baseContext = getBasePromptContext(guideData, existingSubjectContext);
+                
+                baseContext.scaffoldingInstruction = `
+                    ${baseContext.scaffoldingInstruction}
+
+                    **3. Lessons Just Generated in this Session:**
+                    ${previousLessonsContext || "No other lessons have been generated in this session."}
+                `;
+                
+                let newLesson = {
+                    lessonTitle: `Lesson ${currentLessonIndex + 1}: ${plan.lessonTitle.replace(/^Lesson\s*\d*:\s*/i, '')}`,
+                    pages: [],
+                    learningObjectives: [],
+                    assignedCompetencies: []
+                };
+
+                // --- REFACTORED: Pass instructions to each worker call ---
+                const objectivesData = await generateLessonComponent(guideData, baseContext, plan, 'objectives', isMounted, masterInstructions, styleRules, {});
+                newLesson.learningObjectives = objectivesData.objectives;
+
+                const competenciesData = await generateLessonComponent(guideData, baseContext, plan, 'competencies', isMounted, masterInstructions, styleRules, {});
+                newLesson.assignedCompetencies = competenciesData.competencies;
+                
+                const introData = await generateLessonComponent(guideData, baseContext, plan, 'Introduction', isMounted, masterInstructions, styleRules, {});
+                newLesson.pages.push(introData.page);
+                
+                const activityData = await generateLessonComponent(guideData, baseContext, plan, 'LetsGetStarted', isMounted, masterInstructions, styleRules, {});
+                newLesson.pages.push(activityData.page);
+
+                const contentPlannerData = await generateLessonComponent(guideData, baseContext, plan, 'CoreContentPlanner', isMounted, masterInstructions, styleRules, {});
+                const contentPlanTitles = contentPlannerData.coreContentTitles || [];
+                
+                for (const contentTitle of contentPlanTitles) {
+                    // --- ABORT FIX ---
+                    if (!isMounted.current) return;
+                    
+                    const contentPageData = await generateLessonComponent(guideData, baseContext, plan, 'CoreContentPage', isMounted, masterInstructions, styleRules, { contentTitle });
+                    newLesson.pages.push(contentPageData.page);
                 }
+                
+                const standardPages = ['CheckForUnderstanding', 'LessonSummary', 'WrapUp', 'EndofLessonAssessment', 'AnswerKey', 'References'];
+                for (const pageType of standardPages) {
+                    // --- ABORT FIX ---
+                    if (!isMounted.current) return;
+
+                    const pageData = await generateLessonComponent(guideData, baseContext, plan, pageType, isMounted, masterInstructions, styleRules, {});
+                    if (pageData && pageData.page) {
+                        newLesson.pages.push(pageData.page);
+                    }
+                }
+                
+                lessonsSoFar.push(newLesson);
+                setCurrentLessons([...lessonsSoFar]);
             }
         
-            onGenerationComplete({ previewData: { generated_lessons: currentLessons }, failedLessonNumber: null });
-            setLessonProgress({ current: 0, total: 0 });
+            // --- ABORT FIX ---
+            if (!isMounted.current) return;
+
+            onGenerationComplete({ previewData: { generated_lessons: lessonsSoFar }, failedLessonNumber: null, lessonPlan: plans });
             showToast("All lessons generated successfully!", "success");
 
         } catch (err) {
-            const failedLessonNum = currentLessons.length + 1;
+            // --- ABORT FIX: Handle abort error silently ---
+            if (!isMounted.current || (err.message && err.message.includes("aborted"))) {
+                console.log("Generation loop aborted by user.");
+                return; // Silently exit
+            }
+
+            // Original catch logic
+            const failedLessonNum = lessonsSoFar.length + 1;
             console.error(`Error during generation of Lesson ${failedLessonNum}:`, err);
             const userFriendlyError = `Failed to generate Lesson ${failedLessonNum}. You can try to continue the generation.`;
             showToast(userFriendlyError, "error", 15000);
-            onGenerationComplete({ previewData: { generated_lessons: currentLessons }, failedLessonNumber: failedLessonNum });
+            onGenerationComplete({ previewData: { generated_lessons: lessonsSoFar }, failedLessonNumber: failedLessonNum, lessonPlan: plans });
         }
-    };
+    }, [guideData, startLessonNumber, currentLessonPlan, currentLessons, onGenerationComplete, showToast]);
 
 
-    // --- START OF FIX: Update useEffect ---
     useEffect(() => {
-        runGenerationLoop(startLessonNumber);
-    }, [guideData, startLessonNumber]); // Run when guideData changes OR when startLessonNumber changes
-    // --- END OF FIX ---
+        isMounted.current = true;
+        runGenerationLoop();
+        
+        return () => {
+            isMounted.current = false;
+        };
+        
+    // --- THIS IS THE FIX ---
+    // We change [runGenerationLoop] to []
+    // This tells React to run this effect *only once* when the component mounts.
+    // It will *not* run again when the state updates, which stops the flood.
+    // We add the eslint-disable line to tell the linter this is intentional.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // <-- THE FIX IS HERE
 
     return (
-        // --- MODIFIED: Added dark theme background ---
         <div className="flex flex-col h-full bg-slate-200 dark:bg-neumorphic-base-dark rounded-2xl">
             <header className="flex-shrink-0 p-6">
                  <button 
                     onClick={onBack} 
-                    // --- MODIFIED: Added dark theme styles ---
                     className="inline-flex items-center justify-center px-4 py-2 bg-slate-200 text-sm font-medium text-slate-700 rounded-xl shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff] transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-200 focus:ring-sky-500
                                dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark dark:focus:ring-offset-neumorphic-base-dark"
                  >

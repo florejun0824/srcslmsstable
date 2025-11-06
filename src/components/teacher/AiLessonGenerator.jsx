@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react'; // <-- 1. Import useRef
 import { db } from '../../services/firebase';
 import { collection, query, where, getDocs, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { getAllSubjects } from '../../services/firestoreService';
-import { sanitizeLessonsJson } from './sanitizeLessonText';
+// We still need the original sanitizer for the *Planner* call
+import { sanitizeLessonsJson as sanitizeJsonBlock } from './sanitizeLessonText';
 
 import { Dialog } from '@headlessui/react';
 import { ArrowUturnLeftIcon, DocumentArrowUpIcon, DocumentTextIcon, XMarkIcon, SparklesIcon, ChevronRightIcon, CheckIcon } from '@heroicons/react/24/solid';
@@ -18,15 +19,29 @@ import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
-// Helper to chunk large text for processing
-const chunkText = (text, chunkSize = 8000) => {
-  const chunks = [];
-  let i = 0;
-  while (i < text.length) {
-    chunks.push(text.substring(i, i + chunkSize));
-    i += chunkSize;
-  }
-  return chunks;
+/**
+ * --- Micro-Worker Sanitizer ---
+ * (This function is unchanged)
+ */
+const sanitizeJsonComponent = (aiResponse) => {
+    try {
+        // Find the first { and last }
+        const startIndex = aiResponse.indexOf('{');
+        const endIndex = aiResponse.lastIndexOf('}');
+        
+        if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
+            throw new Error('No valid JSON object ({...}) found in AI response.');
+        }
+
+        const jsonString = aiResponse.substring(startIndex, endIndex + 1);
+        
+        // Now, parse this string
+        return JSON.parse(jsonString);
+
+    } catch (error) {
+        console.error("sanitizeJsonComponent error:", error.message, "Preview:", aiResponse.substring(0, 300));
+        throw new Error(`The AI component response was not valid JSON. Preview: ${aiResponse.substring(0, 150)}`);
+    }
 };
 
 
@@ -46,29 +61,35 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const [expandedScaffoldUnits, setExpandedScaffoldUnits] = useState(new Set());
     const [existingLessonCount, setExistingLessonCount] = useState(0);
 
-    // New state for language and grade level
     const [language, setLanguage] = useState('English');
     const [gradeLevel, setGradeLevel] = useState('Grade 9');
     
-    // --- START OF CHANGES (1/4): Add state for new inputs ---
     const [learningCompetencies, setLearningCompetencies] = useState('');
     const [contentStandard, setContentStandard] = useState('');
     const [performanceStandard, setPerformanceStandard] = useState('');
-    // --- END OF CHANGES (1/4) ---
 
     const [subjects, setSubjects] = useState([]);
     const [selectedSubject, setSelectedSubject] = useState(null);
+
+    // --- 2. Add isMounted ref ---
+    const isMounted = useRef(false);
+
+    // --- 3. Add useEffect to track mount state ---
+    useEffect(() => {
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false; // Set to false when component unmounts
+        };
+    }, []); // Empty array means this runs only on mount and unmount
 
     useEffect(() => {
         const fetchSubjects = async () => {
             try {
                 const subs = await getAllSubjects();
                 setSubjects(subs);
-            // --- START OF FIX: Added missing curly braces ---
             } catch (error) {
                 showToast('Could not fetch subjects.', 'error');
             }
-            // --- END OF FIX ---
         };
         fetchSubjects();
     }, []);
@@ -119,7 +140,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         return { summary };
     }, [scaffoldLessonIds, subjectContext]);
 
-    // --- FIX 1: Added a function to reset the generator's state ---
     const resetGeneratorState = () => {
         setFile(null);
         setPreviewLessons([]);
@@ -129,11 +149,9 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         setProgressMessage('');
         setSelectedLessonIndex(0);
         setSelectedPageIndex(0);
-        // --- START OF CHANGES: Reset new fields as well ---
         setLearningCompetencies('');
         setContentStandard('');
         setPerformanceStandard('');
-        // --- END OF CHANGES ---
     };
 
     const handleToggleUnitExpansion = (unitId) => {
@@ -189,6 +207,348 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         }
     };
 
+    // --- START OF COMPONENT-BASED REFACTOR ---
+
+    const getBasePromptContext = () => {
+        // (This function is unchanged)
+        let existingSubjectContextString = "No other lessons exist yet.";
+        if (subjectContext && subjectContext.lessons.length > 0) {
+            existingSubjectContextString = subjectContext.units
+                .sort((a, b) => (a.order || 0) - (b.order || 0))
+                .map(unit => {
+                    const lessonsInUnit = subjectContext.lessons
+                        .filter(lesson => lesson.unitId === unit.id)
+                        .sort((a, b) => (a.order || 0) - (b.order || 0))
+                        .map(lesson => `  - Lesson: ${lesson.title}`)
+                        .join('\n');
+                    return `Unit: ${unit.title}\n${lessonsInUnit}`;
+                }).join('\n\n');
+        }
+        
+        const languageAndGradeInstruction = `
+        **TARGET AUDIENCE (NON-NEGOTIABLE):**
+        - **Grade Level:** The entire output MUST be tailored for **${gradeLevel}** students.
+        - **Language:** The entire output MUST be written in **${language}**.
+        ${language === 'Filipino' ? `
+        - **CRITICAL FILIPINO LANGUAGE RULE:** You are strictly forbidden from using English or any form of code-switching (Taglish). The output must be pure, academic Filipino.
+        ` : ''}
+        `;
+
+        const selectedSubjectData = subjects.find(s => s.id === selectedSubject);
+        const catholicSubjects = ["Christian Social Living 7-10", "Religious Education 11-12"];
+        let perspectiveInstruction = '';
+        if (selectedSubjectData && catholicSubjects.includes(selectedSubjectData.title)) {
+            perspectiveInstruction = `
+                **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. All explanations must align with Catholic teachings.
+                **CRITICAL SOURCE REQUIREMENT (NON-NEGOTIABLE):** Prioritize citing and referencing official Catholic sources (CCC, Youcat, Encyclicals, etc.).
+            `;
+        }
+
+        const scaffoldingInstruction = `
+        **CONTEXT: PREVIOUSLY COVERED MATERIAL**
+        This section lists topics from lessons that already exist.
+
+        **YOUR SCAFFOLDING TASK (NON-NEGOTIABLE):**
+        1.  **DO NOT RE-TEACH:** You are strictly forbidden from re-teaching the specific concepts, keywords, or learning objectives listed below.
+        2.  **BUILD UPON:** Your new lesson MUST act as a logical "next step." It must **actively build upon this previous knowledge**.
+        3.  **CREATE A BRIDGE:** Where appropriate, the introduction of your new lesson should briefly reference a concept from the prerequisite lessons to create a smooth transition, but it must immediately move into new, more advanced material.
+
+        ---
+        **PREVIOUSLY COVERED MATERIAL (DO NOT RE-TEACH):**
+        - **User-Selected Prerequisites:** ${scaffoldInfo.summary || "N/A"}
+        - **Other Existing Lessons:** ${existingSubjectContextString}
+        ---
+        `;
+
+
+        const standardsInstruction = `
+        **UNIT STANDARDS (NON-NEGOTIABLE CONTEXT):**
+        - **Content Standard:** ${contentStandard || "Not provided."}
+        - **Performance Standard:** ${performanceStandard || "Not provided."}
+        - **Learning Competencies (Master List):** ${learningCompetencies || "Not provided."}
+        `;
+
+        return {
+            languageAndGradeInstruction,
+            perspectiveInstruction,
+            scaffoldingInstruction,
+            standardsInstruction,
+        };
+    };
+
+    /**
+     * --- This is the smart planner prompt that handles single vs. multi-lesson logic ---
+     * (This function is unchanged)
+     */
+    const getPlannerPrompt = (sourceText, baseContext) => {
+        const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
+        
+        return `
+        You are an expert curriculum planner. Your *only* task is to read the provided source text and curriculum context, and then generate a *plan* (a JSON array of lessons).
+        
+        ${languageAndGradeInstruction}
+        ${perspectiveInstruction}
+        ${standardsInstruction}
+        ${scaffoldingInstruction}
+
+        **CRITICAL TASK: ANALYZE THE SOURCE TEXT'S STRUCTURE**
+        You must first analyze the provided source text to determine its structure.
+
+        **SCENARIO 1: The Source Text is ALREADY a Single Lesson**
+        - Look for a "Table of Contents" (like the one in the user's example PDF) or a title (like "Lesson 3") that indicates the *entire document* is just *one* lesson.
+        - **If this is the case**, your plan MUST contain **exactly ONE item**: The *single* lesson object.
+        - **You MUST NOT include a "Unit Overview" in this case.** The user does not want it.
+
+        **SCENARIO 2: The Source Text is a Large Document (NOT a single lesson)**
+        - If the text does *not* appear to be a single lesson (e.g., it's a long chapter, a full book, or raw text without a single-lesson structure), THEN you must apply the following constraints:
+        - Your plan MUST contain **a "Unit Overview" as the first item**, followed by a logical sequence of 2-7 lessons.
+        - You MUST group related topics together into fewer, more comprehensive lessons.
+        - **Do NOT** create a new lesson for every single paragraph.
+
+        **CRITICAL QUOTE ESCAPING:** All double quotes (") inside string values MUST be escaped (\\").
+
+        =============================
+        JSON OUTPUT FORMAT
+        =============================
+        **If SCENARIO 1 (Single Lesson) applies, use this exact format:**
+        {
+          "lessons": [
+            {
+              "lessonTitle": "Lesson ${existingLessonCount + 1}: [Proposed Engaging Title Based on Source]",
+              "summary": "A 1-2 sentence summary of what this specific lesson will cover from the source text."
+            }
+          ]
+        }
+
+        **If SCENARIO 2 (Multiple Lessons) applies, use this exact format:**
+        {
+          "lessons": [
+            {
+              "lessonTitle": "Unit Overview",
+              "summary": "An overview of the entire unit and its main learning targets."
+            },
+            {
+              "lessonTitle": "Lesson ${existingLessonCount + 1}: [First Lesson Title]",
+              "summary": "Summary of the first lesson."
+            },
+            {
+              "lessonTitle": "Lesson ${existingLessonCount + 2}: [Second Lesson Title]",
+              "summary": "Summary of the second lesson."
+            }
+            // ... etc, up to 7 lessons total
+          ]
+        }
+
+        =============================
+        SOURCE TEXT TO ANALYZE
+        =============================
+        ${sourceText}
+        `;
+    };
+
+
+    /**
+     * --- Micro-Worker Prompt Generator ---
+     * (This function is unchanged)
+     */
+    const getComponentPrompt = (sourceText, baseContext, lessonPlan, componentType, extraData = {}) => {
+        const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
+        let taskInstruction, jsonFormat;
+
+        // Common header for all component prompts
+        const commonHeader = `
+        You are an expert curriculum designer. Your task is to generate *only* the specific component requested.
+        
+        ${languageAndGradeInstruction}
+        ${perspectiveInstruction}
+        ${scaffoldingInstruction}
+        ${standardsInstruction}
+
+        **LESSON CONTEXT:**
+        - **Lesson Title:** ${lessonPlan.lessonTitle}
+        - **Lesson Summary:** ${lessonPlan.summary}
+        `;
+
+        // Common style rules
+        const styleRules = `
+        **CRITICAL STYLE RULE:** You MUST use **pure Markdown only**. No HTML tags.
+        - **Headings:** \`### Heading\`
+        - **Key Terms:** \`**bold**\`
+        - **Blockquotes:** \`> Note:\`
+        - **Inline Terms:** \`backticks\`
+        - **LaTeX:** Use $inline$ and $$display$$ (with \\\\ for escapes, e.g., $90\\\\degree$).
+        - **Quote Escaping:** All double quotes (") inside JSON string values MUST be escaped (\\").
+        `;
+
+        switch (componentType) {
+            case 'objectives':
+                taskInstruction = 'Generate 3-5 specific, measurable, and student-friendly learning objectives for this lesson. They must be based on the lesson summary and the source text.';
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "objectives": [\n    "Objective 1...",\n    "Objective 2..."\n  ]\n}`;
+                break;
+            
+            case 'competencies':
+                taskInstruction = `Analyze the "Learning Competencies (Master List)" from the context and select 1-3 competencies that are *directly* addressed by this specific lesson.`;
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "competencies": [\n    "Competency 1 from master list...",\n    "Competency 2 from master list..."\n  ]\n}`;
+                break;
+
+            case 'UnitOverview_Overview':
+                taskInstruction = 'Generate the "Overview" page for the "Unit Overview" lesson. This should be a 1-2 paragraph summary of the entire unit, based on the *full* source text.';
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Overview",\n    "content": "One or two paragraphs of markdown text..."\n  }\n}`;
+                break;
+
+            case 'UnitOverview_Targets':
+                taskInstruction = 'Generate the "Learning Targets" page for the "Unit Overview" lesson. This should be a bulleted list of the main skills or knowledge students will gain in the *entire unit*, based on the *full* source text.';
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Learning Targets",\n    "content": "- Target 1...\n- Target 2..."\n  }\n}`;
+                break;
+
+            case 'Introduction':
+                taskInstruction = 'Generate the "Engaging Introduction" page. It MUST have a thematic, captivating subheader title (e.g., "Why Water Shapes Our World"). The content must hook attention with a story, real-world example, or surprising fact from the text.';
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "A Captivating Thematic Title (NOT 'Introduction')",\n    "content": "Engaging intro markdown..."\n  }\n}`;
+                break;
+            
+            case 'LetsGetStarted':
+                taskInstruction = 'Generate the "Let\'s Get Started" page. This must be a short, simple, interactive warm-up activity (e.g., quick brainstorm, matching, or short scenario).';
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Let's Get Started",\n    "content": "Warm-up activity instructions..."\n  }\n}`;
+                break;
+
+            // --- START OF CRITICAL FIX ---
+            case 'CoreContentPlanner':
+                taskInstruction = `Analyze the source text *only* as it pertains to this lesson.
+            
+                **CRITICAL CONTENT FIDELITY (NON-NEGOTIABLE):** Your task is to identify *all* the main sub-topics required to cover the *entire* core content for this lesson.
+                - Do **NOT** summarize or omit key sections.
+                - If the lesson's content in the source text is broken into 3 sections (e.g., "Understanding Historical Context," "Impact on Themes," "Appreciating Truths"), you MUST return 3 titles.
+                - If the content is long and requires 6 or 10 sub-topics to cover it fully, you MUST return 6 or 10 titles.
+                - Do **NOT** artificially limit this to 2-4 topics. Create as many as are necessary to cover all the material.
+                
+                Do *not* include titles for "Introduction," "Warm-Up," "Summary," etc. Just the main, teachable content topics found in the source text.`;
+                
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "coreContentTitles": [\n    "First Sub-Topic Title",\n    "Second Sub-Topic Title",\n    "Third Sub-Topic Title"\n    // ... (as many as necessary)
+      ]\n}`;
+                break;
+            // --- END OF CRITICAL FIX ---
+
+
+            case 'CoreContentPage':
+                taskInstruction = `Generate *one* core content page for this lesson.
+                - **Page Title:** It MUST be exactly: "${extraData.contentTitle}"
+                - **Content:** The content MUST be detail-rich, based *directly* on the source text, and relevant to this page title. Do not omit information from the source text for this topic.`;
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${extraData.contentTitle}",\n    "content": "Detailed markdown content for this specific page..."\n  }\n}`;
+                break;
+            
+            case 'CheckForUnderstanding':
+                taskInstruction = 'Generate the "Check for Understanding" page. This must be a short, formative activity with 3-4 concept questions or problems based on the core content.';
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Check for Understanding",\n    "content": "1. Question 1...\n2. Question 2..."\n  }\n}`;
+                break;
+
+            case 'LessonSummary':
+                taskInstruction = 'Generate the "Lesson Summary" page. This must be a concise recap of the most important points from the lesson, as bullet points or a short narrative.';
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Lesson Summary",\n    "content": "Concise recap in markdown..."\n  }\n}`;
+                break;
+            
+            case 'WrapUp':
+                taskInstruction = 'Generate the "Wrap Up" page. This must be a motivational, inspiring closure that ties the lesson back to the big picture.';
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Wrap Up",\n    "content": "Motivational closure in markdown..."\n  }\n}`;
+                break;
+
+            case 'EndofLessonAssessment':
+                taskInstruction = 'Generate the "End of Lesson Assessment" page. This must be 5-8 questions (mix of multiple-choice, short-answer, and application) that align with the lesson\'s objectives.';
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "End of Lesson Assessment",\n    "content": "### Multiple Choice\n1. Question...\n\n### Short Answer\n4. Question..."\n  }\n}`;
+                break;
+
+            case 'AnswerKey':
+                taskInstruction = 'Generate the "Answer Key" page. Provide clear answers to all questions from the "End of Lesson Assessment". Use the same numbering.';
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Answer Key",\n    "content": "1. Answer...\n4. Answer..."\n  }\n}`;
+                break;
+
+            case 'References':
+                taskInstruction = 'Generate the "References" page. This must be an academic-style reference list, including the uploaded file and any other credible sources derived from the text.';
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "References",\n    "content": "- Source 1...\n- Source 2..."\n  }\n}`;
+                break;
+
+            default:
+                throw new Error(`Unknown component type: ${componentType}`);
+        }
+
+        return `
+        ${commonHeader}
+
+        =============================
+        YOUR SPECIFIC TASK
+        =============================
+        ${taskInstruction}
+
+        ${styleRules}
+
+        =============================
+        JSON OUTPUT FORMAT
+        =============================
+        ${jsonFormat}
+
+        =============================
+        SOURCE TEXT (FOR REFERENCE)
+        =============================
+        ${sourceText}
+        `;
+    };
+
+    /**
+     * --- Micro-Worker Function with Retries ---
+     * --- 4. MODIFIED: Accept isMountedRef ---
+     */
+    const generateLessonComponent = async (sourceText, baseContext, lessonPlan, componentType, isMountedRef, extraData = {}, maxRetries = 3) => {
+        const prompt = getComponentPrompt(sourceText, baseContext, lessonPlan, componentType, extraData);
+
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            
+            // --- 5. ADD ABORT CHECK ---
+            if (!isMountedRef.current) throw new Error("Generation aborted by user.");
+
+            try {
+                // 1. Attempt the AI call
+                const aiResponse = await callGeminiWithLimitCheck(prompt);
+                
+                // --- 5. ADD ABORT CHECK ---
+                if (!isMountedRef.current) throw new Error("Generation aborted by user.");
+
+                // 2. Attempt to parse the response
+                const jsonData = sanitizeJsonComponent(aiResponse);
+                
+                // 3. If both succeed, return the data immediately
+                return jsonData; 
+
+            } catch (error) {
+                // --- 5. ADD ABORT CHECK ---
+                if (!isMountedRef.current) throw new Error("Generation aborted by user.");
+
+                console.warn(
+                    `Attempt ${attempt + 1} of ${maxRetries} failed for component: ${componentType} (Lesson: ${lessonPlan.lessonTitle})`,
+                    error.message
+                );
+
+                // If this was the last attempt, re-throw the error to stop the process
+                if (attempt === maxRetries - 1) {
+                    console.error(`All ${maxRetries} retries failed for component: ${componentType}. Aborting.`);
+                    throw new Error(`Failed to generate component ${componentType} after ${maxRetries} attempts: ${error.message}`);
+                }
+                
+                // Wait for a short duration before retrying (e.g., 500ms)
+                await new Promise(res => setTimeout(res, 500));
+
+                // --- 5. ADD ABORT CHECK ---
+                if (!isMountedRef.current) throw new Error("Generation aborted by user.");
+            }
+        }
+        
+        // This line should be unreachable if maxRetries > 0, but as a fallback:
+        throw new Error(`Failed to generate component ${componentType} after ${maxRetries} attempts.`);
+    };
+
+
+    /**
+     * --- The "Orchestrator" ---
+     * --- 6. MODIFIED: Add abort checks and pass isMounted ref ---
+     */
     const handleGenerateLesson = async () => {
         if (!file) {
             setError('Please upload a file first.');
@@ -197,253 +557,187 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         setIsProcessing(true);
         setError('');
         setPreviewLessons([]);
+        const allGeneratedLessons = []; // Store lessons as they are created
 
         try {
-            setProgressMessage('Step 1 of 2: Reading and extracting text from document...');
+            // --- STEP 1: Extract Text ---
+            setProgressMessage('Step 1 of 3: Reading and extracting text...');
             let extractedText = await extractTextFromFile(file);
-            extractedText = extractedText.replace(/₱/g, 'PHP ');
+            
+            // --- ABORT CHECK ---
+            if (!isMounted.current) return;
 
+            extractedText = extractedText.replace(/₱/g, 'PHP ');
             const sourceText = extractedText;
             
-            setProgressMessage('Step 2 of 2: Structuring content into lessons with AI...');
+            // --- STEP 2: Planner Call (Now with new conditional prompt) ---
+            setProgressMessage('Step 2 of 3: Planning unit structure with AI...');
+            const baseContext = getBasePromptContext();
+            const plannerPrompt = getPlannerPrompt(sourceText, baseContext);
 
-            let existingSubjectContextString = "No other lessons exist yet.";
-            if (subjectContext && subjectContext.lessons.length > 0) {
-                existingSubjectContextString = subjectContext.units
-                    .sort((a, b) => (a.order || 0) - (b.order || 0))
-                    .map(unit => {
-                        const lessonsInUnit = subjectContext.lessons
-                            .filter(lesson => lesson.unitId === unit.id)
-                            .sort((a, b) => (a.order || 0) - (b.order || 0))
-                            .map(lesson => `  - Lesson: ${lesson.title}`)
-                            .join('\n');
-                        return `Unit: ${unit.title}\n${lessonsInUnit}`;
-                    }).join('\n\n');
-            }
+            const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt);
             
-            const languageAndGradeInstruction = `
-            **TARGET AUDIENCE (NON-NEGOTIABLE):**
-            - **Grade Level:** The entire output MUST be tailored for **${gradeLevel}** students. The vocabulary, complexity of concepts, and examples must be perfectly aligned with this academic level to ensure it is understandable and engaging.
-            - **Language:** The entire output MUST be written in **${language}**.
-            ${language === 'Filipino' ? `
-            - **CRITICAL FILIPINO LANGUAGE RULE:** You are strictly forbidden from using English or any form of code-switching (Taglish). The output must be pure, academic Filipino. The terminology used must be aligned with the standards of the Philippines' Department of Education (DepEd) for the specified grade level.
-            ` : ''}
-            `;
+            // --- ABORT CHECK ---
+            if (!isMounted.current) return;
 
-            const selectedSubjectData = subjects.find(s => s.id === selectedSubject);
-            const catholicSubjects = ["Christian Social Living 7-10", "Religious Education 11-12"];
-            let perspectiveInstruction = '';
-            if (selectedSubjectData && catholicSubjects.includes(selectedSubjectData.title)) {
-                perspectiveInstruction = `
-                    **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. This is non-negotiable. All explanations, examples, and interpretations must align with Catholic teachings, doctrines, and values. You must integrate principles from the Catechism of the Catholic Church, relevant encyclicals, and Sacred Scripture where appropriate.
-                    **CRITICAL SOURCE REQUIREMENT (NON-NEGOTIABLE):** For all content and for the "References" section, you MUST prioritize citing and referencing official Catholic sources. This includes, but is not limited to: the **Catechism of the Catholic Church (CCC)**, the **Youth Catechism (Youcat)**, relevant **Apostolic Letters**, **Encyclical Letters**, and documents from Vatican II. Secular sources may be used sparingly, but the core foundation must be these official Church documents.
-                `;
+            // Use the *original* sanitizer here, as it's built for the `{"lessons": [...]}` structure
+            const lessonPlans = sanitizeJsonBlock(plannerResponse); 
+
+            if (!lessonPlans || lessonPlans.length === 0) {
+                throw new Error("The AI failed to create a lesson plan.");
             }
 
-            const scaffoldingInstruction = `
-            **PRIMARY ANALYSIS TASK (NON-NEGOTIABLE):** Before generating anything, you MUST act as a curriculum continuity expert. Your most critical task is to meticulously analyze all the provided context below to prevent any topical repetition.
+            // --- STEP 3: Orchestrator Loop ---
+            setProgressMessage(`Step 3: Building ${lessonPlans.length} lessons...`);
+            let lessonCounter = existingLessonCount;
 
-            ---
-            ### CONTEXT: PREVIOUSLY COVERED MATERIAL
-            This section contains all topics from lessons that already exist. You are strictly forbidden from re-teaching these specific concepts.
-
-            **1. User-Selected Prerequisite Lessons:**
-            ${scaffoldInfo.summary || "No specific prerequisite lessons were selected."}
-
-            **2. Other Lessons Existing in this Subject:**
-            ${existingSubjectContextString}
-            ---
-
-            ### YOUR GENERATION RULES (ABSOLUTE)
-            1.  **DO NOT REPEAT:** You are strictly forbidden from creating a lesson, activity, or assessment question that covers the same learning objectives or keywords mentioned in the context above.
-            2.  **IDENTIFY THE GAP:** Your new lesson(s) must address a logical "next step" or a knowledge gap that is not covered by the existing material. The new lessons MUST start from Lesson number ${existingLessonCount + 1}.
-            3.  **BUILD A BRIDGE:** If appropriate, your introduction should briefly reference a concept from a prerequisite lesson to create a smooth transition, but it must immediately move into new material.
-            `;
-            
-            const finalPrompt = `
-            You are an expert curriculum designer and bestselling textbook author. Your primary task is to transform the provided source text into a structured, engaging, and pedagogically sound educational unit.
-            ${languageAndGradeInstruction}
-            ${perspectiveInstruction}
-            
-            {/* --- START OF CHANGES (2/4): Add Standards & Competency instructions --- */}
-            **UNIT STANDARDS (NON-NEGOTIABLE CONTEXT):**
-            - **Content Standard:** ${contentStandard || "Not provided."}
-            - **Performance Standard:** ${performanceStandard || "Not provided."}
-            - **Learning Competencies (Master List):** ${learningCompetencies || "Not provided."}
-
-            **CRITICAL COMPETENCY ASSIGNMENT (NON-NEGOTIABLE):**
-            The "Learning Competencies (Master List)" provided above is for the *entire* unit. For *each specific lesson* you generate (except the "Unit Overview"), you MUST analyze this master list and select 1-3 competencies that are *directly addressed* by that single lesson. You MUST add these selected competencies as a new array of strings under the key \`"assignedCompetencies"\`.
-            {/* --- END OF CHANGES (2/4) --- */}
-
-            ${scaffoldingInstruction}
-
-            **CRITICAL CONTENT FIDELITY RULE (NON-NEGOTIABLE):** Your absolute top priority is to fully and accurately represent the entire source document. Do NOT over-summarize or omit key information, examples, or data points from the source text. The generated lessons should be comprehensive and reflect the full depth of the original material. If the source text is long, you MUST generate more pages or more lessons to cover it completely. Do not truncate the content.
-
-            Your role is to organize and enhance, not to invent new core content. Take the raw source text and structure it into a **unit with lessons**, following the NON-NEGOTIABLE textbook chapter sequence below.
-
-            =============================
-            STRICT LESSON STRUCTURE
-            =============================
-            1. **Unit Overview** - ONLY contains:  
-                  • Overview of the unit (short, 1–2 paragraphs).  
-                  • Learning Targets (clear bullet points).  
-                - Nothing else.  
-                - IMPORTANT: The Unit Overview MUST NEVER be numbered. Do not call it Lesson 0 or Lesson 1. Always exactly "Unit Overview".
-            2. **Learning Objectives** - For every lesson, you MUST populate the \`learningObjectives\` array in the JSON with specific, measurable, and student-friendly objectives based on the source text.  
-                - CRITICAL: You MUST NOT create a separate page titled "Learning Objectives"; the array is the only place they should appear.
-            3. **Engaging Introduction** - MUST NOT use "Engaging Introduction" as the page title.  
-                - Instead, give it a **thematic, captivating subheader title** (e.g., "Why Water Shapes Our World", "The Hidden Power of Atoms").  
-                - Content must hook attention with a story, real-world example, or surprising fact from the text.  
-                - Tone: engaging, inspiring, but scholarly.  
-                - Always exactly one page.
-            4. **Introductory Activity ("Let's Get Started")** - A short warm-up activity.  
-                - Interactive but simple (e.g., quick brainstorm, matching, or short scenario).  
-                - The \`title\` MUST be exactly "Let's Get Started".
-            5. **Core Content Sections** - DO NOT limit to a single page.  
-                - Break the main content from the source text into **multiple subpages**, each with its own unique \`title\` (a subheader).  
-                - Example subpage titles:  
-                  • "The Early Stages of the Water Cycle"  
-                  • "Evaporation and Condensation"  
-                  • "Precipitation and Collection"  
-                - Each subpage must:  
-                  • Have a clear, meaningful title.  
-                  • Contain detail-rich explanations with examples, analogies, or visuals, derived directly from the source.  
-                - Flow must be logical across subpages.  
-                - This is the body of the textbook chapter.
-            6. **Check for Understanding ("Check for Understanding")** - One short formative activity with 3–4 concept questions or problems.  
-                - Reinforces key knowledge from the source text.  
-                - The \`title\` MUST be exactly "Check for Understanding".
-            7. **Summary ("Lesson Summary")** - Concise recap of the most important points.  
-                - Bullet points or short narrative.  
-                - The \`title\` MUST be exactly "Lesson Summary".
-            8. **Conclusion ("Wrap Up")** - Motivational, inspiring closure.  
-                - Ties lesson back to the big picture.  
-                - The \`title\` MUST be exactly "Wrap Up".
-            9. **Assessment ("End of Lesson Assessment")** - 8–10 questions total.  
-                - Mix of multiple-choice, short-answer, and application questions.  
-                - Questions must align with learning objectives.  
-                - The first page's \`title\` MUST be "End of Lesson Assessment".
-            10. **Answer Key ("Answer Key")** - Provide clear answers to all assessment questions.  
-                 - Use the same numbering order as the assessment.  
-                 - The \`title\` MUST be exactly "Answer Key".
-            11. **References ("References")** - The absolute last page.  
-                 - Academic-style reference list.  
-                 - Includes both the uploaded file (if applicable) and additional credible references.  
-                 - The \`title\` MUST be exactly "References".
-
-            =============================
-            STYLE & OUTPUT RULES
-            =============================
-            - Lesson Titles: MUST NOT copy directly from the source file.  
-              • Always rephrase into **original, student-friendly, engaging titles**.  
-            - Table of Contents Handling:  
-              • If the source text includes a clear "Table of Contents", the lesson/page structure MUST follow the order of topics listed there.  
-              • If the source text does NOT include a TOC, generate exactly ONE lesson, following the full textbook structure above.
-            
-            **CRITICAL QUOTE ESCAPING (NON-NEGOTIABLE):**
-            - Any double quotes (") used inside a string value (like in "content" or "title") MUST be escaped with a backslash (\\").
-            - **CORRECT EXAMPLE:** \`"content": "He said, \\"This is the correct way.\\""\`
-            - **INCORRECT EXAMPLE:** \`"content": "He said, "This is the incorrect way.""\`
-
-            **CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
-            - You MUST use LaTeX for all mathematical equations, variables, and chemical formulas.
-            - For INLINE formulas, use single dollar signs: $H_2O$.
-            - For BLOCK formulas, use double dollar signs: $$E = mc^2$$
-            - CRITICAL LATEX ESCAPING IN JSON: Every backslash \`\\\` in LaTeX MUST be escaped with a second backslash. So, \`\\\` becomes \`\\\\\`.
-            - For angle measurements, you MUST use the \`\\degree\` command, like so: $90\\\\degree$.
-
-            **5. Diagrams and Figures**
-            - If a diagram/figure is detected, you may recreate it as a clean SVG.
-            - **CRITICAL SVG ESCAPING:** Inside the \`htmlContent\` string for SVGs, all double quotes (\`"\`) MUST be escaped with a backslash (\`\\\\"\`).
-
-            - Persona: authoritative professor + bestselling author.  
-            - Writing style: detail-rich, interactive, narrative-driven.  
-
-            **CRITICAL STYLE RULE:** You MUST use **pure Markdown only**. You MUST NOT use any raw HTML tags like \`<div>\`, \`<span>\`, or \`<h3>\`. The renderer will handle all styling.
-              • For **headings**, use Markdown hashes (e.g., \`### Complementary Angles\`).
-              • For **key terms**, you MUST make them bold with asterisks (e.g., \`**complementary**\`).
-              • For **callouts, notes, or tips**, you MUST use Markdown blockquotes (\`>\`).
-              • For **inline code, technical terms, or short quoted phrases**, you MUST use Markdown's backticks (\`\`). Do NOT use double quotes for this purpose.
-                - **CORRECT:** The Latin phrase is \`per centum\`.
-                - **INCORRECT:** The Latin phrase is "per centum".
-              • **Example for a Tip:**
-                \`> **Tip:** To find the complement of any given angle, subtract its measure from $90\\degree$.\`
-
-            =============================
-            JSON OUTPUT FORMAT
-            =============================
-            {
-              "lessons": [
-                {
-                  "lessonTitle": "Unit Overview",
-                  "pages": [
-                    { "title": "Overview", "content": "..." },
-                    { "title": "Learning Targets", "content": "..." }
-                  ]
-                },
-                {
-                  {/* --- START OF CHANGES (2/4 cont.): Update JSON structure --- */}
-                  "lessonTitle": "Lesson ${existingLessonCount + 1}: How Plants Turn Sunlight into Food",
-                  "learningObjectives": [
-                    "Explain how photosynthesis works",
-                    "Identify the role of chlorophyll in the process"
-                  ],
-                  "assignedCompetencies": [
-                    "Specific competency 1 from master list",
-                    "Specific competency 2 from master list"
-                  ],
-                  {/* --- END OF CHANGES (2/4 cont.) --- */}
-                  "pages": [
-                    { "title": "Why Plants Are Nature's Solar Panels", "content": "Engaging intro..." },
-                    { "title": "Let's Get Started", "content": "..." },
-                    { "title": "Capturing Sunlight", "content": "..." },
-                    { "title": "Making Glucose", "content": "..." },
-                    { "title": "Check for Understanding", "content": "..." },
-                    { "title": "Lesson Summary", "content": "..." },
-                    { "title": "Wrap Up", "content": "..." },
-                    { "title": "End of Lesson Assessment", "content": "..." },
-                    { "title": "Answer Key", "content": "..." },
-                    { "title": "References", "content": "..." }
-                  ]
+            for (const [index, plan] of lessonPlans.entries()) {
+                
+                // --- ABORT CHECK ---
+                if (!isMounted.current) return;
+                
+                const isUnitOverview = plan.lessonTitle.toLowerCase().includes('unit overview');
+                
+                if (!isUnitOverview) {
+                    lessonCounter++;
                 }
-              ]
-            }
-
-            =============================
-            SOURCE TEXT TO STRUCTURE
-            =============================
-            ${sourceText}
-            `;
-
-            const aiResponse = await callGeminiWithLimitCheck(finalPrompt);
-            const lessonsArray = sanitizeLessonsJson(aiResponse);
-
-            let lessonCounter = existingLessonCount + 1;
-            const numberedLessons = lessonsArray.map((lesson) => {
-                if (lesson.lessonTitle.toLowerCase().includes('unit overview')) {
-                    return { ...lesson, lessonTitle: 'Unit Overview' };
+                
+                const numberedPlan = { ...plan };
+                if (!isUnitOverview) {
+                    const baseTitle = plan.lessonTitle.replace(/^Lesson\s*\d*:\s*/i, '');
+                    numberedPlan.lessonTitle = `Lesson ${lessonCounter}: ${baseTitle}`;
+                } else {
+                    numberedPlan.lessonTitle = 'Unit Overview';
                 }
-                const baseTitle = lesson.lessonTitle.replace(/^Lesson\s*\d*:\s*/i, '');
-                const newTitle = `Lesson ${lessonCounter}: ${baseTitle}`;
-                lessonCounter++;
-                return { ...lesson, lessonTitle: newTitle };
-            });
 
-            setPreviewLessons(numberedLessons);
-            setSelectedLessonIndex(0);
-            setSelectedPageIndex(0);
+                // This object will be built piece-by-piece
+                let newLesson = {
+                    lessonTitle: numberedPlan.lessonTitle,
+                    pages: [],
+                    learningObjectives: [],
+                    assignedCompetencies: []
+                };
+
+                setProgressMessage(`Building Lesson ${index + 1}/${lessonPlans.length}: "${numberedPlan.lessonTitle}"`);
+
+                if (isUnitOverview) {
+                    // --- Special Flow for Unit Overview ---
+                    setProgressMessage(`Building ${numberedPlan.lessonTitle}: Overview Page...`);
+                    const overviewData = await generateLessonComponent(sourceText, baseContext, numberedPlan, 'UnitOverview_Overview', isMounted); // Pass isMounted
+                    newLesson.pages.push(overviewData.page);
+
+                    // --- ABORT CHECK ---
+                    if (!isMounted.current) return;
+
+                    setProgressMessage(`Building ${numberedPlan.lessonTitle}: Learning Targets Page...`);
+                    const targetsData = await generateLessonComponent(sourceText, baseContext, numberedPlan, 'UnitOverview_Targets', isMounted); // Pass isMounted
+                    newLesson.pages.push(targetsData.page);
+                
+                } else {
+                    // --- Standard Lesson Flow ---
+                    
+                    // --- Objectives ---
+                    setProgressMessage(`Building ${numberedPlan.lessonTitle}: Objectives...`);
+                    const objectivesData = await generateLessonComponent(sourceText, baseContext, numberedPlan, 'objectives', isMounted, {}); // Pass isMounted
+                    newLesson.learningObjectives = objectivesData.objectives;
+
+                    // --- ABORT CHECK ---
+                    if (!isMounted.current) return;
+
+                    // --- Competencies ---
+                    setProgressMessage(`Building ${numberedPlan.lessonTitle}: Competencies...`);
+                    const competenciesData = await generateLessonComponent(sourceText, baseContext, numberedPlan, 'competencies', isMounted, {}); // Pass isMounted
+                    newLesson.assignedCompetencies = competenciesData.competencies;
+                    
+                    // --- ABORT CHECK ---
+                    if (!isMounted.current) return;
+
+                    // --- Intro Page ---
+                    setProgressMessage(`Building ${numberedPlan.lessonTitle}: Intro...`);
+                    const introData = await generateLessonComponent(sourceText, baseContext, numberedPlan, 'Introduction', isMounted, {}); // Pass isMounted
+                    newLesson.pages.push(introData.page);
+                    
+                    // --- ABORT CHECK ---
+                    if (!isMounted.current) return;
+
+                    // --- 'Let's Get Started' Page ---
+                    setProgressMessage(`Building ${numberedPlan.lessonTitle}: Activity...`);
+                    const activityData = await generateLessonComponent(sourceText, baseContext, numberedPlan, 'LetsGetStarted', isMounted, {}); // Pass isMounted
+                    newLesson.pages.push(activityData.page);
+
+                    // --- ABORT CHECK ---
+                    if (!isMounted.current) return;
+
+                    // --- Core Content Planner (This now returns a variable-length array) ---
+                    setProgressMessage(`Building ${numberedPlan.lessonTitle}: Planning Content...`);
+                    const contentPlannerData = await generateLessonComponent(sourceText, baseContext, numberedPlan, 'CoreContentPlanner', isMounted, {}); // Pass isMounted
+                    const contentPlanTitles = contentPlannerData.coreContentTitles || [];
+                    
+                    // --- ABORT CHECK ---
+                    if (!isMounted.current) return;
+
+                    // --- Core Content Worker Loop (This will now loop as many times as needed) ---
+                    for (const [contentIndex, contentTitle] of contentPlanTitles.entries()) {
+                        
+                        // --- ABORT CHECK ---
+                        if (!isMounted.current) return;
+
+                        setProgressMessage(`Building ${numberedPlan.lessonTitle}: Content ${contentIndex + 1}/${contentPlanTitles.length}...`);
+                        const contentPageData = await generateLessonComponent(sourceText, baseContext, numberedPlan, 'CoreContentPage', isMounted, { contentTitle }); // Pass isMounted
+                        newLesson.pages.push(contentPageData.page);
+                    }
+                    
+                    // --- Standard Footer Pages ---
+                    const standardPages = ['CheckForUnderstanding', 'LessonSummary', 'WrapUp', 'EndofLessonAssessment', 'AnswerKey', 'References'];
+                    for (const pageType of standardPages) {
+                        
+                        // --- ABORT CHECK ---
+                        if (!isMounted.current) return;
+
+                        setProgressMessage(`Building ${numberedPlan.lessonTitle}: ${pageType}...`);
+                        const pageData = await generateLessonComponent(sourceText, baseContext, numberedPlan, pageType, isMounted, {}); // Pass isMounted
+                        if (pageData && pageData.page) {
+                            newLesson.pages.push(pageData.page);
+                        } else {
+                            console.warn(`Missing page data for ${pageType}`);
+                        }
+                    }
+                }
+                
+                // --- ABORT CHECK ---
+                if (!isMounted.current) return;
+
+                allGeneratedLessons.push(newLesson);
+                setPreviewLessons([...allGeneratedLessons]);
+                setSelectedLessonIndex(allGeneratedLessons.length - 1);
+                setSelectedPageIndex(0);
+            }
+            
+            // --- ABORT CHECK ---
+            if (!isMounted.current) return;
+            
+            setProgressMessage('All lessons generated successfully!');
 
         } catch (err) {
-            console.error('Lesson generation error:', err);
-            setError(err.message.includes('overloaded')
-                ? 'The AI service is currently busy. Please try again in a moment.'
-                : 'The AI returned an invalid response. Please try regenerating.'
-            );
+            // --- 7. MODIFY CATCH BLOCK ---
+            if (!isMounted.current || (err.message && err.message.includes("aborted"))) {
+                console.log("Generation loop aborted by user (AiLessonGenerator).");
+                // Silently stop, don't show an error
+            } else {
+                console.error('Lesson generation error:', err);
+                setError(err.message.includes('overloaded')
+                    ? 'The AI service is currently busy. Please try again in a moment.'
+                    : `Error during generation: ${err.message}`
+                );
+            }
+            // --- END MODIFY ---
         } finally {
             setIsProcessing(false);
-            setProgressMessage('');
+            // Don't clear message, so user sees "All lessons generated successfully!"
         }
     };
+    
+    // --- END OF REFACTOR ---
     
     const handleSaveLesson = async () => {
         if (previewLessons.length === 0 || !unitId || !subjectId) {
@@ -463,19 +757,13 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     createdAt: serverTimestamp(),
                     order: existingLessonCount + index,
                     
-                    // --- START OF CHANGES (3/4): Add new fields to Firestore document ---
-                    // Save the specific, AI-assigned competencies for this lesson
                     learningCompetencies: lesson.assignedCompetencies || [],
-                    
-                    // Save the unit-wide standards (from state)
                     contentStandard: contentStandard || '',
                     performanceStandard: performanceStandard || ''
-                    // --- END OF CHANGES (3/4) ---
                 })
             );
             await Promise.all(savePromises);
             showToast(`${previewLessons.length} lesson(s) saved successfully!`, 'success');
-            // --- FIX 1 (cont.): Call the reset function and then close the modal ---
             resetGeneratorState();
             onClose(); 
         } catch (err) {
@@ -487,7 +775,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     };
 
     const selectedLesson = previewLessons[selectedLessonIndex];
-    const selectedPage = selectedLesson?.pages[selectedPageIndex];
+    const selectedPage = selectedLesson?.pages?.[selectedPageIndex];
 
     const objectivesAsMarkdown = useMemo(() => {
         if (!selectedLesson?.learningObjectives?.length) return null;
@@ -496,24 +784,18 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
     const gradeLevels = ["Kindergarten", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
 
-    // --- START OF CHANGES (4/4): Define reusable style and add new UI ---
-    // --- MODIFIED: Added dark mode classes to formInputStyle ---
     const formInputStyle = "block w-full rounded-lg border-transparent bg-neumorphic-base shadow-neumorphic-inset text-slate-900 placeholder-slate-400 focus:border-sky-500 focus:ring-sky-500 text-sm dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:text-slate-100 dark:placeholder-slate-500";
 
     return (
         <div className="flex flex-col h-full">
-            {/* --- MODIFIED: Added dark theme border --- */}
             <div className="flex-shrink-0 pb-4 border-b border-neumorphic-shadow-dark/20 dark:border-slate-700">
                 <div className="flex justify-between items-center mb-2">
-                    {/* --- MODIFIED: Added dark theme text --- */}
                     <Dialog.Title as="h3" className="text-2xl font-bold text-slate-800 dark:text-slate-100">Generate with AI</Dialog.Title>
-                    {/* --- MODIFIED: Added dark theme styles --- */}
                     <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-slate-600 dark:text-slate-400 rounded-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark">
                         <ArrowUturnLeftIcon className="w-4 h-4" />
                         Back
                     </button>
                 </div>
-                 {/* --- MODIFIED: Added dark theme text --- */}
                  <p className="text-slate-500 dark:text-slate-400">
                     Upload a document and AI will structure it into a full unit.
                 </p>
@@ -522,24 +804,18 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             <div className="flex-grow pt-4 overflow-hidden flex flex-col md:flex-row gap-6">
                 <div className="w-full md:w-1/3 flex flex-col gap-4 overflow-y-auto pr-2">
                     {isProcessing ? (
-                        // --- MODIFIED: Added dark theme styles ---
                         <div className="w-full flex-grow flex flex-col items-center justify-center p-4 rounded-2xl bg-neumorphic-base shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
                             <Spinner/>
-                            {/* --- MODIFIED: Added dark theme text --- */}
-                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mt-4">{progressMessage}</p>
+                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mt-4 text-center">{progressMessage}</p>
                         </div>
                     ) : (
                         !file ? (
-                            // --- MODIFIED: Added dark theme styles ---
                             <label htmlFor="file-upload" className="relative flex-grow block w-full rounded-2xl p-8 text-center cursor-pointer transition-shadow duration-300 bg-neumorphic-base shadow-neumorphic-inset hover:shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:hover:shadow-lg">
                                 <div className="flex flex-col items-center justify-center h-full">
-                                    {/* --- MODIFIED: Added dark theme icon --- */}
                                     <DocumentArrowUpIcon className="mx-auto h-16 w-16 text-slate-400 dark:text-slate-600" />
-                                    {/* --- MODIFIED: Added dark theme text --- */}
                                     <span className="mt-4 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                                         Click to upload or drag & drop
                                     </span>
-                                    {/* --- MODIFIED: Added dark theme text --- */}
                                     <span className="mt-1 block text-xs text-slate-500 dark:text-slate-500">
                                         PDF, DOCX, or TXT
                                     </span>
@@ -547,21 +823,15 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                 <input id="file-upload" name="file-upload" type="file" className="sr-only" accept=".pdf,.docx,.txt" onChange={handleFileChange} />
                             </label>
                         ) : (
-                            // --- MODIFIED: Added dark theme styles ---
                             <div className="relative w-full flex-grow rounded-2xl p-4 shadow-neumorphic dark:shadow-lg dark:bg-neumorphic-base-dark flex flex-col justify-center">
                                 <div className="flex items-center gap-4">
-                                    {/* --- MODIFIED: Added dark theme icon --- */}
                                     <DocumentTextIcon className="h-12 w-12 text-sky-600 dark:text-sky-400 flex-shrink-0" />
                                     <div className="overflow-hidden">
-                                        {/* --- MODIFIED: Added dark theme text --- */}
                                         <p className="truncate font-semibold text-slate-800 dark:text-slate-100">{file.name}</p>
-                                        {/* --- MODIFIED: Added dark theme text --- */}
                                         <p className="text-sm text-slate-500 dark:text-slate-400">{Math.round(file.size / 1024)} KB</p>
                                     </div>
                                 </div>
-                                {/* --- MODIFIED: Added dark theme styles --- */}
                                 <button onClick={removeFile} className="absolute top-3 right-3 p-1.5 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-colors">
-                                    {/* --- MODIFIED: Added dark theme icon --- */}
                                     <XMarkIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                                 </button>
                             </div>
@@ -570,7 +840,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            {/* --- MODIFIED: Added dark theme text --- */}
                             <label htmlFor="language" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Language</label>
                             <select id="language" name="language" value={language} onChange={(e) => setLanguage(e.target.value)} className={formInputStyle}>
                                 <option>English</option>
@@ -578,7 +847,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                             </select>
                         </div>
                         <div>
-                            {/* --- MODIFIED: Added dark theme text --- */}
                             <label htmlFor="gradeLevel" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Grade Level</label>
                             <select id="gradeLevel" name="gradeLevel" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} className={formInputStyle}>
                                 {gradeLevels.map(level => (
@@ -589,7 +857,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     </div>
 
                     <div>
-                        {/* --- MODIFIED: Added dark theme text --- */}
                         <label htmlFor="subject" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Subject</label>
                         <select id="subject" name="subject" value={selectedSubject || ''} onChange={(e) => setSelectedSubject(e.target.value)} className={formInputStyle}>
                             <option value="" disabled>Select a subject</option>
@@ -600,7 +867,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     </div>
                     
                     <div>
-                        {/* --- MODIFIED: Added dark theme text --- */}
                         <label htmlFor="learningCompetencies" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Learning Competencies (Master List)</label>
                         <textarea
                             id="learningCompetencies"
@@ -614,7 +880,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     </div>
 
                     <div>
-                        {/* --- MODIFIED: Added dark theme text --- */}
                         <label htmlFor="contentStandard" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Content Standard (Optional)</label>
                         <textarea
                             id="contentStandard"
@@ -628,7 +893,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     </div>
 
                     <div>
-                        {/* --- MODIFIED: Added dark theme text --- */}
                         <label htmlFor="performanceStandard" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Performance Standard (Optional)</label>
                         <textarea
                             id="performanceStandard"
@@ -640,14 +904,10 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                             placeholder="e.g., The learners shall be able to..."
                         />
                     </div>
-                    {/* --- END OF CHANGES (4/4) --- */}
 
                     <div className="space-y-2">
-                        {/* --- MODIFIED: Added dark theme text --- */}
                         <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300">Scaffolding (Optional)</h3>
-                        {/* --- MODIFIED: Added dark theme styles --- */}
                         <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark p-3 rounded-xl max-h-[18rem] overflow-y-auto shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
-                            {/* --- MODIFIED: Added dark theme text --- */}
                             <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Explicitly select lessons for the AI to build upon.</p>
                             {subjectContext && subjectContext.units.length > 0 ? (
                                 subjectContext.units
@@ -663,11 +923,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                     return (
                                         <div key={unit.id} className="pt-2 first:pt-0">
                                             <div className="flex items-center p-2 rounded-md">
-                                                {/* --- MODIFIED: Added dark theme icon --- */}
                                                 <button onClick={() => handleToggleUnitExpansion(unit.id)} className="p-1"><ChevronRightIcon className={`h-4 w-4 text-slate-500 dark:text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} /></button>
-                                                {/* --- MODIFIED: Added dark theme styles --- */}
                                                 <input type="checkbox" id={`scaffold-unit-${unit.id}`} checked={isAllSelected} ref={el => { if(el) el.indeterminate = isPartiallySelected; }} onChange={() => handleUnitCheckboxChange(lessonsInUnit)} className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 dark:focus:ring-sky-600 ml-2" />
-                                                {/* --- MODIFIED: Added dark theme text --- */}
                                                 <label htmlFor={`scaffold-unit-${unit.id}`} className="ml-2 flex-1 text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">{unit.title}</label>
                                             </div>
                                             {isExpanded && (
@@ -684,10 +941,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                                                     else newSet.add(lesson.id);
                                                                     setScaffoldLessonIds(newSet);
                                                                 }}
-                                                                // --- MODIFIED: Added dark theme styles ---
                                                                 className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-600"
                                                             />
-                                                            {/* --- MODIFIED: Added dark theme text --- */}
                                                             <label htmlFor={`scaffold-lesson-${lesson.id}`} className="ml-2 block text-sm text-slate-800 dark:text-slate-200">
                                                                 {lesson.title}
                                                             </label>
@@ -699,13 +954,11 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                     );
                                 })
                             ) : (
-                                // --- MODIFIED: Added dark theme text ---
                                 <p className="text-sm text-slate-400 dark:text-slate-500">Scanning subject content...</p>
                             )}
                         </div>
                     </div>
 
-                    {/* --- MODIFIED: Added dark theme styles --- */}
                     <button onClick={handleGenerateLesson} disabled={!file || isProcessing} 
                         className="w-full flex items-center justify-center font-semibold bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 rounded-xl py-3 mt-auto shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-60
                                    dark:from-sky-700 dark:to-blue-800 dark:text-sky-100 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark">
@@ -714,64 +967,53 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     </button>
                 </div>
                 
-                {/* --- MODIFIED: Added dark theme styles --- */}
                 <div className="w-full md:w-2/3 flex flex-col bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl p-3 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark overflow-hidden">
                     {previewLessons.length > 0 ? (
                         <div className="flex-grow flex flex-col md:flex-row gap-3 overflow-hidden">
                             <div className="w-full md:w-1/3 flex-shrink-0 flex flex-col">
-                                {/* --- MODIFIED: Added dark theme text --- */}
                                 <h4 className="p-2 text-sm font-semibold text-slate-600 dark:text-slate-400">Generated Lessons</h4>
                                 <div className="flex-grow overflow-y-auto pr-1 space-y-1.5">
                                     {previewLessons.map((lesson, index) => (
                                         <button 
                                             key={index} 
                                             onClick={() => { setSelectedLessonIndex(index); setSelectedPageIndex(0); }} 
-                                            // --- MODIFIED: Added dark theme styles ---
                                             className={`w-full text-left p-3 rounded-xl transition-all duration-300 
                                                         ${selectedLessonIndex === index 
                                                             ? 'bg-white shadow-neumorphic ring-2 ring-sky-300 dark:bg-slate-100 dark:text-slate-900 dark:shadow-neumorphic-light dark:ring-sky-400' 
                                                             : 'bg-neumorphic-base shadow-neumorphic hover:shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark'
                                                         }`}
                                         >
-                                            {/* --- MODIFIED: Added dark theme text (via parent) --- */}
                                             <span className={`font-semibold ${selectedLessonIndex === index ? 'text-slate-800' : 'text-slate-800 dark:text-slate-100'}`}>{lesson.lessonTitle}</span>
                                         </button>
                                     ))}
                                 </div>
                             </div>
-                             {/* --- MODIFIED: Added dark theme styles --- */}
                              <div className="w-full md:w-2/3 flex-grow bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl flex flex-col overflow-hidden shadow-neumorphic dark:shadow-lg min-h-0">
                                 {selectedLesson && (
                                   <>
-                                    {/* --- MODIFIED: Added dark theme border --- */}
                                     <div className="flex-shrink-0 p-4 border-b border-neumorphic-shadow-dark/20 dark:border-slate-700">
-                                      {/* --- MODIFIED: Added dark theme text --- */}
                                       <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 truncate">{selectedLesson.lessonTitle}</h3>
-                                      {/* --- MODIFIED: Added dark theme styles --- */}
                                       {objectivesAsMarkdown && ( <div className="my-2 p-3 bg-sky-50 dark:bg-sky-900/50 border-l-4 border-sky-300 dark:border-sky-700 rounded-r-lg">
-                                          {/* --- MODIFIED: Added dark theme text --- */}
                                           <p className="font-semibold mb-1 text-sky-900 dark:text-sky-200">Learning Objectives</p>
-                                          {/* --- MODIFIED: Added dark theme prose --- */}
                                           <div className="prose prose-sm max-w-none prose-sky text-sky-800 dark:text-sky-300">
                                             <LessonPage page={{ content: objectivesAsMarkdown }} isEditable={false} />
                                           </div>
                                         </div>)}
+                                      
                                       <div className="flex space-x-2 mt-2 -mb-2 pb-2 overflow-x-auto">
-                                        {selectedLesson.pages.map((page, index) => (
+                                        {selectedLesson.pages && Array.isArray(selectedLesson.pages) && selectedLesson.pages.map((page, index) => (
                                           <button
                                             key={index}
                                             onClick={() => setSelectedPageIndex(index)}
-                                            // --- MODIFIED: Added dark theme styles ---
                                             className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${selectedPageIndex === index 
                                                 ? "bg-sky-600 text-white shadow-neumorphic dark:bg-sky-600 dark:text-white dark:shadow-lg" 
                                                 : "bg-neumorphic-base text-slate-600 shadow-neumorphic hover:shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark"
                                             }`}
-                                          >{page.title}</button>
+                                          >{page ? page.title : 'Loading...'}</button>
                                         ))}
                                       </div>
                                     </div>
                                     <div className="flex-grow min-h-0 overflow-y-auto p-6">
-                                      {/* --- MODIFIED: Added dark theme prose --- */}
                                       <div className="prose max-w-none prose-slate dark:prose-invert">
                                         {selectedPage ? <LessonPage page={selectedPage} isEditable={false} /> : <p>Select a page to view its content.</p>}
                                       </div>
@@ -782,25 +1024,18 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                         </div>
                     ) : (
                         <div className="m-auto text-center">
-                            {/* --- MODIFIED: Added dark theme icon --- */}
                             <DocumentTextIcon className="mx-auto h-16 w-16 text-slate-300 dark:text-slate-700" />
-                            {/* --- MODIFIED: Added dark theme text --- */}
                             <p className="mt-2 text-sm font-semibold text-slate-500 dark:text-slate-400">AI-Generated Preview</p>
-                            {/* --- MODIFIED: Added dark theme text --- */}
                             <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Your unit lessons will appear here.</p>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* --- MODIFIED: Added dark theme border --- */}
             <div className="flex-shrink-0 flex justify-end items-center gap-3 pt-6 mt-4 border-t border-neumorphic-shadow-dark/20 dark:border-slate-700">
-                {/* --- MODIFIED: Added dark theme text --- */}
                 {error && <p className="text-red-500 dark:text-red-400 text-sm mr-auto">{error}</p>}
-                {/* --- MODIFIED: Added dark theme styles --- */}
                 <button className="px-4 py-2 bg-neumorphic-base text-slate-700 rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset
                                  dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark" onClick={onClose}>Cancel</button>
-                {/* --- MODIFIED: Added dark theme styles --- */}
                 <button onClick={handleSaveLesson} disabled={saving || previewLessons.length === 0 || isProcessing} 
                     className="px-4 py-2 font-semibold bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset disabled:opacity-60
                                dark:from-sky-700 dark:to-blue-800 dark:text-sky-100 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark">

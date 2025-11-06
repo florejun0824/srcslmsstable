@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Dialog } from '@headlessui/react';
 import { XMarkIcon, PlusIcon, TrashIcon, ClipboardDocumentListIcon, DocumentTextIcon, PuzzlePieceIcon, DocumentDuplicateIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
 import { doc, collection, writeBatch, serverTimestamp, setDoc } from 'firebase/firestore';
@@ -9,8 +9,7 @@ import InteractiveLoadingScreen from '../common/InteractiveLoadingScreen';
 import CourseSelector from './CourseSelector';
 import LessonSelector from './LessonSelector';
 
-// --- Neumorphic Style Helpers (from other files) ---
-// --- MODIFIED: Added dark theme styles ---
+// --- Neumorphic Style Helpers (Unchanged) ---
 const inputBaseStyles = "block w-full text-sm bg-slate-200 dark:bg-neumorphic-base-dark rounded-xl shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:shadow-neumorphic-inset-dark focus:outline-none focus:ring-2 focus:ring-sky-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 border-none dark:text-slate-100";
 const btnBase = "w-full inline-flex items-center justify-center px-4 py-3 text-sm font-semibold rounded-xl transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-200 dark:focus:ring-offset-neumorphic-base-dark";
 const btnExtruded = `shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff]
@@ -18,14 +17,15 @@ const btnExtruded = `shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:sh
 const btnDisabled = "disabled:opacity-60 disabled:text-slate-500 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] dark:disabled:text-slate-600 dark:disabled:shadow-neumorphic-inset-dark";
 // --------------------------------------------------
 
-// A reusable input field component for this form (iOS Style)
-// --- MODIFIED: Adapted to use neumorphic styles ---
+// A reusable input field component (Unchanged)
 const FormInput = ({ label, id, ...props }) => (
     <div>
         {label && <label htmlFor={id} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">{label}</label>}
         <input id={id} {...props} className={`${inputBaseStyles} px-4 py-2.5`} />
     </div>
 );
+
+// --- START: ORIGINAL HELPER FUNCTIONS (Unchanged and Restored) ---
 
 // Helper function to calculate the number of items from a comma-separated range string
 const calculateItemsForRange = (rangeString) => {
@@ -45,7 +45,7 @@ const calculateItemsForRange = (rangeString) => {
 
 // Helper function to extract a JSON object from a string
 const extractJson = (text) => {
-    let match = text.match(/```json\s*([\s\S]*?)\s*```/);
+    let match = text.match(/```json\s*([\sS]*?)\s*```/);
     if (!match) match = text.match(/```([\s\S]*?)```/);
     if (match && match[1]) return match[1].trim();
     const firstBrace = text.indexOf('{');
@@ -76,7 +76,6 @@ const roundPercentagesToSum100 = (breakdown) => {
     if (!breakdown || breakdown.length === 0) {
         return [];
     }
-
     const percentages = breakdown.map((item, index) => {
         const value = parseFloat(item.weightPercentage);
         return {
@@ -86,25 +85,19 @@ const roundPercentagesToSum100 = (breakdown) => {
             remainder: value - Math.floor(value),
         };
     });
-
     const sumOfFloors = percentages.reduce((sum, p) => sum + p.floorValue, 0);
     let remainderToDistribute = 100 - sumOfFloors;
-
     percentages.sort((a, b) => b.remainder - a.remainder);
-
     for (let i = 0; i < remainderToDistribute; i++) {
         if (percentages[i]) {
            percentages[i].floorValue += 1;
         }
     }
-
     percentages.sort((a, b) => a.originalIndex - b.originalIndex);
-
     const updatedBreakdown = breakdown.map((item, index) => ({
         ...item,
         weightPercentage: `${percentages[index].floorValue}%`,
     }));
-
     return updatedBreakdown;
 };
 
@@ -228,7 +221,6 @@ const generateExamQuestionsMarkdown = (questions, language) => {
                     markdown += `${q.questionNumber}. ${q.question}\n`;
                     if (q.options) {
                         q.options.forEach((option, index) => {
-                            // MODIFICATION: Remove any prefixes like "a)" from the AI response before adding our own.
                             const optionText = option.trim().replace(/^[a-zA-Z][.)]\s*/, '');
                             markdown += `   ${String.fromCharCode(97 + index)}. ${optionText}\n`;
                         });
@@ -247,7 +239,6 @@ const generateExamQuestionsMarkdown = (questions, language) => {
     return markdown;
 };
 
-// ... (The rest of the helper functions: generateAnswerKeyMarkdown, generateExplanationsMarkdown, TOSPreviewTable, etc. remain unchanged)
 const generateAnswerKeyMarkdown = (questions) => {
     if (!questions || questions.length === 0) return 'No answer key generated.';
     let markdown = `### Answer Key\n\n`;
@@ -284,7 +275,6 @@ const generateExplanationsMarkdown = (questions) => {
     return markdown;
 };
 
-// --- MODIFIED: Added dark theme styles to TOSPreviewTable ---
 const TOSPreviewTable = ({ tos }) => (
     <div className="overflow-x-auto text-sm">
         <div className="bg-slate-200/50 dark:bg-neumorphic-base-dark/50 p-4 rounded-xl mb-4 dark:shadow-neumorphic-inset-dark">
@@ -331,6 +321,186 @@ const TOSPreviewTable = ({ tos }) => (
     </div>
 );
 
+// --- END: ORIGINAL HELPER FUNCTIONS ---
+
+
+// --- START: NEW ATOMIC GENERATION HELPERS (Adapted from GenerationScreen.jsx) ---
+
+/**
+ * --- Micro-Worker Sanitizer ---
+ * A simpler sanitizer for the small, known JSON structures from micro-workers.
+ */
+const sanitizeJsonComponent = (aiResponse) => {
+    try {
+        const startIndex = aiResponse.indexOf('{');
+        const endIndex = aiResponse.lastIndexOf('}');
+        if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
+            throw new Error('No valid JSON object ({...}) found in AI response.');
+        }
+        const jsonString = aiResponse.substring(startIndex, endIndex + 1);
+        return JSON.parse(jsonString);
+    } catch (error) {
+        console.error("sanitizeJsonComponent error:", error.message, "Preview:", aiResponse.substring(0, 300));
+        throw new Error(`The AI component response was not valid JSON.`);
+    }
+};
+
+/**
+ * --- "Planner" Prompt Generator ---
+ * This prompt generates *only* the Table of Specifications.
+ */
+const getTosPlannerPrompt = (guideData) => {
+    const { 
+        learningCompetencies, 
+        language, 
+        totalHours, 
+        totalConfiguredItems, 
+        formattedTestStructure,
+        selectedCourse,
+        selectedLessons
+    } = guideData;
+
+    const examTitle = `Periodical Exam for ${selectedCourse?.title || 'Subject'}`;
+    const subject = selectedCourse?.title || 'Not Specified';
+    const gradeLevel = selectedCourse?.gradeLevel || 'Not Specified';
+    const combinedLessonTitles = selectedLessons.map(lesson => lesson.title).join(', ');
+
+    return `
+    You are an expert educational assessment planner. Your *only* task is to generate a detailed Table of Specifications (TOS) in JSON format. Do NOT generate exam questions.
+
+    **PRIMARY DIRECTIVE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
+    ---
+    **OUTPUT JSON STRUCTURE (Strict):**
+    {
+        "examTitle": "${examTitle}",
+        "tos": {
+            "header": { "examTitle": "${examTitle}", "subject": "${subject}", "gradeLevel": "${gradeLevel}" },
+            "competencyBreakdown": [
+                { "competency": "...", "noOfHours": 0, "weightPercentage": "...", "noOfItems": 0, "easyItems": { "count": 0, "itemNumbers": "..." }, "averageItems": { "count": 0, "itemNumbers": "..." }, "difficultItems": { "count": 0, "itemNumbers": "..." } }
+            ],
+            "totalRow": { "hours": "...", "weightPercentage": "...", "noOfItems": 0 }
+        }
+    }
+    ---
+    **INPUT DATA**
+    - **Lesson Titles:** "${combinedLessonTitles}"
+    - **Learning Competencies:** \`\`\`${learningCompetencies}\`\`\`
+    - **Language:** ${language}
+    - **Total Hours for Topic:** ${totalHours || 'not specified'}
+    - **Total Items:** ${totalConfiguredItems}
+    - **Test Structure:** ${formattedTestStructure}
+
+    **CRITICAL GENERATION RULES (NON-NEGOTIABLE):**
+    1.  **TOTAL ITEMS ADHERENCE:** The 'noOfItems' in the TOS 'totalRow' MUST equal ${totalConfiguredItems}.
+    2.  **TOS COMPETENCIES:** You MUST use the exact learning competencies provided.
+    3.  **ITEM CALCULATION:** Calculate 'noOfItems' using: \`(weightPercentage / 100) * ${totalConfiguredItems}\`, then adjust rounded numbers to sum to the 'Total Items' using the Largest Remainder Method.
+    4.  **LANGUAGE:** All text MUST be in **${language}**.
+    5.  **DIFFICULTY DISTRIBUTION:** Strictly adhere to Easy: 60%, Average: 30%, Difficult: 10%. Distribute items accordingly in the TOS columns.
+    6.  **ESSAY in TOS:** Place an essay's entire item number range in the 'difficultItems' column.
+    `;
+};
+
+/**
+ * --- "Micro-Worker" Prompt Generator ---
+ * This prompt generates *only* one component of the exam (e.g., "5 Multiple Choice").
+ */
+const getExamComponentPrompt = (guideData, generatedTos, testType) => {
+    const { language, combinedContent } = guideData;
+    const { type, numItems, range } = testType;
+    
+    // Provides the AI with the specific part of the TOS it should focus on
+    const tosContext = JSON.stringify(generatedTos, null, 2);
+
+    return `
+    You are an expert exam question writer. Your task is to generate *only* the questions for a specific section of an exam.
+
+    **PRIMARY DIRECTIVE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
+    ---
+    **OUTPUT JSON STRUCTURE (Strict):**
+    {
+        "questions": [
+            { 
+                "questionNumber": 1, // Start numbering from the 'range'
+                "type": "...", // e.g., "multiple_choice"
+                "instruction": "...", 
+                "question": "...", 
+                // ... other fields like options, correctAnswer, prompts, etc.
+            }
+        ]
+    }
+    ---
+    **INPUT DATA**
+    - **Lesson Content:** \`\`\`${combinedContent}\`\`\`
+    - **Language:** ${language}
+    - **Full Table of Specifications (TOS):** ${tosContext}
+    
+    **YOUR SPECIFIC TASK**
+    - **Test Type:** Generate **${type}**
+    - **Number of Items:** Generate EXACTLY **${numItems}** items.
+    - **Item Range:** The "questionNumber" field MUST correspond to the range **${range}**. (e.g., if range is "11-15", the first questionNumber is 11).
+    - **Context:** Base your questions *only* on the "Lesson Content".
+    - **TOS Adherence:** Ensure the questions you generate for this range (${range}) match the competencies and difficulty levels specified for those item numbers in the provided "Full Table of Specifications".
+
+    **CRITICAL GENERATION RULES (Follow these from the original prompt):**
+    1.  **MULTIPLE CHOICE OPTIONS:** The 'options' array MUST contain the option text ONLY. DO NOT include prefixes like "a)".
+    2.  **ESSAY:** If type is "Essay", generate ONE prompt. The number range corresponds to the total points for its rubric.
+    3.  **IDENTIFICATION:** Group all items. Generate a single \`choicesBox\` with all answers plus ONE distractor.
+    4.  **MATCHING TYPE (STRICT):** Use the \`"type": "matching-type"\` format with \`prompts\`, \`options\`, \`correctPairs\`, and one distractor in \`options\`. The entire test for this range must be a SINGLE object in the "questions" array.
+    
+    5.  **CONTENT ADHERENCE & TOPIC FIDELITY (ABSOLUTE RULE):**
+        - All questions, options, and explanations MUST be derived STRICTLY and SOLELY from the provided **Lesson Content**.
+        - DO NOT generate meta-questions (e.g., questions about Bloom's Taxonomy, or the process of assessment). The quiz must test the student on the lesson material, not on pedagogical concepts.
+        - You are **STRICTLY FORBIDDEN** from using any phrases that refer back to the source material. It is forbidden to use text like "According to the lesson," "Based on the topic," "As mentioned in the content," or any similar citations. The questions must stand on their own, as if in a real exam.
+    `;
+};
+
+/**
+ * --- "Micro-Worker" Function with Retries & Throttling ---
+ * This function generates one exam component and includes retries, delays, and abort checks.
+ */
+const generateExamComponent = async (guideData, generatedTos, testType, isGenerationRunningRef, maxRetries = 3) => {
+    const prompt = getExamComponentPrompt(guideData, generatedTos, testType);
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        // --- ABORT CHECK ---
+        if (!isGenerationRunningRef.current) throw new Error("Generation aborted by user.");
+
+        try {
+            const aiResponse = await callGeminiWithLimitCheck(prompt);
+
+            // --- ABORT CHECK ---
+            if (!isGenerationRunningRef.current) throw new Error("Generation aborted by user.");
+            
+            const jsonData = sanitizeJsonComponent(aiResponse); // Use the simple sanitizer
+            
+            // --- "POLITE" THROTTLING (1.5s delay) ---
+            await new Promise(res => setTimeout(res, 1500));
+            
+            // --- ABORT CHECK ---
+            if (!isGenerationRunningRef.current) throw new Error("Generation aborted by user.");
+
+            return jsonData; // Success
+
+        } catch (error) {
+            // --- ABORT CHECK ---
+            if (!isGenerationRunningRef.current) throw new Error("Generation aborted by user.");
+
+            console.warn(
+                `Attempt ${attempt + 1} of ${maxRetries} failed for component: ${testType.type}`,
+                error.message
+            );
+            if (attempt === maxRetries - 1) {
+                throw new Error(`Failed to generate ${testType.type} after ${maxRetries} attempts.`);
+            }
+
+            // --- "RETRY" THROTTLING (5s delay) ---
+            await new Promise(res => setTimeout(res, 5000));
+        }
+    }
+};
+
+// --- END: NEW ATOMIC GENERATION HELPERS ---
+
 
 export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subjectId }) {
     const { showToast } = useToast();
@@ -345,7 +515,24 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
     const [totalHours, setTotalHours] = useState('');
     const [isSaveOptionsOpen, setIsSaveOptionsOpen] = useState(false);
 
-    // --- MODIFIED: Create the input style constant ---
+    // --- NEW: Abort controller ref ---
+    const isGenerationRunning = useRef(false);
+
+    // --- NEW: Abort on unmount ---
+    useEffect(() => {
+        // This cleanup function runs when the component unmounts
+        return () => {
+            isGenerationRunning.current = false;
+        };
+    }, []);
+
+    // --- NEW: Abort on modal close ---
+    const handleClose = useCallback(() => {
+        isGenerationRunning.current = false; // Send abort signal
+        onClose(); // Call the original onClose prop
+    }, [onClose]);
+
+    // --- Neumorphic style constants (Unchanged) ---
     const neumorphicInput = `${inputBaseStyles} block w-full px-4 py-2.5 sm:text-sm`;
     const neumorphicTextarea = `${inputBaseStyles} block w-full px-4 py-2.5 sm:text-sm`;
     const neumorphicSelect = `${inputBaseStyles} block w-full pl-4 pr-10 py-2.5 sm:text-sm appearance-none`;
@@ -372,117 +559,133 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
     const isValidForGeneration = totalConfiguredItems > 0 && selectedLessons.length > 0 && learningCompetencies.trim() !== '';
     const isValidPreview = previewData?.tos?.header && previewData?.examQuestions?.length > 0;
 
+	// ---
+    // --- REFACTORED: `handleGenerate` (Orchestrator)
+    // ---
 	const handleGenerate = async () => {
 		    if (!selectedCourse || selectedLessons.length === 0 || learningCompetencies.trim() === '') {
 		        showToast("Please select a source subject, at least one lesson, and provide learning competencies.", "error");
 		        return;
 		    }
 		    setIsGenerating(true);
-		    setPreviewData(null);
-		    showToast("Generating exam and TOS...", "info", 10000);
+            isGenerationRunning.current = true; // --- NEW: Start abort signal
+		    setPreviewData(null); // Clear previous results
 
 		    const combinedContent = selectedLessons.flatMap(lesson => lesson.pages?.map(page => page.content) || []).join('\n\n');
 		    const combinedLessonTitles = selectedLessons.map(lesson => lesson.title).join(', ');
 		    const formattedTestStructure = testTypes.map(tt => `${tt.type}: ${tt.numItems} items (from range(s) ${tt.range})`).join('; ');
 
-		    // MODIFICATION: Added stronger rules to enforce item count and test structure.
-		    const prompt = `You are an expert educational assessment creator. Your task is to generate a comprehensive exam and a detailed Table of Specifications (TOS) in a single JSON object based on the provided data.
+            // Create a single data object to pass to prompts
+            const guideData = {
+                learningCompetencies,
+                language,
+                totalHours,
+                totalConfiguredItems,
+                formattedTestStructure,
+                selectedCourse,
+                selectedLessons,
+                combinedContent,
+                combinedLessonTitles
+            };
 
-		**PRIMARY DIRECTIVE: YOUR ENTRA RESPONSE MUST BE A SINGLE, VALID JSON OBJECT. NO OTHER TEXT SHOULD BE PRESENT.**
-		---
-		**OUTPUT JSON STRUCTURE (Strict):**
-		{
-		    "examTitle": "...",
-		    "tos": {
-		        "header": { "examTitle": "...", "subject": "...", "gradeLevel": "..." },
-		        "competencyBreakdown": [
-		            { "competency": "...", "noOfHours": 0, "weightPercentage": "...", "noOfItems": 0, "easyItems": { "count": 0, "itemNumbers": "..." }, "averageItems": { "count": 0, "itemNumbers": "..." }, "difficultItems": { "count": 0, "itemNumbers": "..." } }
-		        ],
-		        "totalRow": { "hours": "...", "weightPercentage": "...", "noOfItems": 0 }
-		    },
-		    "examQuestions": [
-		        { 
-		            "questionNumber": 1, 
-		            "type": "multiple_choice", 
-		            "instruction": "...", 
-		            "question": "...", 
-		            "options": ["..."], 
-		            "correctAnswer": "...", 
-		            "explanation": "...", 
-		            "difficulty": "Easy", 
-		            "bloomLevel": "Remembering"
-		        },
-		        // ... other structure examples
-		    ]
-		}
-		---
-		**INPUT DATA**
-		- **Lesson Titles:** "${combinedLessonTitles}"
-		- **Learning Competencies:** \`\`\`${learningCompetencies}\`\`\`
-		- **Lesson Content:** \`\`\`${combinedContent}\`\`\`
-		- **Language:** ${language}
-		- **Total Hours for Topic:** ${totalHours || 'not specified'}
-		- **Total Items:** ${totalConfiguredItems}
-		- **Test Structure:** ${formattedTestStructure}
-
-		**CRITICAL GENERATION RULES (NON-NEGOTIABLE):**
-		1.  **TOTAL ITEMS ADHERENCE:** The total number of items generated MUST EXACTLY MATCH the 'Total Items' value provided in the INPUT DATA. The 'noOfItems' in the TOS 'totalRow' and the total count of questions in the 'examQuestions' array MUST equal this number. This is the highest priority rule.
-		2.  **TEST STRUCTURE ADHERENCE:** You MUST generate the exact test types and the exact number of items for each type as specified in the 'Test Structure' input. DO NOT add, omit, or change the specified test types or their respective item counts.
-		3.  **TOS COMPETENCIES:** You MUST use the exact learning competencies provided in the "INPUT DATA" for the \`competencyBreakdown\`.
-		4.  **ITEM CALCULATION:** Calculate 'noOfItems' in the TOS using: \`(weightPercentage / 100) * Total Items\`, then adjust rounded numbers to sum to the 'Total Items' using the Largest Remainder Method.
-		5.  **LANGUAGE:** ALL generated text MUST be in the specified language: **${language}**.
-		6.  **DIFFICULTY DISTRIBUTION:** Strictly adhere to Easy: 60%, Average: 30%, Difficult: 10%.
-		7.  **TOS VERTICAL DISTRIBUTION:** Distribute each competency's 'No. of Items' across 'Easy', 'Average', and 'Difficult' columns, following the 60-30-10 ratio.
-		8.  **MULTIPLE CHOICE OPTIONS:** The 'options' array MUST contain the option text ONLY. DO NOT include prefixes like "a)", "b)", or bullet points.
-		9.  **ESSAY:** If "Essay" is included, generate EXACTLY ONE single-prompt question. The number range corresponds to the total points for its rubric.
-		10. **ESSAY in TOS:** Place the essay's entire item number range in the 'difficultItems' column.
-		11. **IDENTIFICATION:** Group all items. Generate a single \`choicesBox\` with all answers plus ONE distractor. The "question" field MUST be a descriptive statement, not a question.
-		12. **MATCHING TYPE (STRICT):** If 'Matching Type' is requested, you MUST use the \`"type": "matching-type"\` format.
-		    - Create a \`prompts\` array for Column A and an \`options\` array for Column B. Each item in both arrays MUST be an object with a unique \`id\` and \`text\`.
-		    - Add at least ONE extra distractor item to the \`options\` array.
-		    - Create a \`correctPairs\` object that maps the prompt \`id\` to the correct option \`id\`.
-		    - The entire matching test for a given number range must be a SINGLE JSON object in the \`examQuestions\` array.
-		13. **TOS & NUMBERING:** For Matching Types, the 'itemNumbers' in the TOS must be a sequential list (e.g., "11-15").
-		14. **CONTENT ADHERENCE & TOPIC FIDELITY:** All questions, options, and explanations MUST be derived STRICTLY and SOLELY from the provided **Lesson Content**. DO NOT generate meta-questions about educational theories, Bloom's Taxonomy, or the process of assessment itself. The quiz must test the student on the lesson material, not on pedagogical concepts. **YOU MUST NOT** use any phrases that refer back to the source material. It is forbidden to use text like "According to the lesson," "Based on the topic," "As mentioned in the content," or any similar citations. The questions must stand on their own, as if in a real exam.
-		15. **BLOOM'S LEVEL FIELD:** The "bloomLevel" field is for classification purposes only. Use it to label the cognitive skill required to answer the question you generated (e.g., Remembering, Applying). DO NOT create questions that ask the student to identify a Bloom's Taxonomy level.
-		`;
+            let generatedTos = null;
+            let allGeneratedQuestions = [];
+            
 		    try {
-		        const aiResponse = await callGeminiWithLimitCheck(prompt);
-		        const jsonText = extractJson(aiResponse);
-		        const parsedData = tryParseJson(jsonText);
-        
-		        if (parsedData.tos && parsedData.tos.competencyBreakdown) {
-		            const roundedBreakdown = roundPercentagesToSum100(parsedData.tos.competencyBreakdown);
-		            parsedData.tos.competencyBreakdown = roundedBreakdown;
-		            const breakdown = parsedData.tos.competencyBreakdown;
+                // --- STEP 1: PLANNER ---
+                // Generate *only* the Table of Specifications
+                showToast("Generating Table of Specifications...", "info", 10000);
+		        const tosPrompt = getTosPlannerPrompt(guideData);
+
+                // --- ABORT CHECK ---
+                if (!isGenerationRunning.current) throw new Error("Generation aborted by user.");
+                const tosResponse = await callGeminiWithLimitCheck(tosPrompt);
+                if (!isGenerationRunning.current) throw new Error("Generation aborted by user.");
+                
+                // Use the original, more robust parser for this first, larger JSON
+                const parsedTosData = tryParseJson(extractJson(tosResponse)); 
+
+                if (parsedTosData.tos && parsedTosData.tos.competencyBreakdown) {
+                    // --- (This is your original rounding logic) ---
+		            const roundedBreakdown = roundPercentagesToSum100(parsedTosData.tos.competencyBreakdown);
+		            parsedTosData.tos.competencyBreakdown = roundedBreakdown;
+		            const breakdown = parsedTosData.tos.competencyBreakdown;
 		            const calculatedTotalHours = breakdown.reduce((sum, row) => sum + Number(row.noOfHours || 0), 0);
 		            const calculatedTotalItems = breakdown.reduce((sum, row) => sum + Number(row.noOfItems || 0), 0);
-		            parsedData.tos.totalRow = {
-		                ...parsedData.tos.totalRow,
+		            parsedTosData.tos.totalRow = {
+		                ...parsedTosData.tos.totalRow,
 		                hours: String(calculatedTotalHours),
 		                weightPercentage: "100%",
 		                noOfItems: calculatedTotalItems, 
 		            };
-		            if (calculatedTotalItems !== totalConfiguredItems) {
-		                // --- START: FIX ---
-		                console.warn(`AI generated ${calculatedTotalItems} items, but user configured ${totalConfiguredItems}. The displayed total will reflect what was generated.`);
-		                // You could optionally show a toast message here as well.
-		                showToast(`Warning: AI generated ${calculatedTotalItems} items, but ${totalConfiguredItems} were requested.`, "warning", 6000);
-		                // --- END: FIX ---
-		            }
-		        }
+                    // --- (End rounding logic) ---
+                    
+                    generatedTos = parsedTosData.tos; // Save the final TOS
+                    
+                    // --- UX WIN: Show the TOS as soon as it's ready ---
+                    setPreviewData({ 
+                        examTitle: parsedTosData.examTitle, 
+                        tos: generatedTos, 
+                        examQuestions: [] // Start with empty questions
+                    });
 
-		        setPreviewData(parsedData);
+                    if (calculatedTotalItems !== totalConfiguredItems) {
+		                showToast(`Warning: AI generated ${calculatedTotalItems} items, but ${totalConfiguredItems} were requested.`, "warning", 6000);
+		            }
+		        } else {
+                    throw new Error("AI failed to return a valid TOS structure.");
+                }
+
+                // --- STEP 2: ORCHESTRATOR & MICRO-WORKERS ---
+                // Loop through each test type and generate it atomically
+                for (const testType of testTypes) {
+                    // --- ABORT CHECK ---
+                    if (!isGenerationRunning.current) throw new Error("Generation aborted by user.");
+                    if (testType.numItems === 0) continue; // Skip empty test types
+
+                    showToast(`Generating ${testType.type} (Items ${testType.range})...`, "info", 10000);
+                    
+                    const componentData = await generateExamComponent(
+                        guideData, 
+                        generatedTos, // Pass the generated TOS as context
+                        testType,
+                        isGenerationRunning // Pass the abort ref
+                    );
+
+                    if (componentData && componentData.questions) {
+                        allGeneratedQuestions.push(...componentData.questions);
+                        
+                        // --- UX WIN: Update the preview incrementally ---
+                        setPreviewData(prev => ({
+                            ...prev,
+                            examQuestions: [...allGeneratedQuestions] // Show questions as they arrive
+                        }));
+                    }
+                }
+                
+                // --- ABORT CHECK ---
+                if (!isGenerationRunning.current) throw new Error("Generation aborted by user.");
 		        showToast("Exam and TOS generated successfully!", "success");
+
 		    } catch (err) {
-		        console.error("Generation error:", err);
-		        showToast(`Failed to generate exam: ${err.message}`, "error", 15000);
+                // --- NEW: Handle aborts silently ---
+                if (err.message && err.message.includes("aborted")) {
+                    console.log("Generation loop aborted by user.");
+                    showToast("Generation cancelled.", "warning");
+                } else {
+                    console.error("Generation error:", err);
+                    showToast(`Generation failed: ${err.message}`, "error", 15000);
+                    // We DON'T setPreviewData(null), so the user can see partial results
+                }
 		    } finally {
 		        setIsGenerating(false);
+                isGenerationRunning.current = false; // --- NEW: End abort signal
 		    }
 		};
     
-    // ... (The rest of the component: saveAsLesson, saveAsQuiz, handleFinalSave, and the return/JSX part, all remain unchanged)
+    
+    // --- (The rest of the component: saveAsLesson, saveAsQuiz, handleFinalSave) ---
+    // --- (These functions are UNCHANGED from your original file) ---
     const saveAsLesson = async () => {
         const batch = writeBatch(db);
         const newLessonRef = doc(collection(db, 'lessons'));
@@ -529,12 +732,9 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 		        .map(q => {
 		            const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
             
-	                // --- START: FIX ---
-	                // Handle 'interpretive' type which may have a passage to prepend.
 	                const questionText = (normalizedType === 'interpretive' && q.passage)
 	                    ? `${q.passage}\n\n${q.question || ''}`
 	                    : (q.question || 'Missing question text from AI.');
-	                // --- END: FIX ---
 
 		            const baseQuestion = {
 		                text: questionText, // Use the potentially modified text
@@ -542,10 +742,7 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 		                explanation: q.explanation || '',
 		            };
 
-	                // --- START: FIX ---
-	                // Group multiple-choice, analogy, and interpretive types together as they share the same structure.
 		            if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
-	                // --- END: FIX ---
 		                const options = q.options || [];
 		                const correctAnswerText = (q.correctAnswer || '').replace(/^[a-d]\.\s*/i, '').trim();
 		                const correctIndex = options.findIndex(opt => opt === correctAnswerText);
@@ -568,10 +765,7 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 		                    };
 		                }
 		            }
-	                // --- START: FIX ---
-	                // Group identification and solving types together as they require a typed answer.
 		            if (normalizedType === 'identification' || normalizedType === 'solving') {
-	                // --- END: FIX ---
 		                if (q.correctAnswer) {
 		                    return {
 		                        ...baseQuestion,
@@ -596,7 +790,6 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 		                    };
 		                }
 		            }
-		            // Any unhandled types (like 'essay') will return null and be filtered out.
 		            return null;
 		        })
 		        .filter(Boolean);
@@ -641,8 +834,6 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                 await saveAsQuiz();
                 showToast("Exam saved as an interactive quiz!", "success");
             } else if (saveType === 'both') {
-                // When saving both, wrap the quiz saving in its own try-catch
-                // to allow the lesson to save even if the quiz fails.
                 await saveAsLesson();
                 try {
                     await saveAsQuiz();
@@ -652,7 +843,7 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                     showToast(`Lesson saved, but quiz failed: ${quizError.message}`, "warning", 8000);
                 }
             }
-            onClose();
+            handleClose(); // Use the new wrapper to close
         } catch (err) {
             console.error("Save error:", err);
             showToast(`Failed to save: ${err.message}`, "error", 8000);
@@ -661,41 +852,40 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
         }
     };
 
+
+    // ---
+    // --- START: JSX (Unchanged, but now uses `handleClose` wrapper)
+    // ---
     return (
-        <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-            {/* --- MODIFIED: Added dark theme backdrop --- */}
+        <Dialog open={isOpen} onClose={handleClose} className="fixed inset-0 z-[110] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/30 backdrop-blur-lg dark:bg-black/80" />
             <Dialog.Panel
-                // --- MODIFIED: Swapped to neumorphic styles ---
                 className="relative bg-slate-200 dark:bg-neumorphic-base-dark shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff] dark:shadow-lg border border-white/20 dark:border-slate-700/50 p-6 sm:p-8 rounded-3xl w-full max-w-5xl flex flex-col max-h-[90vh]"
                 onClick={(e) => e.stopPropagation()}
             >
                 {(isGenerating || isSaving) && (
-                    // --- MODIFIED: Added dark theme loading screen ---
                     <div className="absolute inset-0 bg-white/80 dark:bg-neumorphic-base-dark/80 backdrop-blur-md flex flex-col justify-center items-center z-50 rounded-3xl">
                         <InteractiveLoadingScreen
                             topic={selectedLessons.length > 0 ? selectedLessons.map(l => l.title).join(', ') : "new ideas"}
                             isSaving={isSaving}
-                            lessonProgress={{ current: 1, total: 1 }}
+                            lessonProgress={{ 
+                                current: previewData ? (previewData.examQuestions ? previewData.examQuestions.length : 0) + 1 : 1, // +1 for TOS
+                                total: testTypes.length + 1 // All test types + TOS
+                            }}
                         />
                     </div>
                 )}
                 {isSaveOptionsOpen && (
                     <Dialog open={isSaveOptionsOpen} onClose={() => setIsSaveOptionsOpen(false)} className="relative z-[120]">
-                        {/* --- MODIFIED: Added dark theme backdrop --- */}
                         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/80" aria-hidden="true" />
                         <div className="fixed inset-0 flex items-center justify-center p-4">
-                            {/* --- MODIFIED: Added dark theme panel --- */}
                             <Dialog.Panel className="w-full max-w-sm rounded-3xl bg-slate-200 dark:bg-neumorphic-base-dark p-6 shadow-2xl dark:shadow-lg">
-                                {/* --- MODIFIED: Added dark theme text/icon --- */}
                                 <Dialog.Title className="text-xl font-bold text-gray-900 dark:text-slate-100 flex items-center gap-3">
                                    <DocumentArrowDownIcon className="w-7 h-7 text-blue-600 dark:text-blue-400"/>
                                    Save Options
                                 </Dialog.Title>
-                                {/* --- MODIFIED: Added dark theme text --- */}
                                 <p className="text-sm text-gray-600 dark:text-slate-400 mt-2">How would you like to save the generated exam content?</p>
                                 <div className="mt-5 space-y-3">
-                                    {/* --- MODIFIED: Added dark theme buttons --- */}
                                     <button onClick={() => handleFinalSave('lesson')} className="w-full flex items-center gap-4 text-left p-3 rounded-xl hover:bg-gray-200 dark:hover:bg-neumorphic-base-dark/60 transition-colors">
                                         <DocumentTextIcon className="w-8 h-8 text-green-600 dark:text-green-400 flex-shrink-0" />
                                         <div>
@@ -719,55 +909,47 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                     </button>
                                 </div>
                                 <div className="mt-6 text-right">
-                                     {/* --- MODIFIED: Added dark theme button --- */}
                                      <button onClick={() => setIsSaveOptionsOpen(false)} className={`py-2 px-4 rounded-lg text-sm font-semibold ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300`}>Cancel</button>
                                 </div>
                             </Dialog.Panel>
                         </div>
                     </Dialog>
                 )}
-                {/* --- MODIFIED: Added dark theme border --- */}
                 <div className="flex justify-between items-start pb-5 border-b border-gray-900/10 dark:border-slate-700 flex-shrink-0">
                     <div className="flex items-center gap-4">
-                        {/* --- MODIFIED: Added dark theme icon bg --- */}
                         <div className="bg-blue-600 dark:bg-blue-700 p-2.5 rounded-2xl text-white shadow-lg flex-shrink-0">
                             <ClipboardDocumentListIcon className="h-7 w-7" />
                         </div>
                         <div>
-                            {/* --- MODIFIED: Added dark theme text --- */}
                             <Dialog.Title className="text-2xl font-semibold text-gray-900 dark:text-slate-100">Exam & TOS Generator</Dialog.Title>
                             <p className="text-sm text-gray-600 dark:text-slate-400">Create a comprehensive exam and its Table of Specifications.</p>
                         </div>
                     </div>
-                    {/* --- MODIFIED: Added dark theme close button --- */}
-                    <button onClick={onClose} className={`h-10 w-10 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 dark:bg-neumorphic-base-dark dark:text-slate-400 ${btnExtruded}`}>
+                    {/* --- MODIFIED: Use handleClose --- */}
+                    <button onClick={handleClose} className={`h-10 w-10 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 dark:bg-neumorphic-base-dark dark:text-slate-400 ${btnExtruded}`}>
                         <XMarkIcon className="w-6 h-6" />
                     </button>
                 </div>
+                
                 <div className="py-6 space-y-6 flex-1 overflow-y-auto -mr-3 pr-3">
                     {!previewData ? (
+                        // --- (This is the FORM view - Unchanged) ---
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <div className="space-y-6">
-                                {/* --- MODIFIED: Added dark theme card --- */}
                                 <div className="p-5 bg-slate-200 rounded-2xl shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] dark:bg-neumorphic-base-dark dark:shadow-lg">
-                                    {/* --- MODIFIED: Added dark theme text --- */}
                                     <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-4">Exam Configuration</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="md:col-span-2">
-                                            {/* --- MODIFIED: Added dark theme text --- */}
                                             <label htmlFor="totalItemsDisplay" className="block text-sm font-medium text-slate-600 dark:text-slate-300">Total Number of Items</label>
-                                            {/* --- MODIFIED: Added dark theme styles --- */}
                                             <div id="totalItemsDisplay" className={`mt-1.5 ${neumorphicInput} py-2.5 font-medium`}>
                                                 {totalConfiguredItems}
                                             </div>
                                         </div>
                                         <div className="md:col-span-1">
-                                            {/* --- MODIFIED: Added dark theme text --- */}
                                             <label htmlFor="totalHours" className="block text-sm font-medium text-slate-600 dark:text-slate-300">Total Hours Spent</label>
                                             <input id="totalHours" type="number" value={totalHours} onChange={(e) => setTotalHours(e.target.value)} className={`mt-1.5 ${neumorphicInput}`} placeholder="e.g., 10" />
                                         </div>
                                         <div className="md:col-span-1">
-                                            {/* --- MODIFIED: Added dark theme text --- */}
                                             <label htmlFor="language" className="block text-sm font-medium text-slate-600 dark:text-slate-300">Language</label>
                                             <select id="language" value={language} onChange={e => setLanguage(e.target.value)} className={`mt-1.5 ${neumorphicSelect}`}>
                                                 <option>English</option>
@@ -776,13 +958,10 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                         </div>
                                     </div>
                                 </div>
-                                {/* --- MODIFIED: Added dark theme card --- */}
                                 <div className="p-5 bg-slate-200 rounded-2xl shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] dark:bg-neumorphic-base-dark dark:shadow-lg">
-                                    {/* --- MODIFIED: Added dark theme text --- */}
                                     <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-4">Source Content Selection</h3>
                                     <div className="space-y-4">
                                         <div>
-                                            {/* --- MODIFIED: Added dark theme text --- */}
                                             <label htmlFor="learningCompetencies" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Learning Competencies</label>
                                             <textarea id="learningCompetencies" rows="4" value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className={neumorphicTextarea} placeholder="Enter learning competencies, one per line." ></textarea>
                                         </div>
@@ -794,15 +973,12 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                 </div>
                             </div>
                             <div className="space-y-6">
-                                {/* --- MODIFIED: Added dark theme card --- */}
                                 <div className="p-5 bg-slate-200 rounded-2xl shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] dark:bg-neumorphic-base-dark dark:shadow-lg h-full flex flex-col">
                                     <div className="flex justify-between items-center mb-4">
                                         <div>
-                                            {/* --- MODIFIED: Added dark theme text --- */}
                                             <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-100">Test Structure</h3>
                                             <p className="text-sm text-gray-500 dark:text-slate-400">Define the types of tests for the exam.</p>
                                         </div>
-                                        {/* --- MODIFIED: Added dark theme button --- */}
                                         <button onClick={addTestType} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl shadow-sm hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                                             <PlusIcon className="w-5 h-5"/>
                                             <span>Add</span>
@@ -810,10 +986,8 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                     </div>
                                     <div className="space-y-3 flex-1">
                                         {testTypes.map((test, index) => (
-                                            // --- MODIFIED: Added dark theme list item ---
                                             <div key={index} className="flex items-center gap-2 p-2 rounded-xl bg-gray-100 dark:bg-neumorphic-base-dark/60">
                                                 <div className="flex-1">
-                                                    {/* --- MODIFIED: Added dark theme select --- */}
                                                     <select value={test.type} onChange={e => handleTestTypeChange(index, 'type', e.target.value)} className="w-full text-sm bg-transparent dark:bg-transparent dark:text-slate-100 border-none rounded-md focus:ring-0">
                                                         <option>Multiple Choice</option>
                                                         <option>Matching Type</option>
@@ -826,10 +1000,8 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                                     </select>
                                                 </div>
                                                 <div className="flex-1">
-                                                    {/* --- MODIFIED: Added dark theme input --- */}
                                                     <input id={`range-${index}`} type="text" value={test.range} onChange={e => handleTestTypeChange(index, 'range', e.target.value)} placeholder="Number Range (e.g., 1-10)" className={`w-full px-3 py-1.5 text-sm rounded-lg ${inputBaseStyles}`}/>
                                                 </div>
-                                                {/* --- MODIFIED: Added dark theme button --- */}
                                                 <button onClick={() => removeTestType(index)} className="text-gray-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-500 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors">
                                                     <TrashIcon className="w-5 h-5" />
                                                 </button>
@@ -837,200 +1009,177 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                         ))}
                                     </div>
                                     {totalConfiguredItems === 0 && (
-                                        // --- MODIFIED: Added dark theme text ---
                                         <p className="text-red-600 dark:text-red-400 text-sm mt-3 font-medium">Warning: Total items is 0.</p>
                                     )}
                                 </div>
                             </div>
                         </div>
                     ) : (
+                        // --- (This is the PREVIEW view - Unchanged) ---
                         <div className="space-y-4">
-                            {/* --- MODIFIED: Added dark theme text --- */}
                             <h2 className="text-2xl font-semibold text-gray-800 dark:text-slate-100">Preview: {previewData?.examTitle || 'Generated Exam'}</h2>
-                            {/* --- MODIFIED: Added dark theme container --- */}
                             <div className="space-y-6 max-h-[60vh] overflow-y-auto border border-gray-900/10 dark:border-slate-700 rounded-2xl p-2 sm:p-5 bg-gray-100/50 dark:bg-neumorphic-base-dark/30 dark:shadow-neumorphic-inset-dark">
-                                {isValidPreview ? (
+                                {/* --- MODIFICATION: Check for TOS first, as questions arrive later --- */}
+                                {previewData.tos ? (
                                     <>
-                                        {/* --- MODIFIED: Added dark theme card --- */}
                                         <div className="bg-white dark:bg-neumorphic-base-dark p-5 rounded-2xl shadow-sm dark:shadow-lg">
-                                            {/* --- MODIFIED: Added dark theme text --- */}
                                             <h3 className="text-lg font-bold mb-3 dark:text-slate-100">Page 1: Table of Specifications (TOS)</h3>
                                             <TOSPreviewTable tos={previewData.tos} />
                                         </div>
+                                        
+                                        {/* --- Only show questions if they exist --- */}
+                                        {previewData.examQuestions && previewData.examQuestions.length > 0 && (
+                                            <>
+                                                <div className="bg-white dark:bg-neumorphic-base-dark p-5 rounded-2xl shadow-sm dark:shadow-lg">
+                                                    <h3 className="text-lg font-bold mb-2 dark:text-slate-100">Page 2: Exam Questions</h3>
+                                                    {(() => {
+                                                        // Group questions by type (e.g., all 'multiple_choice' together)
+                                                        const groupedQuestions = previewData.examQuestions.reduce((acc, q) => {
+                                                            const type = q.type || 'unknown';
+                                                            if (!acc[type]) {
+                                                                acc[type] = {
+                                                                    instruction: q.instruction,
+                                                                    passage: q.passage,
+                                                                    choicesBox: q.choicesBox, // For Identification type
+                                                                    questions: []
+                                                                };
+                                                            }
+                                                            acc[type].questions.push(q);
+                                                            return acc;
+                                                        }, {});
 
-								{/* --- MODIFIED: Added dark theme card --- */}
-								<div className="bg-white dark:bg-neumorphic-base-dark p-5 rounded-2xl shadow-sm dark:shadow-lg">
-								    {/* --- MODIFIED: Added dark theme text --- */}
-								    <h3 className="text-lg font-bold mb-2 dark:text-slate-100">Page 2: Exam Questions</h3>
-								    {(() => {
-								        // Group questions by type (e.g., all 'multiple_choice' together)
-								        const groupedQuestions = previewData.examQuestions.reduce((acc, q) => {
-								            const type = q.type || 'unknown';
-								            if (!acc[type]) {
-								                acc[type] = {
-								                    instruction: q.instruction,
-								                    passage: q.passage,
-								                    choicesBox: q.choicesBox, // For Identification type
-								                    questions: []
-								                };
-								            }
-								            acc[type].questions.push(q);
-								            return acc;
-								        }, {});
+                                                        const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+                                                        const t = translations[language] || translations['English'];
 
-								        const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI'];
-								        const t = translations[language] || translations['English'];
+                                                        return Object.entries(groupedQuestions).map(([type, data], typeIndex) => {
+                                                            const typeHeader = t.test_types[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-								        return Object.entries(groupedQuestions).map(([type, data], typeIndex) => {
-								            const typeHeader = t.test_types[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                                            return (
+                                                                <div key={type} className="mt-6 first:mt-0">
+                                                                    <h4 className="text-md font-bold dark:text-slate-200">{romanNumerals[typeIndex]}. {typeHeader}</h4>
+                                                                    {data.instruction && <p className="text-sm font-medium italic text-gray-600 dark:text-slate-400 my-2">{data.instruction}</p>}
+                                                                    {data.passage && <p className="text-sm text-gray-800 dark:text-slate-200 my-2 p-3 bg-gray-100 dark:bg-neumorphic-base-dark/50 rounded-xl border border-gray-200 dark:border-slate-700">{data.passage}</p>}
 
-								            return (
-								                <div key={type} className="mt-6 first:mt-0">
-								                    {/* --- MODIFIED: Added dark theme text --- */}
-								                    <h4 className="text-md font-bold dark:text-slate-200">{romanNumerals[typeIndex]}. {typeHeader}</h4>
-								                    {/* --- MODIFIED: Added dark theme text --- */}
-								                    {data.instruction && <p className="text-sm font-medium italic text-gray-600 dark:text-slate-400 my-2">{data.instruction}</p>}
-								                    {/* --- MODIFIED: Added dark theme styles --- */}
-								                    {data.passage && <p className="text-sm text-gray-800 dark:text-slate-200 my-2 p-3 bg-gray-100 dark:bg-neumorphic-base-dark/50 rounded-xl border border-gray-200 dark:border-slate-700">{data.passage}</p>}
-
-								                    {/* Special box for Identification choices */}
-								                    {type === 'identification' && data.choicesBox && (
-								                        // --- MODIFIED: Added dark theme styles ---
-								                        <div className="text-center p-3 my-4 border border-gray-300 dark:border-slate-700 rounded-xl bg-gray-50/50 dark:bg-neumorphic-base-dark/50">
-								                            {/* --- MODIFIED: Added dark theme text --- */}
-								                            <p className="text-sm font-semibold text-gray-700 dark:text-slate-300">
-								                                {data.choicesBox.join('   •   ')}
-								                            </p>
-								                        </div>
-								                    )}
+                                                                    {/* Special box for Identification choices */}
+                                                                    {type === 'identification' && data.choicesBox && (
+                                                                        <div className="text-center p-3 my-4 border border-gray-300 dark:border-slate-700 rounded-xl bg-gray-50/50 dark:bg-neumorphic-base-dark/50">
+                                                                            <p className="text-sm font-semibold text-gray-700 dark:text-slate-300">
+                                                                                {data.choicesBox.join('   •   ')}
+                                                                            </p>
+                                                                        </div>
+                                                                    )}
                     
-								                    <div className="space-y-5 mt-4">
-								                        {/* --- START: FIX --- */}
-								                        {/* Special two-column layout for Matching Type */}
-								                        {type === 'matching-type' ? (
-								                            (() => {
-								                                const q = data.questions[0]; // Matching type data is in a single question object
-								                                if (!q || !q.prompts || !q.options) return null;
+                                                                    <div className="space-y-5 mt-4">
+                                                                        {/* Special two-column layout for Matching Type */}
+                                                                        {type === 'matching-type' ? (
+                                                                            (() => {
+                                                                                const q = data.questions[0]; // Matching type data is in a single question object
+                                                                                if (!q || !q.prompts || !q.options) return null;
 
-								                                return (
-								                                    <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 pl-2">
-								                                        {/* Column A: Prompts */}
-								                                        <div className="flex-1">
-								                                            {/* --- MODIFIED: Added dark theme text --- */}
-								                                            <p className="font-semibold text-gray-800 dark:text-slate-100 mb-2">{t.columnA}</p>
-								                                            {/* --- MODIFIED: Added dark theme text --- */}
-								                                            <ul className="list-none space-y-2 text-sm text-gray-700 dark:text-slate-300">
-								                                                {q.prompts.map((prompt, promptIndex) => (
-								                                                    <li key={prompt.id} className="flex items-start">
-								                                                        <span className="w-8 flex-shrink-0 font-medium">{q.questionNumber + promptIndex}.</span>
-								                                                        <span>{prompt.text}</span>
-								                                                    </li>
-								                                                ))}
-								                                            </ul>
-								                                        </div>
-								                                        {/* Column B: Options */}
-								                                        <div className="flex-1">
-								                                            {/* --- MODIFIED: Added dark theme text --- */}
-								                                            <p className="font-semibold text-gray-800 dark:text-slate-100 mb-2">{t.columnB}</p>
-								                                            {/* --- MODIFIED: Added dark theme text --- */}
-								                                            <ul className="list-none space-y-2 text-sm text-gray-700 dark:text-slate-300">
-								                                                {q.options.map((option, optionIndex) => (
-								                                                    <li key={option.id} className="flex items-start">
-								                                                        <span className="w-8 flex-shrink-0 font-medium">{String.fromCharCode(97 + optionIndex)}.</span>
-								                                                        <span>{option.text}</span>
-								                                                    </li>
-								                                                ))}
-								                                            </ul>
-								                                        </div>
-								                                    </div>
-								                                );
-								                            })()
-								                        ) : (
-								                            /* Default rendering for all other question types */
-								                            data.questions.map((q, index) => (
-								                                <div key={index} className="pl-2">
-								                                    {/* --- MODIFIED: Added dark theme text --- */}
-								                                    <p className="font-medium text-gray-800 dark:text-slate-200">{q.questionNumber}. {q.question}</p>
+                                                                                return (
+                                                                                    <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 pl-2">
+                                                                                        {/* Column A: Prompts */}
+                                                                                        <div className="flex-1">
+                                                                                            <p className="font-semibold text-gray-800 dark:text-slate-100 mb-2">{t.columnA}</p>
+                                                                                            <ul className="list-none space-y-2 text-sm text-gray-700 dark:text-slate-300">
+                                                                                                {q.prompts.map((prompt, promptIndex) => (
+                                                                                                    <li key={prompt.id} className="flex items-start">
+                                                                                                        <span className="w-8 flex-shrink-0 font-medium">{q.questionNumber + promptIndex}.</span>
+                                                                                                        <span>{prompt.text}</span>
+                                                                                                    </li>
+                                                                                                ))}
+                                                                                            </ul>
+                                                                                        </div>
+                                                                                        {/* Column B: Options */}
+                                                                                        <div className="flex-1">
+                                                                                            <p className="font-semibold text-gray-800 dark:text-slate-100 mb-2">{t.columnB}</p>
+                                                                                            <ul className="list-none space-y-2 text-sm text-gray-700 dark:text-slate-300">
+                                                                                                {q.options.map((option, optionIndex) => (
+                                                                                                    <li key={option.id} className="flex items-start">
+                                                                                                        <span className="w-8 flex-shrink-0 font-medium">{String.fromCharCode(97 + optionIndex)}.</span>
+                                                                                                        <span>{option.text}</span>
+                                                                                                    </li>
+                                                                                                ))}
+                                                                                            </ul>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            })()
+                                                                        ) : (
+                                                                            /* Default rendering for all other question types */
+                                                                            data.questions.map((q, index) => (
+                                                                                <div key={index} className="pl-2">
+                                                                                    <p className="font-medium text-gray-800 dark:text-slate-200">{q.questionNumber}. {q.question}</p>
                                     
-								                                    {/* For Multiple Choice, Analogy, etc. */}
-								                                    {q.options && Array.isArray(q.options) && (
-								                                        // --- MODIFIED: Added dark theme text ---
-								                                        <ul className="list-none mt-2 ml-8 text-sm space-y-1.5 text-gray-700 dark:text-slate-300">
-								                                            {q.options.map((option, optIndex) => (
-								                                                <li key={optIndex}>{String.fromCharCode(97 + optIndex)}. {option}</li>
-								                                            ))}
-								                                        </ul>
-								                                    )}
+                                                                                    {/* For Multiple Choice, Analogy, etc. */}
+                                                                                    {q.options && Array.isArray(q.options) && (
+                                                                                        <ul className="list-none mt-2 ml-8 text-sm space-y-1.5 text-gray-700 dark:text-slate-300">
+                                                                                            {q.options.map((option, optIndex) => (
+                                                                                                <li key={optIndex}>{String.fromCharCode(97 + optIndex)}. {option}</li>
+                                                                                            ))}
+                                                                                        </ul>
+                                                                                    )}
 
-								                                    {/* For Identification */}
-								                                    {type === 'identification' && (
-								                                         <p className="mt-2 ml-5">Answer: <span className="font-mono">__________________</span></p>
-								                                    )}
-								                                </div>
-								                            ))
-								                        )}
-								                        {/* --- END: FIX --- */}
-								                    </div>
-								                </div>
-								            );
-								        });
-								    })()}
-								</div>
+                                                                                    {/* For Identification */}
+                                                                                    {type === 'identification' && (
+                                                                                         <p className="mt-2 ml-5">Answer: <span className="font-mono">__________________</span></p>
+                                                                                    )}
+                                                                                </div>
+                                                                            ))
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        });
+                                                    })()}
+                                                </div>
 
-                                            {/* --- MODIFIED: Added dark theme card --- */}
-											<div className="bg-white dark:bg-neumorphic-base-dark p-5 rounded-2xl shadow-sm dark:shadow-lg">
-                                            {/* --- MODIFIED: Added dark theme text --- */}
-                                            <h3 className="text-lg font-bold mb-3 dark:text-slate-100">Page 3: Answer Key</h3>
-                                            <ul className="list-none space-y-2">
-                                                {previewData.examQuestions.map((q, index) => (
-                                                    <li key={index} className="text-sm">
-                                                        {/* --- MODIFIED: Added dark theme text --- */}
-                                                        <strong className="font-semibold text-gray-800 dark:text-slate-100">Question {q.questionNumber}:</strong> <span className="text-gray-700 dark:text-slate-300">{q.correctAnswer || (q.correctAnswers && Object.entries(q.correctAnswers).map(([key, val]) => `${key}-${val}`).join(', '))}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
+                                                <div className="bg-white dark:bg-neumorphic-base-dark p-5 rounded-2xl shadow-sm dark:shadow-lg">
+                                                    <h3 className="text-lg font-bold mb-3 dark:text-slate-100">Page 3: Answer Key</h3>
+                                                    <ul className="list-none space-y-2">
+                                                        {previewData.examQuestions.map((q, index) => (
+                                                            <li key={index} className="text-sm">
+                                                                <strong className="font-semibold text-gray-800 dark:text-slate-100">Question {q.questionNumber}:</strong> <span className="text-gray-700 dark:text-slate-300">{q.correctAnswer || (q.correctAnswers && Object.entries(q.correctAnswers).map(([key, val]) => `${key}-${val}`).join(', '))}</span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
 
-                                            {/* --- MODIFIED: Added dark theme card --- */}
-											<div className="bg-white dark:bg-neumorphic-base-dark p-5 rounded-2xl shadow-sm dark:shadow-lg">
-                                            {/* --- MODIFIED: Added dark theme text --- */}
-                                            <h3 className="text-lg font-bold mb-3 dark:text-slate-100">Page 4: Explanations</h3>
-                                            <ul className="list-none space-y-4">
-                                                {previewData.examQuestions.filter(q => q.explanation || q.solution).map((q, index) => (
-                                                    <li key={index} className="text-sm">
-                                                        {/* --- MODIFIED: Added dark theme text --- */}
-                                                        <strong className="font-semibold text-gray-800 dark:text-slate-100">Question {q.questionNumber}:</strong>
-                                                        {q.explanation && <p className="ml-4 text-gray-700 dark:text-slate-300">Explanation: {q.explanation}</p>}
-                                                        {q.solution && <p className="ml-4 text-gray-700 dark:text-slate-300">Solution: {q.solution}</p>}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
+                                                <div className="bg-white dark:bg-neumorphic-base-dark p-5 rounded-2xl shadow-sm dark:shadow-lg">
+                                                    <h3 className="text-lg font-bold mb-3 dark:text-slate-100">Page 4: Explanations</h3>
+                                                    <ul className="list-none space-y-4">
+                                                        {previewData.examQuestions.filter(q => q.explanation || q.solution).map((q, index) => (
+                                                            <li key={index} className="text-sm">
+                                                                <strong className="font-semibold text-gray-800 dark:text-slate-100">Question {q.questionNumber}:</strong>
+                                                                {q.explanation && <p className="ml-4 text-gray-700 dark:text-slate-300">Explanation: {q.explanation}</p>}
+                                                                {q.solution && <p className="ml-4 text-gray-700 dark:text-slate-300">Solution: {q.solution}</p>}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            </>
+                                        )}
                                     </>
-                                // --- MODIFIED: Added dark theme text ---
                                 ) : <p className="text-red-600 dark:text-red-400 font-medium p-4">Could not generate a valid preview.</p>}
                             </div>
                         </div>
                     )}
                 </div>
-                {/* --- MODIFIED: Added dark theme border --- */}
+
                 <div className="pt-5 border-t border-gray-900/10 dark:border-slate-700 flex-shrink-0 flex justify-end gap-3">
                     {previewData ? (
                         <>
-                            {/* --- MODIFIED: Added dark theme button --- */}
-                            <button onClick={() => setPreviewData(null)} disabled={isSaving} className={`py-2.5 px-5 rounded-xl text-sm font-semibold ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300`}>Back to Edit</button>
-                            {/* --- MODIFIED: Added dark theme button --- */}
-                            <button onClick={() => setIsSaveOptionsOpen(true)} disabled={!isValidPreview || isSaving} className={`inline-flex justify-center py-2.5 px-5 shadow-sm text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-colors`}>
+                            <button onClick={() => setPreviewData(null)} disabled={isSaving || isGenerating} className={`py-2.5 px-5 rounded-xl text-sm font-semibold ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 ${btnDisabled}`}>Back to Edit</button>
+                            <button onClick={() => setIsSaveOptionsOpen(true)} disabled={!isValidPreview || isSaving || isGenerating} className={`inline-flex justify-center py-2.5 px-5 shadow-sm text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-colors`}>
                                 {isSaving ? 'Saving...' : 'Accept & Save'}
                             </button>
                         </>
                     ) : (
                         <>
-                            {/* --- MODIFIED: Added dark theme button --- */}
-                            <button type="button" className={`py-2.5 px-5 rounded-xl text-sm font-semibold ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300`} onClick={onClose}>
+                            {/* --- MODIFIED: Use handleClose --- */}
+                            <button type="button" className={`py-2.5 px-5 rounded-xl text-sm font-semibold ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300`} onClick={handleClose}>
                                 Cancel
                             </button>
-                            {/* --- MODIFIED: Added dark theme button --- */}
                             <button type="button" className={`inline-flex justify-center py-2.5 px-5 shadow-sm text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors`} onClick={handleGenerate} disabled={!isValidForGeneration || isGenerating}>
                                 {isGenerating ? 'Generating...' : 'Generate Exam & TOS'}
                             </button>
