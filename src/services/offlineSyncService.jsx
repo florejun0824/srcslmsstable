@@ -4,7 +4,9 @@ import { db } from './firebase';
 import { triggerToast } from '../contexts/ToastContext'; // ✅ global toast trigger
 
 const SUBMISSION_OUTBOX_KEY = 'quiz-submission-outbox';
-const CRITICAL_FIELDS = ['studentId', 'quizId', 'classId', 'answers'];
+
+// --- MODIFIED: Added 'postId' ---
+const CRITICAL_FIELDS = ['studentId', 'quizId', 'classId', 'answers', 'postId'];
 
 // 🔹 Utility: recursively clean objects and track missing fields
 const cleanObject = (obj, parentKey = '') => {
@@ -52,8 +54,8 @@ export const queueQuizSubmission = async (submissionData) => {
   });
 
   if (!hasCriticalFields(cleaned)) {
-    const missingCritical = CRITICAL_FIELDS.filter(f => !cleaned[f]);
-    console.error("❌ Submission rejected. Missing critical fields:", missingCritical);
+    const missingCritical = CRITICAL_FIELDS.filter(f => !(cleaned[f]));
+    console.error("❌ Submission rejected. Missing critical fields:", missingCritical, cleaned);
     triggerToast(`❌ Submission rejected. Missing critical fields: ${missingCritical.join(', ')}`, "error");
     return;
   }
@@ -65,8 +67,8 @@ export const queueQuizSubmission = async (submissionData) => {
     console.warn("⚠️ Missing optional fields in queued submission:", missing);
     triggerToast(`⚠️ Some optional fields were missing: ${missing.join(', ')}`, "warning");
   } else {
-    console.log("✅ Submission queued successfully.", cleaned);
-    triggerToast("✅ Submission queued successfully.", "success");
+    console.log("Submission queued successfully.", cleaned);
+    triggerToast("Submission queued successfully.", "success");
   }
 };
 
@@ -83,13 +85,16 @@ export const syncOfflineSubmissions = async () => {
   console.log(`Sync: Found ${outbox.length} submissions to sync.`);
   const batch = writeBatch(db);
   let totalMissing = [];
-  let skippedCount = 0;
-
+  
+  // --- MODIFIED: Track skipped submissions to avoid data loss ---
+  const skippedSubmissions = [];
+  let syncedCount = 0;
+  
   outbox.forEach(submission => {
     if (!hasCriticalFields(submission)) {
       const missingCritical = CRITICAL_FIELDS.filter(f => !submission[f]);
-      console.error("❌ Skipping submission. Missing critical fields:", missingCritical);
-      skippedCount++;
+      console.error("❌ Skipping submission. Missing critical fields:", missingCritical, submission);
+      skippedSubmissions.push(submission); // Keep it in the outbox
       return;
     }
 
@@ -108,26 +113,37 @@ export const syncOfflineSubmissions = async () => {
     const submissionRef = doc(db, 'quizSubmissions', submissionId);
 
     batch.set(submissionRef, cleaned);
+    syncedCount++;
   });
+
+  // --- END MODIFICATION ---
 
   try {
     await batch.commit();
-    await localforage.removeItem(SUBMISSION_OUTBOX_KEY);
-    console.log(`Sync: Successfully synced ${outbox.length - skippedCount} submissions.`);
-
-    triggerToast(`✅ Synced ${outbox.length - skippedCount} submissions.`, "success");
+    
+    // --- MODIFIED: Save back only the skipped items, or clear if all succeeded ---
+    if (skippedSubmissions.length > 0) {
+      await localforage.setItem(SUBMISSION_OUTBOX_KEY, skippedSubmissions);
+    } else {
+      await localforage.removeItem(SUBMISSION_OUTBOX_KEY);
+    }
+    // --- END MODIFICATION ---
+    
+    console.log(`Sync: Successfully synced ${syncedCount} submissions.`);
+    triggerToast(`Synced ${syncedCount} submissions.`, "success");
 
     if (totalMissing.length > 0) {
       triggerToast(`⚠️ Some submissions had missing optional fields: ${[...new Set(totalMissing)].join(', ')}`, "warning");
     }
-    if (skippedCount > 0) {
-      triggerToast(`❌ ${skippedCount} submission(s) skipped due to missing critical fields.`, "error");
+    if (skippedSubmissions.length > 0) {
+      triggerToast(`❌ ${skippedSubmissions.length} submission(s) skipped due to missing critical fields. They remain offline.`, "error");
     }
 
-    return { success: true, syncedCount: outbox.length - skippedCount, skippedCount };
+    return { success: true, syncedCount: syncedCount, skippedCount: skippedSubmissions.length };
   } catch (error) {
     console.error("Sync: Failed to sync submissions:", error);
     triggerToast("❌ Sync failed. Please try again later.", "error");
+    // On batch commit failure, we don't modify the outbox, so all items are safe
     return { success: false, syncedCount: 0, error };
   }
 };

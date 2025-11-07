@@ -45,7 +45,14 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
     const [questionStartTime, setQuestionStartTime] = useState(null);
     const [xpGained, setXPGained] = useState(0); // Tracks XP gained *in this session*
 
+    // --- Ref Fix for showToast ---
     const { showToast } = useToast();
+    const showToastRef = useRef(showToast);
+    useEffect(() => {
+        showToastRef.current = showToast;
+    }, [showToast]);
+    // --- End Ref Fix ---
+
     const { refreshUserProfile } = useAuth();
     const { handleGamificationUpdate } = useQuizGamification(); // Get the gamification handler
 
@@ -77,17 +84,13 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
     const issueWarning = useCallback(async (type = 'general') => {
         if (isTeacherView || isLocked || score !== null || showReview || hasSubmitted.current) return;
 
-        // --- ⬇⬇⬇ START OF FIX ⬇⬇⬇ ---
-        // Create gated feature flags, just like in useQuizAntiCheat.js
         const isAntiCheatEnabled = quiz?.settings?.enabled ?? false;
         const lockOnLeave = isAntiCheatEnabled && (quiz?.settings?.lockOnLeave ?? false);
         const detectDevTools = isAntiCheatEnabled && (quiz?.settings?.detectDevTools ?? false);
         const warnOnPaste = isAntiCheatEnabled && (quiz?.settings?.warnOnPaste ?? false);
-        // --- ⬆⬆⬆ END OF FIX ⬆⬆⬆ ---
 
         try {
             if (type === 'devTools') {
-                // --- MODIFIED: Use gated flag ---
                 if (!detectDevTools) return;
                 const newDevToolWarningCount = devToolWarnings + 1;
                 setDevToolWarnings(newDevToolWarningCount);
@@ -107,13 +110,12 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                             reason: 'Developer tools opened too many times' 
                         });
                     }
-                    showToast(`Quiz Locked: Developer tools warning limit reached.`, "error", 5000);
+                    showToastRef.current(`Quiz Locked: Developer tools warning limit reached.`, "error", 5000);
                 } else {
-                    showToast(`Developer tools warning ${newDevToolWarningCount} of ${MAX_WARNINGS}.`, "warning");
+                    showToastRef.current(`Developer tools warning ${newDevToolWarningCount} of ${MAX_WARNINGS}.`, "warning");
                 }
 
             } else if (type === 'paste') {
-                // --- MODIFIED: Use gated flag ---
                 if (!warnOnPaste) return;
                 const newWarningCount = warnings + 1;
                 setWarnings(newWarningCount);
@@ -136,7 +138,6 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                 }
 
             } else if (type === 'general') {
-                // --- MODIFIED: Use gated flag ---
                 if (!lockOnLeave) return;
                 const newWarningCount = warnings + 1;
                 setWarnings(newWarningCount);
@@ -160,9 +161,9 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
             }
         } catch (error) {
             console.error("Failed to issue warning or update lock status:", error);
-            showToast("Could not process warning. Please proceed with caution.", "error");
+            showToastRef.current("Could not process warning. Please proceed with caution.", "error");
         }
-    }, [warnings, devToolWarnings, warningKey, devToolWarningKey, quiz, userProfile, classId, postId, isLocked, score, showReview, isTeacherView, showToast, hasSubmitted]);
+    }, [warnings, devToolWarnings, warningKey, devToolWarningKey, quiz, userProfile, classId, postId, isLocked, score, showReview, isTeacherView, hasSubmitted]);
 
     // handleSubmit
     const handleSubmit = useCallback(async () => {
@@ -303,22 +304,20 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
             if (navigator.onLine) {
                 await syncOfflineSubmissions();
 
-                // --- REVISED: XP/LEVEL/REWARD UNLOCK LOGIC (Now in a hook) ---
                 await handleGamificationUpdate({
                     xpGained: xpGainedCalc,
                     userProfile,
                     refreshUserProfile,
-                    showToast,
+                    showToast: showToastRef.current,
                     finalScore: finalScore,
                     totalPoints: questionNumbering.totalItems,
                     attemptsTaken: attemptsTaken
                 });
-                // --- END REVISED LOGIC ---
             }
 
             setLatestSubmission({ ...submissionData });
             setAttemptsTaken(prev => prev + 1);
-            showToast(
+            showToastRef.current(
                 navigator.onLine
                     ? (containsEssays ? "Quiz submitted! Essays pending teacher review." : "Quiz submitted successfully!")
                     : "📡 Quiz saved offline. Will sync and essays will be reviewed when online.",
@@ -330,28 +329,26 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
             }
         } catch (error) {
             console.error("Error queuing submission:", error);
-            showToast("❌ Could not save your quiz submission locally. Please try again.", "error");
+            showToastRef.current("❌ Could not save your quiz submission locally. Please try again.", "error");
             hasSubmitted.current = false;
             justSubmitted.current = false;
             setXPGained(0);
         }
     }, [
         userAnswers, score, shuffledQuestions, quiz, userProfile, classId, postId, attemptsTaken,
-        warningKey, devToolWarningKey, shuffleKey, isLocked, showToast, onComplete, questionNumbering.totalItems,
+        warningKey, devToolWarningKey, shuffleKey, isLocked, onComplete, questionNumbering.totalItems,
         refreshUserProfile, handleGamificationUpdate
     ]);
 
     // handleStartNewAttempt
     const handleStartNewAttempt = useCallback(() => {
-        // This function is the *only* place that should reset submission state
         setCurrentQ(0);
         setUserAnswers({});
-        setScore(null); // <-- Resets score
+        setScore(null); 
         setShowReview(false);
         setSubmissionToReview(null);
-        hasSubmitted.current = false; // <-- Resets submission status
+        hasSubmitted.current = false; 
         setLatestSubmission(null);
-        // Don't reset attemptsTaken, it's fine
         setQuestionResult(null);
         setCurrentQuestionAttempted(false);
         setMatchingResult(null);
@@ -373,16 +370,14 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
         }
         setShuffledQuestions(newShuffledQuestions);
         
-        // --- ADDED: Re-check overdue toast ---
         const now = new Date();
         const until = quiz?.availableUntil?.toDate();
         const isExam = quiz?.settings?.maxAttempts === 1;
         if (!isExam && until && until < now) {
-            showToast("This quiz is overdue. Your submission will be marked as late.", "warning", 4000);
+            showToastRef.current("This quiz is overdue. Your submission will be marked as late.", "warning", 4000);
         }
-        // --- END ADDED ---
         
-    }, [quiz, shuffleKey, showToast]);
+    }, [quiz, shuffleKey]);
 
     // Countdown Timer Logic
     useEffect(() => {
@@ -403,7 +398,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
             setTimeRemaining(remainingSeconds);
             if (remainingSeconds <= 0) {
                 if (!hasSubmitted.current) {
-                    showToast("Time's up! Submitting your quiz automatically...", "warning", 4000);
+                    showToastRef.current("Time's up! Submitting your quiz automatically...", "warning", 4000);
                     handleSubmit();
                 }
                 if (interval) clearInterval(interval);
@@ -419,7 +414,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
     }, [
         isOpen, isTeacherView, loading, isAvailable, isLocked, score, hasSubmitted,
         quiz?.settings?.maxAttempts, quiz?.availableUntil,
-        handleSubmit, showToast
+        handleSubmit
     ]);
 
     // --- MODIFIED: Main setup useEffect ---
@@ -435,7 +430,6 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
             return;
         }
 
-        // --- MODIFIED: Only reset *in-progress* state ---
         setCurrentQ(0);
         setUserAnswers({});
         setShowReview(false);
@@ -447,9 +441,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
         setAnswerStreak(0);
         setQuestionStartTime(Date.now());
         setXPGained(0);
-        // --- REMOVED: submission state resets (score, hasSubmitted, etc.) ---
         
-        // Availability check
         if (!isTeacherView) {
             const now = new Date();
             const from = quiz?.availableFrom?.toDate();
@@ -499,14 +491,18 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                             setWarnings(0);
                             setDevToolWarnings(0);
                             localWarningCount = 0;
-                            showToast("Your teacher may have unlocked this quiz.", "info");
+                            showToastRef.current("Your teacher may have unlocked this quiz.", "info");
                         }
 
                         const submissionsRef = collection(db, 'quizSubmissions');
+                        // --- ⬇⬇⬇ THIS IS THE FIX ⬇⬇⬇ ---
                         const q = query(submissionsRef,
                             where("postId", "==", postId),
                             where("studentId", "==", userProfile.id),
+                            where("quizId", "==", quiz.id) // <-- THIS LINE IS ADDED
                         );
+                        // --- ⬆⬆⬆ END OF FIX ⬆⬆⬆ ---
+
                         const querySnapshot = await getDocs(q);
                         dbSubmissions = querySnapshot.docs.map(d => ({ id: d.id, ...d.data(), submittedAt: d.data().submittedAt?.toDate ? d.data().submittedAt.toDate() : d.data().submittedAt }));
                         dbSubmissions.sort((a, b) => (new Date(b.submittedAt).getTime() || 0) - (new Date(a.submittedAt).getTime() || 0));
@@ -516,9 +512,33 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                     setIsLocked(isDbLocked || isLocallyLocked);
 
                     const offlineSubmissions = await localforage.getItem("quiz-submission-outbox") || [];
+                    // --- MODIFIED: Make offline filter specific too ---
 					const myOfflineAttempts = offlineSubmissions.filter(sub =>
-					                        sub.postId === postId && sub.studentId === userProfile.id
+					                        sub.postId === postId && 
+                                            sub.studentId === userProfile.id &&
+                                            sub.quizId === quiz.id // <-- THIS LINE IS ADDED
                     );
+
+                    if (navigator.onLine && myOfflineAttempts.length > 0) {
+                        try {
+                            console.log(`Syncing ${myOfflineAttempts.length} offline submission(s) for this quiz...`);
+                            showToastRef.current("📡 Syncing offline submissions...", "info", 2000);
+                            
+                            await syncOfflineSubmissions(); 
+                            
+                            console.log("Sync complete. Triggering dashboard refresh.");
+                            showToastRef.current("✅ Offline submissions synced!", "success", 2000);
+
+                            if (onComplete) {
+                                onComplete();
+                            }
+                            return 'synced'; 
+
+                        } catch (syncError) {
+                            console.error("Failed to sync offline submissions:", syncError);
+                            showToastRef.current("❌ Failed to sync offline submissions. Showing local data.", "warning");
+                        }
+                    }
 
                     const dbSubmissionIds = new Set(dbSubmissions.map(s => s.submissionId));
                     const uniqueOfflineAttempts = myOfflineAttempts.filter(s => !dbSubmissionIds.has(s.submissionId));
@@ -541,7 +561,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                     return latest; 
                 } catch (error) {
                     console.error("Error fetching submission data:", error);
-                    showToast("❌ Could not load past submission data. Proceeding with caution.", "warning");
+                    showToastRef.current("❌ Could not load past submission data. Proceeding with caution.", "warning");
                     const localWarnings = parseInt(localStorage.getItem(warningKey) || '0', 10);
                     const localDevWarnings = parseInt(localStorage.getItem(devToolWarningKey) || '0', 10);
                     setIsLocked(localWarnings >= MAX_WARNINGS || localDevWarnings >= MAX_WARNINGS);
@@ -562,27 +582,27 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                 const savedDevToolWarnings = localStorage.getItem(devToolWarningKey);
                 setDevToolWarnings(savedDevToolWarnings ? parseInt(savedDevToolWarnings, 10) : 0);
 
-                // Fetch submissions *first*
-                const latestSub = await fetchSubmission(); // This will set isLocked, attemptsTaken, score, etc.
+                const latestSub = await fetchSubmission();
+
+                if (latestSub === 'synced') {
+                    setLoading(false);
+                    return;
+                }
 
                 const now = new Date();
                 const until = quiz?.availableUntil?.toDate();
                 const isExam = quiz?.settings?.maxAttempts === 1;
                 
-                // --- MODIFIED TOAST LOGIC ---
-                // Only show overdue toast if it's overdue, not an exam, AND no submission has been found (latestSub is null)
                 if (!isExam && until && until < now && latestSub === null) { 
-                    showToast("This quiz is overdue. Your submission will be marked as late.", "warning", 4000);
+                    showToastRef.current("This quiz is overdue. Your submission will be marked as late.", "warning", 4000);
                 }
-                // --- END MODIFIED ---
 
-                // Setup questions
                 const shouldShuffle = quiz?.settings?.shuffleQuestions ?? false;
                 const baseQuestions = quiz.questions || [];
                 try {
                     if (shouldShuffle) {
                         const savedShuffleOrder = localStorage.getItem(shuffleKey);
-                        if (savedShuffleOrder && latestSub === null) { // --- MODIFIED: Only use saved shuffle if starting fresh ---
+                        if (savedShuffleOrder && latestSub === null) { 
                             const parsedOrder = JSON.parse(savedShuffleOrder);
                             if (Array.isArray(parsedOrder) && parsedOrder.length === baseQuestions.length) {
                                 initialShuffledQuestions = parsedOrder;
@@ -596,7 +616,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                         } else {
                             const newShuffled = shuffleArray(baseQuestions);
                             initialShuffledQuestions = newShuffled;
-                            if(latestSub === null) { // Only save shuffle if starting a new attempt
+                            if(latestSub === null) { 
                                 localStorage.setItem(shuffleKey, JSON.stringify(newShuffled));
                                 console.log("Shuffled questions and saved order.");
                             } else {
@@ -612,7 +632,6 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                     initialShuffledQuestions = shuffleArray(baseQuestions);
                 }
             } else {
-                // Teacher view setup
                 setWarnings(0);
                 setDevToolWarnings(0);
                 setIsLocked(false);
@@ -620,14 +639,14 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
             }
             
             setShuffledQuestions(initialShuffledQuestions);
-            setLoading(false); // Set loading false at the very end
+            setLoading(false);
         };
 
         setupQuiz();
 
     }, [
         isOpen, quiz, isTeacherView, warningKey, devToolWarningKey, shuffleKey,
-        userProfile?.id, classId, postId, maxAttempts, showToast
+        userProfile?.id, classId, postId, maxAttempts, onComplete
     ]);
 
 
@@ -729,7 +748,6 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
     };
 
     // --- CALL ANTI-CHEAT HOOK ---
-    // This hook will run all its internal useEffects
     useQuizAntiCheat({
         isOpen,
         isTeacherView,
@@ -740,7 +758,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
         isInfractionActive,
         setIsInfractionActive,
         issueWarning,
-        showToast
+        showToast: showToastRef.current
     });
     // --- END ANTI-CHEAT HOOK ---
 
@@ -806,7 +824,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
         handleConfirmMatchingAnswer,
         renderQuestionNumber,
         issueWarning, // Expose issueWarning for handleLeaveQuiz
-        showToast,
+        showToast: showToastRef.current,
 
         // Constants
         MAX_WARNINGS,

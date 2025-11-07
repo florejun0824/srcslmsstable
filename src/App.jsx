@@ -183,7 +183,7 @@ export default function App() {
     hideStatusBar();
   }, []);
 
-  // --- ⬇️ 2. ADD THIS NEW EFFECT FOR PUSH NOTIFICATIONS ⬇️ ---
+  // --- Push Notification Effect (Unchanged) ---
   useEffect(() => {
     const registerPush = async () => {
       // Only run on native platforms (Android/iOS)
@@ -214,7 +214,7 @@ export default function App() {
 
     // Call the function
     registerPush();
-  }, []); // Empty dependency array means this runs once on app start
+  }, []); 
   // --- END OF NEW PUSH NOTIFICATION EFFECT ---
 
 
@@ -268,17 +268,23 @@ export default function App() {
     };
   }, []);
 
-  // --- handleEnter Function (Unchanged) ---
+  // --- ⬇️ THIS IS THE MODIFIED FUNCTION ⬇️ ---
   const handleEnter = () => {
     if (waitingWorker) {
-      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
-      setTimeout(() => {
+      // 1. Add a one-time listener that waits for the new service worker to take control.
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        // 3. Once the new worker is in control, *then* we safely reload the page.
         window.location.reload();
-      }, 100);
+      });
+
+      // 2. Send the message to the waiting worker to tell it to activate.
+      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
     } else {
+      // Fallback for cases where there's no waiting worker (e.g., after 'building' status)
       window.location.reload();
     }
   };
+  // --- ⬆️ END OF MODIFICATION ⬆️ ---
   
   // --- Update Overlays (Unchanged) ---
   if (buildStatus === 'building') {
@@ -288,18 +294,12 @@ export default function App() {
     return <UpdateOverlay status="complete" onEnter={handleEnter} />;
   }
 
-  // --- MODIFICATION START ---
-  // Wrap the app in <BrowserRouter>
+  // --- Main App Render (Unchanged) ---
   return (
     <BrowserRouter>
-      {/* REPLACED: "bg-gray-100 min-h-screen"
-        with our new neumorphic colors from tailwind.config.cjs
-        This will be the base background for the entire application.
-      */}
       <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-900 dark:text-slate-100 min-h-screen">
         <AppRouter />
       </div>
     </BrowserRouter>
   );
-  // --- MODIFICATION END ---
 }
