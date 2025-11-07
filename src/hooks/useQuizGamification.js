@@ -13,13 +13,7 @@ export default function useQuizGamification() {
     /**
      * Handles updating user XP, level, and rewards after a quiz or lesson.
      * @param {object} params
-     * @param {number} params.xpGained - The amount of XP gained.
-     * @param {object} params.userProfile - The current user's profile object.
-     * @param {function} params.refreshUserProfile - Function from useAuth to refresh profile data.
-     * @param {function} params.showToast - Function to show a toast message.
-     * @param {number} params.finalScore - The final score (0 for lessons).
-     * @param {number} params.totalPoints - The total points (0 for lessons).
-     * @param {number} params.attemptsTaken - The number of attempts taken (0 for lessons).
+     *...
      */
     const handleGamificationUpdate = async ({
         xpGained,
@@ -46,7 +40,7 @@ export default function useQuizGamification() {
 
             // --- MODIFIED: Update XP with newTotalXP, not increment ---
             const updateData = { xp: newTotalXP };
-            let newlyUnlockedRewards = []; // Track rewards to add to unlockedRewards
+            let newlyUnlockedRewards = []; // Track rewards to add to unlockedRewards array (titles, badges)
 
             if (leveledUp) {
                 updateData.level = newLevel;
@@ -57,19 +51,59 @@ export default function useQuizGamification() {
                     // If reward is in the new level range and not already unlocked
                     if (
                         config.level > currentLevel &&
-                        config.level <= newLevel &&
-                        !userProfile.unlockedRewards?.includes(rewardId)
+                        config.level <= newLevel
                     ) {
-                        newlyUnlockedRewards.push(rewardId);
+                        // --- NEW: Check reward type ---
+                        if (config.type === 'feature') {
+                            // This is a feature flag, add it to updateData
+                            switch (rewardId) {
+                                case 'feat_profile_picture':
+                                    if (!userProfile.canUploadProfilePic) updateData.canUploadProfilePic = true;
+                                    break;
+                                case 'feat_cover_photo':
+                                    if (!userProfile.canUploadCover) updateData.canUploadCover = true;
+                                    break;
+                                case 'canSetBio':
+                                    if (!userProfile.canSetBio) updateData.canSetBio = true;
+                                    break;
+                                case 'feat_update_info':
+                                    if (!userProfile.canUpdateInfo) updateData.canUpdateInfo = true;
+                                    break;
+                                case 'feat_create_post':
+                                    if (!userProfile.canCreatePost) updateData.canCreatePost = true;
+                                    break;
+                                case 'feat_reactions':
+                                    if (!userProfile.canReact) updateData.canReact = true;
+                                    break;
+                                case 'feat_profile_privacy':
+                                    if (!userProfile.canSetPrivacy) updateData.canSetPrivacy = true;
+                                    break;
+                                case 'feat_visit_profiles':
+                                    if (!userProfile.canVisitProfiles) updateData.canVisitProfiles = true;
+                                    break;
+                                // For stackable features, we can just set a flag or count
+                                case 'feat_photo_1':
+                                    if (!userProfile.featuredPhotosSlots) updateData.featuredPhotosSlots = 1;
+                                    break;
+                                case 'feat_photo_2':
+                                    if (userProfile.featuredPhotosSlots < 2) updateData.featuredPhotosSlots = 2;
+                                    break;
+                                case 'feat_photo_3':
+                                    if (userProfile.featuredPhotosSlots < 3) updateData.featuredPhotosSlots = 3;
+                                    break;
+                                default:
+                                    break;
+                            }
+                        } else if (config.type === 'title' || config.type === 'badge') {
+                            // This is a cosmetic/array item, add to array
+                            if (!userProfile.unlockedRewards?.includes(rewardId)) {
+                                newlyUnlockedRewards.push(rewardId);
+                            }
+                        }
                     }
                 }
                 
-                // --- MODIFIED: Check features from the new config ---
-                if (newLevel >= 15 && !userProfile.canSetBio) { 
-                    updateData.canSetBio = true; 
-                }
-
-                // --- MODIFIED: Simplified title logic ---
+                // --- MODIFIED: Simplified title logic (remains the same) ---
                 let bestTitle = userProfile.displayTitle || null;
                 if (newLevel >= 100) { bestTitle = 'title_legend'; }
                 else if (newLevel >= 70 && bestTitle !== 'title_legend') { bestTitle = 'title_guru'; }
@@ -80,13 +114,9 @@ export default function useQuizGamification() {
                 }
             }
 
-            // Add collected rewards to unlockedRewards array
+            // Add collected titles/badges to unlockedRewards array
             if (newlyUnlockedRewards.length > 0) {
-                // Filter out special keys like 'canSetBio' before adding to array
-                const cosmeticRewards = newlyUnlockedRewards.filter(r => r !== 'canSetBio');
-                if (cosmeticRewards.length > 0) {
-                    updateData.unlockedRewards = arrayUnion(...cosmeticRewards);
-                }
+                updateData.unlockedRewards = arrayUnion(...newlyUnlockedRewards);
                 // Show generic notification if *any* new rewards were unlocked
                 showToast("🎁 New rewards available! Check the Rewards page.", "info", 5000);
             }

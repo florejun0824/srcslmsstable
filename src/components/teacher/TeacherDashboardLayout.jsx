@@ -60,6 +60,7 @@ const EditSubjectModal = lazy(() => import('./EditSubjectModal'));
 const DeleteSubjectModal = lazy(() => import('./DeleteSubjectModal'));
 
 
+
 // --- ProfileDropdown Component (Unchanged) ---
 const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
   const buttonSize = size === 'desktop' ? 'w-16 h-16' : 'w-9 h-9';
@@ -278,6 +279,8 @@ const TeacherDashboardLayout = (props) => {
         useState(null);
     const [hoveredIconIndex, setHoveredIconIndex] = useState(null);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+	const [isChangePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
+	    
 
     // ... (All handlers: handleRenameCategory, handleEditCategory, etc. remain unchanged) ...
     const handleRenameCategory = async (newName) => {
@@ -638,11 +641,12 @@ const TeacherDashboardLayout = (props) => {
                         onClose={() => rest.setEditProfileModalOpen(false)}
                         userProfile={userProfile}
                         onUpdate={rest.handleUpdateProfile}
+						setChangePasswordModalOpen={setChangePasswordModalOpen}
                     />
                 )}
-                <ChangePasswordModal
-                    isOpen={rest.isChangePasswordModalOpen}
-                    onClose={() => rest.setChangePasswordModalOpen(false)}
+<ChangePasswordModal
+                    isOpen={isChangePasswordModalOpen}  
+                    onClose={() => setChangePasswordModalOpen(false)}
                     onSubmit={rest.handleChangePassword}
                 />
                 <CreateCategoryModal

@@ -213,16 +213,7 @@ const StudentLessonsTab = ({
         )}
       </div>
 
-      {/* Floating FAB (unchanged) */}
-      <button
-        onClick={handleRefreshClick}
-        disabled={isRefreshing}
-        className="sm:hidden fixed bottom-24 right-5 z-50 flex items-center justify-center rounded-full 
-                   bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg 
-                   w-14 h-14 active:scale-[0.95] transition-transform duration-200 ease-in-out"
-      >
-        <ArrowPathIcon className={`h-6 w-6 ${isRefreshing ? 'animate-spin' : ''}`} />
-      </button>
+
     </div>
   );
 };

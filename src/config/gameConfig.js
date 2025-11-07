@@ -1,93 +1,103 @@
 // src/config/gameConfig.js
 import { arrayUnion } from 'firebase/firestore';
-// --- ADDED: Import the icons needed for the Rewards Page ---
 import {
-    PaintBrushIcon,
-    PhotoIcon,
     UserCircleIcon,
+    PhotoIcon,
+    PencilSquareIcon,
+    PlusCircleIcon,
+    ChatBubbleLeftRightIcon,
+    LockClosedIcon,
+    UsersIcon,
+    CameraIcon,
     AcademicCapIcon
 } from '@heroicons/react/24/solid';
 
 // --- XP Constants ---
-export const XP_FOR_LESSON = 400; // Doubled from 100
+export const XP_FOR_LESSON = 100; // <-- 1. HERE IS THE FIX
 export const XP_PER_QUIZ_QUESTION = 50;
 
 // --- REWARDS CONFIG (The Single Source of Truth - NOW WITH ALL DATA) ---
 export const REWARDS_CONFIG = {
-    // Borders
-    'border_basic': { 
-        level: 5, 
-        type: 'border', 
-        name: 'Basic Border', 
-        icon: PaintBrushIcon, 
-        description: 'A simple, clean border.' 
+    // --- NEW: Feature Unlocks ---
+    'feat_profile_picture': {
+        level: 5,
+        type: 'feature',
+        name: 'Profile Picture Upload',
+        icon: UserCircleIcon,
+        description: 'Unlock the ability to upload a custom profile picture.'
     },
-    'border_animated': { 
-        level: 10, 
-        type: 'border', 
-        name: 'Animated Border', 
-        icon: PaintBrushIcon, 
-        description: 'A subtly pulsing border.' 
+    'feat_cover_photo': {
+        level: 10,
+        type: 'feature',
+        name: 'Cover Photo Upload',
+        icon: PhotoIcon,
+        description: 'Unlock the ability to upload a profile cover photo.'
     },
-    'border_advanced_animated': { 
-        level: 30, 
-        type: 'border', 
-        name: 'Advanced Animated Border', 
-        icon: PaintBrushIcon, 
-        description: 'A spinning, eye-catching border.' 
-    },
-    'border_elite_animated': { 
-        level: 50, 
-        type: 'border', 
-        name: 'Elite Animated Border', 
-        icon: PaintBrushIcon, 
-        description: 'A highly stylized border.' 
-    },
-    'border_legendary_animated': { 
-        level: 80, 
-        type: 'border', 
-        name: 'Legendary Animated Border', 
-        icon: PaintBrushIcon, 
-        description: 'A border with striking visual effects.' 
-    },
-    // Backgrounds
-    'bg_pattern_1': { 
-        level: 20, 
-        type: 'background', 
-        name: 'Subtle Pattern Background', 
-        icon: PhotoIcon, 
-        description: 'A gentle pattern for your profile.' 
-    },
-    'bg_pattern_2': { 
-        level: 40, 
-        type: 'background', 
-        name: 'Intricate Pattern Background', 
-        icon: PhotoIcon, 
-        description: 'A more detailed background design.' 
-    },
-    'bg_pattern_elite': { 
-        level: 60, 
-        type: 'background', 
-        name: 'Elite Background', 
-        icon: PhotoIcon, 
-        description: 'A premium background theme.' 
-    },
-    'bg_pattern_legendary': { 
-        level: 90, 
-        type: 'background', 
-        name: 'Legendary Background', 
-        icon: PhotoIcon, 
-        description: 'A top-tier background.' 
-    },
-    // Features
     'canSetBio': { 
         level: 15, 
         type: 'feature', 
         name: 'Custom Bio', 
-        icon: UserCircleIcon, 
+        icon: PencilSquareIcon,
         description: 'Unlock the ability to set a custom bio.' 
     },
-    // Titles
+    'feat_update_info': {
+        level: 20,
+        type: 'feature',
+        name: 'Update "About" Info',
+        icon: PencilSquareIcon,
+        description: 'Unlock fields to add work, education, and location.'
+    },
+    'feat_create_post': {
+        level: 30,
+        type: 'feature',
+        name: 'Create Posts',
+        icon: PlusCircleIcon,
+        description: 'Unlock the ability to create posts.'
+    },
+    'feat_reactions': {
+        level: 40,
+        type: 'feature',
+        name: 'Reactions & Comments',
+        icon: ChatBubbleLeftRightIcon,
+        description: 'Unlock the ability to react and comment.'
+    },
+    'feat_profile_privacy': {
+        level: 50,
+        type: 'feature',
+        name: 'Profile Privacy',
+        icon: LockClosedIcon,
+        description: 'Unlock profile privacy settings (Coming Soon).'
+    },
+    'feat_visit_profiles': {
+        level: 60,
+        type: 'feature',
+        name: 'Visit Profiles',
+        icon: UsersIcon,
+        description: 'Unlock the ability to visit other student profiles (Coming Soon).'
+    },
+    'feat_photo_1': {
+        level: 65,
+        type: 'feature',
+        name: 'Featured Photo (1)',
+        icon: CameraIcon,
+        description: 'Unlock your first featured photo slot (Coming Soon).'
+    },
+    'feat_photo_2': {
+        level: 70,
+        type: 'feature',
+        name: 'Featured Photo (2)',
+        icon: CameraIcon,
+        description: 'Unlock a second featured photo slot (Coming Soon).'
+    },
+    'feat_photo_3': {
+        level: 80,
+        type: 'feature',
+        name: 'Featured Photo (3)',
+        icon: CameraIcon,
+        description: 'Unlock a third featured photo slot (Coming Soon).'
+    },
+
+    // --- RETAINED: Titles ---
     'title_adept': { 
         level: 35, 
         type: 'title', 
@@ -109,7 +119,8 @@ export const REWARDS_CONFIG = {
         icon: AcademicCapIcon, 
         description: 'Display the ultimate "Legend" title.' 
     },
-    // Badges (from leveling)
+
+    // --- RETAINED: Badges (from leveling) ---
     'badge_scholar': { 
         level: 25, 
         type: 'badge', 

@@ -10,16 +10,15 @@ import {
     BookOpenIcon,
     Squares2X2Icon,
     GiftIcon,
-    ClockIcon,
-    PresentationChartLineIcon,
     AcademicCapIcon,
     InboxIcon,
     ChevronRightIcon,
-    RocketLaunchIcon,
+    RocketLaunchIcon, 
     TrophyIcon,
     StarIcon,
     SparklesIcon,
-    VideoCameraIcon // <-- ADDED THIS ICON
+    VideoCameraIcon,
+    QuestionMarkCircleIcon // <-- NEW: Import for the quiz badge
 } from '@heroicons/react/24/solid';
 import StudentProfilePage from './StudentProfilePage';
 import RewardsPage from '../components/student/RewardsPage';
@@ -34,10 +33,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { format } from 'date-fns';
 
-// --- ADDED IMPORT ---
 import ThemeToggle from '../components/common/ThemeToggle';
-// --- END ADDED IMPORT ---
+import LoungeView from '../components/student/LoungeView';
 
+
+// ... (BADGE_MAP, XPProgressRing, DailyQuote components remain unchanged) ...
 const BADGE_MAP = {
   'first_quiz': { icon: RocketLaunchIcon, title: 'First Quiz' },
   'perfect_score': { icon: TrophyIcon, title: 'Perfect Score' },
@@ -45,7 +45,6 @@ const BADGE_MAP = {
   'badge_master': { icon: StarIcon, title: 'Master' },
   'badge_legend': { icon: SparklesIcon, title: 'Legend' },
 };
-
 const XPProgressRing = ({ xp = 0, level = 1 }) => {
   const currentLevel = Math.max(1, level || 1);
   const currentXP = Math.max(0, xp || 0);
@@ -67,17 +66,14 @@ const XPProgressRing = ({ xp = 0, level = 1 }) => {
             <stop offset="100%" stopColor="#2563EB" />
           </linearGradient>
         </defs>
-        {/* --- MODIFIED: Themed circle color --- */}
         <circle cx="50" cy="50" r={radius} stroke="#E5E7EB" strokeWidth="6" fill="none" className="dark:stroke-slate-700" />
         <motion.circle
           cx="50" cy="50" r={radius} stroke="url(#xpGradient)" strokeWidth="6" fill="none"
           strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
           animate={{ strokeDashoffset: offset }} transition={{ duration: 1, ease: 'easeOut' }}
-          // --- MODIFIED: Added dark mode drop-shadow filter ---
           style={{ filter: "drop-shadow(0 0 3px rgba(96,165,250,0.6)) drop-shadow(0 0 5px rgba(37,99,235,0.4))" }}
         />
       </svg>
-      {/* --- MODIFIED: Themed text --- */}
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center scale-[0.85] sm:scale-100">
         <span className="text-[9px] sm:text-xs text-slate-500 dark:text-slate-400 leading-none">Lvl</span>
         <span className="text-base sm:text-lg font-bold bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-600 bg-clip-text text-transparent leading-none">{currentLevel}</span>
@@ -86,7 +82,6 @@ const XPProgressRing = ({ xp = 0, level = 1 }) => {
     </div>
   );
 };
-
 const DailyQuote = ({ compact = false }) => {
   const quotes = [
     "Small steps each day add up to big results.", "Every challenge is a chance to grow.",
@@ -104,30 +99,33 @@ const DailyQuote = ({ compact = false }) => {
     <motion.div
       key={quote} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.8, ease: "easeInOut" }}
-      // --- MODIFIED: Themed text ---
       className={`text-slate-600 dark:text-slate-300 ${compact ? "text-sm" : "text-base"} italic leading-snug`}
     > “{quote}” </motion.div>
   );
 };
 
-const SidebarContent = ({ sidebarNavItems, onLogoutClick, hasUnclaimedRewards }) => {
+
+// --- MODIFIED: SidebarContent to show specific icon badges ---
+const SidebarContent = ({ sidebarNavItems, onLogoutClick, hasUnclaimedRewards, hasNewLessons, hasNewQuizzes }) => {
     return (
         <div className="h-full flex flex-col justify-between">
             <div>
                 <div className="flex items-center gap-4 mb-12 px-2">
-                    {/* --- MODIFIED: Themed logo container --- */}
                     <div className="w-14 h-14 rounded-2xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark flex items-center justify-center transition-transform duration-300 ease-out hover:scale-105">
                         <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="SRCS Logo" className="w-12 h-12 rounded-lg" loading="lazy" decoding="async" />
                     </div>
                     <div>
-                        {/* --- MODIFIED: Themed text --- */}
                         <span className="font-extrabold text-xl text-slate-800 dark:text-slate-100">SRCS LMS</span>
                         <p className="text-sm text-slate-500 dark:text-slate-400">Student Dashboard</p>
                     </div>
                 </div>
                 <nav className="flex flex-col gap-2">
                     {sidebarNavItems.map(item => {
-                        const showNotification = item.view === 'rewards' && hasUnclaimedRewards;
+                        // --- MODIFIED: Specific checks for each notification type ---
+                        const showRewardDot = item.view === 'rewards' && hasUnclaimedRewards;
+                        const showLessonDot = item.view === 'lessons' && hasNewLessons;
+                        const showQuizDot = item.view === 'quizzes' && hasNewQuizzes;
+
                         return (
                             <NavLink
                                 key={item.view}
@@ -143,11 +141,22 @@ const SidebarContent = ({ sidebarNavItems, onLogoutClick, hasUnclaimedRewards })
                             >
                                 {({ isActive }) => (
                                     <>
-                                        {/* --- MODIFIED: Themed icon colors --- */}
                                         <item.icon className={`h-6 w-6 ${isActive ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`} />
                                         <span>{item.text}</span>
-                                        {showNotification && (
-                                            <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
+                                        
+                                        {/* --- MODIFIED: Render specific badge based on type --- */}
+                                        {showLessonDot && (
+                                          <div className="absolute top-2 right-2 w-4 h-4 bg-red-600 rounded-full flex items-center justify-center border-2 border-neumorphic-base dark:border-neumorphic-base-dark">
+                                            <BookOpenIcon className="h-2.5 w-2.5 text-white" />
+                                          </div>
+                                        )}
+                                        {showQuizDot && (
+                                          <div className="absolute top-2 right-2 w-4 h-4 bg-red-600 rounded-full flex items-center justify-center border-2 border-neumorphic-base dark:border-neumorphic-base-dark">
+                                            <QuestionMarkCircleIcon className="h-2.5 w-2.5 text-white" />
+                                          </div>
+                                        )}
+                                        {showRewardDot && (
+                                           <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border-2 border-neumorphic-base dark:border-neumorphic-base-dark"></span>
                                         )}
                                     </>
                                 )}
@@ -159,7 +168,6 @@ const SidebarContent = ({ sidebarNavItems, onLogoutClick, hasUnclaimedRewards })
             <div className="p-2">
                 <button
                     onClick={onLogoutClick}
-                    // --- MODIFIED: Themed button ---
                     className="w-full flex items-center gap-3 p-3 rounded-xl text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 font-semibold transition-all duration-200 shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark group"
                 >
                     <PowerIcon className="h-6 w-6 text-slate-400 dark:text-slate-500 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors" />
@@ -170,9 +178,8 @@ const SidebarContent = ({ sidebarNavItems, onLogoutClick, hasUnclaimedRewards })
     );
 };
 
-// --- FIX: Changed props from {text, subtext} to {title, message} ---
+// ... (EmptyState and DashboardHome components remain unchanged) ...
 const EmptyState = ({ icon: Icon, title, message, actionText, onActionClick }) => (
-    // --- MODIFIED: Themed EmptyState ---
     <div className="flex flex-col items-center justify-center text-center p-8 rounded-3xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark max-w-lg mx-auto mt-10">
         <Icon className="h-16 w-16 text-slate-400 dark:text-slate-600 mb-4" />
         <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">{title}</h3>
@@ -184,7 +191,6 @@ const EmptyState = ({ icon: Icon, title, message, actionText, onActionClick }) =
         )}
     </div>
 );
-
 const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewChange }) => {
     const getGreeting = () => {
         const hour = new Date().getHours();
@@ -211,8 +217,7 @@ const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewCha
     };
 
     return (
-        <div className="space-y-4">
-            {/* --- MODIFIED: Themed Greeting Card --- */}
+        <div className="space-y-4 p-4 sm:p-6 lg:p-8">
             <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark p-4 sm:p-6 flex flex-col gap-4">
               <div className="text-center sm:text-left">
                 <h1 className="text-lg sm:text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight truncate">{getGreeting()}, {userProfile?.firstName || 'Student'}!</h1>
@@ -225,13 +230,11 @@ const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewCha
                 <div className="flex-1 text-right">
                   <motion.div
                     initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}
-                    // --- MODIFIED: Themed Quote Box ---
                     className="relative inline-block bg-neumorphic-base dark:bg-slate-700/50 border border-blue-200 dark:border-blue-700/50 shadow-[0_3px_8px_rgba(0,0,0,0.08)] rounded-xl px-3 py-2 sm:px-4 sm:py-3 text-[11px] sm:text-sm text-slate-700 dark:text-slate-200 italic font-medium max-w-[70%] sm:max-w-[240px] float-right backdrop-blur-sm"
                   > <span className="absolute -top-2 -left-2 bg-gradient-to-r from-sky-400 to-blue-500 text-white rounded-full px-1.5 py-0.5 text-[10px] font-bold shadow-sm"> ✨ </span> <DailyQuote compact /> </motion.div>
                 </div>
               </div>
             </div>
-            {/* --- MODIFIED: Themed Achievements Card --- */}
             <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark p-3 rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark">
                 <div className="flex items-center justify-between mb-3 px-1">
                     <h2 className="text-sm sm:text-lg font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2"> <AcademicCapIcon className="h-4 w-4 text-red-500 dark:text-red-400" /> Recent Achievements </h2>
@@ -241,7 +244,6 @@ const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewCha
 			{genericBadges.length > 0 ? (
 			                        genericBadges.map((badgeKey, idx) => {
 			                            const badge = BADGE_MAP[badgeKey];
-			                            // Fallback for any badges not in the map
 			                            if (!badge) {
 			                                return (
 			                                     <motion.div
@@ -259,7 +261,6 @@ const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewCha
 			                                );
 			                            }
                             
-			                            // Destructure the icon component and title
 			                            const { icon: Icon, title } = badge;
 			                            return (
 			                                <motion.div
@@ -268,11 +269,9 @@ const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewCha
 			                                    title={title}
 			                                >
 			                                    <div className="flex items-center gap-3">
-			                                        {/* This is the updated part */}
 			                                        <div className="h-12 w-12 rounded-lg flex items-center justify-center bg-blue-100 dark:bg-blue-900/30">
 			                                            <Icon className="h-7 w-7 text-blue-600 dark:text-blue-400" />
 			                                        </div>
-			                                        {/* This part is the same */}
 			                                        <div className="min-w-0">
 			                                            <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{title}</div>
 			                                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Unlocked</div>
@@ -294,7 +293,6 @@ const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewCha
                     )}
                 </div>
             </div>
-            {/* --- MODIFIED: Themed My Classes Card --- */}
             <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark p-3 rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark">
                 <div className="flex items-center justify-between mb-4 px-1">
                     <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"> <Squares2X2Icon className="h-5 w-5 text-slate-700 dark:text-slate-300" /> My Classes </h2>
@@ -303,22 +301,18 @@ const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewCha
                 {(!myClasses || myClasses.length === 0) ? (
                     <EmptyState icon={InboxIcon} title="No Classes Yet" message="You haven't joined any classes. Click 'Join Class' in the header to get started." />
                 ) : (
-                    // --- ENTIRE CLASS CARD SECTION MODIFIED ---
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {myClasses.map((classItem, idx) => {
-                            // --- LOGIC FOR THE JOIN BUTTON ---
                             const isLive = classItem.videoConference?.isLive || false;
                             const meetLink = classItem.meetLink || null;
                             const canJoin = isLive && meetLink;
 
                             return (
-                                // 1. Changed from motion.button to motion.div to allow two click targets
                                 <motion.div
                                     key={classItem.id || idx}
                                     whileHover={{ y: -2 }}
                                     className="relative w-full text-left bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl p-3 sm:p-4 shadow-neumorphic dark:shadow-neumorphic-dark transition-all duration-200 flex flex-col"
                                 >
-                                    {/* 2. This button handles "View Details" */}
                                     <button
                                         onClick={() => setSelectedClass(classItem)}
                                         className="flex-grow flex flex-col text-left group"
@@ -336,7 +330,6 @@ const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewCha
                                             </div>
                                         </div>
                                         
-                                        {/* Spacer to push footer to bottom */}
                                         <div className="flex-grow" />
 
                                         <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
@@ -345,19 +338,18 @@ const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewCha
                                         </div>
                                     </button>
 
-                                    {/* 3. This is the new "Join Online Class" button */}
                                     <div className="mt-3">
                                         <button
                                             onClick={(e) => {
                                                 if (canJoin) {
                                                     window.open(meetLink, '_blank');
                                                 }
-                                                e.preventDefault(); // Prevent any other clicks
+                                                e.preventDefault();
                                             }}
                                             disabled={!canJoin}
                                             className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200
                                                 ${canJoin
-                                                    ? 'bg-red-600 text-white shadow-md hover:bg-red-700 animate-pulse' // Pulse when live
+                                                    ? 'bg-red-600 text-white shadow-md hover:bg-red-700 animate-pulse' 
                                                     : 'bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-slate-400 dark:text-slate-500 cursor-not-allowed'
                                                 }`}
                                         >
@@ -370,42 +362,44 @@ const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewCha
                         })}
                     </div>
                 )}
-                {/* --- END OF MODIFIED SECTION --- */}
             </div>
         </div>
     );
 };
+
 
 const StudentDashboardUI = ({
     userProfile, logout, view, isSidebarOpen, setIsSidebarOpen, handleViewChange,
     setJoinClassModalOpen, selectedClass, setSelectedClass, myClasses,
     isFetching,
     lessons, units, setLessonToView, quizzes,
-    handleTakeQuizClick, fetchContent, handleDownloadPacket
+    handleTakeQuizClick, fetchContent,
+    // --- NEW: Accepting notification props ---
+    hasNewLessons, 
+    hasNewQuizzes,
 }) => {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
     const profileMenuRef = useRef(null);
     const { isSessionConflictModalOpen, sessionConflictMessage, setIsSessionConflictModalOpen, performLogout } = useAuth();
-	const { showToast } = useToast();
+	const { showToast } = useToast(); 
 
-    // --- FIX: useEffect to clear selectedClass when tab changes ---
     useEffect(() => {
-        // If selectedClass is active and the URL view is NOT the home view ('classes'),
-        // clear the selected class state to allow the router view to render.
         if (selectedClass && view !== 'classes') {
             setSelectedClass(null);
         }
     }, [view, selectedClass, setSelectedClass]);
-    // --- END FIX ---
 
+    // Nav items
     const sidebarNavItems = [
         { view: 'classes', text: 'Dashboard', icon: Squares2X2Icon },
+        { view: 'lounge', text: 'Lounge', icon: RocketLaunchIcon }, 
         { view: 'lessons', text: 'Lessons', icon: BookOpenIcon },
         { view: 'quizzes', text: 'Quizzes', icon: ClipboardDocumentCheckIcon },
         { view: 'rewards', text: 'Rewards', icon: GiftIcon },
         { view: 'profile', text: 'Profile', icon: UserIcon }
     ];
+
     const desktopSidebarNavItems = [...sidebarNavItems];
 
     const hasUnclaimedRewards = useMemo(() => {
@@ -436,7 +430,18 @@ const StudentDashboardUI = ({
 
     const renderView = () => {
         if (selectedClass) {
-            return <StudentClassDetailView selectedClass={selectedClass} onBack={() => setSelectedClass(null)} setLessonToView={setLessonToView} />;
+            return (
+                <div className="p-4 sm:p-6 lg:p-8">
+                    <StudentClassDetailView 
+                        selectedClass={selectedClass} 
+                        onBack={() => setSelectedClass(null)} 
+                        setLessonToView={setLessonToView}
+                        lessons={lessons}
+                        units={units}
+                        onContentUpdate={fetchContent}
+                    />
+                </div>
+            );
         }
         const allQuizzesEmpty = (quizzes?.active?.length || 0) === 0 && (quizzes?.completed?.length || 0) === 0 && (quizzes?.overdue?.length || 0) === 0;
         const allLessonsEmpty = (lessons?.length || 0) === 0;
@@ -452,26 +457,36 @@ const StudentDashboardUI = ({
                     handleViewChange={handleViewChange}
                   />
                 );
+            case 'lounge':
+                return (
+                    <LoungeView />
+                );
             case 'lessons':
                 return (
-                  <div className="relative">
+                  <div className="relative p-4 sm:p-6 lg:p-8">
                     {allLessonsEmpty && !isFetching ? (
                       <EmptyState icon={BookOpenIcon} title="No Lessons Found" message="Your teacher hasn't posted any lessons yet. Check back soon!" actionText={isFetching ? "Checking..." : "Check for New Lessons"} onActionClick={fetchContent} />
                     ) : (
                       <StudentLessonsTab lessons={lessons} units={units} setLessonToView={setLessonToView} isFetchingContent={isFetching} onRefreshLessons={fetchContent} />
                     )}
-                    <button onClick={fetchContent} disabled={isFetching} className="fixed bottom-24 right-5 z-50 sm:hidden flex items-center justify-center rounded-full bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg w-14 h-14 active:scale-[0.95] transition-transform duration-200 ease-in-out">
-                      <BookOpenIcon className={`h-6 w-6 ${isFetching ? 'animate-spin' : ''}`} />
-                    </button>
                   </div>
                 );
             case 'quizzes':
-                if (allQuizzesEmpty && !isFetching) {
-                    return <EmptyState icon={ClipboardDocumentCheckIcon} title="No Quizzes Found" message="You have no active or completed quizzes at the moment." />;
-                }
-                return <StudentQuizzesTab quizzes={quizzes} units={units} handleTakeQuizClick={handleTakeQuizClick} isFetchingContent={isFetching} userProfile={userProfile} />;
+                return (
+                    <div className="p-4 sm:p-6 lg:p-8">
+                        {allQuizzesEmpty && !isFetching ? (
+                            <EmptyState icon={ClipboardDocumentCheckIcon} title="No Quizzes Found" message="You have no active or completed quizzes at the moment." />
+                        ) : (
+                            <StudentQuizzesTab quizzes={quizzes} units={units} handleTakeQuizClick={handleTakeQuizClick} isFetchingContent={isFetching} userProfile={userProfile} />
+                        )}
+                    </div>
+                );
             case 'rewards':
-                return <RewardsPage />;
+                return (
+                    <div className="p-4 sm:p-6 lg:p-8">
+                        <RewardsPage />
+                    </div>
+                );
             case 'profile':
                 return <StudentProfilePage />;
             default:
@@ -480,24 +495,22 @@ const StudentDashboardUI = ({
     };
 
     return (
-        // --- MODIFIED: Main container is themed ---
         <div className="min-h-screen font-sans bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-900 dark:text-slate-100 selection:bg-red-500/30">
             <div className="relative z-10 h-full md:flex">
-                {/* --- MODIFIED: Sidebar is themed --- */}
                 <aside className="w-72 flex-shrink-0 hidden md:block bg-neumorphic-base dark:bg-neumorphic-base-dark p-6 rounded-r-3xl shadow-neumorphic dark:shadow-neumorphic-dark">
                     <SidebarContent
                         sidebarNavItems={desktopSidebarNavItems}
                         onLogoutClick={handleLogoutClick}
                         hasUnclaimedRewards={hasUnclaimedRewards}
+                        // --- NEW: Pass notification state to sidebar ---
+                        hasNewLessons={hasNewLessons}
+                        hasNewQuizzes={hasNewQuizzes}
                     />
                 </aside>
 
                 <div className="flex-1 flex flex-col overflow-hidden pb-20 md:pb-0">
-                    {/* --- FIX: Added md:justify-end to align buttons right on desktop --- */}
                     <header className="p-4 sm:p-6 flex items-center justify-between md:justify-end bg-neumorphic-base dark:bg-neumorphic-base-dark sticky top-0 z-20 shadow-neumorphic dark:shadow-neumorphic-dark rounded-b-3xl">
-                      {/* --- FIX: Added md:hidden to hide logo/text on desktop --- */}
                       <div className="flex items-center gap-3 md:hidden">
-                        {/* --- MODIFIED: Themed logo container --- */}
                         <div className="w-12 h-12 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark flex items-center justify-center flex-shrink-0">
                           <img
                             src="https://i.ibb.co/XfJ8scGX/1.png"
@@ -505,17 +518,14 @@ const StudentDashboardUI = ({
                             className="w-10 h-10 rounded-full"
                           />
                         </div>
-                        {/* --- MODIFICATION 1: Reduced text-lg to text-base --- */}
                         <span className="font-extrabold text-base sm:text-xl text-slate-800 dark:text-slate-100">
                           <span className="sm:hidden">SRCS LMS</span>
                           <span className="hidden sm:inline">SRCS LMS</span>
                         </span>
                       </div>
-                      {/* --- Original gap-2 from previous step is fine --- */}
                       <div className="flex items-center gap-2 relative">
                             <ThemeToggle />
                         <InstallPWA />
-                        {/* --- MODIFICATION 2: Removed icon, changed text-sm to text-xs, px-3 to px-2.5 --- */}
                         <button onClick={() => setJoinClassModalOpen(true)} className="flex items-center justify-center bg-neumorphic-base dark:bg-neumorphic-base-dark text-red-600 dark:text-red-400 font-semibold border-none rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all duration-300 ease-in-out transform hover:scale-[1.03] py-2 px-2.5 text-xs">
                           <span>Join Class</span>
                         </button>
@@ -536,7 +546,7 @@ const StudentDashboardUI = ({
                       </div>
                     </header>
 
-                    <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pt-6 relative">
+                    <main className="flex-1 overflow-y-auto relative">
                         <AnimatePresence>
                             {isFetching && (
                                 <motion.div
@@ -545,7 +555,6 @@ const StudentDashboardUI = ({
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.2 }}
-                                    // --- MODIFIED: Themed overlay background ---
                                     className="absolute inset-0 bg-neumorphic-base/80 dark:bg-neumorphic-base-dark/80 flex items-center justify-center z-20"
                                 >
                                     <Spinner />
@@ -565,30 +574,50 @@ const StudentDashboardUI = ({
                 </div>
             </div>
 
-            {/* --- MODIFIED: Footer is themed --- */}
-            <footer className="fixed bottom-0 left-0 right-0 bg-neumorphic-base dark:bg-neumorphic-base-dark flex justify-around md:hidden z-40 shadow-neumorphic dark:shadow-neumorphic-dark rounded-t-3xl">
+            <footer 
+                className="fixed bottom-0 left-0 right-0 bg-neumorphic-base dark:bg-neumorphic-base-dark flex justify-around md:hidden z-40 shadow-neumorphic dark:shadow-neumorphic-dark rounded-t-3xl"
+            >
                 {sidebarNavItems.map(item => {
-                    const showNotification = item.view === 'rewards' && hasUnclaimedRewards;
+                    // --- MODIFIED: Notification logic for mobile footer ---
+                    const showRewardDot = item.view === 'rewards' && hasUnclaimedRewards;
+                    const showLessonDot = item.view === 'lessons' && hasNewLessons;
+                    const showQuizDot = item.view === 'quizzes' && hasNewQuizzes;
+
                     return (
                         <NavLink
                             key={item.view}
                             to={item.view === 'classes' ? '/student' : `/student/${item.view}`}
                             end={item.view === 'classes'}
+                            // --- MODIFIED: Use the `onClick` on NavLink to trigger our custom handler ---
+                            onClick={(e) => {
+                                // Don't prevent default navigation, just piggyback on it
+                                handleViewChange(item.view);
+                            }}
                             className={({ isActive }) =>
-                                // --- MODIFIED: Themed text colors ---
                                 `relative flex-1 flex flex-col items-center justify-center pt-2.5 pb-2 text-center transition-colors duration-200 group ${isActive ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400'}`
                             }
                         >
                             {({ isActive }) => (
                                 <>
                                     <div className="relative w-14 h-8 flex items-center justify-center">
-                                        {/* --- MODFIED: Themed active background --- */}
                                         <span className={`absolute top-0 left-0 w-full h-full rounded-full transition-opacity duration-200 ${isActive ? 'bg-red-100 dark:bg-red-900/30 opacity-100' : 'opacity-0 group-hover:opacity-100 group-hover:bg-slate-200/60 dark:group-hover:bg-slate-700/60'}`}></span>
                                         <item.icon className="h-6 w-6 z-10" />
                                     </div>
                                     <span className="text-xs mt-0.5 font-semibold z-10">{item.text}</span>
-                                    {showNotification && (
-                                        <span className="absolute top-2 right-4 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                                    
+                                    {/* --- MODIFIED: Render specific badge based on type (mobile) --- */}
+                                    {showLessonDot && (
+                                        <div className="absolute top-1.5 right-[calc(50%-24px)] w-4 h-4 bg-red-600 rounded-full flex items-center justify-center border-2 border-neumorphic-base dark:border-neumorphic-base-dark">
+                                          <BookOpenIcon className="h-2.5 w-2.5 text-white" />
+                                        </div>
+                                    )}
+                                    {showQuizDot && (
+                                        <div className="absolute top-1.5 right-[calc(50%-24px)] w-4 h-4 bg-red-600 rounded-full flex items-center justify-center border-2 border-neumorphic-base dark:border-neumorphic-base-dark">
+                                          <QuestionMarkCircleIcon className="h-2.5 w-2.5 text-white" />
+                                        </div>
+                                    )}
+                                    {showRewardDot && (
+                                        <span className="absolute top-2 right-4 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border-2 border-neumorphic-base dark:border-neumorphic-base-dark"></span>
                                     )}
                                 </>
                             )}
@@ -597,6 +626,7 @@ const StudentDashboardUI = ({
                 })}
             </footer>
 
+            {/* ... (Logout Modal and SessionConflictModal remain unchanged) ... */}
             <AnimatePresence>
                 {isLogoutModalOpen && (
                     <motion.div
@@ -610,7 +640,6 @@ const StudentDashboardUI = ({
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.8, opacity: 0 }}
                             transition={{ duration: 0.2 }}
-                            // --- MODIFIED: Themed Logout Modal ---
                             className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark p-6 w-80 text-center"
                         >
                             <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Confirm Logout</h2>
@@ -618,7 +647,6 @@ const StudentDashboardUI = ({
                             <div className="flex justify-between gap-4">
                                 <button
                                     onClick={() => setIsLogoutModalOpen(false)}
-                                    // --- MODIFIED: Themed Cancel Button ---
                                     className="flex-1 py-2 rounded-xl font-semibold text-slate-600 dark:text-slate-300 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition"
                                 >
                                     Cancel

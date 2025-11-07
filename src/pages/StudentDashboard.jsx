@@ -12,17 +12,16 @@ import {
   documentId,
   doc,
   updateDoc,
-  // increment, // No longer needed for lessons
   arrayUnion,
   orderBy,
   limit,
-  getDoc // --- MODIFICATION: Added getDoc ---
+  getDoc,
+  deleteField 
 } from 'firebase/firestore';
 import { useToast } from '../contexts/ToastContext';
 
-// --- MODIFIED: Import hook and lesson XP constant ---
-import useQuizGamification from '../hooks/useQuizGamification'; // Adjust path if needed
-import { XP_FOR_LESSON } from '../config/gameConfig'; // Adjust path if needed
+import useQuizGamification from '../hooks/useQuizGamification';
+import { REWARDS_CONFIG, XP_FOR_LESSON } from '../config/gameConfig'; 
 
 import StudentDashboardUI from './StudentDashboardUI';
 import JoinClassModal from '../components/student/JoinClassModal';
@@ -31,9 +30,8 @@ import StudentViewLessonModal from '../components/student/StudentViewLessonModal
 import Spinner from '../components/common/Spinner';
 
 const StudentDashboard = () => {
-  const { userProfile, logout, loading: authLoading, setUserProfile, refreshUserProfile } = useAuth(); // --- MODIFIED: Added refreshUserProfile ---
+  const { userProfile, logout, loading: authLoading, setUserProfile, refreshUserProfile } = useAuth();
   const { showToast } = useToast();
-  // --- ADDED: Initialize the gamification hook ---
   const { handleGamificationUpdate } = useQuizGamification();
 
   const location = useLocation();
@@ -41,9 +39,10 @@ const StudentDashboard = () => {
 
   // Helper to get the active view key from the URL pathname
   const getActiveViewFromPath = (pathname) => {
-    // pathname will be like "/student", "/student/lessons", etc.
-    const pathSegment = pathname.substring('/student'.length).split('/')[1]; // Get part after /student/
+    const pathSegment = pathname.substring('/student'.length).split('/')[1]; 
     switch (pathSegment) {
+      case 'lounge':
+        return 'lounge';
       case 'lessons':
         return 'lessons';
       case 'quizzes':
@@ -53,23 +52,51 @@ const StudentDashboard = () => {
       case 'profile':
         return 'profile';
       default:
-        // Default to 'classes' for "/student" or "/student/" (student dashboard home)
         return 'classes';
     }
   };
 
-  // Derive view from URL
-  const view = getActiveViewFromPath(location.pathname);
+  const view = getActiveViewFromPath(location.pathname); 
 
-  // Updated handler to navigate instead of setting state
-  const handleViewChange = (newView) => {
-    // 'classes' is the student home route
+  // --- NEW: State for notifications ---
+  const [hasNewLessons, setHasNewLessons] = useState(false);
+  const [hasNewQuizzes, setHasNewQuizzes] = useState(false);
+
+  // --- MODIFIED: handleViewChange ---
+  const handleViewChange = async (newView) => {
+    const newTimestamp = new Date();
+    let updateData = {};
+
+    // Check if we need to clear a notification
+    if (newView === 'lessons' && hasNewLessons) {
+      setHasNewLessons(false); // Clear locally
+      updateData.lessonsLastSeen = newTimestamp; // Prepare Firestore update
+      setUserProfile(prev => ({ ...prev, lessonsLastSeen: newTimestamp })); // Update local profile
+    }
+    if (newView === 'quizzes' && hasNewQuizzes) {
+      setHasNewQuizzes(false); // Clear locally
+      updateData.quizzesLastSeen = newTimestamp; // Prepare Firestore update
+      setUserProfile(prev => ({ ...prev, quizzesLastSeen: newTimestamp })); // Update local profile
+    }
+
+    // Update Firestore in the background (1 write)
+    if (Object.keys(updateData).length > 0 && userProfile?.id) {
+      try {
+        const userRef = doc(db, 'users', userProfile.id);
+        await updateDoc(userRef, updateData);
+      } catch (err) {
+        console.error("Failed to update lastSeen timestamp:", err);
+        // Note: We don't re-set the badge. It's cleared locally.
+      }
+    }
+
+    // Navigate
     if (newView === 'classes' || newView === 'default') {
       navigate('/student');
     } else {
       navigate(`/student/${newView}`);
     }
-    setIsSidebarOpen(false); // Close sidebar on mobile nav
+    setIsSidebarOpen(false); 
   };
 
   // UI state
@@ -90,9 +117,88 @@ const StudentDashboard = () => {
   const [lessonToView, setLessonToView] = useState(null);
   const isFirstContentLoad = useRef(true);
 
-  //
-  // 1) Listen for classes
-  //
+  // (Maintenance task effect remains unchanged)
+  const taskPerformed = useRef(false);
+  useEffect(() => {
+    if (userProfile && !taskPerformed.current) {
+      console.log('Running user profile maintenance tasks...');
+      taskPerformed.current = true;
+      const userRef = doc(db, 'users', userProfile.id);
+      const updateData = {};
+      let needsUpdate = false;
+      if (userProfile.hasOwnProperty('selectedBorder')) {
+        updateData.selectedBorder = deleteField();
+        needsUpdate = true;
+      }
+      if (userProfile.hasOwnProperty('selectedBackground')) {
+        updateData.selectedBackground = deleteField();
+        needsUpdate = true;
+      }
+      const currentLevel = userProfile.level || 1;
+      for (const [rewardId, config] of Object.entries(REWARDS_CONFIG)) {
+        if (config.type === 'feature' && currentLevel >= config.level) {
+          switch (rewardId) {
+            case 'feat_profile_picture':
+              if (!userProfile.canUploadProfilePic) updateData.canUploadProfilePic = true;
+              break;
+            case 'feat_cover_photo':
+              if (!userProfile.canUploadCover) updateData.canUploadCover = true;
+              break;
+            case 'canSetBio':
+              if (!userProfile.canSetBio) updateData.canSetBio = true;
+              break;
+            case 'feat_update_info':
+              if (!userProfile.canUpdateInfo) updateData.canUpdateInfo = true;
+              break;
+            case 'feat_create_post':
+              if (!userProfile.canCreatePost) updateData.canCreatePost = true;
+              break;
+            case 'feat_reactions':
+              if (!userProfile.canReact) updateData.canReact = true;
+              break;
+            case 'feat_profile_privacy':
+              if (!userProfile.canSetPrivacy) updateData.canSetPrivacy = true;
+              break;
+            case 'feat_visit_profiles':
+              if (!userProfile.canVisitProfiles) updateData.canVisitProfiles = true;
+              break;
+            case 'feat_photo_1':
+              if (!userProfile.featuredPhotosSlots || userProfile.featuredPhotosSlots < 1) updateData.featuredPhotosSlots = 1;
+              break;
+            case 'feat_photo_2':
+              if (!userProfile.featuredPhotosSlots || userProfile.featuredPhotosSlots < 2) updateData.featuredPhotosSlots = 2;
+              break;
+            case 'feat_photo_3':
+              if (!userProfile.featuredPhotosSlots || userProfile.featuredPhotosSlots < 3) updateData.featuredPhotosSlots = 3;
+              break;
+            default:
+              break;
+          }
+        }
+      }
+      
+      if (Object.keys(updateData).length > 0) {
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        console.log('Applying profile updates:', updateData);
+        updateDoc(userRef, updateData)
+        .then(() => {
+          console.log('Profile maintenance complete. Refreshing profile...');
+          refreshUserProfile();
+        })
+        .catch((err) => {
+          console.error('Failed to update profile:', err);
+          taskPerformed.current = false; 
+        });
+      } else {
+        console.log('No profile maintenance needed.');
+      }
+    }
+  }, [userProfile, refreshUserProfile]);
+
+  // (Listen for classes remains unchanged)
   useEffect(() => {
     if (authLoading || !userProfile?.id) {
       setIsFetchingClasses(false);
@@ -146,9 +252,7 @@ const StudentDashboard = () => {
     return () => unsubscribe();
   }, [authLoading, userProfile?.id]);
 
-  //
-  // 2) Fetch units once
-  //
+  // (Fetch units remains unchanged)
   useEffect(() => {
     const fetchUnits = async () => {
       setIsFetchingUnits(true);
@@ -167,12 +271,10 @@ const StudentDashboard = () => {
     fetchUnits();
   }, []);
 
-  //
-  // 3a) Extracted post-fetching logic
-  //
+  // (fetchPosts remains unchanged)
   const fetchPosts = useCallback(async () => {
     if (authLoading || !userProfile?.id || myClasses.length === 0) {
-      return []; // Return empty array if not ready
+      return []; 
     }
     
     let allPosts = [];
@@ -196,7 +298,6 @@ const StudentDashboard = () => {
           if (targetAudience === 'specific') {
             isRecipient = targetStudentIds.includes(studentId);
           } else {
-            // --- FIX: This ensures 'all' (empty targetStudentIds) is also included ---
             isRecipient = targetAudience !== 'specific';
           }
           if (isRecipient) allPosts.push(post);
@@ -208,33 +309,13 @@ const StudentDashboard = () => {
     return allPosts;
   }, [authLoading, userProfile?.id, myClasses]);
 
-  //
-  // 3b) This function is no longer needed, as fetchContent will be used for real-time.
-  //
-  const fetchLessonsOnly = useCallback(async () => {
-    try {
-      const allPosts = await fetchPosts();
-      const allLessonsFromPosts = allPosts.flatMap(post =>
-        (post.lessons || []).map(lesson => ({ ...lesson, className: post.className, classId: post.classId, postId: post.id, createdAt: post.createdAt }))
-      );
-      setLessons(allLessonsFromPosts);
-      console.log('Background lesson sync complete.');
-    } catch (err)
- {
-      console.error('Error in background lesson fetch:', err);
-    }
-  }, [fetchPosts]);
-
-  //
-  // 3c) Refactored fetchContent (for manual refresh AND real-time)
-  //
+  // (fetchContent remains unchanged)
   const fetchContent = useCallback(async (isBackgroundSync = false) => {
     if (authLoading || !userProfile?.id) {
       if (!isBackgroundSync) setIsFetchingContent(false);
       return;
     }
     
-    // Only show spinner for manual/initial load, not background syncs
     if (!isBackgroundSync) {
       setIsFetchingContent(true);
     }
@@ -254,8 +335,8 @@ const StudentDashboard = () => {
           className: post.className, 
           classId: post.classId, 
           postId: post.id, 
-          postTitle: post.title, // Added in previous step
-          postCreatedAt: post.createdAt, // Added in previous step
+          postTitle: post.title, 
+          postCreatedAt: post.createdAt, // This is the post's creation time
           availableFrom: post.availableFrom, 
           availableUntil: post.availableUntil, 
           settings: post.quizSettings 
@@ -268,6 +349,7 @@ const StudentDashboard = () => {
       if (quizIds.length > 0) {
         const chunks = [];
         for (let i = 0; i < quizIds.length; i += 30) chunks.push(quizIds.slice(i, i + 30));
+        
         const submissionPromises = chunks.map(chunk =>
           getDocs(query(collection(db, 'quizSubmissions'), where('studentId', '==', userProfile.id), where('quizId', 'in', chunk)))
         );
@@ -285,12 +367,10 @@ const StudentDashboard = () => {
       // Combine Quizzes with Submissions
       const quizzesWithDetails = allQuizzesFromPosts.map(q => {
         const subs = submissionsByQuizId.get(q.id) || [];
-        // --- FIX: Filter by postId to ensure correct attempt count ---
         const relevantSubs = subs.filter(s => s.postId === q.postId);
         return { ...q, attemptsTaken: relevantSubs.length };
       });
       
-      // Set all state at the end
       setLessons(allLessonsFromPosts);
       setAllQuizzes(quizzesWithDetails);
       if (isBackgroundSync) {
@@ -311,35 +391,26 @@ const StudentDashboard = () => {
     }
   }, [authLoading, userProfile?.id, fetchPosts, showToast]);
 
-  //
-  // 4) initial content load
-  //
+  // (Initial content load effect remains unchanged)
   useEffect(() => {
     if (!authLoading && !isFetchingClasses) {
       if (isFirstContentLoad.current) {
-        fetchContent(false); // false = this is NOT a background sync
+        fetchContent(false); 
         isFirstContentLoad.current = false;
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, isFetchingClasses, myClasses]);
+  }, [authLoading, isFetchingClasses, myClasses, fetchContent]);
 
-  //
-  // 5) Real-time listener for ALL content (Lessons AND Quizzes)
-  //
-  // --- ADDED: Re-enabled listener with performance gate ---
+  // (Real-time listener effect remains unchanged)
   useEffect(() => {
     if (authLoading || !userProfile?.id || myClasses.length === 0 || isFirstContentLoad.current) {
       return;
     }
-
-    // --- Performance Gate: Only sync if the user is actively viewing content tabs ---
-    const shouldAutoSync = view === 'lessons' || view === 'quizzes' || view === 'classes'; // Also sync on home dashboard
+    
+    const shouldAutoSync = view === 'lessons' || view === 'quizzes' || view === 'classes' || view === 'lounge';
     if (!shouldAutoSync) {
-        // console.log('Skipping real-time sync: User not on content tab.');
         return;
     }
-    // --- END Performance Gate ---
 
     console.log('Attaching real-time content listeners...');
     
@@ -348,7 +419,6 @@ const StudentDashboard = () => {
       
       const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
         console.log(`Post update detected in class ${c.id}, refreshing all content...`);
-        // Call the main fetchContent function, but as a background sync
         fetchContent(true); 
       }, (error) => {
         console.error(`Listener error for class ${c.id}:`, error);
@@ -362,21 +432,69 @@ const StudentDashboard = () => {
       listeners.forEach(unsubscribe => unsubscribe());
     };
     
-  }, [authLoading, userProfile?.id, myClasses, fetchContent, isFirstContentLoad.current, view]); 
-  // --- END ADDED LISTENER ---
+  }, [authLoading, userProfile?.id, myClasses, fetchContent, isFirstContentLoad, view]); 
 
-  //
-  // 6) This effect is NO LONGER NEEDED and has been removed.
-  //
-  // useEffect(() => {
-  //   if (view === 'quizzes') {
-  //     fetchContent();
-  //   }
-  // }, [view, fetchContent]);
+  
+  // --- MODIFIED: Effect to check for new content ---
+  useEffect(() => {
+    if (!userProfile || (lessons.length === 0 && allQuizzes.length === 0)) {
+      return; // Wait for user and content
+    }
 
-  //
-  // 7) categorize quizzes
-  //
+    // --- Check for New Lessons ---
+    if (lessons.length > 0) {
+      // --- FIX START: Handle both Timestamp and JS Date ---
+      let userLessonSeen = null;
+      if (userProfile.lessonsLastSeen) {
+        userLessonSeen = userProfile.lessonsLastSeen.toDate 
+            ? userProfile.lessonsLastSeen.toDate() // It's a Firestore Timestamp
+            : userProfile.lessonsLastSeen;        // It's a JS Date
+      }
+      // --- FIX END ---
+      
+      // Find the newest lesson timestamp
+      const maxLessonDate = lessons.reduce((maxDate, lesson) => {
+        const lessonDate = lesson.createdAt?.toDate();
+        return lessonDate > maxDate ? lessonDate : maxDate;
+      }, new Date(0));
+
+      if (!userLessonSeen || maxLessonDate > userLessonSeen) {
+        // Only set to true if not already on the lessons tab
+        if (view !== 'lessons') {
+          setHasNewLessons(true);
+        }
+      }
+    }
+
+    // --- Check for New Quizzes ---
+    if (allQuizzes.length > 0) {
+      // --- FIX START: Handle both Timestamp and JS Date ---
+      let userQuizSeen = null;
+      if (userProfile.quizzesLastSeen) {
+          userQuizSeen = userProfile.quizzesLastSeen.toDate
+            ? userProfile.quizzesLastSeen.toDate() // It's a Firestore Timestamp
+            : userProfile.quizzesLastSeen;        // It's a JS Date
+      }
+      // --- FIX END ---
+      
+      // Find the newest quiz timestamp
+      const maxQuizDate = allQuizzes.reduce((maxDate, quiz) => {
+        const quizDate = quiz.postCreatedAt?.toDate();
+        return quizDate > maxDate ? quizDate : maxDate;
+      }, new Date(0));
+      
+      if (!userQuizSeen || maxQuizDate > userQuizSeen) {
+         // Only set to true if not already on the quizzes tab
+        if (view !== 'quizzes') {
+          setHasNewQuizzes(true);
+        }
+      }
+    }
+  // We run this when content changes, or when the user profile updates (e.g., on login)
+  }, [lessons, allQuizzes, userProfile, view]); 
+
+
+  // (Categorize quizzes effect remains unchanged)
   useEffect(() => {
     const categorizeQuizzes = () => {
       const now = new Date();
@@ -401,9 +519,8 @@ const StudentDashboard = () => {
         if (isOverdue) {
           categorized.overdue.push({ ...quizItem, status: 'overdue', isExam });
         } else if (isScheduled) {
-          categorized.active.push({ ...quizItem, status: 'scheduled', isExam }); // <-- Changed to 'scheduled'
+          categorized.active.push({ ...quizItem, status: 'scheduled', isExam });
         } else {
-          // It's not completed, not overdue, and not scheduled, so it must be active
           categorized.active.push({ ...quizItem, status: 'active', isExam });
         }
       });
@@ -414,71 +531,46 @@ const StudentDashboard = () => {
     return () => clearInterval(intervalId);
   }, [allQuizzes]);
 
-  //
-  // handlers: quiz open/close/submit
-  //
-
-  // --- MODIFICATION: handleTakeQuizClick is now async ---
+  // (All handlers: handleTakeQuizClick, handleQuizClose, handleQuizSubmit, handleLessonComplete... remain unchanged)
   const handleTakeQuizClick = async (quiz) => {
     if (!quiz.postId || !quiz.classId) {
       showToast("Error: Missing quiz information.", "error");
       return;
     }
-
     try {
-      // Fetch the MOST RECENT post data to get fresh settings
       const postRef = doc(db, `classes/${quiz.classId}/posts`, quiz.postId);
       const postSnap = await getDoc(postRef);
-      
       if (!postSnap.exists()) {
         showToast("Error: This quiz is no longer available.", "error");
-        // Manually refresh content to remove the deleted post
         fetchContent(false);
         return;
       }
-      
       const postData = postSnap.data();
-      
-      // Combine the (stale) quiz details with fresh settings & availability
       const quizWithFreshSettings = {
-        ...quiz, // (e.g., title, questions array, unitId)
-        settings: postData.quizSettings, // Fresh settings from post
-        availableFrom: postData.availableFrom, // Fresh start date
-        availableUntil: postData.availableUntil // Fresh end date
+        ...quiz, 
+        settings: postData.quizSettings, 
+        availableFrom: postData.availableFrom, 
+        availableUntil: postData.availableUntil 
       };
-      
-      // Open the modal with the updated, fresh data
       setQuizToTake(quizWithFreshSettings);
-      
     } catch (err) {
       console.error("Error fetching fresh quiz settings:", err);
       showToast("Could not load quiz. Please check your connection and try again.", "error");
     }
   };
-  // --- END MODIFICATION ---
-
   const handleQuizClose = () => setQuizToTake(null);
   const handleQuizSubmit = () => {
-    fetchContent(false); // Manually fetch after submit
+    fetchContent(false); 
     setQuizToTake(null);
   };
-
-  //
-  // 8) handleLessonComplete
-  //
-  // --- REPLACED THIS ENTIRE FUNCTION ---
   const handleLessonComplete = async (progress) => {
     if (!progress?.isFinished || !userProfile?.id || !progress?.lessonId) return;
-
     const completedLessons = userProfile.completedLessons || [];
     if (completedLessons.includes(progress.lessonId)) {
       showToast('Lesson already completed.', 'info');
       return;
     }
-
     try {
-      // --- 1. Call the unified gamification hook ---
-      // We pass 0 for quiz-specific fields
       await handleGamificationUpdate({
           xpGained: XP_FOR_LESSON,
           userProfile,
@@ -488,44 +580,30 @@ const StudentDashboard = () => {
           totalPoints: 0,
           attemptsTaken: 0 
       });
-
-      // --- 2. Update the lesson-specific part ---
       const userRef = doc(db, 'users', userProfile.id);
       await updateDoc(userRef, {
           completedLessons: arrayUnion(progress.lessonId)
       });
-
-      // --- 3. Manually update local profile for 'completedLessons' ---
-      // (refreshUserProfile() will get the rest of the new data)
       setUserProfile(prev => prev ? ({
           ...prev,
           completedLessons: [...(prev.completedLessons || []), progress.lessonId]
       }) : prev);
-
       showToast(`Lesson finished! You earned ${XP_FOR_LESSON} XP!`, 'success');
-
     } catch (err) {
       console.error('Error awarding lesson XP:', err);
       showToast('An error occurred while saving your progress.', 'error');
     }
   };
-  // --- END OF REPLACED FUNCTION ---
 
-  //
-  // UI guard
-  //
+
   if (authLoading) {
     return (
-      // --- MODIFIED: Added dark mode classes ---
       <div className="flex h-screen items-center justify-center bg-neumorphic-base dark:bg-neumorphic-base-dark">
         <Spinner />
       </div>
     );
   }
 
-  //
-  // Render
-  //
   return (
     <>
       <StudentDashboardUI
@@ -545,7 +623,11 @@ const StudentDashboard = () => {
         setLessonToView={setLessonToView}
         quizzes={quizzes}
         handleTakeQuizClick={handleTakeQuizClick}
-		    fetchContent={() => fetchContent(false)} // Pass fetchContent for manual refresh
+		    fetchContent={() => fetchContent(false)} 
+        
+        // --- NEW: Pass notification state to the UI ---
+        hasNewLessons={hasNewLessons}
+        hasNewQuizzes={hasNewQuizzes}
       />
 
       {/* Modals */}
@@ -563,9 +645,7 @@ const StudentDashboard = () => {
         userProfile={userProfile}
         classId={quizToTake?.classId}
 		    postId={quizToTake?.postId}
-        // --- THIS IS THE CORRECTED FIX ---
         isTeacherView={userProfile?.role === 'teacher' || userProfile?.role ==='admin'}
-        // --- END OF FIX ---
       />
 
       <StudentViewLessonModal
