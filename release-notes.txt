@@ -7,6 +7,7 @@
 ### Bug Fixes & Core Logic Improvements
 
 * **Fixed Quiz Retake Bug:** Addressed a critical bug where students retaking a quiz (assigned via a new post) would see their old scores.
+* **Fixed Overdue Quiz Bug:** Addressed a critical bug where students taking an overdue quiz encounter and endless loop of the quiz modal.
 * **Unique Post IDs:** Re-engineered quiz and lesson submission logic to use the `postId` as a unique identifier. This ensures every new assignment is treated as a fresh entry, allowing for proper retakes.
 * **Teacher Score View Fixed:** Updated the teacher's `QuizScoresModal` to filter submissions by `postId`, ensuring teachers only see scores relevant to the specific post they are viewing.
 * **Lesson XP Fix:** Applied the same `postId` logic to lesson completions. Students now correctly earn XP for a lesson *each time* it is assigned in a new post, rather than just once.
