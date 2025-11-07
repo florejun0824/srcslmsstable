@@ -10,9 +10,11 @@ import {
   X,
   Filter, 
   ChevronDown,
-  ChevronsUpDown, // <-- NEW: Imported for custom select
-  CheckIcon,          // <-- NEW: Imported for custom select
+  ChevronsUpDown,
+  CheckIcon,
 } from 'lucide-react';
+// --- NEW: Added framer-motion import ---
+import { motion, AnimatePresence } from 'framer-motion';
 
 import Spinner from '../../../common/Spinner';
 import EditUserModal from '../../../admin/EditUserModal'; // Check this path
@@ -128,7 +130,7 @@ const CustomSelect = ({ value, onChange, options }) => {
                 className="w-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-slate-800 dark:text-slate-100 px-4 py-2.5 rounded-xl flex justify-between items-center text-left"
             >
                 <span className="font-medium">{selectedLabel}</span>
-                <ChevronUpDownIcon className="w-5 h-5 text-slate-400 dark:text-slate-500" />
+                <ChevronsUpDown className="w-5 h-5 text-slate-400 dark:text-slate-500" />
             </button>
 
             <AnimatePresence>
