@@ -3,12 +3,14 @@ import { updateDoc, doc, deleteDoc, runTransaction, serverTimestamp } from 'fire
 import { db } from '../services/firebase'; // Adjust this path if needed
 
 /**
- * A hook to manage all state and interactions for the student post feed.
- * @param {Array} initialPosts - The raw list of posts from Firestore.
+ * A hook to manage all state and interactions for the student post feed
+ * using OPTIMISTIC UPDATES.
+ * @param {Array} posts - The raw list of posts from Firestore.
+ * @param {function} setPosts - The React state setter function for the posts array.
  * @param {string} currentUserId - The ID of the currently logged-in student.
  * @param {function} showToast - The showToast function from useToast.
  */
-export const useStudentPosts = (initialPosts, currentUserId, showToast) => {
+export const useStudentPosts = (posts, setPosts, currentUserId, showToast) => {
     // State for editing a post
     const [editingPostId, setEditingPostId] = useState(null);
     const [editingPostText, setEditingPostText] = useState('');
@@ -26,15 +28,15 @@ export const useStudentPosts = (initialPosts, currentUserId, showToast) => {
 
     // Memoize sorted posts to prevent re-sorting on every render
     const sortedPosts = useMemo(() => {
-        if (!Array.isArray(initialPosts)) return [];
-        return [...initialPosts].sort((a, b) => {
+        if (!Array.isArray(posts)) return [];
+        return [...posts].sort((a, b) => {
             const dateA = a.createdAt?.toDate() || 0;
             const dateB = b.createdAt?.toDate() || 0;
             return dateB - dateA; // Newest first
         });
-    }, [initialPosts]);
+    }, [posts]);
 
-    // --- Post CRUD Handlers ---
+    // --- Post CRUD Handlers (Optimistic) ---
 
     const handleStartEditPost = useCallback((post) => {
         setEditingPostId(post.id);
@@ -47,94 +49,176 @@ export const useStudentPosts = (initialPosts, currentUserId, showToast) => {
     }, []);
 
     const handleUpdatePost = useCallback(async () => {
-        if (!editingPostId) return;
+        if (!editingPostId || !editingPostText) return;
+
         const postDocRef = doc(db, 'studentPosts', editingPostId);
+        const originalPost = posts.find(p => p.id === editingPostId);
+        if (!originalPost) return;
+
+        const originalContent = originalPost.content;
+
+        // 1. Optimistic Update
+        const optimisticPost = { 
+            ...originalPost, 
+            content: editingPostText,
+            editedAt: new Date() // Use local date for optimistic UI
+        };
+        setPosts(prevPosts => prevPosts.map(p => p.id === editingPostId ? optimisticPost : p));
+        handleCancelEdit();
+
+        // 2. Database Update
         try {
             await updateDoc(postDocRef, { 
                 content: editingPostText,
-                editedAt: serverTimestamp() 
+                editedAt: serverTimestamp() // Use server timestamp for DB
             });
             showToast("Post updated successfully!", "success");
-            handleCancelEdit();
+            // No need to setPosts again, UI is already updated
         } catch (error) {
             console.error("Error updating post:", error);
-            showToast("Failed to update post.", "error");
+            showToast("Failed to update post. Reverting.", "error");
+            // 3. Revert on failure
+            setPosts(prevPosts => prevPosts.map(p => 
+                p.id === editingPostId ? { ...p, content: originalContent, editedAt: originalPost.editedAt } : p
+            ));
         }
-    }, [editingPostId, editingPostText, showToast, handleCancelEdit]);
+    }, [editingPostId, editingPostText, posts, setPosts, showToast, handleCancelEdit]);
 
     const handleDeletePost = useCallback(async (id) => {
-        if (window.confirm("Are you sure you want to delete this post? This cannot be undone.")) {
-            try {
-                await deleteDoc(doc(db, 'studentPosts', id));
-                showToast("Post deleted.", "info");
-                // We'll need to add logic to delete comments/reactions here later
-            } catch (error) {
-                console.error("Error deleting post:", error);
-                showToast("Failed to delete post.", "error");
-            }
+        if (!window.confirm("Are you sure you want to delete this post? This cannot be undone.")) {
+            return;
         }
-    }, [showToast]);
 
-    // --- Interaction Handlers ---
+        const postToDelete = posts.find(p => p.id === id);
+        if (!postToDelete) return;
+
+        // 1. Optimistic Update (Remove from UI)
+        const optimisticPosts = posts.filter(p => p.id !== id);
+        setPosts(optimisticPosts);
+
+        // 2. Database Update
+        try {
+            await deleteDoc(doc(db, 'studentPosts', id));
+            showToast("Post deleted.", "info");
+            // TODO: Add logic to delete comments/reactions subcollections if needed
+        } catch (error) {
+            console.error("Error deleting post:", error);
+            showToast("Failed to delete post. Reverting.", "error");
+            // 3. Revert on failure (Add back to list)
+            setPosts(posts); // `posts` still holds the original state from the hook's closure
+        }
+    }, [posts, setPosts, showToast]);
+
+    // --- Interaction Handlers (Optimistic) ---
 
     const togglePostExpansion = useCallback((postId) => {
         setExpandedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
     }, []);
 
     const handleToggleReaction = useCallback(async (postId, reactionType) => {
-        if (!currentUserId) return;
+        if (!currentUserId) {
+            console.warn("handleToggleReaction called with no currentUserId.");
+            return;
+        }
         
         const postRef = doc(db, 'studentPosts', postId);
         
+        // Find the original post from the *current* state
+        const originalPost = posts.find(p => p.id === postId);
+        if (!originalPost) {
+            console.error("Could not find post to react to in local state.");
+            return;
+        }
+
+        const originalReactions = { ...(originalPost.reactions || {}) };
+
+        // 1. Optimistic Update
+        const optimisticReactions = { ...originalReactions };
+        const currentReaction = optimisticReactions[currentUserId];
+
+        if (currentReaction === reactionType) {
+            // User is un-reacting
+            delete optimisticReactions[currentUserId];
+        } else {
+            // User is adding or changing reaction
+            optimisticReactions[currentUserId] = reactionType;
+        }
+
+        const optimisticPost = { ...originalPost, reactions: optimisticReactions };
+        
+        // Update the local state immediately
+        setPosts(prevPosts => prevPosts.map(p => p.id === postId ? optimisticPost : p));
+
+        // 2. Database Update
         try {
+            // Use a transaction for safety
             await runTransaction(db, async (transaction) => {
                 const postDoc = await transaction.get(postRef);
                 if (!postDoc.exists()) {
                     throw "Post does not exist!";
                 }
 
-                const data = postDoc.data();
-                const reactions = data.reactions || {};
-                const currentReaction = reactions[currentUserId];
+                // Get fresh reactions from DB to avoid race conditions
+                const freshReactions = postDoc.data().reactions || {};
+                const freshCurrentReaction = freshReactions[currentUserId];
 
-                if (currentReaction === reactionType) {
-                    // User is clicking the same reaction, so un-react
-                    delete reactions[currentUserId];
+                if (freshCurrentReaction === reactionType) {
+                    delete freshReactions[currentUserId];
                 } else {
-                    // User is adding a new reaction or changing their reaction
-                    reactions[currentUserId] = reactionType;
+                    freshReactions[currentUserId] = reactionType;
                 }
                 
-                transaction.update(postRef, { reactions });
+                transaction.update(postRef, { reactions: freshReactions });
             });
+            // Success! UI is already updated, so do nothing.
         } catch (error) {
             console.error("Error toggling reaction:", error);
-            showToast("Failed to update reaction.", "error");
+            showToast("Failed to update reaction. Reverting.", "error");
+            // 3. Revert on failure
+            const revertedPost = { ...originalPost, reactions: originalReactions };
+            setPosts(prevPosts => prevPosts.map(p => p.id === postId ? revertedPost : p));
         }
-    }, [currentUserId, showToast]);
+    }, [currentUserId, posts, setPosts, showToast]);
 
     // --- Modal Handlers ---
 
-    const handleViewReactions = useCallback((post) => {
-        setReactionsModalPost(post);
-        setIsReactionsModalOpen(true);
-    }, []);
+    // --- THIS IS THE FIX (A) ---
+    // Change to accept `postId` and find the post from the `posts` state array.
+    const handleViewReactions = useCallback((postId) => {
+        const currentPost = posts.find(p => p.id === postId);
+        if (currentPost) {
+            setReactionsModalPost(currentPost);
+            setIsReactionsModalOpen(true);
+        } else {
+            console.error("Could not find post to view reactions for.");
+        }
+    }, [posts]); // Add `posts` dependency
+    // --- END OF FIX (A) ---
     
     const handleCloseReactions = useCallback(() => {
         setIsReactionsModalOpen(false);
     }, []);
     
-    const handleViewComments = useCallback((post) => {
-        setCommentModalPost(post);
-        setIsCommentModalOpen(true);
-    }, []);
+    // --- THIS IS THE FIX (B) ---
+    // Change to accept `postId` and find the post from the `posts` state array.
+    const handleViewComments = useCallback((postId) => {
+        const currentPost = posts.find(p => p.id === postId);
+        if (currentPost) {
+            setCommentModalPost(currentPost);
+            setIsCommentModalOpen(true);
+        } else {
+            console.error("Could not find post to view comments for.");
+        }
+    }, [posts]); // Add `posts` dependency
+    // --- END OF FIX (B) ---
 
     const handleCloseComments = useCallback(() => {
         setIsCommentModalOpen(false);
     }, []);
 
+    // Return all state and handlers
     return {
-        sortedPosts,
+        sortedPosts, // This is derived from the `posts` prop
         editingPostId,
         editingPostText,
         setEditingPostText,

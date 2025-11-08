@@ -1,7 +1,8 @@
+// src/components/teacher/TeacherDashboardLayout.jsx
 import React, { useState, Suspense, lazy, Fragment } from 'react';
 import { CSSTransition, SwitchTransition } from 'react-transition-group';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { Menu, Transition } from '@headlessui/react';
+import { Menu, Transition, Dialog } from '@headlessui/react';
 import {
     IconHome,
     IconUsers,
@@ -11,8 +12,10 @@ import {
     IconShieldCog,
     IconPower,
 	IconChartBar,
-	
-} from '@tabler/icons-react';
+    IconRocket,
+    IconMenu2,
+    IconX,
+} from '@tabler/icons-react'
 import { NavLink } from 'react-router-dom';
 
 // FIREBASE & SERVICES
@@ -34,6 +37,7 @@ const CoursesView = lazy(() => import('./dashboard/views/CoursesView'));
 const StudentManagementView = lazy(() => import('./dashboard/views/StudentManagementView'));
 const ProfileView = lazy(() => import('./dashboard/views/ProfileView'));
 const AnalyticsView = lazy(() => import('./dashboard/views/AnalyticsView'));
+const LoungeView = lazy(() => import('../student/LoungeView'));
 
 // LAZY-LOADED UI (MODALS)
 const AiGenerationHub = lazy(() => import('./AiGenerationHub'));
@@ -141,10 +145,11 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
 };
 
 
-// --- DESKTOP HEADER COMPONENT (Unchanged) ---
+// --- DESKTOP HEADER COMPONENT (MODIFIED) ---
 const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
     const navItems = [
         { view: 'home', text: 'Home', icon: IconHome },
+        { view: 'lounge', text: 'Lounge', icon: IconRocket }, // <-- ADDED
         { view: 'studentManagement', text: 'Students', icon: IconUsers },
         { view: 'classes', text: 'Classes', icon: IconSchool },
         { view: 'courses', text: 'Subjects', icon: IconCategory },
@@ -173,8 +178,8 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
                 </div>
             </div>
 
-            {/* Center: Navigation */}
-            <nav className="w-full max-w-2xl p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark flex justify-center items-center gap-3">
+            {/* Center: Navigation (MODIFIED FOR MORE ITEMS) */}
+            <nav className="w-full max-w-3xl p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark flex justify-center items-center gap-2">
                 {navItems.map((item) => {
                     return (
                         <NavLink
@@ -201,7 +206,7 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
                                         }`}
                                     />
                                     <span
-                                        className={`mt-0.5 text-sm font-semibold ${
+                                        className={`mt-0.5 text-xs xl:text-sm font-semibold ${
                                             isActive
                                                 ? 'text-blue-600 dark:text-blue-400'
                                                 : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100'
@@ -229,6 +234,122 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
 };
 // --- END OF HEADER COMPONENT ---
 
+// --- NEW Mobile Navigation Drawer Component ---
+const MobileNavDrawer = ({
+    isOpen,
+    onClose,
+    navItems,
+    userProfile,
+    onLogout,
+}) => {
+    return (
+        <Transition show={isOpen} as={Fragment}>
+            <Dialog as="div" className="relative z-[100] lg:hidden" onClose={onClose}>
+                {/* Backdrop Overlay */}
+                <Transition.Child
+                    as={Fragment}
+                    enter="transition-opacity ease-linear duration-300"
+                    enterFrom="opacity-0"
+                    enterTo="opacity-100"
+                    leave="transition-opacity ease-linear duration-300"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
+                >
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+                </Transition.Child>
+
+                {/* Drawer Panel */}
+                <div className="fixed inset-0 flex">
+                    <Transition.Child
+                        as={Fragment}
+                        enter="transition ease-in-out duration-300 transform"
+                        enterFrom="-translate-x-full"
+                        enterTo="translate-x-0"
+                        leave="transition ease-in-out duration-300 transform"
+                        leaveFrom="translate-x-0"
+                        leaveTo="-translate-x-full"
+                    >
+                        <Dialog.Panel className="relative mr-auto flex h-full w-full max-w-xs flex-col overflow-y-auto bg-neumorphic-base dark:bg-neumorphic-base-dark p-4 shadow-xl">
+                            <div className="flex items-center justify-between">
+                                {/* Profile Header */}
+                                <div className="flex items-center gap-3">
+                                    <UserInitialsAvatar
+                                        firstName={userProfile?.firstName}
+                                        lastName={userProfile?.lastName}
+                                        id={userProfile?.id}
+                                        size="sm"
+                                    />
+                                    <div>
+                                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                                            {userProfile?.firstName} {userProfile?.lastName}
+                                        </p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                            {userProfile?.email}
+                                        </p>
+                                    </div>
+                                </div>
+                                {/* Close Button */}
+                                <button
+                                    type="button"
+                                    className="-m-2 p-2 flex items-center justify-center w-9 h-9 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all focus:outline-none"
+                                    onClick={onClose}
+                                >
+                                    <span className="sr-only">Close menu</span>
+                                    <IconX className="h-5 w-5 text-slate-700 dark:text-slate-300" />
+                                </button>
+                            </div>
+
+                            {/* Navigation Links */}
+                            <nav className="mt-8 space-y-2">
+                                {navItems.map((item) => (
+                                    <NavLink
+                                        key={item.view}
+                                        to={item.view === 'home' ? '/dashboard' : `/dashboard/${item.view}`}
+                                        end={item.view === 'home'}
+                                        onClick={onClose} // Close drawer on nav
+                                        className={({ isActive }) =>
+                                            `group flex w-full items-center rounded-lg p-3 text-base font-medium transition-all ${
+                                                isActive
+                                                    ? 'shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-blue-700 dark:text-blue-300'
+                                                    : 'text-slate-800 dark:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                                            }`
+                                        }
+                                    >
+                                        {({ isActive }) => (
+                                            <>
+                                                <item.icon
+                                                    className={`mr-4 h-6 w-6 ${
+                                                        isActive
+                                                            ? 'text-blue-600 dark:text-blue-400'
+                                                            : 'text-slate-500 dark:text-slate-400'
+                                                    }`}
+                                                />
+                                                {item.text}
+                                            </>
+                                        )}
+                                    </NavLink>
+                                ))}
+                            </nav>
+                            
+                            {/* Logout Button at bottom */}
+                            <div className="mt-auto pt-4 border-t border-slate-200 dark:border-slate-700">
+                                <button
+                                    onClick={onLogout}
+                                    className="group flex w-full items-center rounded-lg p-3 text-base font-medium text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-all"
+                                >
+                                    <IconPower className="mr-4 h-6 w-6" />
+                                    Logout
+                                </button>
+                            </div>
+                        </Dialog.Panel>
+                    </Transition.Child>
+                </div>
+            </Dialog>
+        </Transition>
+    );
+};
+// --- END of MobileNavDrawer Component ---
+
 // Helper component for loading states
 const LoadingFallback = () => (
     <div className="w-full h-full flex justify-center items-center p-20">
@@ -238,10 +359,13 @@ const LoadingFallback = () => (
 
 // Main Layout Component
 const TeacherDashboardLayout = (props) => {
+    // --- THIS IS THE FIX (C) ---
+    // Destructure the new `authLoading` prop
     const {
         user,
         userProfile,
         loading,
+        authLoading, // <-- ADD THIS
         error,
         activeView,
         handleViewChange,
@@ -269,8 +393,17 @@ const TeacherDashboardLayout = (props) => {
         courses,
 		activeClasses,
 		handleUpdateClass,
+
+        // --- 1. DESTRUCTURE NEW LOUNGE PROPS ---
+        isLoungeLoading,
+        loungePosts,
+        loungeUsersMap,
+        fetchLoungePosts,
+        loungePostUtils,
+        
         ...rest
     } = props;
+    // --- END OF FIX (C) ---
 
     const [categoryToEdit, setCategoryToEdit] = useState(null);
     const [isEditCategoryModalOpen, setIsEditCategoryModalOpen] = useState(false);
@@ -280,9 +413,9 @@ const TeacherDashboardLayout = (props) => {
     const [hoveredIconIndex, setHoveredIconIndex] = useState(null);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 	const [isChangePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
+    const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 	    
 
-    // ... (All handlers: handleRenameCategory, handleEditCategory, etc. remain unchanged) ...
     const handleRenameCategory = async (newName) => {
         const oldName = categoryToEdit?.name;
         if (!oldName || !newName || oldName === newName) {
@@ -321,12 +454,19 @@ const TeacherDashboardLayout = (props) => {
         rest.setCreateCourseModalOpen(true);
     };
 
+    // --- MODIFIED navItems array ---
     const navItems = [
         {
             view: 'home',
             text: 'Home',
             icon: IconHome,
             gradient: 'from-rose-500 to-pink-500',
+        },
+        {
+            view: 'lounge',
+            text: 'Lounge',
+            icon: IconRocket, // <-- ADDED
+            gradient: 'from-orange-500 to-amber-500',
         },
         {
             view: 'studentManagement',
@@ -376,13 +516,9 @@ const TeacherDashboardLayout = (props) => {
         if (distance === 2) return 1.05;
         return 1;
     };
-	// FIREBASE IMPORTS CHECK:
-	// Ensure 'updateDoc' is imported from 'firebase/firestore' along with 'doc' and 'db'.
-	// import { getDocs, writeBatch, doc, where, query, collection, updateDoc } from 'firebase/firestore'; 
 
 	const handleStartOnlineClass = async (classId, meetingCode, meetLink) => {
 		    try {
-		        // 1. Update Firestore: Mark the class as live
 		        const classRef = doc(db, 'classes', classId);
 		        await updateDoc(classRef, {
 		            videoConference: {
@@ -393,7 +529,6 @@ const TeacherDashboardLayout = (props) => {
 		            },
 		        });
         
-		        // 2. Notify user and open the meeting
 		        showToast(`Class ${meetingCode} is now live! Opening Google Meet...`, 'success');
 		        window.open(meetLink, '_blank');
 
@@ -405,7 +540,6 @@ const TeacherDashboardLayout = (props) => {
 		const handleEndOnlineClass = async (classId) => {
 		    try {
 		        const classRef = doc(db, 'classes', classId);
-		        // Clear the live status and meeting data
 		        await updateDoc(classRef, {
 		            'videoConference.isLive': false,
 		            'videoConference.meetingCode': null,
@@ -419,8 +553,13 @@ const TeacherDashboardLayout = (props) => {
 		    }
 		};
 
+    // --- MODIFIED renderMainContent ---
     const renderMainContent = () => {
-        if (loading) return <LoadingFallback />;
+        // --- THIS IS THE FIX (D) ---
+        // Add `authLoading` to the guard clause
+        if (loading || authLoading) return <LoadingFallback />;
+        // --- END OF FIX (D) ---
+
         if (error) {
             return (
                 <div className="bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700/50 text-red-800 dark:text-red-200 p-4 rounded-lg shadow-md m-4">
@@ -445,15 +584,23 @@ const TeacherDashboardLayout = (props) => {
                         {...rest}
                     />
                 );
-            
-            // --- H E R E   I S   T H E   F I X ---
+            case 'lounge': // <-- 2. MODIFIED THIS CASE ---
+                return (
+                    <LoungeView 
+                        key={`${reloadKey}-lounge`} 
+                        // --- 3. PASS PROPS TO LoungeView ---
+                        isPostsLoading={isLoungeLoading}
+                        publicPosts={loungePosts}
+                        usersMap={loungeUsersMap}
+                        fetchPublicPosts={fetchLoungePosts} // Map to the prop LoungeView expects
+                        {...loungePostUtils} // Spread all the hook utils
+                    />
+                );
 			case 'classes':
-				
 			    return (
                     <ClassesView 
                         key={`${reloadKey}-classes`} 
                         activeClasses={activeClasses} 
-                        // We must explicitly pass the props down
                         handleArchiveClass={props.handleArchiveClass} 
                         handleDeleteClass={props.handleDeleteClass}
 						handleStartOnlineClass={handleStartOnlineClass}
@@ -461,8 +608,6 @@ const TeacherDashboardLayout = (props) => {
                         {...rest} 
                     />
                 );
-            // --- E N D   O F   F I X ---
-
             case 'courses':
                 return (
                     <CoursesView
@@ -527,7 +672,6 @@ const TeacherDashboardLayout = (props) => {
     return (
         <>
             <style>{`
-                /* ... (all <style> tag content remains unchanged) ... */
                 .view-fade-enter { opacity: 0; transform: scale(0.98) translateY(10px); }
                 .view-fade-enter-active { opacity: 1; transform: scale(1) translateY(0); transition: opacity 300ms, transform 300ms; }
                 .view-fade-exit { opacity: 1; transform: scale(1) translateY(0); }
@@ -548,16 +692,26 @@ const TeacherDashboardLayout = (props) => {
                 {/* Mobile Header */}
                 <header className="sticky top-0 z-40 p-2 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark lg:hidden">
                     <div className="flex items-center justify-between">
+                        {/* Left side: Menu + Logo */}
                         <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setIsMobileNavOpen(true)}
+                                className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                aria-label="Open navigation menu"
+                            >
+                                <IconMenu2 className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+                            </button>
                             <img
                                 src="https://i.ibb.co/XfJ8scGX/1.png"
                                 alt="Logo"
                                 className="w-9 h-9 rounded-full"
                             />
-                            <span className="font-bold text-lg text-slate-900 dark:text-slate-100">
+                            <span className="font-bold text-lg text-slate-900 dark:text-slate-100 hidden sm:block">
                                 SRCS LMS
                             </span>
                         </div>
+
+                        {/* Right side: Toggle + Profile */}
                         <div className="flex items-center gap-2">
                             <ThemeToggle />
                             <ProfileDropdown 
@@ -607,7 +761,6 @@ const TeacherDashboardLayout = (props) => {
                     <AnimatedRobot onClick={() => setIsChatOpen(true)} />
                 </CSSTransition>
 
-                {/* ... (All Modals remain here, they will be themed internally) ... */}
                 {isAiHubOpen && (
                     <AiGenerationHub
                         isOpen={isAiHubOpen}
@@ -632,7 +785,7 @@ const TeacherDashboardLayout = (props) => {
                         onClose={() => rest.setIsArchivedModalOpen(false)}
                         archivedClasses={rest.archivedClasses}
                         onUnarchive={rest.handleUnarchiveClass}
-                        onDelete={props.handleDeleteClass} // <-- Pass down the correct prop
+                        onDelete={props.handleDeleteClass}
                     />
                 )}
                 {rest.isEditProfileModalOpen && (
@@ -780,6 +933,17 @@ const TeacherDashboardLayout = (props) => {
                 )}
             </Suspense>
 
+            <MobileNavDrawer
+                isOpen={isMobileNavOpen}
+                onClose={() => setIsMobileNavOpen(false)}
+                navItems={navItems}
+                userProfile={userProfile}
+                onLogout={() => {
+                    setIsMobileNavOpen(false);
+                    setIsLogoutModalOpen(true);
+                }}
+            />
+
             {/* Logout Confirmation Modal */}
             <CSSTransition
                 in={isLogoutModalOpen}
@@ -816,49 +980,6 @@ const TeacherDashboardLayout = (props) => {
                 </div>
             </CSSTransition>
 
-            {/* Mobile Footer Nav */}
-            <footer className="sticky bottom-0 z-50 p-2 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark lg:hidden">
-                <div className="flex justify-around items-center">
-                    {navItems.map((item) => {
-                        return (
-                            <NavLink
-                                key={item.view}
-                                to={item.view === 'home' ? '/dashboard' : `/dashboard/${item.view}`}
-                                end={item.view === 'home'}
-                                className={({ isActive }) => 
-                                    `flex-1 flex flex-col items-center justify-center py-2 rounded-xl transition-all duration-300 ${
-                                        isActive
-                                            ? 'shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark'
-                                            : 'hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'
-                                    }`
-                                }
-                            >
-                                {({ isActive }) => (
-                                    <>
-                                        <item.icon
-                                            className={`mb-0.5 transition-colors ${
-                                                isActive
-                                                    ? 'text-blue-600 dark:text-blue-400'
-                                                    : 'text-slate-500 dark:text-slate-400'
-                                            }`}
-                                            size={24}
-                                        />
-                                        <span
-                                            className={`text-xs font-semibold transition-colors ${
-                                                isActive
-                                                    ? 'text-blue-600 dark:text-blue-400'
-                                                    : 'text-slate-500 dark:text-slate-400'
-                                            }`}
-                                        >
-                                            {item.text}
-                                        </span>
-                                    </>
-                                )}
-                            </NavLink>
-                        );
-                    })}
-                </div>
-            </footer>
         </>
     );
 };

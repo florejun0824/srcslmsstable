@@ -1,4 +1,4 @@
-// src/StudentDashboard.jsx
+// src/pages/StudentDashboard.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -28,27 +28,30 @@ import JoinClassModal from '../components/student/JoinClassModal';
 import ViewQuizModal from '../components/teacher/ViewQuizModal';
 import StudentViewLessonModal from '../components/student/StudentViewLessonModal';
 import Spinner from '../components/common/Spinner';
+import PublicProfilePage from './PublicProfilePage'; 
+import { useStudentPosts } from '../hooks/useStudentPosts';
 
 const StudentDashboard = () => {
   const { userProfile, logout, loading: authLoading, setUserProfile, refreshUserProfile } = useAuth();
   
-  // --- ⬇⬇⬇ START OF FIX ⬇⬇⬇ ---
-  // 1. Create a ref for showToast
   const { showToast } = useToast();
   const showToastRef = useRef(showToast);
   useEffect(() => {
     showToastRef.current = showToast;
   }, [showToast]);
-  // --- ⬆⬆⬆ END OF FIX ⬆⬆⬆ ---
 
   const { handleGamificationUpdate } = useQuizGamification();
 
   const location = useLocation();
   const navigate = useNavigate();
 
-  // (getActiveViewFromPath and state declarations are unchanged)
   const getActiveViewFromPath = (pathname) => {
     const pathSegment = pathname.substring('/student'.length).split('/')[1]; 
+
+    if (pathSegment === 'profile' && pathname.substring('/student'.length).split('/')[2]) {
+        return 'publicProfile';
+    }
+
     switch (pathSegment) {
       case 'lounge':
         return 'lounge';
@@ -64,6 +67,7 @@ const StudentDashboard = () => {
         return 'classes';
     }
   };
+
   const view = getActiveViewFromPath(location.pathname); 
   const [hasNewLessons, setHasNewLessons] = useState(false);
   const [hasNewQuizzes, setHasNewQuizzes] = useState(false);
@@ -82,7 +86,14 @@ const StudentDashboard = () => {
   const [lessonToView, setLessonToView] = useState(null);
   const isFirstContentLoad = useRef(true);
 
-  // (handleViewChange is unchanged)
+  // --- LOUNGE STATE & LOGIC ---
+  const [loungePosts, setLoungePosts] = useState([]);
+  const [isLoungeLoading, setIsLoungeLoading] = useState(true);
+  const [loungeUsersMap, setLoungeUsersMap] = useState({});
+  const [hasLoungeFetched, setHasLoungeFetched] = useState(false); 
+
+  const loungePostUtils = useStudentPosts(loungePosts, userProfile?.id, showToast);
+  
   const handleViewChange = async (newView) => {
     const newTimestamp = new Date();
     let updateData = {};
@@ -112,7 +123,6 @@ const StudentDashboard = () => {
     setIsSidebarOpen(false); 
   };
 
-  // (Maintenance effect is unchanged)
   const taskPerformed = useRef(false);
   useEffect(() => {
     if (userProfile && !taskPerformed.current) {
@@ -193,7 +203,17 @@ const StudentDashboard = () => {
     }
   }, [userProfile, refreshUserProfile]);
 
-  // (Class listener effect is unchanged)
+  // Add current user to Lounge user map
+  useEffect(() => {
+    if (userProfile?.id) {
+        setLoungeUsersMap(prev => ({
+            ...prev,
+            [userProfile.id]: userProfile
+        }));
+    }
+  }, [userProfile]);
+
+  // Fetch student's classes
   useEffect(() => {
     if (authLoading || !userProfile?.id) {
       setIsFetchingClasses(false);
@@ -247,7 +267,7 @@ const StudentDashboard = () => {
     return () => unsubscribe();
   }, [authLoading, userProfile?.id]);
 
-  // (Unit fetch effect is unchanged)
+  // Fetch all units
   useEffect(() => {
     const fetchUnits = async () => {
       setIsFetchingUnits(true);
@@ -266,7 +286,7 @@ const StudentDashboard = () => {
     fetchUnits();
   }, []);
 
-  // (fetchPosts is unchanged)
+  // Fetch posts (lessons/quizzes) from classes
   const fetchPosts = useCallback(async () => {
     if (authLoading || !userProfile?.id || myClasses.length === 0) {
       return []; 
@@ -304,11 +324,69 @@ const StudentDashboard = () => {
     return allPosts;
   }, [authLoading, userProfile?.id, myClasses]);
 
+  // --- LOUNGE: Function to fetch user profiles ---
+  const fetchMissingLoungeUsers = useCallback(async (userIds) => {
+    const uniqueIds = [...new Set(userIds.filter(id => !!id))];
+    if (uniqueIds.length === 0) return;
+
+    const usersToFetch = uniqueIds.filter(id => !loungeUsersMap[id]);
+    if (usersToFetch.length === 0) return;
+    
+    try {
+        for (let i = 0; i < usersToFetch.length; i += 30) {
+            const chunk = usersToFetch.slice(i, i + 30);
+            const usersQuery = query(collection(db, 'users'), where(documentId(), 'in', chunk));
+            const userSnap = await getDocs(usersQuery);
+            const newUsers = {};
+            userSnap.forEach(doc => {
+                newUsers[doc.id] = doc.data();
+            });
+            setLoungeUsersMap(prev => ({ ...prev, ...newUsers }));
+        }
+    } catch (err) {
+        console.error("Error fetching users:", err);
+    }
+  }, [loungeUsersMap]); 
+
+  // --- LOUNGE: Function to fetch posts ---
+  const fetchLoungePosts = useCallback(async () => {
+    if (!userProfile?.id) return;
+    
+    // Always set loading to true when a manual fetch is triggered
+    setIsLoungeLoading(true);
+    
+    try {
+      const postsQuery = query(
+        collection(db, 'studentPosts'),
+        where('audience', '==', 'Public'),
+        orderBy('createdAt', 'desc')
+      );
+      const snapshot = await getDocs(postsQuery);
+      const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setLoungePosts(posts);
+
+      const userIdsToFetch = new Set();
+      posts.forEach(post => {
+        userIdsToFetch.add(post.authorId);
+        if (post.reactions) {
+            Object.keys(post.reactions).forEach(userId => userIdsToFetch.add(userId));
+        }
+      });
+      await fetchMissingLoungeUsers(Array.from(userIdsToFetch));
+
+    } catch (error) {
+      console.error("Error fetching public posts:", error);
+      showToast("Could not load the Lounge feed.", "error");
+    } finally {
+      setIsLoungeLoading(false);
+      setHasLoungeFetched(true); 
+    }
+  }, [userProfile?.id, showToast, fetchMissingLoungeUsers]); // Removed hasLoungeFetched dependency
+
   
-  // (fetchContent ref logic is unchanged)
   const fetchContentRef = useRef();
 
-  // 2. Update fetchContent to use the ref and remove showToast from deps
+  // Fetch lessons/quizzes content
   const fetchContent = useCallback(async (isBackgroundSync = false) => {
     if (authLoading || !userProfile?.id) {
       if (!isBackgroundSync) setIsFetchingContent(false);
@@ -322,7 +400,6 @@ const StudentDashboard = () => {
     try {
       const allPosts = await fetchPosts(); 
 
-      // (Processing logic is unchanged)
       const allLessonsFromPosts = allPosts.flatMap(post =>
         (post.lessons || []).map(lesson => ({ ...lesson, className: post.className, classId: post.classId, postId: post.id, createdAt: post.createdAt }))
       );
@@ -382,13 +459,13 @@ const StudentDashboard = () => {
         setIsFetchingContent(false);
       }
     }
-  }, [authLoading, userProfile?.id, fetchPosts]); // Removed showToast
+  }, [authLoading, userProfile?.id, fetchPosts]); 
 
   useEffect(() => {
     fetchContentRef.current = fetchContent;
   }, [fetchContent]);
 
-  // (Initial content load effect is unchanged)
+  // Initial content load
   useEffect(() => {
     if (!authLoading && !isFetchingClasses) {
       if (isFirstContentLoad.current) {
@@ -398,7 +475,14 @@ const StudentDashboard = () => {
     }
   }, [authLoading, isFetchingClasses, myClasses, fetchContent]);
 
-  // (Real-time listener effect is unchanged)
+  // --- LOUNGE: Initial fetch trigger ---
+  useEffect(() => {
+    if (view === 'lounge' && !hasLoungeFetched && userProfile?.id) {
+        fetchLoungePosts();
+    }
+  }, [view, hasLoungeFetched, userProfile?.id, fetchLoungePosts]);
+
+  // Real-time listener for class content
   useEffect(() => {
     if (authLoading || !userProfile?.id || myClasses.length === 0 || isFirstContentLoad.current) {
       return;
@@ -424,7 +508,7 @@ const StudentDashboard = () => {
     };
   }, [authLoading, userProfile?.id, myClasses, isFirstContentLoad, view]); 
   
-  // (New content check effect is unchanged)
+  // Check for new content
   useEffect(() => {
     if (!userProfile || (lessons.length === 0 && allQuizzes.length === 0)) {
       return;
@@ -465,7 +549,7 @@ const StudentDashboard = () => {
     }
   }, [lessons, allQuizzes, userProfile, view]); 
 
-  // (Quiz categorization effect is unchanged)
+  // Categorize quizzes
   useEffect(() => {
     const categorizeQuizzes = () => {
       const now = new Date();
@@ -502,7 +586,7 @@ const StudentDashboard = () => {
     return () => clearInterval(intervalId);
   }, [allQuizzes]);
 
-  // 3. Wrap handleTakeQuizClick in useCallback and use ref
+  // Quiz click handler
   const handleTakeQuizClick = useCallback(async (quiz) => {
     if (!quiz.postId || !quiz.classId) {
       showToastRef.current("Error: Missing quiz information.", "error"); // Use ref
@@ -528,9 +612,9 @@ const StudentDashboard = () => {
       console.error("Error fetching fresh quiz settings:", err);
       showToastRef.current("Could not load quiz. Please check your connection and try again.", "error"); // Use ref
     }
-  }, [fetchContent]); // Removed showToast
+  }, [fetchContent]);
 
-  // (Modal handlers are unchanged from previous fix)
+  // Modal handlers
   const handleQuizClose = useCallback(() => {
     setQuizToTake(null);
   }, []); 
@@ -540,7 +624,7 @@ const StudentDashboard = () => {
     setQuizToTake(null);
   }, [fetchContent]);
 
-  // 4. Wrap handleLessonComplete in useCallback and use ref
+  // Lesson completion handler
   const handleLessonComplete = useCallback(async (progress) => {
     if (!progress?.isFinished || !userProfile?.id || !progress?.lessonId) return;
     const completedLessons = userProfile.completedLessons || [];
@@ -553,7 +637,7 @@ const StudentDashboard = () => {
           xpGained: XP_FOR_LESSON,
           userProfile,
           refreshUserProfile,
-          showToast: showToastRef.current, // Pass stable ref value
+          showToast: showToastRef.current, 
           finalScore: 0, 
           totalPoints: 0,
           attemptsTaken: 0 
@@ -571,7 +655,7 @@ const StudentDashboard = () => {
       console.error('Error awarding lesson XP:', err);
       showToastRef.current('An error occurred while saving your progress.', 'error'); // Use ref
     }
-  }, [userProfile, refreshUserProfile, handleGamificationUpdate]); // Removed showToast
+  }, [userProfile, refreshUserProfile, handleGamificationUpdate]);
 
 
   if (authLoading) {
@@ -582,7 +666,11 @@ const StudentDashboard = () => {
     );
   }
 
-  // (Return JSX is unchanged)
+  if (view === 'publicProfile') {
+    return <PublicProfilePage />;
+  }
+
+  // --- RENDER ---
   return (
     <>
       <StudentDashboardUI
@@ -603,11 +691,18 @@ const StudentDashboard = () => {
         quizzes={quizzes}
         handleTakeQuizClick={handleTakeQuizClick}
 		    fetchContent={() => fetchContent(false)} 
-        
         hasNewLessons={hasNewLessons}
         hasNewQuizzes={hasNewQuizzes}
+
+        // --- LOUNGE PROPS ---
+        isLoungeLoading={isLoungeLoading}
+        loungePosts={loungePosts}
+        loungeUsersMap={loungeUsersMap}
+        fetchLoungePosts={fetchLoungePosts}
+        loungePostUtils={loungePostUtils}
       />
 
+      {/* Modals */}
       <JoinClassModal
         isOpen={isJoinClassModalOpen}
         onClose={() => setJoinClassModalOpen(false)}

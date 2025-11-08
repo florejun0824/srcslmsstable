@@ -18,7 +18,7 @@ import {
     StarIcon,
     SparklesIcon,
     VideoCameraIcon,
-    QuestionMarkCircleIcon // <-- NEW: Import for the quiz badge
+    QuestionMarkCircleIcon
 } from '@heroicons/react/24/solid';
 import StudentProfilePage from './StudentProfilePage';
 import RewardsPage from '../components/student/RewardsPage';
@@ -37,7 +37,7 @@ import ThemeToggle from '../components/common/ThemeToggle';
 import LoungeView from '../components/student/LoungeView';
 
 
-// ... (BADGE_MAP, XPProgressRing, DailyQuote components remain unchanged) ...
+// --- (BADGE_MAP, XPProgressRing, DailyQuote components are unchanged) ---
 const BADGE_MAP = {
   'first_quiz': { icon: RocketLaunchIcon, title: 'First Quiz' },
   'perfect_score': { icon: TrophyIcon, title: 'Perfect Score' },
@@ -105,7 +105,7 @@ const DailyQuote = ({ compact = false }) => {
 };
 
 
-// --- MODIFIED: SidebarContent to show specific icon badges ---
+// --- SidebarContent (Unchanged) ---
 const SidebarContent = ({ sidebarNavItems, onLogoutClick, hasUnclaimedRewards, hasNewLessons, hasNewQuizzes }) => {
     return (
         <div className="h-full flex flex-col justify-between">
@@ -121,7 +121,6 @@ const SidebarContent = ({ sidebarNavItems, onLogoutClick, hasUnclaimedRewards, h
                 </div>
                 <nav className="flex flex-col gap-2">
                     {sidebarNavItems.map(item => {
-                        // --- MODIFIED: Specific checks for each notification type ---
                         const showRewardDot = item.view === 'rewards' && hasUnclaimedRewards;
                         const showLessonDot = item.view === 'lessons' && hasNewLessons;
                         const showQuizDot = item.view === 'quizzes' && hasNewQuizzes;
@@ -144,7 +143,6 @@ const SidebarContent = ({ sidebarNavItems, onLogoutClick, hasUnclaimedRewards, h
                                         <item.icon className={`h-6 w-6 ${isActive ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`} />
                                         <span>{item.text}</span>
                                         
-                                        {/* --- MODIFIED: Render specific badge based on type --- */}
                                         {showLessonDot && (
                                           <div className="absolute top-2 right-2 w-4 h-4 bg-red-600 rounded-full flex items-center justify-center border-2 border-neumorphic-base dark:border-neumorphic-base-dark">
                                             <BookOpenIcon className="h-2.5 w-2.5 text-white" />
@@ -178,7 +176,7 @@ const SidebarContent = ({ sidebarNavItems, onLogoutClick, hasUnclaimedRewards, h
     );
 };
 
-// ... (EmptyState and DashboardHome components remain unchanged) ...
+// --- (EmptyState and DashboardHome components are unchanged) ---
 const EmptyState = ({ icon: Icon, title, message, actionText, onActionClick }) => (
     <div className="flex flex-col items-center justify-center text-center p-8 rounded-3xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark max-w-lg mx-auto mt-10">
         <Icon className="h-16 w-16 text-slate-400 dark:text-slate-600 mb-4" />
@@ -374,9 +372,15 @@ const StudentDashboardUI = ({
     isFetching,
     lessons, units, setLessonToView, quizzes,
     handleTakeQuizClick, fetchContent,
-    // --- NEW: Accepting notification props ---
     hasNewLessons, 
     hasNewQuizzes,
+
+    // --- 1. DESTRUCTURING ALL THE LOUNGE PROPS ---
+    isLoungeLoading,
+    loungePosts,
+    loungeUsersMap,
+    fetchLoungePosts,
+    loungePostUtils,
 }) => {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -458,8 +462,16 @@ const StudentDashboardUI = ({
                   />
                 );
             case 'lounge':
+                // --- 2. THIS IS THE FIX ---
+                // Pass all the destructured props down to LoungeView
                 return (
-                    <LoungeView />
+                    <LoungeView 
+                        isPostsLoading={isLoungeLoading}
+                        publicPosts={loungePosts}
+                        usersMap={loungeUsersMap}
+                        fetchPublicPosts={fetchLoungePosts}
+                        {...loungePostUtils}
+                    />
                 );
             case 'lessons':
                 return (
@@ -502,7 +514,6 @@ const StudentDashboardUI = ({
                         sidebarNavItems={desktopSidebarNavItems}
                         onLogoutClick={handleLogoutClick}
                         hasUnclaimedRewards={hasUnclaimedRewards}
-                        // --- NEW: Pass notification state to sidebar ---
                         hasNewLessons={hasNewLessons}
                         hasNewQuizzes={hasNewQuizzes}
                     />
@@ -578,7 +589,6 @@ const StudentDashboardUI = ({
                 className="fixed bottom-0 left-0 right-0 bg-neumorphic-base dark:bg-neumorphic-base-dark flex justify-around md:hidden z-40 shadow-neumorphic dark:shadow-neumorphic-dark rounded-t-3xl"
             >
                 {sidebarNavItems.map(item => {
-                    // --- MODIFIED: Notification logic for mobile footer ---
                     const showRewardDot = item.view === 'rewards' && hasUnclaimedRewards;
                     const showLessonDot = item.view === 'lessons' && hasNewLessons;
                     const showQuizDot = item.view === 'quizzes' && hasNewQuizzes;
@@ -588,9 +598,7 @@ const StudentDashboardUI = ({
                             key={item.view}
                             to={item.view === 'classes' ? '/student' : `/student/${item.view}`}
                             end={item.view === 'classes'}
-                            // --- MODIFIED: Use the `onClick` on NavLink to trigger our custom handler ---
                             onClick={(e) => {
-                                // Don't prevent default navigation, just piggyback on it
                                 handleViewChange(item.view);
                             }}
                             className={({ isActive }) =>
@@ -605,7 +613,6 @@ const StudentDashboardUI = ({
                                     </div>
                                     <span className="text-xs mt-0.5 font-semibold z-10">{item.text}</span>
                                     
-                                    {/* --- MODIFIED: Render specific badge based on type (mobile) --- */}
                                     {showLessonDot && (
                                         <div className="absolute top-1.5 right-[calc(50%-24px)] w-4 h-4 bg-red-600 rounded-full flex items-center justify-center border-2 border-neumorphic-base dark:border-neumorphic-base-dark">
                                           <BookOpenIcon className="h-2.5 w-2.5 text-white" />
@@ -626,7 +633,7 @@ const StudentDashboardUI = ({
                 })}
             </footer>
 
-            {/* ... (Logout Modal and SessionConflictModal remain unchanged) ... */}
+            {/* --- (Modals are unchanged) --- */}
             <AnimatePresence>
                 {isLogoutModalOpen && (
                     <motion.div

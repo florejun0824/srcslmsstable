@@ -2,10 +2,11 @@ import React, { useState, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PencilIcon, TrashIcon, GlobeAltIcon, LockClosedIcon } from '@heroicons/react/24/solid';
 import { ChatBubbleLeftIcon, HandThumbUpIcon } from '@heroicons/react/24/outline';
-import UserInitialsAvatar from '../common/UserInitialsAvatar';
+import UserInitialsAvatar from '../common/UserInitialsAvatar'; 
 import Linkify from 'react-linkify';
+import { Link } from 'react-router-dom';
 
-// Emojis for the reaction picker and display
+// --- (Helper data remains the same) ---
 const reactionIcons = {
   like: { component: (props) => (<span {...props}>👍</span>), label: 'Like', color: 'text-blue-500 dark:text-blue-400' },
   love: { component: (props) => (<span {...props}>❤️</span>), label: 'Love', color: 'text-red-500 dark:text-red-400' },
@@ -15,11 +16,8 @@ const reactionIcons = {
   angry: { component: (props) => (<span {...props}>😡</span>), label: 'Angry', color: 'text-red-700 dark:text-red-500' },
   care: { component: (props) => (<span {...props}>🤗</span>), label: 'Care', color: 'text-pink-500 dark:text-pink-400' },
 };
-
 const reactionTypes = ['like', 'love', 'haha', 'wow', 'sad', 'angry', 'care'];
 const POST_TRUNCATE_LENGTH = 300;
-
-// Linkify decorator
 const componentDecorator = (href, text, key) => (
     <a 
         href={href} 
@@ -32,8 +30,6 @@ const componentDecorator = (href, text, key) => (
         {text}
     </a>
 );
-
-// Locked buttons placeholder
 const LockedButtonsPlaceholder = () => (
     <div className="flex justify-around items-center pt-3 mt-4 border-t border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30 opacity-60">
         <div className="flex items-center space-x-2 py-2 px-4 rounded-full text-slate-500 dark:text-slate-400">
@@ -42,13 +38,16 @@ const LockedButtonsPlaceholder = () => (
         </div>
     </div>
 );
+// --- (End of helpers) ---
+
 
 const StudentPostCard = ({
     post,
+    author,
     userProfile,
     canReact,
     isEditing,
-    editingText,
+    editingPostText,
     isExpanded,
     onTextChange,
     onSave,
@@ -68,6 +67,60 @@ const StudentPostCard = ({
     const isAuthor = userProfile.id === post.authorId;
     const isTruncated = post.content && post.content.length > POST_TRUNCATE_LENGTH;
 
+    const postAuthor = author || {
+        id: post.authorId,
+        firstName: post.authorName.split(' ')[0],
+        lastName: post.authorName.split(' ')[1] || '',
+        photoURL: post.authorPhotoURL
+    };
+
+    const profileLink = isAuthor
+        ? (userProfile.role === 'student' ? '/student/profile' : '/dashboard/profile')
+        : (userProfile.role === 'student' ? `/student/profile/${post.authorId}` : `/dashboard/profile/${post.authorId}`);
+    
+    // --- (Functions remain the same as last time) ---
+    
+    const openReactionPicker = () => {
+        clearTimeout(pickerTimerRef.current);
+        setIsReactionPickerOpen(true);
+    };
+
+    const closeReactionPicker = () => {
+        // Delay closing to allow user to move mouse into picker
+        pickerTimerRef.current = setTimeout(() => {
+            setIsReactionPickerOpen(false);
+        }, 200);
+    };
+
+    const handleReactionSelect = (reactionType) => {
+        onToggleReaction(post.id, reactionType);
+        setIsReactionPickerOpen(false); // Close immediately
+        clearTimeout(pickerTimerRef.current);
+    };
+
+    const formatReactionCount = () => {
+        const counts = {};
+        let total = 0;
+        if (postReactions) {
+            Object.values(postReactions).forEach(type => {
+                counts[type] = (counts[type] || 0) + 1;
+                total++;
+            });
+        }
+        if (total === 0) return null;
+        
+        return (
+            <span 
+                className="cursor-pointer hover:underline font-medium" 
+                // --- THIS IS THE FIX (C) ---
+                onClick={() => onViewReactions(post.id)} // Pass ID, not object
+            >
+                {total} {total === 1 ? 'Reaction' : 'Reactions'}
+            </span>
+        );
+    };
+    // --- END OF FIX (C) ---
+
     const {
         component: ReactionButtonIcon,
         label: reactionLabel,
@@ -75,61 +128,6 @@ const StudentPostCard = ({
     } = currentUserReaction && reactionIcons[currentUserReaction]
         ? reactionIcons[currentUserReaction]
         : { component: HandThumbUpIcon, label: 'Like', color: 'text-slate-600 dark:text-slate-400' };
-    
-    // --- Reaction Picker Handlers ---
-    const openReactionPicker = () => {
-        clearTimeout(pickerTimerRef.current);
-        setIsReactionPickerOpen(true);
-    };
-    const closeReactionPicker = () => {
-        pickerTimerRef.current = setTimeout(() => {
-            setIsReactionPickerOpen(false);
-        }, 300); // 300ms delay to allow moving mouse
-    };
-    const handleReactionSelect = (reactionType) => {
-        onToggleReaction(post.id, reactionType);
-        setIsReactionPickerOpen(false);
-    };
-
-    // --- Reaction Count Display ---
-    const formatReactionCount = () => {
-        const totalReactions = Object.keys(postReactions).length;
-        if (totalReactions === 0) return null;
-
-        const counts = {};
-        Object.values(postReactions).forEach((type) => {
-            counts[type] = (counts[type] || 0) + 1;
-        });
-        const sortedUniqueReactions = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
-
-        return (
-            <div
-                className="flex items-center space-x-1 cursor-pointer"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onViewReactions(post); // Pass the whole post
-                }}
-            >
-                <div className="flex items-center">
-                    {sortedUniqueReactions.slice(0, 3).map((type, index) => {
-                        const reaction = reactionIcons[type];
-                        if (!reaction) return null;
-                        const { component: Icon } = reaction;
-                        return (
-                            <div
-                                key={index}
-                                className={`relative w-6 h-6 flex items-center justify-center rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark ring-2 ring-neumorphic-base dark:ring-neumorphic-base-dark ${index > 0 ? '-ml-2' : ''}`}
-                                style={{ zIndex: 3 - index }}
-                            >
-                                <Icon className="text-xl" />
-                            </div>
-                        );
-                    })}
-                </div>
-                <span className="text-sm text-slate-600 dark:text-slate-400 font-medium ml-2 hover:underline">{totalReactions}</span>
-            </div>
-        );
-    };
 
     return (
         <motion.div
@@ -139,18 +137,20 @@ const StudentPostCard = ({
             transition={{ duration: 0.4 }}
             className={`bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl p-4 sm:p-6 relative group transition-shadow duration-300 shadow-neumorphic dark:shadow-neumorphic-dark`}
         >
-            {/* --- Post Header --- */}
+            {/* Post Header */}
             <div className="flex items-start mb-4">
                 <div className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0">
-                    <UserInitialsAvatar 
-                        firstName={post.authorName.split(' ')[0]} 
-                        lastName={post.authorName.split(' ')[1] || ''} 
-                        photoURL={post.authorPhotoURL}
-                        size="full"
-                    />
+                    <Link to={profileLink} state={{ profileData: postAuthor }}>
+                        <UserInitialsAvatar 
+                            user={postAuthor}
+                            size="full"
+                        />
+                    </Link>
                 </div>
                 <div className="ml-3">
-                    <p className="font-bold text-slate-800 dark:text-slate-100">{post.authorName}</p>
+                    <Link to={profileLink} state={{ profileData: postAuthor }} className="hover:underline">
+                        <p className="font-bold text-slate-800 dark:text-slate-100">{postAuthor.firstName} {postAuthor.lastName}</p>
+                    </Link>
                     <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                         <span>{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString() : 'Just now'}</span>
                         {post.audience === 'Public' ? (
@@ -175,13 +175,13 @@ const StudentPostCard = ({
                 )}
             </div>
 
-            {/* --- Post Content --- */}
+            {/* Post Content */}
             {isEditing ? (
                 <>
                     <textarea
                         className="w-full p-3 border-none ring-0 focus:ring-0 rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 resize-none mb-4 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark"
                         rows="5"
-                        value={editingText}
+                        value={editingPostText}
                         onChange={(e) => onTextChange(e.target.value)}
                         onClick={(e) => e.stopPropagation()}
                         autoFocus
@@ -213,20 +213,24 @@ const StudentPostCard = ({
                 )
             )}
             
-            {/* --- Post Counts --- */}
+            {/* Post Counts */}
             {((postReactions && Object.keys(postReactions).length > 0) || (post.commentsCount || 0) > 0) && (
                 <div className="flex justify-between items-center text-sm text-slate-500 dark:text-slate-400 mt-4">
                     {formatReactionCount()}
-                    <span className="cursor-pointer hover:underline font-medium" onClick={() => onViewComments(post)}>
+                    <span 
+                        className="cursor-pointer hover:underline font-medium" 
+                        // --- THIS IS THE FIX (D) ---
+                        onClick={() => onViewComments(post.id)} // Pass ID, not object
+                    >
                         {post.commentsCount || 0} {post.commentsCount === 1 ? 'Comment' : 'Comments'}
                     </span>
                 </div>
             )}
 
-            {/* --- Post Actions (Conditional) --- */}
+            {/* Post Actions (Conditional) */}
             {canReact ? (
                 <div className="flex justify-around items-center pt-3 mt-4 border-t border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30">
-                    {/* --- Like Button --- */}
+                    {/* Like Button */}
                     <div
                         className="relative"
                         onMouseEnter={openReactionPicker}
@@ -252,7 +256,7 @@ const StudentPostCard = ({
                             <span className="font-semibold">{reactionLabel}</span>
                         </motion.button>
 
-                        {/* --- Reaction Picker --- */}
+                        {/* Reaction Picker */}
                         <AnimatePresence>
                             {isReactionPickerOpen && (
                                 <motion.div
@@ -260,8 +264,8 @@ const StudentPostCard = ({
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: 10 }}
                                     className="absolute bottom-full mb-2 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic dark:shadow-neumorphic-dark p-2 flex space-x-1 z-50"
-                                    onMouseEnter={openReactionPicker}
-                                    onMouseLeave={closeReactionPicker}
+                                    onMouseEnter={openReactionPicker} // Keep open when mouse enters picker
+                                    onMouseLeave={closeReactionPicker} // Close when mouse leaves picker
                                 >
                                     {reactionTypes.map((type) => (
                                         <motion.div
@@ -269,7 +273,7 @@ const StudentPostCard = ({
                                             whileTap={{ scale: 0.9 }}
                                             whileHover={{ scale: 1.2, y: -5 }}
                                             className="p-1 rounded-full group/reaction relative"
-                                            onClick={() => handleReactionSelect(type)}
+                                            onClick={() => handleReactionSelect(type)} // Use the new handler
                                         >
                                             <div className="flex items-center justify-center w-10 h-10 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark transition-shadow duration-200 cursor-pointer shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark">
                                                 <span className="text-2xl">{reactionIcons[type].component({}).props.children}</span>
@@ -281,11 +285,12 @@ const StudentPostCard = ({
                         </AnimatePresence>
                     </div>
 
-                    {/* --- Comment Button --- */}
+                    {/* Comment Button */}
                     <motion.button
                         whileTap={{ scale: 0.95 }}
                         className="flex items-center space-x-2 py-2 px-4 rounded-full text-slate-600 dark:text-slate-400 transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
-                        onClick={() => onViewComments(post)}
+                        // --- THIS IS THE FIX (E) ---
+                        onClick={() => onViewComments(post.id)} // Pass ID, not object
                     >
                         <ChatBubbleLeftIcon className="h-5 w-5" />
                         <span className="font-semibold">Comment</span>

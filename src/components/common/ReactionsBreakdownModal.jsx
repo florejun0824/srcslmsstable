@@ -3,9 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { XMarkIcon } from '@heroicons/react/24/solid';
 import { Tab } from '@headlessui/react';
 import UserInitialsAvatar from './UserInitialsAvatar';
-import Spinner from './Spinner'; // <-- 1. IMPORT Spinner
+import Spinner from './Spinner';
 
-// --- 2. IMPORT FIRESTORE FUNCTIONS ---
+// Import Firestore functions
 import { db } from '../../services/firebase'; // Adjust path if needed
 import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
 
@@ -25,14 +25,13 @@ function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
-// --- 3. REMOVED usersMap from props ---
 const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData }) => {
 
-  // --- 4. ADD NEW STATE for usersMap and loading ---
+  // State for usersMap and loading
   const [usersMap, setUsersMap] = useState({});
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- 5. ADD DATA FETCHING LOGIC ---
+  // Data fetching logic
   const fetchReactingUsers = useCallback(async (reactions) => {
     if (!reactions || Object.keys(reactions).length === 0) {
         setIsLoading(false);
@@ -64,9 +63,9 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData }) => {
     } finally {
         setIsLoading(false);
     }
-  }, []); // Empty dependency array, this function is stable
+  }, []);
 
-  // --- 6. ADD useEffect to run fetch on open ---
+  // Run fetch on open
   useEffect(() => {
     if (isOpen) {
         fetchReactingUsers(reactionsData);
@@ -76,11 +75,16 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData }) => {
         setIsLoading(true);
     }
   }, [isOpen, reactionsData, fetchReactingUsers]);
-  // --- END NEW LOGIC ---
-
 
   const groupedReactions = useMemo(() => {
-    if (!reactionsData) return { all: [], groups: {}, total: 0 };
+    if (!reactionsData) {
+        // If no data, return a fully formed object with empty arrays
+        const emptyGroups = {};
+        reactionTypes.forEach(type => {
+            emptyGroups[type] = [];
+        });
+        return { all: [], groups: emptyGroups, total: 0 };
+    }
 
     const all = [];
     const groups = {};
@@ -88,7 +92,6 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData }) => {
 
     for (const userId in reactionsData) {
       const reactionType = reactionsData[userId];
-      // --- MODIFIED: Use internal usersMap state ---
       const user = usersMap[userId] || { id: userId, firstName: 'Loading...', lastName: '' };
       
       const reactionInfo = {
@@ -106,6 +109,7 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData }) => {
       total++;
     }
 
+    // Ensure all reaction types have an array, even if it's empty
     reactionTypes.forEach(type => {
         if (!groups[type]) {
             groups[type] = [];
@@ -113,13 +117,13 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData }) => {
     });
 
     return { all, groups, total };
-  }, [reactionsData, usersMap]); // Now depends on internal usersMap
+  }, [reactionsData, usersMap]);
 
   const tabs = [
     { name: 'All', count: groupedReactions.total, type: 'all' },
     ...reactionTypes.map(type => ({
       name: reactionIcons[type].component({}).props.children, // Get the emoji
-      count: groupedReactions.groups[type].length,
+      count: groupedReactions.groups[type].length, 
       type: type,
     })).filter(tab => tab.count > 0)
   ];
@@ -170,18 +174,24 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData }) => {
                         )
                       }
                     >
-                      {tab.name}
-                      <span className={classNames(
-                          'ml-1.5 rounded-full px-2 py-0.5 text-xs',
-                          selected ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                      )}>
-                        {tab.count}
-                      </span>
+                      {/* --- THIS IS THE FIX --- */}
+                      {/* We must use a render prop for the content to get 'selected' */}
+                      {({ selected }) => (
+                        <>
+                          {tab.name}
+                          <span className={classNames(
+                              'ml-1.5 rounded-full px-2 py-0.5 text-xs',
+                              selected ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                          )}>
+                            {tab.count}
+                          </span>
+                        </>
+                      )}
+                      {/* --- END OF FIX --- */}
                     </Tab>
                   ))}
                 </Tab.List>
 
-                {/* --- 7. ADD LOADING SPINNER --- */}
                 {isLoading ? (
                     <div className="flex items-center justify-center h-48">
                         <Spinner />
@@ -229,7 +239,6 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData }) => {
                         ))}
                     </Tab.Panels>
                 )}
-                {/* --- END LOADING WRAPPER --- */}
               </Tab.Group>
             </div>
           </motion.div>

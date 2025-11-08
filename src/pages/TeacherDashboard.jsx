@@ -1,26 +1,29 @@
-import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
+// src/pages/TeacherDashboard.jsx
+import React, { useState, useEffect, useMemo, Suspense, lazy, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import {
   addDoc, serverTimestamp, collection, query, where, onSnapshot, orderBy,
   doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, getDocs, writeBatch,
-  runTransaction, Timestamp
+  runTransaction, Timestamp, documentId
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { callGeminiWithLimitCheck, callChatbotAi } from '../services/aiService';
 import { createPresentationFromData } from '../services/googleSlidesService';
 import TeacherDashboardLayout from '../components/teacher/TeacherDashboardLayout';
 import GlobalAiSpinner from '../components/common/GlobalAiSpinner';
+import PublicProfilePage from './PublicProfilePage'; 
 
 import { ConfirmActionModal } from './AdminDashboard'; 
+
+import { useStudentPosts } from '../hooks/useStudentPosts'; 
 
 const PresentationPreviewModal = lazy(() => import('../components/teacher/PresentationPreviewModal'));
 const BetaWarningModal = lazy(() => import('../components/teacher/BetaWarningModal'));
 const ViewLessonModal = lazy(() => import('../components/teacher/ViewLessonModal'));
 const AnalyticsView = lazy(() => import('../components/teacher/dashboard/views/AnalyticsView'));
 
-// --- THIS IS THE HELPER FUNCTION COPIED FROM THE MODAL ---
 // Helper function to format the notes object into a readable string
 const formatNotesToString = (notesObject) => {
     if (!notesObject || typeof notesObject !== 'object') {
@@ -32,19 +35,28 @@ const formatNotesToString = (notesObject) => {
     formattedString += `[SUGGESTED TIMING: ${slideTiming || 'N/A'}]`;
     return formattedString;
 };
-// --- END HELPER FUNCTION ---
 
 const TeacherDashboard = () => {
-  const { user, userProfile, logout, firestoreService, refreshUserProfile } = useAuth();
+  // Get `loading` from useAuth and rename it to `authLoading`
+  const { user, userProfile, logout, firestoreService, refreshUserProfile, loading: authLoading } = useAuth();
+  
   const { showToast } = useToast();
 
   const location = useLocation();
   const navigate = useNavigate();
 
+  // MODIFIED getActiveViewFromPath
   const getActiveViewFromPath = (pathname) => {
     const pathSegment = pathname.substring('/dashboard'.length).split('/')[1]; 
 
+    // Check for public profile URL (e.g., /dashboard/profile/USER_ID_abc)
+    if (pathSegment === 'profile' && pathname.substring('/dashboard'.length).split('/')[2]) {
+        return 'publicProfile';
+    }
+
     switch (pathSegment) {
+      case 'lounge': 
+        return 'lounge';
       case 'studentManagement':
         return 'studentManagement';
       case 'classes':
@@ -61,6 +73,7 @@ const TeacherDashboard = () => {
         return 'home'; 
     }
   };
+  // END OF MODIFICATION
 
   const activeView = getActiveViewFromPath(location.pathname);
 
@@ -73,6 +86,7 @@ const TeacherDashboard = () => {
     setIsSidebarOpen(false);
   };
 
+  // (All existing state hooks remain unchanged)
   const [classes, setClasses] = useState([]);
   const [courses, setCourses] = useState([]);
   const [courseCategories, setCourseCategories] = useState([]);
@@ -139,6 +153,94 @@ const TeacherDashboard = () => {
     message: '',
     onConfirm: () => {},
   });
+
+  // --- ADD LOUNGE STATE & LOGIC ---
+  const [loungePosts, setLoungePosts] = useState([]);
+  const [isLoungeLoading, setIsLoungeLoading] = useState(true);
+  const [loungeUsersMap, setLoungeUsersMap] = useState({});
+  const [hasLoungeFetched, setHasLoungeFetched] = useState(false); // Flag to fetch only once
+
+  // --- THIS IS THE FIX (PART 1) ---
+  // Pass `loungePosts` AND `setLoungePosts` to the hook
+  const loungePostUtils = useStudentPosts(loungePosts, setLoungePosts, userProfile?.id, showToast);
+  // --- END OF FIX (PART 1) ---
+
+  // Add userProfile to usersMap
+  useEffect(() => {
+    if (userProfile?.id) {
+        setLoungeUsersMap(prev => ({
+            ...prev,
+            [userProfile.id]: userProfile
+        }));
+    }
+  }, [userProfile]);
+
+  // fetchMissingUsers logic
+  const fetchMissingLoungeUsers = useCallback(async (userIds) => {
+    const uniqueIds = [...new Set(userIds.filter(id => !!id))];
+    if (uniqueIds.length === 0) return;
+    
+    let usersToFetch = [];
+    setLoungeUsersMap(prevMap => {
+        usersToFetch = uniqueIds.filter(id => !prevMap[id]);
+        return prevMap;
+    });
+
+    if (usersToFetch.length === 0) return;
+    
+    try {
+        for (let i = 0; i < usersToFetch.length; i += 30) {
+            const chunk = usersToFetch.slice(i, i + 30);
+            const usersQuery = query(collection(db, 'users'), where(documentId(), 'in', chunk));
+            const userSnap = await getDocs(usersQuery);
+            const newUsers = {};
+            userSnap.forEach(doc => {
+                newUsers[doc.id] = doc.data();
+            });
+            setLoungeUsersMap(prev => ({ ...prev, ...newUsers }));
+        }
+    } catch (err) {
+        console.error("Error fetching users:", err);
+    }
+  }, []); // Removed loungeUsersMap
+
+
+  // --- THIS IS THE FIX (PART 2) ---
+  // Re-add the `fetchLoungePosts` function that uses `getDocs` (fetch-once)
+  const fetchLoungePosts = useCallback(async () => {
+    if (!userProfile?.id) return;
+    
+    setIsLoungeLoading(true);
+    
+    try {
+      const postsQuery = query(
+        collection(db, 'studentPosts'),
+        where('audience', '==', 'Public'),
+        orderBy('createdAt', 'desc')
+      );
+      const snapshot = await getDocs(postsQuery); // Use getDocs, NOT onSnapshot
+      const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setLoungePosts(posts);
+
+      const userIdsToFetch = new Set();
+      posts.forEach(post => {
+        userIdsToFetch.add(post.authorId);
+        if (post.reactions) {
+            Object.keys(post.reactions).forEach(userId => userIdsToFetch.add(userId));
+        }
+      });
+      await fetchMissingLoungeUsers(Array.from(userIdsToFetch));
+
+    } catch (error) {
+      console.error("Error fetching public posts:", error);
+      showToast("Could not load the Lounge feed.", "error");
+    } finally {
+      setIsLoungeLoading(false);
+      setHasLoungeFetched(true); // Mark as fetched
+    }
+  }, [userProfile?.id, showToast, fetchMissingLoungeUsers]);
+  // --- END OF FIX (PART 2) ---
+
 
     useEffect(() => {
         if (userProfile && messages.length === 0) {
@@ -230,6 +332,22 @@ const TeacherDashboard = () => {
         }
     }, [activeView, showToast]);
 
+    // --- THIS IS THE FIX (PART 3) ---
+    // Re-add the `useEffect` that calls `fetchLoungePosts` ONCE
+    useEffect(() => {
+      // If the view is 'lounge' and we have *not* fetched yet, trigger the fetch.
+      if (activeView === 'lounge' && !hasLoungeFetched && userProfile?.id) {
+          fetchLoungePosts();
+      }
+      // If we navigate *away* from the lounge, reset the fetched flag
+      if (activeView !== 'lounge') {
+          setHasLoungeFetched(false);
+      }
+    }, [activeView, hasLoungeFetched, userProfile?.id, fetchLoungePosts]);
+    // --- END OF FIX (PART 3) ---
+
+
+    // (All handler functions remain unchanged)
     const handleCreateUnit = async (unitData) => {
         if (!unitData || !unitData.subjectId) {
             showToast("Missing data to create the unit.", "error");
@@ -439,7 +557,6 @@ const TeacherDashboard = () => {
         handleGeneratePresentationPreview(ids, data, units);
     };
 
-    // --- THIS IS THE SPINNER FIX ---
     const handleGeneratePresentationPreview = (lessonIds, lessonsData, unitsData) => {
         if (!activeSubject) { 
             showToast("No active subject selected. This is required for folder creation.", "warning"); 
@@ -449,14 +566,11 @@ const TeacherDashboard = () => {
         setIsAiGenerating(true);
         showToast("Gathering content and generating preview...", "info");
 
-        // This setTimeout ensures React re-renders to show the spinner
-        // *before* the heavy blocking code runs.
         setTimeout(async () => {
             try {
                 const selectedLessonsData = lessonsData.filter(l => lessonIds.includes(l.id));
                 if (selectedLessonsData.length === 0) { throw new Error("No lesson data found for the selected IDs."); }
                 
-                // This heavy, synchronous task now runs *after* the spinner is visible.
                 const allLessonContent = selectedLessonsData.map(lesson => { 
                     if (!lesson.pages || lesson.pages.length === 0) { return ''; } 
                     const validPages = lesson.pages.filter(page => page.content && page.content.trim() !== ''); 
@@ -531,11 +645,9 @@ const presentationPrompt = `
             finally { 
                 setIsAiGenerating(false); 
             }
-        }, 0); // The 0ms delay is the key.
+        }, 0); 
     };
-    // --- END OF SPINNER FIX ---
 
-    // --- THIS IS THE "INVALID VALUE" API FIX ---
     const handleCreatePresentation = async () => {
         if (!presentationPreviewData) { showToast("No preview data available to create a presentation.", "error"); return; }
         setIsSavingPresentation(true);
@@ -548,11 +660,9 @@ const presentationPrompt = `
             const sourceTitle = lessonIds.length > 1 ? `${unitName} Summary` : firstLesson.title;
             const presentationTitle = `Presentation for: ${sourceTitle}`;
             
-            // This is the fix: Convert the 'notes' object to a formatted string
             const cleanedSlides = slides.map(slide => ({ 
                 ...slide, 
                 body: slide.body.split('\n').map(line => line.trim()).join('\n'), 
-                // Use the helper function to convert the object to a string
                 notes: formatNotesToString(slide.notes || {}) 
             }));
 
@@ -561,12 +671,10 @@ const presentationPrompt = `
             showToast("Presentation created! You can now copy the notes.", "success");
         } catch (error) { 
             console.error("Presentation Creation Error:", error); 
-            // The error from googleSlidesService.js will bubble up here
             showToast(`Creation Error: ${error.message}`, "error"); 
         }
         finally { setIsSavingPresentation(false); }
     };
-    // --- END OF "INVALID VALUE" FIX ---
 
     const handleInitiateDelete = (type, id, name, subjectId = null) => {
         setDeleteTarget({ type, id, name, subjectId });
@@ -862,6 +970,13 @@ const presentationPrompt = `
     const activeClasses = classes.filter(c => !c.isArchived);
     const archivedClasses = classes.filter(c => c.isArchived);
 
+    // MODIFY THE RETURN STATEMENT
+    // Conditionally render the PublicProfilePage if the view is 'publicProfile'
+    if (activeView === 'publicProfile') {
+      return <PublicProfilePage />;
+    }
+
+    // Otherwise, render the main TeacherDashboardLayout
     return (
         <>
             {isAiGenerating && <GlobalAiSpinner message="AI is generating content... Please wait." />}
@@ -871,6 +986,7 @@ const presentationPrompt = `
                 user={user}
                 userProfile={userProfile}
                 loading={loading}
+                authLoading={authLoading}
                 error={error}
                 activeView={activeView}
                 handleViewChange={handleViewChangeWrapper}
@@ -990,6 +1106,13 @@ const presentationPrompt = `
                 setIsAiHubOpen={setIsAiHubOpen}
 				handleUpdateClass={handleUpdateClass}
                 reloadKey={reloadKey}
+
+                // --- PASS LOUNGE STATE & HANDLERS DOWN ---
+                isLoungeLoading={isLoungeLoading}
+                loungePosts={loungePosts}
+                loungeUsersMap={loungeUsersMap}
+                fetchLoungePosts={fetchLoungePosts} // Pass the fetch-once function
+                loungePostUtils={loungePostUtils} // Pass all hook utils at once
             />
 
             <Suspense fallback={<GlobalAiSpinner message="Loading..." />}>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'; // <-- Added useCallback
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   FaPaperPlane,
   FaEdit,
@@ -19,25 +19,53 @@ import {
   runTransaction,
   getDocs,
   where,
-  documentId
+  documentId,
 } from 'firebase/firestore';
-import { db } from '../../services/firebase'; 
-import ReactionsBreakdownModal from '../common/ReactionsBreakdownModal'; 
-import UserInitialsAvatar from '../common/UserInitialsAvatar'; 
-import Linkify from 'react-linkify'; 
+import { db } from '../../services/firebase';
+import ReactionsBreakdownModal from '../common/ReactionsBreakdownModal';
+import UserInitialsAvatar from '../common/UserInitialsAvatar';
+import Linkify from 'react-linkify';
 
 const reactionTypes = ['like', 'love', 'haha', 'wow', 'sad', 'angry', 'care'];
 
 const NativeEmoji = ({ emoji, ...props }) => <span {...props}>{emoji}</span>;
 
 const reactionIcons = {
-  like: { component: (props) => <NativeEmoji emoji="👍" {...props} />, color: 'text-blue-500 dark:text-blue-400', label: 'Like' },
-  love: { component: (props) => <NativeEmoji emoji="❤️" {...props} />, color: 'text-red-500 dark:text-red-400', label: 'Love' },
-  haha: { component: (props) => <NativeEmoji emoji="😂" {...props} />, color: 'text-yellow-500 dark:text-yellow-400', label: 'Haha' },
-  wow: { component: (props) => <NativeEmoji emoji="😮" {...props} />, color: 'text-amber-500 dark:text-amber-400', label: 'Wow' },
-  sad: { component: (props) => <NativeEmoji emoji="😢" {...props} />, color: 'text-slate-500 dark:text-slate-400', label: 'Sad' },
-  angry: { component: (props) => <NativeEmoji emoji="😡" {...props} />, color: 'text-red-700 dark:text-red-500', label: 'Angry' },
-  care: { component: (props) => <NativeEmoji emoji="🤗" {...props} />, color: 'text-pink-500 dark:text-pink-400', label: 'Care' },
+  like: {
+    component: (props) => <NativeEmoji emoji="👍" {...props} />,
+    color: 'text-blue-500 dark:text-blue-400',
+    label: 'Like',
+  },
+  love: {
+    component: (props) => <NativeEmoji emoji="❤️" {...props} />,
+    color: 'text-red-500 dark:text-red-400',
+    label: 'Love',
+  },
+  haha: {
+    component: (props) => <NativeEmoji emoji="😂" {...props} />,
+    color: 'text-yellow-500 dark:text-yellow-400',
+    label: 'Haha',
+  },
+  wow: {
+    component: (props) => <NativeEmoji emoji="😮" {...props} />,
+    color: 'text-amber-500 dark:text-amber-400',
+    label: 'Wow',
+  },
+  sad: {
+    component: (props) => <NativeEmoji emoji="😢" {...props} />,
+    color: 'text-slate-500 dark:text-slate-400',
+    label: 'Sad',
+  },
+  angry: {
+    component: (props) => <NativeEmoji emoji="😡" {...props} />,
+    color: 'text-red-700 dark:text-red-500',
+    label: 'Angry',
+  },
+  care: {
+    component: (props) => <NativeEmoji emoji="🤗" {...props} />,
+    color: 'text-pink-500 dark:text-pink-400',
+    label: 'Care',
+  },
 };
 
 const componentDecorator = (href, text, key) => (
@@ -59,7 +87,6 @@ const StudentPostCommentsModal = ({
   post,
   userProfile,
   onToggleReaction,
-  // --- REMOVED usersMap prop ---
 }) => {
   const [comments, setComments] = useState([]);
   const [liveCommentCount, setLiveCommentCount] = useState(
@@ -77,20 +104,68 @@ const StudentPostCommentsModal = ({
     useState(false);
   const [reactionsForBreakdownModal, setReactionsForBreakdownModal] =
     useState(null);
-  
-  // --- 1. ADDED usersMap state ---
+
   const [usersMap, setUsersMap] = useState({});
 
   const timeoutRef = useRef(null);
   const commentInputRef = useRef(null);
 
-  const currentUserId = userProfile?.id;
-  const currentUserName = `${userProfile?.firstName || ''} ${userProfile?.lastName || ''}`.trim();
+  // --- FIX 1 (Permissions): Define permission flag ---
+  const canReact =
+    userProfile?.role === 'teacher' ||
+    userProfile?.role === 'admin' ||
+    (userProfile?.canReact || false);
 
-  const commentsCollectionRef = post?.id
-    ? collection(db, `studentPosts/${post.id}/comments`)
-    : null;
-  
+  // --- FIX 2 (Race Condition): Add a ref to track usersMap ---
+  const usersMapRef = useRef(usersMap);
+  useEffect(() => {
+    usersMapRef.current = usersMap;
+  }, [usersMap]);
+
+  // --- FIX 2 (Race Condition): Create a safe fetcher ---
+  const fetchMissingUsers = useCallback(async (userIds) => {
+    const uniqueIds = [...new Set(userIds.filter((id) => !!id))];
+    if (uniqueIds.length === 0) return;
+
+    // Use the ref to get the *current* usersMap
+    const usersToFetch = uniqueIds.filter((id) => !usersMapRef.current[id]);
+
+    if (usersToFetch.length === 0) return;
+
+    try {
+      let newUsers = {};
+      // Batch in groups of 30 (Firebase 'in' query limit)
+      for (let i = 0; i < usersToFetch.length; i += 30) {
+        const chunk = usersToFetch.slice(i, i + 30);
+        const usersQuery = query(
+          collection(db, 'users'),
+          where(documentId(), 'in', chunk),
+        );
+        const userSnap = await getDocs(usersQuery);
+        userSnap.forEach((doc) => {
+          newUsers[doc.id] = doc.data();
+        });
+      }
+      // Use functional update to safely merge new users
+      setUsersMap((prevMap) => ({ ...prevMap, ...newUsers }));
+    } catch (err) {
+      console.error('Error fetching users:', err);
+    }
+  }, []); // <-- Dependency array IS empty. This is correct.
+  // --- END OF FIX 2 ---
+
+  const currentUserId = userProfile?.id;
+  const currentUserName =
+    `${userProfile?.firstName || ''} ${userProfile?.lastName || ''}`.trim();
+
+  // --- FIX 3 (Infinite Loop): Memoize the collection reference ---
+  const commentsCollectionRef = useMemo(() => {
+    return post?.id
+      ? collection(db, `studentPosts/${post.id}/comments`)
+      : null;
+  }, [post?.id]); // <-- Depends ONLY on post.id
+  // --- END OF FIX 3 ---
+
   const postReactions = post?.reactions || {};
 
   useEffect(() => {
@@ -138,58 +213,36 @@ const StudentPostCommentsModal = ({
     setLiveCommentCount(post?.commentsCount || 0);
   }, [post]);
 
-  // --- 2. ADDED fetchMissingUsers logic ---
-  const fetchMissingUsers = useCallback(async (userIds) => {
-    const uniqueIds = [...new Set(userIds.filter(id => !!id))];
-    if (uniqueIds.length === 0) return;
-
-    const usersToFetch = uniqueIds.filter(id => !usersMap[id]);
-    if (usersToFetch.length === 0) return;
-    
-    try {
-        for (let i = 0; i < usersToFetch.length; i += 30) {
-            const chunk = usersToFetch.slice(i, i + 30);
-            const usersQuery = query(collection(db, 'users'), where(documentId(), 'in', chunk));
-            const userSnap = await getDocs(usersQuery);
-            const newUsers = {};
-            userSnap.forEach(doc => {
-                newUsers[doc.id] = doc.data();
-            });
-            setUsersMap(prev => ({ ...prev, ...newUsers }));
-        }
-    } catch (err) {
-        console.error("Error fetching users:", err);
-    }
-  }, [usersMap]);
-
-  // --- 3. ADDED useEffect to pre-load essential users ---
+  // This useEffect now safely uses the new fetchMissingUsers
   useEffect(() => {
-    if (isOpen) {
-        // Pre-load current user and post author
-        const initialUserMap = {
-            [userProfile.id]: userProfile,
-            [post.authorId]: {
-                firstName: post.authorName.split(' ')[0],
-                lastName: post.authorName.split(' ')[1] || '',
-                photoURL: post.authorPhotoURL,
-                id: post.authorId
-            }
-        };
-        setUsersMap(initialUserMap);
+    // Add guard to ensure post and userProfile are loaded
+    if (isOpen && post && userProfile) {
+      // Pre-load current user and post author
+      const initialUserMap = {
+        [userProfile.id]: userProfile,
+        [post.authorId]: {
+          firstName: post.authorName.split(' ')[0],
+          lastName: post.authorName.split(' ')[1] || '',
+          photoURL: post.authorPhotoURL,
+          id: post.authorId,
+        },
+      };
+      setUsersMap(initialUserMap);
 
-        // Fetch users who reacted to the main post
-        if (post.reactions) {
-            fetchMissingUsers(Object.keys(post.reactions));
-        }
+      // Fetch users who reacted to the main post
+      if (post.reactions) {
+        fetchMissingUsers(Object.keys(post.reactions));
+      }
     } else {
-        // Clear state on close
-        setComments([]);
-        setCommentReactions({});
-        setUsersMap({});
+      // Clear state on close or if data is missing
+      setComments([]);
+      setCommentReactions({});
+      setUsersMap({});
     }
   }, [isOpen, post, userProfile, fetchMissingUsers]);
 
   // subscribe to comments and each comment's reactions
+  // This useEffect now safely uses the memoized commentsCollectionRef
   useEffect(() => {
     if (!isOpen || !post?.id || !commentsCollectionRef) {
       setComments([]);
@@ -197,7 +250,10 @@ const StudentPostCommentsModal = ({
       return;
     }
 
-    const commentsQuery = query(commentsCollectionRef, orderBy('createdAt', 'asc'));
+    const commentsQuery = query(
+      commentsCollectionRef,
+      orderBy('createdAt', 'asc'),
+    );
     const unsubscribeComments = onSnapshot(commentsQuery, (snapshot) => {
       const fetchedComments = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -207,23 +263,20 @@ const StudentPostCommentsModal = ({
       setComments(fetchedComments);
       setLiveCommentCount(fetchedComments.length);
 
-      // --- MODIFIED: Gather user IDs from comments ---
-      const commenterIds = fetchedComments.map(c => c.userId);
+      const commenterIds = fetchedComments.map((c) => c.userId);
       fetchMissingUsers(commenterIds);
-      // ---
 
-      // subscribe to reactions for each comment
       const commentReactionUnsubs = fetchedComments.map((comment) => {
         const commentReactionsRef = collection(
           db,
-          `studentPosts/${post.id}/comments/${comment.id}/reactions`, // MODIFIED path
+          `studentPosts/${post.id}/comments/${comment.id}/reactions`,
         );
         return onSnapshot(commentReactionsRef, (reactionSnap) => {
           const reactionsForThisComment = {};
-          const reactorIds = []; 
+          const reactorIds = [];
           reactionSnap.docs.forEach((rDoc) => {
             reactionsForThisComment[rDoc.id] = rDoc.data().reactionType;
-            reactorIds.push(rDoc.id); 
+            reactorIds.push(rDoc.id);
           });
           setCommentReactions((prev) => ({
             ...prev,
@@ -232,19 +285,19 @@ const StudentPostCommentsModal = ({
           fetchMissingUsers(reactorIds); // Fetch users who reacted to comments
         });
       });
-      
+
       return () => commentReactionUnsubs.forEach((unsub) => unsub());
     });
-    
+
     return () => {
       if (unsubscribeComments) unsubscribeComments();
     };
-  }, [isOpen, post?.id, fetchMissingUsers]); // Added fetchMissingUsers
+  }, [isOpen, post?.id, fetchMissingUsers, commentsCollectionRef]); // Now stable
 
   // Posting a comment (handles replies via parentId)
   const handlePostComment = async () => {
     if (!newCommentText.trim() || !commentsCollectionRef) return;
-    const postRef = doc(db, 'studentPosts', post.id); // MODIFIED path
+    const postRef = doc(db, 'studentPosts', post.id);
     const newCommentRef = doc(commentsCollectionRef);
 
     try {
@@ -275,7 +328,7 @@ const StudentPostCommentsModal = ({
 
     const reactionRef = doc(
       db,
-      `studentPosts/${post.id}/comments/${commentId}/reactions`, // MODIFIED path
+      `studentPosts/${post.id}/comments/${commentId}/reactions`,
       currentUserId,
     );
     const currentReaction = commentReactions[commentId]?.[currentUserId];
@@ -294,7 +347,9 @@ const StudentPostCommentsModal = ({
   // prepare reply
   const handleSetReplyTo = (comment) => {
     const userName = usersMap[comment.userId]?.firstName
-      ? `${usersMap[comment.userId].firstName} ${usersMap[comment.userId].lastName}`
+      ? `${usersMap[comment.userId].firstName} ${
+          usersMap[comment.userId].lastName
+        }`
       : 'User';
     setReplyToCommentId(comment.id);
     setReplyToUserName(userName);
@@ -316,7 +371,7 @@ const StudentPostCommentsModal = ({
     if (!editingCommentText.trim() || !editingCommentId) return;
     const commentRef = doc(
       db,
-      `studentPosts/${post.id}/comments`, // MODIFIED path
+      `studentPosts/${post.id}/comments`,
       editingCommentId,
     );
     try {
@@ -340,10 +395,10 @@ const StudentPostCommentsModal = ({
 
     const commentRef = doc(
       db,
-      `studentPosts/${post.id}/comments`, // MODIFIED path
+      `studentPosts/${post.id}/comments`,
       commentId,
     );
-    const postRef = doc(db, 'studentPosts', post.id); // MODIFIED path
+    const postRef = doc(db, 'studentPosts', post.id);
 
     const repliesToDelete = comments.filter((c) => c.parentId === commentId);
 
@@ -364,7 +419,7 @@ const StudentPostCommentsModal = ({
         for (const reply of repliesToDelete) {
           const replyRef = doc(
             db,
-            `studentPosts/${post.id}/comments`, // MODIFIED path
+            `studentPosts/${post.id}/comments`,
             reply.id,
           );
           transaction.delete(replyRef);
@@ -408,9 +463,11 @@ const StudentPostCommentsModal = ({
 
   const renderReactionPicker = (entityId, type, onSelect) => {
     const isActive =
-      activeReactionPicker?.id === entityId && activeReactionPicker?.type === type;
+      activeReactionPicker?.id === entityId &&
+      activeReactionPicker?.type === type;
     const isHovered =
-      hoveredReactionData?.id === entityId && hoveredReactionData?.type === type;
+      hoveredReactionData?.id === entityId &&
+      hoveredReactionData?.type === type;
 
     if (!isActive && !isHovered) return null;
 
@@ -496,7 +553,10 @@ const StudentPostCommentsModal = ({
 
   if (!isOpen || !post) return null;
 
-  const authorUser = usersMap[post.authorId] || { firstName: post.authorName, lastName: '' };
+  const authorUser = usersMap[post.authorId] || {
+    firstName: post.authorName,
+    lastName: '',
+  };
 
   return (
     <div
@@ -548,55 +608,58 @@ const StudentPostCommentsModal = ({
             <div className="flex justify-between items-center text-sm text-slate-500 dark:text-slate-400 border-y border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30 py-2 my-2 max-w-lg pl-4 sm:pl-7">
               <div>{renderReactionCount(postReactions)}</div>
               <span className="text-sm text-slate-500 dark:text-slate-400">
-                {liveCommentCount} {liveCommentCount === 1 ? 'Comment' : 'Comments'}
+                {liveCommentCount}{' '}
+                {liveCommentCount === 1 ? 'Comment' : 'Comments'}
               </span>
             </div>
 
-            {/* Action buttons */}
-            <div className="flex justify-around items-center py-1 mb-4 max-w-lg pl-4 sm:pl-7">
-              <div
-                className="relative flex justify-center"
-                onMouseEnter={() =>
-                  handleReactionOptionsMouseEnter(post.id, 'post')
-                }
-                onMouseLeave={handleReactionOptionsMouseLeave}
-              >
-                <button
-                  className={`flex items-center justify-center py-2 px-5 rounded-full font-semibold transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark ${
-                    postReactions[currentUserId]
-                      ? reactionIcons[postReactions[currentUserId]].color
-                      : 'text-slate-600 dark:text-slate-400'
-                  }`}
-                  onClick={() => toggleReactionPicker(post.id, 'post')}
+            {/* --- FIX 1 (Permissions): Conditionally render action buttons --- */}
+            {canReact && (
+              <div className="flex justify-around items-center py-1 mb-4 max-w-lg pl-4 sm:pl-7">
+                <div
+                  className="relative flex justify-center"
+                  onMouseEnter={() =>
+                    handleReactionOptionsMouseEnter(post.id, 'post')
+                  }
+                  onMouseLeave={handleReactionOptionsMouseLeave}
                 >
-                  {postReactions[currentUserId] ? (
-                    <NativeEmoji
-                      emoji={
-                        reactionIcons[
-                          postReactions[currentUserId]
-                        ].component({}).props.emoji
-                      }
-                      className="text-xl"
-                    />
-                  ) : (
-                    <FaThumbsUp className="h-5 w-5" />
+                  <button
+                    className={`flex items-center justify-center py-2 px-5 rounded-full font-semibold transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark ${
+                      postReactions[currentUserId]
+                        ? reactionIcons[postReactions[currentUserId]].color
+                        : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                    onClick={() => toggleReactionPicker(post.id, 'post')}
+                  >
+                    {postReactions[currentUserId] ? (
+                      <NativeEmoji
+                        emoji={
+                          reactionIcons[postReactions[currentUserId]]
+                            .component({}).props.emoji
+                        }
+                        className="text-xl"
+                      />
+                    ) : (
+                      <FaThumbsUp className="h-5 w-5" />
+                    )}
+                    <span className="capitalize ml-2">
+                      {postReactions[currentUserId] || 'Like'}
+                    </span>
+                  </button>
+                  {renderReactionPicker(post.id, 'post', (type) =>
+                    onToggleReaction(post.id, type),
                   )}
-                  <span className="capitalize ml-2">
-                    {postReactions[currentUserId] || 'Like'}
-                  </span>
+                </div>
+                <button
+                  className="flex items-center justify-center py-2 px-5 rounded-full font-semibold text-slate-600 dark:text-slate-400 transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark"
+                  onClick={() => commentInputRef.current?.focus()}
+                >
+                  <FaComment className="h-5 w-5" />
+                  <span className="ml-2">Comment</span>
                 </button>
-                {renderReactionPicker(post.id, 'post', (type) =>
-                  onToggleReaction(post.id, type),
-                )}
               </div>
-              <button
-                className="flex items-center justify-center py-2 px-5 rounded-full font-semibold text-slate-600 dark:text-slate-400 transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark"
-                onClick={() => commentInputRef.current?.focus()}
-              >
-                <FaComment className="h-5 w-5" />
-                <span className="ml-2">Comment</span>
-              </button>
-            </div>
+            )}
+            {/* --- END OF FIX 1 --- */}
 
             {/* Comment list */}
             <div className="space-y-4 pl-4 sm:pl-7">
@@ -610,7 +673,10 @@ const StudentPostCommentsModal = ({
                 const isBeingEdited = editingCommentId === comment.id;
                 const currentUserCommentReaction =
                   commentReactions[comment.id]?.[currentUserId];
-                const commentAuthor = usersMap[comment.userId] || { firstName: 'Unknown', lastName: 'User' };
+                const commentAuthor = usersMap[comment.userId] || {
+                  firstName: 'Unknown',
+                  lastName: 'User',
+                };
 
                 return (
                   <div key={comment.id} className="flex items-start space-x-4">
@@ -681,43 +747,60 @@ const StudentPostCommentsModal = ({
                             </p>
                           )}
                         </div>
+                        {/* --- FIX 1 (Permissions): Conditionally render comment actions --- */}
                         <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 mt-1 pl-2 space-x-3">
                           <span>{formatRelativeTime(comment.createdAt)}</span>
-                          <div
-                            className="relative flex justify-center"
-                            onMouseEnter={() =>
-                              handleReactionOptionsMouseEnter(comment.id, 'comment')
-                            }
-                            onMouseLeave={handleReactionOptionsMouseLeave}
-                          >
-                            <button
-                              className="font-semibold hover:underline"
-                              onClick={() =>
-                                toggleReactionPicker(comment.id, 'comment')
-                              }
-                            >
-                              <span
-                                className={`capitalize ${
-                                  currentUserCommentReaction ? 'text-blue-500 dark:text-blue-400' : ''
-                                }`}
+                          {canReact && (
+                            <>
+                              <div
+                                className="relative flex justify-center"
+                                onMouseEnter={() =>
+                                  handleReactionOptionsMouseEnter(
+                                    comment.id,
+                                    'comment',
+                                  )
+                                }
+                                onMouseLeave={handleReactionOptionsMouseLeave}
                               >
-                                {currentUserCommentReaction || 'Like'}
-                              </span>
-                            </button>
-                            {renderReactionPicker(
-                              comment.id,
-                              'comment',
-                              (type) => handleToggleCommentReaction(comment.id, type),
-                            )}
-                          </div>
-                          <button
-                            className="font-semibold hover:underline"
-                            onClick={() => handleSetReplyTo(comment)}
-                          >
-                            Reply
-                          </button>
-                          {renderReactionCount(commentReactions[comment.id] || {})}
+                                <button
+                                  className="font-semibold hover:underline"
+                                  onClick={() =>
+                                    toggleReactionPicker(comment.id, 'comment')
+                                  }
+                                >
+                                  <span
+                                    className={`capitalize ${
+                                      currentUserCommentReaction
+                                        ? 'text-blue-500 dark:text-blue-400'
+                                        : ''
+                                    }`}
+                                  >
+                                    {currentUserCommentReaction || 'Like'}
+                                  </span>
+                                </button>
+                                {renderReactionPicker(
+                                  comment.id,
+                                  'comment',
+                                  (type) =>
+                                    handleToggleCommentReaction(
+                                      comment.id,
+                                      type,
+                                    ),
+                                )}
+                              </div>
+                              <button
+                                className="font-semibold hover:underline"
+                                onClick={() => handleSetReplyTo(comment)}
+                              >
+                                Reply
+                              </button>
+                            </>
+                          )}
+                          {renderReactionCount(
+                            commentReactions[comment.id] || {},
+                          )}
                         </div>
+                        {/* --- END OF FIX 1 --- */}
                       </div>
 
                       {/* Replies */}
@@ -726,8 +809,11 @@ const StudentPostCommentsModal = ({
                         const isReplyBeingEdited = editingCommentId === reply.id;
                         const currentUserReplyReaction =
                           commentReactions[reply.id]?.[currentUserId];
-                        const replyAuthor = usersMap[reply.userId] || { firstName: 'Unknown', lastName: 'User' };
-                        
+                        const replyAuthor = usersMap[reply.userId] || {
+                          firstName: 'Unknown',
+                          lastName: 'User',
+                        };
+
                         return (
                           <div
                             key={reply.id}
@@ -743,26 +829,32 @@ const StudentPostCommentsModal = ({
                               <div className="ml-2 border-l border-neumorphic-shadow-dark/20 dark:border-neumorphic-shadow-light-dark/20 pl-4">
                                 <div className="max-w-lg">
                                   <div className="relative group bg-neumorphic-base dark:bg-neumorphic-base-dark p-2.5 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark">
-                                    {isCurrentUserReply && !isReplyBeingEdited && (
-                                      <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                          onClick={() => handleStartEditing(reply)}
-                                          className="p-1.5 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                                          title="Edit reply"
-                                        >
-                                          <FaEdit className="w-3 h-3" />
-                                        </button>
-                                        <button
-                                          onClick={() => handleDeleteComment(reply.id)}
-                                          className="p-1.5 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
-                                          title="Delete reply"
-                                        >
-                                          <FaTrash className="w-3 h-3" />
-                                        </button>
-                                      </div>
-                                    )}
+                                    {isCurrentUserReply &&
+                                      !isReplyBeingEdited && (
+                                        <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <button
+                                            onClick={() =>
+                                              handleStartEditing(reply)
+                                            }
+                                            className="p-1.5 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                                            title="Edit reply"
+                                          >
+                                            <FaEdit className="w-3 h-3" />
+                                          </button>
+                                          <button
+                                            onClick={() =>
+                                              handleDeleteComment(reply.id)
+                                            }
+                                            className="p-1.5 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+                                            title="Delete reply"
+                                          >
+                                            <FaTrash className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      )}
                                     <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 pr-10">
-                                      {replyAuthor.firstName} {replyAuthor.lastName}
+                                      {replyAuthor.firstName}{' '}
+                                      {replyAuthor.lastName}
                                     </p>
 
                                     {isReplyBeingEdited ? (
@@ -772,7 +864,9 @@ const StudentPostCommentsModal = ({
                                           rows="2"
                                           value={editingCommentText}
                                           onChange={(e) =>
-                                            setEditingCommentText(e.target.value)
+                                            setEditingCommentText(
+                                              e.target.value,
+                                            )
                                           }
                                           autoFocus
                                         />
@@ -786,7 +880,9 @@ const StudentPostCommentsModal = ({
                                           <button
                                             onClick={handleSaveEdit}
                                             className="px-3 py-1 text-xs font-semibold text-white bg-blue-500 dark:bg-blue-600 rounded-lg shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark disabled:opacity-50"
-                                            disabled={!editingCommentText.trim()}
+                                            disabled={
+                                              !editingCommentText.trim()
+                                            }
                                           >
                                             Save
                                           </button>
@@ -794,56 +890,82 @@ const StudentPostCommentsModal = ({
                                       </div>
                                     ) : (
                                       <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap mt-0.5 break-words">
-                                        <Linkify componentDecorator={componentDecorator}>
+                                        <Linkify
+                                          componentDecorator={
+                                            componentDecorator
+                                          }
+                                        >
                                           {reply.commentText}
                                         </Linkify>
                                       </p>
                                     )}
                                   </div>
 
+                                  {/* --- FIX 1 (Permissions): Conditionally render reply actions --- */}
                                   <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 mt-1 pl-2 space-x-3">
-                                    <span>{formatRelativeTime(reply.createdAt)}</span>
+                                    <span>
+                                      {formatRelativeTime(reply.createdAt)}
+                                    </span>
 
-                                    <div
-                                      className="relative flex justify-center"
-                                      onMouseEnter={() =>
-                                        handleReactionOptionsMouseEnter(
-                                          reply.id,
-                                          'reply',
-                                        )
-                                      }
-                                      onMouseLeave={handleReactionOptionsMouseLeave}
-                                    >
-                                      <button
-                                        className="font-semibold hover:underline"
-                                        onClick={() =>
-                                          toggleReactionPicker(reply.id, 'reply')
-                                        }
-                                      >
-                                        <span
-                                          className={`capitalize ${
-                                            currentUserReplyReaction
-                                              ? 'text-blue-500 dark:text-blue-400'
-                                              : ''
-                                          }`}
+                                    {canReact && (
+                                      <>
+                                        <div
+                                          className="relative flex justify-center"
+                                          onMouseEnter={() =>
+                                            handleReactionOptionsMouseEnter(
+                                              reply.id,
+                                              'reply',
+                                            )
+                                          }
+                                          onMouseLeave={
+                                            handleReactionOptionsMouseLeave
+                                          }
                                         >
-                                          {currentUserReplyReaction || 'Like'}
-                                        </span>
-                                      </button>
-                                      {renderReactionPicker(reply.id, 'reply', (type) =>
-                                        handleToggleCommentReaction(reply.id, type),
-                                      )}
-                                    </div>
-                                    <button
-                                      className="font-semibold hover:underline"
-                                      onClick={() => handleSetReplyTo(reply)}
-                                    >
-                                      Reply
-                                    </button>
+                                          <button
+                                            className="font-semibold hover:underline"
+                                            onClick={() =>
+                                              toggleReactionPicker(
+                                                reply.id,
+                                                'reply',
+                                              )
+                                            }
+                                          >
+                                            <span
+                                              className={`capitalize ${
+                                                currentUserReplyReaction
+                                                  ? 'text-blue-500 dark:text-blue-400'
+                                                  : ''
+                                              }`}
+                                            >
+                                              {currentUserReplyReaction ||
+                                                'Like'}
+                                            </span>
+                                          </button>
+                                          {renderReactionPicker(
+                                            reply.id,
+                                            'reply',
+                                            (type) =>
+                                              handleToggleCommentReaction(
+                                                reply.id,
+                                                type,
+                                              ),
+                                          )}
+                                        </div>
+                                        <button
+                                          className="font-semibold hover:underline"
+                                          onClick={() =>
+                                            handleSetReplyTo(reply)
+                                          }
+                                        >
+                                          Reply
+                                        </button>
+                                      </>
+                                    )}
                                     {renderReactionCount(
                                       commentReactions[reply.id] || {},
                                     )}
                                   </div>
+                                  {/* --- END OF FIX 1 --- */}
                                 </div>
                               </div>
                             </div>
@@ -858,72 +980,83 @@ const StudentPostCommentsModal = ({
           </div>
         </div>
 
+        {/* --- FIX 1 (Permissions): Conditionally render comment input --- */}
         {/* Input Section (not fixed) */}
-        <div className="p-3 border-t border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30 bg-neumorphic-base dark:bg-neumorphic-base-dark">
-          <div>
-            {replyToCommentId && (
-              <div className="mb-2 text-xs text-slate-600 dark:text-slate-400 flex items-center justify-between px-3 max-w-lg pl-7">
-                Replying to{' '}
-                <span className="font-semibold text-slate-800 dark:text-slate-100 ml-1">
-                  {replyToUserName}
-                </span>
-                <button
-                  onClick={() => {
-                    setReplyToCommentId(null);
-                    setReplyToUserName('');
-                  }}
-                  className="p-1.5 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
-                >
-                  <FaTimes className="w-3 h-3" />
-                </button>
-              </div>
-            )}
-            <div className="flex items-start space-x-4">
-              <div className="w-10 h-10 flex-shrink-0">
-                <UserInitialsAvatar
-                  user={userProfile}
-                  size="w-6 h-6 text-sm leading-none"
-                />
-              </div>
-              <div className="relative flex-grow">
-                <div className="max-w-lg">
-                  <textarea
-                    ref={commentInputRef}
-                    className="w-full p-2 pr-12 border-none rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:ring-0 resize-none leading-tight"
-                    rows="1"
-                    placeholder="Add a comment..."
-                    value={newCommentText}
-                    onChange={(e) => setNewCommentText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handlePostComment();
-                      }
-                    }}
-                  />
+        {canReact ? (
+          <div className="p-3 border-t border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30 bg-neumorphic-base dark:bg-neumorphic-base-dark">
+            <div>
+              {replyToCommentId && (
+                <div className="mb-2 text-xs text-slate-600 dark:text-slate-400 flex items-center justify-between px-3 max-w-lg pl-7">
+                  Replying to{' '}
+                  <span className="font-semibold text-slate-800 dark:text-slate-100 ml-1">
+                    {replyToUserName}
+                  </span>
                   <button
-                    onClick={handlePostComment}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark disabled:opacity-50"
-                    disabled={!newCommentText.trim()}
+                    onClick={() => {
+                      setReplyToCommentId(null);
+                      setReplyToUserName('');
+                    }}
+                    className="p-1.5 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
                   >
-                    <FaPaperPlane
-                      className={`w-5 h-5 transition-colors ${
-                        newCommentText.trim() ? 'text-sky-600 dark:text-sky-400' : 'text-slate-400 dark:text-slate-500'
-                      }`}
-                    />
+                    <FaTimes className="w-3 h-3" />
                   </button>
+                </div>
+              )}
+              <div className="flex items-start space-x-4">
+                <div className="w-10 h-10 flex-shrink-0">
+                  <UserInitialsAvatar
+                    user={userProfile}
+                    size="w-6 h-6 text-sm leading-none"
+                  />
+                </div>
+                <div className="relative flex-grow">
+                  <div className="max-w-lg">
+                    <textarea
+                      ref={commentInputRef}
+                      className="w-full p-2 pr-12 border-none rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:ring-0 resize-none leading-tight"
+                      rows="1"
+                      placeholder="Add a comment..."
+                      value={newCommentText}
+                      onChange={(e) => setNewCommentText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handlePostComment();
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={handlePostComment}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark disabled:opacity-50"
+                      disabled={!newCommentText.trim()}
+                    >
+                      <FaPaperPlane
+                        className={`w-5 h-5 transition-colors ${
+                          newCommentText.trim()
+                            ? 'text-sky-600 dark:text-sky-400'
+                            : 'text-slate-400 dark:text-slate-500'
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="p-4 border-t border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30 bg-neumorphic-base dark:bg-neumorphic-base-dark">
+            <p className="text-center text-sm text-slate-500 dark:text-slate-400 font-medium">
+              Reach Level 40 to react and comment.
+            </p>
+          </div>
+        )}
+        {/* --- END OF FIX 1 --- */}
       </div>
 
       <ReactionsBreakdownModal
         isOpen={isReactionsBreakdownModalOpen}
         onClose={closeReactionsBreakdownModal}
         reactionsData={reactionsForBreakdownModal}
-        // --- REMOVED usersMap prop ---
       />
     </div>
   );

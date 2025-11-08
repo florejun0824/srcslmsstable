@@ -21,7 +21,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import { Capacitor } from '@capacitor/core';
 import { StatusBar } from '@capacitor/status-bar';
-import { PushNotifications } from '@capacitor/push-notifications'; // ⬅️ 1. ADD THIS IMPORT
+import { PushNotifications } from '@capacitor/push-notifications';
 import { useAuth } from './contexts/AuthContext'; 
 import Spinner from './components/common/Spinner';
 import LoginPage from './pages/LoginPage';
@@ -31,6 +31,7 @@ import AdminSignup from './pages/AdminSignup';
 import TestPage from './pages/TestPage';
 import { handleAuthRedirect, createPresentationFromData } from './services/googleSlidesService';
 import PostLoginExperience from "./components/PostLoginExperience";
+import PublicProfilePage from './pages/PublicProfilePage'; // <-- This import is still needed
 import UpdateOverlay from './components/UpdateOverlay';
 // Fixed the typo from '*s' to '* as'
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
@@ -38,7 +39,7 @@ import './index.css';
 
 const AVERAGE_BUILD_SECONDS = 300; // 5 minutes
 
-// --- AppRouter Component (Unchanged) ---
+// --- AppRouter Component ---
 const AppRouter = () => {
   const { userProfile, loading } = useAuth();
 
@@ -111,6 +112,7 @@ const AppRouter = () => {
       />
 
       {/* Student Dashboard Routes (Protected) */}
+      {/* This path="/student/*" will now handle all nested routes, including public profiles */}
       <Route 
         path="/student/*" 
         element={
@@ -128,6 +130,7 @@ const AppRouter = () => {
       />
 
       {/* Teacher/Admin Dashboard Routes (Protected) */}
+      {/* This path="/dashboard/*" will now handle all nested routes, including public profiles */}
       <Route 
         path="/dashboard/*" 
         element={
@@ -144,6 +147,14 @@ const AppRouter = () => {
         }
       />
       
+      {/* --- THIS ROUTE IS NOW REMOVED --- */}
+      {/* <Route 
+        path="/profile/:userId" 
+        element={ ... }
+      /> 
+      */}
+      {/* --- END OF REMOVAL --- */}
+
       {/* Default Fallback Route */}
       <Route 
         path="/" 
@@ -268,7 +279,7 @@ export default function App() {
     };
   }, []);
 
-  // --- ⬇️ THIS IS THE MODIFIED FUNCTION ⬇️ ---
+  // --- handleEnter Function (Unchanged) ---
   const handleEnter = () => {
     if (waitingWorker) {
       // 1. Add a one-time listener that waits for the new service worker to take control.
@@ -284,7 +295,6 @@ export default function App() {
       window.location.reload();
     }
   };
-  // --- ⬆️ END OF MODIFICATION ⬆️ ---
   
   // --- Update Overlays (Unchanged) ---
   if (buildStatus === 'building') {
