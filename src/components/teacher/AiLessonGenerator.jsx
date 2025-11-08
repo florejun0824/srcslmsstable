@@ -429,12 +429,21 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             // --- END OF CRITICAL FIX ---
 
 
-            case 'CoreContentPage':
-                taskInstruction = `Generate *one* core content page for this lesson.
-                - **Page Title:** It MUST be exactly: "${extraData.contentTitle}"
-                - **Content:** The content MUST be detail-rich, based *directly* on the source text, and relevant to this page title. Do not omit information from the source text for this topic.`;
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${extraData.contentTitle}",\n    "content": "Detailed markdown content for this specific page..."\n  }\n}`;
-                break;
+			case 'CoreContentPage':
+			                taskInstruction = `Generate *one* core content page for this lesson.
+			                - **Page Title:** It MUST be exactly: "${extraData.contentTitle}"
+
+			                **CRITICAL CONTENT GENERATION RULES (NON-NEGOTIABLE):**
+                
+			                1.  **Information Fidelity:** The generated content must be detail-rich and **100% faithful** to all information, facts, and concepts from the source text relevant to this page title. Do **not** omit key information or concepts.
+                
+			                2.  **Paraphrasing (Copyright):** You are **strictly forbidden** from copying the source text verbatim. You MUST **paraphrase and rewrite** all content in your own words to avoid copyright infringement. The core *ideas* must be preserved, but the *wording* must be original.
+                
+			                3.  **Academic Tone & Audience:** The language MUST be **academic, clear, and informative**. The choice of words must be **strictly appropriate for the target Grade Level** (e.g., ${gradeLevel}) in a Philippine (DepEd) educational context. Do not oversimplify, but ensure clarity.
+			                `;
+                
+			                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${extraData.contentTitle}",\n    "content": "Detailed, *paraphrased*, and academic markdown content for this specific page..."\n  }\n}`;
+			                break;
             
             case 'CheckForUnderstanding':
                 taskInstruction = 'Generate the "Check for Understanding" page. This must be a short, formative activity with 3-4 concept questions or problems based on the core content.';
