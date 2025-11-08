@@ -1,8 +1,7 @@
 // netlify/functions/hf.js
-// Hugging Face Proxy Function for Netlify (updated Nov 2025)
-// Uses Node 18+ native fetch
+// This is the correct, final version.
 
-// 1. FIX: Use the Chat Completion API endpoint specified by the 410 error
+// 1. Use the Chat Completion API endpoint specified by the 410 error
 const HF_API_URL = 'https://router.huggingface.co/hf-inference/v1/chat/completions';
 
 // This is the model name you want to use
@@ -29,14 +28,14 @@ exports.handler = async (event) => {
       };
     }
 
-    // This fetch call is now correct
-    const response = await fetch(HF_API_URL, { // <-- Use correct URL
+    // This fetch call uses the correct URL
+    const response = await fetch(HF_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${HF_API_KEY}`
       },
-      // 2. Use the Chat Completion (OpenAI-compatible) payload
+      // 2. This uses the correct Chat Completion payload
       body: JSON.stringify({
         model: HF_MODEL_NAME, // <-- Specify model here
         messages: [
@@ -56,7 +55,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // 3. Parse the Chat Completion response format
+    // 3. This parses the correct Chat Completion response
     const generatedText = data?.choices?.[0]?.message?.content;
 
     return {
