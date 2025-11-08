@@ -2,8 +2,8 @@
 // Hugging Face Proxy Function for Netlify (updated Nov 2025)
 // Uses Node 18+ native fetch
 
-// 1. FIX: Use the standard Chat Completion API endpoint
-const HF_API_URL = 'https://api-inference.huggingface.co/v1/chat/completions';
+// 1. FIX: Use the Chat Completion API endpoint specified by the 410 error
+const HF_API_URL = 'https://router.huggingface.co/hf-inference/v1/chat/completions';
 
 // This is the model name you want to use
 const HF_MODEL_NAME = 'moonshotai/Kimi-K2-Thinking:novita';
@@ -29,20 +29,20 @@ exports.handler = async (event) => {
       };
     }
 
+    // This fetch call is now correct
     const response = await fetch(HF_API_URL, { // <-- Use correct URL
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${HF_API_KEY}`
       },
-      // 2. FIX: Use the Chat Completion (OpenAI-compatible) payload
+      // 2. Use the Chat Completion (OpenAI-compatible) payload
       body: JSON.stringify({
         model: HF_MODEL_NAME, // <-- Specify model here
         messages: [
           { role: "user", content: prompt }
         ],
         max_tokens: maxOutputTokens
-        // Note: 'max_new_tokens' is 'max_tokens' in this API
       })
     });
 
@@ -56,7 +56,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // 3. FIX: Parse the Chat Completion response format
+    // 3. Parse the Chat Completion response format
     const generatedText = data?.choices?.[0]?.message?.content;
 
     return {
