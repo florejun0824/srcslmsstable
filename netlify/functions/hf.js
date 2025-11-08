@@ -4,8 +4,10 @@
 // 1. FIX: Use the correct router server AND the correct API path
 const HF_API_URL = 'https://router.huggingface.co/v1/chat/completions';
 
-// This is the model name you want to use
-const HF_MODEL_NAME = 'moonshotai/Kimi-K2-Thinking:novita';
+// --- MODIFICATION: Swapped to a model optimized for educational content ---
+// 'google/gemma-2-9b-it' is strong for tutoring and factual accuracy.
+// Added ':fastest' to prioritize speed.
+const HF_MODEL_NAME = 'google/gemma-2-9b-it:fastest';
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
