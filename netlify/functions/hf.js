@@ -1,27 +1,33 @@
-// netlify/functions/hf.js
-// Final corrected version
+// netlify/functions/hf-multimodal.js
+// Multimodal Netlify function using the @huggingface/inference SDK
 
-// 1. FIX: Use the correct router server AND the correct API path
-const HF_API_URL = 'https://router.huggingface.co/v1/chat/completions';
+import { InferenceClient } from "@huggingface/inference";
 
-// --- MODIFICATION: Swapped to a model optimized for educational content ---
-// 'google/gemma-2-9b-it' is strong for tutoring and factual accuracy.
-// Added ':fastest' to prioritize speed.
-const HF_MODEL_NAME = 'google/gemma-2-9b-it:fastest';
+// This is the model name you want to use
+const HF_MODEL_NAME = 'meta-llama/Llama-4-Scout-17B-16E-Instruct'; // The multimodal model
+
+// To run this code, you must:
+// 1. Install the package: npm install @huggingface/inference
+// 2. Configure Netlify to bundle this file (e.g., in netlify.toml)
+// 3. Set the Netlify environment variable **HF_TOKEN** to your Hugging Face API token.
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
-  const HF_API_KEY = process.env.HF_API_KEY;
-  if (!HF_API_KEY) {
-    console.error("HF_API_KEY is not set in Netlify environment variables!");
+  const HF_TOKEN = process.env.HF_TOKEN;
+  if (!HF_TOKEN) {
+    console.error("HF_TOKEN is not set in Netlify environment variables!");
     return { statusCode: 500, body: 'API Key not configured.' };
   }
 
+  // Initialize the client with the token
+  const client = new InferenceClient(HF_TOKEN);
+
   try {
-    const { prompt, maxOutputTokens = 2048 } = JSON.parse(event.body || '{}');
+    // Expecting prompt (string) and an optional imageUrl (string) from the client
+    const { prompt, imageUrl, maxOutputTokens = 2048 } = JSON.parse(event.body || '{}');
 
     if (!prompt || typeof prompt !== 'string') {
       return {
@@ -30,35 +36,43 @@ exports.handler = async (event) => {
       };
     }
 
-    // This fetch call is now correct
-    const response = await fetch(HF_API_URL, { // <-- Use correct URL
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${HF_API_KEY}`
-      },
-      // 2. Use the Chat Completion (OpenAI-compatible) payload
-      body: JSON.stringify({
-        model: HF_MODEL_NAME, // <-- Specify model here
-        messages: [
-          { role: "user", content: prompt }
-        ],
-        max_tokens: maxOutputTokens
-      })
-    });
+    // Construct the multimodal message array
+    const messageContent = [
+        {
+            type: "text",
+            text: prompt,
+        }
+    ];
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('Hugging Face API error:', data);
-      return {
-        statusCode: response.status,
-        body: JSON.stringify({ message: 'External API Error', details: data })
-      };
+    if (imageUrl) {
+        // Add the image content block if an image URL is provided
+        messageContent.push({
+            type: "image_url",
+            image_url: {
+                // Note: The Hugging Face client documentation often suggests
+                // using a Base64 data URI (data:image/jpeg;base64,...) for
+                // image_url. If this external URL fails, you may need to
+                // convert the image to Base64 first.
+                url: imageUrl, 
+            },
+        });
     }
 
-    // 3. Parse the Chat Completion response format
-    const generatedText = data?.choices?.[0]?.message?.content;
+    // Call the chat completion API
+    const chatCompletion = await client.chatCompletion({
+      model: HF_MODEL_NAME, 
+      messages: [
+        { 
+          role: "user", 
+          content: messageContent, // <-- Multimodal content array
+        },
+      ],
+      // The @huggingface/inference SDK uses max_new_tokens for the output length
+      max_new_tokens: maxOutputTokens 
+    });
+
+    // Parse the Chat Completion response format
+    const generatedText = chatCompletion.choices?.[0]?.message?.content;
 
     return {
       statusCode: 200,
