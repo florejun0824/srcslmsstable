@@ -25,7 +25,7 @@ const API_CONFIGS = [
     // --- Gemini Endpoints (3) ---
     { service: 'gemini', model: GEMINI_MODEL, apiKey: GEMINI_API_KEY, url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, name: 'Gemini Primary' },
     { service: 'gemini', model: GEMINI_MODEL, apiKey: GEMINI_FALLBACK_API_KEY, url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_FALLBACK_API_KEY}`, name: 'Gemini Fallback 1' },
-    { service: 'gemini', model: GEMINI_MODEL, apiKey: GEMINI_FALLBACK_API_KEY_2, url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_FALLBACK_API_KEY_2}`, name: 'Gemini Fallback 2' },
+
     // --- Groq Endpoints (2) ---
     { service: 'groq', model: GROQ_MODEL_1, apiKey: GROQ_API_KEY, url: GROQ_BASE_URL, name: `Groq (${GROQ_MODEL_1})` },
     { service: 'groq', model: GROQ_MODEL_2, apiKey: GROQ_API_KEY, url: GROQ_BASE_URL, name: `Groq (${GROQ_MODEL_2})` },
