@@ -1,23 +1,40 @@
 import { db } from './firebase';
 import { doc, getDoc, updateDoc, setDoc, increment } from 'firebase/firestore';
 
+// --- API Keys ---
+// HF_API_KEY is now only used for model identification and is NOT sent to the Netlify Function.
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_FALLBACK_API_KEY = import.meta.env.VITE_GEMINI_FALLBACK_API_KEY;
 const GEMINI_FALLBACK_API_KEY_2 = import.meta.env.VITE_GEMINI_FALLBACK_API_KEY_2;
-const GEMINI_FALLBACK_API_KEY_3 = import.meta.env.VITE_GEMINI_FALLBACK_API_KEY_3;
-const GEMINI_FALLBACK_API_KEY_4 = import.meta.env.VITE_GEMINI_FALLBACK_API_KEY_4;
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
+const HF_API_KEY = import.meta.env.VITE_HF_API_KEY; 
 
+// --- Model & URL Definitions ---
 const GEMINI_MODEL = 'gemini-2.5-flash';
 
-const API_URLS = [
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_FALLBACK_API_KEY}`,
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_FALLBACK_API_KEY_2}`,
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_FALLBACK_API_KEY_3}`,
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_FALLBACK_API_KEY_4}`
+// Groq models (UNCHANGED, using Groq API)
+const GROQ_BASE_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL_1 = 'moonshotai/kimi-k2-instruct';
+const GROQ_MODEL_2 = 'moonshotai/kimi-k2-instruct-0905';
+
+// Hugging Face model (Used for identification only)
+const HF_MODEL = 'moonshotai/Kimi-K2-Thinking';
+
+// --- Unified API Configuration (6 Total Endpoints) ---
+const API_CONFIGS = [
+    // --- Gemini Endpoints (3) ---
+    { service: 'gemini', model: GEMINI_MODEL, apiKey: GEMINI_API_KEY, url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, name: 'Gemini Primary' },
+    { service: 'gemini', model: GEMINI_MODEL, apiKey: GEMINI_FALLBACK_API_KEY, url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_FALLBACK_API_KEY}`, name: 'Gemini Fallback 1' },
+    { service: 'gemini', model: GEMINI_MODEL, apiKey: GEMINI_FALLBACK_API_KEY_2, url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_FALLBACK_API_KEY_2}`, name: 'Gemini Fallback 2' },
+    // --- Groq Endpoints (2) ---
+    { service: 'groq', model: GROQ_MODEL_1, apiKey: GROQ_API_KEY, url: GROQ_BASE_URL, name: `Groq (${GROQ_MODEL_1})` },
+    { service: 'groq', model: GROQ_MODEL_2, apiKey: GROQ_API_KEY, url: GROQ_BASE_URL, name: `Groq (${GROQ_MODEL_2})` },
+    // --- Hugging Face Endpoint (1) ---
+    // URL NOW POINTS TO THE NETLIFY PROXY REDIRECT
+    { service: 'huggingface', model: HF_MODEL, apiKey: HF_API_KEY, url: `/api/hf`, name: `HuggingFace (${HF_MODEL})` }
 ];
 
-const NUM_KEYS = API_URLS.length;
+const NUM_CONFIGS = API_CONFIGS.length;
 let currentApiIndex = 0;
 
 const FREE_API_CALL_LIMIT_PER_MONTH = 500000;
@@ -31,6 +48,7 @@ let usageCache = {
 };
 const CACHE_DURATION_MS = 60000;
 
+// --- Usage Tracking (Unchanged) ---
 const checkAiLimitReached = async () => {
     const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
     const currentTime = Date.now();
@@ -75,7 +93,8 @@ const checkAiLimitReached = async () => {
     }
 };
 
-const callGeminiApiInternal = async (prompt, jsonMode = false, apiUrl) => {
+// --- Internal Gemini API Caller (Unchanged) ---
+const callGeminiApiInternal = async (prompt, jsonMode = false, config, maxOutputTokens = undefined) => {
     const body = {
         contents: [{ parts: [{ text: prompt }] }],
         safetySettings: [
@@ -83,11 +102,18 @@ const callGeminiApiInternal = async (prompt, jsonMode = false, apiUrl) => {
          ],
     };
 
+    const generationConfig = {};
     if (jsonMode) {
-        body.generationConfig = { responseMimeType: "application/json" };
+        generationConfig.responseMimeType = "application/json";
+    }
+    if (maxOutputTokens) {
+        generationConfig.maxOutputTokens = maxOutputTokens;
+    }
+    if (Object.keys(generationConfig).length > 0) {
+        body.generationConfig = generationConfig;
     }
 
-    const response = await fetch(apiUrl, {
+    const response = await fetch(config.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -133,41 +159,167 @@ const callGeminiApiInternal = async (prompt, jsonMode = false, apiUrl) => {
     return textPart;
 };
 
-const callGeminiWithLoadBalancing = async (prompt, jsonMode = false) => {
+// --- Internal Groq API Caller (Unchanged) ---
+const callGroqApiInternal = async (prompt, jsonMode = false, config, maxOutputTokens = undefined) => {
+    const body = {
+        model: config.model,
+        messages: [{ role: "user", content: prompt }],
+    };
+
+    if (jsonMode) {
+        body.response_format = { type: "json_object" };
+    }
+    if (maxOutputTokens) {
+        body.max_tokens = maxOutputTokens;
+    }
+
+    const response = await fetch(config.url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${config.apiKey}`
+        },
+        body: JSON.stringify(body),
+    });
+
+    if (response.status === 429 || response.status === 503) {
+        const error = new Error(response.status === 429 ? "Rate limit exceeded." : "Model is overloaded or unavailable.");
+        error.status = response.status;
+        throw error;
+    }
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Groq API call failed: ${response.status}. Response: ${errorText}`);
+        throw new Error(`Groq API failed: ${response.status}. ${errorText.substring(0, 200)}`);
+    }
+
+    let data;
+    let rawResponseTextForError = '';
+    try {
+        rawResponseTextForError = await response.text();
+        data = JSON.parse(rawResponseTextForError);
+    } catch (jsonError) {
+        console.error("Failed to parse AI response as JSON.", jsonError);
+        console.error("Raw AI Response (non-JSON):", rawResponseTextForError);
+        throw new Error(`AI response was not valid JSON. Raw: ${rawResponseTextForError.substring(0, 500)}...`);
+    }
+
+    const textPart = data.choices?.[0]?.message?.content;
+    if (!textPart) {
+        if (data.choices?.[0]?.finish_reason === 'content_filter') {
+            console.warn("AI response blocked due to content filter.");
+            throw new Error("AI response blocked due to safety/content settings.");
+        }
+        console.error("Invalid response structure from AI (Groq):", JSON.stringify(data, null, 2));
+        throw new Error("AI response was not in the expected format.");
+    }
+
+    return textPart;
+}
+
+// --- Internal Hugging Face API Caller (UPDATED TO USE PROXY) ---
+const callHFApiInternal = async (prompt, jsonMode = false, config, maxOutputTokens = undefined) => {
+    
+    // 1. Send request to the Netlify proxy endpoint (`/api/hf`)
+    const response = await fetch(config.url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            // No API Key is sent from the client! The Netlify function handles the key securely.
+        },
+        body: JSON.stringify({ 
+            prompt: prompt,
+            maxOutputTokens: maxOutputTokens // Pass parameters to the serverless function
+        }),
+    });
+
+    if (!response.ok) {
+        // The Netlify function should handle 429/503 internally, but if it returns an error status
+        const errorText = await response.text();
+        console.error(`Netlify Proxy Function Failed: ${response.status}. Response: ${errorText}`);
+        throw new Error(`Netlify Proxy failed: ${response.status}. ${errorText.substring(0, 200)}`);
+    }
+
+    let data;
+    try {
+        // 2. The data returned is the JSON from the Netlify Function
+        data = await response.json();
+    } catch (jsonError) {
+        // This handles issues where the function might fail to return valid JSON
+        throw new Error(`Failed to parse JSON response from Netlify proxy.`);
+    }
+
+    // 3. Extract the text (assuming the Netlify function returns { text: '...' })
+    const fullText = data.text;
+    
+    if (!fullText) {
+        console.error("Invalid response structure from Proxy:", JSON.stringify(data, null, 2));
+        throw new Error("Proxy response was not in the expected format (missing 'text' field).");
+    }
+
+    // 4. Clean the output text from the prompt (required for HF Inference API output)
+    const generatedText = fullText.substring(prompt.length).trim();
+    
+    // This Llama/Instruct split logic is a general safeguard for Instruction-tuned models like Kimi
+    if (generatedText === fullText.trim() && fullText.toLowerCase().includes(prompt.toLowerCase())) {
+        const instructionSplit = generatedText.split('[/INST]');
+        if (instructionSplit.length > 1) {
+             return instructionSplit[instructionSplit.length - 1].trim();
+        }
+    }
+
+    return generatedText;
+}
+
+// --- Load Balancer (Unchanged) ---
+const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTokens = undefined) => {
     const startIndex = currentApiIndex;
     
-    currentApiIndex = (currentApiIndex + 1) % NUM_KEYS;
+    currentApiIndex = (currentApiIndex + 1) % NUM_CONFIGS;
 
     const errors = {};
 
-    for (let i = 0; i < NUM_KEYS; i++) {
-        const keyIndex = (startIndex + i) % NUM_KEYS;
-        const apiUrl = API_URLS[keyIndex];
-        const keyName = `Key ${String.fromCharCode(65 + keyIndex)}`;
+    for (let i = 0; i < NUM_CONFIGS; i++) {
+        const keyIndex = (startIndex + i) % NUM_CONFIGS;
+        const config = API_CONFIGS[keyIndex];
+        const keyName = config.name;
 
-        try {
-            console.log(`Attempting Gemini API with ${keyName} (Index ${keyIndex})...`);
-            const response = await callGeminiApiInternal(prompt, jsonMode, apiUrl);
+		try {
+		    console.log(`Attempting AI API with ${keyName} (Index ${keyIndex})...`);
+            let response;
             
-            console.log(`Gemini API call with ${keyName} successful.`);
+            if (config.service === 'gemini') {
+                response = await callGeminiApiInternal(prompt, jsonMode, config, maxOutputTokens);
+            } else if (config.service === 'groq') {
+                response = await callGroqApiInternal(prompt, jsonMode, config, maxOutputTokens);
+            } else if (config.service === 'huggingface') {
+                response = await callHFApiInternal(prompt, jsonMode, config, maxOutputTokens);
+            } else {
+                throw new Error(`Unknown service type: ${config.service}`);
+            }
+					
+            console.log(`AI API call with ${keyName} successful.`);
             return response;
 
         } catch (error) {
             errors[keyName] = error.message;
 
             if (error.status === 429 || error.status === 503) {
-                console.warn(`Gemini API ${keyName} failed: ${error.message}. Failing over to next key...`);
+                console.warn(`AI API ${keyName} failed: ${error.message}. Waiting 2 seconds before retry...`);
+                await delay(2000); // Wait 2 seconds before trying the next key
             } else {
-                console.error(`Gemini API ${keyName} failed with non-retryable error.`, error);
+                console.error(`AI API ${keyName} failed with non-retryable error.`, error);
                 throw error;
             }
         }
     }
 
-    console.error("All Gemini keys failed.", errors);
-    throw new Error(`All Gemini keys failed: ${JSON.stringify(errors)}`);
+    console.error("All AI keys failed.", errors);
+    throw new Error(`All AI keys failed: ${JSON.stringify(errors)}`);
 };
 
+// --- Exported Functions (Names Retained) ---
 export const callGeminiWithLimitCheck = async (prompt) => {
     const limitReached = await checkAiLimitReached();
     if (limitReached) {
@@ -186,7 +338,7 @@ export const callGeminiWithLimitCheck = async (prompt) => {
         return rawResponse.replace(/^```json\s*|```$/g, '').trim();
 
     } catch (error) {
-        usageCache.callCount -= 1;
+        usageCache.callCount -= 1; 
         console.error("callGeminiWithLimitCheck failed:", error);
         throw error;
     }
@@ -255,11 +407,11 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
         console.log("AI Grading (Load Balanced) successful:", validatedData);
         return validatedData;
 
-    } catch (error) {
+    } catch (error) { 
         usageCache.callCount -= 1;
         console.error("gradeEssayWithAI failed:", error);
         throw error;
-    }
+    } 
 };
 
 function validateAndCleanGradingResponse(data, validRubric, source = "AI") {

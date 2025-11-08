@@ -1,11 +1,28 @@
+# netlify.toml
+
 [build]
   command = "npm run build"
   publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "20"                # use LTS Node (lighter than v22)
-  NODE_OPTIONS = "--max-old-space-size=6144" # give Netlify 6GB RAM for build
+  NODE_VERSION = "20"
+  NODE_OPTIONS = "--max-old-space-size=6144"
+  
+# --- CORRECTED DEVELOPMENT SECTION ---
+[dev]
+  # Tell Netlify Dev where to find the source of the website files (your running Vite server)
+  targetPort = 5173 
+  # Set the port where Netlify Dev itself will run
+  port = 8888 
+# -------------------------------------
 
+# --- 1. FUNCTION REDIRECT (PROXY) ---
+[[redirects]]
+  from = "/api/hf"
+  to = "/.netlify/functions/call-hf-api"
+  status = 200
+
+# --- 2. SPA REDIRECT (CATCH-ALL) ---
 [[redirects]]
   from = "/*"
   to = "/index.html"

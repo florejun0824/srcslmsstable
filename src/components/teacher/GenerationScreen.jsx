@@ -193,11 +193,40 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
       ]\n}`;
             break;
 
+// [New code for line ~291]
+
         case 'CoreContentPage':
+            // --- MODIFICATION START ---
+            // Destructure the new context data. Provide defaults for safety.
+            const allTitles = extraData.allContentTitles || [extraData.contentTitle];
+            const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
+            const currentTitle = extraData.contentTitle;
+
+            // Build a dynamic instruction to "fence in" the AI
+            const contentContextInstruction = `
+            **CRITICAL CONTENT BOUNDARIES (NON-NEGOTIABLE):**
+            This lesson's core content is divided into ${allTitles.length} main page(s).
+            
+            **This is Page ${currentIndex + 1} of ${allTitles.length}.**
+            
+            - **Your Page Title:** "${currentTitle}"
+            - **All Page Titles (in order):** ${allTitles.map((t, i) => `\n  ${i + 1}. ${t} ${i === currentIndex ? "(THIS IS YOUR PAGE)" : ""}`).join('')}
+
+            **YOUR TASK:**
+            1.  You are **strictly forbidden** from discussing topics belonging to the *other* page titles.
+            2.  Your content MUST focus *exclusively* on the material relevant *only* to your assigned title: "**${currentTitle}**".
+            3.  Do NOT repeat content from previous pages. Do NOT summarize the entire lesson.
+            `;
+            // --- MODIFICATION END ---
+
             taskInstruction = `Generate *one* core content page for this lesson.
-            - **Page Title:** It MUST be exactly: "${extraData.contentTitle}"
-            - **Content:** The content MUST be detail-rich, narrative-driven, and relevant to this page title, adhering to all Master Instructions.`;
-            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${extraData.contentTitle}",\n    "content": "Detailed markdown content for this specific page, including interactive blockquotes..."\n  }\n}`;
+            - **Page Title:** It MUST be exactly: "${currentTitle}"
+
+            ${contentContextInstruction}
+
+            - **Content:** The content MUST be detail-rich, narrative-driven, and relevant *only* to this page title, adhering to all Master Instructions.`;
+            
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed markdown content for **this specific page only**, including interactive blockquotes..."\n  }\n}`;
             break;
         
         case 'CheckForUnderstanding':
@@ -525,16 +554,34 @@ export default function GenerationScreen({
                 const activityData = await generateLessonComponent(guideData, baseContext, plan, 'LetsGetStarted', isMounted, masterInstructions, styleRules, {});
                 newLesson.pages.push(activityData.page);
 
+// [Code from line ~689]
+
                 const contentPlannerData = await generateLessonComponent(guideData, baseContext, plan, 'CoreContentPlanner', isMounted, masterInstructions, styleRules, {});
                 const contentPlanTitles = contentPlannerData.coreContentTitles || [];
                 
-                for (const contentTitle of contentPlanTitles) {
+                // --- MODIFICATION START: Use entries() to get index ---
+                for (const [contentIndex, contentTitle] of contentPlanTitles.entries()) {
                     // --- ABORT FIX ---
                     if (!isMounted.current) return;
                     
-                    const contentPageData = await generateLessonComponent(guideData, baseContext, plan, 'CoreContentPage', isMounted, masterInstructions, styleRules, { contentTitle });
+                    const contentPageData = await generateLessonComponent(
+                        guideData, 
+                        baseContext, 
+                        plan, 
+                        'CoreContentPage', 
+                        isMounted, 
+                        masterInstructions, 
+                        styleRules, 
+                        // --- THIS IS THE FIX ---
+                        { 
+                            contentTitle: contentTitle,
+                            allContentTitles: contentPlanTitles,
+                            currentIndex: contentIndex
+                        }
+                    );
                     newLesson.pages.push(contentPageData.page);
                 }
+                // --- MODIFICATION END ---
                 
                 const standardPages = ['CheckForUnderstanding', 'LessonSummary', 'WrapUp', 'EndofLessonAssessment', 'AnswerKey', 'References'];
                 for (const pageType of standardPages) {

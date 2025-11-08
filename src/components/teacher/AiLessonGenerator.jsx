@@ -430,20 +430,45 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
 
 			case 'CoreContentPage':
-			                taskInstruction = `Generate *one* core content page for this lesson.
-			                - **Page Title:** It MUST be exactly: "${extraData.contentTitle}"
+			                // --- MODIFICATION START ---
+			                // Destructure the new context data. Provide defaults for safety.
+			                const allTitles = extraData.allContentTitles || [extraData.contentTitle];
+			                const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
+			                const currentTitle = extraData.contentTitle;
 
-			                **CRITICAL CONTENT GENERATION RULES (NON-NEGOTIABLE):**
+			                // Build a dynamic instruction to "fence in" the AI
+			                const contentContextInstruction = `
+			                **CRITICAL CONTENT BOUNDARIES (NON-NEGOTIABLE):**
+			                This lesson's core content is divided into ${allTitles.length} main page(s).
                 
-			                1.  **Information Fidelity:** The generated content must be detail-rich and **100% faithful** to all information, facts, and concepts from the source text relevant to this page title. Do **not** omit key information or concepts.
+			                **This is Page ${currentIndex + 1} of ${allTitles.length}.**
                 
-			                2.  **Paraphrasing (Copyright):** You are **strictly forbidden** from copying the source text verbatim. You MUST **paraphrase and rewrite** all content in your own words to avoid copyright infringement. The core *ideas* must be preserved, but the *wording* must be original.
-                
-			                3.  **Academic Tone & Audience:** The language MUST be **academic, clear, and informative**. The choice of words must be **strictly appropriate for the target Grade Level** (e.g., ${gradeLevel}) in a Philippine (DepEd) educational context. Do not oversimplify, but ensure clarity.
+			                - **Your Page Title:** "${currentTitle}"
+			                - **All Page Titles (in order):** ${allTitles.map((t, i) => `\n  ${i + 1}. ${t} ${i === currentIndex ? "(THIS IS YOUR PAGE)" : ""}`).join('')}
+
+			                **YOUR TASK:**
+			                1.  You are **strictly forbidden** from discussing topics belonging to the *other* page titles.
+			                2.  Your content MUST focus *exclusively* on the material from the source text that is relevant *only* to your assigned title: "**${currentTitle}**".
+			                3.  Do NOT repeat content from previous pages. Do NOT summarize the entire document.
 			                `;
+			                // --- MODIFICATION END ---
+
+						                taskInstruction = `Generate *one* core content page for this lesson.
+						                - **Page Title:** It MUST be exactly: "${currentTitle}"
+
+						                ${contentContextInstruction}
+
+						                **CRITICAL CONTENT GENERATION RULES (NON-NEGOTIABLE):**
                 
-			                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${extraData.contentTitle}",\n    "content": "Detailed, *paraphrased*, and academic markdown content for this specific page..."\n  }\n}`;
-			                break;
+						                1.  **Information Fidelity:** The generated content must be detail-rich and **100% faithful** to all information, facts, and concepts from the source text relevant to **your specific page title**. Do **not** omit key information or concepts *from your section*.
+                
+						                2.  **Paraphrasing (Copyright):** You are **strictly forbidden** from copying the source text verbatim. You MUST **paraphrase and rewrite** all content in your own words to avoid copyright infringement. The core *ideas* must be preserved, but the *wording* must be original.
+                
+						                3.  **Academic Tone & Audience:** The language MUST be **academic, clear, and informative**. The choice of words must be **strictly appropriate for the target Grade Level** (e.g., ${gradeLevel}) in a Philippine (DepEd) educational context. Do not oversimplify, but ensure clarity.
+						                `;
+                
+						                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed, *paraphrased*, and academic markdown content for **this specific page only**..."\n  }\n}`;
+						                break;
             
             case 'CheckForUnderstanding':
                 taskInstruction = 'Generate the "Check for Understanding" page. This must be a short, formative activity with 3-4 concept questions or problems based on the core content.';
@@ -515,8 +540,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
             try {
                 // 1. Attempt the AI call
-                const aiResponse = await callGeminiWithLimitCheck(prompt);
-                
+               const aiResponse = await callGeminiWithLimitCheck(prompt, { maxOutputTokens: 8192 });
                 // --- 5. ADD ABORT CHECK ---
                 if (!isMountedRef.current) throw new Error("Generation aborted by user.");
 
@@ -584,7 +608,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             const baseContext = getBasePromptContext();
             const plannerPrompt = getPlannerPrompt(sourceText, baseContext);
 
-            const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt);
+const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutputTokens: 8192 });
             
             // --- ABORT CHECK ---
             if (!isMounted.current) return;
@@ -685,14 +709,31 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     // --- ABORT CHECK ---
                     if (!isMounted.current) return;
 
-                    // --- Core Content Worker Loop (This will now loop as many times as needed) ---
+// --- Core Content Worker Loop (This will now loop as many times as needed) ---
                     for (const [contentIndex, contentTitle] of contentPlanTitles.entries()) {
                         
                         // --- ABORT CHECK ---
                         if (!isMounted.current) return;
 
                         setProgressMessage(`Building ${numberedPlan.lessonTitle}: Content ${contentIndex + 1}/${contentPlanTitles.length}...`);
-                        const contentPageData = await generateLessonComponent(sourceText, baseContext, numberedPlan, 'CoreContentPage', isMounted, { contentTitle }); // Pass isMounted
+                        
+                        // --- MODIFICATION START ---
+                        // Pass the full context (all titles and current index) to the component generator
+                        // This allows the prompt to build a "fence" around the AI's task.
+                        const contentPageData = await generateLessonComponent(
+                            sourceText, 
+                            baseContext, 
+                            numberedPlan, 
+                            'CoreContentPage', 
+                            isMounted, 
+                            { 
+                                contentTitle: contentTitle,
+                                allContentTitles: contentPlanTitles,
+                                currentIndex: contentIndex
+                            }
+                        ); 
+                        // --- MODIFICATION END ---
+
                         newLesson.pages.push(contentPageData.page);
                     }
                     
