@@ -294,62 +294,79 @@ function markdownToDocx(content) {
     return paragraphs;
 }
 
+// --- START MODIFICATION ---
 const convertSvgStringToPngDataUrl = (svgString) => {
     return new Promise((resolve, reject) => {
-        let correctedSvgString = svgString;
+        // 1. Define a max width that fits within A4/Letter margins (approx 6.5in * 96dpi, minus padding)
+        const MAX_WIDTH = 550; // 550 pixels
 
-        // --- START MODIFICATION ---
-        // 1. Fix malformed xmlns attributes that might contain markdown
-        // This regex looks for the specific broken xmlns string and replaces it.
+        let correctedSvgString = svgString;
+        
+        // Fix malformed xmlns attributes that might contain markdown
         correctedSvgString = correctedSvgString.replace(
             /xmlns="\[http:\/\/www\.w3\.org\/2000\/svg\]\(http:\/\/www\.w3\.org\/2000\/svg\)"/g,
             'xmlns="http://www.w3.org/2000/svg"'
         );
-        // --- END MODIFICATION ---
 
         if (!correctedSvgString.includes('xmlns=')) {
             correctedSvgString = correctedSvgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
         }
-        const defaultStyles = `<style>.center-node { fill: #cce5ff; stroke: #007bff; stroke-width: 2; } .node { fill: #e7f5ff; stroke: #007bff; stroke-width: 1.5; } text, .label, .center-node text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; font-size: 14px; text-anchor: middle; fill: #333; } .arrow { stroke: #555; stroke-width: 2px; marker-end: url(#arrowhead); }</style>`;
-        if (correctedSvgString.includes('</defs>')) {
-             correctedSvgString = correctedSvgString.replace('</defs>', `</defs>${defaultStyles}`);
-        } else {
-             correctedSvgString = correctedSvgString.replace('>', `>${defaultStyles}`);
-        }
         
         const img = new Image();
-
-        // --- START MODIFICATION ---
-        // 2. Change encoding from encodeURIComponent to Base64 for robustness.
-        // This correctly handles UTF-8 characters and special characters in the SVG string.
+        // Use Base64 encoding for robustness
         const dataUri = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(correctedSvgString)))}`;
-        // --- END MODIFICATION ---
         
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const fallbackWidth = 600; 
-            let { width, height } = img;
-            if (!width || !height) {
-                const viewBoxMatch = correctedSvgString.match(/viewBox="([0-9\s.,-]+)"/);
-                if (viewBoxMatch && viewBoxMatch[1]) {
-                    const viewBox = viewBoxMatch[1].split(/[,\s]+/);
-                    const viewBoxWidth = parseFloat(viewBox[2]);
-                    const viewBoxHeight = parseFloat(viewBox[3]);
-                    if (viewBoxWidth && viewBoxHeight) {
-                        width = fallbackWidth;
-                        height = (fallbackWidth * viewBoxHeight) / viewBoxWidth;
+            
+            // 2. Calculate dimensions based on viewBox or image aspect ratio
+            let width, height;
+            const viewBoxMatch = correctedSvgString.match(/viewBox="([0-9\s.,-]+)"/);
+            
+            let svgWidth = img.width;
+            let svgHeight = img.height;
+
+            // Try to get dimensions from viewBox first, as it's more reliable
+            if (viewBoxMatch && viewBoxMatch[1]) {
+                const viewBox = viewBoxMatch[1].split(/[,\s]+/);
+                if (viewBox.length >= 4) {
+                    const vbWidth = parseFloat(viewBox[2]);
+                    const vbHeight = parseFloat(viewBox[3]);
+                    if (vbWidth > 0 && vbHeight > 0) {
+                        svgWidth = vbWidth;
+                        svgHeight = vbHeight;
                     }
                 }
             }
-            if (!width || !height) { width = fallbackWidth; height = 450; }
+
+            // Fallback to image natural dimensions if viewBox fails
+            if (!svgWidth || !svgHeight || svgWidth === 0 || svgHeight === 0) {
+                svgWidth = img.width;
+                svgHeight = img.height;
+            }
+
+            // Final fallback if all else fails
+            if (!svgWidth || !svgHeight || svgWidth === 0 || svgHeight === 0) {
+                width = MAX_WIDTH;
+                height = 450; // Default height if aspect ratio is unknown
+            } else {
+                // 3. Calculate new dimensions while preserving aspect ratio
+                const aspectRatio = svgHeight / svgWidth;
+                width = MAX_WIDTH;
+                height = MAX_WIDTH * aspectRatio;
+            }
+            
             canvas.width = width;
             canvas.height = height;
+
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height); // Draw resized image
             const dataUrl = canvas.toDataURL('image/png');
+            
             if (dataUrl === 'data:,') {
                 reject(new Error("Canvas generated an empty data URL, the SVG might be invalid."));
             } else {
+                // 4. Resolve with the *new calculated dimensions*
                 resolve({ dataUrl, width, height });
             }
         };
@@ -357,6 +374,7 @@ const convertSvgStringToPngDataUrl = (svgString) => {
         img.src = dataUri;
     });
 };
+// --- END MODIFICATION ---
 
 // UI Components
 const MenuPortal = ({ children, menuStyle, onClose }) => {
@@ -714,10 +732,12 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 		                const result = await convertSvgStringToPngDataUrl(svgString);
 		                const img = document.createElement('img');
 		                img.src = result.dataUrl;
-		                img.width = result.width;
-		                img.height = result.height;
+		                // --- START MODIFICATION ---
+                        // Use styles for docx conversion, as it's more reliable
+		                img.style.width = `${result.width}px`;
+		                img.style.height = `${result.height}px`;
 		                img.style.maxWidth = '100%';
-		                img.style.height = 'auto';
+                        // --- END MODIFICATION ---
 		                svg.parentNode.replaceChild(img, svg);
 		            } catch (err) {
 		                console.error("Could not convert one of the SVGs:", err);
@@ -811,8 +831,11 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                     
                                     const img = document.createElement('img');
                                     img.src = result.dataUrl;
-                                    img.style.maxWidth = '100%'; 
-                                    img.style.height = 'auto';
+                                    // --- START MODIFICATION ---
+                                    img.style.width = `${result.width}px`;
+                                    img.style.height = `${result.height}px`;
+                                    img.style.maxWidth = '100%';
+                                    // --- END MODIFICATION ---
                                     
                                     svg.parentNode.replaceChild(img, svg);
                                 } catch (err) {
@@ -1071,8 +1094,11 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                     // Create an img element to replace the svg
                                     const img = document.createElement('img');
                                     img.src = result.dataUrl;
-                                    img.style.maxWidth = '100%'; 
-                                    img.style.height = 'auto';
+                                    // --- START MODIFICATION ---
+                                    img.style.width = `${result.width}px`;
+                                    img.style.height = `${result.height}px`;
+                                    img.style.maxWidth = '100%';
+                                    // --- END MODIFICATION ---
                                     
                                     svg.parentNode.replaceChild(img, svg);
                                 } catch (err) {
