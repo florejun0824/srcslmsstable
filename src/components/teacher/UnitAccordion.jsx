@@ -752,9 +752,9 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 		        try {
 		            await registerDejaVuFonts();
 
-		            // --- START FIX: Pre-fetch images as Base64 ---
-		            const headerBase64 = await fetchImageAsBase64("https://i.ibb.co/xt5CY6GY/header-port.png");
-		            const footerBase64 = await fetchImageAsBase64("https://i.ibb.co/kgrMBfDr/Footer.png");
+		            // --- START FIX: Use local public folder paths ---
+		            const headerBase64 = await fetchImageAsBase64("/header-port.png");
+		            const footerBase64 = await fetchImageAsBase64("/Footer.png");
 		            // --- END FIX ---
 
 		            const pdfStyles = {
@@ -881,8 +881,11 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         );
 
 
-        const headerBase64 = await fetchImageAsBase64("https://i.ibb.co/xt5CY6GY/header-port.png");
-        const footerBase64 = await fetchImageAsBase64("https://i.ibb.co/kgrMBfDr/Footer.png");
+        // --- START FIX: Use local public folder paths ---
+        const headerBase64 = await fetchImageAsBase64("/header-port.png");
+        const footerBase64 = await fetchImageAsBase64("/Footer.png");
+        // --- END FIX ---
+        
         const fileBuffer = await htmlToDocx(ulpHtmlContent, null, {
           table: { row: { cantSplit: false } },
           page: {
@@ -971,9 +974,9 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 			    try {
 		            await registerDejaVuFonts();
 
-		            // --- START FIX: Pre-fetch images as Base64 ---
-		            const headerBase64 = await fetchImageAsBase64("https://i.ibb.co/xt5CY6GY/header-port.png");
-		            const footerBase64 = await fetchImageAsBase64("https://i.ibb.co/kgrMBfDr/Footer.png");
+		            // --- START FIX: Use local public folder paths ---
+		            const headerBase64 = await fetchImageAsBase64("/header-port.png");
+		            const footerBase64 = await fetchImageAsBase64("/Footer.png");
 		            // --- END FIX ---
 
 			        const pdfStyles = {

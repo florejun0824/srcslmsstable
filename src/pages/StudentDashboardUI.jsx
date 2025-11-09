@@ -112,7 +112,7 @@ const SidebarContent = ({ sidebarNavItems, onLogoutClick, hasUnclaimedRewards, h
             <div>
                 <div className="flex items-center gap-4 mb-12 px-2">
                     <div className="w-14 h-14 rounded-2xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark flex items-center justify-center transition-transform duration-300 ease-out hover:scale-105">
-                        <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="SRCS Logo" className="w-12 h-12 rounded-lg" loading="lazy" decoding="async" />
+                        <img src="/logo.png" alt="SRCS Logo" className="w-12 h-12 rounded-lg" loading="lazy" decoding="async" />
                     </div>
                     <div>
                         <span className="font-extrabold text-xl text-slate-800 dark:text-slate-100">SRCS LMS</span>
@@ -524,7 +524,7 @@ const StudentDashboardUI = ({
                       <div className="flex items-center gap-3 md:hidden">
                         <div className="w-12 h-12 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark flex items-center justify-center flex-shrink-0">
                           <img
-                            src="https://i.ibb.co/XfJ8scGX/1.png"
+                            src="/logo.png"
                             alt="SRCS Logo"
                             className="w-10 h-10 rounded-full"
                           />

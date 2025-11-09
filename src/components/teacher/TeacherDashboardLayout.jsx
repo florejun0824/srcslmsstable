@@ -166,7 +166,7 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
             <div className="flex items-center gap-4 flex-shrink-0">
                 <div className="w-16 h-16 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic dark:shadow-neumorphic-dark flex items-center justify-center">
                     <img
-                        src="https://i.ibb.co/XfJ8scGX/1.png"
+                        src="/logo.png"
                         alt="Logo"
                         className="w-12 h-12 rounded-full"
                     />
@@ -702,7 +702,7 @@ const TeacherDashboardLayout = (props) => {
                                 <IconMenu2 className="w-5 h-5 text-slate-700 dark:text-slate-300" />
                             </button>
                             <img
-                                src="https://i.ibb.co/XfJ8scGX/1.png"
+                                src="/logo.png"
                                 alt="Logo"
                                 className="w-9 h-9 rounded-full"
                             />

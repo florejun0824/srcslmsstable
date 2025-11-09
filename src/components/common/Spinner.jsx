@@ -29,7 +29,7 @@ const SpinningRings = memo(() => (
     {/* --- MODIFIED: Added dark mode classes --- */}
     <div className="absolute inset-2 h-12 w-12 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark flex items-center justify-center">
         <img
-          src="https://i.ibb.co/XfJ8scGX/1.png"
+          src="/logo.png"
           alt="School Logo"
           className="h-10 w-10 rounded-full object-cover"
         />
