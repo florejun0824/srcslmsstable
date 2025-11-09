@@ -297,6 +297,16 @@ function markdownToDocx(content) {
 const convertSvgStringToPngDataUrl = (svgString) => {
     return new Promise((resolve, reject) => {
         let correctedSvgString = svgString;
+
+        // --- START MODIFICATION ---
+        // 1. Fix malformed xmlns attributes that might contain markdown
+        // This regex looks for the specific broken xmlns string and replaces it.
+        correctedSvgString = correctedSvgString.replace(
+            /xmlns="\[http:\/\/www\.w3\.org\/2000\/svg\]\(http:\/\/www\.w3\.org\/2000\/svg\)"/g,
+            'xmlns="http://www.w3.org/2000/svg"'
+        );
+        // --- END MODIFICATION ---
+
         if (!correctedSvgString.includes('xmlns=')) {
             correctedSvgString = correctedSvgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
         }
@@ -308,7 +318,13 @@ const convertSvgStringToPngDataUrl = (svgString) => {
         }
         
         const img = new Image();
-        const dataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(correctedSvgString)}`;
+
+        // --- START MODIFICATION ---
+        // 2. Change encoding from encodeURIComponent to Base64 for robustness.
+        // This correctly handles UTF-8 characters and special characters in the SVG string.
+        const dataUri = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(correctedSvgString)))}`;
+        // --- END MODIFICATION ---
+        
         img.onload = () => {
             const canvas = document.createElement('canvas');
             const fallbackWidth = 600; 
@@ -780,7 +796,39 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 		                }
                 
 		                const contentString = typeof page.content === 'string' ? page.content : '';
-		                const html = marked.parse(contentString);
+		                let html = marked.parse(contentString);
+
+                        // --- START SVG to PNG CONVERSION FOR PDF ---
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = html;
+                        const svgElements = tempDiv.querySelectorAll('svg');
+
+                        if (svgElements.length > 0) {
+                            const conversionPromises = Array.from(svgElements).map(async (svg) => {
+                                try {
+                                    const svgString = svg.outerHTML;
+                                    const result = await convertSvgStringToPngDataUrl(svgString);
+                                    
+                                    const img = document.createElement('img');
+                                    img.src = result.dataUrl;
+                                    img.style.maxWidth = '100%'; 
+                                    img.style.height = 'auto';
+                                    
+                                    svg.parentNode.replaceChild(img, svg);
+                                } catch (err) {
+                                    console.error("Could not convert one of the SVGs for PDF:", err);
+                                    const errorMsg = document.createElement('p');
+                                    errorMsg.style.color = 'red';
+                                    errorMsg.innerText = '[Failed to render diagram]';
+                                    svg.parentNode.replaceChild(errorMsg, svg);
+                                }
+                            });
+                            
+                            await Promise.all(conversionPromises);
+                            html = tempDiv.innerHTML;
+                        }
+                        // --- END SVG to PNG CONVERSION FOR PDF ---
+
 		                const convertedContent = htmlToPdfmake(html, { defaultStyles: pdfStyles.default });
         
 		                lessonContent.push(convertedContent);
@@ -1007,6 +1055,43 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 		                contentString = processLatex(contentString);
 
 			            let html = marked.parse(contentString);
+
+                        // --- START SVG to PNG CONVERSION FOR PDF ---
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = html;
+                        const svgElements = tempDiv.querySelectorAll('svg');
+
+                        if (svgElements.length > 0) {
+                            const conversionPromises = Array.from(svgElements).map(async (svg) => {
+                                try {
+                                    const svgString = svg.outerHTML;
+                                    // Use the existing converter function
+                                    const result = await convertSvgStringToPngDataUrl(svgString); 
+                                    
+                                    // Create an img element to replace the svg
+                                    const img = document.createElement('img');
+                                    img.src = result.dataUrl;
+                                    img.style.maxWidth = '100%'; 
+                                    img.style.height = 'auto';
+                                    
+                                    svg.parentNode.replaceChild(img, svg);
+                                } catch (err) {
+                                    console.error("Could not convert one of the SVGs for PDF:", err);
+                                    // Replace broken SVG with an error message
+                                    const errorMsg = document.createElement('p');
+                                    errorMsg.style.color = 'red';
+                                    errorMsg.innerText = '[Failed to render diagram]';
+                                    svg.parentNode.replaceChild(errorMsg, svg);
+                                }
+                            });
+                            
+                            // Wait for all conversions to finish
+                            await Promise.all(conversionPromises);
+                            
+                            // Get the updated HTML with <img> tags
+                            html = tempDiv.innerHTML;
+                        }
+                        // --- END SVG to PNG CONVERSION FOR PDF ---
 
 		                // ✅ FIX 2: Clean up blockquote HTML for proper rendering
 		                html = html
