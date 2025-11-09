@@ -1,15 +1,10 @@
-// netlify/functions/hf-multimodal.js
-// Multimodal Netlify function using the @huggingface/inference SDK
+// netlify/functions/hf.js
+// This function is now for TEXT-ONLY models
 
 import { InferenceClient } from "@huggingface/inference";
 
-// This is the model name you want to use
-const HF_MODEL_NAME = 'meta-llama/Llama-4-Scout-17B-16E-Instruct'; // The multimodal model
-
-// To run this code, you must:
-// 1. Install the package: npm install @huggingface/inference
-// 2. Configure Netlify to bundle this file (e.g., in netlify.toml)
-// 3. Set the Netlify environment variable **HF_TOKEN** to your Hugging Face API token.
+// 1. Use the new, text-only model from your aiService.jsx
+const HF_MODEL_NAME = 'Qwen/Qwen3-4B-Instruct-2507';
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -22,58 +17,29 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: 'API Key not configured.' };
   }
 
-  // Initialize the client with the token
   const client = new InferenceClient(HF_TOKEN);
 
   try {
-    // Expecting prompt (string) and an optional imageUrl (string) from the client
-    const { prompt, imageUrl, maxOutputTokens = 2048 } = JSON.parse(event.body || '{}');
+    // 2. Read only the 'prompt' from the body.
+    // The 'imageUrl' logic has been removed.
+    const { prompt, maxOutputTokens = 2048 } = JSON.parse(event.body || '{}');
 
-    if (!prompt || typeof prompt !== 'string') {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ message: "Invalid or missing 'prompt' field in request body." })
-      };
+    if (!prompt) {
+      return { statusCode: 400, body: JSON.stringify({ message: "Missing 'prompt' field." }) };
     }
 
-    // Construct the multimodal message array
-    const messageContent = [
-        {
-            type: "text",
-            text: prompt,
-        }
-    ];
-
-    if (imageUrl) {
-        // Add the image content block if an image URL is provided
-        messageContent.push({
-            type: "image_url",
-            image_url: {
-                // Note: The Hugging Face client documentation often suggests
-                // using a Base64 data URI (data:image/jpeg;base64,...) for
-                // image_url. If this external URL fails, you may need to
-                // convert the image to Base64 first.
-                url: imageUrl, 
-            },
-        });
-    }
-
-    // Call the chat completion API
+    // 3. Call the chat completion API with a simple text prompt
     const chatCompletion = await client.chatCompletion({
-      model: HF_MODEL_NAME, 
+      model: HF_MODEL_NAME,
       messages: [
-        { 
-          role: "user", 
-          content: messageContent, // <-- Multimodal content array
-        },
+        { role: "user", content: prompt }, // <-- Simplified text-only message
       ],
-      // The @huggingface/inference SDK uses max_new_tokens for the output length
-      max_new_tokens: maxOutputTokens 
+      max_new_tokens: maxOutputTokens
     });
 
-    // Parse the Chat Completion response format
     const generatedText = chatCompletion.choices?.[0]?.message?.content;
 
+    // 4. Return the clean text in the format aiService.jsx expects
     return {
       statusCode: 200,
       body: JSON.stringify({

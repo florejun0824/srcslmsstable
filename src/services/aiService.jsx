@@ -2,7 +2,6 @@ import { db } from './firebase';
 import { doc, getDoc, updateDoc, setDoc, increment } from 'firebase/firestore';
 
 // --- API Keys ---
-// HF_API_KEY is now only used for model identification and is NOT sent to the Netlify Function.
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_FALLBACK_API_KEY = import.meta.env.VITE_GEMINI_FALLBACK_API_KEY;
 const GEMINI_FALLBACK_API_KEY_2 = import.meta.env.VITE_GEMINI_FALLBACK_API_KEY_2;
@@ -12,26 +11,26 @@ const HF_API_KEY = import.meta.env.VITE_HF_API_KEY;
 // --- Model & URL Definitions ---
 const GEMINI_MODEL = 'gemini-2.5-flash';
 
-// Groq models (UNCHANGED, using Groq API)
+// Groq models (UNCHANGED, per your request)
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL_1 = 'moonshotai/kimi-k2-instruct';
 const GROQ_MODEL_2 = 'moonshotai/kimi-k2-instruct-0905';
 
-// Hugging Face model (Used for identification only)
-const HF_MODEL = 'moonshotai/Kimi-K2-Thinking';
+// Hugging Face model (UPDATED per your request)
+const HF_MODEL = 'Qwen/Qwen3-4B-Instruct-2507'; // CHANGED
 
-// --- Unified API Configuration (6 Total Endpoints) ---
+// --- Unified API Configuration (UPDATED) ---
 const API_CONFIGS = [
     // --- Gemini Endpoints (3) ---
     { service: 'gemini', model: GEMINI_MODEL, apiKey: GEMINI_API_KEY, url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, name: 'Gemini Primary' },
     { service: 'gemini', model: GEMINI_MODEL, apiKey: GEMINI_FALLBACK_API_KEY, url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_FALLBACK_API_KEY}`, name: 'Gemini Fallback 1' },
 
-    // --- Groq Endpoints (2) ---
+    // --- Groq Endpoints (2) (Unchanged) ---
     { service: 'groq', model: GROQ_MODEL_1, apiKey: GROQ_API_KEY, url: GROQ_BASE_URL, name: `Groq (${GROQ_MODEL_1})` },
     { service: 'groq', model: GROQ_MODEL_2, apiKey: GROQ_API_KEY, url: GROQ_BASE_URL, name: `Groq (${GROQ_MODEL_2})` },
-    // --- Hugging Face Endpoint (1) ---
-    // URL NOW POINTS TO THE NETLIFY PROXY REDIRECT
-    { service: 'huggingface', model: HF_MODEL, apiKey: HF_API_KEY, url: `/api/hf`, name: `HuggingFace (${HF_MODEL})` }
+    
+    // --- Hugging Face Endpoint (1) (Updated name) ---
+    { service: 'huggingface', model: HF_MODEL, apiKey: HF_API_KEY, url: `/api/hf`, name: `HuggingFace (${HF_MODEL})` } // CHANGED
 ];
 
 const NUM_CONFIGS = API_CONFIGS.length;
@@ -218,7 +217,7 @@ const callGroqApiInternal = async (prompt, jsonMode = false, config, maxOutputTo
     return textPart;
 }
 
-// --- Internal Hugging Face API Caller (UPDATED TO USE PROXY) ---
+// --- Internal Hugging Face API Caller (SIMPLIFIED) ---
 const callHFApiInternal = async (prompt, jsonMode = false, config, maxOutputTokens = undefined) => {
     
     // 1. Send request to the Netlify proxy endpoint (`/api/hf`)
@@ -226,27 +225,26 @@ const callHFApiInternal = async (prompt, jsonMode = false, config, maxOutputToke
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            // No API Key is sent from the client! The Netlify function handles the key securely.
         },
         body: JSON.stringify({ 
             prompt: prompt,
-            maxOutputTokens: maxOutputTokens // Pass parameters to the serverless function
+            maxOutputTokens: maxOutputTokens 
         }),
     });
 
     if (!response.ok) {
-        // The Netlify function should handle 429/503 internally, but if it returns an error status
         const errorText = await response.text();
         console.error(`Netlify Proxy Function Failed: ${response.status}. Response: ${errorText}`);
-        throw new Error(`Netlify Proxy failed: ${response.status}. ${errorText.substring(0, 200)}`);
+        // Pass the error text to the next catch block
+        const error = new Error(`Netlify Proxy failed: ${response.status}. ${errorText.substring(0, 200)}`);
+        error.status = response.status; // Pass status for retry logic
+        throw error;
     }
 
     let data;
     try {
-        // 2. The data returned is the JSON from the Netlify Function
         data = await response.json();
     } catch (jsonError) {
-        // This handles issues where the function might fail to return valid JSON
         throw new Error(`Failed to parse JSON response from Netlify proxy.`);
     }
 
@@ -258,21 +256,13 @@ const callHFApiInternal = async (prompt, jsonMode = false, config, maxOutputToke
         throw new Error("Proxy response was not in the expected format (missing 'text' field).");
     }
 
-    // 4. Clean the output text from the prompt (required for HF Inference API output)
-    const generatedText = fullText.substring(prompt.length).trim();
-    
-    // This Llama/Instruct split logic is a general safeguard for Instruction-tuned models like Kimi
-    if (generatedText === fullText.trim() && fullText.toLowerCase().includes(prompt.toLowerCase())) {
-        const instructionSplit = generatedText.split('[/INST]');
-        if (instructionSplit.length > 1) {
-             return instructionSplit[instructionSplit.length - 1].trim();
-        }
-    }
-
-    return generatedText;
+    // 4. Return the clean text directly.
+    // The complex string cleaning logic is no longer needed here,
+    // as our new Netlify function will return clean text.
+    return fullText;
 }
 
-// --- Load Balancer (Unchanged) ---
+// --- Load Balancer (Updated Retry Logic) ---
 const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTokens = undefined) => {
     const startIndex = currentApiIndex;
     
@@ -305,12 +295,13 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
         } catch (error) {
             errors[keyName] = error.message;
 
-            if (error.status === 429 || error.status === 503) {
-                console.warn(`AI API ${keyName} failed: ${error.message}. Waiting 2 seconds before retry...`);
+            // Check for specific error status codes for retry
+            if (error.status === 429 || error.status === 503 || error.status === 500) {
+                console.warn(`AI API ${keyName} failed with retryable status ${error.status}: ${error.message}. Waiting 2 seconds before retry...`);
                 await delay(2000); // Wait 2 seconds before trying the next key
             } else {
                 console.error(`AI API ${keyName} failed with non-retryable error.`, error);
-                throw error;
+                // We don't throw here, we let the loop continue to the next key.
             }
         }
     }
@@ -319,7 +310,7 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
     throw new Error(`All AI keys failed: ${JSON.stringify(errors)}`);
 };
 
-// --- Exported Functions (Names Retained) ---
+// --- Exported Functions (Unchanged) ---
 export const callGeminiWithLimitCheck = async (prompt) => {
     const limitReached = await checkAiLimitReached();
     if (limitReached) {
@@ -402,7 +393,7 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
         const validatedData = validateAndCleanGradingResponse(data, validRubric, "AI (Load Balanced)");
 
         const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
-        await updateDoc(usageDocRef, { callCount: increment(1) });
+        await updateDoc(usageDocGref, { callCount: increment(1) });
         
         console.log("AI Grading (Load Balanced) successful:", validatedData);
         return validatedData;
