@@ -11,13 +11,13 @@ const HF_API_KEY = import.meta.env.VITE_HF_API_KEY;
 // --- Model & URL Definitions ---
 const GEMINI_MODEL = 'gemini-2.5-flash';
 
-// Groq models (UNCHANGED, per your request)
+// Groq models (UPDATED to solve 413 error)
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL_1 = 'moonshotai/kimi-k2-instruct';
-const GROQ_MODEL_2 = 'moonshotai/kimi-k2-instruct-0905';
+const GROQ_MODEL_1 = 'meta-llama/llama-4-scout-17b-16e-instruct'; // NEW
+const GROQ_MODEL_2 = 'groq/compound'; // NEW
 
-// Hugging Face model (UPDATED per your request)
-const HF_MODEL = 'Qwen/Qwen3-4B-Instruct-2507'; // CHANGED
+// Hugging Face model (Using the 30B model)
+const HF_MODEL = 'Qwen/Qwen3-30B-A3B-Instruct-2507'; 
 
 // --- Unified API Configuration (UPDATED) ---
 const API_CONFIGS = [
@@ -25,12 +25,12 @@ const API_CONFIGS = [
     { service: 'gemini', model: GEMINI_MODEL, apiKey: GEMINI_API_KEY, url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, name: 'Gemini Primary' },
     { service: 'gemini', model: GEMINI_MODEL, apiKey: GEMINI_FALLBACK_API_KEY, url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_FALLBACK_API_KEY}`, name: 'Gemini Fallback 1' },
 
-    // --- Groq Endpoints (2) (Unchanged) ---
+    // --- Groq Endpoints (2) (Updated models and names) ---
     { service: 'groq', model: GROQ_MODEL_1, apiKey: GROQ_API_KEY, url: GROQ_BASE_URL, name: `Groq (${GROQ_MODEL_1})` },
     { service: 'groq', model: GROQ_MODEL_2, apiKey: GROQ_API_KEY, url: GROQ_BASE_URL, name: `Groq (${GROQ_MODEL_2})` },
     
-    // --- Hugging Face Endpoint (1) (Updated name) ---
-    { service: 'huggingface', model: HF_MODEL, apiKey: HF_API_KEY, url: `/api/hf`, name: `HuggingFace (${HF_MODEL})` } // CHANGED
+    // --- Hugging Face Endpoint (1) ---
+    { service: 'huggingface', model: HF_MODEL, apiKey: HF_API_KEY, url: `/api/hf`, name: `HuggingFace (${HF_MODEL})` }
 ];
 
 const NUM_CONFIGS = API_CONFIGS.length;
@@ -186,6 +186,17 @@ const callGroqApiInternal = async (prompt, jsonMode = false, config, maxOutputTo
         error.status = response.status;
         throw error;
     }
+    
+    // --- THIS IS THE CRITICAL FIX ---
+    // Handle the 413 error from Groq as a "retryable" error
+    if (response.status === 413) {
+        const errorText = await response.text();
+        console.warn(`Groq API call failed: 413. Prompt too large for TPM limit. ${errorText.substring(0, 100)}...`);
+        // We throw a 503 error here so our load balancer knows to retry with the next service
+        const error = new Error("Prompt too large for Groq's TPM limit.");
+        error.status = 503; // Use 503 to trigger a retry
+        throw error;
+    }
 
     if (!response.ok) {
         const errorText = await response.text();
@@ -217,10 +228,9 @@ const callGroqApiInternal = async (prompt, jsonMode = false, config, maxOutputTo
     return textPart;
 }
 
-// --- Internal Hugging Face API Caller (SIMPLIFIED) ---
+// --- Internal Hugging Face API Caller (Unchanged) ---
 const callHFApiInternal = async (prompt, jsonMode = false, config, maxOutputTokens = undefined) => {
     
-    // 1. Send request to the Netlify proxy endpoint (`/api/hf`)
     const response = await fetch(config.url, {
         method: 'POST',
         headers: {
@@ -235,9 +245,8 @@ const callHFApiInternal = async (prompt, jsonMode = false, config, maxOutputToke
     if (!response.ok) {
         const errorText = await response.text();
         console.error(`Netlify Proxy Function Failed: ${response.status}. Response: ${errorText}`);
-        // Pass the error text to the next catch block
         const error = new Error(`Netlify Proxy failed: ${response.status}. ${errorText.substring(0, 200)}`);
-        error.status = response.status; // Pass status for retry logic
+        error.status = response.status;
         throw error;
     }
 
@@ -248,7 +257,6 @@ const callHFApiInternal = async (prompt, jsonMode = false, config, maxOutputToke
         throw new Error(`Failed to parse JSON response from Netlify proxy.`);
     }
 
-    // 3. Extract the text (assuming the Netlify function returns { text: '...' })
     const fullText = data.text;
     
     if (!fullText) {
@@ -256,13 +264,10 @@ const callHFApiInternal = async (prompt, jsonMode = false, config, maxOutputToke
         throw new Error("Proxy response was not in the expected format (missing 'text' field).");
     }
 
-    // 4. Return the clean text directly.
-    // The complex string cleaning logic is no longer needed here,
-    // as our new Netlify function will return clean text.
     return fullText;
 }
 
-// --- Load Balancer (Updated Retry Logic) ---
+// --- Load Balancer (Unchanged, but benefits from 413 fix) ---
 const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTokens = undefined) => {
     const startIndex = currentApiIndex;
     
@@ -295,13 +300,12 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
         } catch (error) {
             errors[keyName] = error.message;
 
-            // Check for specific error status codes for retry
+            // This logic now catches 429, 503, 500, AND the 413 (which we turned into a 503)
             if (error.status === 429 || error.status === 503 || error.status === 500) {
                 console.warn(`AI API ${keyName} failed with retryable status ${error.status}: ${error.message}. Waiting 2 seconds before retry...`);
-                await delay(2000); // Wait 2 seconds before trying the next key
+                await delay(2000); 
             } else {
                 console.error(`AI API ${keyName} failed with non-retryable error.`, error);
-                // We don't throw here, we let the loop continue to the next key.
             }
         }
     }
@@ -393,7 +397,7 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
         const validatedData = validateAndCleanGradingResponse(data, validRubric, "AI (Load Balanced)");
 
         const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
-        await updateDoc(usageDocGref, { callCount: increment(1) });
+        await updateDoc(usageDocRef, { callCount: increment(1) });
         
         console.log("AI Grading (Load Balanced) successful:", validatedData);
         return validatedData;

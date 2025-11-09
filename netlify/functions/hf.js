@@ -4,7 +4,7 @@
 import { InferenceClient } from "@huggingface/inference";
 
 // 1. Use the new, text-only model from your aiService.jsx
-const HF_MODEL_NAME = 'Qwen/Qwen3-4B-Instruct-2507';
+const HF_MODEL_NAME = 'Qwen/Qwen3-30B-A3B-Instruct-2507';
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
