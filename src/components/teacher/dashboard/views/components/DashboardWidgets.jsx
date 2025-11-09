@@ -50,13 +50,13 @@ const DashboardWidgets = ({
                 onClick={onViewClasses}
             >
                 {/* --- MODIFIED: Added dark mode classes --- */}
-                <GradientStatCard
-                    title="Active Classes"
-                    value={activeClassesCount}
-                    icon={<GraduationCap />}
-                    gradient="from-sky-400 to-cyan-400"
-                    className="h-full bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow duration-300 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
-                />
+		<GradientStatCard
+		        title="Active Classes"
+		        value={activeClassesCount}
+		        icon={<GraduationCap />}
+		        gradient="from-sky-400 to-cyan-400"
+		        className="z-0 h-full bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow duration-300 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
+		/>
             </motion.div>
         </div>
     );

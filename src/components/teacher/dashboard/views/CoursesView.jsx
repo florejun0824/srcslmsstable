@@ -22,7 +22,7 @@ import {
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 // --- MODIFIED STYLE CONSTANTS (Theme-Aware) ---
-const commonContainerClasses = "min-h-screen p-4 sm:p-6 bg-neumorphic-base dark:bg-neumorphic-base-dark";
+const commonContainerClasses = "relative z-0 min-h-screen p-4 sm:p-6 bg-neumorphic-base dark:bg-neumorphic-base-dark";
 const windowContainerClasses = "bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl p-4 sm:p-8 shadow-neumorphic dark:shadow-lg w-full max-w-7xl mx-auto my-6 sm:my-12 transition-all duration-500";
 
 const neumorphicHoverActiveClasses = "hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark";
@@ -149,8 +149,8 @@ const SubjectDetail = (props) => {
     }
 
     return (
-        <div className={commonContainerClasses}>
-            <div className={`${windowContainerClasses}`}>
+        <div className={`${commonContainerClasses} flex flex-col`}>
+            <div className={`${windowContainerClasses} flex flex-col flex-1 min-h-0`}>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-3">
                     <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                         <button
@@ -190,7 +190,7 @@ const SubjectDetail = (props) => {
                         </button>
                     </div>
                 </div>
-                <div>
+                <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
                     {isLoadingUnitsAndLessons ? (
                         <div className="flex justify-center items-center py-10">
                             <Spinner />
@@ -231,6 +231,30 @@ const SubjectDetail = (props) => {
                     )}
                 </div>
             </div>
+
+            {/* --- ADDED: Custom Scrollbar Styles --- */}
+            <style>{`
+              .custom-scrollbar::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+              }
+              .custom-scrollbar::-webkit-scrollbar-track {
+                background: transparent;
+              }
+              .custom-scrollbar::-webkit-scrollbar-thumb {
+                background-color: rgba(156, 163, 175, 0.5); /* gray-400 */
+                border-radius: 4px;
+              }
+              .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                background-color: rgba(107, 114, 128, 0.5); /* gray-500 */
+              }
+              .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+                background-color: rgba(100, 116, 139, 0.5); /* slate-500 */
+              }
+              .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                background-color: rgba(148, 163, 184, 0.5); /* slate-400 */
+              }
+            `}</style>
 
             {/* --- MODIFIED: Lesson Picker Modal (Themed) --- */}
             {showLessonPicker && activeUnitForPicker && (

@@ -495,8 +495,8 @@ const StudentManagementView = () => {
   const allVisibleSelected = filteredStudents.length > 0 && selectedStudentIds.size === filteredStudents.length;
 
   return (
-    <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark min-h-screen p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark h-screen flex flex-col p-4 md:p-6">
+      <div className="max-w-7xl mx-auto w-full flex flex-col flex-1 min-h-0">
         
         {/* Header */}
         <header className="mb-6">
@@ -553,6 +553,7 @@ const StudentManagementView = () => {
         </div>
         
         {/* ... (Content Area, Table, Modals all remain unchanged) ... */}
+		<div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
         {loading ? (
           <div className="flex flex-col justify-center items-center h-96">
             <Spinner />
@@ -643,6 +644,7 @@ const StudentManagementView = () => {
             </div>
           </div>
         )}
+		</div>
       </div>
 
       {/* Modals */}
@@ -670,16 +672,38 @@ const StudentManagementView = () => {
       )}
 
       {/* Animation Style */}
-      <style>{`
-        @keyframes scaleIn { 
-          from { opacity: 0; transform: scale(0.95); } 
-          to { opacity: 1; transform: scale(1); } 
-        }
-        .animate-scale-in { 
-          animation: scaleIn 0.2s ease-out forwards; 
-          transform-origin: top left; 
-        }
-      `}</style>
+	  <style>{`
+	          @keyframes scaleIn { 
+	            from { opacity: 0; transform: scale(0.95); } 
+	            to { opacity: 1; transform: scale(1); } 
+	          }
+	          .animate-scale-in { 
+	            animation: scaleIn 0.2s ease-out forwards; 
+	            transform-origin: top left; 
+	          }
+
+	          /* --- ADD THESE SCROLLBAR STYLES --- */
+	          .custom-scrollbar::-webkit-scrollbar {
+	            width: 8px;
+	            height: 8px;
+	          }
+	          .custom-scrollbar::-webkit-scrollbar-track {
+	            background: transparent;
+	          }
+	          .custom-scrollbar::-webkit-scrollbar-thumb {
+	            background-color: rgba(156, 163, 175, 0.5); /* gray-400 */
+	            border-radius: 4px;
+	          }
+	          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+	            background-color: rgba(107, 114, 128, 0.5); /* gray-500 */
+	          }
+	          .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+	            background-color: rgba(100, 116, 139, 0.5); /* slate-500 */
+	          }
+	          .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+	            background-color: rgba(148, 163, 184, 0.5); /* slate-400 */
+	          }
+	        `}</style>
     </div>
   );
 };
