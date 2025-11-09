@@ -16,13 +16,28 @@
   port = 8888 
 # -------------------------------------
 
-# --- 1. FUNCTION REDIRECT (PROXY) ---
+# --- 1. FUNCTION REDIRECTS (PROXY) ---
+
+# --- Hugging Face Proxy ---
 [[redirects]]
   from = "/api/hf"
-  to = "/.netlify/functions/call-hf-api"
+  to = "/.netlify/functions/hf" # Fixed: Assumed your hf.js is the filename
+  status = 200
+
+# --- ADDED: Gemini Primary Proxy ---
+[[redirects]]
+  from = "/api/gemini-primary"
+  to = "/.netlify/functions/gemini-primary"
+  status = 200
+
+# --- ADDED: Gemini Fallback Proxy ---
+[[redirects]]
+  from = "/api/gemini-fallback"
+  to = "/.netlify/functions/gemini-fallback"
   status = 200
 
 # --- 2. SPA REDIRECT (CATCH-ALL) ---
+# This must be the LAST redirect
 [[redirects]]
   from = "/*"
   to = "/index.html"
