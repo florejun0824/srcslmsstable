@@ -820,7 +820,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                 }
             };
 
-            // NATIVE FIX: Use getBlob for native, download for web
+// NATIVE FIX: Use getBlob for native, download for web
             const pdfDoc = pdfMake.createPdf(docDefinition);
             if (isNativePlatform()) {
                 pdfDoc.getBlob(async (blob) => {
@@ -828,9 +828,11 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                     setExportingLessonId(null);
                 });
             } else {
-				pdfDoc.download(sanitizedFileName, () => {
-				    setExportingLessonId(null);
-				});
+                // ✅ FIX: Use saveAs (file-saver) for web download, as pdfMake.download() is unreliable
+                pdfDoc.getBlob((blob) => {
+                    saveAs(blob, sanitizedFileName);
+                    setExportingLessonId(null);
+                });
             }
 
         } catch (error) {
@@ -1035,7 +1037,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 		            }
 		        };
             
-	            // NATIVE FIX: Use getBlob for native, download for web
+// NATIVE FIX: Use getBlob for native, download for web
 		        const pdfDoc = pdfMake.createPdf(docDefinition);
 	            if (isNativePlatform()) {
 	                pdfDoc.getBlob(async (blob) => {
@@ -1044,8 +1046,9 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	                    setExportingLessonId(null);
 	                });
 	            } else {
-	                // Pass the new sanitizedFileName to the web download
-					pdfDoc.download(sanitizedFileName, () => {
+	                // ✅ FIX: Use saveAs (file-saver) for web download, as pdfMake.download() is unreliable
+					pdfDoc.getBlob((blob) => {
+					    saveAs(blob, sanitizedFileName);
 					    setExportingLessonId(null);
 					});
 	            }

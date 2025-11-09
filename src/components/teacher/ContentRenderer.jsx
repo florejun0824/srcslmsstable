@@ -63,12 +63,19 @@ const removeDuplicateLines = (text) => {
 const normalizeLatex = (text) => {
   if (!text) return '';
   let normalized = text;
+  
   // ✅ FIX: Replace both complex and simple broken Peso sign commands.
   normalized = normalized.replace(/\\text{\\char`\\₱}/g, '₱');
   normalized = normalized.replace(/\\₱/g, '₱');
   
-  normalized = normalized.replace(/°/g, '^\\circ');
-  normalized = normalized.replace(/\\degree/g, '^\\circ');
+  // --- START OF FIX ---
+  // 1. REMOVED the broken lines that converted ° TO LaTeX.
+  
+  // 2. ADD lines to convert common LaTeX commands INTO the ° symbol
+  normalized = normalized.replace(/\\degree/g, '°');
+  normalized = normalized.replace(/\^\\circ/g, '°'); 
+  // --- END OF FIX ---
+
   return normalized;
 };
 

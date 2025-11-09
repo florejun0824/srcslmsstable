@@ -11,10 +11,10 @@ const HF_API_KEY = import.meta.env.VITE_HF_API_KEY;
 // --- Model & URL Definitions ---
 const GEMINI_MODEL = 'gemini-2.5-flash';
 
-// Groq models (UPDATED to solve 413 error)
+// Groq model (REVISED: Kept Llama 4, removed compound)
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL_1 = 'meta-llama/llama-4-scout-17b-16e-instruct'; // NEW
-const GROQ_MODEL_2 = 'groq/compound'; // NEW
+const GROQ_MODEL_1 = 'meta-llama/llama-4-scout-17b-16e-instruct'; // Kept successful model
+// const GROQ_MODEL_2 = 'groq/compound'; // REMOVED failing model
 
 // Hugging Face model (Using the 30B model)
 const HF_MODEL = 'Qwen/Qwen3-30B-A3B-Instruct-2507'; 
@@ -22,17 +22,18 @@ const HF_MODEL = 'Qwen/Qwen3-30B-A3B-Instruct-2507';
 // --- Unified API Configuration (UPDATED) ---
 const API_CONFIGS = [
     // --- Gemini Endpoints (3) ---
-    { service: 'gemini', model: GEMINI_MODEL, apiKey: GEMINI_API_KEY, url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, name: 'Gemini Primary' },
-    { service: 'gemini', model: GEMINI_MODEL, apiKey: GEMINI_FALLBACK_API_KEY, url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_FALLBACK_API_KEY}`, name: 'Gemini Fallback 1' },
+    { service: 'gemini', model: GEMINI_MODEL, apiKey: GEMINI_API_KEY, url: `https://generativelightlanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, name: 'Gemini Primary' },
+    { service: 'gemini', model: GEMINI_MODEL, apiKey: GEMINI_FALLBACK_API_KEY, url: `https://generativelightlanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_FALLBACK_API_KEY}`, name: 'Gemini Fallback 1' },
 
-    // --- Groq Endpoints (2) (Updated models and names) ---
+    // --- Groq Endpoint (1) (Revised) ---
     { service: 'groq', model: GROQ_MODEL_1, apiKey: GROQ_API_KEY, url: GROQ_BASE_URL, name: `Groq (${GROQ_MODEL_1})` },
-    { service: 'groq', model: GROQ_MODEL_2, apiKey: GROQ_API_KEY, url: GROQ_BASE_URL, name: `Groq (${GROQ_MODEL_2})` },
+    // Second Groq entry REMOVED
     
     // --- Hugging Face Endpoint (1) ---
     { service: 'huggingface', model: HF_MODEL, apiKey: HF_API_KEY, url: `/api/hf`, name: `HuggingFace (${HF_MODEL})` }
 ];
 
+// This will now be 4
 const NUM_CONFIGS = API_CONFIGS.length;
 let currentApiIndex = 0;
 
@@ -267,7 +268,7 @@ const callHFApiInternal = async (prompt, jsonMode = false, config, maxOutputToke
     return fullText;
 }
 
-// --- Load Balancer (Unchanged, but benefits from 413 fix) ---
+// --- Load Balancer (Unchanged, but logic remains correct) ---
 const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTokens = undefined) => {
     const startIndex = currentApiIndex;
     
