@@ -25,6 +25,7 @@ import { db } from '../../services/firebase';
 import ReactionsBreakdownModal from '../common/ReactionsBreakdownModal';
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
 import Linkify from 'react-linkify';
+import { Link } from 'react-router-dom';
 
 const reactionTypes = ['like', 'love', 'haha', 'wow', 'sad', 'angry', 'care'];
 
@@ -554,9 +555,17 @@ const StudentPostCommentsModal = ({
   if (!isOpen || !post) return null;
 
   const authorUser = usersMap[post.authorId] || {
-    firstName: post.authorName,
-    lastName: '',
+    firstName: post.authorName.split(' ')[0],
+    lastName: post.authorName.split(' ')[1] || '',
+    photoURL: post.authorPhotoURL,
+    id: post.authorId,
   };
+
+  const isPostAuthorMe = userProfile.id === post.authorId;
+  const currentUserRole = userProfile.role;
+  const postAuthorProfileLink = isPostAuthorMe
+    ? (currentUserRole === 'student' ? '/student/profile' : '/dashboard/profile')
+    : (currentUserRole === 'student' ? `/student/profile/${post.authorId}` : `/dashboard/profile/${post.authorId}`);
 
   return (
     <div
@@ -587,9 +596,13 @@ const StudentPostCommentsModal = ({
               />
             </div>
             <div>
-              <p className="font-semibold text-slate-800 dark:text-slate-100">
+              <Link
+                to={postAuthorProfileLink}
+                state={{ profileData: authorUser }}
+                className="font-semibold text-slate-800 dark:text-slate-100 hover:underline"
+              >
                 {post.authorName}
-              </p>
+              </Link>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {formatRelativeTime(convertTimestampToDate(post.createdAt))}
               </p>
@@ -676,7 +689,13 @@ const StudentPostCommentsModal = ({
                 const commentAuthor = usersMap[comment.userId] || {
                   firstName: 'Unknown',
                   lastName: 'User',
+                  id: comment.userId, // <-- Add ID to fallback
                 };
+
+                const isThisCommentAuthorMe = userProfile.id === comment.userId;
+                const profileLink = isThisCommentAuthorMe
+                  ? (currentUserRole === 'student' ? '/student/profile' : '/dashboard/profile')
+                  : (currentUserRole === 'student' ? `/student/profile/${comment.userId}` : `/dashboard/profile/${comment.userId}`);
 
                 return (
                   <div key={comment.id} className="flex items-start space-x-4">
@@ -708,9 +727,13 @@ const StudentPostCommentsModal = ({
                             </div>
                           )}
 
-                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 pr-12">
+                          <Link
+                            to={profileLink}
+                            state={{ profileData: commentAuthor }}
+                            className="text-sm font-semibold text-slate-800 dark:text-slate-100 pr-12 hover:underline"
+                          >
                             {commentAuthor.firstName} {commentAuthor.lastName}
-                          </p>
+                          </Link>
 
                           {isBeingEdited ? (
                             <div className="mt-2">
@@ -812,7 +835,13 @@ const StudentPostCommentsModal = ({
                         const replyAuthor = usersMap[reply.userId] || {
                           firstName: 'Unknown',
                           lastName: 'User',
+                          id: reply.userId, // <-- Add ID to fallback
                         };
+
+                        const isThisReplyAuthorMe = userProfile.id === reply.userId;
+                        const replyAuthorProfileLink = isThisReplyAuthorMe
+                          ? (currentUserRole === 'student' ? '/student/profile' : '/dashboard/profile')
+                          : (currentUserRole === 'student' ? `/student/profile/${reply.userId}` : `/dashboard/profile/${reply.userId}`);
 
                         return (
                           <div
@@ -852,10 +881,14 @@ const StudentPostCommentsModal = ({
                                           </button>
                                         </div>
                                       )}
-                                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 pr-10">
+                                    <Link
+                                      to={replyAuthorProfileLink}
+                                      state={{ profileData: replyAuthor }}
+                                      className="text-sm font-semibold text-slate-800 dark:text-slate-100 pr-10 hover:underline"
+                                    >
                                       {replyAuthor.firstName}{' '}
                                       {replyAuthor.lastName}
-                                    </p>
+                                    </Link>
 
                                     {isReplyBeingEdited ? (
                                       <div className="mt-2">

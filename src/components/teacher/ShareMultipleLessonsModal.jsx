@@ -420,11 +420,11 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 onClose={handleClose}
                 title="Share Content"
                 description={`Share materials from "${subject.title}" to your classes.`}
-                size="4xl" 
+                size="3xl" 
                 // --- MODIFIED: Added dark theme class ---
                 contentClassName="bg-neumorphic-base dark:bg-neumorphic-base-dark"
             >
-                <div className="relative max-h-[80vh] sm:max-h-[75vh] flex flex-col">
+                <div className="relative h-[75vh] flex flex-col">
                     <main className="flex-grow overflow-y-auto pr-2 -mr-2 p-1 sm:p-0">
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
                             
@@ -447,6 +447,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">Comment <span className="font-normal text-gray-500 dark:text-slate-400">(Optional)</span></label>
+
                                             <textarea
                                                 rows={3}
                                                 value={postComment}

@@ -1,6 +1,6 @@
 // src/pages/PublicProfilePage.jsx
 import React, { useState, useEffect, Fragment } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom'; // <-- 1. Import useLocation, remove useParams
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { db } from '../services/firebase';
@@ -25,7 +25,7 @@ import StudentPostCommentsModal from '../components/student/StudentPostCommentsM
 import ReactionsBreakdownModal from '../components/common/ReactionsBreakdownModal';
 import AboutInfoModal from '../components/student/AboutInfoModal';
 
-// ... (InfoRowPreview component is unchanged)
+// InfoRowPreview component
 const InfoRowPreview = ({ icon: Icon, label, value }) => (
     <div className="flex items-start gap-4">
         <Icon className="w-6 h-6 text-slate-500 dark:text-slate-400 flex-shrink-0 mt-0.5" />
@@ -38,13 +38,12 @@ const InfoRowPreview = ({ icon: Icon, label, value }) => (
 
 
 const PublicProfilePage = () => {
-    // const { userId } = useParams(); // <-- 2. REMOVE useParams
     const { userProfile: currentUserProfile } = useAuth();
     const { showToast } = useToast();
     const navigate = useNavigate();
-    const location = useLocation(); // <-- 3. Keep useLocation
+    const location = useLocation(); 
 
-    // --- 4. MANUALLY GET userId from URL ---
+    // MANUALLY GET userId from URL
     const [userId, setUserId] = useState(null);
     useEffect(() => {
         const pathSegments = location.pathname.split('/');
@@ -57,7 +56,6 @@ const PublicProfilePage = () => {
             navigate(-1);
         }
     }, [location.pathname, navigate, showToast]);
-    // --- END OF FIX ---
 
     const [profile, setProfile] = useState(null);
     const [publicPosts, setPublicPosts] = useState([]);
@@ -65,22 +63,30 @@ const PublicProfilePage = () => {
     const [loadingPosts, setLoadingPosts] = useState(true);
     const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 
-    // --- 5. MODIFY Profile Fetching logic ---
+    // MODIFY Profile Fetching logic
     useEffect(() => {
         // Wait until we have the userId from the URL
         if (!userId) return; 
 
         const profileDataFromState = location.state?.profileData;
 
-        // Check if the state data matches the URL ID
-        if (profileDataFromState && profileDataFromState.id === userId) {
-            // Data was passed via Link, use it. This fixes student loading.
+        // --- THIS IS THE FIX ---
+        // Check if the passed state data is a *complete* profile.
+        // A complete profile will have properties like 'role', 'xp', or 'education'.
+        // The partial object only has { id, firstName, lastName, photoURL }.
+        // We'll check for 'role' as it's a reliable field on all full user objects.
+        const isProfileDataComplete = profileDataFromState && profileDataFromState.hasOwnProperty('role');
+        // --- END OF FIX ---
+
+        // Check if the state data matches the URL ID *AND* is complete
+        if (profileDataFromState && profileDataFromState.id === userId && isProfileDataComplete) {
+            // Data was passed via Link AND is complete, use it.
             setProfile(profileDataFromState);
             setLoadingProfile(false);
         } else {
-            // Fallback: If page was refreshed or data doesn't match.
-            // This will only work for Teachers/Admins.
-            console.warn("No profile state found, attempting direct fetch...");
+            // Fallback: If page was refreshed, data doesn't match, or (most importantly)
+            // if the data is INCOMPLETE (like from the teacher's lounge view).
+            console.warn("No complete profile state found, attempting direct fetch...");
             const userDocRef = doc(db, 'users', userId);
             getDoc(userDocRef).then(docSnap => {
                 if (docSnap.exists()) {
@@ -98,7 +104,6 @@ const PublicProfilePage = () => {
             });
         }
     }, [userId, location.state, navigate, showToast]); // <-- Add userId as dependency
-    // --- END OF FIX ---
 
     // Fetch *only* public posts for this user
     useEffect(() => {
@@ -124,7 +129,7 @@ const PublicProfilePage = () => {
         return () => unsubscribe();
     }, [userId, showToast]); // <-- Add userId as dependency
 
-    // ... (useStudentPosts hook is unchanged) ...
+    // useStudentPosts hook
     const {
         sortedPosts,
         editingPostId,
@@ -145,12 +150,12 @@ const PublicProfilePage = () => {
         handleCloseReactions,
         handleViewComments,
         handleCloseComments,
-    } = useStudentPosts(publicPosts, currentUserProfile?.id, showToast);
+    } = useStudentPosts(publicPosts, setPublicPosts, currentUserProfile?.id, showToast); // Pass setPublicPosts
 
-    // ... (canReact logic is unchanged) ...
+    // canReact logic
     const canReact = currentUserProfile?.role === 'teacher' || currentUserProfile?.role === 'admin' || currentUserProfile?.canReact;
 
-    // ... (aboutInfoPreviewList logic is unchanged) ...
+    // aboutInfoPreviewList logic
     const aboutInfoPreviewList = [
         { icon: BriefcaseIcon, label: "Work", value: profile?.work },
         { icon: AcademicCapIcon, label: "Education", value: profile?.education },
@@ -273,26 +278,32 @@ const PublicProfilePage = () => {
                                         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">This user hasn't made any public posts yet.</p>
                                     </div>
                                 ) : (
-                                    sortedPosts.map(post => (
-                                        <StudentPostCard
-                                            key={post.id}
-                                            post={post}
-                                            userProfile={currentUserProfile} // Pass the *logged-in* user here
-                                            canReact={canReact} // Pass the calculated permission
-                                            onStartEdit={handleStartEditPost}
-                                            onDelete={handleDeletePost}
-                                            onToggleReaction={handleToggleReaction}
-                                            onViewComments={handleViewComments}
-                                            onViewReactions={handleViewReactions}
-                                            onToggleExpansion={togglePostExpansion}
-                                            isEditing={editingPostId === post.id}
-                                            editingPostText={editingPostId === post.id ? editingPostText : ''}
-                                            onTextChange={setEditingPostText}
-                                            onSave={handleUpdatePost}
-                                            onCancelEdit={handleCancelEdit}
-                                            isExpanded={!!expandedPosts[post.id]}
-                                        />
-                                    ))
+                                    sortedPosts.map(post => {
+                                        // Find the author details (which is the profile we just fetched)
+                                        const authorDetails = profile;
+
+                                        return (
+                                            <StudentPostCard
+                                                key={post.id}
+                                                post={post}
+                                                author={authorDetails} // Pass the *viewed* profile as author
+                                                userProfile={currentUserProfile} // Pass the *logged-in* user here
+                                                canReact={canReact} // Pass the calculated permission
+                                                onStartEdit={handleStartEditPost}
+                                                onDelete={handleDeletePost}
+                                                onToggleReaction={handleToggleReaction}
+                                                onViewComments={handleViewComments}
+                                                onViewReactions={handleViewReactions}
+                                                onToggleExpansion={togglePostExpansion}
+                                                isEditing={editingPostId === post.id}
+                                                editingPostText={editingPostId === post.id ? editingPostText : ''}
+                                                onTextChange={setEditingPostText}
+                                                onSave={handleUpdatePost}
+                                                onCancelEdit={handleCancelEdit}
+                                                isExpanded={!!expandedPosts[post.id]}
+                                            />
+                                        );
+                                    })
                                 )}
                             </div>
                         </div>

@@ -515,7 +515,7 @@ const ProfileView = ({
                         {/* Create Post Box (Unlocked) */}
                         <div className="bg-neumorphic-base rounded-2xl p-4 sm:p-6 shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg">
                             <div className="flex items-start gap-4">
-                                <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12">
+                                <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 z-0">
                                     <UserInitialsAvatar user={userProfile} size="full" />
                                 </div>
                                 <button 

@@ -139,7 +139,7 @@ const StudentPostCard = ({
         >
             {/* Post Header */}
             <div className="flex items-start mb-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0 z-0">
                     <Link to={profileLink} state={{ profileData: postAuthor }}>
                         <UserInitialsAvatar 
                             user={postAuthor}
