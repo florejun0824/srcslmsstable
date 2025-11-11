@@ -6,7 +6,7 @@ import { doc, getDoc, updateDoc, setDoc, increment } from 'firebase/firestore';
 // or were removed (Groq).
 
 // --- Model & URL Definitions ---
-const GEMINI_MODEL = 'gemini-1.5-flash'; // Corrected from 2.5 to 1.5
+const GEMINI_MODEL = 'gemini-2.5-flash'; // Corrected from 2.5 to 1.5
 
 // Hugging Face models (REPLACED WITH FASTER ALTERNATIVES)
 const HF_MODEL_1 = 'microsoft/Phi-3-mini'; // <-- REPLACED Qwen
@@ -238,7 +238,7 @@ async function callGeminiWithLoadBalancing(prompt, timeout = 29000) {
 
 
 // --- Main Rate-Limited Caller ---
-async function callGeminiWithLimitCheck(prompt) {
+export async function callGeminiWithLimitCheck(prompt) {
     checkRateLimit(); // Check local rate limit first
     
     // The load balancer will handle API usage tracking
