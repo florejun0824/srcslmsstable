@@ -4,10 +4,15 @@
 import { InferenceClient } from "@huggingface/inference";
 
 // 1. Define an "allow-list" of models this function can call
+// --- MODIFIED ---
 const ALLOWED_MODELS = {
   'Qwen/Qwen3-30B-A3B-Instruct-2507': true,
-  'mistralai/Mistral-7B-Instruct-v0.2': true
+  'meta-llama/Llama-3.1-8B-Instruct': true,    // <-- ADDED
+  'google/gemma-2-9b-it': true,              // <-- ADDED
+  'HuggingFaceH4/zephyr-7b-beta': true,        // <-- ADDED
+  // 'mistralai/Mistral-7B-Instruct-v0.2': true // <-- REMOVED
 };
+// ----------------
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
