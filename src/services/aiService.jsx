@@ -1,34 +1,26 @@
 import { db } from './firebase';
 import { doc, getDoc, updateDoc, setDoc, increment } from 'firebase/firestore';
 
-// --- API Keys (Gemini keys REMOVED from client) ---
-const GEMINI_API_KEY = null; // No longer needed here
-const GEMINI_FALLBACK_API_KEY = null; // No longer needed here
-const GEMINI_FALLBACK_API_KEY_2 = null; // No longer needed here
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
-const HF_API_KEY = import.meta.env.VITE_HF_API_KEY; // Still used for Groq/HF if they weren't proxied
+// --- API Keys (REMOVED) ---
+// All API keys are now handled in the serverless functions (proxies)
+// or were removed (Groq).
 
 // --- Model & URL Definitions ---
 const GEMINI_MODEL = 'gemini-2.5-flash';
 
-// Groq model (REVISED: Kept Llama 4, removed compound)
-const GROQ_BASE_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL_1 = 'meta-llama/llama-4-scout-17b-16e-instruct'; // Kept successful model
-
-// Hugging Face model (Using the 30B model)
-const HF_MODEL = 'Qwen/Qwen3-30B-A3B-Instruct-2507'; 
+// Hugging Face models
+const HF_MODEL_1 = 'Qwen/Qwen3-30B-A3B-Instruct-2507'; 
+const HF_MODEL_2 = 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B'; // <-- ADDED
 
 // --- Unified API Configuration (UPDATED) ---
 const API_CONFIGS = [
-    // --- Gemini Endpoints (UPDATED to use proxy) ---
+    // --- Gemini Endpoints ---
     { service: 'gemini', model: GEMINI_MODEL, url: `/api/gemini-primary`, name: 'Gemini Primary' },
     { service: 'gemini', model: GEMINI_MODEL, url: `/api/gemini-fallback`, name: 'Gemini Fallback 1' },
 
-    // --- Groq Endpoint (1) (Revised) ---
-    { service: 'groq', model: GROQ_MODEL_1, apiKey: GROQ_API_KEY, url: GROQ_BASE_URL, name: `Groq (${GROQ_MODEL_1})` },
-    
-    // --- Hugging Face Endpoint (1) ---
-    { service: 'huggingface', model: HF_MODEL, url: `/api/hf`, name: `HuggingFace (${HF_MODEL})` }
+    // --- Hugging Face Endpoints (Both point to /api/hf) ---
+    { service: 'huggingface', model: HF_MODEL_1, url: `/api/hf`, name: `HuggingFace (${HF_MODEL_1})` },
+    { service: 'huggingface', model: HF_MODEL_2, url: `/api/hf`, name: `HuggingFace (${HF_MODEL_2})` }
 ];
 
 // This will now be 4
@@ -91,78 +83,11 @@ const checkAiLimitReached = async () => {
     }
 };
 
-// --- Internal Gemini API Caller (REMOVED) ---
-// The callGeminiApiInternal function has been removed.
-// Its logic now lives in the Netlify functions.
+// --- Internal Groq API Caller (REMOVED) ---
+// The callGroqApiInternal function has been removed.
 
-// --- Internal Groq API Caller (Unchanged) ---
-const callGroqApiInternal = async (prompt, jsonMode = false, config, maxOutputTokens = undefined) => {
-    const body = {
-        model: config.model,
-        messages: [{ role: "user", content: prompt }],
-    };
-
-    if (jsonMode) {
-        body.response_format = { type: "json_object" };
-    }
-    if (maxOutputTokens) {
-        body.max_tokens = maxOutputTokens;
-    }
-
-    const response = await fetch(config.url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.apiKey}`
-        },
-        body: JSON.stringify(body),
-    });
-
-    if (response.status === 429 || response.status === 503) {
-        const error = new Error(response.status === 429 ? "Rate limit exceeded." : "Model is overloaded or unavailable.");
-        error.status = response.status;
-        throw error;
-    }
-    
-    if (response.status === 413) {
-        const errorText = await response.text();
-        console.warn(`Groq API call failed: 413. Prompt too large for TPM limit. ${errorText.substring(0, 100)}...`);
-        const error = new Error("Prompt too large for Groq's TPM limit.");
-        error.status = 503; 
-        throw error;
-    }
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Groq API call failed: ${response.status}. Response: ${errorText}`);
-        throw new Error(`Groq API failed: ${response.status}. ${errorText.substring(0, 200)}`);
-    }
-
-    let data;
-    let rawResponseTextForError = '';
-    try {
-        rawResponseTextForError = await response.text();
-        data = JSON.parse(rawResponseTextForError);
-    } catch (jsonError) {
-        console.error("Failed to parse AI response as JSON.", jsonError);
-        console.error("Raw AI Response (non-JSON):", rawResponseTextForError);
-        throw new Error(`AI response was not valid JSON. Raw: ${rawResponseTextForError.substring(0, 500)}...`);
-    }
-
-    const textPart = data.choices?.[0]?.message?.content;
-    if (!textPart) {
-        if (data.choices?.[0]?.finish_reason === 'content_filter') {
-            console.warn("AI response blocked due to content filter.");
-            throw new Error("AI response blocked due to safety/content settings.");
-        }
-        console.error("Invalid response structure from AI (Groq):", JSON.stringify(data, null, 2));
-        throw new Error("AI response was not in the expected format.");
-    }
-
-    return textPart;
-}
-
-// --- Internal Proxy API Caller (Replaces HF and Gemini callers) ---
+// --- Internal Proxy API Caller (UPDATED) ---
+// This function now sends the model name to the proxy
 const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputTokens = undefined) => {
     
     const response = await fetch(config.url, {
@@ -172,8 +97,9 @@ const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputT
         },
         body: JSON.stringify({ 
             prompt: prompt,
-            jsonMode: jsonMode, // <-- ADDED THIS
-            maxOutputTokens: maxOutputTokens 
+            jsonMode: jsonMode,
+            maxOutputTokens: maxOutputTokens,
+            model: config.model // <-- This tells the proxy which model to use
         }),
     });
 
@@ -221,13 +147,8 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
 		    console.log(`Attempting AI API with ${keyName} (Index ${keyIndex})...`);
             let response;
             
-            if (config.service === 'gemini') {
-                // --- UPDATED ---
-                response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
-            } else if (config.service === 'groq') {
-                response = await callGroqApiInternal(prompt, jsonMode, config, maxOutputTokens);
-            } else if (config.service === 'huggingface') {
-                // --- UPDATED ---
+            // Simplified: All services now use the proxy caller
+            if (config.service === 'gemini' || config.service === 'huggingface') {
                 response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
             } else {
                 throw new Error(`Unknown service type: ${config.service}`);

@@ -1,10 +1,13 @@
 // netlify/functions/hf.js
-// This function is now for TEXT-ONLY models
+// This function now handles MULTIPLE text-only models
 
 import { InferenceClient } from "@huggingface/inference";
 
-// 1. Use the new, text-only model from your aiService.jsx
-const HF_MODEL_NAME = 'Qwen/Qwen3-30B-A3B-Instruct-2507';
+// 1. Define an "allow-list" of models this function can call
+const ALLOWED_MODELS = {
+  'Qwen/Qwen3-30B-A3B-Instruct-2507': true,
+  'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B': true
+};
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -20,26 +23,31 @@ exports.handler = async (event) => {
   const client = new InferenceClient(HF_TOKEN);
 
   try {
-    // 2. Read only the 'prompt' from the body.
-    // The 'imageUrl' logic has been removed.
-    const { prompt, maxOutputTokens = 2048 } = JSON.parse(event.body || '{}');
+    // 2. Read 'prompt', 'model', and 'maxOutputTokens' from the body
+    const { prompt, model, maxOutputTokens = 2048 } = JSON.parse(event.body || '{}');
 
     if (!prompt) {
       return { statusCode: 400, body: JSON.stringify({ message: "Missing 'prompt' field." }) };
     }
 
-    // 3. Call the chat completion API with a simple text prompt
+    // 3. Validate the requested model against the allow-list
+    if (!model || !ALLOWED_MODELS[model]) {
+      console.warn(`Attempt to call disallowed or missing model: ${model}`);
+      return { statusCode: 400, body: JSON.stringify({ message: `Invalid or missing 'model' field.` }) };
+    }
+
+    // 4. Call the chat completion API with the DYNAMIC model
     const chatCompletion = await client.chatCompletion({
-      model: HF_MODEL_NAME,
+      model: model, // <-- Use the validated model from the request
       messages: [
-        { role: "user", content: prompt }, // <-- Simplified text-only message
+        { role: "user", content: prompt },
       ],
       max_new_tokens: maxOutputTokens
     });
 
     const generatedText = chatCompletion.choices?.[0]?.message?.content;
 
-    // 4. Return the clean text in the format aiService.jsx expects
+    // 5. Return the clean text
     return {
       statusCode: 200,
       body: JSON.stringify({
