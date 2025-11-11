@@ -6,7 +6,7 @@ import { InferenceClient } from "@huggingface/inference";
 // 1. Define an "allow-list" of models this function can call
 const ALLOWED_MODELS = {
   'Qwen/Qwen3-30B-A3B-Instruct-2507': true,
-  'mistralai/Mistral-7B-Instruct-v0.3': true
+  'mistralai/Mistral-7B-Instruct-v0.2': true
 };
 
 exports.handler = async (event) => {

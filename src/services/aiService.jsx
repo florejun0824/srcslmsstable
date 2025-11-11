@@ -11,7 +11,7 @@ const GEMINI_MODEL = 'gemini-2.5-flash'; // <-- Corrected 1.5
 // Hugging Face models
 // --- MODIFIED ---
 const HF_MODEL_1 = 'Qwen/Qwen3-30B-A3B-Instruct-2507'; // <-- REPLACED Qwen
-const HF_MODEL_2 = 'mistralai/Mistral-7B-Instruct-v0.3'; // <-- REPLACED deepseek-ai
+const HF_MODEL_2 = 'mistralai/Mistral-7B-Instruct-v0.2'; // <-- REPLACED deepseek-ai
 // ----------------
 
 // --- Unified API Configuration (UPDATED) ---
