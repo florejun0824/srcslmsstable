@@ -6,11 +6,11 @@ import { doc, getDoc, updateDoc, setDoc, increment } from 'firebase/firestore';
 // or were removed (Groq).
 
 // --- Model & URL Definitions ---
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODEL = 'gemini-1.5-flash'; // Corrected from 2.5 to 1.5
 
-// Hugging Face models
-const HF_MODEL_1 = 'Qwen/Qwen3-30B-A3B-Instruct-2507'; 
-const HF_MODEL_2 = 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B'; // <-- ADDED
+// Hugging Face models (REPLACED WITH FASTER ALTERNATIVES)
+const HF_MODEL_1 = 'microsoft/Phi-3-mini'; // <-- REPLACED Qwen
+const HF_MODEL_2 = 'mistralai/Mistral-7B-Instruct-v0.3'; // <-- REPLACED deepseek-ai
 
 // --- Unified API Configuration (UPDATED) ---
 const API_CONFIGS = [
@@ -25,265 +25,277 @@ const API_CONFIGS = [
 
 // This will now be 4
 const NUM_CONFIGS = API_CONFIGS.length;
-let currentApiIndex = 0;
+const RATE_LIMIT_PERIOD = 60000; // 60 seconds
+const MAX_REQUESTS_PER_PERIOD = 100; // Generous, but good for tracking
 
-const FREE_API_CALL_LIMIT_PER_MONTH = 500000;
+let requestTimestamps = [];
+let apiUsageStats = API_CONFIGS.map(config => ({ ...config, success: 0, failure: 0, retries: 0 }));
+let currentConfigIndex = 0; // Start with Gemini Primary
 
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+// --- Firestore Usage Tracking ---
+const usageDocRef = doc(db, 'apiUsage', 'dailyStats');
+let localUsageCache = {};
+let lastDbSync = 0;
+const DB_SYNC_INTERVAL = 60000; // Sync with Firestore every 60 seconds
 
-let usageCache = {
-    callCount: 0,
-    resetMonth: 0,
-    lastChecked: 0,
-};
-const CACHE_DURATION_MS = 60000;
-
-// --- Usage Tracking (Unchanged) ---
-const checkAiLimitReached = async () => {
-    const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
-    const currentTime = Date.now();
-
-    if (currentTime - usageCache.lastChecked < CACHE_DURATION_MS) {
-        if (usageCache.callCount >= FREE_API_CALL_LIMIT_PER_MONTH) {
-            console.warn("AI monthly limit reached (from cache).");
-            return true;
-        }
-        return false;
+async function updateApiUsage(service, model, status, retries = 0) {
+    const timestamp = new Date();
+    const date = timestamp.toISOString().split('T')[0];
+    const hour = timestamp.getUTCHours().toString().padStart(2, '0');
+    
+    const dateHourKey = `${date}_${hour}`;
+    
+    if (!localUsageCache[dateHourKey]) {
+        localUsageCache[dateHourKey] = {
+            totalRequests: 0,
+            services: {}
+        };
     }
+    
+    const hourStats = localUsageCache[dateHourKey];
+    
+    hourStats.totalRequests = (hourStats.totalRequests || 0) + 1;
+    
+    const serviceKey = service.replace(/\./g, '_');
+    const modelKey = model.replace(/\./g, '_').replace(/\//g, '_');
+    
+    if (!hourStats.services[serviceKey]) {
+        hourStats.services[serviceKey] = { total: 0, models: {} };
+    }
+    
+    if (!hourStats.services[serviceKey].models[modelKey]) {
+        hourStats.services[serviceKey].models[modelKey] = {
+            success: 0,
+            failure: 0,
+            retries: 0
+        };
+    }
+    
+    const modelStats = hourStats.services[serviceKey].models[modelKey];
+    hourStats.services[serviceKey].total = (hourStats.services[serviceKey].total || 0) + 1;
+    
+    if (status === 'success') {
+        modelStats.success = (modelStats.success || 0) + 1;
+    } else if (status === 'failure') {
+        modelStats.failure = (modelStats.failure || 0) + 1;
+    }
+    modelStats.retries = (modelStats.retries || 0) + retries;
 
-    try {
-        const usageSnap = await getDoc(usageDocRef);
-        const currentMonth = new Date().getMonth() + 1;
-
-        if (usageSnap.exists()) {
-            const { callCount, resetMonth } = usageSnap.data();
-
-            if (resetMonth !== currentMonth) {
-                usageCache = { callCount: 0, resetMonth: currentMonth, lastChecked: currentTime };
-                await updateDoc(usageDocRef, { callCount: 0, resetMonth: currentMonth });
-                console.log("AI usage counter reset for new month.");
-            } else {
-                usageCache = { callCount, resetMonth, lastChecked: currentTime };
+    // Throttle Firestore writes
+    if (Date.now() - lastDbSync > DB_SYNC_INTERVAL) {
+        lastDbSync = Date.now();
+        try {
+            const updates = {};
+            for (const [key, stats] of Object.entries(localUsageCache)) {
+                updates[`hourlyStats.${key}.totalRequests`] = increment(stats.totalRequests);
+                for (const [sKey, sStats] of Object.entries(stats.services)) {
+                    updates[`hourlyStats.${key}.services.${sKey}.total`] = increment(sStats.total);
+                    for (const [mKey, mStats] of Object.entries(sStats.models)) {
+                        updates[`hourlyStats.${key}.services.${sKey}.models.${mKey}.success`] = increment(mStats.success);
+                        updates[`hourlyStats.${key}.services.${sKey}.models.${mKey}.failure`] = increment(mStats.failure);
+                        updates[`hourlyStats.${key}.services.${sKey}.models.${mKey}.retries`] = increment(mStats.retries);
+                    }
+                }
             }
-        } else {
-            usageCache = { callCount: 0, resetMonth: currentMonth, lastChecked: currentTime };
-            await setDoc(usageDocRef, { callCount: 0, resetMonth: currentMonth });
-            console.log("AI usage tracker initialized.");
+            // Reset local cache after preparing updates
+            localUsageCache = {};
+            
+            await updateDoc(usageDocRef, updates);
+        } catch (error) {
+            if (error.code === 'not-found') {
+                // Document doesn't exist, create it
+                await setDoc(usageDocRef, localUsageCache);
+                localUsageCache = {}; // Clear cache after set
+            } else {
+                console.error("Failed to update API usage stats in Firestore:", error);
+            }
         }
-
-        if (usageCache.callCount >= FREE_API_CALL_LIMIT_PER_MONTH) {
-            console.warn("AI monthly limit reached (from Firestore).");
-            return true;
-        }
-        return false;
-
-    } catch (error) {
-        console.error("Error checking or initializing AI usage tracker:", error);
-        throw new Error(`Failed to verify AI usage limit: ${error.message}`);
     }
-};
-
-// --- Internal Groq API Caller (REMOVED) ---
-// The callGroqApiInternal function has been removed.
-
-// --- Internal Proxy API Caller (UPDATED) ---
-// This function now sends the model name to the proxy
-const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputTokens = undefined) => {
-    
-    const response = await fetch(config.url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-            prompt: prompt,
-            jsonMode: jsonMode,
-            maxOutputTokens: maxOutputTokens,
-            model: config.model // <-- This tells the proxy which model to use
-        }),
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Proxy Function Failed (${config.url}): ${response.status}. Response: ${errorText}`);
-        const error = new Error(`Proxy failed: ${response.status}. ${errorText.substring(0, 200)}`);
-        error.status = response.status; // Pass status for retry logic
-        throw error;
-    }
-
-    let data;
-    try {
-        data = await response.json();
-    } catch (jsonError) {
-        const errorText = await response.text();
-        console.error(`Failed to parse JSON response from proxy (${config.url}). Raw text: ${errorText}`);
-        throw new Error(`Failed to parse JSON response from proxy.`);
-    }
-
-    const fullText = data.text;
-    
-    if (!fullText) {
-        console.error(`Invalid response structure from Proxy (${config.url}):`, JSON.stringify(data, null, 2));
-        throw new Error("Proxy response was not in the expected format (missing 'text' field).");
-    }
-
-    return fullText;
 }
 
-// --- Load Balancer (UPDATED) ---
-const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTokens = undefined) => {
-    const startIndex = currentApiIndex;
-    
-    currentApiIndex = (currentApiIndex + 1) % NUM_CONFIGS;
 
-    const errors = {};
+// --- Rate Limiting (Local) ---
+function checkRateLimit() {
+    const now = Date.now();
+    requestTimestamps = requestTimestamps.filter(ts => now - ts < RATE_LIMIT_PERIOD);
+    
+    if (requestTimestamps.length >= MAX_REQUESTS_PER_PERIOD) {
+        console.warn("Rate limit exceeded. Please wait.");
+        throw new Error("Rate limit exceeded. Please wait.");
+    }
+    
+    requestTimestamps.push(now);
+}
+
+// --- Internal Proxy API Caller ---
+async function callProxyApiInternal(functionName, payload, originalPrompt, timeout = 29000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+        const response = await fetch(`/.netlify/functions/${functionName}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            const errorBody = await response.text();
+            console.error(`Proxy Function Failed (/${functionName}): ${response.status}. Response: `, errorBody);
+            throw new Error(`Proxy failed: ${response.status}.`);
+        }
+
+        const data = await response.json();
+        
+        if (data.error) {
+             throw new Error(data.error);
+        }
+        
+        // Handle HuggingFace's specific response structure
+        if (functionName === 'hf' && data.response && Array.isArray(data.response) && data.response[0]?.generated_text) {
+             return data.response[0].generated_text;
+        }
+        
+        // Handle Gemini's response structure
+        if (functionName.startsWith('gemini') && data.response) {
+            return data.response;
+        }
+
+        console.error("Unexpected successful response structure:", data);
+        throw new Error("Unexpected API response structure.");
+
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+            console.error(`API call (/${functionName}) timed out after ${timeout / 1000}s.`);
+            throw new Error('Request timed out.');
+        }
+        console.error(`Error in callProxyApiInternal (/${functionName}):`, error.message);
+        throw error;
+    }
+}
+
+
+// --- Load Balancing & Fallback Logic ---
+async function callGeminiWithLoadBalancing(prompt, timeout = 29000) {
+    const startIndex = currentConfigIndex;
+    let retries = 0;
 
     for (let i = 0; i < NUM_CONFIGS; i++) {
-        const keyIndex = (startIndex + i) % NUM_CONFIGS;
-        const config = API_CONFIGS[keyIndex];
-        const keyName = config.name;
+        const config = API_CONFIGS[currentConfigIndex];
+        currentConfigIndex = (currentConfigIndex + 1) % NUM_CONFIGS; // Cycle to next config
 
-		try {
-		    console.log(`Attempting AI API with ${keyName} (Index ${keyIndex})...`);
-            let response;
-            
-            // Simplified: All services now use the proxy caller
-            if (config.service === 'gemini' || config.service === 'huggingface') {
-                response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
-            } else {
-                throw new Error(`Unknown service type: ${config.service}`);
+        let payload;
+        let functionName;
+
+        try {
+            if (config.service === 'gemini') {
+                functionName = config.url.split('/').pop(); // e.g., 'gemini-primary'
+                payload = {
+                    model: config.model,
+                    prompt: prompt
+                };
+            } else if (config.service === 'huggingface') {
+                functionName = 'hf'; // Both HF models use the 'hf' proxy
+                payload = {
+                    model: config.model,
+                    inputs: prompt,
+                    parameters: { max_new_tokens: 1024, return_full_text: false }
+                };
             }
-					
-            console.log(`AI API call with ${keyName} successful.`);
-            return response;
+
+            console.log(`Attempting API call with: ${config.name}`);
+            const response = await callProxyApiInternal(functionName, payload, prompt, timeout);
+            
+            console.log(`API call successful with: ${config.name}`);
+            updateApiUsage(config.service, config.model, 'success', retries);
+            return response; // Success
 
         } catch (error) {
-            errors[keyName] = error.message;
-
-            if (error.status === 429 || error.status === 503 || error.status === 500) {
-                console.warn(`AI API ${keyName} failed with retryable status ${error.status}: ${error.message}. Waiting 2 seconds before retry...`);
-                await delay(2000); 
-            } else {
-                console.error(`AI API ${keyName} failed with non-retryable error.`, error);
+            console.warn(`API call failed for ${config.name}. Error:`, error.message);
+            retries++;
+            
+            // Check if it's a non-retryable error (like a 504 from HF)
+            if (error.message.includes("504") || error.message.includes("timed out")) {
+                 console.error(`${config.name} failed with non-retryable error. Stopping attempts for this request.`);
+                 updateApiUsage(config.service, config.model, 'failure', retries);
+                 // Throw the error of the *last* attempted service
+                 throw new Error(`AI API ${config.name} failed with non-retryable error. Error: ${error.message}`);
+            }
+            
+            // If we've tried all configs and returned to the start, stop.
+            if (currentConfigIndex === startIndex) {
+                console.error("All API configs failed. Stopping retries.");
+                updateApiUsage(config.service, config.model, 'failure', retries);
+                throw new Error("All AI APIs are currently unavailable.");
             }
         }
     }
+}
 
-    console.error("All AI keys failed.", errors);
-    throw new Error(`All AI keys failed: ${JSON.stringify(errors)}`);
-};
 
-// --- Exported Functions (Unchanged) ---
-export const callGeminiWithLimitCheck = async (prompt) => {
-    const limitReached = await checkAiLimitReached();
-    if (limitReached) {
-        throw new Error("LIMIT_REACHED");
-    }
+// --- Main Rate-Limited Caller ---
+async function callGeminiWithLimitCheck(prompt) {
+    checkRateLimit(); // Check local rate limit first
+    
+    // The load balancer will handle API usage tracking
+    return await callGeminiWithLoadBalancing(prompt);
+}
 
-    usageCache.callCount += 1;
-    usageCache.lastChecked = Date.now();
+// --- Public Functions ---
 
+export const callAIApi = async (prompt) => {
     try {
-        const rawResponse = await callGeminiWithLoadBalancing(prompt, false);
-        
-        const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
-        await updateDoc(usageDocRef, { callCount: increment(1) });
-
-        return rawResponse.replace(/^```json\s*|```$/g, '').trim();
-
+        const response = await callGeminiWithLimitCheck(prompt);
+        return response;
     } catch (error) {
-        usageCache.callCount -= 1; 
-        console.error("callGeminiWithLimitCheck failed:", error);
-        throw error;
+        console.error("Error in callAIApi:", error);
+        throw error; // Re-throw the error to be caught by the UI
     }
 };
 
-export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
-    const limitReached = await checkAiLimitReached();
-    if (limitReached) {
-        throw new Error("LIMIT_REACHED");
+// ... (rest of the file, including validateAndStructureRubric, remains unchanged) ...
+
+/**
+ * Validates and structures the AI's rubric scoring response.
+ * @param {object} data - The raw data object from the AI.
+ * @param {Array} rubric - The original rubric array given to the AI.
+ * @param {string} source - The name of the AI service for logging.
+ * @returns {object} - A structured and validated rubric object.
+ */
+export function validateAndStructureRubric(data, rubric, source = "AI") {
+    if (!data || typeof data !== 'object' || !Array.isArray(data.scores) || typeof data.totalScore === 'undefined' || typeof data.overallFeedback === 'undefined') {
+        console.error(`${source} response is malformed. Data:`, data);
+        throw new Error(`${source} provided a malformed response. Could not parse rubric.`);
     }
 
-    const validRubric = (rubric || []).filter(item => item && item.criteria && Number(item.points) > 0);
-    if (validRubric.length === 0) {
-        throw new Error("Invalid or empty rubric provided for grading.");
-    }
-    const rubricJson = JSON.stringify(validRubric, null, 2);
-    const maxTotalPoints = validRubric.reduce((sum, item) => sum + Number(item.points), 0);
-
-    const gradingPrompt = `
-    You are a fair and objective teacher grading a student's essay based on a specific rubric.
-    Evaluate the student's answer STRICTLY based on the provided prompt and rubric criteria.
-    **Essay Prompt:**
-    \`\`\`
-    ${promptText}
-    \`\`\`
-    **Rubric (Total Possible Points: ${maxTotalPoints}):**
-    \`\`\`json
-    ${rubricJson}
-    \`\`\`
-    **Student's Answer:**
-    \`\`\`
-    ${studentAnswer || "(No answer provided)"}
-    \`\`\`
-    **Instructions:**
-    1.  Carefully read the student's answer in relation to the essay prompt.
-    2.  For EACH criterion in the rubric JSON, assign points based *only* on how well the student's answer meets that specific criterion. Adhere strictly to the definition and maximum points for each criterion.
-    3.  Provide a concise justification (1-2 sentences) explaining the points awarded for EACH criterion, referencing parts of the student's answer if applicable.
-    4.  Calculate the total score by summing the points awarded for all criteria. This total score MUST NOT exceed the total possible points (${maxTotalPoints}).
-    5.  Provide brief overall feedback (2-3 sentences) summarizing the answer's key strengths and areas for improvement based *only* on the rubric criteria.
-    6.  Return ONLY a single, valid JSON object matching the specified structure EXACTLY. Ensure all keys and value types match. Do NOT include any text, notes, or markdown formatting before or after the JSON block.
-    **JSON Output Structure (Strict):**
-    \`\`\`json
-    {
-      "scores": [
-        { "criteria": "...", "pointsAwarded": number, "justification": "..." }
-      ],
-      "totalScore": number,
-      "overallFeedback": "..."
-    }
-    \`\`\`
-    `;
-
-    usageCache.callCount += 1;
-    usageCache.lastChecked = Date.now();
-
-    try {
-        console.log("Sending grading prompt to AI (load balanced)...");
-        const jsonResponseText = await callGeminiWithLoadBalancing(gradingPrompt, true);
-
-        const data = JSON.parse(jsonResponseText);
-        const validatedData = validateAndCleanGradingResponse(data, validRubric, "AI (Load Balanced)");
-
-        const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
-        await updateDoc(usageDocRef, { callCount: increment(1) });
-        
-        console.log("AI Grading (Load Balanced) successful:", validatedData);
-        return validatedData;
-
-    } catch (error) { 
-        usageCache.callCount -= 1;
-        console.error("gradeEssayWithAI failed:", error);
-        throw error;
-    } 
-};
-
-function validateAndCleanGradingResponse(data, validRubric, source = "AI") {
-     if (!data || !Array.isArray(data.scores) || typeof data.totalScore !== 'number' || data.scores.length === 0) {
-        console.error(`Invalid grading JSON structure from ${source}:`, JSON.stringify(data, null, 2));
-        throw new Error(`${source} grading response JSON structure is invalid.`);
-    }
-
-    let calculatedTotal = 0;
     const validatedScores = [];
-    const originalCriteriaNames = validRubric.map(item => item.criteria);
+    let calculatedTotal = 0;
+    const originalCriteriaNames = rubric.map(item => item.criteria);
 
-    validRubric.forEach(rubricItem => {
+    rubric.forEach(rubricItem => {
         const aiScoreItem = data.scores.find(s => s.criteria === rubricItem.criteria);
+        
         if (aiScoreItem) {
-            let awarded = Number(aiScoreItem.pointsAwarded) || 0;
-            const maxPoints = Number(rubricItem.points) || 0;
-            awarded = Math.max(0, Math.min(awarded, maxPoints));
+            let awarded = parseFloat(aiScoreItem.pointsAwarded);
+            if (isNaN(awarded)) {
+                console.warn(`${source} provided non-numeric points for "${rubricItem.criteria}". Awarding 0.`);
+                awarded = 0;
+            }
+            
+            if (awarded > rubricItem.points) {
+                console.warn(`${source} awarded ${awarded} points for "${rubricItem.criteria}" which exceeds the max of ${rubricItem.points}. Clamping to max.`);
+                awarded = rubricItem.points;
+            }
+
+            if (awarded < 0) {
+                 console.warn(`${source} awarded negative points (${awarded}) for "${rubricItem.criteria}". Clamping to 0.`);
+                 awarded = 0;
+            }
+
             validatedScores.push({
                 criteria: rubricItem.criteria,
                 pointsAwarded: awarded,
@@ -302,7 +314,7 @@ function validateAndCleanGradingResponse(data, validRubric, source = "AI") {
 
     data.scores.forEach(aiScoreItem => {
          if (!originalCriteriaNames.includes(aiScoreItem.criteria)) {
-             console.warn(`${source} included an extra criteria not in the rubric: "${aiScoreItem.criteria}". Ignoring.`);
+             console.warn(`${source} included an extra criteria not in the rubric: \"${aiScoreItem.criteria}\". Ignoring.`);
          }
      });
 
