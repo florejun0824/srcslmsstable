@@ -9,8 +9,7 @@ const ALLOWED_MODELS = {
   'Qwen/Qwen3-30B-A3B-Instruct-2507': true,
   'meta-llama/Llama-3.1-8B-Instruct': true,    // <-- ADDED
   'google/gemma-2-9b-it': true,              // <-- ADDED
-  'HuggingFaceH4/zephyr-7b-beta': true,        // <-- ADDED
-  // 'mistralai/Mistral-7B-Instruct-v0.2': true // <-- REMOVED
+ 
 };
 // ----------------
 
