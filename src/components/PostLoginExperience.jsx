@@ -4,6 +4,9 @@ import HologramOnboarding from "./HologramOnboarding";
 // --- ADDED: Import the new BiometricPrompt component ---
 import BiometricPrompt from "./common/BiometricPrompt"; // <-- Adjust path if you save it elsewhere
 
+// --- 1. IMPORT YOUR NEW PRIVACY MODAL ---
+import PrivacyAgreementModal from "./common/PrivacyAgreementModal";
+
 export default function PostLoginExperience({ children }) {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [versionInfo, setVersionInfo] = useState(null);
@@ -49,6 +52,14 @@ export default function PostLoginExperience({ children }) {
 
   return (
     <>
+      {/* --- 2. ADD THE PRIVACY MODAL HERE ---
+        It will render first and appear on top of everything
+        (including the HologramOnboarding) because its `z-index`
+        is set higher. It must be accepted before the user
+        can interact with anything else.
+      */}
+      <PrivacyAgreementModal />
+
       {showOnboarding && (
         <HologramOnboarding
           versionInfo={versionInfo}
