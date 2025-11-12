@@ -10,9 +10,9 @@ const GEMINI_MODEL = 'gemini-2.5-flash'; // <-- Corrected 1.5
 
 // Hugging Face models
 // --- MODIFIED ---
-const HF_MODEL_1 = 'Qwen/Qwen3-30B-A3B-Instruct-2507';
-const HF_MODEL_2 = 'meta-llama/Llama-3.1-8B-Instruct';    // <-- REPLACED mistralai
-const HF_MODEL_3 = 'google/gemma-2-9b-it';                // <-- NEW
+const HF_MODEL_1 = 'Qwen/Qwen3-30B-A3B-Instruct-2507'; // <-- Retained Qwen
+// const HF_MODEL_2 = 'meta-llama/Llama-3.1-8B-Instruct';    // <-- REMOVED
+// const HF_MODEL_3 = 'google/gemma-2-9b-it';                // <-- REMOVED
 
 // --- Unified API Configuration (UPDATED) ---
 const API_CONFIGS = [
@@ -22,12 +22,12 @@ const API_CONFIGS = [
 
     // --- Hugging Face Endpoints (All point to /api/hf) ---
     { service: 'huggingface', model: HF_MODEL_1, url: `/api/hf`, name: `HuggingFace (${HF_MODEL_1})` },
-    { service: 'huggingface', model: HF_MODEL_2, url: `/api/hf`, name: `HuggingFace (${HF_MODEL_2})` },
-    { service: 'huggingface', model: HF_MODEL_3, url: `/api/hf`, name: `HuggingFace (${HF_MODEL_3})` },
+    // { service: 'huggingface', model: HF_MODEL_2, url: `/api/hf`, name: `HuggingFace (${HF_MODEL_2})` }, // <-- REMOVED
+    // { service: 'huggingface', model: HF_MODEL_3, url: `/api/hf`, name: `HuggingFace (${HF_MODEL_3})` }, // <-- REMOVED
     
 ];
 
-// This will now be 5
+// This will now be 3
 const NUM_CONFIGS = API_CONFIGS.length;
 let currentApiIndex = 0;
 

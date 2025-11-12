@@ -7,8 +7,8 @@ import { InferenceClient } from "@huggingface/inference";
 // --- MODIFIED ---
 const ALLOWED_MODELS = {
   'Qwen/Qwen3-30B-A3B-Instruct-2507': true,
-  'meta-llama/Llama-3.1-8B-Instruct': true,    // <-- ADDED
-  'google/gemma-2-9b-it': true,              // <-- ADDED
+  // 'meta-llama/Llama-3.1-8B-Instruct': true,    // <-- REMOVED
+  // 'google/gemma-2-9b-it': true,              // <-- REMOVED
  
 };
 // ----------------
