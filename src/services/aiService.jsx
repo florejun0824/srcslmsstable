@@ -10,7 +10,7 @@ const GEMINI_MODEL = 'gemini-2.5-flash'; // <-- Corrected 1.5
 
 // Hugging Face models
 // --- MODIFIED ---
-const HF_MODEL_1 = 'Qwen/Qwen3-30B-A3B-Instruct-2507'; // <-- Retained Qwen
+const HF_MODEL_1 = 'Qwen/Qwen3-4B-Instruct-2507'; // <-- Retained Qwen
 // const HF_MODEL_2 = 'meta-llama/Llama-3.1-8B-Instruct';    // <-- REMOVED
 // const HF_MODEL_3 = 'google/gemma-2-9b-it';                // <-- REMOVED
 
