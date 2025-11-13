@@ -46,7 +46,7 @@ const calculateItemsForRange = (rangeString) => {
 // Helper function to extract a JSON object from a string
 const extractJson = (text) => {
     let match = text.match(/```json\s*([\sS]*?)\s*```/);
-    if (!match) match = text.match(/```([\s\S]*?)```/);
+    if (!match) match = text.match(/```([\sS]*?)```/);
     if (match && match[1]) return match[1].trim();
     const firstBrace = text.indexOf('{');
     const lastBrace = text.lastIndexOf('}');
@@ -151,7 +151,10 @@ const translations = {
 };
 
 const generateTosMarkdown = (tos) => {
-    if (!tos) return 'No Table of Specifications generated.';
+    // --- START: MODIFICATION (Added check for competencyBreakdown) ---
+    if (!tos || !Array.isArray(tos.competencyBreakdown)) return 'No Table of Specifications generated.';
+    // --- END: MODIFICATION ---
+    
     const header = tos.header;
     let markdown = `# ${header.examTitle}\n\n`;
     markdown += `**Subject:** ${header.subject}\n`;
@@ -225,7 +228,10 @@ const generateExamQuestionsMarkdown = (questions, language) => {
                             markdown += `   ${String.fromCharCode(97 + index)}. ${optionText}\n`;
                         });
                         markdown += `\n`;
-                    } else if (q.type === 'essay' && q.rubric) {
+                    // --- START: MODIFICATION (This is the fix) ---
+                    // Instead of just "&& q.rubric", check if it's an array.
+                    } else if (q.type === 'essay' && Array.isArray(q.rubric)) {
+                    // --- END: MODIFICATION ---
                         markdown += `**${t.rubric}:**\n\n`;
                         q.rubric.forEach(item => {
                             markdown += `* ${item.criteria}: ${item.points} point${item.points > 1 ? 's' : ''}\n`;
@@ -246,11 +252,18 @@ const generateAnswerKeyMarkdown = (questions) => {
         if (q.type === 'matching-type') {
             const firstQuestionNumber = q.questionNumber;
             const prompts = q.prompts || [];
+            // Safe: check if options array exists
+            const options = q.options || []; 
             prompts.forEach((prompt, index) => {
                 const correctOptionId = q.correctPairs[prompt.id];
-                const correctOption = q.options.find(opt => opt.id === correctOptionId);
-                const correctOptionIndex = q.options.findIndex(opt => opt.id === correctOptionId);
-                markdown += `**Question ${firstQuestionNumber + index}:** ${String.fromCharCode(97 + correctOptionIndex)}. ${correctOption.text}\n`;
+                const correctOption = options.find(opt => opt.id === correctOptionId);
+                const correctOptionIndex = options.findIndex(opt => opt.id === correctOptionId);
+                // Safe: check if correct option was found
+                if(correctOption) {
+                    markdown += `**Question ${firstQuestionNumber + index}:** ${String.fromCharCode(97 + correctOptionIndex)}. ${correctOption.text}\n`;
+                } else {
+                    markdown += `**Question ${firstQuestionNumber + index}:** Error: No matching answer found.\n`;
+                }
             });
         } else if (q.correctAnswer) {
             markdown += `**Question ${q.questionNumber}:** ${q.correctAnswer}\n`;
@@ -807,6 +820,46 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 		                    };
 		                }
 		            }
+                    // --- START: MODIFICATION (This is the fix) ---
+                    // The error log `x.rubric.forEach` suggests a loop.
+                    // The only other loop is in saveAsQuiz, but it's implicit (a .map).
+                    // The minifier likely changed 'q' to 'x'.
+                    // Your `saveAsQuiz` function doesn't seem to process rubrics at all.
+                    // This means the error *must* be in `generateExamQuestionsMarkdown` as fixed above.
+                    //
+                    // However, the error log `at zt`... `at ce`... `at onClick` for "Save"
+                    // *strongly* implies the error is in the "Save" click handler, not "Generate".
+                    //
+                    // Let's re-examine `saveAsQuiz`.
+                    // The error is `x.rubric.forEach`.
+                    // The error log trace is:
+                    //   at AiGenerationHub-B-cVlLKI.js:381:12  (This is the .forEach line)
+                    //   at Array.forEach (<anonymous>)
+                    //   at zt (AiGenerationHub-B-cVlLKI.js:376:10) (This is the 'zt' function)
+                    //   at F (AiGenerationHub-B-cVlLKI.js:479:1777)
+                    //   at ce (AiGenerationHub-B-cVlLKI.js:481:1698) (This calls 'F')
+                    //   at onClick (AiGenerationHub-B-cVlLKI.js:481:4739) (This is the button click)
+                    //
+                    // The `onClick` is `handleFinalSave`.
+                    // `handleFinalSave` calls `saveAsQuiz` or `saveAsLesson`.
+                    // `saveAsLesson` calls `generateExamQuestionsMarkdown`.
+                    //
+                    // Ah! The bug is NOT in `saveAsQuiz`. It's in `saveAsLesson`!
+                    // My previous fix in `generateExamQuestionsMarkdown` is correct.
+                    // The error trace confirms it:
+                    // 1. User clicks "Save" (`onClick`)
+                    // 2. `handleFinalSave` is called (`ce`)
+                    // 3. `saveAsLesson` is called (`F`)
+                    // 4. `generateExamQuestionsMarkdown` is called (`zt`)
+                    // 5. `q.rubric.forEach` is called (`x.rubric.forEach`) and crashes.
+                    //
+                    // The fix I already added is the correct one.
+                    // I will also make the other helper functions more robust
+                    // to prevent future crashes.
+                    //
+                    // The code for `saveAsQuiz` does not process rubrics, so it is safe.
+                    // I will return `null` for any unprocessed question.
+                    // --- END: MODIFICATION ---
 		            return null;
 		        })
 		        .filter(Boolean);
