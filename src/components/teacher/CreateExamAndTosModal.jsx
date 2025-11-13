@@ -801,6 +801,8 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 		                        ...baseQuestion,
 		                        type: 'identification', // Standardize 'solving' to 'identification' for the quiz component
 		                        correctAnswer: q.correctAnswer,
+// --- ADD THIS LINE ---
+                                choicesBox: q.choicesBox || null,
 		                    };
 		                }
 		            }

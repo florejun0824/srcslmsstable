@@ -255,66 +255,86 @@ export default function QuizQuestion() {
         );
     }
 
-    // --- Multiple Choice & Identification UI (Fallback) ---
-    // ... (No changes to this part)
+    {/* --- [START] MODIFICATION: Added new block for Identification --- */}
+    if (question.type === 'identification') {
+        return (
+            <div>
+                {/* 1. Display the Choices Box (if it exists) */}
+                {question.choicesBox && question.choicesBox.length > 0 && (
+                    <div className="mb-4 p-4 rounded-2xl bg-neumorphic-base shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
+                        <h4 className="text-center text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                            Choices
+                        </h4>
+                        <p className="text-center text-base font-medium text-slate-800 dark:text-slate-200 leading-relaxed">
+                            {question.choicesBox.join('   •   ')}
+                        </p>
+                    </div>
+                )}
+
+                {/* 2. Display the Question Text */}
+                <div className="font-semibold text-base mb-4 bg-neumorphic-base p-3 rounded-2xl shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
+                    <ContentRenderer text={question.text || question.question || "Question Text Missing"} />
+                    <span className="block text-xs text-slate-500 mt-1 dark:text-slate-400">({question.points || 0} points)</span>
+                </div>
+
+                {/* 3. Display the Answer Input */}
+                <input
+                    type="text"
+                    placeholder="Type your answer"
+                    value={userAnswers[currentQ] || ''}
+                    onChange={e => setUserAnswers({ ...userAnswers, [currentQ]: e.target.value })}
+                    disabled={isDisabled}
+                    className="w-full p-3 rounded-xl bg-neumorphic-base shadow-neumorphic-inset focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 disabled:opacity-70 disabled:cursor-not-allowed dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:focus:ring-blue-400 dark:text-slate-100"
+                    aria-label={`Answer for identification question ${currentQ + 1}`}
+                />
+                
+                {/* 4. Display the Submit Button */}
+                {!isDisabled && (
+                    <button
+                        onClick={() => handleAnswer(userAnswers[currentQ] || '', 'identification')}
+                        className="mt-4 w-full py-3 rounded-2xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-blue-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
+                    >
+                        Submit Answer
+                    </button>
+                )}
+            </div>
+        );
+    }
+    {/* --- [END] MODIFICATION --- */}
+
+
+    {/* --- [START] MODIFICATION: Simplified Fallback to ONLY handle Multiple Choice --- */}
+    // This block now *only* handles multiple-choice questions.
     return (
         <div>
             {/* Question Text */}
-            {/* --- MODIFIED: Added dark theme --- */}
             <div className="font-semibold text-base mb-4 bg-neumorphic-base p-3 rounded-2xl shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
                 <ContentRenderer text={question.text || question.question || "Question Text Missing"} />
-                {/* --- MODIFIED: Added dark theme --- */}
                 <span className="block text-xs text-slate-500 mt-1 dark:text-slate-400">({question.points || 0} points)</span>
             </div>
 
-            {/* Options (MC) or Input (ID) */}
-            {question.type === 'multiple-choice' ? (
-                <div className="space-y-2">
-                    {(question.options || []).map((option, idx) => (
-                        // --- MODIFIED: Added dark theme ---
-                        <label key={idx} className={`relative flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 bg-neumorphic-base ${isDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer active:shadow-neumorphic-inset'} ${userAnswers[currentQ] === idx ? 'shadow-neumorphic-inset' : 'shadow-neumorphic'} dark:bg-neumorphic-base-dark ${userAnswers[currentQ] === idx ? 'dark:shadow-neumorphic-inset-dark' : 'dark:shadow-lg dark:active:shadow-neumorphic-inset-dark'}`}>
-                            <input
-                                type="radio"
-                                name={`question-${currentQ}`}
-                                value={idx}
-                                checked={userAnswers[currentQ] === idx}
-                                onChange={() => handleAnswer(idx, 'multiple-choice')}
-                                disabled={isDisabled}
-                                className="absolute opacity-0 w-0 h-0 peer"
-                                aria-label={`Option ${idx + 1}`}
-                            />
-                            {/* --- MODIFIED: Added dark theme --- */}
-                            <span className={`flex-shrink-0 w-5 h-5 rounded-full border-2 border-slate-400 peer-focus:ring-2 peer-focus:ring-blue-500 peer-focus:ring-offset-2 peer-focus:ring-offset-neumorphic-base flex items-center justify-center transition-colors ${userAnswers[currentQ] === idx ? 'bg-blue-600 border-blue-600 dark:bg-blue-500 dark:border-blue-500' : 'bg-neumorphic-inset dark:border-slate-500 dark:bg-neumorphic-inset-dark'} dark:peer-focus:ring-offset-neumorphic-base-dark`} aria-hidden="true">
-                                 {userAnswers[currentQ] === idx && <span className="w-2 h-2 rounded-full bg-white"></span>}
-                            </span>
-                            {/* --- MODIFIED: Added dark theme --- */}
-                            <span className="text-sm text-slate-700 dark:text-slate-300"><ContentRenderer text={option.text || option || `Option ${idx + 1} Missing`} /></span>
-                        </label>
-                    ))}
-                </div>
-            ) : ( // Identification or ExactAnswer
-                <>
-                    <input
-                        type="text"
-                        placeholder="Type your answer"
-                        value={userAnswers[currentQ] || ''}
-                        onChange={e => setUserAnswers({ ...userAnswers, [currentQ]: e.target.value })}
-                        disabled={isDisabled}
-                        // --- MODIFIED: Added dark theme ---
-                        className="w-full p-3 rounded-xl bg-neumorphic-base shadow-neumorphic-inset focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 disabled:opacity-70 disabled:cursor-not-allowed dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:focus:ring-blue-400 dark:text-slate-100"
-                        aria-label={`Answer for identification question ${currentQ + 1}`}
-                    />
-                    {!isDisabled && (
-                        <button
-                            onClick={() => handleAnswer(userAnswers[currentQ] || '', 'identification')}
-                            // --- MODIFIED: Added dark theme ---
-                            className="mt-4 w-full py-3 rounded-2xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-blue-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
-                        >
-                            Submit Answer
-                        </button>
-                    )}
-                </>
-            )}
+            {/* Options (MC) */}
+            <div className="space-y-2">
+                {(question.options || []).map((option, idx) => (
+                    <label key={idx} className={`relative flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 bg-neumorphic-base ${isDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer active:shadow-neumorphic-inset'} ${userAnswers[currentQ] === idx ? 'shadow-neumorphic-inset' : 'shadow-neumorphic'} dark:bg-neumorphic-base-dark ${userAnswers[currentQ] === idx ? 'dark:shadow-neumorphic-inset-dark' : 'dark:shadow-lg dark:active:shadow-neumorphic-inset-dark'}`}>
+                        <input
+                            type="radio"
+                            name={`question-${currentQ}`}
+                            value={idx}
+                            checked={userAnswers[currentQ] === idx}
+                            onChange={() => handleAnswer(idx, 'multiple-choice')}
+                            disabled={isDisabled}
+                            className="absolute opacity-0 w-0 h-0 peer"
+                            aria-label={`Option ${idx + 1}`}
+                        />
+                        <span className={`flex-shrink-0 w-5 h-5 rounded-full border-2 border-slate-400 peer-focus:ring-2 peer-focus:ring-blue-500 peer-focus:ring-offset-2 peer-focus:ring-offset-neumorphic-base flex items-center justify-center transition-colors ${userAnswers[currentQ] === idx ? 'bg-blue-600 border-blue-600 dark:bg-blue-500 dark:border-blue-500' : 'bg-neumorphic-inset dark:border-slate-500 dark:bg-neumorphic-inset-dark'} dark:peer-focus:ring-offset-neumorphic-base-dark`} aria-hidden="true">
+                                {userAnswers[currentQ] === idx && <span className="w-2 h-2 rounded-full bg-white"></span>}
+                        </span>
+                        <span className="text-sm text-slate-700 dark:text-slate-300"><ContentRenderer text={option.text || option || `Option ${idx + 1} Missing`} /></span>
+                    </label>
+                ))}
+            </div>
         </div>
     );
+    {/* --- [END] MODIFICATION --- */}
 }
