@@ -178,7 +178,6 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
             break;
         
         case 'LetsGetStarted':
-            // --- FIX FOR CONTINUITY ---
             const introContext = extraData.introContent
                 ? `
                 **PREVIOUS PAGE CONTEXT (NON-NEGOTIABLE):**
@@ -193,7 +192,6 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
                 : `Generate the "${letsGetStartedLabel}" page. This must be a short, simple, interactive warm-up activity relevant to this lesson.`;
             
             taskInstruction = introContext;
-            // --- END FIX ---
             
             jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${letsGetStartedLabel}",\n    "content": "Warm-up activity instructions..."\n  }\n}`;
             break;
@@ -210,33 +208,50 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
 
         case 'CoreContentPage':
             // --- MODIFICATION START ---
-            // Destructure the new context data. Provide defaults for safety.
             const allTitles = extraData.allContentTitles || [extraData.contentTitle];
             const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
             const currentTitle = extraData.contentTitle;
 
-            // Build a dynamic instruction to "fence in" the AI
+            // --- NEW DYNAMIC CONTEXT BLOCK ---
+            let previousContentInstruction = '';
+            if (currentIndex === 0) {
+                // This is the FIRST core content page
+                previousContentInstruction = `
+                **PREVIOUSLY COVERED (DO NOT REPEAT):**
+                You are strictly forbidden from repeating the content from the "Introduction" or the "${letsGetStartedLabel}" (Warm-up) activity. The user has *already completed* these.
+                - **Introduction Content (DO NOT REPEAT):** ${extraData.introContent || 'N/A'}
+                - **Warm-Up Content (DO NOT REPEAT):** ${extraData.activityContent || 'N/A'}
+    
+                **YOUR TASK (Page 1 of ${allTitles.length}):**
+                1.  You MUST start teaching the new material for "**${currentTitle}**" immediately.
+                2.  Do NOT add a new introduction, greeting, or "welcome back." Dive directly into the topic.
+                `;
+            } else {
+                // This is a SUBSEQUENT (2nd, 3rd, etc.) core content page
+                previousContentInstruction = `
+                **PREVIOUS PAGE CONTEXT (DO NOT REPEAT):**
+                The user just finished reading the *previous* core content page, which covered:
+                ---
+                ${extraData.previousPageContent || 'N/A'}
+                ---
+    
+                **YOUR TASK (Page ${currentIndex + 1} of ${allTitles.length}):**
+                1.  You MUST create a seamless continuation from the previous page.
+                2.  Do NOT add a new introduction, greeting, or "welcome back."
+                3.  Your content MUST focus *exclusively* on the material for *your* assigned title: "**${currentTitle}**".
+                4.  You are **strictly forbidden** from discussing topics belonging to other page titles (especially the one you just saw).
+                `;
+            }
+            // --- END DYNAMIC CONTEXT BLOCK ---
+
             const contentContextInstruction = `
             **CRITICAL CONTENT BOUNDARIES (NON-NEGOTIABLE):**
             This lesson's core content is divided into ${allTitles.length} main page(s).
             
-            **This is Page ${currentIndex + 1} of ${allTitles.length}.**
-            
             - **Your Page Title:** "${currentTitle}"
             - **All Page Titles (in order):** ${allTitles.map((t, i) => `\n  ${i + 1}. ${t} ${i === currentIndex ? "(THIS IS YOUR PAGE)" : ""}`).join('')}
 
-            // --- FIX FOR REPETITION ---
-            **PREVIOUSLY COVERED (DO NOT REPEAT):**
-            You are strictly forbidden from repeating the content from the "Introduction" or the "${letsGetStartedLabel}" (Warm-up) activity. The user has *already completed* these.
-            - **Introduction Content (DO NOT REPEAT):** ${extraData.introContent || 'N/A'}
-            - **Warm-Up Content (DO NOT REPEAT):** ${extraData.activityContent || 'N/A'}
-            // --- END FIX ---
-
-            **YOUR TASK:**
-            1.  You are **strictly forbidden** from discussing topics belonging to the *other* page titles.
-            2.  Your content MUST focus *exclusively* on the material relevant *only* to your assigned title: "**${currentTitle}**".
-            3.  Do NOT repeat content from previous pages (Intro, Warm-Up). Do NOT summarize the entire lesson.
-            4.  You MUST start teaching the new material for "${currentTitle}" immediately.
+            ${previousContentInstruction}
             `;
             // --- MODIFICATION END ---
 
@@ -303,7 +318,7 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
 
 /**
  * --- Micro-Worker Function with Retries ---
- * (This function is unchanged, it includes the "polite" 1.5s delay)
+ * (This function is unchanged)
  */
 const generateLessonComponent = async (
     guideData, 
@@ -337,28 +352,22 @@ const generateLessonComponent = async (
     `;
     
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-        // --- ABORT FIX ---
         if (!isMounted.current) throw new Error("Generation aborted by user.");
 
         try {
             const aiResponse = await callGeminiWithLimitCheck(finalPrompt);
 
-            // --- ABORT FIX ---
             if (!isMounted.current) throw new Error("Generation aborted by user.");
             
             const jsonData = sanitizeJsonComponent(aiResponse);
 
-            // --- "POLITE" THROTTLING FIX ---
             await new Promise(res => setTimeout(res, 1500));
-            // --- END "POLITE" THROTTLING FIX ---
             
-            // --- ABORT FIX ---
             if (!isMounted.current) throw new Error("Generation aborted by user.");
 
             return jsonData;
 
         } catch (error) {
-            // --- ABORT FIX ---
             if (!isMounted.current) throw new Error("Generation aborted by user.");
 
             console.warn(
@@ -370,11 +379,8 @@ const generateLessonComponent = async (
                 throw new Error(`Failed to generate component ${componentType} after ${maxRetries} attempts: ${error.message}`);
             }
 
-            // --- "RETRY" THROTTLING FIX ---
             await new Promise(res => setTimeout(res, 5000));
-            // --- ABORT FIX ---
             if (!isMounted.current) throw new Error("Generation aborted by user.");
-            // --- END "RETRY" THROTTLING FIX ---
         }
     }
 };
@@ -459,8 +465,6 @@ const getMasterInstructions = async (guideData) => {
         - Use a clean, educational textbook style.
     `;
 
-    // Return both, so the component prompt can use the styles
-    // and the micro-worker can use the master instructions.
     return { masterInstructions, styleRules };
 };
 
@@ -480,7 +484,6 @@ export default function GenerationScreen({
     const [currentLessonPlan, setCurrentLessonPlan] = useState(initialLessonPlan);
     const [currentLessons, setCurrentLessons] = useState(existingLessons || []);
     
-    // --- ABORT FIX: Add ref to track mounted state ---
     const isMounted = useRef(false);
 
     const findSummaryContent = (lesson) => {
@@ -502,15 +505,14 @@ export default function GenerationScreen({
             // --- STEP 1: Planner (Only run if no plan exists) ---
             if (!plans) {
                 showToast("Generating lesson plan...", "info");
-                setLessonProgress({ current: 0, total: guideData.lessonCount }); // Show "0 of N"
+                setLessonProgress({ current: 0, total: guideData.lessonCount });
                 
-                const existingSubjectContext = "No existing content found."; // Simplified
+                const existingSubjectContext = "No existing content found.";
                 const baseContext = getBasePromptContext(guideData, existingSubjectContext);
                 const plannerPrompt = getPlannerPrompt(guideData, baseContext);
 
                 const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt);
                 
-                // --- ABORT FIX ---
                 if (!isMounted.current) return; 
 
                 const parsedPlan = sanitizeJsonBlock(plannerResponse); 
@@ -520,12 +522,10 @@ export default function GenerationScreen({
                 }
                 
                 plans = parsedPlan;
-                setCurrentLessonPlan(plans); // Save the plan
+                setCurrentLessonPlan(plans);
             }
 
-            // --- REFACTORED: Get instructions ONCE before the loop ---
             const { masterInstructions, styleRules } = await getMasterInstructions(guideData);
-            // --- ABORT FIX ---
             if (!isMounted.current) return;
 
             // --- STEP 2: Orchestrator (Loop through the plan) ---
@@ -533,19 +533,17 @@ export default function GenerationScreen({
             setLessonProgress({ current: startLessonNumber - 1, total: plans.length });
 
             for (const [index, plan] of lessonsToProcess.entries()) {
-                // --- ABORT FIX ---
                 if (!isMounted.current) return; 
 
                 const currentLessonIndex = (startLessonNumber - 1) + index;
                 setLessonProgress({ current: currentLessonIndex + 1, total: plans.length });
                 showToast(`Generating Lesson ${currentLessonIndex + 1} of ${plans.length}: "${plan.lessonTitle}"...`, "info", 10000);
 
-                // Build the scaffolding context *for this specific lesson*
                 const previousLessonsContext = lessonsSoFar
                     .map((lesson, idx) => `Lesson ${idx + 1}: "${lesson.lessonTitle}"\nSummary: ${findSummaryContent(lesson)}`)
                     .join('\n---\n');
                 
-                const existingSubjectContext = "No existing content found."; // Simplified
+                const existingSubjectContext = "No existing content found.";
                 const baseContext = getBasePromptContext(guideData, existingSubjectContext);
                 
                 baseContext.scaffoldingInstruction = `
@@ -562,7 +560,6 @@ export default function GenerationScreen({
                     assignedCompetencies: []
                 };
 
-                // --- REFACTORED: Pass instructions to each worker call ---
                 const objectivesData = await generateLessonComponent(guideData, baseContext, plan, 'objectives', isMounted, masterInstructions, styleRules, {});
                 newLesson.learningObjectives = objectivesData.objectives;
 
@@ -572,7 +569,6 @@ export default function GenerationScreen({
                 const introData = await generateLessonComponent(guideData, baseContext, plan, 'Introduction', isMounted, masterInstructions, styleRules, {});
                 newLesson.pages.push(introData.page);
                 
-                // --- FIX 1: CAPTURE INTRO CONTENT ---
                 const introContent = introData.page.content;
 
                 const activityData = await generateLessonComponent(
@@ -583,21 +579,39 @@ export default function GenerationScreen({
                     isMounted, 
                     masterInstructions, 
                     styleRules, 
-                    { introContent: introContent } // <-- PASS INTRO CONTENT
+                    { introContent: introContent }
                 );
                 newLesson.pages.push(activityData.page);
                 
-                // --- FIX 2: CAPTURE ACTIVITY CONTENT ---
                 const activityContent = activityData.page.content;
 
                 const contentPlannerData = await generateLessonComponent(guideData, baseContext, plan, 'CoreContentPlanner', isMounted, masterInstructions, styleRules, {});
                 const contentPlanTitles = contentPlannerData.coreContentTitles || [];
                 
-                // --- MODIFICATION START: Use entries() to get index ---
+                // --- MODIFICATION START ---
+                // This variable will hold the content of the *previous* core content page
+                // to chain them together.
+                let previousPageContent = null; 
+
                 for (const [contentIndex, contentTitle] of contentPlanTitles.entries()) {
-                    // --- ABORT FIX ---
                     if (!isMounted.current) return;
                     
+                    // Build the context for this specific page
+                    let extraContext = { 
+                        contentTitle: contentTitle,
+                        allContentTitles: contentPlanTitles,
+                        currentIndex: contentIndex
+                    };
+
+                    if (contentIndex === 0) {
+                        // The FIRST page needs context from the Intro and Warm-up
+                        extraContext.introContent = introContent;
+                        extraContext.activityContent = activityContent;
+                    } else {
+                        // SUBSEQUENT pages need context from the PREVIOUS content page
+                        extraContext.previousPageContent = previousPageContent;
+                    }
+
                     const contentPageData = await generateLessonComponent(
                         guideData, 
                         baseContext, 
@@ -606,22 +620,17 @@ export default function GenerationScreen({
                         isMounted, 
                         masterInstructions, 
                         styleRules, 
-                        // --- FIX 3: PASS ALL CONTEXT TO CORE CONTENT ---
-                        { 
-                            contentTitle: contentTitle,
-                            allContentTitles: contentPlanTitles,
-                            currentIndex: contentIndex,
-                            introContent: introContent,     // <-- ADD THIS
-                            activityContent: activityContent // <-- ADD THIS
-                        }
+                        extraContext // Pass the dynamically built context
                     );
                     newLesson.pages.push(contentPageData.page);
+                    
+                    // Store this page's content to be used as context for the NEXT page in the loop
+                    previousPageContent = contentPageData.page.content;
                 }
                 // --- MODIFICATION END ---
                 
                 const standardPages = ['CheckForUnderstanding', 'LessonSummary', 'WrapUp', 'EndofLessonAssessment', 'AnswerKey', 'References'];
                 for (const pageType of standardPages) {
-                    // --- ABORT FIX ---
                     if (!isMounted.current) return;
 
                     const pageData = await generateLessonComponent(guideData, baseContext, plan, pageType, isMounted, masterInstructions, styleRules, {});
@@ -634,20 +643,17 @@ export default function GenerationScreen({
                 setCurrentLessons([...lessonsSoFar]);
             }
         
-            // --- ABORT FIX ---
             if (!isMounted.current) return;
 
             onGenerationComplete({ previewData: { generated_lessons: lessonsSoFar }, failedLessonNumber: null, lessonPlan: plans });
             showToast("All lessons generated successfully!", "success");
 
         } catch (err) {
-            // --- ABORT FIX: Handle abort error silently ---
             if (!isMounted.current || (err.message && err.message.includes("aborted"))) {
                 console.log("Generation loop aborted by user.");
-                return; // Silently exit
+                return;
             }
 
-            // Original catch logic
             const failedLessonNum = lessonsSoFar.length + 1;
             console.error(`Error during generation of Lesson ${failedLessonNum}:`, err);
             const userFriendlyError = `Failed to generate Lesson ${failedLessonNum}. You can try to continue the generation.`;
@@ -665,13 +671,8 @@ export default function GenerationScreen({
             isMounted.current = false;
         };
         
-    // --- THIS IS THE FIX ---
-    // We change [runGenerationLoop] to []
-    // This tells React to run this effect *only once* when the component mounts.
-    // It will *not* run again when the state updates, which stops the flood.
-    // We add the eslint-disable line to tell the linter this is intentional.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // <-- THE FIX IS HERE
+    }, []);
 
     return (
         <div className="flex flex-col h-full bg-slate-200 dark:bg-neumorphic-base-dark rounded-2xl">
