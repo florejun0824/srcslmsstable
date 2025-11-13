@@ -403,7 +403,7 @@ const getTosPlannerPrompt = (guideData) => {
     - **Total Items:** ${totalConfiguredItems}
     - **Test Structure:** ${formattedTestStructure}
 
-    **CRITICAL GENERATION RULES (NON-NEGOTIABLE):**
+    **CRITICAL GENERATION RULES (NON-NEGOTIA BLE):**
     1.  **TOTAL ITEMS ADHERENCE:** The 'noOfItems' in the TOS 'totalRow' MUST equal ${totalConfiguredItems}.
     2.  **TOS COMPETENCIES:** You MUST use the exact learning competencies provided.
     3.  **ITEM CALCULATION:** Calculate 'noOfItems' using: \`(weightPercentage / 100) * ${totalConfiguredItems}\`, then adjust rounded numbers to sum to the 'Total Items' using the Largest Remainder Method.
@@ -801,7 +801,6 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 		                        ...baseQuestion,
 		                        type: 'identification', // Standardize 'solving' to 'identification' for the quiz component
 		                        correctAnswer: q.correctAnswer,
-// --- ADD THIS LINE ---
                                 choicesBox: q.choicesBox || null,
 		                    };
 		                }
@@ -822,46 +821,17 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 		                    };
 		                }
 		            }
-                    // --- START: MODIFICATION (This is the fix) ---
-                    // The error log `x.rubric.forEach` suggests a loop.
-                    // The only other loop is in saveAsQuiz, but it's implicit (a .map).
-                    // The minifier likely changed 'q' to 'x'.
-                    // Your `saveAsQuiz` function doesn't seem to process rubrics at all.
-                    // This means the error *must* be in `generateExamQuestionsMarkdown` as fixed above.
-                    //
-                    // However, the error log `at zt`... `at ce`... `at onClick` for "Save"
-                    // *strongly* implies the error is in the "Save" click handler, not "Generate".
-                    //
-                    // Let's re-examine `saveAsQuiz`.
-                    // The error is `x.rubric.forEach`.
-                    // The error log trace is:
-                    //   at AiGenerationHub-B-cVlLKI.js:381:12  (This is the .forEach line)
-                    //   at Array.forEach (<anonymous>)
-                    //   at zt (AiGenerationHub-B-cVlLKI.js:376:10) (This is the 'zt' function)
-                    //   at F (AiGenerationHub-B-cVlLKI.js:479:1777)
-                    //   at ce (AiGenerationHub-B-cVlLKI.js:481:1698) (This calls 'F')
-                    //   at onClick (AiGenerationHub-B-cVlLKI.js:481:4739) (This is the button click)
-                    //
-                    // The `onClick` is `handleFinalSave`.
-                    // `handleFinalSave` calls `saveAsQuiz` or `saveAsLesson`.
-                    // `saveAsLesson` calls `generateExamQuestionsMarkdown`.
-                    //
-                    // Ah! The bug is NOT in `saveAsQuiz`. It's in `saveAsLesson`!
-                    // My previous fix in `generateExamQuestionsMarkdown` is correct.
-                    // The error trace confirms it:
-                    // 1. User clicks "Save" (`onClick`)
-                    // 2. `handleFinalSave` is called (`ce`)
-                    // 3. `saveAsLesson` is called (`F`)
-                    // 4. `generateExamQuestionsMarkdown` is called (`zt`)
-                    // 5. `q.rubric.forEach` is called (`x.rubric.forEach`) and crashes.
-                    //
-                    // The fix I already added is the correct one.
-                    // I will also make the other helper functions more robust
-                    // to prevent future crashes.
-                    //
-                    // The code for `saveAsQuiz` does not process rubrics, so it is safe.
-                    // I will return `null` for any unprocessed question.
-                    // --- END: MODIFICATION ---
+                    
+                    {/* --- [START] MODIFICATION: Added block for Essay --- */}
+                    if (normalizedType === 'essay') {
+                        return {
+                            ...baseQuestion,
+                            type: 'essay',
+                            rubric: q.rubric || [], // Save the rubric
+                        };
+                    }
+                    {/* --- [END] MODIFICATION --- */}
+
 		            return null;
 		        })
 		        .filter(Boolean);
