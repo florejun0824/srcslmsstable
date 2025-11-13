@@ -408,6 +408,12 @@ const getExamComponentPrompt = (guideData, generatedTos, testType) => {
     const { language, combinedContent } = guideData;
     const { type, numItems, range } = testType;
     
+    // --- START: MODIFICATION ---
+    // Check if the type is a single-prompt question (like Essay or Solving)
+    const normalizedType = type.toLowerCase();
+    const isSingleQuestionType = normalizedType.includes('essay') || normalizedType.includes('solving');
+    // --- END: MODIFICATION ---
+
     // Provides the AI with the specific part of the TOS it should focus on
     const tosContext = JSON.stringify(generatedTos, null, 2);
 
@@ -436,14 +442,25 @@ const getExamComponentPrompt = (guideData, generatedTos, testType) => {
     
     **YOUR SPECIFIC TASK**
     - **Test Type:** Generate **${type}**
-    - **Number of Items:** Generate EXACTLY **${numItems}** items.
-    - **Item Range:** The "questionNumber" field MUST correspond to the range **${range}**. (e.g., if range is "11-15", the first questionNumber is 11).
+    
+    // --- START: MODIFIED LOGIC ---
+    - **Number of Items:** ${isSingleQuestionType ? `Generate EXACTLY **1** item.` : `Generate EXACTLY **${numItems}** items.`}
+    - **Item Range:** ${isSingleQuestionType 
+        ? `The "questionNumber" for this single item MUST be the START of the range (e.g., if range is "${range}", use "${range.split('-')[0].trim()}").` 
+        : `The "questionNumber" field MUST correspond to the range **${range}**. (e.g., if range is "11-15", the first questionNumber is 11).`}
+    ${isSingleQuestionType ? `\n    - **Point Value:** This single question is worth **${numItems}** points. Your generated rubric MUST reflect this total point value.` : ''}
+    // --- END: MODIFIED LOGIC ---
+
     - **Context:** Base your questions *only* on the "Lesson Content".
     - **TOS Adherence:** Ensure the questions you generate for this range (${range}) match the competencies and difficulty levels specified for those item numbers in the provided "Full Table of Specifications".
 
     **CRITICAL GENERATION RULES (Follow these from the original prompt):**
     1.  **MULTIPLE CHOICE OPTIONS:** The 'options' array MUST contain the option text ONLY. DO NOT include prefixes like "a)".
-    2.  **ESSAY:** If type is "Essay", generate ONE prompt. The number range corresponds to the total points for its rubric.
+    
+    // --- START: MODIFIED RULE ---
+    2.  **ESSAY / SOLVING:** If the **Test Type** is "Essay" or "Solving", you MUST generate **ONE prompt**. The "Item Range" (${range}) represents the item numbers this single question covers, and the "Number of Items" (${numItems}) represents the **total points** it is worth. You MUST create a scoring rubric that totals **${numItems}** points. The \`questionNumber\` in the JSON should be the first number in the range (e.g., for "46-50", use 46).
+    // --- END: MODIFIED RULE ---
+    
     3.  **IDENTIFICATION:** Group all items. Generate a single \`choicesBox\` with all answers plus ONE distractor.
     4.  **MATCHING TYPE (STRICT):** Use the \`"type": "matching-type"\` format with \`prompts\`, \`options\`, \`correctPairs\`, and one distractor in \`options\`. The entire test for this range must be a SINGLE object in the "questions" array.
     
