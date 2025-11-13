@@ -121,7 +121,6 @@ const getPlannerPrompt = (guideData, baseContext) => {
           "lessonTitle": "Lesson 2: [Proposed Title for Lesson 2]",
           "summary": "A 1-2 sentence summary for the next lesson, building on the first."
         }
-        // ... (exactly ${guideData.lessonCount} total items)
       ]
     }
     `;
@@ -129,7 +128,7 @@ const getPlannerPrompt = (guideData, baseContext) => {
 
 /**
  * --- Micro-Worker Prompt Generator ---
- * (This function is unchanged)
+ * (This function is MODIFIED)
  */
 const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, styleRules, extraData = {}) => {
     const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
@@ -179,7 +178,23 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
             break;
         
         case 'LetsGetStarted':
-            taskInstruction = `Generate the "${letsGetStartedLabel}" page. This must be a short, simple, interactive warm-up activity relevant to this lesson.`;
+            // --- FIX FOR CONTINUITY ---
+            const introContext = extraData.introContent
+                ? `
+                **PREVIOUS PAGE CONTEXT (NON-NEGOTIABLE):**
+                The user was just shown this "Engaging Introduction":
+                ---
+                ${extraData.introContent}
+                ---
+                
+                **YOUR TASK:**
+                Generate the "${letsGetStartedLabel}" page. This page MUST act as a *direct follow-up* to the introduction. It must be a short, simple, interactive warm-up activity that logically flows from what the user just read.
+                `
+                : `Generate the "${letsGetStartedLabel}" page. This must be a short, simple, interactive warm-up activity relevant to this lesson.`;
+            
+            taskInstruction = introContext;
+            // --- END FIX ---
+            
             jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${letsGetStartedLabel}",\n    "content": "Warm-up activity instructions..."\n  }\n}`;
             break;
 
@@ -192,8 +207,6 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
             jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "coreContentTitles": [\n    "First Sub-Topic Title",\n    "Second Sub-Topic Title"\n    // ... (as many as necessary)
       ]\n}`;
             break;
-
-// [New code for line ~291]
 
         case 'CoreContentPage':
             // --- MODIFICATION START ---
@@ -212,10 +225,18 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
             - **Your Page Title:** "${currentTitle}"
             - **All Page Titles (in order):** ${allTitles.map((t, i) => `\n  ${i + 1}. ${t} ${i === currentIndex ? "(THIS IS YOUR PAGE)" : ""}`).join('')}
 
+            // --- FIX FOR REPETITION ---
+            **PREVIOUSLY COVERED (DO NOT REPEAT):**
+            You are strictly forbidden from repeating the content from the "Introduction" or the "${letsGetStartedLabel}" (Warm-up) activity. The user has *already completed* these.
+            - **Introduction Content (DO NOT REPEAT):** ${extraData.introContent || 'N/A'}
+            - **Warm-Up Content (DO NOT REPEAT):** ${extraData.activityContent || 'N/A'}
+            // --- END FIX ---
+
             **YOUR TASK:**
             1.  You are **strictly forbidden** from discussing topics belonging to the *other* page titles.
             2.  Your content MUST focus *exclusively* on the material relevant *only* to your assigned title: "**${currentTitle}**".
-            3.  Do NOT repeat content from previous pages. Do NOT summarize the entire lesson.
+            3.  Do NOT repeat content from previous pages (Intro, Warm-Up). Do NOT summarize the entire lesson.
+            4.  You MUST start teaching the new material for "${currentTitle}" immediately.
             `;
             // --- MODIFICATION END ---
 
@@ -471,7 +492,7 @@ export default function GenerationScreen({
 
     /**
      * --- Orchestrator Loop ---
-     * (This function is unchanged, but it now calls the refactored/more efficient micro-worker)
+     * (This function is MODIFIED)
      */
     const runGenerationLoop = useCallback(async () => {
         let plans = currentLessonPlan;
@@ -551,10 +572,23 @@ export default function GenerationScreen({
                 const introData = await generateLessonComponent(guideData, baseContext, plan, 'Introduction', isMounted, masterInstructions, styleRules, {});
                 newLesson.pages.push(introData.page);
                 
-                const activityData = await generateLessonComponent(guideData, baseContext, plan, 'LetsGetStarted', isMounted, masterInstructions, styleRules, {});
-                newLesson.pages.push(activityData.page);
+                // --- FIX 1: CAPTURE INTRO CONTENT ---
+                const introContent = introData.page.content;
 
-// [Code from line ~689]
+                const activityData = await generateLessonComponent(
+                    guideData, 
+                    baseContext, 
+                    plan, 
+                    'LetsGetStarted', 
+                    isMounted, 
+                    masterInstructions, 
+                    styleRules, 
+                    { introContent: introContent } // <-- PASS INTRO CONTENT
+                );
+                newLesson.pages.push(activityData.page);
+                
+                // --- FIX 2: CAPTURE ACTIVITY CONTENT ---
+                const activityContent = activityData.page.content;
 
                 const contentPlannerData = await generateLessonComponent(guideData, baseContext, plan, 'CoreContentPlanner', isMounted, masterInstructions, styleRules, {});
                 const contentPlanTitles = contentPlannerData.coreContentTitles || [];
@@ -572,11 +606,13 @@ export default function GenerationScreen({
                         isMounted, 
                         masterInstructions, 
                         styleRules, 
-                        // --- THIS IS THE FIX ---
+                        // --- FIX 3: PASS ALL CONTEXT TO CORE CONTENT ---
                         { 
                             contentTitle: contentTitle,
                             allContentTitles: contentPlanTitles,
-                            currentIndex: contentIndex
+                            currentIndex: contentIndex,
+                            introContent: introContent,     // <-- ADD THIS
+                            activityContent: activityContent // <-- ADD THIS
                         }
                     );
                     newLesson.pages.push(contentPageData.page);
