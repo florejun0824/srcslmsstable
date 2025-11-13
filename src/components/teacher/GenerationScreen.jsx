@@ -7,23 +7,92 @@ import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
 import { sanitizeLessonsJson as sanitizeJsonBlock } from './sanitizeLessonText'; // Corrected path
 
 /**
- * --- Micro-Worker Sanitizer ---
- * (This function is unchanged)
+ * --- Micro-Worker Sanitizer (Robust Version) ---
+ * This function can find the true, complete JSON object even if
+ * the AI response is truncated or includes other text.
  */
 const sanitizeJsonComponent = (aiResponse) => {
     try {
-        const startIndex = aiResponse.indexOf('{');
-        const endIndex = aiResponse.lastIndexOf('}');
-        if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
+        let jsonString = aiResponse;
+
+        // 1. Try to find a JSON block wrapped in markdown backticks (common AI error)
+        const markdownMatch = aiResponse.match(/```(json)?\s*(\{[\s\S]*\})\s*```/);
+        if (markdownMatch && markdownMatch[2]) {
+            jsonString = markdownMatch[2];
+        }
+
+        // 2. Find the first opening brace
+        const startIndex = jsonString.indexOf('{');
+        if (startIndex === -1) {
             throw new Error('No valid JSON object ({...}) found in AI response.');
         }
-        const jsonString = aiResponse.substring(startIndex, endIndex + 1);
-        return JSON.parse(jsonString);
+
+        let depth = 0;
+        let inString = false;
+        let escape = false;
+        let endIndex = -1;
+
+        // 3. Iterate from the first brace to find its matching closer
+        for (let i = startIndex; i < jsonString.length; i++) {
+            const char = jsonString[i];
+
+            if (escape) {
+                // This character is escaped, skip it
+                escape = false;
+                continue;
+            }
+
+            if (char === '\\') {
+                // Next character is escaped
+                escape = true;
+                continue;
+            }
+
+            if (char === '"') {
+                // Toggle in/out of string, but only if not escaped
+                inString = !inString;
+            }
+
+            if (inString) {
+                // We are inside a string, ignore braces
+                continue;
+            }
+
+            // We are not in a string, so process braces
+            if (char === '{') {
+                depth++;
+            } else if (char === '}') {
+                depth--;
+
+                if (depth === 0) {
+                    // We found the matching closing brace
+                    endIndex = i;
+                    break;
+                }
+            }
+        }
+
+        if (endIndex === -1) {
+            // We never found the matching brace, the JSON is incomplete
+            throw new Error('JSON object is incomplete or truncated.');
+        }
+
+        // 4. Extract the valid JSON block and parse it
+        const validJsonString = jsonString.substring(startIndex, endIndex + 1);
+        return JSON.parse(validJsonString);
+
     } catch (error) {
-        console.error("sanitizeJsonComponent error:", error.message, "Preview:", aiResponse.substring(0, 300));
+        // Log more info for better debugging
+        console.error(
+            "sanitizeJsonComponent error:", 
+            error.message, 
+            "Preview of raw AI response (first 500 chars):", 
+            aiResponse.substring(0, 500)
+        );
         throw new Error(`The AI component response was not valid JSON. Preview: ${aiResponse.substring(0, 150)}`);
     }
 };
+
 
 /**
  * --- Base Context Builder ---
@@ -197,11 +266,14 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
             break;
 
         case 'CoreContentPlanner':
+            // --- MODIFICATION FOR TOKEN LIMITS ---
             taskInstruction = `Analyze the focus for this lesson: "${lessonPlan.summary}".
-            **CRITICAL CONTENT FIDELITY (NON-NEGOTIABLE):** Your task is to identify *all* the main sub-topics required to cover the *entire* content for this single lesson.
+            **CRITICAL TASK (NON-NEGOTIABLE):** Your task is to break down this lesson's topic into a series of **page-sized sub-topics**. Each sub-topic you list will become *one single page*.
             - If the lesson's topic is simple, you might only return 1 or 2 titles.
-            - If the lesson's topic is complex (e.g., "The Light-Dependent Reactions"), you MUST return as many titles as needed (e.g., "Capturing Light," "The Electron Transport Chain," "Creating ATP and NADPH") to cover it fully.
+            - If the lesson's topic is complex (e.g., "The Light-Dependent Reactions"), you MUST return as many titles as needed (e.g., "Page 1: Capturing Light," "Page 2: The Electron Transport Chain," "Page 3: Creating ATP and NADPH") to cover it fully.
             - Do **NOT** include titles for "Introduction," "Warm-Up," "Summary," etc. Just the main, teachable content topics.`;
+            // --- END MODIFICATION ---
+            
             jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "coreContentTitles": [\n    "First Sub-Topic Title",\n    "Second Sub-Topic Title"\n    // ... (as many as necessary)
       ]\n}`;
             break;
@@ -260,7 +332,8 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
 
             ${contentContextInstruction}
 
-            - **Content:** The content MUST be detail-rich, narrative-driven, and relevant *only* to this page title, adhering to all Master Instructions.`;
+            - **Content:** The content MUST be detail-rich, narrative-driven, and relevant *only* to this page title, adhering to all Master Instructions.
+            - **CRITICAL LENGTH CONSTRAINT:** Be thorough but concise. Your *entire* JSON response must be under 8000 characters. Do not write excessively long paragraphs.`;
             
             jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed markdown content for **this specific page only**, including interactive blockquotes..."\n  }\n}`;
             break;
@@ -588,7 +661,7 @@ export default function GenerationScreen({
                 const contentPlannerData = await generateLessonComponent(guideData, baseContext, plan, 'CoreContentPlanner', isMounted, masterInstructions, styleRules, {});
                 const contentPlanTitles = contentPlannerData.coreContentTitles || [];
                 
-                // --- MODIFICATION START ---
+                // --- MODIFICATION START (Context Chaining) ---
                 // This variable will hold the content of the *previous* core content page
                 // to chain them together.
                 let previousPageContent = null; 

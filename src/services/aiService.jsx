@@ -19,6 +19,8 @@ const API_CONFIGS = [
     // --- Gemini Endpoints ---
     { service: 'gemini', model: GEMINI_MODEL, url: `/api/gemini-primary`, name: 'Gemini Primary' },
     { service: 'gemini', model: GEMINI_MODEL, url: `/api/gemini-fallback`, name: 'Gemini Fallback 1' },
+    // --- THIS IS THE NEW LINE YOU REQUESTED ---
+    { service: 'gemini', model: GEMINI_MODEL, url: `/api/gemini-fallback-2`, name: 'Gemini Fallback 2' },
 
     // --- Hugging Face Endpoints (All point to /api/hf) ---
     { service: 'huggingface', model: HF_MODEL_1, url: `/api/hf`, name: `HuggingFace (${HF_MODEL_1})` },
@@ -27,7 +29,7 @@ const API_CONFIGS = [
     
 ];
 
-// This will now be 3
+// This will now be 4
 const NUM_CONFIGS = API_CONFIGS.length;
 let currentApiIndex = 0;
 
