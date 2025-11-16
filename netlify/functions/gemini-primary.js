@@ -33,10 +33,10 @@ exports.handler = async (event) => {
   }
 
   // Use the correct variable name (no VITE_ prefix)
-  const API_KEY = process.env.GEMINI_API_KEY; 
+  const API_KEY = process.env.VITE_GEMINI_API_KEY; 
   
   if (!API_KEY) {
-    console.error("GEMINI_API_KEY is not set!");
+    console.error("VITE_GEMINI_API_KEY is not set!");
     return { 
       statusCode: 500, 
       headers: CORS_HEADERS, // Add headers to errors
