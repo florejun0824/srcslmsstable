@@ -27,3 +27,4 @@ pdf/
 backups/
 my-release-key.keystore
 service-account.json
+.env.production

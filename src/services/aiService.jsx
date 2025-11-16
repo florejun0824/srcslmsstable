@@ -1,5 +1,20 @@
+import { Capacitor } from '@capacitor/core';
 import { db } from './firebase';
 import { doc, getDoc, updateDoc, setDoc, increment } from 'firebase/firestore';
+
+// --- THIS IS THE FIX ---
+// 1. Get the production URL from environment variables
+const PROD_API_URL = import.meta.env.VITE_API_BASE_URL;
+
+// 2. Check if running in a native container (like an APK)
+const isNative = Capacitor.isNativePlatform();
+
+// 3. Determine the base URL
+//    If it's native, use the full production URL.
+//    If it's web, use a relative path (empty string).
+const API_BASE = isNative ? PROD_API_URL : '';
+// --- END OF FIX ---
+
 
 // --- API Keys (REMOVED) ---
 // All API keys are now handled in the serverless functions (proxies)
@@ -14,18 +29,18 @@ const HF_MODEL_1 = 'Qwen/Qwen3-4B-Instruct-2507'; // <-- Retained Qwen
 // const HF_MODEL_2 = 'meta-llama/Llama-3.1-8B-Instruct';    // <-- REMOVED
 // const HF_MODEL_3 = 'google/gemma-2-9b-it';                // <-- REMOVED
 
-// --- Unified API Configuration (UPDATED) ---
+// --- Unified API Configuration (UPDATED with API_BASE) ---
 const API_CONFIGS = [
     // --- Gemini Endpoints ---
-    { service: 'gemini', model: GEMINI_MODEL, url: `/api/gemini-primary`, name: 'Gemini Primary' },
-    { service: 'gemini', model: GEMINI_MODEL, url: `/api/gemini-fallback`, name: 'Gemini Fallback 1' },
+    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini-primary`, name: 'Gemini Primary' },
+    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini-fallback`, name: 'Gemini Fallback 1' },
     // --- THIS IS THE NEW LINE YOU REQUESTED ---
-    { service: 'gemini', model: GEMINI_MODEL, url: `/api/gemini-fallback-2`, name: 'Gemini Fallback 2' },
+    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini-fallback-2`, name: 'Gemini Fallback 2' },
 
     // --- Hugging Face Endpoints (All point to /api/hf) ---
-    { service: 'huggingface', model: HF_MODEL_1, url: `/api/hf`, name: `HuggingFace (${HF_MODEL_1})` },
-    // { service: 'huggingface', model: HF_MODEL_2, url: `/api/hf`, name: `HuggingFace (${HF_MODEL_2})` }, // <-- REMOVED
-    // { service: 'huggingface', model: HF_MODEL_3, url: `/api/hf`, name: `HuggingFace (${HF_MODEL_3})` }, // <-- REMOVED
+    { service: 'huggingface', model: HF_MODEL_1, url: `${API_BASE}/api/hf`, name: `HuggingFace (${HF_MODEL_1})` },
+    // { service: 'huggingface', model: HF_MODEL_2, url: `${API_BASE}/api/hf`, name: `HuggingFace (${HF_MODEL_2})` }, // <-- REMOVED
+    // { service: 'huggingface', model: HF_MODEL_3, url: `${API_BASE}/api/hf`, name: `HuggingFace (${HF_MODEL_3})` }, // <-- REMOVED
     
 ];
 
