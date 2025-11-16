@@ -1,26 +1,58 @@
 // netlify/functions/gemini-primary.js
 
-// --- THIS IS THE FIX ---
-// The URL has been corrected from "generativelightlanguage" to "generativelanguage"
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
+// --- THIS IS THE FIX ---
+// Define headers that allow all origins (for development)
+// and specify allowed methods.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS' // Allow POST and OPTIONS
+};
+// --- END OF FIX ---
+
 exports.handler = async (event) => {
+  // --- THIS IS THE FIX ---
+  // Handle the "preflight" OPTIONS request that browsers send
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 204, // No Content
+      headers: CORS_HEADERS,
+      body: ''
+    };
+  }
+  // --- END OF FIX ---
+
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+    return { 
+      statusCode: 405, 
+      headers: CORS_HEADERS, // Add headers to errors
+      body: 'Method Not Allowed' 
+    };
   }
 
-  const API_KEY = process.env.VITE_GEMINI_API_KEY;
+  // Use the correct variable name (no VITE_ prefix)
+  const API_KEY = process.env.GEMINI_API_KEY; 
   
   if (!API_KEY) {
-    console.error("VITE_GEMINI_API_KEY is not set!");
-    return { statusCode: 500, body: JSON.stringify({ message: "API key not configured on server." }) };
+    console.error("GEMINI_API_KEY is not set!");
+    return { 
+      statusCode: 500, 
+      headers: CORS_HEADERS, // Add headers to errors
+      body: JSON.stringify({ message: "API key not configured on server." }) 
+    };
   }
 
   try {
     const { prompt, jsonMode = false, maxOutputTokens = undefined } = JSON.parse(event.body || '{}');
 
     if (!prompt) {
-      return { statusCode: 400, body: JSON.stringify({ message: "Missing 'prompt' field." }) };
+      return { 
+        statusCode: 400, 
+        headers: CORS_HEADERS, // Add headers to errors
+        body: JSON.stringify({ message: "Missing 'prompt' field." }) 
+      };
     }
 
     const body = {
@@ -52,6 +84,7 @@ exports.handler = async (event) => {
       console.error(`Gemini API call failed: ${response.status}`, errorText);
       return { 
         statusCode: response.status, 
+        headers: CORS_HEADERS, // Add headers to errors
         body: JSON.stringify({ message: "Gemini API failed.", error: errorText }) 
       };
     }
@@ -62,23 +95,36 @@ exports.handler = async (event) => {
     if (!textPart) {
       const finishReason = data.candidates?.[0]?.finishReason;
       if (finishReason === 'SAFETY') {
-        return { statusCode: 400, body: JSON.stringify({ message: "Response blocked for safety." }) };
+        return { 
+          statusCode: 400, 
+          headers: CORS_HEADERS, // Add headers to errors
+          body: JSON.stringify({ message: "Response blocked for safety." }) 
+        };
       }
-      return { statusCode: 500, body: JSON.stringify({ message: "Invalid response from Gemini." }) };
+      return { 
+        statusCode: 500, 
+        headers: CORS_HEADERS, // Add headers to errors
+        body: JSON.stringify({ message: "Invalid response from Gemini." }) 
+      };
     }
 
+    // --- THIS IS THE FIX ---
+    // Add the headers to your successful response
     return {
       statusCode: 200,
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         text: textPart 
       })
     };
+    // --- END OF FIX ---
 
   } catch (error) {
-    console.error("Netlify Function execution error:", error);
+    console.error("Netlify Function Error:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: "Serverless function failed.", error: error.message })
+      headers: CORS_HEADERS, // Add headers to errors
+      body: JSON.stringify({ message: error.message || "Internal server error." })
     };
   }
 };

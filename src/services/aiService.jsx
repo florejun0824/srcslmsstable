@@ -2,6 +2,10 @@ import { Capacitor } from '@capacitor/core';
 import { db } from './firebase';
 import { doc, getDoc, updateDoc, setDoc, increment } from 'firebase/firestore';
 
+// --- ADD THESE NEW DEBUG LINES ---
+console.log("!!!!!!!!!! AISERVICE.JSX: Build 123 IS RUNNING !!!!!!!!!!");
+// ---------------------------------
+
 // --- THIS IS THE FIX ---
 // 1. Get the production URL from environment variables
 const PROD_API_URL = import.meta.env.VITE_API_BASE_URL;
@@ -15,6 +19,9 @@ const isNative = Capacitor.isNativePlatform();
 const API_BASE = isNative ? PROD_API_URL : '';
 // --- END OF FIX ---
 
+// --- ADD THIS NEW DEBUG LINE ---
+console.log("!!!!!!!!!! AISERVICE.JSX: API_BASE is:", API_BASE);
+// -------------------------------
 
 // --- API Keys (REMOVED) ---
 // All API keys are now handled in the serverless functions (proxies)
