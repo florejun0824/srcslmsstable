@@ -220,7 +220,7 @@ const AnnouncementCard = ({
             ) : (
                 post.content && (
                     // --- MODIFIED: Added dark mode classes ---
-                    <p className="text-slate-700 dark:text-slate-300 text-base leading-relaxed whitespace-pre-wrap break-words">
+                    <p className="text-slate-700 dark:text-slate-300 text-sm sm:text-base leading-relaxed whitespace-pre-wrap break-words">
                         {isTruncated && !isExpanded ? (
                             post.content.substring(0, ANNOUNCEMENT_TRUNCATE_LENGTH) + '...'
                         ) : (

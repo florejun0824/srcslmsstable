@@ -13,8 +13,6 @@ import {
     IconPower,
 	IconChartBar,
     IconRocket,
-    IconMenu2,
-    IconX,
 } from '@tabler/icons-react'
 import { NavLink } from 'react-router-dom';
 
@@ -28,6 +26,7 @@ import Spinner from '../common/Spinner';
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
 import AnimatedRobot from './dashboard/widgets/AnimatedRobot';
 import ThemeToggle from '../common/ThemeToggle';
+import BottomNavigationBar from './BottomNavigationBar'; // <-- This is our new bottom bar
 
 // LAZY-LOADED VIEWS
 const AdminDashboard = lazy(() => import('../../pages/AdminDashboard'));
@@ -65,7 +64,7 @@ const DeleteSubjectModal = lazy(() => import('./DeleteSubjectModal'));
 
 
 
-// --- ProfileDropdown Component (Unchanged) ---
+// --- ProfileDropdown Component (Unchanged from previous step) ---
 const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
   const buttonSize = size === 'desktop' ? 'w-16 h-16' : 'w-9 h-9';
   const avatarSize = size === 'desktop' ? 'full' : 'sm';
@@ -145,11 +144,11 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
 };
 
 
-// --- DESKTOP HEADER COMPONENT (MODIFIED) ---
+// --- DESKTOP HEADER COMPONENT (Unchanged) ---
 const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
     const navItems = [
         { view: 'home', text: 'Home', icon: IconHome },
-        { view: 'lounge', text: 'Lounge', icon: IconRocket }, // <-- ADDED
+        { view: 'lounge', text: 'Lounge', icon: IconRocket },
         { view: 'studentManagement', text: 'Students', icon: IconUsers },
         { view: 'classes', text: 'Classes', icon: IconSchool },
         { view: 'courses', text: 'Subjects', icon: IconCategory },
@@ -178,7 +177,7 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
                 </div>
             </div>
 
-            {/* Center: Navigation (MODIFIED FOR MORE ITEMS) */}
+            {/* Center: Navigation (Unchanged) */}
             <nav className="w-full max-w-3xl p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark flex justify-center items-center gap-2">
                 {navItems.map((item) => {
                     return (
@@ -221,7 +220,7 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
                 })}
             </nav>
 
-            {/* Right side: Profile Dropdown */}
+            {/* Right side: Profile Dropdown (Unchanged) */}
             <div className="flex items-center gap-4 flex-shrink-0">
               <ProfileDropdown 
                 userProfile={userProfile}
@@ -234,122 +233,6 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
 };
 // --- END OF HEADER COMPONENT ---
 
-// --- NEW Mobile Navigation Drawer Component ---
-const MobileNavDrawer = ({
-    isOpen,
-    onClose,
-    navItems,
-    userProfile,
-    onLogout,
-}) => {
-    return (
-        <Transition show={isOpen} as={Fragment}>
-            <Dialog as="div" className="relative z-[100] lg:hidden" onClose={onClose}>
-                {/* Backdrop Overlay */}
-                <Transition.Child
-                    as={Fragment}
-                    enter="transition-opacity ease-linear duration-300"
-                    enterFrom="opacity-0"
-                    enterTo="opacity-100"
-                    leave="transition-opacity ease-linear duration-300"
-                    leaveFrom="opacity-100"
-                    leaveTo="opacity-0"
-                >
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
-                </Transition.Child>
-
-                {/* Drawer Panel */}
-                <div className="fixed inset-0 flex">
-                    <Transition.Child
-                        as={Fragment}
-                        enter="transition ease-in-out duration-300 transform"
-                        enterFrom="-translate-x-full"
-                        enterTo="translate-x-0"
-                        leave="transition ease-in-out duration-300 transform"
-                        leaveFrom="translate-x-0"
-                        leaveTo="-translate-x-full"
-                    >
-                        <Dialog.Panel className="relative mr-auto flex h-full w-full max-w-xs flex-col overflow-y-auto bg-neumorphic-base dark:bg-neumorphic-base-dark p-4 shadow-xl">
-                            <div className="flex items-center justify-between">
-                                {/* Profile Header */}
-                                <div className="flex items-center gap-3">
-                                    <UserInitialsAvatar
-                                        firstName={userProfile?.firstName}
-                                        lastName={userProfile?.lastName}
-                                        id={userProfile?.id}
-                                        size="sm"
-                                    />
-                                    <div>
-                                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                                            {userProfile?.firstName} {userProfile?.lastName}
-                                        </p>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                                            {userProfile?.email}
-                                        </p>
-                                    </div>
-                                </div>
-                                {/* Close Button */}
-                                <button
-                                    type="button"
-                                    className="-m-2 p-2 flex items-center justify-center w-9 h-9 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all focus:outline-none"
-                                    onClick={onClose}
-                                >
-                                    <span className="sr-only">Close menu</span>
-                                    <IconX className="h-5 w-5 text-slate-700 dark:text-slate-300" />
-                                </button>
-                            </div>
-
-                            {/* Navigation Links */}
-                            <nav className="mt-8 space-y-2">
-                                {navItems.map((item) => (
-                                    <NavLink
-                                        key={item.view}
-                                        to={item.view === 'home' ? '/dashboard' : `/dashboard/${item.view}`}
-                                        end={item.view === 'home'}
-                                        onClick={onClose} // Close drawer on nav
-                                        className={({ isActive }) =>
-                                            `group flex w-full items-center rounded-lg p-3 text-base font-medium transition-all ${
-                                                isActive
-                                                    ? 'shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-blue-700 dark:text-blue-300'
-                                                    : 'text-slate-800 dark:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
-                                            }`
-                                        }
-                                    >
-                                        {({ isActive }) => (
-                                            <>
-                                                <item.icon
-                                                    className={`mr-4 h-6 w-6 ${
-                                                        isActive
-                                                            ? 'text-blue-600 dark:text-blue-400'
-                                                            : 'text-slate-500 dark:text-slate-400'
-                                                    }`}
-                                                />
-                                                {item.text}
-                                            </>
-                                        )}
-                                    </NavLink>
-                                ))}
-                            </nav>
-                            
-                            {/* Logout Button at bottom */}
-                            <div className="mt-auto pt-4 border-t border-slate-200 dark:border-slate-700">
-                                <button
-                                    onClick={onLogout}
-                                    className="group flex w-full items-center rounded-lg p-3 text-base font-medium text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-all"
-                                >
-                                    <IconPower className="mr-4 h-6 w-6" />
-                                    Logout
-                                </button>
-                            </div>
-                        </Dialog.Panel>
-                    </Transition.Child>
-                </div>
-            </Dialog>
-        </Transition>
-    );
-};
-// --- END of MobileNavDrawer Component ---
-
 // Helper component for loading states
 const LoadingFallback = () => (
     <div className="w-full h-full flex justify-center items-center p-20">
@@ -359,13 +242,12 @@ const LoadingFallback = () => (
 
 // Main Layout Component
 const TeacherDashboardLayout = (props) => {
-    // --- THIS IS THE FIX (C) ---
-    // Destructure the new `authLoading` prop
+    // ... (All props and state hooks remain unchanged)
     const {
         user,
         userProfile,
         loading,
-        authLoading, // <-- ADD THIS
+        authLoading,
         error,
         activeView,
         handleViewChange,
@@ -393,17 +275,13 @@ const TeacherDashboardLayout = (props) => {
         courses,
 		activeClasses,
 		handleUpdateClass,
-
-        // --- 1. DESTRUCTURE NEW LOUNGE PROPS ---
         isLoungeLoading,
         loungePosts,
         loungeUsersMap,
         fetchLoungePosts,
         loungePostUtils,
-        
         ...rest
     } = props;
-    // --- END OF FIX (C) ---
 
     const [categoryToEdit, setCategoryToEdit] = useState(null);
     const [isEditCategoryModalOpen, setIsEditCategoryModalOpen] = useState(false);
@@ -413,9 +291,8 @@ const TeacherDashboardLayout = (props) => {
     const [hoveredIconIndex, setHoveredIconIndex] = useState(null);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 	const [isChangePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
-    const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-	    
-
+    
+    // ... (All handler functions like handleRenameCategory, etc. remain unchanged)
     const handleRenameCategory = async (newName) => {
         const oldName = categoryToEdit?.name;
         if (!oldName || !newName || oldName === newName) {
@@ -454,8 +331,8 @@ const TeacherDashboardLayout = (props) => {
         rest.setCreateCourseModalOpen(true);
     };
 
-    // --- MODIFIED navItems array ---
-    const navItems = [
+    // --- NAVIGATION LOGIC (Unchanged) ---
+    const allNavItems = [
         {
             view: 'home',
             text: 'Home',
@@ -465,7 +342,7 @@ const TeacherDashboardLayout = (props) => {
         {
             view: 'lounge',
             text: 'Lounge',
-            icon: IconRocket, // <-- ADDED
+            icon: IconRocket,
             gradient: 'from-orange-500 to-amber-500',
         },
         {
@@ -500,7 +377,7 @@ const TeacherDashboardLayout = (props) => {
         },
     ];
     if (userProfile?.role === 'admin') {
-        navItems.push({
+        allNavItems.push({
             view: 'admin',
             text: 'Admin',
             icon: IconShieldCog,
@@ -508,6 +385,19 @@ const TeacherDashboardLayout = (props) => {
         });
     }
 
+    const bottomNavItems = [
+        allNavItems.find(item => item.view === 'home'),
+        allNavItems.find(item => item.view === 'classes'),
+        allNavItems.find(item => item.view === 'courses'),
+        allNavItems.find(item => item.view === 'profile'),
+    ].filter(Boolean);
+
+    const actionMenuItems = allNavItems.filter(item => 
+        !['home', 'classes', 'courses', 'profile'].includes(item.view)
+    );
+    // --- END OF NAVIGATION LOGIC ---
+
+    // ... (getScale, handleStartOnlineClass, handleEndOnlineClass functions remain unchanged)
     const getScale = (index) => {
         if (hoveredIconIndex === null) return 1;
         const distance = Math.abs(hoveredIconIndex - index);
@@ -537,7 +427,7 @@ const TeacherDashboardLayout = (props) => {
 		        showToast('Failed to start the online class due to a system error.', 'error');
 		    }
 		};
-		const handleEndOnlineClass = async (classId) => {
+	const handleEndOnlineClass = async (classId) => {
 		    try {
 		        const classRef = doc(db, 'classes', classId);
 		        await updateDoc(classRef, {
@@ -553,12 +443,9 @@ const TeacherDashboardLayout = (props) => {
 		    }
 		};
 
-    // --- MODIFIED renderMainContent ---
+    // --- renderMainContent (Unchanged) ---
     const renderMainContent = () => {
-        // --- THIS IS THE FIX (D) ---
-        // Add `authLoading` to the guard clause
         if (loading || authLoading) return <LoadingFallback />;
-        // --- END OF FIX (D) ---
 
         if (error) {
             return (
@@ -584,16 +471,15 @@ const TeacherDashboardLayout = (props) => {
                         {...rest}
                     />
                 );
-            case 'lounge': // <-- 2. MODIFIED THIS CASE ---
+            case 'lounge':
                 return (
                     <LoungeView 
                         key={`${reloadKey}-lounge`} 
-                        // --- 3. PASS PROPS TO LoungeView ---
                         isPostsLoading={isLoungeLoading}
                         publicPosts={loungePosts}
                         usersMap={loungeUsersMap}
-                        fetchPublicPosts={fetchLoungePosts} // Map to the prop LoungeView expects
-                        {...loungePostUtils} // Spread all the hook utils
+                        fetchPublicPosts={fetchLoungePosts}
+                        {...loungePostUtils}
                     />
                 );
 			case 'classes':
@@ -688,32 +574,26 @@ const TeacherDashboardLayout = (props) => {
                 .logout-modal-exit-active { opacity: 0; transform: scale(0.9); transition: opacity 300ms, transform 300ms; }
             `}</style>
             
-            <div className="min-h-screen flex flex-col bg-neumorphic-base dark:bg-neumorphic-base-dark font-sans antialiased text-slate-900 dark:text-slate-100">
-                {/* Mobile Header */}
-                <header className="sticky top-0 z-40 p-2 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark lg:hidden">
-                    <div className="flex items-center justify-between">
-                        {/* Left side: Menu + Logo */}
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setIsMobileNavOpen(true)}
-                                className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                                aria-label="Open navigation menu"
-                            >
-                                <IconMenu2 className="w-5 h-5 text-slate-700 dark:text-slate-300" />
-                            </button>
-                            <img
-                                src="/logo.png"
-                                alt="Logo"
-                                className="w-9 h-9 rounded-full"
-                            />
-                            <span className="font-bold text-lg text-slate-900 dark:text-slate-100 hidden sm:block">
+            <div className="min-h-screen flex flex-col bg-neumorphic-base dark:bg-neumorphic-base-dark font-sans antialiased text-slate-900 dark:text-slate-100 pb-16 lg:pb-0">
+                
+                {/* --- THIS IS THE MODIFIED MOBILE HEADER --- */}
+                <div className="sticky top-0 z-40 p-2 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark lg:hidden">
+                    <div className="relative flex items-center justify-between h-9">
+                        
+                        {/* Left side: Theme Toggle */}
+                        <div className="flex-shrink-0">
+                            <ThemeToggle />
+                        </div>
+
+                        {/* Center: Gradient Title */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                            <span className="font-extrabold text-lg bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-400 dark:to-cyan-300 bg-clip-text text-transparent">
                                 SRCS LMS
                             </span>
                         </div>
 
-                        {/* Right side: Toggle + Profile */}
-                        <div className="flex items-center gap-2">
-                            <ThemeToggle />
+                        {/* Right side: Profile */}
+                        <div className="flex-shrink-0">
                             <ProfileDropdown 
                               userProfile={userProfile}
                               onLogout={() => setIsLogoutModalOpen(true)}
@@ -721,9 +601,10 @@ const TeacherDashboardLayout = (props) => {
                             />
                         </div>
                     </div>
-                </header>
+                </div>
+                {/* --- END OF MODIFIED MOBILE HEADER --- */}
 
-                {/* Desktop Header */}
+                {/* Desktop Header (Unchanged) */}
                 <div className="hidden lg:block sticky top-0 z-[10] bg-neumorphic-base dark:bg-neumorphic-base-dark px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
                     <div className="w-full max-w-screen-2xl mx-auto flex justify-between items-center">
                         <DesktopHeader
@@ -734,7 +615,7 @@ const TeacherDashboardLayout = (props) => {
                     </div>
                 </div>
 
-                {/* Main Content */}
+                {/* Main Content (Unchanged) */}
                 <main className="flex-1 w-full max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8">
                     <SwitchTransition mode="out-in">
                         <CSSTransition
@@ -750,16 +631,32 @@ const TeacherDashboardLayout = (props) => {
                 </main>
             </div>
 
-            {/* Floating Robot & Modals */}
-            <Suspense fallback={null}>
-                <CSSTransition
-                    in={!isChatOpen && activeView === 'home'}
-                    timeout={300}
-                    classNames="animated-robot"
-                    unmountOnExit
-                >
-                    <AnimatedRobot onClick={() => setIsChatOpen(true)} />
-                </CSSTransition>
+            {/* BOTTOM NAVIGATION BAR (Unchanged) */}
+            <BottomNavigationBar 
+                bottomNavItems={bottomNavItems}
+                actionMenuItems={actionMenuItems}
+                onNavigate={() => {}}
+            />
+
+				{/* Floating Robot & Modals (All unchanged) */}
+				            <Suspense fallback={null}>
+				                <CSSTransition
+				                    in={!isChatOpen && activeView === 'home'}
+				                    timeout={300}
+				                    classNames="animated-robot"
+				                    unmountOnExit
+				                >
+				                    {/*
+				                      THIS IS THE FINAL FIX:
+				                      - 'z-[52]': Places the robot ON TOP of the entire nav bar
+				                        (which has a max z-index of z-[51]).
+				                      - 'bottom-20': (5rem) Places it 1rem (4px) ABOVE your
+				                        4rem (h-16) navigation bar, so it does not overlap.
+				                    */}
+				                    <div className="fixed bottom-20 right-4 z-[52] lg:bottom-8 lg:right-8">
+				                        <AnimatedRobot onClick={() => setIsChatOpen(true)} />
+				                    </div>
+				                </CSSTransition>
 
                 {isAiHubOpen && (
                     <AiGenerationHub
@@ -797,7 +694,7 @@ const TeacherDashboardLayout = (props) => {
 						setChangePasswordModalOpen={setChangePasswordModalOpen}
                     />
                 )}
-<ChangePasswordModal
+                <ChangePasswordModal
                     isOpen={isChangePasswordModalOpen}  
                     onClose={() => setChangePasswordModalOpen(false)}
                     onSubmit={rest.handleChangePassword}
@@ -933,18 +830,7 @@ const TeacherDashboardLayout = (props) => {
                 )}
             </Suspense>
 
-            <MobileNavDrawer
-                isOpen={isMobileNavOpen}
-                onClose={() => setIsMobileNavOpen(false)}
-                navItems={navItems}
-                userProfile={userProfile}
-                onLogout={() => {
-                    setIsMobileNavOpen(false);
-                    setIsLogoutModalOpen(true);
-                }}
-            />
-
-            {/* Logout Confirmation Modal */}
+            {/* Logout Confirmation Modal (Unchanged) */}
             <CSSTransition
                 in={isLogoutModalOpen}
                 timeout={300}

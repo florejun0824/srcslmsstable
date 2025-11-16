@@ -1,24 +1,28 @@
+// src/components/teacher/AnimatedRobot.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './AnimatedRobot.css';
 
 const AnimatedRobot = ({ onClick }) => {
     const isMobile = window.innerWidth <= 768;
     const size = isMobile ? 52 : 60;
-    const margin = 30;
+    
+    // --- MODIFIED MARGINS ---
+    const sideMargin = 30; // Original right margin
+    const mobileBottomMargin = 64; // 6rem (4rem nav bar + 2rem spacing)
+    const desktopBottomMargin = 30; // Original desktop margin
 
-    // --- Initial bottom-right position ---
+    // --- MODIFIED Initial position ---
     const [position, setPosition] = useState({
-        x: window.innerWidth - size - margin,
-        y: window.innerHeight - size - margin,
+        x: window.innerWidth - size - sideMargin,
+        y: window.innerHeight - size - (isMobile ? mobileBottomMargin : desktopBottomMargin),
     });
+    // --- (Rest of the states are unchanged) ---
     const [isDragging, setIsDragging] = useState(false);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
-
-    // Track initial drag start pos to detect click vs drag
     const startPosRef = useRef({ x: 0, y: 0 });
     const draggedRef = useRef(false);
 
-    // --- DRAG START ---
+    // --- DRAG START (Unchanged) ---
     const handleDragStart = useCallback(
         (e) => {
             e.preventDefault();
@@ -33,7 +37,7 @@ const AnimatedRobot = ({ onClick }) => {
         [position]
     );
 
-    // --- DRAG MOVE ---
+    // --- DRAG MOVE (Unchanged) ---
     const handleDragMove = useCallback(
         (e) => {
             if (!isDragging) return;
@@ -54,12 +58,12 @@ const AnimatedRobot = ({ onClick }) => {
         [isDragging, offset]
     );
 
-    // --- DRAG END ---
+    // --- DRAG END (Unchanged) ---
     const handleDragEnd = useCallback(() => {
         setIsDragging(false);
     }, []);
 
-    // --- Attach / Detach listeners ---
+    // --- Attach / Detach listeners (Unchanged) ---
     useEffect(() => {
         if (isDragging) {
             document.addEventListener('mousemove', handleDragMove);
@@ -80,14 +84,14 @@ const AnimatedRobot = ({ onClick }) => {
         };
     }, [isDragging, handleDragMove, handleDragEnd]);
 
-    // --- Handle Click (only if not dragged) ---
+    // --- Handle Click (Unchanged) ---
     const handleClick = (e) => {
         if (!draggedRef.current) {
             onClick?.(e);
         }
     };
 
-    // --- Styles ---
+    // --- MODIFIED Styles ---
     const buttonStyle = {
         position: 'fixed',
         width: `${size}px`,
@@ -95,7 +99,7 @@ const AnimatedRobot = ({ onClick }) => {
         left: `${position.x}px`,
         top: `${position.y}px`,
         transition: isDragging ? 'none' : 'transform 0.2s ease',
-        zIndex: 1000,
+        zIndex: 52, // MODIFIED: Set to 52 (higher than nav bar's 51)
         cursor: isDragging ? 'grabbing' : 'grab',
     };
 
@@ -107,7 +111,6 @@ const AnimatedRobot = ({ onClick }) => {
             onMouseDown={handleDragStart}
             onTouchStart={handleDragStart}
         >
-            <div className="aurora-background" />
             <div className="button-content">
                 <img
                     src="https://i.ibb.co/Y4WNBnxS/ai-girl.png"

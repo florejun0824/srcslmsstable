@@ -176,7 +176,7 @@ const SidebarContent = ({ sidebarNavItems, onLogoutClick, hasUnclaimedRewards, h
     );
 };
 
-// --- (EmptyState and DashboardHome components are unchanged) ---
+// --- (EmptyState component is unchanged) ---
 const EmptyState = ({ icon: Icon, title, message, actionText, onActionClick }) => (
     <div className="flex flex-col items-center justify-center text-center p-8 rounded-3xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark max-w-lg mx-auto mt-10">
         <Icon className="h-16 w-16 text-slate-400 dark:text-slate-600 mb-4" />
@@ -189,6 +189,8 @@ const EmptyState = ({ icon: Icon, title, message, actionText, onActionClick }) =
         )}
     </div>
 );
+
+// --- DashboardHome (Unchanged, except for the class icon) ---
 const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewChange }) => {
     const getGreeting = () => {
         const hour = new Date().getHours();
@@ -201,7 +203,7 @@ const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewCha
         const approx = Math.floor((Math.sqrt(1 + 8 * (xp / 500)) + 1) / 2);
         return Math.max(1, approx);
     }, [userProfile?.xp]);
-    const currentLevel = userProfile?.level || computedLevelFallback;
+    
     const genericBadges = (userProfile?.genericBadges || []).slice(-3).reverse();
     const getTeacherName = (classItem) => {
         if (!classItem) return 'Unknown';
@@ -220,17 +222,6 @@ const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewCha
               <div className="text-center sm:text-left">
                 <h1 className="text-lg sm:text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight truncate">{getGreeting()}, {userProfile?.firstName || 'Student'}!</h1>
                 <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400">Keep going — you're doing great. Tap a class to continue learning.</p>
-              </div>
-              <div className="flex flex-row items-center justify-between sm:justify-between gap-2 sm:gap-6">
-                <div className="flex-shrink-0 relative w-20 h-20 sm:w-28 sm:h-28 flex items-center justify-center">
-                  <XPProgressRing xp={userProfile?.xp || 0} level={currentLevel} />
-                </div>
-                <div className="flex-1 text-right">
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}
-                    className="relative inline-block bg-neumorphic-base dark:bg-slate-700/50 border border-blue-200 dark:border-blue-700/50 shadow-[0_3px_8px_rgba(0,0,0,0.08)] rounded-xl px-3 py-2 sm:px-4 sm:py-3 text-[11px] sm:text-sm text-slate-700 dark:text-slate-200 italic font-medium max-w-[70%] sm:max-w-[240px] float-right backdrop-blur-sm"
-                  > <span className="absolute -top-2 -left-2 bg-gradient-to-r from-sky-400 to-blue-500 text-white rounded-full px-1.5 py-0.5 text-[10px] font-bold shadow-sm"> ✨ </span> <DailyQuote compact /> </motion.div>
-                </div>
               </div>
             </div>
             <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark p-3 rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark">
@@ -316,7 +307,11 @@ const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewCha
                                         className="flex-grow flex flex-col text-left group"
                                     >
                                         <div className="flex items-start gap-3">
-                                            <div className="h-10 w-10 rounded-lg bg-red-500 flex items-center justify-center shadow-inner flex-shrink-0"> <BookOpenIcon className="h-5 w-5 text-white" /> </div>
+                                            {/* --- THIS DIV IS MODIFIED --- */}
+                                            <div className="h-10 w-10 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark flex items-center justify-center shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark flex-shrink-0">
+                                                <BookOpenIcon className="h-5 w-5 text-red-500 dark:text-red-400" />
+                                            </div>
+                                            {/* --- END OF MODIFIED DIV --- */}
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex items-center justify-between gap-2">
                                                     <h3 className="text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-100 truncate flex-1 group-hover:text-red-700 dark:group-hover:text-red-400 transition-colors">
@@ -375,7 +370,7 @@ const StudentDashboardUI = ({
     hasNewLessons, 
     hasNewQuizzes,
 
-    // --- 1. DESTRUCTURING ALL THE LOUNGE PROPS ---
+    // --- (Lounge props are unchanged) ---
     isLoungeLoading,
     loungePosts,
     loungeUsersMap,
@@ -394,7 +389,7 @@ const StudentDashboardUI = ({
         }
     }, [view, selectedClass, setSelectedClass]);
 
-    // Nav items
+    // Nav items (unchanged)
     const sidebarNavItems = [
         { view: 'classes', text: 'Dashboard', icon: Squares2X2Icon },
         { view: 'lounge', text: 'Lounge', icon: RocketLaunchIcon }, 
@@ -462,8 +457,6 @@ const StudentDashboardUI = ({
                   />
                 );
             case 'lounge':
-                // --- 2. THIS IS THE FIX ---
-                // Pass all the destructured props down to LoungeView
                 return (
                     <LoungeView 
                         isPostsLoading={isLoungeLoading}

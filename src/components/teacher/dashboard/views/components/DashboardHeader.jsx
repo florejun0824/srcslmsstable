@@ -65,8 +65,9 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
                                 />
                             </div>
                         </div>
+                        {/* --- THIS BLOCK IS NOW HIDDEN ON MOBILE --- */}
                         <div 
-                            className="col-span-1 flex items-center justify-center h-full"
+                            className="hidden md:flex col-span-1 items-center justify-center h-full"
                             onClick={onOpenScheduleModal}
                         >
                             {/* --- MODIFIED: bg-base, text-primary, shadow-neumorphic-inset --- */}
@@ -119,9 +120,10 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
                             </h1>
                             <p className="text-base md:text-lg text-secondary mt-2">Here's your dashboard at a glance.</p>
                         </div>
+                        {/* --- THIS BLOCK IS NOW HIDDEN ON MOBILE --- */}
                         <div 
                             // --- MODIFIED: bg-base, text-primary, shadow-neumorphic-inset ---
-                            className="mt-6 md:mt-0 md:ml-6 p-4 bg-base text-primary rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark w-full max-w-sm flex-shrink-0 flex flex-col justify-between cursor-pointer transition-shadow duration-300 hover:shadow-none"
+                            className="hidden md:flex mt-6 md:mt-0 md:ml-6 p-4 bg-base text-primary rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark w-full max-w-sm flex-shrink-0 flex flex-col justify-between cursor-pointer transition-shadow duration-300 hover:shadow-none"
                             onClick={onOpenScheduleModal}
                         >
                             {/* --- MODIFIED: text-brand-text --- */}
