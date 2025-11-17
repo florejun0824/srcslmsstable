@@ -591,8 +591,8 @@ const presentationPrompt = `
                 INSTRUCTIONS:
                 1.  **Apply Core Philosophy (One Point Per Slide):**
                     * Identify a **single key point,** concept, or main idea from the lesson content.
-                    * **Slide `body` (Detailed Content):** Place the **"detail-rich"** and **"information-filled"** explanation for **that one key point** here. This is the main content. It should be a full explanation, definition, or set of facts *about that single point*.
-                    * **Slide `notes.talkingPoints` (Concise Cues):** Provide a very short, high-level summary or cue for the teacher related *only* to the key point in the `body` (e.g., "Emphasize this definition," "Ask retention question on this topic").
+                    * **Slide \`body\` (Detailed Content):** Place the **"detail-rich"** and **"information-filled"** explanation for **that one key point** here. This is the main content. It should be a full explanation, definition, or set of facts *about that single point*.
+                    * **Slide \`notes.talkingPoints\` (Concise Cues):** Provide a very short, high-level summary or cue for the teacher related *only* to the key point in the \`body\` (e.g., "Emphasize this definition," "Ask retention question on this topic").
 
                 2.  **Generate Slides Sequentially:** Repeat step 1 for the *next* key point, creating a *new slide*. Continue this process until all lesson content is covered.
 
