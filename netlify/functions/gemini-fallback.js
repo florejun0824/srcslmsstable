@@ -1,7 +1,7 @@
 // netlify/functions/gemini-fallback.js
 
 const GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-flash-latest';
 
 // --- THIS IS THE CORS FIX ---
 const CORS_HEADERS = {

@@ -1,7 +1,7 @@
 // netlify/functions/gemini-fallback-2.js
 
 const GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
-const DEFAULT_MODEL = 'gemini-2.5-flash'; // Fallback if no model is provided
+const DEFAULT_MODEL = 'gemini-flash-latest'; // Fallback if no model is provided
 
 // --- THIS IS THE CORS FIX ---
 const CORS_HEADERS = {

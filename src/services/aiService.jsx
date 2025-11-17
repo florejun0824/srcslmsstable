@@ -28,7 +28,7 @@ console.log("!!!!!!!!!! AISERVICE.JSX: API_BASE is:", API_BASE);
 // or were removed (Groq).
 
 // --- Model & URL Definitions ---
-const GEMINI_MODEL = 'gemini-2.5-flash'; // <-- Corrected 1.5
+const GEMINI_MODEL = 'gemini-flash-latest'; // <-- Corrected 1.5
 
 // Hugging Face models
 // --- MODIFIED ---
