@@ -1,9 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { db } from './firebase';
-// =======================================================================
-// --- CHANGE 1: ADD 'onSnapshot' TO THE IMPORT ---
-// =======================================================================
-import { doc, getDoc, updateDoc, setDoc, increment, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, increment } from 'firebase/firestore';
 
 // --- ADD THESE NEW DEBUG LINES ---
 console.log("!!!!!!!!!! AISERVICE.JSX: Build 123 IS RUNNING !!!!!!!!!!");
@@ -37,7 +34,7 @@ const GEMINI_MODEL = 'gemini-flash-latest'; // <-- Corrected 1.5
 // --- MODIFIED ---
 const HF_MODEL_1 = 'Qwen/Qwen3-4B-Instruct-2507'; // <-- Retained Qwen
 // const HF_MODEL_2 = 'meta-llama/Llama-3.1-8B-Instruct';    // <-- REMOVED
-// const HF_MODEL_3 = 'google/gemma-2-9b-it';              // <-- REMOVED
+// const HF_MODEL_3 = 'google/gemma-2-9b-it';                // <-- REMOVED
 
 // --- Unified API Configuration (UPDATED with API_BASE) ---
 const API_CONFIGS = [
@@ -306,9 +303,9 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
 
 function validateAndCleanGradingResponse(data, validRubric, source = "AI") {
      if (!data || !Array.isArray(data.scores) || typeof data.totalScore !== 'number' || data.scores.length === 0) {
-         console.error(`Invalid grading JSON structure from ${source}:`, JSON.stringify(data, null, 2));
-         throw new Error(`${source} grading response JSON structure is invalid.`);
-     }
+        console.error(`Invalid grading JSON structure from ${source}:`, JSON.stringify(data, null, 2));
+        throw new Error(`${source} grading response JSON structure is invalid.`);
+    }
 
     let calculatedTotal = 0;
     const validatedScores = [];
@@ -362,60 +359,4 @@ export const callChatbotAi = async (prompt) => {
         console.error("Error in callChatbotAi:", error);
         throw error;
     }
-};
-
-// =======================================================================
-// --- CHANGE 2: ADD NEW FUNCTIONS TO THE END OF THE FILE ---
-// =======================================================================
-
-/**
- * Step 1: Triggers the slide generation job.
- * This calls the 'start-slide-job' function we created.
- * @param {string} prompt - The full prompt for the AI.
- * @param {string} userId - The ID of the user starting the job.
- * @returns {string} - The Job ID.
- */
-export const startSlideGenerationJob = async (prompt, userId) => {
-  // API_BASE is the variable at the top of this file
-  const response = await fetch(`${API_BASE}/api/start-slide-job`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ prompt: prompt, userId: userId }),
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    console.error("Failed to start slide job:", errText);
-    throw new Error('Failed to start slide generation job.');
-  }
-
-  const data = await response.json();
-  return data.jobId; // Returns the ID
-};
-
-/**
- * Step 2: Listens to the job document in Firestore for updates.
- * @param {string} jobId - The ID from startSlideGenerationJob
- * @param {function} onUpdate - Callback function (jobData) => {}
- * @returns {function} - The unsubscribe function to stop listening
- */
-export const listenToSlideJob = (jobId, onUpdate) => {
-  // 'db' is the firestore instance at the top of this file
-  // 'doc' is imported at the top of this file
-  const jobRef = doc(db, 'slide_jobs', jobId);
-  
-  // 'onSnapshot' is now imported at the top of this file
-  const unsubscribe = onSnapshot(jobRef, (docSnap) => {
-    if (docSnap.exists()) {
-      onUpdate(docSnap.data()); // Send new data (e.g., status, result)
-    } else {
-      // This case should rarely happen if the trigger works
-      onUpdate({ status: 'failed', error: 'Job document not found.' });
-      unsubscribe();
-    }
-  });
-
-  return unsubscribe; // Return the function to stop listening
 };

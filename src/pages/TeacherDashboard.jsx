@@ -9,16 +9,7 @@ import {
   runTransaction, Timestamp, documentId
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
-// =======================================================================
-// --- CHANGE 1: IMPORTS MODIFIED ---
-// =======================================================================
-import { 
-    callGeminiWithLimitCheck, 
-    callChatbotAi,
-    startSlideGenerationJob, // <-- ADDED
-    listenToSlideJob         // <-- ADDED
-} from '../services/aiService';
-// =======================================================================
+import { callGeminiWithLimitCheck, callChatbotAi } from '../services/aiService';
 import { createPresentationFromData } from '../services/googleSlidesService';
 import TeacherDashboardLayout from '../components/teacher/TeacherDashboardLayout';
 import GlobalAiSpinner from '../components/common/GlobalAiSpinner';
@@ -487,7 +478,7 @@ const TeacherDashboard = () => {
 	    if (!window.confirm(`Are you sure you want to remove ${student.firstName} ${student.lastName} from the class?`)) { 
 	        return; 
 	    }
-  
+    
 	    try {
 	        const classRef = doc(db, "classes", classId);
 	        const classDoc = classes.find(c => c.id === classId);
@@ -502,7 +493,7 @@ const TeacherDashboard = () => {
 	            students: arrayRemove(studentObjectToRemove),
 	            studentIds: arrayRemove(studentIdToRemove)
 	        });
-      
+        
 	        showToast("Student removed successfully.", "success");
 	    } catch (error) { 
 	        console.error("Error removing student:", error); 
@@ -566,9 +557,6 @@ const TeacherDashboard = () => {
         handleGeneratePresentationPreview(ids, data, units);
     };
 
-// =======================================================================
-// --- CHANGE 2: 'handleGeneratePresentationPreview' REPLACED ---
-// =======================================================================
     const handleGeneratePresentationPreview = (lessonIds, lessonsData, unitsData) => {
         if (!activeSubject) { 
             showToast("No active subject selected. This is required for folder creation.", "warning"); 
@@ -576,138 +564,89 @@ const TeacherDashboard = () => {
         }
         
         setIsAiGenerating(true);
-        showToast("AI job started! This may take a moment...", "info");
+        showToast("Gathering content and generating preview...", "info");
 
-        // This logic is the same as your original
-        const selectedLessonsData = lessonsData.filter(l => lessonIds.includes(l.id));
-        if (selectedLessonsData.length === 0) {
-            showToast("No lesson data found for the selected IDs.", "error");
-            setIsAiGenerating(false);
-            return;
-        }
-                
-        const allLessonContent = selectedLessonsData.map(lesson => { 
-            if (!lesson.pages || lesson.pages.length === 0) { return ''; } 
-            const validPages = lesson.pages.filter(page => page.content && page.content.trim() !== ''); 
-            if (validPages.length === 0) { return ''; } 
-            const pageText = validPages.map(page => `Page Title: ${page.title}\n${page.content.trim()}`).join('\n\n'); 
-            return `Lesson: ${lesson.title}\n${pageText}`; 
-        }).filter(entry => entry.trim() !== '').join('\n\n---\n\n');
-                
-        if (!allLessonContent || allLessonContent.trim().length === 0) { 
-            showToast("Selected lessons contain no usable content.", "error"); 
-            setIsAiGenerating(false);
-            return;
-        }
-                
-        // This is the same long prompt from your original file
-        const presentationPrompt = `
-        You are a master educator and presentation designer. 
-        Your task is to generate a structured presentation preview from lesson content.
-
-        INSTRUCTIONS:
-        1.  Create slides that clearly summarize the main lesson content provided.
-        2.  After the content slides, carefully check the 'LESSON CONTENT TO PROCESS' for an existing assessment, quiz, or "End of Lesson Assessment", and its corresponding "Answer Key".
-            
-        3.  **IF ASSESSMENT EXISTS:**
-            -   Transcribe the *exact* assessment questions from the lesson content onto new slides.
-            -   Use titles like "Lesson Assessment".
-            -   **IMPORTANT:** If there are many questions (e.g., more than 4-5), split them logically across multiple slides to prevent overflow (e.g., "Lesson Assessment (1/2)", "Lesson Assessment (2/2)").
-            -   After the question slides, transcribe the "Answer Key" from the lesson content, also splitting it across multiple slides if it is long.
-
-        4.  **IF ASSESSMENT DOES NOT EXIST:**
-            -   Create a new 5-10 question multiple-choice quiz based *only* on the lesson content.
-            -   Create "Lesson Assessment" slides. If you create more than 4-5 questions, split them across multiple slides (e.g., "Lesson Assessment (1/2)").
-            -   Create a final "Answer Key" slide (or slides) with the correct answers.
-                
-        ⚠️ IMPORTANT: 
-        -   Respond ONLY with a single valid JSON object.
-        -   Do NOT include explanations, notes, markdown fences, or extra text.
-        -   Follow the exact schema below for *every* slide.
-        -   Ensure the body text for each slide is concise. **Prioritize splitting content across multiple slides** over creating one very long, overflowing slide.
-
-        SCHEMA:
-        {
-          "slides": [
-            {
-              "title": "string - short, engaging slide title (e.g., 'Lesson Assessment (1/2)', 'Answer Key')",
-              "body": "string - main content of the slide (e.g., 3-4 quiz questions, or part of the answer key)",
-              "notes": {
-                "talkingPoints": "string - bullet points the teacher can say",
-                "interactiveElement": "string - suggested activity, question, or visual",
-                "slideTiming": "string - recommended time in minutes"
-              }
-            }
-            // ... more slides, ending with assessment and answer key
-          ]
-        }
-
-        LESSON CONTENT TO PROCESS:
-        ---
-        ${allLessonContent}
-        ---
-        `;
-                
-        // --- THIS IS THE NEW LOGIC ---
-        (async () => {
+        setTimeout(async () => {
             try {
-                // 1. Start the job (this is fast)
-                const jobId = await startSlideGenerationJob(presentationPrompt, user.uid);
-                console.log(`[Job: ${jobId}] Started slide generation job.`);
+                const selectedLessonsData = lessonsData.filter(l => lessonIds.includes(l.id));
+                if (selectedLessonsData.length === 0) { throw new Error("No lesson data found for the selected IDs."); }
+                
+                const allLessonContent = selectedLessonsData.map(lesson => { 
+                    if (!lesson.pages || lesson.pages.length === 0) { return ''; } 
+                    const validPages = lesson.pages.filter(page => page.content && page.content.trim() !== ''); 
+                    if (validPages.length === 0) { return ''; } 
+                    const pageText = validPages.map(page => `Page Title: ${page.title}\n${page.content.trim()}`).join('\n\n'); 
+                    return `Lesson: ${lesson.title}\n${pageText}`; 
+                }).filter(entry => entry.trim() !== '').join('\n\n---\n\n');
+                
+                if (!allLessonContent || allLessonContent.trim().length === 0) { 
+                    throw new Error("Selected lessons contain no usable content to generate slides."); 
+                }
+                
+const presentationPrompt = `
+                You are a master educator and presentation designer. 
+                Your task is to generate a structured presentation preview from lesson content.
 
-                // 2. Listen for the job to finish
-                listenToSlideJob(jobId, (jobData) => {
-                    
-                    if (jobData.status === 'pending') {
-                        console.log(`[Job: ${jobId}] Job is pending...`);
-                        // The spinner is already active
-                    } 
-                    
-                    else if (jobData.status === 'completed') {
-                        console.log(`[Job: ${jobId}] Job completed successfully.`);
-                        
-                        // jobData.result is the JSON object from Firestore
-                        const parsedData = jobData.result; 
-                        
-                        // =======================================================
-                        // --- THIS IS THE FIX FOR THE 'TypeError' ---
-                        // We must check if parsedData exists *before* checking parsedData.slides
-                        // =======================================================
-                        if (!parsedData || !parsedData.slides || !Array.isArray(parsedData.slides)) {
-                            // This error means the AI gave bad JSON or the 'result' field was empty
-                            console.error(`[Job: ${jobId}] Job completed but result is invalid.`, parsedData);
-                            showToast("Preview Error: AI returned invalid slide data.", "error");
-                            setIsAiGenerating(false);
-                            return;
-                        }
+                INSTRUCTIONS:
+                1.  Create slides that clearly summarize the main lesson content provided.
+                2.  After the content slides, carefully check the 'LESSON CONTENT TO PROCESS' for an existing assessment, quiz, or "End of Lesson Assessment", and its corresponding "Answer Key".
+                
+                3.  **IF ASSESSMENT EXISTS:**
+                    -   Transcribe the *exact* assessment questions from the lesson content onto new slides.
+                    -   Use titles like "Lesson Assessment".
+                    -   **IMPORTANT:** If there are many questions (e.g., more than 4-5), split them logically across multiple slides to prevent overflow (e.g., "Lesson Assessment (1/2)", "Lesson Assessment (2/2)").
+                    -   After the question slides, transcribe the "Answer Key" from the lesson content, also splitting it across multiple slides if it is long.
 
-                        // 3. Success! Show the preview modal
-                        // We pass the extra data for the *next* step (handleCreatePresentation)
-                        setPresentationPreviewData({ ...parsedData, lessonIds, lessonsData, unitsData });
-                        setPresentationPreviewModalOpen(true);
-                        setIsAiGenerating(false);
-                    } 
-                    
-                    else if (jobData.status === 'failed') {
-                        // 4. The background job failed
-                        console.error(`[Job: ${jobId}] Job failed:`, jobData.error);
-                        showToast(`Preview Error: ${jobData.error}`, "error");
-                        setIsAiGenerating(false);
+                4.  **IF ASSESSMENT DOES NOT EXIST:**
+                    -   Create a new 5-10 question multiple-choice quiz based *only* on the lesson content.
+                    -   Create "Lesson Assessment" slides. If you create more than 4-5 questions, split them across multiple slides (e.g., "Lesson Assessment (1/2)").
+                    -   Create a final "Answer Key" slide (or slides) with the correct answers.
+                
+                ⚠️ IMPORTANT: 
+                -   Respond ONLY with a single valid JSON object.
+                -   Do NOT include explanations, notes, markdown fences, or extra text.
+                -   Follow the exact schema below for *every* slide.
+                -   Ensure the body text for each slide is concise. **Prioritize splitting content across multiple slides** over creating one very long, overflowing slide.
+
+                SCHEMA:
+                {
+                  "slides": [
+                    {
+                      "title": "string - short, engaging slide title (e.g., 'Lesson Assessment (1/2)', 'Answer Key')",
+                      "body": "string - main content of the slide (e.g., 3-4 quiz questions, or part of the answer key)",
+                      "notes": {
+                        "talkingPoints": "string - bullet points the teacher can say",
+                        "interactiveElement": "string - suggested activity, question, or visual",
+                        "slideTiming": "string - recommended time in minutes"
+                      }
                     }
-                });
+                    // ... more slides, ending with assessment and answer key
+                  ]
+                }
+
+                LESSON CONTENT TO PROCESS:
+                ---
+                ${allLessonContent}
+                ---
+                `;
+                
+                const aiResponseText = await callGeminiWithLimitCheck(presentationPrompt);
+                const jsonText = aiResponseText.match(/```json\s*([\s\S]*?)\s*```/)?.[1] || aiResponseText;
+                const parsedData = JSON.parse(jsonText);
+                if (!parsedData.slides || !Array.isArray(parsedData.slides)) { throw new Error("AI response did not contain a valid 'slides' array."); }
+                
+                setPresentationPreviewData({ ...parsedData, lessonIds, lessonsData, unitsData });
+                setPresentationPreviewModalOpen(true);
 
             } catch (error) { 
-                // This 'catch' block fires if *starting* the job fails
-                console.error("Presentation Job Start Error:", error); 
-                showToast(`Job Start Error: ${error.message}`, "error"); 
+                console.error("Presentation Preview Generation Error:", error); 
+                showToast(`Preview Error: ${error.message}`, "error"); 
+            }
+            finally { 
                 setIsAiGenerating(false); 
             }
-        })();
-        // --- END OF NEW LOGIC ---
+        }, 0); 
     };
-// =======================================================================
-// --- END OF CHANGE 2 ---
-// =======================================================================
 
     const handleCreatePresentation = async () => {
         if (!presentationPreviewData) { showToast("No preview data available to create a presentation.", "error"); return; }
@@ -794,7 +733,7 @@ const TeacherDashboard = () => {
             return;
         }
 
-        setIsAiGenerating(true);
+        setIsAiGenerating(true); 
         try {
             const batch = writeBatch(db);
             const classesToUpdate = new Set();
@@ -894,7 +833,7 @@ const TeacherDashboard = () => {
     
     const handleViewChangeWrapper = (view) => {
         if (activeView === view) { 
-            setReloadKey(prevKey => prevKey + 1);
+            setReloadKey(prevKey => prevKey + 1); 
         }
         else { 
             handleViewChange(view); 
@@ -926,7 +865,7 @@ const TeacherDashboard = () => {
 
     const handleArchiveClass = async (classId) => {
         try { 
-            await firestoreService.updateClassArchiveStatus(classId, true);
+            await firestoreService.updateClassArchiveStatus(classId, true); 
             showToast("Class archived.", "success"); 
         }
         catch (error) { showToast("Failed to archive class.", "error"); }
@@ -1059,7 +998,7 @@ const TeacherDashboard = () => {
                 archivedClasses={archivedClasses}
                 handleArchiveClass={handleInitiateArchive} 
                 handleDeleteClass={handleDeleteClass} 
-                handleInitiateDelete={handleInitiateDelete}
+                handleInitiateDelete={handleInitiateDelete} 
                 courses={courses}
                 courseCategories={courseCategories}
                 teacherAnnouncements={teacherAnnouncements}
@@ -1196,10 +1135,10 @@ const TeacherDashboard = () => {
                 )}
                 {isPresentationPreviewModalOpen && (
                     <PresentationPreviewModal 
-                        isOpen={isPresentationPreviewModalOpen}
+                        isOpen={isPresentationPreviewModalOpen} 
                         onClose={() => setPresentationPreviewModalOpen(false)} 
                         previewData={presentationPreviewData} 
-                        onConfirm={handleCreatePresentation}
+                        onConfirm={handleCreatePresentation} 
                         isSaving={isSavingPresentation} 
                     />
                 )}
