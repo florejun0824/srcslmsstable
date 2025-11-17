@@ -585,42 +585,52 @@ const TeacherDashboard = () => {
                 
 const presentationPrompt = `
                 You are a master educator and presentation designer. 
-                Your task is to generate a structured presentation preview from lesson content.
+                Your task is to generate a structured presentation from lesson content.
+                Your guiding principle is: **ONE KEY POINT PER SLIDE.**
 
                 INSTRUCTIONS:
-                1.  Create slides that clearly summarize the main lesson content provided.
-                2.  After the content slides, carefully check the 'LESSON CONTENT TO PROCESS' for an existing assessment, quiz, or "End of Lesson Assessment", and its corresponding "Answer Key".
-                
-                3.  **IF ASSESSMENT EXISTS:**
-                    -   Transcribe the *exact* assessment questions from the lesson content onto new slides.
-                    -   Use titles like "Lesson Assessment".
-                    -   **IMPORTANT:** If there are many questions (e.g., more than 4-5), split them logically across multiple slides to prevent overflow (e.g., "Lesson Assessment (1/2)", "Lesson Assessment (2/2)").
-                    -   After the question slides, transcribe the "Answer Key" from the lesson content, also splitting it across multiple slides if it is long.
+                1.  **Apply Core Philosophy (One Point Per Slide):**
+                    * Identify a **single key point,** concept, or main idea from the lesson content.
+                    * **Slide `body` (Detailed Content):** Place the **"detail-rich"** and **"information-filled"** explanation for **that one key point** here. This is the main content. It should be a full explanation, definition, or set of facts *about that single point*.
+                    * **Slide `notes.talkingPoints` (Concise Cues):** Provide a very short, high-level summary or cue for the teacher related *only* to the key point in the `body` (e.g., "Emphasize this definition," "Ask retention question on this topic").
 
-                4.  **IF ASSESSMENT DOES NOT EXIST:**
-                    -   Create a new 5-10 question multiple-choice quiz based *only* on the lesson content.
-                    -   Create "Lesson Assessment" slides. If you create more than 4-5 questions, split them across multiple slides (e.g., "Lesson Assessment (1/2)").
-                    -   Create a final "Answer Key" slide (or slides) with the correct answers.
+                2.  **Generate Slides Sequentially:** Repeat step 1 for the *next* key point, creating a *new slide*. Continue this process until all lesson content is covered.
+
+                3.  **Strictly Adhere to "One Point Per Slide":** This is the most important rule. **Do not** put two or three main points on one slide. It is **much better** to have 10 slides, each discussing one key point in detail, than 3 slides that are cramped and overwhelming.
+                    * If a single concept has multiple distinct parts, split them (e.g., "Key Concept: Part 1", "Key Concept: Part 2").
+                    * If a lesson has two main points, it should result in (at least) two content slides.
+
+                4.  **Handle Existing Assessments:** After the content slides, carefully check the 'LESSON CONTENT TO PROCESS' for an existing assessment, quiz, or "End of Lesson Assessment", and its corresponding "Answer Key".
+                
+                5.  **IF ASSESSMENT EXISTS:**
+                    * Transcribe the *exact* assessment questions from the lesson content onto new slides.
+                    * Use titles like "Lesson Assessment".
+                    * **IMPORTANT:** If there are many questions (e.g., more than 4-5), split them logically across multiple slides (e.g., "Lesson Assessment (1/2)", "Lesson Assessment (2/2)").
+                    * After the question slides, transcribe the "Answer Key" from the lesson content, also splitting it if it is long.
+
+                6.  **IF ASSESSMENT DOES NOT EXIST:**
+                    * Create a new 5-10 question multiple-choice quiz based *only* on the lesson content.
+                    * Create "Lesson Assessment" slides. If you create more than 4-5 questions, split them across multiple slides.
+                    * Create a final "Answer Key" slide (or slides) with the correct answers.
                 
                 ⚠️ IMPORTANT: 
                 -   Respond ONLY with a single valid JSON object.
                 -   Do NOT include explanations, notes, markdown fences, or extra text.
                 -   Follow the exact schema below for *every* slide.
-                -   Ensure the body text for each slide is concise. **Prioritize splitting content across multiple slides** over creating one very long, overflowing slide.
 
                 SCHEMA:
                 {
                   "slides": [
                     {
-                      "title": "string - short, engaging slide title (e.g., 'Lesson Assessment (1/2)', 'Answer Key')",
-                      "body": "string - main content of the slide (e.g., 3-4 quiz questions, or part of the answer key)",
+                      "title": "string - short, engaging slide title (e.g., 'Key Concept: X', 'Lesson Assessment (1/2)')",
+                      "body": "string - **Detailed, information-rich** content for **one key point only**. This is the main slide text.",
                       "notes": {
-                        "talkingPoints": "string - bullet points the teacher can say",
+                        "talkingPoints": "string - **Concise cue** for the teacher (e.g., 'Emphasize the 3 parts of this definition').",
                         "interactiveElement": "string - suggested activity, question, or visual",
                         "slideTiming": "string - recommended time in minutes"
                       }
                     }
-                    // ... more slides, ending with assessment and answer key
+                    // ... more slides, each with one key point, ending with assessment and answer key
                   ]
                 }
 
