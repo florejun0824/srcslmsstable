@@ -2,8 +2,11 @@
 /api/hf                /.netlify/functions/hf                 200
 /api/gemini-primary    /.netlify/functions/gemini-primary   200
 /api/gemini-fallback   /.netlify/functions/gemini-fallback  200
-# --- THIS IS THE NEW LINE YOU NEED ---
 /api/gemini-fallback-2 /.netlify/functions/gemini-fallback-2 200
+
+# --- NEW BACKGROUND JOB FUNCTIONS ---
+/api/start-slide-job   /.netlify/functions/start-slide-job  200
+/api/run-slide-job-bg  /.netlify/functions/run-slide-job-bg 200
 
 # --- SPA Catch-all (MUST BE LAST) ---
 /* /index.html                            200
