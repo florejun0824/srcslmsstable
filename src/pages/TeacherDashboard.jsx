@@ -558,133 +558,111 @@ const TeacherDashboard = () => {
     };
 
 	const handleGeneratePresentationPreview = async (lessonIds, lessonsData, unitsData) => {
+	        // 1. Validation
 	        if (!activeSubject) { 
 	            showToast("No active subject selected.", "warning"); 
 	            return; 
 	        }
         
-	        setIsAiGenerating(true);
-	        showToast("Processing long lesson content... (Generating slides page-by-page)", "info");
+	        const selectedLessons = lessonsData.filter(l => lessonIds.includes(l.id));
+	        if (selectedLessons.length === 0) {
+	            showToast("No lesson found.", "error");
+	            return;
+	        }
+        
+	        // Target the first selected lesson
+	        const targetLesson = selectedLessons[0];
+	        const validPages = (targetLesson.pages || []).filter(p => p.content && p.content.trim().length > 0);
+        
+	        if (validPages.length === 0) {
+	            showToast("This lesson has no content.", "error");
+	            return;
+	        }
 
-	        // 1. Helper to generate prompt for a SMALL chunk of content
-	        const createPageChunkPrompt = (lessonTitle, pageTitle, contentChunk) => {
-	            return `
-	                You are an instructional designer. Create presentation slides for **ONLY** this specific section of a lesson.
+	        setIsAiGenerating(true);
+        
+	        // 2. Start with ONE Master Title Slide
+	        // We create this manually so the AI doesn't have to guess.
+	        let accumulatedSlides = [
+	            {
+	                title: targetLesson.title,
+	                body: `Subject: ${activeSubject.title}`,
+	                notes: { talkingPoints: "Introduction to the lesson topic.", interactiveElement: "N/A", slideTiming: "1 min" }
+	            }
+	        ];
+
+	        // 3. SEQUENTIAL LOOP (Stream-like processing)
+	        // We process one page at a time. This ensures the prompt is specific to that part.
+	        for (let i = 0; i < validPages.length; i++) {
+	            const page = validPages[i];
+            
+	            // Update UI so user sees progress (e.g. "Processing section 1 of 5...")
+	            showToast(`Generating slides for section ${i + 1} of ${validPages.length}...`, "info");
+
+	            // 4. The "Context-Aware" Prompt
+	            // We explicitly tell Gemini that this is PART of a sequence.
+	            const prompt = `
+	                You are an instructional designer. 
                 
-	                **CONTEXT:**
-	                - Lesson Title: "${lessonTitle}"
-	                - Section Title: "${pageTitle}"
+	                **TASK:** Create 1-3 presentation slides based **ONLY** on the specific text provided below.
                 
-	                **RULES:**
-	                1. **Create 1-3 slides** that best cover this specific section.
-	                2. **One Key Point Per Slide:** Do not cram text. 
-	                3. **Body Content:** Must be detailed and educational (not just bullet points).
-	                4. If this text contains a Quiz/Assessment, transcribe it exactly into slides.
-                
-	                **JSON Schema (Strict):**
+	                **CRITICAL CONTEXT:** - This text is **Part ${i + 1}** of a larger lesson titled "${targetLesson.title}".
+	                - **DO NOT** generate a "Presentation Title" slide. 
+	                - **DO NOT** generate a generic "Introduction" slide (we already have one).
+	                - **DO NOT** repeat general context.
+	                - **JUMP STRAIGHT** into the specific details found in this text chunk.
+	                - If the text contains a Quiz/Assessment, transcribe it exactly into slides.
+
+	                **JSON SCHEMA (Strict):**
 	                {
 	                  "slides": [
 	                    {
-	                      "title": "string (e.g., '${pageTitle}: Key Concept')",
-	                      "body": "string (Detailed content)",
-	                      "notes": {
-	                        "talkingPoints": "string (Teacher cues)",
-	                        "interactiveElement": "string (Activity idea)",
-	                        "slideTiming": "string"
-	                      }
+	                      "title": "Specific Slide Title (e.g. '${page.title}: Key Concept')",
+	                      "body": "Detailed content text...",
+	                      "notes": { "talkingPoints": "...", "interactiveElement": "...", "slideTiming": "..." }
 	                    }
 	                  ]
 	                }
 
-	                SECTION CONTENT TO PROCESS:
-	                ---
-	                ${contentChunk}
-	                ---
+	                CONTENT TO PROCESS:
+	                ${page.content}
 	            `;
-	        };
 
-	        try {
-	            // Get the lessons selected (usually just 1 in your case)
-	            const selectedLessons = lessonsData.filter(l => lessonIds.includes(l.id));
-            
-	            if (selectedLessons.length === 0) throw new Error("No lesson found.");
-
-	            let allGeneratedSlides = [];
-
-	            // 2. Loop through each selected lesson
-	            for (const lesson of selectedLessons) {
+	            try {
+	                // Call AI (Because we do one page at a time, this stays under the 10s timeout)
+	                const aiResponseText = await callGeminiWithLimitCheck(prompt);
                 
-	                // VALIDATION: Check if lesson has pages
-	                if (!lesson.pages || lesson.pages.length === 0) {
-	                    console.warn(`Lesson ${lesson.title} has no pages.`);
-	                    continue;
+	                const jsonText = aiResponseText.match(/```json\s*([\s\S]*?)\s*```/)?.[1] || aiResponseText;
+	                const parsed = JSON.parse(jsonText);
+
+	                if (parsed.slides && Array.isArray(parsed.slides)) {
+	                    accumulatedSlides = [...accumulatedSlides, ...parsed.slides];
 	                }
-
-	                // 3. CRITICAL FIX: Process this lesson's PAGES in parallel
-	                // Instead of sending the whole lesson, we send requests for each PAGE (or grouped pages).
-                
-	                const pagePromises = lesson.pages.map(async (page, index) => {
-	                    if (!page.content || page.content.trim() === '') return [];
-
-	                    // Construct prompt for just this ONE page
-	                    const prompt = createPageChunkPrompt(lesson.title, page.title, page.content);
-
-	                    try {
-	                        // Call AI for this small chunk (Fast! < 10s)
-	                        const aiResponseText = await callGeminiWithLimitCheck(prompt);
-                        
-	                        // Parse JSON
-	                        const jsonText = aiResponseText.match(/```json\s*([\s\S]*?)\s*```/)?.[1] || aiResponseText;
-	                        const parsedData = JSON.parse(jsonText);
-                        
-	                        if (parsedData.slides && Array.isArray(parsedData.slides)) {
-	                            return parsedData.slides;
-	                        }
-	                        return [];
-	                    } catch (err) {
-	                        console.error(`Error generating slides for page "${page.title}":`, err);
-	                        return []; // If one page fails, skip it, don't crash the whole deck
-	                    }
-	                });
-
-	                // Wait for all pages of this lesson to finish
-	                const lessonSlidesArrays = await Promise.all(pagePromises);
-                
-	                // Flatten results (e.g., [[Slide1, Slide2], [Slide3], []] -> [Slide1, Slide2, Slide3])
-	                const lessonSlides = lessonSlidesArrays.flat();
-                
-	                allGeneratedSlides = [...allGeneratedSlides, ...lessonSlides];
+	            } catch (err) {
+	                console.error(`Error on part ${i + 1}:`, err);
+	                // Even if one part fails, we continue to the next so the user gets *something*
+	                showToast(`Skipped section ${i + 1} due to an error.`, "warning");
 	            }
-
-	            if (allGeneratedSlides.length === 0) {
-	                throw new Error("AI could not generate any slides. Please check if the lesson has text content.");
-	            }
-
-	            // 4. Add a Master Title Slide at the very start
-	            const masterTitle = selectedLessons.length === 1 ? selectedLessons[0].title : activeSubject?.title;
-	            const titleSlide = {
-	                title: masterTitle,
-	                body: "Lesson Presentation",
-	                notes: { talkingPoints: "Welcome to the class.", interactiveElement: "N/A", slideTiming: "1 min" }
-	            };
-
-	            const finalSlides = [titleSlide, ...allGeneratedSlides];
-
-	            setPresentationPreviewData({ 
-	                slides: finalSlides, 
-	                lessonIds, 
-	                lessonsData, 
-	                unitsData 
-	            });
-            
-	            setPresentationPreviewModalOpen(true);
-
-	        } catch (error) { 
-	            console.error("Presentation Preview Error:", error); 
-	            showToast(`Generation Failed: ${error.message}`, "error"); 
-	        } finally { 
-	            setIsAiGenerating(false); 
 	        }
+
+	        // 5. Finalize
+	        if (accumulatedSlides.length <= 1) {
+	            showToast("Failed to generate slides. Please check lesson content.", "error");
+	            setIsAiGenerating(false);
+	            return;
+	        }
+
+	        showToast("Presentation generation complete!", "success");
+
+	        setPresentationPreviewData({ 
+	            slides: accumulatedSlides, 
+	            lessonIds, 
+	            lessonsData, 
+	            unitsData 
+	        });
+        
+	        setPresentationPreviewModalOpen(true);
+	        setIsAiGenerating(false); 
 	    };
 
     const handleCreatePresentation = async () => {
