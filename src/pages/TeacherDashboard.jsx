@@ -557,106 +557,135 @@ const TeacherDashboard = () => {
         handleGeneratePresentationPreview(ids, data, units);
     };
 
-    const handleGeneratePresentationPreview = (lessonIds, lessonsData, unitsData) => {
-        if (!activeSubject) { 
-            showToast("No active subject selected. This is required for folder creation.", "warning"); 
-            return; 
-        }
+	const handleGeneratePresentationPreview = async (lessonIds, lessonsData, unitsData) => {
+	        if (!activeSubject) { 
+	            showToast("No active subject selected.", "warning"); 
+	            return; 
+	        }
         
-        setIsAiGenerating(true);
-        showToast("Gathering content and generating preview...", "info");
+	        setIsAiGenerating(true);
+	        showToast("Processing long lesson content... (Generating slides page-by-page)", "info");
 
-        setTimeout(async () => {
-            try {
-                const selectedLessonsData = lessonsData.filter(l => lessonIds.includes(l.id));
-                if (selectedLessonsData.length === 0) { throw new Error("No lesson data found for the selected IDs."); }
+	        // 1. Helper to generate prompt for a SMALL chunk of content
+	        const createPageChunkPrompt = (lessonTitle, pageTitle, contentChunk) => {
+	            return `
+	                You are an instructional designer. Create presentation slides for **ONLY** this specific section of a lesson.
                 
-                const allLessonContent = selectedLessonsData.map(lesson => { 
-                    if (!lesson.pages || lesson.pages.length === 0) { return ''; } 
-                    const validPages = lesson.pages.filter(page => page.content && page.content.trim() !== ''); 
-                    if (validPages.length === 0) { return ''; } 
-                    const pageText = validPages.map(page => `Page Title: ${page.title}\n${page.content.trim()}`).join('\n\n'); 
-                    return `Lesson: ${lesson.title}\n${pageText}`; 
-                }).filter(entry => entry.trim() !== '').join('\n\n---\n\n');
+	                **CONTEXT:**
+	                - Lesson Title: "${lessonTitle}"
+	                - Section Title: "${pageTitle}"
                 
-                if (!allLessonContent || allLessonContent.trim().length === 0) { 
-                    throw new Error("Selected lessons contain no usable content to generate slides."); 
-                }
+	                **RULES:**
+	                1. **Create 1-3 slides** that best cover this specific section.
+	                2. **One Key Point Per Slide:** Do not cram text. 
+	                3. **Body Content:** Must be detailed and educational (not just bullet points).
+	                4. If this text contains a Quiz/Assessment, transcribe it exactly into slides.
                 
-const presentationPrompt = `
-                You are a master educator and presentation designer. 
-                Your task is to generate a structured presentation from lesson content.
-                Your guiding principle is: **ONE KEY POINT PER SLIDE.**
+	                **JSON Schema (Strict):**
+	                {
+	                  "slides": [
+	                    {
+	                      "title": "string (e.g., '${pageTitle}: Key Concept')",
+	                      "body": "string (Detailed content)",
+	                      "notes": {
+	                        "talkingPoints": "string (Teacher cues)",
+	                        "interactiveElement": "string (Activity idea)",
+	                        "slideTiming": "string"
+	                      }
+	                    }
+	                  ]
+	                }
 
-                INSTRUCTIONS:
-                1.  **Apply Core Philosophy (One Point Per Slide):**
-                    * Identify a **single key point,** concept, or main idea from the lesson content.
-                    * **Slide \`body\` (Detailed Content):** Place the **"detail-rich"** and **"information-filled"** explanation for **that one key point** here. This is the main content. It should be a full explanation, definition, or set of facts *about that single point*.
-                    * **Slide \`notes.talkingPoints\` (Concise Cues):** Provide a very short, high-level summary or cue for the teacher related *only* to the key point in the \`body\` (e.g., "Emphasize this definition," "Ask retention question on this topic").
+	                SECTION CONTENT TO PROCESS:
+	                ---
+	                ${contentChunk}
+	                ---
+	            `;
+	        };
 
-                2.  **Generate Slides Sequentially:** Repeat step 1 for the *next* key point, creating a *new slide*. Continue this process until all lesson content is covered.
+	        try {
+	            // Get the lessons selected (usually just 1 in your case)
+	            const selectedLessons = lessonsData.filter(l => lessonIds.includes(l.id));
+            
+	            if (selectedLessons.length === 0) throw new Error("No lesson found.");
 
-                3.  **Strictly Adhere to "One Point Per Slide":** This is the most important rule. **Do not** put two or three main points on one slide. It is **much better** to have 10 slides, each discussing one key point in detail, than 3 slides that are cramped and overwhelming.
-                    * If a single concept has multiple distinct parts, split them (e.g., "Key Concept: Part 1", "Key Concept: Part 2").
-                    * If a lesson has two main points, it should result in (at least) two content slides.
+	            let allGeneratedSlides = [];
 
-                4.  **Handle Existing Assessments:** After the content slides, carefully check the 'LESSON CONTENT TO PROCESS' for an existing assessment, quiz, or "End of Lesson Assessment", and its corresponding "Answer Key".
+	            // 2. Loop through each selected lesson
+	            for (const lesson of selectedLessons) {
                 
-                5.  **IF ASSESSMENT EXISTS:**
-                    * Transcribe the *exact* assessment questions from the lesson content onto new slides.
-                    * Use titles like "Lesson Assessment".
-                    * **IMPORTANT:** If there are many questions (e.g., more than 4-5), split them logically across multiple slides (e.g., "Lesson Assessment (1/2)", "Lesson Assessment (2/2)").
-                    * After the question slides, transcribe the "Answer Key" from the lesson content, also splitting it if it is long.
+	                // VALIDATION: Check if lesson has pages
+	                if (!lesson.pages || lesson.pages.length === 0) {
+	                    console.warn(`Lesson ${lesson.title} has no pages.`);
+	                    continue;
+	                }
 
-                6.  **IF ASSESSMENT DOES NOT EXIST:**
-                    * Create a new 5-10 question multiple-choice quiz based *only* on the lesson content.
-                    * Create "Lesson Assessment" slides. If you create more than 4-5 questions, split them across multiple slides.
-                    * Create a final "Answer Key" slide (or slides) with the correct answers.
+	                // 3. CRITICAL FIX: Process this lesson's PAGES in parallel
+	                // Instead of sending the whole lesson, we send requests for each PAGE (or grouped pages).
                 
-                ⚠️ IMPORTANT: 
-                -   Respond ONLY with a single valid JSON object.
-                -   Do NOT include explanations, notes, markdown fences, or extra text.
-                -   Follow the exact schema below for *every* slide.
+	                const pagePromises = lesson.pages.map(async (page, index) => {
+	                    if (!page.content || page.content.trim() === '') return [];
 
-                SCHEMA:
-                {
-                  "slides": [
-                    {
-                      "title": "string - short, engaging slide title (e.g., 'Key Concept: X', 'Lesson Assessment (1/2)')",
-                      "body": "string - **Detailed, information-rich** content for **one key point only**. This is the main slide text.",
-                      "notes": {
-                        "talkingPoints": "string - **Concise cue** for the teacher (e.g., 'Emphasize the 3 parts of this definition').",
-                        "interactiveElement": "string - suggested activity, question, or visual",
-                        "slideTiming": "string - recommended time in minutes"
-                      }
-                    }
-                    // ... more slides, each with one key point, ending with assessment and answer key
-                  ]
-                }
+	                    // Construct prompt for just this ONE page
+	                    const prompt = createPageChunkPrompt(lesson.title, page.title, page.content);
 
-                LESSON CONTENT TO PROCESS:
-                ---
-                ${allLessonContent}
-                ---
-                `;
+	                    try {
+	                        // Call AI for this small chunk (Fast! < 10s)
+	                        const aiResponseText = await callGeminiWithLimitCheck(prompt);
+                        
+	                        // Parse JSON
+	                        const jsonText = aiResponseText.match(/```json\s*([\s\S]*?)\s*```/)?.[1] || aiResponseText;
+	                        const parsedData = JSON.parse(jsonText);
+                        
+	                        if (parsedData.slides && Array.isArray(parsedData.slides)) {
+	                            return parsedData.slides;
+	                        }
+	                        return [];
+	                    } catch (err) {
+	                        console.error(`Error generating slides for page "${page.title}":`, err);
+	                        return []; // If one page fails, skip it, don't crash the whole deck
+	                    }
+	                });
+
+	                // Wait for all pages of this lesson to finish
+	                const lessonSlidesArrays = await Promise.all(pagePromises);
                 
-                const aiResponseText = await callGeminiWithLimitCheck(presentationPrompt);
-                const jsonText = aiResponseText.match(/```json\s*([\s\S]*?)\s*```/)?.[1] || aiResponseText;
-                const parsedData = JSON.parse(jsonText);
-                if (!parsedData.slides || !Array.isArray(parsedData.slides)) { throw new Error("AI response did not contain a valid 'slides' array."); }
+	                // Flatten results (e.g., [[Slide1, Slide2], [Slide3], []] -> [Slide1, Slide2, Slide3])
+	                const lessonSlides = lessonSlidesArrays.flat();
                 
-                setPresentationPreviewData({ ...parsedData, lessonIds, lessonsData, unitsData });
-                setPresentationPreviewModalOpen(true);
+	                allGeneratedSlides = [...allGeneratedSlides, ...lessonSlides];
+	            }
 
-            } catch (error) { 
-                console.error("Presentation Preview Generation Error:", error); 
-                showToast(`Preview Error: ${error.message}`, "error"); 
-            }
-            finally { 
-                setIsAiGenerating(false); 
-            }
-        }, 0); 
-    };
+	            if (allGeneratedSlides.length === 0) {
+	                throw new Error("AI could not generate any slides. Please check if the lesson has text content.");
+	            }
+
+	            // 4. Add a Master Title Slide at the very start
+	            const masterTitle = selectedLessons.length === 1 ? selectedLessons[0].title : activeSubject?.title;
+	            const titleSlide = {
+	                title: masterTitle,
+	                body: "Lesson Presentation",
+	                notes: { talkingPoints: "Welcome to the class.", interactiveElement: "N/A", slideTiming: "1 min" }
+	            };
+
+	            const finalSlides = [titleSlide, ...allGeneratedSlides];
+
+	            setPresentationPreviewData({ 
+	                slides: finalSlides, 
+	                lessonIds, 
+	                lessonsData, 
+	                unitsData 
+	            });
+            
+	            setPresentationPreviewModalOpen(true);
+
+	        } catch (error) { 
+	            console.error("Presentation Preview Error:", error); 
+	            showToast(`Generation Failed: ${error.message}`, "error"); 
+	        } finally { 
+	            setIsAiGenerating(false); 
+	        }
+	    };
 
     const handleCreatePresentation = async () => {
         if (!presentationPreviewData) { showToast("No preview data available to create a presentation.", "error"); return; }
