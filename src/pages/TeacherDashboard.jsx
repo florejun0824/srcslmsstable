@@ -667,7 +667,7 @@ const TeacherDashboard = () => {
 
 		const handleCreatePresentation = async () => {
 		        if (!presentationPreviewData) { 
-		            showToast("No preview data available to create a presentation.", "error"); 
+		            showToast("No preview data available.", "error"); 
 		            return; 
 		        }
         
@@ -676,45 +676,53 @@ const TeacherDashboard = () => {
 		        try {
 		            const { slides, lessonIds, lessonsData, unitsData } = presentationPreviewData;
             
-		            // 1. Validate Data Exists
+		            // 1. Robust Data Retrieval
 		            const firstLesson = lessonsData.find(l => l.id === lessonIds[0]); 
-		            if (!firstLesson) throw new Error("First lesson not found.");
+		            const unit = firstLesson ? unitsData.find(u => u.id === firstLesson.unitId) : null;
             
-		            const unit = unitsData.find(u => u.id === firstLesson.unitId); 
-		            // Fallback if unit is missing (safety check)
-		            const unitName = unit ? unit.name : "General Unit";
-		            const subjectName = activeSubject?.title || "Untitled Subject";
+		            // 2. Force Strings (Fixes 'replace' error on folder creation)
+		            // We use String(...) || "Default" to ensure it is NEVER undefined/null
+		            const subjectName = activeSubject?.title ? String(activeSubject.title) : "General Subject";
+		            const unitName = unit?.name ? String(unit.name) : "General Unit";
             
-		            const sourceTitle = lessonIds.length > 1 ? `${unitName} Summary` : firstLesson.title;
-		            const presentationTitle = `Presentation for: ${sourceTitle}`;
-            
-		            // 2. FIX: Defensive Coding for Slide Body
-		            const cleanedSlides = slides.map(slide => {
-		                // Ensure body is a string. If it's null/undefined, use empty string.
-		                // If it's an array (common AI glitch), join it into a string.
+		            // Generate a Title
+		            let sourceTitle = "Untitled Lesson";
+		            if (lessonIds.length > 1) {
+		                sourceTitle = `${unitName} Summary`;
+		            } else if (firstLesson?.title) {
+		                sourceTitle = firstLesson.title;
+		            }
+		            const presentationTitle = `Presentation: ${sourceTitle}`;
+
+		            // 3. Clean Slides (Fixes 'replace' error on Slide Body/Title)
+		            const cleanedSlides = slides.map((slide, index) => {
+		                // Fix Body
 		                let bodyText = "";
-                
-		                if (typeof slide.body === 'string') {
-		                    bodyText = slide.body;
-		                } else if (Array.isArray(slide.body)) {
-		                    bodyText = slide.body.join('\n');
-		                } else if (slide.body) {
-		                    bodyText = String(slide.body);
-		                }
+		                if (typeof slide.body === 'string') bodyText = slide.body;
+		                else if (Array.isArray(slide.body)) bodyText = slide.body.join('\n');
+		                else if (slide.body) bodyText = String(slide.body);
+
+		                // Fix Title (Critical: if title is missing, service might crash)
+		                let titleText = slide.title ? String(slide.title) : `Slide ${index + 1}`;
 
 		                return { 
 		                    ...slide, 
-		                    // Now safely split the string
+		                    title: titleText,
 		                    body: bodyText.split('\n').map(line => line.trim()).join('\n'), 
 		                    notes: formatNotesToString(slide.notes || {}) 
 		                };
 		            });
 
-		            // 3. Create Presentation
-		            const presentationUrl = await createPresentationFromData(cleanedSlides, presentationTitle, subjectName, unitName);
+		            // 4. Send to Service (Now guaranteed to have strings)
+		            const presentationUrl = await createPresentationFromData(
+		                cleanedSlides, 
+		                presentationTitle, 
+		                subjectName, 
+		                unitName
+		            );
             
 		            window.open(presentationUrl, '_blank');
-		            showToast("Presentation created! You can now copy the notes.", "success");
+		            showToast("Presentation created successfully!", "success");
 
 		        } catch (error) { 
 		            console.error("Presentation Creation Error:", error); 
