@@ -78,7 +78,11 @@ const sanitizeJsonComponent = (aiResponse) => {
         }
 
         // 4. Extract the valid JSON block and parse it
-        const validJsonString = jsonString.substring(startIndex, endIndex + 1);
+        // --- ADDED: Newline escaping fix ---
+        const validJsonString = jsonString.substring(startIndex, endIndex + 1)
+            // This regex fixes common newline issues in JSON strings by escaping them
+            .replace(/(?<=:\s*"[^"]*)\n(?=[^"]*")/g, "\\n");
+
         return JSON.parse(validJsonString);
 
     } catch (error) {
@@ -391,7 +395,7 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
 
 /**
  * --- Micro-Worker Function with Retries ---
- * (This function is unchanged)
+ * (This function is MODIFIED to support AbortSignal)
  */
 const generateLessonComponent = async (
     guideData, 
@@ -402,7 +406,8 @@ const generateLessonComponent = async (
     masterInstructions,
     styleRules,
     extraData = {}, 
-    maxRetries = 3
+    maxRetries = 3,
+    signal // Added signal argument
 ) => {
     
     const prompt = getComponentPrompt(
@@ -425,22 +430,27 @@ const generateLessonComponent = async (
     `;
     
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-        if (!isMounted.current) throw new Error("Generation aborted by user.");
+        if (!isMounted.current || (signal && signal.aborted)) throw new Error("Generation aborted by user.");
 
         try {
-            const aiResponse = await callGeminiWithLimitCheck(finalPrompt);
+            // Pass signal to the AI service call
+            const aiResponse = await callGeminiWithLimitCheck(finalPrompt, { signal });
 
-            if (!isMounted.current) throw new Error("Generation aborted by user.");
+            if (!isMounted.current || (signal && signal.aborted)) throw new Error("Generation aborted by user.");
             
             const jsonData = sanitizeJsonComponent(aiResponse);
 
             await new Promise(res => setTimeout(res, 1500));
             
-            if (!isMounted.current) throw new Error("Generation aborted by user.");
+            if (!isMounted.current || (signal && signal.aborted)) throw new Error("Generation aborted by user.");
 
             return jsonData;
 
         } catch (error) {
+            // Check for abort error specifically
+            if (error.name === 'AbortError' || (signal && signal.aborted)) {
+                throw new Error("Generation aborted by user.");
+            }
             if (!isMounted.current) throw new Error("Generation aborted by user.");
 
             console.warn(
@@ -558,6 +568,7 @@ export default function GenerationScreen({
     const [currentLessons, setCurrentLessons] = useState(existingLessons || []);
     
     const isMounted = useRef(false);
+    const abortControllerRef = useRef(null);
 
     const findSummaryContent = (lesson) => {
         if (!lesson || !lesson.pages) return "No summary available.";
@@ -568,9 +579,18 @@ export default function GenerationScreen({
 
     /**
      * --- Orchestrator Loop ---
-     * (This function is MODIFIED)
+     * (This function is MODIFIED with AbortController logic)
      */
     const runGenerationLoop = useCallback(async () => {
+        // Initialize AbortController
+        const controller = new AbortController();
+        // Abort any previous controller if it exists
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        abortControllerRef.current = controller;
+        const signal = controller.signal;
+
         let plans = currentLessonPlan;
         let lessonsSoFar = [...currentLessons];
 
@@ -584,9 +604,10 @@ export default function GenerationScreen({
                 const baseContext = getBasePromptContext(guideData, existingSubjectContext);
                 const plannerPrompt = getPlannerPrompt(guideData, baseContext);
 
-                const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt);
+                // Pass signal to the planner call
+                const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { signal });
                 
-                if (!isMounted.current) return; 
+                if (!isMounted.current || signal.aborted) return; 
 
                 const parsedPlan = sanitizeJsonBlock(plannerResponse); 
                 
@@ -599,14 +620,14 @@ export default function GenerationScreen({
             }
 
             const { masterInstructions, styleRules } = await getMasterInstructions(guideData);
-            if (!isMounted.current) return;
+            if (!isMounted.current || signal.aborted) return;
 
             // --- STEP 2: Orchestrator (Loop through the plan) ---
             const lessonsToProcess = plans.slice(startLessonNumber - 1);
             setLessonProgress({ current: startLessonNumber - 1, total: plans.length });
 
             for (const [index, plan] of lessonsToProcess.entries()) {
-                if (!isMounted.current) return; 
+                if (!isMounted.current || signal.aborted) return; 
 
                 const currentLessonIndex = (startLessonNumber - 1) + index;
                 setLessonProgress({ current: currentLessonIndex + 1, total: plans.length });
@@ -633,13 +654,13 @@ export default function GenerationScreen({
                     assignedCompetencies: []
                 };
 
-                const objectivesData = await generateLessonComponent(guideData, baseContext, plan, 'objectives', isMounted, masterInstructions, styleRules, {});
+                const objectivesData = await generateLessonComponent(guideData, baseContext, plan, 'objectives', isMounted, masterInstructions, styleRules, {}, 3, signal);
                 newLesson.learningObjectives = objectivesData.objectives;
 
-                const competenciesData = await generateLessonComponent(guideData, baseContext, plan, 'competencies', isMounted, masterInstructions, styleRules, {});
+                const competenciesData = await generateLessonComponent(guideData, baseContext, plan, 'competencies', isMounted, masterInstructions, styleRules, {}, 3, signal);
                 newLesson.assignedCompetencies = competenciesData.competencies;
                 
-                const introData = await generateLessonComponent(guideData, baseContext, plan, 'Introduction', isMounted, masterInstructions, styleRules, {});
+                const introData = await generateLessonComponent(guideData, baseContext, plan, 'Introduction', isMounted, masterInstructions, styleRules, {}, 3, signal);
                 newLesson.pages.push(introData.page);
                 
                 const introContent = introData.page.content;
@@ -652,13 +673,15 @@ export default function GenerationScreen({
                     isMounted, 
                     masterInstructions, 
                     styleRules, 
-                    { introContent: introContent }
+                    { introContent: introContent },
+                    3,
+                    signal
                 );
                 newLesson.pages.push(activityData.page);
                 
                 const activityContent = activityData.page.content;
 
-                const contentPlannerData = await generateLessonComponent(guideData, baseContext, plan, 'CoreContentPlanner', isMounted, masterInstructions, styleRules, {});
+                const contentPlannerData = await generateLessonComponent(guideData, baseContext, plan, 'CoreContentPlanner', isMounted, masterInstructions, styleRules, {}, 3, signal);
                 const contentPlanTitles = contentPlannerData.coreContentTitles || [];
                 
                 // --- MODIFICATION START (Context Chaining) ---
@@ -667,7 +690,7 @@ export default function GenerationScreen({
                 let previousPageContent = null; 
 
                 for (const [contentIndex, contentTitle] of contentPlanTitles.entries()) {
-                    if (!isMounted.current) return;
+                    if (!isMounted.current || signal.aborted) return;
                     
                     // Build the context for this specific page
                     let extraContext = { 
@@ -693,7 +716,9 @@ export default function GenerationScreen({
                         isMounted, 
                         masterInstructions, 
                         styleRules, 
-                        extraContext // Pass the dynamically built context
+                        extraContext, // Pass the dynamically built context
+                        3,
+                        signal
                     );
                     newLesson.pages.push(contentPageData.page);
                     
@@ -704,9 +729,9 @@ export default function GenerationScreen({
                 
                 const standardPages = ['CheckForUnderstanding', 'LessonSummary', 'WrapUp', 'EndofLessonAssessment', 'AnswerKey', 'References'];
                 for (const pageType of standardPages) {
-                    if (!isMounted.current) return;
+                    if (!isMounted.current || signal.aborted) return;
 
-                    const pageData = await generateLessonComponent(guideData, baseContext, plan, pageType, isMounted, masterInstructions, styleRules, {});
+                    const pageData = await generateLessonComponent(guideData, baseContext, plan, pageType, isMounted, masterInstructions, styleRules, {}, 3, signal);
                     if (pageData && pageData.page) {
                         newLesson.pages.push(pageData.page);
                     }
@@ -716,13 +741,14 @@ export default function GenerationScreen({
                 setCurrentLessons([...lessonsSoFar]);
             }
         
-            if (!isMounted.current) return;
+            if (!isMounted.current || signal.aborted) return;
 
             onGenerationComplete({ previewData: { generated_lessons: lessonsSoFar }, failedLessonNumber: null, lessonPlan: plans });
             showToast("All lessons generated successfully!", "success");
 
         } catch (err) {
-            if (!isMounted.current || (err.message && err.message.includes("aborted"))) {
+            // Check for abort error
+            if (!isMounted.current || err.name === 'AbortError' || (err.message && err.message.includes("aborted"))) {
                 console.log("Generation loop aborted by user.");
                 return;
             }
@@ -742,6 +768,10 @@ export default function GenerationScreen({
         
         return () => {
             isMounted.current = false;
+            // Abort any active requests when the component unmounts
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
         };
         
     // eslint-disable-next-line react-hooks/exhaustive-deps
