@@ -11,7 +11,7 @@ import autoTable from 'jspdf-autotable';
 import QuizLoadingScreen from './QuizLoadingScreen';
 import ContentRenderer from './ContentRenderer';
 
-// --- Neumorphic Styles (Unchanged) ---
+// --- Neumorphic Styles ---
 const getSegmentedButtonClasses = (isActive) => {
     const baseClasses = "flex-1 rounded-lg py-2.5 px-3 text-sm font-semibold transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 ring-offset-2 ring-offset-slate-200 dark:ring-offset-neumorphic-base-dark ring-sky-500";
     if (isActive) {
@@ -28,29 +28,48 @@ const btnExtruded = `shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:sh
 const btnDisabled = "disabled:text-slate-400 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] dark:disabled:text-slate-600 dark:disabled:shadow-neumorphic-inset-dark";
 
 
-// --- NEW: Robust Sanitizer ---
-const sanitizeJsonComponent = (aiResponse) => {
+// --- NEW: HEAVY DUTY JSON SANITIZERS (Fixes the "Expected double-quoted property" error) ---
+
+const extractJson = (text) => {
+    const match = text.match(/```json\s*([\s\S]*?)\s*```/);
+    if (match && match[1]) return match[1].trim();
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    if (firstBrace > -1 && lastBrace > firstBrace) return text.substring(firstBrace, lastBrace + 1);
+    return text; // Return original if no braces found, let tryParse fail later
+};
+
+const tryParseJson = (jsonString) => {
+  try {
+    return JSON.parse(jsonString);
+  } catch (error) {
+    console.warn("Standard JSON.parse failed. Attempting to fix AI JSON output.", error);
+    
+    let sanitizedString = jsonString
+      // 1. Remove Markdown code blocks
+      .replace(/```json|```/g, '')
+      // 2. Remove trailing commas (common AI error)
+      .replace(/,\s*([}\]])/g, '$1')
+      // 3. Force-quote unquoted property keys (Fixes your specific error)
+      // Looks for: start of line or comma/brace, whitespace, Word, whitespace, colon
+      .replace(/([{,]\s*)([A-Za-z0-9_]+)\s*:/g, '$1"$2":')
+      // 4. Replace smart quotes with straight quotes
+      .replace(/[“”]/g, '"')
+      // 5. Escape unescaped backslashes
+      .replace(/\\(?!["\\/bfnrtu])/g, '\\\\')
+      // 6. Fix newlines inside strings (replace raw newlines with space)
+      .replace(/[\u0000-\u001F]+/g, ' ')
+      .trim();
+
     try {
-        let jsonString = aiResponse;
-        const markdownMatch = aiResponse.match(/```(json)?\s*(\{[\s\S]*\})\s*```/);
-        if (markdownMatch && markdownMatch[2]) jsonString = markdownMatch[2];
-
-        const startIndex = jsonString.indexOf('{');
-        const endIndex = jsonString.lastIndexOf('}');
-        
-        if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
-            throw new Error('No valid JSON object found.');
-        }
-
-        const validJsonString = jsonString
-            .substring(startIndex, endIndex + 1)
-            .replace(/(?<=:\s*"[^"]*)\n(?=[^"]*")/g, "\\n"); // Fix unescaped newlines
-
-        return JSON.parse(validJsonString);
-    } catch (error) {
-        console.error("JSON Parse Error:", error.message);
-        throw new Error(`AI response was not valid JSON.`);
+      return JSON.parse(sanitizedString);
+    } catch (finalError) {
+      console.error("Failed to parse JSON even after sanitization.", finalError);
+      // Log the problematic string for debugging
+      console.log("Sanitized String Failed:", sanitizedString.substring(0, 200) + "..."); 
+      throw new Error("Invalid JSON format received from AI.");
     }
+  }
 };
 
 export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson }) {
@@ -109,7 +128,7 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
               return `You are a senior quiz editor. Implement the following revision to the JSON below.
               **INSTRUCTION:** "${revisionPrompt}"
               **LANGUAGE:** ${language}
-              **OUTPUT:** Return ONLY the valid, updated JSON object.
+              **OUTPUT:** Return ONLY the valid, updated JSON object. Ensure strict JSON syntax (quote all keys).
               \`\`\`json
               ${quizJson}
               \`\`\``;
@@ -150,6 +169,9 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
         \`\`\`
 
         **JSON OUTPUT STRUCTURE (Strict):**
+        You MUST output a SINGLE valid JSON object. 
+        **CRITICAL: All property names (keys) MUST be enclosed in double quotes.**
+        
         {
           "title": "Academic Quiz Title",
           "questions": [
@@ -193,7 +215,9 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
         try {
             const prompt = constructPrompt(isRevision);
             const aiText = await callGeminiWithLimitCheck(prompt);
-            const response = sanitizeJsonComponent(aiText); // Use robust sanitizer
+            
+            // --- USE ROBUST PARSER HERE ---
+            const response = tryParseJson(extractJson(aiText));
 
             if (!response || !response.title || !Array.isArray(response.questions)) {
                 throw new Error("Invalid JSON structure.");
@@ -214,8 +238,8 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
             setStep(3);
         } catch (err) {
             console.error("Quiz generation error:", err);
-            showToast("AI generation failed. Please try again.", "error");
-            setError("Failed to generate quiz. The AI response was incomplete.");
+            showToast("AI generation failed. The AI response could not be parsed.", "error");
+            setError(`Failed to generate quiz. Error: ${err.message}`);
         } finally {
             setIsGenerating(false);
         }

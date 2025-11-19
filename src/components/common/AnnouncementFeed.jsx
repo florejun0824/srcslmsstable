@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FaPencilAlt,
@@ -9,7 +9,7 @@ import {
 import { db } from "../../services/firebase";
 import {
   collection,
-  onSnapshot,
+  getDocs,
   doc,
   setDoc,
   deleteDoc,
@@ -70,7 +70,7 @@ const reactionIcons = {
 const AnnouncementFeed = ({
   posts,
   userProfile,
-  collectionName = "teacherAnnouncements", // or "studentAnnouncements"
+  collectionName = "teacherAnnouncements",
   showToast,
   onEdit,
   onDelete,
@@ -84,8 +84,6 @@ const AnnouncementFeed = ({
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
   const [isReactionsModalOpen, setIsReactionsModalOpen] = useState(false);
   const [reactionsForModal, setReactionsForModal] = useState(null);
-
-  const timeoutRef = useRef(null);
 
   const currentUserId = userProfile?.id;
 
@@ -101,41 +99,60 @@ const AnnouncementFeed = ({
     });
   }, [posts]);
 
-  // Fetch reactions + user data
+  // OPTIMIZED: Fetch reactions using getDocs (One-time fetch) instead of onSnapshot
   useEffect(() => {
-    const unsubscribes = [];
-    const allUserIds = new Set();
+    const fetchReactionsAndUsers = async () => {
+      const newReactions = {};
+      const allUserIds = new Set();
 
-    sortedPosts.forEach((post) => {
-      if (!post.id) return;
-
-      if (post.teacherId) allUserIds.add(post.teacherId);
-      if (post.studentId) allUserIds.add(post.studentId);
-
-      const reactionsQuery = collection(db, `${collectionName}/${post.id}/reactions`);
-      const unsub = onSnapshot(reactionsQuery, (snapshot) => {
-        const fetchedReactions = {};
-        snapshot.docs.forEach((doc) => {
-          const data = doc.data();
-          fetchedReactions[doc.id] = data.reactionType;
-          allUserIds.add(doc.id);
-        });
-        setPostReactions((prev) => ({ ...prev, [post.id]: fetchedReactions }));
-        fetchUsersData(Array.from(allUserIds));
+      // Gather IDs from posts first
+      sortedPosts.forEach((post) => {
+        if (post.teacherId) allUserIds.add(post.teacherId);
+        if (post.studentId) allUserIds.add(post.studentId);
       });
-      unsubscribes.push(unsub);
-    });
 
-    return () => unsubscribes.forEach((u) => u());
+      // Fetch reactions for all posts in parallel
+      await Promise.all(
+        sortedPosts.map(async (post) => {
+          if (!post.id) return;
+          try {
+            const reactionsRef = collection(db, `${collectionName}/${post.id}/reactions`);
+            const snapshot = await getDocs(reactionsRef);
+            
+            const fetchedReactions = {};
+            snapshot.docs.forEach((doc) => {
+              const data = doc.data();
+              fetchedReactions[doc.id] = data.reactionType;
+              allUserIds.add(doc.id); // Add reaction authors to user fetch list
+            });
+            newReactions[post.id] = fetchedReactions;
+          } catch (err) {
+            console.error("Error fetching reactions for post:", post.id, err);
+          }
+        })
+      );
+
+      setPostReactions(newReactions);
+      
+      // Fetch user data only for those we don't have yet
+      if (allUserIds.size > 0) {
+         fetchUsersData(Array.from(allUserIds));
+      }
+    };
+
+    if (sortedPosts.length > 0) {
+      fetchReactionsAndUsers();
+    }
   }, [sortedPosts, collectionName]);
 
   const fetchUsersData = async (userIds) => {
     const newUsers = {};
-    const uniqueIds = [...new Set(userIds)];
+    const idsToFetch = userIds.filter(id => !usersMap[id]);
+    
+    if (idsToFetch.length === 0) return;
 
     await Promise.all(
-      uniqueIds.map(async (uid) => {
-        if (usersMap[uid]) return;
+      idsToFetch.map(async (uid) => {
         try {
           const userDoc = await getDoc(doc(db, "users", uid));
           if (userDoc.exists()) {
@@ -164,8 +181,21 @@ const AnnouncementFeed = ({
 
   const toggleReaction = async (postId, reactionType) => {
     if (!currentUserId) return showToast("Not logged in.", "error");
+    
+    // Optimistic UI update
+    setPostReactions(prev => {
+      const postReactions = { ...(prev[postId] || {}) };
+      if (postReactions[currentUserId] === reactionType) {
+        delete postReactions[currentUserId];
+      } else {
+        postReactions[currentUserId] = reactionType;
+      }
+      return { ...prev, [postId]: postReactions };
+    });
+
     const ref = doc(db, `${collectionName}/${postId}/reactions`, currentUserId);
     const existing = postReactions[postId]?.[currentUserId];
+    
     try {
       if (existing === reactionType) {
         await deleteDoc(ref);
@@ -178,6 +208,7 @@ const AnnouncementFeed = ({
       }
     } catch (err) {
       console.error("Reaction error", err);
+      showToast("Failed to update reaction", "error");
     }
   };
 
@@ -232,7 +263,7 @@ const AnnouncementFeed = ({
             <motion.div
               key={post.id}
               {...fadeProps}
-              className="bg-white rounded-2xl p-4 shadow hover:shadow-lg transition"
+              className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow hover:shadow-lg transition"
             >
               <div className="flex items-center gap-3 mb-2">
                 <UserInitialsAvatar
@@ -241,10 +272,10 @@ const AnnouncementFeed = ({
                   size={40}
                 />
                 <div>
-                  <p className="font-bold text-gray-800">
+                  <p className="font-bold text-gray-800 dark:text-gray-100">
                     {author.firstName} {author.lastName}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     {post.createdAt?.toDate
                       ? post.createdAt.toDate().toLocaleString()
                       : ""}
@@ -256,7 +287,7 @@ const AnnouncementFeed = ({
               </div>
 
               <div
-                className="text-gray-700 whitespace-pre-wrap cursor-pointer"
+                className="text-gray-700 dark:text-gray-200 whitespace-pre-wrap cursor-pointer"
                 onClick={() => {
                   setSelectedAnnouncement(post);
                   setIsAnnouncementModalOpen(true);
@@ -297,13 +328,13 @@ const AnnouncementFeed = ({
               <div className="flex items-center justify-between mt-3">
                 <div className="flex items-center gap-3">
                   <button
-                    className="text-gray-500 hover:text-blue-600 text-sm flex items-center gap-1"
+                    className="text-gray-500 dark:text-gray-400 hover:text-blue-600 text-sm flex items-center gap-1"
                     onClick={() => toggleReaction(post.id, "like")}
                   >
                     <FacebookEmoji type="like" size={16} /> Like
                   </button>
                   <button
-                    className="text-gray-500 hover:text-blue-600 text-sm flex items-center gap-1"
+                    className="text-gray-500 dark:text-gray-400 hover:text-blue-600 text-sm flex items-center gap-1"
                     onClick={() => {
                       setSelectedAnnouncement(post);
                       setIsAnnouncementModalOpen(true);
