@@ -665,34 +665,65 @@ const TeacherDashboard = () => {
 	        setIsAiGenerating(false); 
 	    };
 
-    const handleCreatePresentation = async () => {
-        if (!presentationPreviewData) { showToast("No preview data available to create a presentation.", "error"); return; }
-        setIsSavingPresentation(true);
-        try {
-            const { slides, lessonIds, lessonsData, unitsData } = presentationPreviewData;
-            const firstLesson = lessonsData.find(l => l.id === lessonIds[0]); if (!firstLesson) throw new Error("First lesson not found.");
-            const unit = unitsData.find(u => u.id === firstLesson.unitId); if (!unit) throw new Error("Associated unit not found.");
-            const subjectName = activeSubject?.title || "Untitled Subject";
-            const unitName = unit.name || "Untitled Unit";
-            const sourceTitle = lessonIds.length > 1 ? `${unitName} Summary` : firstLesson.title;
-            const presentationTitle = `Presentation for: ${sourceTitle}`;
+		const handleCreatePresentation = async () => {
+		        if (!presentationPreviewData) { 
+		            showToast("No preview data available to create a presentation.", "error"); 
+		            return; 
+		        }
+        
+		        setIsSavingPresentation(true);
+        
+		        try {
+		            const { slides, lessonIds, lessonsData, unitsData } = presentationPreviewData;
             
-            const cleanedSlides = slides.map(slide => ({ 
-                ...slide, 
-                body: slide.body.split('\n').map(line => line.trim()).join('\n'), 
-                notes: formatNotesToString(slide.notes || {}) 
-            }));
+		            // 1. Validate Data Exists
+		            const firstLesson = lessonsData.find(l => l.id === lessonIds[0]); 
+		            if (!firstLesson) throw new Error("First lesson not found.");
+            
+		            const unit = unitsData.find(u => u.id === firstLesson.unitId); 
+		            // Fallback if unit is missing (safety check)
+		            const unitName = unit ? unit.name : "General Unit";
+		            const subjectName = activeSubject?.title || "Untitled Subject";
+            
+		            const sourceTitle = lessonIds.length > 1 ? `${unitName} Summary` : firstLesson.title;
+		            const presentationTitle = `Presentation for: ${sourceTitle}`;
+            
+		            // 2. FIX: Defensive Coding for Slide Body
+		            const cleanedSlides = slides.map(slide => {
+		                // Ensure body is a string. If it's null/undefined, use empty string.
+		                // If it's an array (common AI glitch), join it into a string.
+		                let bodyText = "";
+                
+		                if (typeof slide.body === 'string') {
+		                    bodyText = slide.body;
+		                } else if (Array.isArray(slide.body)) {
+		                    bodyText = slide.body.join('\n');
+		                } else if (slide.body) {
+		                    bodyText = String(slide.body);
+		                }
 
-            const presentationUrl = await createPresentationFromData(cleanedSlides, presentationTitle, subjectName, unitName);
-            window.open(presentationUrl, '_blank');
-            showToast("Presentation created! You can now copy the notes.", "success");
-        } catch (error) { 
-            console.error("Presentation Creation Error:", error); 
-            showToast(`Creation Error: ${error.message}`, "error"); 
-        }
-        finally { setIsSavingPresentation(false); }
-    };
+		                return { 
+		                    ...slide, 
+		                    // Now safely split the string
+		                    body: bodyText.split('\n').map(line => line.trim()).join('\n'), 
+		                    notes: formatNotesToString(slide.notes || {}) 
+		                };
+		            });
 
+		            // 3. Create Presentation
+		            const presentationUrl = await createPresentationFromData(cleanedSlides, presentationTitle, subjectName, unitName);
+            
+		            window.open(presentationUrl, '_blank');
+		            showToast("Presentation created! You can now copy the notes.", "success");
+
+		        } catch (error) { 
+		            console.error("Presentation Creation Error:", error); 
+		            showToast(`Creation Error: ${error.message}`, "error"); 
+		        }
+		        finally { 
+		            setIsSavingPresentation(false); 
+		        }
+		    };
     const handleInitiateDelete = (type, id, name, subjectId = null) => {
         setDeleteTarget({ type, id, name, subjectId });
         setIsDeleteModalOpen(true);
