@@ -1,22 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { PencilSquareIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { 
+  PencilSquareIcon, 
+  XMarkIcon, 
+  VideoCameraIcon, 
+  BookOpenIcon, 
+  AcademicCapIcon, 
+  ChevronDownIcon 
+} from '@heroicons/react/24/outline';
 import { useToast } from '../../contexts/ToastContext';
-// --- MODIFICATION: Removed Firebase Functions imports ---
-// import { functions } from '../../services/firebase';
-// import { httpsCallable } from 'firebase/functions';
-// import { useAuth } from '../../contexts/AuthContext'; 
 
-// 2. Define the list of grade levels
+// --- MACOS 26 DESIGN CONSTANTS ---
+const inputWrapperStyle = "relative group";
+const inputIconStyle = "absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500 w-5 h-5 transition-colors group-focus-within:text-blue-500";
+const inputStyle = `
+  w-full pl-12 pr-4 py-3.5 
+  bg-slate-50/50 dark:bg-black/20 
+  border border-slate-200/80 dark:border-white/10 
+  rounded-2xl text-sm font-medium text-slate-700 dark:text-slate-200 
+  placeholder:text-slate-400 
+  focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent 
+  transition-all duration-300
+`;
+
+// Dropdown specific style to handle the APK visual mess
+const selectStyle = `
+  ${inputStyle} 
+  appearance-none cursor-pointer
+`;
+
 const gradeLevels = [
   "Kindergarten", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6",
   "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"
 ];
 
-// --- MODIFICATION: Removed function call ---
-// const createClassMeetLink = httpsCallable(functions, 'createClassMeetLink');
-
 const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) => {
-  // 4. All state definitions
   const [editedName, setEditedName] = useState('');
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
   const [selectedGradeLevel, setSelectedGradeLevel] = useState('');
@@ -24,11 +41,7 @@ const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) 
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { showToast } = useToast();
-  
-  // 5. Removed useAuth() as it's no longer needed
-  // const { user } = useAuth(); 
 
-  // When the modal opens, set the state with the current class data
   useEffect(() => {
     if (isOpen && classData) {
       setEditedName(classData.name || '');
@@ -39,7 +52,6 @@ const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) 
     }
   }, [isOpen, classData]);
 
-  // 6. --- MODIFIED: handleSave no longer generates link ---
   const handleSave = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -48,26 +60,23 @@ const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) 
     let finalMeetLink = meetLink.trim();
 
     try {
-      // --- MODIFICATION: Check if link is missing ---
       if (!finalMeetLink) {
         showToast("A persistent Google Meet link is required.", "error");
         setIsSubmitting(false);
         return;
       }
       
-      // Check if link is a valid Google Meet URL
       if (!finalMeetLink.startsWith("https://meet.google.com/")) {
-        showToast("Please enter a valid Google Meet URL (e.g., https://meet.google.com/xxx-yyy-zzz)", "warning");
+        showToast("Please enter a valid Google Meet URL (https://meet.google.com/...)", "warning");
         setIsSubmitting(false);
         return;
       }
       
-      // Await the update function from the parent
       await onUpdate(classData.id, {
         name: editedName,
         subjectId: selectedSubjectId,
         gradeLevel: selectedGradeLevel,
-        meetLink: finalMeetLink, // Save the manually provided link
+        meetLink: finalMeetLink,
       });
       
       showToast("Class updated successfully!", "success");
@@ -79,168 +88,175 @@ const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) 
       setIsSubmitting(false);
     }
   };
-  // --- END MODIFICATION ---
 
-  if (!isOpen || !classData) {
-    return null;
-  }
-
-  // A simple inline spinner component
-  const Spinner = () => (
-    <svg
-      className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <circle
-        className="opacity-25 text-gray-300"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      ></circle>
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      ></path>
-    </svg>
-  );
+  if (!isOpen || !classData) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-50 p-4 font-sans">
-      <div className="relative bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark p-6 w-full max-w-md">
+    // 1. BACKDROP: Heavy blur and slight tint
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+      <div 
+        className="absolute inset-0 bg-slate-900/30 dark:bg-black/60 backdrop-blur-md transition-opacity" 
+        onClick={onClose}
+      />
+
+      {/* 2. WINDOW: Glassmorphism container */}
+      <div className="relative w-full max-w-lg transform overflow-hidden 
+                      bg-white/80 dark:bg-[#121212]/80 backdrop-blur-[50px] 
+                      rounded-[2rem] shadow-2xl shadow-black/20 dark:shadow-black/50 
+                      ring-1 ring-white/40 dark:ring-white/5 
+                      flex flex-col transition-all duration-300 scale-100 opacity-100">
+        
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-            <PencilSquareIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-            Edit "{classData.name}"
-          </h2>
+        <div className="flex items-center justify-between p-6 border-b border-slate-200/50 dark:border-white/5 bg-white/50 dark:bg-white/5">
+          <div>
+            <h2 className="text-xl font-display font-bold tracking-tight text-slate-800 dark:text-white">
+              Edit Class
+            </h2>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">
+              {classData.name}
+            </p>
+          </div>
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            className="p-2 rounded-full shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all disabled:opacity-50"
+            className="p-2 rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors"
           >
-            <XMarkIcon className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+            <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSave} className="space-y-5">
-          {/* --- Class Name Input --- */}
-          <div>
-            <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-              Class Name
-            </label>
-            <input
-              type="text"
-              value={editedName}
-              onChange={(e) => setEditedName(e.target.value)}
-              disabled={isSubmitting}
-              className="w-full p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark 
-                         text-slate-700 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 
-                         focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-500 disabled:opacity-70"
-            />
-          </div>
+        {/* Scrollable Form Content */}
+        <div className="p-6 sm:p-8 overflow-y-auto max-h-[70vh] custom-scrollbar">
+          <form onSubmit={handleSave} className="space-y-6">
+            
+            {/* Class Name */}
+            <div className={inputWrapperStyle}>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">
+                Class Name
+              </label>
+              <div className="relative">
+                <PencilSquareIcon className={inputIconStyle} />
+                <input
+                  type="text"
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  disabled={isSubmitting}
+                  className={inputStyle}
+                  placeholder="e.g. Science 101"
+                />
+              </div>
+            </div>
 
-          {/* --- Subject Selector Dropdown --- */}
-          <div>
-            <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-              Assign Subject
-            </label>
-            <select
-              value={selectedSubjectId}
-              onChange={(e) => setSelectedSubjectId(e.target.value)}
-              disabled={isSubmitting}
-              className="w-full p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark 
-                         text-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 
-                         dark:focus:ring-indigo-500 disabled:opacity-70"
-            >
-              <option value="">No Subject Assigned</option>
-              {courses.map((course) => (
-                <option key={course.id} value={course.id}>
-                  {course.title}
-                </option>
-              ))}
-            </select>
-          </div>
+            {/* Subject Dropdown - Fixed for Mobile/APK */}
+            <div className={inputWrapperStyle}>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">
+                Subject
+              </label>
+              <div className="relative">
+                <BookOpenIcon className={inputIconStyle} />
+                <select
+                  value={selectedSubjectId}
+                  onChange={(e) => setSelectedSubjectId(e.target.value)}
+                  disabled={isSubmitting}
+                  className={selectStyle}
+                >
+                  <option value="">No Subject Assigned</option>
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.title}
+                    </option>
+                  ))}
+                </select>
+                {/* Custom Chevron to replace ugly native one */}
+                <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
 
-          {/* --- Grade Level Selector Dropdown --- */}
-          <div>
-            <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-              Grade Level
-            </label>
-            <select
-              value={selectedGradeLevel}
-              onChange={(e) => setSelectedGradeLevel(e.target.value)}
-              disabled={isSubmitting}
-              className="w-full p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark 
-                         text-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 
-                         dark:focus:ring-indigo-500 disabled:opacity-70"
-            >
-              <option value="">Select Grade Level</option>
-              {gradeLevels.map((grade) => (
-                <option key={grade} value={grade}>
-                  {grade}
-                </option>
-              ))}
-            </select>
-          </div>
+            {/* Grade Level Dropdown - Fixed for Mobile/APK */}
+            <div className={inputWrapperStyle}>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">
+                Grade Level
+              </label>
+              <div className="relative">
+                <AcademicCapIcon className={inputIconStyle} />
+                <select
+                  value={selectedGradeLevel}
+                  onChange={(e) => setSelectedGradeLevel(e.target.value)}
+                  disabled={isSubmitting}
+                  className={selectStyle}
+                >
+                  <option value="">Select Grade Level</option>
+                  {gradeLevels.map((grade) => (
+                    <option key={grade} value={grade}>
+                      {grade}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
 
-          {/* --- MODIFIED: Google Meet Link Input --- */}
-          <div>
-            <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-              Google Meet Link <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="url"
-              placeholder="https://meet.google.com/xxx-yyyy-zzz"
-              value={meetLink}
-              onChange={(e) => setMeetLink(e.target.value)}
-              disabled={isSubmitting}
-              className="w-full p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark
-                         text-slate-700 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400
-                         focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-500 disabled:opacity-70"
-              required // Added browser-level validation
-            />
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              A persistent Google Meet link is required.
-            </p>
-          </div>
-          {/* --- END MODIFICATION --- */}
+            {/* Google Meet Link */}
+            <div className={inputWrapperStyle}>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1 flex justify-between">
+                <span>Google Meet Link</span>
+                <span className="text-red-500 text-[10px] font-normal normal-case">* Required</span>
+              </label>
+              <div className="relative">
+                <VideoCameraIcon className={inputIconStyle} />
+                <input
+                  type="url"
+                  value={meetLink}
+                  onChange={(e) => setMeetLink(e.target.value)}
+                  disabled={isSubmitting}
+                  className={inputStyle}
+                  placeholder="https://meet.google.com/..."
+                  required
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-2 ml-1 leading-relaxed">
+                Paste the permanent Meet link generated from your Google Calendar or Classroom.
+              </p>
+            </div>
 
+          </form>
+        </div>
 
-          {/* --- Buttons --- */}
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-5 py-2 rounded-xl font-semibold text-slate-700 dark:text-slate-200 bg-neumorphic-base dark:bg-neumorphic-base-dark 
-                         shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark 
-                         transition-all disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex items-center justify-center px-5 py-2 rounded-xl font-semibold text-white bg-indigo-600 shadow-lg shadow-indigo-500/40 
-                         hover:bg-indigo-700 transition-all disabled:bg-slate-400 dark:disabled:bg-slate-600 disabled:shadow-none"
-            >
-              {isSubmitting ? (
-                <>
-                  <Spinner />
-                  Saving...
-                </>
-              ) : (
-                'Save Changes'
-              )}
-            </button>
-          </div>
-        </form>
+        {/* Footer */}
+        <div className="p-6 border-t border-slate-200/50 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 backdrop-blur-md flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="px-6 py-2.5 rounded-full text-sm font-semibold text-slate-600 dark:text-slate-300 
+                       bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10
+                       hover:bg-slate-50 dark:hover:bg-white/10 transition-all active:scale-95"
+          >
+            Cancel
+          </button>
+          
+          <button
+            onClick={handleSave}
+            disabled={isSubmitting}
+            className="relative px-8 py-2.5 rounded-full text-sm font-semibold text-white 
+                       bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500
+                       shadow-[0_4px_12px_rgba(37,99,235,0.3)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.4)]
+                       border-t border-white/20 transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? (
+              <div className="flex items-center gap-2">
+                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span>Saving...</span>
+              </div>
+            ) : (
+              'Save Changes'
+            )}
+          </button>
+        </div>
+
       </div>
     </div>
   );

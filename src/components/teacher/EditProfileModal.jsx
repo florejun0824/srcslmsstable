@@ -282,196 +282,199 @@ const EditProfileModal = ({
         setTimeout(() => setChangePasswordModalOpen(true), 100); 
     };
 
-    if (!isOpen) return null;
-
     return (
-        <AnimatePresence>
-            {isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    {/* Backdrop */}
-                    <motion.div 
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        onClick={onClose}
-                        className="absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm"
-                    />
-
-                    {/* Modal Window */}
-                    <motion.div
-                        initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                        animate={{ scale: 1, opacity: 1, y: 0 }}
-                        exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                        className={windowContainerClasses}
+        <>
+            <AnimatePresence>
+                {isOpen && (
+                    <div 
+                        key="modal-container"
+                        className="fixed inset-0 z-[100] flex items-center justify-center p-4"
                     >
-                        {/* --- Header & Cover Photo --- */}
-                        <div className="relative flex-shrink-0 group/cover">
-                            {/* Close Button */}
-                            <button onClick={onClose} className="absolute top-4 right-4 z-20 p-2 rounded-full bg-black/20 hover:bg-black/40 backdrop-blur-md text-white border border-white/20 shadow-sm transition-all">
-                                <IconX size={20} />
-                            </button>
+                        {/* Backdrop */}
+                        <motion.div 
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            onClick={onClose}
+                            className="absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm"
+                        />
 
-                            {/* Cover Photo Area */}
-                            <div className="relative w-full h-40 bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                                <div 
-                                    ref={coverPhotoRef}
-                                    className={`w-full h-full relative ${coverPhotoURL && !isUploading ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                                    onMouseDown={handleCoverDragStart}
-                                >
-                                    {coverPhotoURL && !isUploading ? (
-                                        <div
-                                            className="w-full h-full transition-transform duration-300"
-                                            style={{
-                                                backgroundImage: `url(${coverPhotoURL})`,
-                                                backgroundSize: 'cover',
-                                                backgroundRepeat: 'no-repeat',
-                                                backgroundPosition: coverPhotoPosition,
-                                                pointerEvents: 'none', 
-                                            }}
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
-                                            <IconCamera size={32} />
-                                            <span className="text-xs font-bold uppercase tracking-wider mt-2 opacity-60">No Cover Photo</span>
-                                        </div>
-                                    )}
+                        {/* Modal Window */}
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                            className={windowContainerClasses}
+                        >
+                            {/* --- Header & Cover Photo --- */}
+                            <div className="relative flex-shrink-0 group/cover">
+                                {/* Close Button */}
+                                <button onClick={onClose} className="absolute top-4 right-4 z-20 p-2 rounded-full bg-black/20 hover:bg-black/40 backdrop-blur-md text-white border border-white/20 shadow-sm transition-all">
+                                    <IconX size={20} />
+                                </button>
 
-                                    {/* Uploading Overlay */}
-                                    {isUploading && (
-                                        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
-                                            <IconLoader className="animate-spin text-white mb-2" />
-                                            <span className="text-white text-xs font-bold">{Math.round(uploadProgress)}%</span>
-                                        </div>
-                                    )}
-                                </div>
-                                
-                                {/* Drag Hint Overlay */}
-                                {coverPhotoURL && !isUploading && (
-                                    <div className={`absolute inset-0 pointer-events-none flex items-center justify-center bg-black/20 transition-opacity duration-300 ${isDraggingCover ? 'opacity-0' : 'opacity-0 group-hover/cover:opacity-100'}`}>
-                                        <span className="text-white/80 text-xs font-bold uppercase tracking-widest drop-shadow-md">Drag to Reposition</span>
-                                    </div>
-                                )}
-
-                                {/* Cover Upload Button */}
-                                <label className="absolute bottom-3 right-3 p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white cursor-pointer transition-all border border-white/20 shadow-lg">
-                                    <IconUpload size={16} />
-                                    <input type="file" className="sr-only" accept="image/*" onChange={handleFileChange} disabled={isUploading} />
-                                </label>
-                            </div>
-
-                            {/* Profile Photo Area (Overlapping) */}
-                            <div className="absolute -bottom-12 left-6">
-                                <div className="relative w-24 h-24 rounded-full p-1 bg-white/30 dark:bg-black/30 backdrop-blur-md ring-1 ring-white/20 shadow-2xl">
-                                    <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-slate-800 relative">
-                                        <UserInitialsAvatar user={{...userProfile, photoURL: photoURL}} size="full" className="w-full h-full text-3xl" effectsEnabled={false} />
-                                        
-                                        {/* Profile Upload Overlay */}
-                                        <label className="absolute inset-0 bg-black/30 hover:bg-black/50 transition-colors flex items-center justify-center cursor-pointer group">
-                                            <IconCamera className="text-white opacity-0 group-hover:opacity-100 transform scale-75 group-hover:scale-100 transition-all" />
-                                            <input type="file" className="sr-only" accept="image/*" onChange={handleProfileFileChange} disabled={isUploadingProfile} />
-                                        </label>
-
-                                        {isUploadingProfile && (
-                                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20">
-                                                <span className="text-white text-xs font-bold">{Math.round(profileUploadProgress)}%</span>
+                                {/* Cover Photo Area */}
+                                <div className="relative w-full h-40 bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                                    <div 
+                                        ref={coverPhotoRef}
+                                        className={`w-full h-full relative ${coverPhotoURL && !isUploading ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                                        onMouseDown={handleCoverDragStart}
+                                    >
+                                        {coverPhotoURL && !isUploading ? (
+                                            <div
+                                                className="w-full h-full transition-transform duration-300"
+                                                style={{
+                                                    backgroundImage: `url(${coverPhotoURL})`,
+                                                    backgroundSize: 'cover',
+                                                    backgroundRepeat: 'no-repeat',
+                                                    backgroundPosition: coverPhotoPosition,
+                                                    pointerEvents: 'none', 
+                                                }}
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                                                <IconCamera size={32} />
+                                                <span className="text-xs font-bold uppercase tracking-wider mt-2 opacity-60">No Cover Photo</span>
                                             </div>
                                         )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
 
-                        {/* --- Form Body --- */}
-                        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar pt-14 px-6 pb-6">
-                            <div className="space-y-6">
-                                <div>
-                                    <h2 className={headingStyle + " text-2xl"}>Edit Profile</h2>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400">Update your personal details.</p>
-                                </div>
-
-                                {/* Inputs */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label htmlFor="firstName" className={labelStyle}>First Name</label>
-                                        <input type="text" id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={glassInput} required />
-                                    </div>
-                                    <div>
-                                        <label htmlFor="lastName" className={labelStyle}>Last Name</label>
-                                        <input type="text" id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} className={glassInput} required />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className={labelStyle}>Bio</label>
-                                    <div className="rounded-xl overflow-hidden border border-slate-200/60 dark:border-white/10 bg-slate-50/50 dark:bg-black/20">
-                                        <ReactQuill theme="snow" value={bio} onChange={setBio} modules={quillModules} placeholder="Tell us about yourself..." />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <div>
-                                        <label htmlFor="work" className={labelStyle}>Work</label>
-                                        <input type="text" id="work" value={work} onChange={(e) => setWork(e.target.value)} className={glassInput} placeholder="Where do you work?" />
-                                    </div>
-                                    <div>
-                                        <label htmlFor="education" className={labelStyle}>Education</label>
-                                        <input type="text" id="education" value={education} onChange={(e) => setEducation(e.target.value)} className={glassInput} placeholder="Where did you study?" />
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label htmlFor="current_city" className={labelStyle}>Current City</label>
-                                            <input type="text" id="current_city" value={current_city} onChange={(e) => setCurrentCity(e.target.value)} className={glassInput} />
-                                        </div>
-                                        <div>
-                                            <label htmlFor="hometown" className={labelStyle}>Hometown</label>
-                                            <input type="text" id="hometown" value={hometown} onChange={(e) => setHometown(e.target.value)} className={glassInput} />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label htmlFor="mobile_phone" className={labelStyle}>Mobile Phone</label>
-                                        <input type="tel" id="mobile_phone" value={mobile_phone} onChange={(e) => setMobilePhone(e.target.value)} className={glassInput} />
+                                        {/* Uploading Overlay */}
+                                        {isUploading && (
+                                            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
+                                                <IconLoader className="animate-spin text-white mb-2" />
+                                                <span className="text-white text-xs font-bold">{Math.round(uploadProgress)}%</span>
+                                            </div>
+                                        )}
                                     </div>
                                     
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className={labelStyle}>Relationship Status</label>
-                                            <CustomSelect value={relationship_status} onChange={setRelationshipStatus} options={relationshipOptions} placeholder="Select status..." />
+                                    {/* Drag Hint Overlay */}
+                                    {coverPhotoURL && !isUploading && (
+                                        <div className={`absolute inset-0 pointer-events-none flex items-center justify-center bg-black/20 transition-opacity duration-300 ${isDraggingCover ? 'opacity-0' : 'opacity-0 group-hover/cover:opacity-100'}`}>
+                                            <span className="text-white/80 text-xs font-bold uppercase tracking-widest drop-shadow-md">Drag to Reposition</span>
                                         </div>
-                                        {(relationship_status === 'In a Relationship' || relationship_status === 'Married') && (
-                                            <div>
-                                                <label htmlFor="partner" className={labelStyle}>Partner's Name</label>
-                                                <input type="text" id="partner" value={relationship_partner} onChange={(e) => setRelationshipPartner(e.target.value)} className={glassInput} />
-                                            </div>
-                                        )}
+                                    )}
+
+                                    {/* Cover Upload Button */}
+                                    <label className="absolute bottom-3 right-3 p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white cursor-pointer transition-all border border-white/20 shadow-lg">
+                                        <IconUpload size={16} />
+                                        <input type="file" className="sr-only" accept="image/*" onChange={handleFileChange} disabled={isUploading} />
+                                    </label>
+                                </div>
+
+                                {/* Profile Photo Area (Overlapping) */}
+                                <div className="absolute -bottom-12 left-6">
+                                    <div className="relative w-24 h-24 rounded-full p-1 bg-white/30 dark:bg-black/30 backdrop-blur-md ring-1 ring-white/20 shadow-2xl">
+                                        <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-slate-800 relative">
+                                            <UserInitialsAvatar user={{...userProfile, photoURL: photoURL}} size="full" className="w-full h-full text-3xl" effectsEnabled={false} />
+                                            
+                                            {/* Profile Upload Overlay */}
+                                            <label className="absolute inset-0 bg-black/30 hover:bg-black/50 transition-colors flex items-center justify-center cursor-pointer group">
+                                                <IconCamera className="text-white opacity-0 group-hover:opacity-100 transform scale-75 group-hover:scale-100 transition-all" />
+                                                <input type="file" className="sr-only" accept="image/*" onChange={handleProfileFileChange} disabled={isUploadingProfile} />
+                                            </label>
+
+                                            {isUploadingProfile && (
+                                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20">
+                                                    <span className="text-white text-xs font-bold">{Math.round(profileUploadProgress)}%</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Footer Actions */}
-                            <div className="mt-8 space-y-3 pt-6 border-t border-slate-200/60 dark:border-white/10">
-                                <button type="submit" disabled={loading || isUploading || isUploadingProfile} className={primaryButton}>
-                                    {loading ? (
-                                        <>
-                                            <IconLoader className="animate-spin" size={18} />
-                                            <span>Saving...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <IconDeviceFloppy size={18} />
-                                            <span>Save Changes</span>
-                                        </>
-                                    )}
-                                </button>
-                                <button type="button" onClick={handleChangePasswordClick} className={secondaryButton}>
-                                    <IconKey size={16} />
-                                    Change Password
-                                </button>
-                            </div>
-                        </form>
-                    </motion.div>
-                </div>
-            )}
+                            {/* --- Form Body --- */}
+                            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar pt-14 px-6 pb-6">
+                                <div className="space-y-6">
+                                    <div>
+                                        <h2 className={headingStyle + " text-2xl"}>Edit Profile</h2>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">Update your personal details.</p>
+                                    </div>
+
+                                    {/* Inputs */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label htmlFor="firstName" className={labelStyle}>First Name</label>
+                                            <input type="text" id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={glassInput} required />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="lastName" className={labelStyle}>Last Name</label>
+                                            <input type="text" id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} className={glassInput} required />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className={labelStyle}>Bio</label>
+                                        <div className="rounded-xl overflow-hidden border border-slate-200/60 dark:border-white/10 bg-slate-50/50 dark:bg-black/20">
+                                            <ReactQuill theme="snow" value={bio} onChange={setBio} modules={quillModules} placeholder="Tell us about yourself..." />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label htmlFor="work" className={labelStyle}>Work</label>
+                                            <input type="text" id="work" value={work} onChange={(e) => setWork(e.target.value)} className={glassInput} placeholder="Where do you work?" />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="education" className={labelStyle}>Education</label>
+                                            <input type="text" id="education" value={education} onChange={(e) => setEducation(e.target.value)} className={glassInput} placeholder="Where did you study?" />
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div>
+                                                <label htmlFor="current_city" className={labelStyle}>Current City</label>
+                                                <input type="text" id="current_city" value={current_city} onChange={(e) => setCurrentCity(e.target.value)} className={glassInput} />
+                                            </div>
+                                            <div>
+                                                <label htmlFor="hometown" className={labelStyle}>Hometown</label>
+                                                <input type="text" id="hometown" value={hometown} onChange={(e) => setHometown(e.target.value)} className={glassInput} />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label htmlFor="mobile_phone" className={labelStyle}>Mobile Phone</label>
+                                            <input type="tel" id="mobile_phone" value={mobile_phone} onChange={(e) => setMobilePhone(e.target.value)} className={glassInput} />
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className={labelStyle}>Relationship Status</label>
+                                                <CustomSelect value={relationship_status} onChange={setRelationshipStatus} options={relationshipOptions} placeholder="Select status..." />
+                                            </div>
+                                            {(relationship_status === 'In a Relationship' || relationship_status === 'Married') && (
+                                                <div>
+                                                    <label htmlFor="partner" className={labelStyle}>Partner's Name</label>
+                                                    <input type="text" id="partner" value={relationship_partner} onChange={(e) => setRelationshipPartner(e.target.value)} className={glassInput} />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Footer Actions */}
+                                <div className="mt-8 space-y-3 pt-6 border-t border-slate-200/60 dark:border-white/10">
+                                    <button type="submit" disabled={loading || isUploading || isUploadingProfile} className={primaryButton}>
+                                        {loading ? (
+                                            <>
+                                                <IconLoader className="animate-spin" size={18} />
+                                                <span>Saving...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <IconDeviceFloppy size={18} />
+                                                <span>Save Changes</span>
+                                            </>
+                                        )}
+                                    </button>
+                                    <button type="button" onClick={handleChangePasswordClick} className={secondaryButton}>
+                                        <IconKey size={16} />
+                                        Change Password
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
             
-            {/* Global Styles for Quill Overrides */}
+            {/* Global Styles for Quill Overrides - MOVED OUTSIDE ANIMATEPRESENCE */}
             <style>{`
                 .ql-toolbar.ql-snow { border: none !important; border-bottom: 1px solid rgba(200,200,200,0.2) !important; background: rgba(255,255,255,0.05); }
                 .ql-container.ql-snow { border: none !important; font-family: inherit !important; }
@@ -480,7 +483,7 @@ const EditProfileModal = ({
                 .ql-fill { fill: currentColor !important; }
                 .ql-picker { color: currentColor !important; }
             `}</style>
-        </AnimatePresence>
+        </>
     );
 };
 

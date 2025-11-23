@@ -1,12 +1,19 @@
 // src/services/firebase.js
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore, enableIndexedDbPersistence, doc, setDoc } from "firebase/firestore";
+// Updated imports for new persistence method
+import { 
+    initializeFirestore, 
+    persistentLocalCache, 
+    persistentMultipleTabManager,
+    doc, 
+    setDoc 
+} from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 import { getStorage } from "firebase/storage";
 
 // ----------------------
-// 🔒 ENV CHECK
+// 白 ENV CHECK
 // ----------------------
 if (!import.meta.env.VITE_FIREBASE_API_KEY) {
   throw new Error(
@@ -15,7 +22,7 @@ if (!import.meta.env.VITE_FIREBASE_API_KEY) {
 }
 
 // ----------------------
-// 🔧 FIREBASE CONFIG
+// 肌 FIREBASE CONFIG
 // ----------------------
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -28,25 +35,29 @@ const firebaseConfig = {
 };
 
 // ----------------------
-// 🔌 INITIALIZE FIREBASE
+// 伯 INITIALIZE FIREBASE
 // ----------------------
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+
+// FIX: Replaced deprecated getFirestore(app) + enableIndexedDbPersistence()
+// with initializeFirestore() + the new localCache settings.
+const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+        // This manages persistence across multiple tabs, replacing the need 
+        // for manual error handling on "failed-precondition"
+        tabManager: persistentMultipleTabManager()
+    })
+});
+
 const storage = getStorage(app);
 const functions = getFunctions(app);
 
-// Enable offline persistence
-enableIndexedDbPersistence(db).catch((err) => {
-  if (err.code === "failed-precondition") {
-    console.warn("Persistence failed: multiple tabs open");
-  } else if (err.code === "unimplemented") {
-    console.warn("Persistence not available in this browser");
-  }
-});
+// The old enableIndexedDbPersistence() block has been removed as persistence
+// is now configured during initialization above.
 
 // ----------------------
-// ⚡ CONNECT FUNCTIONS EMULATOR (LOCAL)
+// 笞｡ CONNECT FUNCTIONS EMULATOR (LOCAL)
 // ----------------------
 if (window.location.hostname === "localhost") {
   console.log("Hybrid Mode: LIVE Auth/Firestore, LOCAL Functions emulator.");
@@ -54,7 +65,7 @@ if (window.location.hostname === "localhost") {
 }
 
 // ----------------------
-// 📌 HELPERS
+// 東 HELPERS
 // ----------------------
 export const updateLesson = async (lesson) => {
   if (!lesson?.id) throw new Error("Lesson ID is required to update");
@@ -69,6 +80,6 @@ export const addLesson = async (lesson) => {
 };
 
 // ----------------------
-// 🔄 EXPORT SERVICES
+// 売 EXPORT SERVICES
 // ----------------------
 export { db, auth, storage, functions, app };

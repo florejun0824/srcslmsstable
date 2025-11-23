@@ -1,6 +1,25 @@
-// src/components/teacher/dashboard/widgets/CreateAnnouncement.jsx
 import React, { useState } from "react";
-import { Image as ImageIcon, X as XIcon, Users, GraduationCap, ChevronDown, Send } from "lucide-react";
+import { 
+  Image as ImageIcon, 
+  X as XIcon, 
+  Users, 
+  GraduationCap, 
+  ChevronDown, 
+  Send 
+} from "lucide-react";
+
+// --- STYLING CONSTANTS ---
+// Glassmorphic container style for inputs
+const glassInputContainer = "relative group bg-white/50 dark:bg-black/20 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-white/10 transition-all duration-300 focus-within:ring-2 focus-within:ring-blue-500/30 focus-within:border-blue-400/50 shadow-sm hover:bg-white/60 dark:hover:bg-white/5";
+
+// Input/Select inner styles
+const inputReset = "w-full bg-transparent border-none outline-none text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500";
+
+// Specific style to fix APK Dropdowns (Removes default ugly arrow)
+const selectReset = `
+  ${inputReset} 
+  appearance-none cursor-pointer py-3.5 pl-10 pr-10
+`;
 
 const CreateAnnouncement = ({ classes = [], onPost }) => {
   const [content, setContent] = useState("");
@@ -27,53 +46,56 @@ const CreateAnnouncement = ({ classes = [], onPost }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 h-full flex flex-col">
-      {/* --- Text Area --- */}
-      <div className="relative group">
+    <form onSubmit={handleSubmit} className="h-full flex flex-col gap-6">
+      
+      {/* --- 1. Main Text Editor --- */}
+      <div className={`${glassInputContainer} flex-1 min-h-[180px] md:min-h-[250px] flex flex-col`}>
         <textarea
-          // MODIFIED: Increased min-height on desktop (md:min-h-[250px])
-          className="w-full p-4 md:p-6 rounded-3xl bg-slate-50/50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-sm md:text-lg text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500/50 focus:border-transparent outline-none resize-none shadow-inner transition-all leading-relaxed min-h-[150px] md:min-h-[250px]"
-          rows="4"
-          placeholder="What's on your mind? Share an update with your class..."
+          className="w-full h-full p-5 md:p-6 bg-transparent border-none outline-none resize-none text-base md:text-lg text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 leading-relaxed custom-scrollbar rounded-2xl"
+          placeholder="What's on your mind? Share an update..."
           value={content}
           onChange={(e) => setContent(e.target.value)}
         />
       </div>
 
-      {/* --- Image Input Section --- */}
+      {/* --- 2. Image Input & Preview --- */}
       <div className="space-y-4">
-        <div className="flex items-center gap-3 bg-white/40 dark:bg-white/5 p-3 rounded-2xl border border-slate-200/50 dark:border-white/5 transition-all focus-within:ring-2 focus-within:ring-blue-500/20">
-            <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                <ImageIcon className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+        {/* Input Field */}
+        <div className={`${glassInputContainer} flex items-center gap-3 p-2`}>
+            <div className="p-2.5 bg-blue-500/10 dark:bg-blue-400/10 rounded-xl shrink-0">
+                <ImageIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <input
-              id="photoURL"
-              type="text"
-              className="w-full bg-transparent border-none text-sm md:text-base text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-0 p-0"
-              placeholder="Optional: Paste an image link here..."
+              type="url" // Changed to url for better mobile keyboard
+              className={`${inputReset} text-sm md:text-base py-2`}
+              placeholder="Paste an image link here (Optional)..."
               value={photoURL}
               onChange={(e) => setPhotoURL(e.target.value)}
             />
         </div>
 
+        {/* Image Preview Card */}
         {photoURL && (
-            <div className="relative group p-2 rounded-2xl bg-slate-100/50 dark:bg-black/20 border border-slate-200/50 dark:border-white/5">
-              <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-slate-200 dark:bg-white/5">
+            <div className="relative group animate-in fade-in zoom-in-95 duration-300">
+              <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/20 shadow-lg bg-slate-100 dark:bg-black/40">
                   <img
                     src={photoURL}
                     alt="Preview"
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-cover"
                     onError={(e) => {
                       e.target.onerror = null;
                       e.target.style.display = "none";
                       setPhotoURL("");
                     }}
                   />
+                  {/* Glass overlay gradient for text legibility if needed */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
               </div>
+              
               <button
                 type="button"
                 onClick={() => setPhotoURL("")}
-                className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-md transition-all shadow-lg hover:scale-110 active:scale-95"
+                className="absolute top-3 right-3 p-2 bg-black/40 hover:bg-red-500/80 text-white rounded-full backdrop-blur-md transition-all shadow-lg hover:scale-105 active:scale-95 border border-white/10"
                 aria-label="Remove photo"
               >
                 <XIcon className="w-4 h-4" />
@@ -82,70 +104,76 @@ const CreateAnnouncement = ({ classes = [], onPost }) => {
         )}
       </div>
 
-      {/* --- Settings Row (Desktop: Grid / Mobile: Stack) --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 pt-4">
-        {/* Audience Select */}
-        <div className="space-y-2">
-          <label
-            htmlFor="audience"
-            className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1"
-          >
-            <Users className="w-3.5 h-3.5" /> Audience
+      {/* --- 3. Settings Grid (Audience & Class) --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        {/* Audience Dropdown */}
+        <div className="space-y-1.5">
+          <label className="text-[10px] md:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-2">
+            Target Audience
           </label>
-          <div className="relative">
+          <div className={glassInputContainer}>
+             <Users className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+             
+             {/* Native Select with custom styling */}
              <select
                 id="audience"
-                className="w-full p-3 md:p-4 pl-4 pr-10 rounded-2xl bg-white/60 dark:bg-white/10 border border-slate-200 dark:border-white/10 text-sm md:text-base text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/50 outline-none appearance-none transition-all hover:bg-white/80 dark:hover:bg-white/20 cursor-pointer"
+                className={selectReset}
                 value={audience}
                 onChange={(e) => setAudience(e.target.value)}
               >
-                <option value="teachers" className="bg-white dark:bg-slate-800">All Teachers</option>
-                <option value="students" className="bg-white dark:bg-slate-800">Specific Class</option>
+                <option value="teachers" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Teachers</option>
+                <option value="students" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">Specific Class</option>
               </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+              
+              {/* Custom Chevron */}
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           </div>
         </div>
 
-        {/* Class Select (Conditional) */}
+        {/* Class Dropdown (Conditional) */}
         {audience === "students" && (
-          <div className="space-y-2 animate-fade-in-up">
-            <label
-              htmlFor="class"
-              className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1"
-            >
-              <GraduationCap className="w-3.5 h-3.5" /> Class Target
+          <div className="space-y-1.5 animate-in slide-in-from-top-2 fade-in duration-300">
+            <label className="text-[10px] md:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-2">
+              Select Class
             </label>
-             <div className="relative">
+             <div className={glassInputContainer}>
+                <GraduationCap className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                
                 <select
                     id="class"
-                    className="w-full p-3 md:p-4 pl-4 pr-10 rounded-2xl bg-white/60 dark:bg-white/10 border border-slate-200 dark:border-white/10 text-sm md:text-base text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/50 outline-none appearance-none transition-all hover:bg-white/80 dark:hover:bg-white/20 cursor-pointer"
+                    className={selectReset}
                     value={classId}
                     onChange={(e) => setClassId(e.target.value)}
                     required
                 >
-                    <option value="" disabled className="bg-white dark:bg-slate-800 text-slate-400">Select a class...</option>
+                    <option value="" disabled className="bg-white dark:bg-slate-900 text-slate-400">Choose a class...</option>
                     {classes.map((c) => (
-                        <option key={c.id} value={c.id} className="bg-white dark:bg-slate-800">
+                        <option key={c.id} value={c.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
                             {c.name}
                         </option>
                     ))}
                 </select>
-                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+
+                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
           </div>
         )}
       </div>
 
-      {/* --- Submit Button --- */}
-      <div className="pt-6 mt-auto">
+      {/* --- 4. Submit Button --- */}
+      <div className="pt-2 mt-auto">
           <button
             type="submit"
-            className={`w-full py-4 rounded-2xl font-bold text-sm md:text-lg shadow-xl transition-all flex items-center justify-center gap-2.5 ${
-                !content.trim() && !photoURL.trim()
-                ? 'bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-slate-600 cursor-not-allowed'
-                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-500/30 hover:scale-[1.02] active:scale-95'
-            }`}
             disabled={!content.trim() && !photoURL.trim()}
+            className={`
+                w-full py-3.5 md:py-4 rounded-xl md:rounded-2xl font-bold text-sm md:text-base 
+                flex items-center justify-center gap-2.5 shadow-lg border-t border-white/20
+                transition-all duration-300 transform active:scale-[0.98]
+                ${!content.trim() && !photoURL.trim()
+                ? 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-600 cursor-not-allowed shadow-none border-transparent'
+                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-500/30 hover:shadow-blue-500/40'}
+            `}
           >
             <Send className="w-5 h-5" />
             Post Announcement

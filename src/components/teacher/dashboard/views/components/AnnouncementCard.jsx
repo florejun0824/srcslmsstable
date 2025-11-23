@@ -1,5 +1,5 @@
 // src/components/teacher/dashboard/components/AnnouncementCard.jsx
-import React, { useState, useRef, memo } from 'react';
+import React, { useState, useRef, memo, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Pencil, Trash2, Pin, MessageCircle, ThumbsUp } from 'lucide-react';
 import UserInitialsAvatar from '../../../../../components/common/UserInitialsAvatar';
@@ -43,7 +43,7 @@ const componentDecorator = (href, text, key) => (
     </a>
 );
 
-const AnnouncementCard = ({
+const AnnouncementCard = forwardRef(({
     post,
     userProfile,
     authorProfile,
@@ -62,7 +62,7 @@ const AnnouncementCard = ({
     onToggleExpansion,
     onViewComments,
     onViewReactions,
-}) => {
+}, ref) => {
     const [isReactionOptionsVisible, setReactionOptionsVisible] = useState(false);
     const hoverTimeoutRef = useRef(null);
     const longPressTimerRef = useRef(null);
@@ -148,6 +148,7 @@ const AnnouncementCard = ({
 
     return (
         <motion.div
+            ref={ref}
             layout
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -334,6 +335,6 @@ const AnnouncementCard = ({
             </div>
         </motion.div>
     );
-};
+});
 
 export default memo(AnnouncementCard);

@@ -709,12 +709,6 @@ const ProfileView = ({
                                 </Switch.Group>
                             </div>
                         )}
-
-                        {/* Logout Button */}
-                        <button onClick={logout} className={`${cardSurface} w-full p-4 flex items-center justify-center gap-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors font-bold text-sm uppercase tracking-wide group`}>
-                            <IconLogout size={18} className="group-hover:-translate-x-1 transition-transform" />
-                            <span>Sign Out</span>
-                        </button>
                     </div>
 
 

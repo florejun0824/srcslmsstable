@@ -485,47 +485,109 @@ const AnalyticsView = ({ activeClasses }) => {
     }
   };
   
-  const generateRemediationPlan = async () => {
-    if (!analysisResult?.recommendation_action || !lessonData) return;
-    const action = analysisResult.recommendation_action;
-    if (action === "NONE") { alert("No remediation needed."); return; }
-    const weakItems = itemAnalysisData.filter((i) => {
-      const percent = i.total > 0 ? (i.correct / i.total) * 100 : 0;
-      return percent < 75;
-    });
-    if (weakItems.length === 0) { alert("No weak items found."); return; }
-    setIsGeneratingRemediation(true);
-    try {
-      const lessonLanguage = lessonData?.language || "original language";
-      const lessonText = (lessonData?.pages || []).map((p) => `${p.title ? p.title + "\n" : ""}${p.content || ""}`).join("\n\n");
-      const weakTopicsString = weakItems.map((item) => `- ${item.question} (Diff: ${item.difficulty})`).join("\n");
-      let duration = "60 minutes";
-      if (action === "REVIEW") duration = "20 minutes";
-      else if (action === "PARTIAL_RETEACH") duration = "40 minutes";
+  // In AnalyticsView.jsx
 
-      const prompt = `
-        Create a remedial lesson plan.
-        Original: "${lessonData?.title}"
-        Text: ${lessonText.substring(0, 2000)}...
-        Weak Areas: ${weakTopicsString}
-        Type: ${action}
-        Duration: ${duration}
-        Language: ${lessonLanguage}
-        Output JSON: { "weak_topics": ["str"], "remediation_lessons": [{ "topic": "str", "objectives": ["str"], "time_allotment": "str", "lesson_plan": [{"phase":"str", "time":"str", "teacher_instructions":"str", "activity": {"title":"str", "instructions":"str", "materials_needed":["str"]}}], "notes_for_teachers": "str" }] }
-      `;
-      const rawAiResponse = await callGeminiWithLimitCheck(prompt);
-      const firstBracket = rawAiResponse.indexOf("{");
-      const lastBracket = rawAiResponse.lastIndexOf("}");
-      const jsonString = rawAiResponse.substring(firstBracket, lastBracket + 1);
-      setGeneratedRemediation(JSON.parse(jsonString));
-      setIsAnalysisModalOpen(false);
-      setIsPreviewModalOpen(true);
-    } catch (err) {
-      console.error("Remediation Error", err);
-      alert("Error generating remediation.");
-    } finally {
-      setIsGeneratingRemediation(false);
-    }
+  const generateRemediationPlan = async () => {
+      // 1. Debugging: Check what data we actually have
+      console.log("Generating Remediation with:", { 
+          action: analysisResult?.recommendation_action, 
+          lessonData: lessonData 
+      });
+
+      // 2. validation with user feedback instead of silent return
+      if (!analysisResult?.recommendation_action) {
+          alert("Error: No analysis result found.");
+          return;
+      }
+
+      // THIS IS LIKELY THE CAUSE:
+      if (!lessonData) {
+          alert("Cannot generate remediation plan because this Quiz is not linked to a Lesson content in the database. Please ensure the Quiz has a valid 'lessonId'.");
+          return;
+      }
+
+      const action = analysisResult.recommendation_action;
+      if (action === "NONE") { 
+          alert("No remediation needed."); 
+          return; 
+      }
+
+      // 3. Check for weak items
+      const weakItems = itemAnalysisData.filter((i) => {
+          // Calculate percentage for the specific item
+          const percent = i.total > 0 ? (i.correct / i.total) * 100 : 0;
+          // Include items below 75%
+          return percent < 75;
+      });
+
+      if (weakItems.length === 0) {
+          // Fallback: If AI says "Partial Reteach" but strict math shows >75%, 
+          // we should still allow generation based on the lowest scoring items
+          // OR alert the user. Let's try to grab the bottom 3 items if none are strictly "weak".
+          const sortedItems = [...itemAnalysisData].sort((a, b) => {
+              const perA = a.total > 0 ? (a.correct / a.total) : 0;
+              const perB = b.total > 0 ? (b.correct / b.total) : 0;
+              return perA - perB;
+          });
+        
+          // Use the bottom 3 items if no strict failures found
+          if(sortedItems.length > 0) {
+               console.warn("No items < 75%, utilizing lowest scoring items for remediation context.");
+               // Pushing to weakItems array manually if empty
+               weakItems.push(...sortedItems.slice(0, 3));
+          } else {
+               alert("No item analysis data available to base remediation on."); 
+               return; 
+          }
+      }
+
+      setIsGeneratingRemediation(true);
+    
+      try {
+          const lessonLanguage = lessonData?.language || "original language";
+        
+          // Safety check for pages
+          const pages = lessonData?.pages || [];
+          const lessonText = pages.length > 0 
+              ? pages.map((p) => `${p.title ? p.title + "\n" : ""}${p.content || ""}`).join("\n\n")
+              : lessonData.content || "No lesson content found.";
+
+          const weakTopicsString = weakItems.map((item) => `- ${item.question} (Diff: ${item.difficulty})`).join("\n");
+        
+          let duration = "60 minutes";
+          if (action === "REVIEW") duration = "20 minutes";
+          else if (action === "PARTIAL_RETEACH") duration = "40 minutes";
+
+          const prompt = `
+          Create a remedial lesson plan.
+          Original: "${lessonData?.title}"
+          Text: ${lessonText.substring(0, 2000)}...
+          Weak Areas: ${weakTopicsString}
+          Type: ${action}
+          Duration: ${duration}
+          Language: ${lessonLanguage}
+          Output JSON: { "weak_topics": ["str"], "remediation_lessons": [{ "topic": "str", "objectives": ["str"], "time_allotment": "str", "lesson_plan": [{"phase":"str", "time":"str", "teacher_instructions":"str", "activity": {"title":"str", "instructions":"str", "materials_needed":["str"]}}], "notes_for_teachers": "str" }] }
+          `;
+
+          const rawAiResponse = await callGeminiWithLimitCheck(prompt);
+        
+          // JSON Parsing safety
+          const firstBracket = rawAiResponse.indexOf("{");
+          const lastBracket = rawAiResponse.lastIndexOf("}");
+        
+          if (firstBracket === -1 || lastBracket === -1) throw new Error("Invalid AI Response format");
+        
+          const jsonString = rawAiResponse.substring(firstBracket, lastBracket + 1);
+        
+          setGeneratedRemediation(JSON.parse(jsonString));
+          setIsAnalysisModalOpen(false);
+          setIsPreviewModalOpen(true);
+      } catch (err) {
+          console.error("Remediation Error", err);
+          alert("Error generating remediation: " + err.message);
+      } finally {
+          setIsGeneratingRemediation(false);
+      }
   };
 
   const exportItemAnalysisToCSV = () => {

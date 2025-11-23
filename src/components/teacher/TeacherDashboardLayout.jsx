@@ -1,5 +1,5 @@
 // src/components/teacher/TeacherDashboardLayout.jsx
-import React, { useState, Suspense, lazy, Fragment, useEffect } from 'react';
+import React, { useState, Suspense, lazy, Fragment, useEffect, useRef } from 'react';
 import { CSSTransition, SwitchTransition } from 'react-transition-group';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { SunIcon, MoonIcon } from '@heroicons/react/24/solid';
@@ -388,6 +388,10 @@ const TeacherDashboardLayout = (props) => {
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 	const [isChangePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+    // FIX: Using useRef for CSSTransition nodeRefs
+    const nodeRef = useRef(null);      // For the main content switch
+    const robotRef = useRef(null);     // For the Animated Robot switch
     
     // Theme Logic
     const [theme, setTheme] = useState(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
@@ -569,10 +573,18 @@ const TeacherDashboardLayout = (props) => {
                 {/* --- MAIN CONTENT (ADDED PADDING FOR FIXED HEADERS) --- */}
                 <main className="flex-1 w-full max-w-[1920px] mx-auto px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-24 lg:pt-24 relative z-10">
                     <SwitchTransition mode="out-in">
-                        <CSSTransition key={activeView} timeout={500} classNames="view-fade">
-                            <Suspense fallback={<DashboardSkeleton />}>
-                                {renderMainContent()}
-                            </Suspense>
+                        <CSSTransition 
+                            key={activeView} 
+                            nodeRef={nodeRef}
+                            timeout={500} 
+                            classNames="view-fade"
+                            unmountOnExit
+                        >
+                            <div ref={nodeRef} className="w-full h-full">
+                                <Suspense fallback={<DashboardSkeleton />}>
+                                    {renderMainContent()}
+                                </Suspense>
+                            </div>
                         </CSSTransition>
                     </SwitchTransition>
                 </main>
@@ -646,8 +658,15 @@ const TeacherDashboardLayout = (props) => {
 
 			{/* ROBOT & MODALS */}
             <Suspense fallback={null}>
-                <CSSTransition in={!isChatOpen && activeView === 'home'} timeout={400} classNames="animated-robot" unmountOnExit>
-                    <div className="fixed bottom-40 right-4 z-[45] lg:bottom-8 lg:right-8">
+                {/* FIX: Add nodeRef to Robot CSSTransition */}
+                <CSSTransition 
+                    in={!isChatOpen && activeView === 'home'} 
+                    timeout={400} 
+                    classNames="animated-robot" 
+                    unmountOnExit
+                    nodeRef={robotRef}
+                >
+                    <div ref={robotRef} className="fixed bottom-40 right-4 z-[45] lg:bottom-8 lg:right-8">
                         <AnimatedRobot onClick={() => setIsChatOpen(true)} />
                     </div>
                 </CSSTransition>
