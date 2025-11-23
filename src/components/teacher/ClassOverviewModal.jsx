@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import AnnouncementViewModal from '../common/AnnouncementViewModal';
 import QuizScoresModal from './QuizScoresModal';
 import ScoresTab from './ScoresTab';
 import { db } from '../../services/firebase';
 import {
-    // ... (no changes to imports)
     collection,
     query,
     where,
@@ -14,16 +13,13 @@ import {
     updateDoc,
     doc,
     deleteDoc,
-    Timestamp,
     onSnapshot,
     getDocs,
 	getDoc,
     serverTimestamp,
     writeBatch
 } from 'firebase/firestore';
-import { Button } from '@tremor/react';
 import {
-    // ... (no changes to imports)
     PencilSquareIcon,
     TrashIcon,
     CalendarDaysIcon,
@@ -34,7 +30,6 @@ import {
     PlusCircleIcon,
     ChartBarIcon,
     ChevronDownIcon,
-    ChevronUpIcon,
     XMarkIcon,
     ClockIcon,
     DocumentChartBarIcon
@@ -47,12 +42,17 @@ import ViewQuizModal from './ViewQuizModal';
 import GenerateReportModal from './GenerateReportModal';
 import EditAvailabilityModal from './EditAvailabilityModal';
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
-
-// --- ADDED: Import Spinner ---
 import Spinner from '../common/Spinner';
 
+// --- HELPER: AURORA BACKGROUND ---
+const AuroraBackground = () => (
+    <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-blue-400/20 dark:bg-blue-500/10 blur-[120px] animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-purple-400/20 dark:bg-purple-500/10 blur-[100px] animate-pulse delay-1000"></div>
+    </div>
+);
+
 const fetchDocsInBatches = async (collectionName, ids) => {
-    // ... (no changes in this function)
     if (!ids || ids.length === 0) return [];
     const chunks = [];
     for (let i = 0; i < ids.length; i += 30) {
@@ -64,30 +64,6 @@ const fetchDocsInBatches = async (collectionName, ids) => {
     const snapshots = await Promise.all(fetchPromises);
     return snapshots.flatMap(snapshot => snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
 };
-
-const PostHeader = ({ post, onEditDates }) => (
-    // ... (no changes in this component)
-    <>
-        <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xl px-2 pt-1">{post.title}</h3>
-        <div className="text-xs text-slate-500 dark:text-slate-400 px-2 pb-2 mb-2 border-b border-slate-200/80 dark:border-slate-700/80 flex flex-wrap gap-x-3">
-            <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
-            {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
-            {(() => {
-                let targetText = "Target: All Students";
-                if (post.targetAudience === 'all') {
-                    targetText = "Target: All Students";
-                } else if (post.targetAudience === 'specific') {
-                    targetText = `Target: ${post.targetStudentIds?.length || 0} Student(s)`;
-                }
-                return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />{targetText}</span>;
-            })()}
-            <button onClick={onEditDates} title="Edit Availability" className="flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:underline">
-                <PencilSquareIcon className="w-3 h-3" /> Edit
-            </button>
-        </div>
-    </>
-);
-
 
 const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => {
     const { userProfile } = useAuth();
@@ -116,11 +92,9 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const [selectedLessons, setSelectedLessons] = useState(new Set());
     const [selectedQuizzes, setSelectedQuizzes] = useState(new Set());
 
-    // --- ADDED: State for the fresh student list ---
     const [freshStudentData, setFreshStudentData] = useState([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
 
-    // --- ADDED: State for the custom confirmation modal ---
     const [confirmModal, setConfirmModal] = useState({
         isOpen: false,
         message: '',
@@ -145,39 +119,30 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             setClassQuizIds([]);
             setSelectedLessons(new Set());
             setSelectedQuizzes(new Set());
-            // --- ADDED: Clear student list state on close ---
             setFreshStudentData([]);
             setLoadingStudents(false);
         }
     }, [isOpen, classData?.id]);
 
-    // --- (useEffect for freshStudentData remains unchanged) ---
     useEffect(() => {
         const fetchFreshStudentData = async () => {
             if (activeTab !== 'students' || !classData?.students || classData.students.length === 0) {
-                setFreshStudentData([]); // Clear if not on tab or no students
+                setFreshStudentData([]); 
                 return;
             }
 
             setLoadingStudents(true);
             try {
-                // 1. Get just the IDs from the stale classData
                 const studentIds = classData.students.map(s => s.id);
-
-                // 2. Fetch fresh user documents using the existing helper function
                 const students = await fetchDocsInBatches('users', studentIds);
-
-                // 3. Sort them for display
                 const sortedStudents = students.sort((a, b) => 
                     (a.lastName || '').localeCompare(b.lastName || '')
                 );
-                
                 setFreshStudentData(sortedStudents);
 
             } catch (err) {
                 console.error("Error fetching fresh student data:", err);
                 showToast("Could not load updated student list.", "error");
-                // Fallback: use the stale data if fetch fails
                 setFreshStudentData(classData.students.sort((a,b) => (a.lastName || '').localeCompare(b.lastName || '')));
             } finally {
                 setLoadingStudents(false);
@@ -189,7 +154,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
 
     useEffect(() => {
-        // ... (no changes in this effect - announcements)
         if (!isOpen || !classData?.id) return;
         let active = true;
         const annQuery = query(collection(db, "studentAnnouncements"), where("classId", "==", classData.id), orderBy("createdAt", "desc"));
@@ -202,7 +166,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     }, [isOpen, classData?.id]);
 
     useEffect(() => {
-        // ... (no changes in this effect - posts/content)
         if (!isOpen || !classData?.id) return;
         let active = true;
         const postsQuery = query(collection(db, `classes/${classData.id}/posts`), orderBy('createdAt', 'asc'));
@@ -230,7 +193,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     }, [isOpen, classData?.id]);
 
     useEffect(() => {
-        // ... (no changes in this effect - scores)
         if (!isOpen || !classData?.id) return;
         setLoading(true);
         let active = true;
@@ -248,18 +210,15 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     }, [isOpen, classData?.id]);
 
     useEffect(() => {
-        // ... (no changes in this effect - quiz locks)
         if (!isOpen || !classData?.id) {
-             setQuizLocks([]); // Clear locks if modal is closed or no class
+             setQuizLocks([]); 
              return;
         }
 
-        // When classQuizIds changes (e.g., a quiz is deleted),
-        // filter the local state to remove locks for quiz IDs that no longer exist.
         setQuizLocks(prevLocks => prevLocks.filter(lock => classQuizIds.includes(lock.quizId)));
 
         if (classQuizIds.length === 0) {
-            setQuizLocks([]); // No quizzes, so no locks
+            setQuizLocks([]); 
             return;
         }
 
@@ -279,9 +238,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             return onSnapshot(locksQuery, (locksSnap) => {
                 setQuizLocks(prevLocks => {
                     const locksFromThisChunk = locksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    // Get all locks NOT in this chunk
                     const otherLocks = prevLocks.filter(lock => !chunk.includes(lock.quizId));
-                    // Return the combination
                     return [...otherLocks, ...locksFromThisChunk];
                 });
             }, (error) => {
@@ -293,7 +250,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     }, [isOpen, classData?.id, classQuizIds]);
 
     const togglePostCollapse = (postId) => {
-        // ... (no changes in this function)
         setCollapsedPosts(prev => {
             const newSet = new Set(prev);
             if (newSet.has(postId)) newSet.delete(postId);
@@ -303,7 +259,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     };
 
     const toggleUnitCollapse = (postId, unitDisplayName) => {
-        // ... (no changes in this function)
         const unitKey = `${postId}_${unitDisplayName}`;
         setCollapsedUnits(prev => {
             const newSet = new Set(prev);
@@ -316,7 +271,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const onChangeEdit = (e) => setEditContent(e.target.value);
 
     useEffect(() => {
-        // ... (no changes in this effect - collapse logic)
         if (isOpen && classData?.id && (activeTab === 'lessons' || activeTab === 'quizzes')) {
             const newCollapsedPosts = new Set();
             const newCollapsedUnits = new Set();
@@ -356,14 +310,12 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     }, [activeTab, sharedContentPosts, units, isOpen, classData?.id]);
 
     const handleTabChange = (tabName) => {
-        // ... (no changes in this function)
         setActiveTab(tabName);
         setSelectedLessons(new Set());
         setSelectedQuizzes(new Set());
     };
 
     const handleToggleSelection = (contentType, contentId) => {
-        // ... (no changes in this function)
         const set = contentType === 'lesson' ? setSelectedLessons : setSelectedQuizzes;
         set(prevSet => {
             const newSet = new Set(prevSet);
@@ -376,12 +328,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         });
     };
 
-    // --- MODIFIED: This function now just opens the confirmation modal ---
 	const handleDeleteSelected = (contentType) => {
-	    // --- ⬇⬇⬇ START OF BUG FIX ⬇⬇⬇ ---
-        // Defensively ensure selectedSet is a Set, fixing the error.
         const selectedSet = new Set(contentType === 'lesson' ? selectedLessons : selectedQuizzes);
-        // --- ⬆⬆⬆ END OF BUG FIX ⬆⬆⬆ ---
 
 	    if (selectedSet.size === 0) return;
 
@@ -390,17 +338,15 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	            ? `Are you sure you want to unshare these ${selectedSet.size} quizzes? This will also delete all student submissions and quiz locks for these quizzes in this class.`
 	            : `Are you sure you want to unshare these ${selectedSet.size} lessons?`;
 
-        // --- MODIFIED: Open modal instead of window.confirm ---
 	    setConfirmModal({
             isOpen: true,
             message: confirmMessage,
             confirmText: 'Delete',
             confirmColor: 'red',
-            onConfirm: () => executeDeleteSelected(contentType, selectedSet) // Pass the Set
+            onConfirm: () => executeDeleteSelected(contentType, selectedSet) 
         });
 	};
 
-    // --- NEW: This function contains the original deletion logic ---
 	const executeDeleteSelected = async (contentType, selectedSet) => {
 	    if (!classData?.id || selectedSet.size === 0) return;
 
@@ -416,7 +362,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	            if (currentContent.length === 0) continue;
 
 	            const contentToKeep = currentContent.filter((item) => {
-                    // --- BUG FIX (already applied in wrapper, but good to have here too) ---
 	                const isSelected = selectedSet.has(item.id); 
 	                if (isSelected && contentType === 'quiz') {
 	                    removedQuizIds.add(item.id);
@@ -516,7 +461,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	    }
 	};
 
-    // --- MODIFIED: This function now just opens the confirmation modal ---
     const handleUnlockQuiz = (quizId, studentId) => {
         setConfirmModal({
             isOpen: true,
@@ -527,7 +471,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         });
     };
 
-    // --- NEW: This function contains the original unlock logic ---
     const executeUnlockQuiz = async (quizId, studentId) => {
         try {
             await deleteDoc(doc(db, 'quizLocks', `${quizId}_${studentId}`));
@@ -538,12 +481,10 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     };
 
     const handleEditDatesClick = (post) => {
-        // ... (no changes in this function)
         setPostToEdit(post);
         setIsEditModalOpen(true);
     };
 
-	// --- MODIFIED: This function now just opens the confirmation modal ---
 	const handleDeleteContentFromPost = (postId, contentIdToRemove, contentType) => {
 	    if (!classData?.id) return;
 
@@ -552,7 +493,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 	            ? `Are you sure you want to unshare this quiz? This will also delete all student submissions and quiz locks for this quiz in this class.`
 	            : `Are you sure you want to unshare this lesson?`;
 
-        // --- MODIFIED: Open modal instead of window.confirm ---
 	    setConfirmModal({
             isOpen: true,
             message: confirmMessage,
@@ -562,7 +502,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         });
 	};
 
-    // --- NEW: This function contains the original deletion logic ---
 	const executeDeleteContentFromPost = async (postId, contentIdToRemove, contentType) => {
 	    const fieldToUpdate = contentType === 'quiz' ? 'quizzes' : 'lessons';
 
@@ -651,13 +590,11 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
 
     const handleDeleteUnitContent = async (unitDisplayName, contentType) => {
-        // ... (no changes in this function)
         console.warn("handleDeleteUnitContent is deprecated with the new layout.");
     };
 
 
     const handlePostUpdate = (updateInfo) => {
-        // ... (no changes in this function)
         if (updateInfo.isDeleted) {
             setSharedContentPosts(prevPosts => prevPosts.filter(p => p.id !== updateInfo.id));
         } else if (updateInfo.isMassUpdate) {
@@ -670,7 +607,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
     };
 
-    // --- MODIFIED: This function now just opens the confirmation modal ---
     const handleDelete = (id) => {
         setConfirmModal({
             isOpen: true,
@@ -681,7 +617,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         });
     };
 
-    // --- NEW: This function contains the original announcement delete logic ---
     const executeDeleteAnnouncement = async (id) => {
         try {
             await deleteDoc(doc(db, 'studentAnnouncements', id));
@@ -692,7 +627,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     };
 
     const handleEditSave = async (id) => {
-        // ... (no changes in this function)
         const trimmedContent = editContent.trim();
         if (!trimmedContent) return showToast("Content cannot be empty.", "error");
         try {
@@ -708,7 +642,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
     
     const renderContent = () => {
-        // ... (All sub-components and rendering logic remain unchanged) ...
         if ((loading && activeTab !== 'announcements') || (loadingStudents && activeTab === 'students')) {
             return (
                 <div className="flex justify-center items-center h-full min-h-[200px]">
@@ -718,10 +651,12 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
 
         const EmptyState = ({ icon: Icon, text, subtext }) => (
-            <div className="text-center p-8 sm:p-12 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark mt-4">
-                <Icon className="h-16 w-16 mb-4 text-slate-300 dark:text-slate-600 mx-auto" />
-                <p className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-200">{text}</p>
-                <p className="mt-2 text-base text-slate-500 dark:text-slate-400">{subtext}</p>
+            <div className="text-center p-10 sm:p-14 bg-white/50 dark:bg-white/5 backdrop-blur-md rounded-3xl border border-white/20 dark:border-white/5 mt-6 flex flex-col items-center justify-center">
+                <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center mb-5">
+                    <Icon className="h-10 w-10 text-slate-400 dark:text-slate-500" />
+                </div>
+                <p className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">{text}</p>
+                <p className="mt-2 text-base text-slate-500 dark:text-slate-400 max-w-xs mx-auto">{subtext}</p>
             </div>
         );
         const customUnitSort = (a, b) => {
@@ -735,19 +670,18 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             return a.localeCompare(b);
         };
         const ListItem = ({ children, isChecked }) => (
-            <div className={`flex items-center justify-between gap-2 sm:gap-4 py-2 px-2 sm:py-3 sm:px-4 rounded-xl transition-colors ${isChecked ? 'bg-sky-100/50 dark:bg-sky-900/30' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/50'}`}>
+            <div className={`flex items-center justify-between gap-3 py-3 px-4 transition-colors border-b border-slate-100 dark:border-white/5 last:border-0 ${isChecked ? 'bg-blue-50/60 dark:bg-blue-900/20' : 'hover:bg-slate-50/80 dark:hover:bg-white/5'}`}>
                 {children}
             </div>
         );
         
         const PostGroup = ({ children }) => (
-            <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark">
+            <div className="bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-xl rounded-3xl border border-white/20 dark:border-white/5 shadow-sm overflow-hidden mb-6">
                 {children}
             </div>
         );
 
         if (activeTab === 'lessons') {
-            // ... (no changes in this block)
             const lessonsByPostAndUnit = sharedContentPosts.reduce((acc, post) => {
                 const postLessons = (post.lessons || []);
                 if (postLessons.length === 0) return acc;
@@ -771,7 +705,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             const selectedSet = selectedLessons;
 
             return (
-                <div className="space-y-6 pr-2 max-h-full overflow-y-auto custom-scrollbar">
+                <div className="space-y-6 pb-8">
                     {postEntries.length > 0 ? postEntries.map(({ post, units: unitsInPost }) => {
                         
                         const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
@@ -780,38 +714,39 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         return (
                             <PostGroup key={post.id}>
                                 <button 
-                                    className="w-full text-left p-3 sm:p-4 group"
+                                    className="w-full text-left p-5 group"
                                     onClick={() => togglePostCollapse(post.id)}
                                 >
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors truncate">{post.title}</h3>
-                                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex flex-wrap gap-x-3">
-                                                <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
-                                                {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
+                                            <h3 className="font-bold text-slate-900 dark:text-white text-xl group-hover:text-[#007AFF] dark:group-hover:text-[#0A84FF] transition-colors truncate tracking-tight">{post.title}</h3>
+                                            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-2 flex flex-wrap gap-x-4">
+                                                <span className="flex items-center gap-1.5"><CalendarDaysIcon className="h-3.5 w-3.5 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
+                                                {post.availableUntil && <span className="flex items-center gap-1.5"><ClockIcon className="h-3.5 w-3.5 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
                                                 {(() => {
-                                                    let targetText = "Target: All Students";
-                                                    if (post.targetAudience === 'all') targetText = "Target: All Students";
-                                                    else if (post.targetAudience === 'specific') targetText = `Target: ${post.targetStudentIds?.length || 0} Student(s)`;
-                                                    return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />{targetText}</span>;
+                                                    let targetText = "All Students";
+                                                    if (post.targetAudience === 'specific') targetText = `${post.targetStudentIds?.length || 0} Student(s)`;
+                                                    return <span className="flex items-center gap-1.5"><UsersIcon className="h-3.5 w-3.5 text-slate-400" />Target: {targetText}</span>;
                                                 })()}
                                             </div>
                                         </div>
-                                        <div className="flex-shrink-0 flex items-center gap-1 sm:gap-2 pl-2 sm:pl-4">
+                                        <div className="flex-shrink-0 flex items-center gap-3 pl-4">
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); handleEditDatesClick(post); }} 
                                                 title="Edit Availability" 
-                                                className="flex items-center gap-1 text-xs sm:text-sm text-sky-600 dark:text-sky-400 hover:underline p-1"
+                                                className="flex items-center gap-1.5 text-sm font-semibold text-[#007AFF] hover:text-[#0051A8] px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                                             >
                                                 <PencilSquareIcon className="w-4 h-4" /> <span className="hidden sm:inline">Manage</span>
                                             </button>
-                                            <ChevronDownIcon className={`h-6 w-6 text-slate-500 dark:text-slate-400 transition-transform ${isPostCollapsed ? '' : 'rotate-180'}`} />
+                                            <div className={`p-1 rounded-full bg-slate-100 dark:bg-white/10 transition-transform duration-300 ${isPostCollapsed ? '' : 'rotate-180'}`}>
+                                                <ChevronDownIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                                            </div>
                                         </div>
                                     </div>
                                 </button>
                                 
                                 {!isPostCollapsed && (
-                                    <div className="space-y-3 px-2 sm:px-4 pb-4">
+                                    <div className="space-y-4 px-4 pb-5">
                                         {sortedUnitKeys.map(unitDisplayName => {
                                             const lessonsInUnit = unitsInPost[unitDisplayName];
                                             const unitKey = `${post.id}_${unitDisplayName}`;
@@ -821,16 +756,16 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                             const isAllSelected = lessonIdsInUnit.length > 0 && lessonIdsInUnit.every(id => selectedSet.has(id));
 
                                             return (
-                                                <div key={unitKey} className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
-                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 border-b border-slate-200/80 dark:border-slate-700/80">
+                                                <div key={unitKey} className="bg-white/50 dark:bg-black/20 rounded-2xl border border-slate-200/60 dark:border-white/5 overflow-hidden">
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-4 py-3 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5">
                                                         <button className="flex-1 flex items-center gap-2 group min-w-0" onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}>
-                                                            <h4 className="font-semibold text-sm sm:text-base text-slate-800 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors truncate">{unitDisplayName}</h4>
-                                                            <ChevronDownIcon className={`h-5 w-5 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
+                                                            <h4 className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-200 group-hover:text-[#007AFF] transition-colors truncate">{unitDisplayName}</h4>
+                                                            <ChevronDownIcon className={`h-4 w-4 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
                                                         </button>
-                                                        <label className="flex items-center justify-end gap-2 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0">
+                                                        <label className="flex items-center justify-end gap-2.5 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0 select-none">
                                                             <input
                                                                 type="checkbox"
-                                                                className="h-4 w-4 rounded text-sky-600 border-slate-400 dark:border-slate-600 dark:bg-slate-700 focus:ring-sky-500"
+                                                                className="h-4 w-4 rounded-[4px] text-[#007AFF] border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-[#007AFF]"
                                                                 checked={isAllSelected}
                                                                 onChange={() => {
                                                                     const set = setSelectedLessons;
@@ -842,29 +777,29 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                     });
                                                                 }}
                                                             />
-                                                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Select All</span>
+                                                            <span className="text-[13px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Select All</span>
                                                         </label>
                                                     </div>
                                                     
                                                     {!isUnitCollapsed && (
-                                                        <div className="mt-1 px-2 pb-2">
+                                                        <div className="divide-y divide-slate-100 dark:divide-white/5">
                                                             {lessonsInUnit.sort((a, b) => (a.order || 0) - (b.order || 0) || a.title.localeCompare(b.title)).map(lessonDetails => {
                                                                 const isChecked = selectedSet.has(lessonDetails.id);
                                                                 return (
                                                                     <ListItem key={lessonDetails.id} isChecked={isChecked}>
-                                                                        <label className="p-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                                                        <label className="p-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
                                                                             <input
                                                                                 type="checkbox"
-                                                                                className="h-5 w-5 rounded text-sky-600 border-slate-400 dark:border-slate-600 dark:bg-slate-700 focus:ring-sky-500 focus:ring-2"
+                                                                                className="h-5 w-5 rounded-[6px] text-[#007AFF] border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-[#007AFF] transition-all"
                                                                                 checked={isChecked}
                                                                                 onChange={() => handleToggleSelection('lesson', lessonDetails.id)}
                                                                             />
                                                                         </label>
                                                                         <div className="flex-1 min-w-0" onClick={() => setViewLessonData(lessonDetails)}>
-                                                                            <p className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors truncate">{lessonDetails.title}</p>
+                                                                            <p className="font-semibold text-slate-900 dark:text-white text-base cursor-pointer hover:text-[#007AFF] transition-colors truncate">{lessonDetails.title}</p>
                                                                         </div>
                                                                         <div className="flex space-x-1 flex-shrink-0">
-                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, lessonDetails.id, 'lesson'); }} className="p-2 rounded-full text-red-500 dark:text-red-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Unshare Lesson"><TrashIcon className="w-5 h-5" /></button>
+                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, lessonDetails.id, 'lesson'); }} className="p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Unshare Lesson"><TrashIcon className="w-5 h-5" /></button>
                                                                         </div>
                                                                     </ListItem>
                                                                 );
@@ -884,7 +819,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
         
         if (activeTab === 'quizzes') {
-            // ... (no changes in this block)
             const quizzesByPostAndUnit = sharedContentPosts.reduce((acc, post) => {
                 const postQuizzes = (post.quizzes || []);
                 if (postQuizzes.length === 0) return acc;
@@ -908,7 +842,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             const selectedSet = selectedQuizzes;
 
             return (
-                <div className="space-y-6 pr-2 max-h-full overflow-y-auto custom-scrollbar">
+                <div className="space-y-6 pb-8">
                     {postEntries.length > 0 ? postEntries.map(({ post, units: unitsInPost }) => {
                         
                         const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
@@ -917,38 +851,39 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         return (
                             <PostGroup key={post.id}>
                                 <button 
-                                    className="w-full text-left p-3 sm:p-4 group"
+                                    className="w-full text-left p-5 group"
                                     onClick={() => togglePostCollapse(post.id)}
                                 >
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors truncate">{post.title}</h3>
-                                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex flex-wrap gap-x-3">
-                                                <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
-                                                {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
+                                            <h3 className="font-bold text-slate-900 dark:text-white text-xl group-hover:text-[#007AFF] dark:group-hover:text-[#0A84FF] transition-colors truncate tracking-tight">{post.title}</h3>
+                                            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-2 flex flex-wrap gap-x-4">
+                                                <span className="flex items-center gap-1.5"><CalendarDaysIcon className="h-3.5 w-3.5 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
+                                                {post.availableUntil && <span className="flex items-center gap-1.5"><ClockIcon className="h-3.5 w-3.5 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
                                                 {(() => {
-                                                    let targetText = "Target: All Students";
-                                                    if (post.targetAudience === 'all') targetText = "Target: All Students";
-                                                    else if (post.targetAudience === 'specific') targetText = `Target: ${post.targetStudentIds?.length || 0} Student(s)`;
-                                                    return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />{targetText}</span>;
+                                                    let targetText = "All Students";
+                                                    if (post.targetAudience === 'specific') targetText = `${post.targetStudentIds?.length || 0} Student(s)`;
+                                                    return <span className="flex items-center gap-1.5"><UsersIcon className="h-3.5 w-3.5 text-slate-400" />Target: {targetText}</span>;
                                                 })()}
                                             </div>
                                         </div>
-                                        <div className="flex-shrink-0 flex items-center gap-1 sm:gap-2 pl-2 sm:pl-4">
+                                        <div className="flex-shrink-0 flex items-center gap-3 pl-4">
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); handleEditDatesClick(post); }} 
                                                 title="Edit Availability" 
-                                                className="flex items-center gap-1 text-xs sm:text-sm text-sky-600 dark:text-sky-400 hover:underline p-1"
+                                                className="flex items-center gap-1.5 text-sm font-semibold text-[#007AFF] hover:text-[#0051A8] px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                                             >
                                                 <PencilSquareIcon className="w-4 h-4" /> <span className="hidden sm:inline">Manage</span>
                                             </button>
-                                            <ChevronDownIcon className={`h-6 w-6 text-slate-500 dark:text-slate-400 transition-transform ${isPostCollapsed ? '' : 'rotate-180'}`} />
+                                            <div className={`p-1 rounded-full bg-slate-100 dark:bg-white/10 transition-transform duration-300 ${isPostCollapsed ? '' : 'rotate-180'}`}>
+                                                <ChevronDownIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                                            </div>
                                         </div>
                                     </div>
                                 </button>
                                 
                                 {!isPostCollapsed && (
-                                    <div className="space-y-3 px-2 sm:px-4 pb-4">
+                                    <div className="space-y-4 px-4 pb-5">
                                         {sortedUnitKeys.map(unitDisplayName => {
                                             const quizzesInUnit = unitsInPost[unitDisplayName];
                                             const unitKey = `${post.id}_${unitDisplayName}`;
@@ -958,16 +893,16 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                             const isAllSelected = quizIdsInUnit.length > 0 && quizIdsInUnit.every(id => selectedSet.has(id));
 
                                             return (
-                                                <div key={unitKey} className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
-                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 border-b border-slate-200/80 dark:border-slate-700/80">
+                                                <div key={unitKey} className="bg-white/50 dark:bg-black/20 rounded-2xl border border-slate-200/60 dark:border-white/5 overflow-hidden">
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-4 py-3 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5">
                                                         <button className="flex-1 flex items-center gap-2 group min-w-0" onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}>
-                                                            <h4 className="font-semibold text-sm sm:text-base text-slate-800 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 truncate">{unitDisplayName}</h4>
-                                                            <ChevronDownIcon className={`h-5 w-5 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
+                                                            <h4 className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-200 group-hover:text-[#007AFF] transition-colors truncate">{unitDisplayName}</h4>
+                                                            <ChevronDownIcon className={`h-4 w-4 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
                                                         </button>
-                                                        <label className="flex items-center justify-end gap-2 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0">
+                                                        <label className="flex items-center justify-end gap-2.5 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0 select-none">
                                                             <input
                                                                 type="checkbox"
-                                                                className="h-4 w-4 rounded text-sky-600 dark:border-slate-600 dark:bg-slate-700 border-slate-400 focus:ring-sky-500"
+                                                                className="h-4 w-4 rounded-[4px] text-[#007AFF] border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-[#007AFF]"
                                                                 checked={isAllSelected}
                                                                 onChange={() => {
                                                                     const set = setSelectedQuizzes;
@@ -979,20 +914,20 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                     });
                                                                 }}
                                                             />
-                                                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Select All</span>
+                                                            <span className="text-[13px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Select All</span>
                                                         </label>
                                                     </div>
                                                     
                                                     {!isUnitCollapsed && (
-                                                        <div className="mt-1 px-2 pb-2">
+                                                        <div className="divide-y divide-slate-100 dark:divide-white/5">
                                                             {quizzesInUnit.sort((a, b) => (a.order || 0) - (b.order || 0) || a.title.localeCompare(b.title)).map(quizDetails => {
                                                                 const isChecked = selectedSet.has(quizDetails.id);
                                                                 return (
                                                                     <ListItem key={quizDetails.id} isChecked={isChecked}>
-                                                                        <label className="p-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                                                        <label className="p-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
                                                                             <input
                                                                                 type="checkbox"
-                                                                                className="h-5 w-5 rounded text-sky-600 dark:border-slate-600 dark:bg-slate-700 border-slate-400 focus:ring-sky-500 focus:ring-2"
+                                                                                className="h-5 w-5 rounded-[6px] text-[#007AFF] border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-[#007AFF] transition-all"
                                                                                 checked={isChecked}
                                                                                 onChange={() => handleToggleSelection('quiz', quizDetails.id)}
                                                                             />
@@ -1006,12 +941,12 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                                 availableUntil: post.availableUntil
                                                                             })}
                                                                         >
-                                                                            <p className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors truncate">
+                                                                            <p className="font-semibold text-slate-900 dark:text-white text-base cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors truncate">
                                                                                 {quizDetails.title}
                                                                             </p>
                                                                         </div>
                                                                         <div className="flex space-x-1 flex-shrink-0">
-                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, quizDetails.id, 'quiz'); }} className="p-2 rounded-full text-red-500 dark:text-red-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Unshare Quiz"><TrashIcon className="w-5 h-5" /></button>
+                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, quizDetails.id, 'quiz'); }} className="p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Unshare Quiz"><TrashIcon className="w-5 h-5" /></button>
                                                                         </div>
                                                                     </ListItem>
                                                                 );
@@ -1030,12 +965,11 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             );
         }
         if (activeTab === 'scores') {
-            // ... (no changes in this block)
             const allQuizzesFromPosts = sharedContentPosts.flatMap(p => p.quizzes || []);
             const allLessonsFromPosts = sharedContentPosts.flatMap(p => p.lessons || []);
             
             return (
-                 <div className="pr-2 max-h-full overflow-y-auto custom-scrollbar">
+                 <div className="pb-8">
                     <ScoresTab
                         quizzes={allQuizzesFromPosts}
                         units={units}
@@ -1052,7 +986,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             );
         }
         if (activeTab === 'students') {
-            // ... (no changes in this block - uses freshStudentData)
             if (loadingStudents) {
                 return (
                     <div className="flex justify-center items-center h-full min-h-[200px]">
@@ -1062,25 +995,27 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             }
 
             return (
-				                 <div className="space-y-3 pr-2 max-h-full overflow-y-auto custom-scrollbar">
-				                    {(freshStudentData.length > 0) ? (
-				                        <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark p-1">
-				                            {freshStudentData.map(student => (
-		<ListItem key={student.id} isChecked={false}>
-		                                    <div className="flex items-center gap-2 sm:gap-4">
-		                                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex-shrink-0 overflow-hidden">
-		                                            <UserInitialsAvatar user={student} size="full" />
-		                                        </div>
-		                                        <div>
-                                            <p className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">{student.lastName || '[N/A]'}, {student.firstName || '[N/A]'}</p>
-                                            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">ID: {student.id}</p>
+                 <div className="space-y-3 pb-8">
+                    {(freshStudentData.length > 0) ? (
+                        <div className="bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-xl rounded-3xl border border-white/20 dark:border-white/5 shadow-sm overflow-hidden">
+                            <div className="divide-y divide-slate-100 dark:divide-white/5">
+                                {freshStudentData.map(student => (
+                                    <div key={student.id} className="flex items-center justify-between gap-4 py-4 px-5 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden ring-2 ring-white dark:ring-white/10 shadow-sm">
+                                                <UserInitialsAvatar user={student} size="full" />
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-slate-900 dark:text-white text-base">{student.lastName || '[N/A]'}, {student.firstName || '[N/A]'}</p>
+                                                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">ID: {student.id}</p>
+                                            </div>
                                         </div>
+                                        <button onClick={() => onRemoveStudent(classData.id, student)} className="p-2 rounded-full text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title={`Remove ${student.firstName}`}>
+                                            <TrashIcon className="w-5 h-5" />
+                                        </button>
                                     </div>
-                                    <button onClick={() => onRemoveStudent(classData.id, student)} className="p-2 rounded-full text-red-500 dark:text-red-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title={`Remove ${student.firstName}`}>
-                                        <TrashIcon className="w-5 h-5" />
-                                    </button>
-                                </ListItem>
-                            ))}
+                                ))}
+                            </div>
                         </div>
                     ) : <EmptyState icon={UsersIcon} text="No students enrolled" subtext="Share the class code to get students enrolled." />}
                 </div>
@@ -1088,9 +1023,9 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
         
         return (
-            <div className="flex flex-col pr-2 max-h-full overflow-y-auto custom-scrollbar">
+            <div className="flex flex-col pb-8">
                 {showAddForm && (<div className="mb-6 flex-shrink-0"><CreateClassAnnouncementForm classId={classData.id} onAnnouncementPosted={() => setShowAddForm(false)} /></div>)}
-                <div className="space-y-4 flex-grow">
+                <div className="space-y-5 flex-grow">
                     {announcements.length > 0 ? announcements.map(post => (<AnnouncementListItem key={post.id} post={post} isOwn={userProfile?.id === post.teacherId} onEdit={() => { setEditingId(post.id); setEditContent(post.content); }} onDelete={() => handleDelete(post.id)} isEditing={editingId === post.id} editContent={editContent} onChangeEdit={onChangeEdit} onSaveEdit={() => handleEditSave(post.id)} onCancelEdit={() => setEditingId(null)} onClick={() => setSelectedAnnouncement(post)} />)) : <EmptyState icon={MegaphoneIcon} text="No announcements yet" subtext="Post important updates for your students here." />}
                 </div>
             </div>
@@ -1099,7 +1034,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
 
     const tabs = [
-        // ... (no changes in this array)
         { id: 'announcements', name: 'Announcements', icon: MegaphoneIcon },
         { id: 'lessons', name: 'Lessons', icon: BookOpenIcon },
         { id: 'quizzes', name: 'Quizzes', icon: AcademicCapIcon },
@@ -1110,149 +1044,185 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     return (
         <>
             <Modal
-                // ... (no changes to Modal props)
                 isOpen={isOpen}
                 onClose={onClose}
                 title=""
                 size="screen" 
-                roundedClass="rounded-2xl"
-                containerClassName="h-full p-2 sm:p-4 bg-black/30 backdrop-blur-sm"
-                contentClassName="p-0"
-                showCloseButton={true}
+                roundedClass="rounded-none sm:rounded-3xl"
+                containerClassName="h-full p-0 sm:p-4 bg-black/40 backdrop-blur-md flex items-center justify-center"
+                contentClassName="p-0 w-full h-full flex items-center justify-center pointer-events-none" 
+                showCloseButton={false}
             >
-                <div className="p-2 sm:p-4 md:p-8 bg-neumorphic-base dark:bg-neumorphic-base-dark h-[95vh] sm:h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl">
+                {/* FIXED STRUCTURE WRAPPER:
+                   - h-[100dvh] (Dynamic Viewport Height) ensures full height on mobile including browser bars.
+                   - sm:h-[85vh] gives the "card" look on desktop.
+                   - flex flex-col allows us to pin the header and scroll the rest.
+                   - pointer-events-auto restores interaction.
+                */}
+                <div className="pointer-events-auto relative w-full max-w-7xl h-[100dvh] sm:h-[85vh] bg-[#f5f5f7] dark:bg-black overflow-hidden flex flex-col mx-auto rounded-none sm:rounded-[32px] shadow-2xl border border-white/20 dark:border-white/10">
                     
-                    <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark flex-shrink-0">
-                        {/* ... (no changes to header) */}
-                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">{classData?.name || 'Class Details'}</h1>
-                        <div className="flex flex-wrap items-center gap-x-4 sm:gap-x-6 gap-y-2 mt-3">
-                            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400">
-                                <span className="font-medium text-slate-500 dark:text-slate-400">Grade Level:</span>
-                                <span className="font-semibold text-slate-700 dark:text-slate-200 ml-1.5">{classData?.gradeLevel}</span>
-                            </p>
-                            
-                            <div className="flex items-center gap-1.5 text-sm sm:text-base text-slate-600 dark:text-slate-400">
-                                <span className="font-medium text-slate-500 dark:text-slate-400">Class Owner:</span>
-                                <UserInitialsAvatar user={userProfile} size="w-6 h-6" />
-                                <span className="font-semibold text-slate-700 dark:text-slate-200">{userProfile?.displayName}</span>
+                    <AuroraBackground />
+                    
+                    {/* --- FIXED HEADER SECTION --- */}
+                    <div className="relative z-20 flex-shrink-0 bg-white/60 dark:bg-[#1c1c1e]/80 backdrop-blur-xl border-b border-white/20 dark:border-white/5">
+                        {/* Close Button */}
+                        <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-30">
+                             <button onClick={onClose} className="p-2 rounded-full bg-slate-200/50 dark:bg-white/10 hover:bg-slate-300/50 dark:hover:bg-white/20 transition-colors text-slate-600 dark:text-slate-300 backdrop-blur-md">
+                                <XMarkIcon className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {/* Title & Meta Area (reduced padding on mobile) */}
+                        <div className="px-5 pt-5 sm:px-8 sm:pt-8 pb-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-4 sm:mb-6 pr-10">
+                                <div>
+                                    <h1 className="text-2xl sm:text-4xl font-bold text-slate-900 dark:text-white tracking-tight drop-shadow-sm line-clamp-1">{classData?.name || 'Class Details'}</h1>
+                                    <div className="flex flex-wrap items-center gap-x-4 sm:gap-x-6 gap-y-2 mt-2">
+                                        <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-2">
+                                            <span className="px-2 py-0.5 rounded-md bg-slate-200/50 dark:bg-white/10 text-[10px] sm:text-xs uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Grade</span>
+                                            {classData?.gradeLevel}
+                                        </p>
+                                        
+                                        <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                                            <span className="px-2 py-0.5 rounded-md bg-slate-200/50 dark:bg-white/10 text-xs uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Owner</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <UserInitialsAvatar user={userProfile} size="w-5 h-5" />
+                                                <span>{userProfile?.displayName}</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-2">
+                                             <span className="px-2 py-0.5 rounded-md bg-slate-200/50 dark:bg-white/10 text-[10px] sm:text-xs uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Code</span>
+                                            <span className="font-mono font-bold text-[#007AFF] tracking-wider">{classData?.classCode}</span>
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
-                            
-                            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400">
-                                <span className="font-medium text-slate-500 dark:text-slate-400">Class Code:</span> 
-                                <span className="font-bold text-sky-600 dark:text-sky-400 ml-1.5 tracking-wider">{classData?.classCode}</span>
-                            </p>
+
+                            {/* SEGMENTED CONTROL TABS (Design Enhanced) 
+                                - Uses a background container to look like a segmented control.
+                                - Hides scrollbar but allows horizontal scroll on small screens.
+                            */}
+                            <div className="w-full overflow-hidden">
+                                <div className="flex items-center p-1.5 bg-slate-200/50 dark:bg-black/20 backdrop-blur-md rounded-2xl overflow-x-auto no-scrollbar max-w-full sm:w-fit shadow-inner">
+                                    {tabs.map(tab => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => handleTabChange(tab.id)}
+                                            className={`
+                                                relative flex-shrink-0 flex items-center gap-2 px-3 sm:px-5 py-2 rounded-xl font-semibold text-[13px] transition-all duration-300 ease-out
+                                                ${activeTab === tab.id
+                                                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-sm scale-[1.02]'
+                                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/30 dark:hover:bg-white/5'}
+                                            `}
+                                        >
+                                            <tab.icon className={`h-4 w-4 transition-colors ${activeTab === tab.id ? 'text-[#007AFF] dark:text-white' : ''}`} />
+                                            <span className="whitespace-nowrap">{tab.name} {tab.count !== undefined && <span className="opacity-60 text-xs ml-0.5">({tab.count})</span>}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <nav className="flex-shrink-0 flex items-center gap-2 p-2 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark overflow-x-auto">
-                        {/* ... (no changes to tabs) */}
-                        {tabs.map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => handleTabChange(tab.id)}
-                                className={`flex-shrink-0 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 ${
-                                    activeTab === tab.id
-                                        ? 'shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-sky-600 dark:text-sky-400'
-                                        : 'text-slate-700 dark:text-slate-300 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'
-                                }`}
-                            >
-                                <tab.icon className="h-5 w-5" />
-                                <span>{tab.name} {tab.count !== undefined && `(${tab.count})`}</span>
-                            </button>
-                        ))}
-                    </nav>
-
-                    <main className="flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark flex flex-col min-h-0 mt-4 sm:mt-6">
-                        <header className="px-4 pt-4 pb-4 sm:px-6 sm:pt-6 sm:pb-4 flex-shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-700/80">
-                            
-                            <div className="flex items-center gap-3">
-                                {/* ... (no changes to header buttons, logic is now in handleDeleteSelected) */}
+                    {/* --- FIXED TOOLBAR SECTION --- 
+                        Stays docked below header, above content.
+                    */}
+                    <div className="relative z-10 flex-shrink-0 px-5 sm:px-6 py-3 bg-white/30 dark:bg-black/20 backdrop-blur-md border-b border-white/10 flex items-center justify-between gap-4 min-h-[60px]">
+                         <div className="text-sm font-medium text-slate-500 dark:text-slate-400 hidden sm:block">
+                            {/* Placeholder for status text if needed */}
+                         </div>
+                         <div className="flex items-center gap-3 ml-auto w-full sm:w-auto justify-end">
                                 {activeTab === 'lessons' && selectedLessons.size > 0 && (
-                                    <Button 
+                                    <button 
                                         onClick={() => handleDeleteSelected('lesson')} 
-                                        icon={TrashIcon} 
-                                        color="red"
-                                        className="font-semibold text-white bg-red-600 border-red-700 shadow-lg hover:bg-red-700"
+                                        className="flex items-center justify-center gap-2 px-5 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-full shadow-lg shadow-red-500/30 active:scale-95 transition-all w-full sm:w-auto"
                                     >
-                                        <span className="hidden sm:inline">Delete {selectedLessons.size} Selected</span>
-                                        <span className="sm:hidden">Delete ({selectedLessons.size})</span>
-                                    </Button>
+                                        <TrashIcon className="w-4 h-4" />
+                                        <span>Delete Selected ({selectedLessons.size})</span>
+                                    </button>
                                 )}
                                 {activeTab === 'quizzes' && selectedQuizzes.size > 0 && (
-                                    <Button 
+                                    <button 
                                         onClick={() => handleDeleteSelected('quiz')} 
-                                        icon={TrashIcon} 
-                                        color="red"
-                                        className="font-semibold text-white bg-red-600 border-red-700 shadow-lg hover:bg-red-700"
+                                        className="flex items-center justify-center gap-2 px-5 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-full shadow-lg shadow-red-500/30 active:scale-95 transition-all w-full sm:w-auto"
                                     >
-                                        <span className="hidden sm:inline">Delete {selectedQuizzes.size} Selected</span>
-                                        <span className="sm:hidden">Delete ({selectedQuizzes.size})</span>
-                                    </Button>
+                                        <TrashIcon className="w-4 h-4" />
+                                        <span>Delete Selected ({selectedQuizzes.size})</span>
+                                    </button>
                                 )}
 
                                 {activeTab === 'scores' && (
                                     <button
                                         onClick={() => setIsReportModalOpen(true)}
-                                        className="flex items-center gap-2 px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:bg-blue-500 active:scale-95 transition-all duration-200"
+                                        className="flex items-center justify-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-bold rounded-full shadow-lg shadow-blue-500/25 active:scale-95 transition-all w-full sm:w-auto"
                                     >
-                                        <DocumentChartBarIcon className="h-5 w-5" />
-                                        <span className="hidden sm:inline">Generate Report</span>
-                                        <span className="sm:hidden">Report</span>
+                                        <DocumentChartBarIcon className="h-4 w-4" />
+                                        <span>Generate Report</span>
                                     </button>
                                 )}
 
                                 {activeTab === 'announcements' && userProfile?.role === 'teacher' && (
-                                    <div>
-                                        <Button onClick={() => setShowAddForm(prev => !prev)} icon={PlusCircleIcon} className="font-semibold text-blue-700 dark:text-blue-200 bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-800 dark:to-blue-900 shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset border-none">{showAddForm ? 'Cancel' : 'New'}</Button>
-                                    </div>
+                                    <button 
+                                        onClick={() => setShowAddForm(prev => !prev)} 
+                                        className="flex items-center justify-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-bold rounded-full shadow-lg shadow-blue-500/25 active:scale-95 transition-all w-full sm:w-auto"
+                                    >
+                                        <PlusCircleIcon className={`h-5 w-5 transition-transform ${showAddForm ? 'rotate-45' : ''}`} />
+                                        <span>{showAddForm ? 'Cancel' : 'New Post'}</span>
+                                    </button>
                                 )}
                             </div>
-                        </header>
-                        
-                        <div className="flex-1 p-4 sm:px-6 sm:pb-6 custom-scrollbar min-h-0">
-                            {renderContent()}
-                        </div>
-                    </main>
+                    </div>
+
+                    {/* --- SCROLLABLE CONTENT AREA --- 
+                        flex-1: Takes remaining vertical space.
+                        overflow-y-auto: Enables internal scrolling.
+                        overscroll-contain: Prevents parent body scroll.
+                    */}
+                    <div className="relative z-0 flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 overscroll-contain">
+                        {renderContent()}
+                    </div>
 
                 </div>
             </Modal>
 
-            {/* --- NEW: Custom Confirmation Modal --- */}
             <Modal
                 isOpen={confirmModal.isOpen}
                 onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                title="Confirm Action"
+                title="Confirmation"
                 size="sm"
-                className="z-[200]" // Ensure it's on top
+                className="z-[200]" 
                 contentClassName="p-0"
-                roundedClass="rounded-2xl"
+                roundedClass="rounded-[28px]"
+                containerClassName="bg-black/40 backdrop-blur-md"
             >
-                <div className="p-6 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl">
-                    <p className="text-lg text-slate-800 dark:text-slate-100">{confirmModal.message}</p>
-                    <div className="flex justify-end gap-3 mt-6">
-                        <Button 
-                            variant="secondary" 
+                <div className="p-6 bg-white dark:bg-[#1c1c1e] rounded-[28px]">
+                    <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4 mx-auto">
+                        <TrashIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
+                    </div>
+                    <h3 className="text-lg font-bold text-center text-slate-900 dark:text-white mb-2">Are you sure?</h3>
+                    <p className="text-center text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">{confirmModal.message}</p>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button 
                             onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                            className="font-semibold text-slate-700 dark:text-slate-200 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark border-none"
+                            className="py-3 rounded-xl font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors"
                         >
                             Cancel
-                        </Button>
-                        <Button 
-                            color={confirmModal.confirmColor}
+                        </button>
+                        <button 
                             onClick={() => {
                                 confirmModal.onConfirm();
-                                setConfirmModal(prev => ({ ...prev, isOpen: false })); // Close on confirm
+                                setConfirmModal(prev => ({ ...prev, isOpen: false })); 
                             }}
-                            className="font-semibold"
+                            className={`py-3 rounded-xl font-semibold text-white shadow-lg transition-all active:scale-95 ${confirmModal.confirmColor === 'red' ? 'bg-red-500 hover:bg-red-600 shadow-red-500/30' : 'bg-blue-500 hover:bg-blue-600 shadow-blue-500/30'}`}
                         >
                             {confirmModal.confirmText}
-                        </Button>
+                        </button>
                     </div>
                 </div>
             </Modal>
 
 			 <GenerateReportModal
-			   /* ... (no changes in this component) ... */
 			   isOpen={isReportModalOpen}
 			   onClose={() => setIsReportModalOpen(false)}
 			   classData={classData}
@@ -1263,7 +1233,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 			   className="z-[120]"
 			 />
 
-            {/* ... (no changes to other modals) ... */}
             <ViewLessonModal isOpen={!!viewLessonData} onClose={() => setViewLessonData(null)} lesson={viewLessonData} className="z-[120]" />
             <ViewQuizModal isOpen={!!viewQuizData} onClose={() => setViewQuizData(null)} quiz={viewQuizData} userProfile={userProfile} classId={classData?.id} isTeacherView={userProfile.role === 'teacher' || userProfile.role === 'admin'} className="z-[120]" />
             <EditAvailabilityModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} post={postToEdit} classId={classData?.id} onUpdate={handlePostUpdate} classData={classData} className="z-[120]" />
@@ -1274,43 +1243,47 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 };
 
 const AnnouncementListItem = ({ post, isOwn, onEdit, onDelete, isEditing, editContent, onChangeEdit, onSaveEdit, onCancelEdit, onClick }) => {
-    // ... (no changes in this component)
     const formattedDate = post.createdAt?.toDate ? post.createdAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '...';
     return (
-        <div className="group relative bg-neumorphic-base dark:bg-neumorphic-base-dark p-5 rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow duration-300 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark cursor-pointer" onClick={!isEditing ? onClick : undefined}>
+        <div className="group relative bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-xl p-6 rounded-3xl border border-white/20 dark:border-white/5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer" onClick={!isEditing ? onClick : undefined}>
             {isEditing ? (
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-4">
                     <textarea 
-                        className="w-full border-none p-2 rounded-lg text-base text-slate-800 dark:text-slate-100 focus:ring-0 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark" 
+                        className="w-full border-none p-4 rounded-xl text-base text-slate-900 dark:text-white focus:ring-2 focus:ring-[#007AFF]/20 bg-white dark:bg-black/20 resize-none" 
                         rows={3} 
                         value={editContent} 
                         onChange={onChangeEdit} 
                         onClick={(e) => e.stopPropagation()} 
+                        autoFocus
                     />
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-3">
                         <button 
-                            className="px-4 py-1.5 text-sm rounded-full font-semibold bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-700 dark:text-slate-200 shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" 
+                            className="px-5 py-2 text-sm rounded-full font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors" 
                             onClick={(e) => { e.stopPropagation(); onCancelEdit(); }}
                         >
                             Cancel
                         </button>
                         <button 
-                            className="px-4 py-1.5 text-sm rounded-full font-semibold bg-neumorphic-base dark:bg-neumorphic-base-dark text-sky-600 dark:text-sky-400 shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" 
+                            className="px-5 py-2 text-sm rounded-full font-semibold text-white bg-[#007AFF] hover:bg-[#0062CC] shadow-lg shadow-blue-500/30 transition-all active:scale-95" 
                             onClick={(e) => { e.stopPropagation(); onSaveEdit(); }}
                         >
-                            Save
+                            Save Changes
                         </button>
                     </div>
                 </div>
             ) : (
-                <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0 pr-4">
-                        <p className="font-semibold text-slate-800 dark:text-slate-100 text-base leading-snug group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">{post.content}</p>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Posted by <span className="font-medium">{post.teacherName}</span> on {formattedDate}</p>
+                <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                        <p className="font-medium text-slate-800 dark:text-white text-lg leading-relaxed group-hover:text-[#007AFF] transition-colors line-clamp-3">{post.content}</p>
+                        <div className="flex items-center gap-2 mt-3 text-xs font-medium text-slate-500 dark:text-slate-400">
+                            <span className="px-2 py-1 rounded-md bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">{post.teacherName}</span>
+                            <span>•</span>
+                            <span>{formattedDate}</span>
+                        </div>
                     </div>
-                    {isOwn && <div className="flex space-x-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit" className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"><PencilSquareIcon className="w-5 h-5" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete" className="p-2 rounded-full text-red-500 dark:text-red-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"><TrashIcon className="w-5 h-5" /></button>
+                    {isOwn && <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <button onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit" className="p-2 rounded-full text-slate-400 hover:text-[#007AFF] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><PencilSquareIcon className="w-5 h-5" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete" className="p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><TrashIcon className="w-5 h-5" /></button>
                     </div>}
                 </div>
             )}

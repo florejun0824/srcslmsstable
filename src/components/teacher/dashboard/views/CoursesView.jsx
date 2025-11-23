@@ -1,9 +1,6 @@
-// src/components/.../CoursesView.jsx
-import React, { useState, useEffect } from 'react';
-// --- MODIFICATION START ---
-// Import React Router components
+// src/components/teacher/dashboard/views/CoursesView.jsx
+import React, { useState, useEffect, useMemo } from 'react';
 import { Routes, Route, useParams, useNavigate, Link } from 'react-router-dom';
-// --- MODIFICATION END ---
 import { db } from '../../../../services/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import UnitAccordion from '../../UnitAccordion';
@@ -16,57 +13,104 @@ import {
     AcademicCapIcon as TeacherIcon,
     PresentationChartBarIcon,
     ShareIcon,
-    // --- MODIFICATION: Imported the spinner icon ---
     ArrowPathIcon,
+    Squares2X2Icon
 } from '@heroicons/react/24/solid';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
-// --- MODIFIED STYLE CONSTANTS (Theme-Aware) ---
-const commonContainerClasses = "relative z-0 min-h-screen p-4 sm:p-6 bg-neumorphic-base dark:bg-neumorphic-base-dark";
-const windowContainerClasses = "bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl p-4 sm:p-8 shadow-neumorphic dark:shadow-lg w-full max-w-7xl mx-auto my-6 sm:my-12 transition-all duration-500";
+// --- VISUAL ASSETS: AURORA ANIMATION & STYLES ---
 
-const neumorphicHoverActiveClasses = "hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark";
-const baseButtonStyles = `font-semibold rounded-xl transition-shadow duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-neumorphic-inset dark:disabled:shadow-neumorphic-inset-dark flex items-center justify-center gap-2`;
+const auroraStyles = `
+  @keyframes aurora-move {
+    0% { transform: translate(0px, 0px) scale(1); }
+    33% { transform: translate(30px, -50px) scale(1.1); }
+    66% { transform: translate(-20px, 20px) scale(0.9); }
+    100% { transform: translate(0px, 0px) scale(1); }
+  }
+  .animate-aurora {
+    animation: aurora-move 12s infinite ease-in-out;
+  }
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+  .animation-delay-4000 {
+    animation-delay: 4s;
+  }
+`;
 
-const primaryButton = `${baseButtonStyles} px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-800 dark:to-blue-900 text-blue-700 dark:text-blue-200 shadow-neumorphic dark:shadow-lg ${neumorphicHoverActiveClasses}`;
+// Helper Component for the Background
+const AuroraBackground = () => (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 transform translate-z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-indigo-300/30 dark:bg-indigo-600/20 rounded-full blur-[80px] sm:blur-[120px] mix-blend-multiply dark:mix-blend-screen animate-aurora" />
+        <div className="absolute top-[-10%] right-[-10%] w-[60vw] h-[60vw] bg-blue-500/30 dark:bg-blue-600/20 rounded-full blur-[80px] sm:blur-[120px] mix-blend-multiply dark:mix-blend-screen animate-aurora animation-delay-2000" />
+        <div className="absolute bottom-[-20%] left-[10%] w-[60vw] h-[60vw] bg-sky-300/30 dark:bg-cyan-600/20 rounded-full blur-[80px] sm:blur-[120px] mix-blend-multiply dark:mix-blend-screen animate-aurora animation-delay-4000" />
+    </div>
+);
 
-const secondaryButton = `${baseButtonStyles} px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-700 dark:text-slate-200 shadow-neumorphic dark:shadow-lg ${neumorphicHoverActiveClasses}`;
+// --- MACOS 26 DESIGN SYSTEM (TIGHT & FIXED) ---
 
-const iconButton = `${baseButtonStyles} p-2 sm:p-2.5 bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-600 dark:text-slate-300 shadow-neumorphic dark:shadow-lg ${neumorphicHoverActiveClasses} rounded-full`;
+// Layout
+const commonContainerClasses = "relative h-[calc(100vh-7rem)] lg:h-[calc(100vh-8rem)] w-full p-2 sm:p-4 overflow-hidden font-sans selection:bg-blue-500/30";
 
-const destructiveIconButton = `${baseButtonStyles} p-2 sm:p-2.5 bg-neumorphic-base dark:bg-neumorphic-base-dark text-red-600 dark:text-red-400 shadow-neumorphic dark:shadow-lg ${neumorphicHoverActiveClasses} rounded-full`;
-// --- END MODIFIED STYLE CONSTANTS ---
+// Window
+const windowContainerClasses = "relative z-10 h-full flex flex-col bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-3xl rounded-3xl sm:rounded-[2rem] shadow-2xl shadow-slate-300/50 dark:shadow-black/60 border border-white/80 dark:border-white/5 w-full max-w-7xl mx-auto transition-all duration-500 ring-1 ring-slate-900/5 dark:ring-white/10 overflow-hidden";
+
+// Buttons & Inputs
+const baseButtonStyles = `font-semibold rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-95 tracking-wide shrink-0`;
+const primaryButton = `${baseButtonStyles} px-4 py-2 sm:px-6 sm:py-2.5 text-sm text-white bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 border border-transparent`;
+const secondaryButton = `${baseButtonStyles} px-4 py-2 sm:px-5 sm:py-2.5 text-sm text-slate-700 dark:text-slate-300 bg-white/60 dark:bg-white/10 hover:bg-white/90 dark:hover:bg-white/20 border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md`;
+const iconButton = `${baseButtonStyles} p-2 sm:p-2.5 text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-white/5 hover:bg-white/90 dark:hover:bg-white/10 hover:text-slate-700 dark:hover:text-slate-200 rounded-full border border-slate-200 dark:border-white/5 shadow-sm`;
+const destructiveIconButton = `${baseButtonStyles} p-2 sm:p-2.5 text-red-500 hover:text-red-600 bg-white/60 dark:bg-white/5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full border border-red-100 dark:border-white/5 shadow-sm`;
+const searchInputStyles = "w-full sm:max-w-md p-2.5 pl-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-black/20 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 transition-all shadow-sm backdrop-blur-sm";
+
+// --- END DESIGN SYSTEM ---
 
 const getSubjectStyling = (subjectTitle) => {
     const lowerCaseTitle = subjectTitle.toLowerCase();
     let IconComponent = BookOpenIcon;
-    // --- MODIFIED: Added dark mode icon colors ---
-    let iconColor = 'text-gray-500 dark:text-gray-400';
-    let gradient = 'from-white to-slate-100 dark:from-slate-800 dark:to-slate-700'; // Neutral dark gradient
+    let iconColor = 'text-slate-600 dark:text-slate-400';
+    let gradient = 'from-slate-50 to-slate-200 dark:from-slate-800 dark:to-slate-900';
     
-    if (lowerCaseTitle.includes('math')) { IconComponent = CalculatorIcon; iconColor = 'text-blue-500 dark:text-blue-400'; gradient = 'from-white to-blue-50 dark:from-slate-800 dark:to-blue-900/50'; }
-    else if (lowerCaseTitle.includes('english') || lowerCaseTitle.includes('filipino')) { IconComponent = BookOpenIcon; iconColor = 'text-teal-500 dark:text-teal-400'; gradient = 'from-white to-teal-50 dark:from-slate-800 dark:to-teal-900/50'; }
-    else if (lowerCaseTitle.includes('religious education')) { IconComponent = BookOpenIcon; iconColor = 'text-amber-500 dark:text-amber-400'; gradient = 'from-white to-amber-50 dark:from-slate-800 dark:to-amber-900/50'; }
-    else if (lowerCaseTitle.includes('science')) { IconComponent = BeakerIcon; iconColor = 'text-green-500 dark:text-green-400'; gradient = 'from-white to-green-50 dark:from-slate-800 dark:to-green-900/50'; }
-    else if (lowerCaseTitle.includes('araling panlipunan')) { IconComponent = GlobeAltIcon; iconColor = 'text-red-500 dark:text-red-400'; gradient = 'from-white to-red-50 dark:from-slate-800 dark:to-red-900/50'; }
-    else if (lowerCaseTitle.includes('mapeh')) { IconComponent = MusicalNoteIcon; iconColor = 'text-pink-500 dark:text-pink-400'; gradient = 'from-white to-pink-50 dark:from-slate-800 dark:to-pink-900/50'; }
-    else if (lowerCaseTitle.includes('tle')) { IconComponent = WrenchScrewdriverIcon; iconColor = 'text-purple-500 dark:text-purple-400'; gradient = 'from-white to-purple-50 dark:from-slate-800 dark:to-purple-900/50'; }
+    if (lowerCaseTitle.includes('math')) { 
+        IconComponent = CalculatorIcon; iconColor = 'text-blue-600 dark:text-blue-400'; 
+        gradient = 'from-blue-50 via-indigo-50 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/20'; 
+    }
+    else if (lowerCaseTitle.includes('english') || lowerCaseTitle.includes('filipino')) { 
+        IconComponent = BookOpenIcon; iconColor = 'text-teal-600 dark:text-teal-400'; 
+        gradient = 'from-teal-50 via-emerald-50 to-emerald-100 dark:from-teal-900/40 dark:to-emerald-900/20'; 
+    }
+    else if (lowerCaseTitle.includes('religious education')) { 
+        IconComponent = BookOpenIcon; iconColor = 'text-amber-600 dark:text-amber-400'; 
+        gradient = 'from-amber-50 via-orange-50 to-orange-100 dark:from-amber-900/40 dark:to-orange-900/20'; 
+    }
+    else if (lowerCaseTitle.includes('science')) { 
+        IconComponent = BeakerIcon; iconColor = 'text-violet-600 dark:text-violet-400'; 
+        gradient = 'from-violet-50 via-purple-50 to-purple-100 dark:from-violet-900/40 dark:to-purple-900/20'; 
+    }
+    else if (lowerCaseTitle.includes('araling panlipunan')) { 
+        IconComponent = GlobeAltIcon; iconColor = 'text-rose-600 dark:text-rose-400'; 
+        gradient = 'from-rose-50 via-red-50 to-red-100 dark:from-rose-900/40 dark:to-red-900/20'; 
+    }
+    else if (lowerCaseTitle.includes('mapeh')) { 
+        IconComponent = MusicalNoteIcon; iconColor = 'text-pink-600 dark:text-pink-400'; 
+        gradient = 'from-pink-50 via-fuchsia-50 to-fuchsia-100 dark:from-pink-900/40 dark:to-fuchsia-900/20'; 
+    }
+    else if (lowerCaseTitle.includes('tle')) { 
+        IconComponent = WrenchScrewdriverIcon; iconColor = 'text-orange-600 dark:text-orange-400'; 
+        gradient = 'from-orange-50 via-amber-50 to-amber-100 dark:from-orange-900/40 dark:to-amber-900/20'; 
+    }
+    
     return { icon: IconComponent, iconColor, gradient };
 };
 
 // --- LEVEL 3: SUBJECT DETAIL VIEW ---
 const SubjectDetail = (props) => {
     const {
-        courses,
-        handleOpenEditSubject, handleOpenDeleteSubject, setShareContentModalOpen,
+        courses, handleOpenEditSubject, handleOpenDeleteSubject, setShareContentModalOpen,
         setAddUnitModalOpen, setIsAiHubOpen, handleInitiateDelete, userProfile,
         handleGenerateQuizForLesson, isAiGenerating, setIsAiGenerating,
-        onSetActiveUnit,
-        onGeneratePresentationPreview,
-        // State sync props
-        setActiveSubject,
-        handleCategoryClick,
-        activeUnit, // --- ADDED: Need activeUnit prop for UnitAccordion ---
+        onSetActiveUnit, onGeneratePresentationPreview, setActiveSubject,
+        handleCategoryClick, activeUnit,
     } = props;
 
     const { contentGroup, categoryName, subjectId } = useParams();
@@ -76,9 +120,7 @@ const SubjectDetail = (props) => {
     const [allLessonsForSubject, setAllLessonsForSubject] = useState([]);
     const [isLoadingUnitsAndLessons, setIsLoadingUnitsAndLessons] = useState(false);
     
-    const activeSubject = React.useMemo(() => 
-        courses.find(c => c.id === subjectId), 
-    [courses, subjectId]);
+    const activeSubject = useMemo(() => courses.find(c => c.id === subjectId), [courses, subjectId]);
     
     const [selectedLessons, setSelectedLessons] = useState(new Set());
     const [showLessonPicker, setShowLessonPicker] = useState(false);
@@ -102,8 +144,8 @@ const SubjectDetail = (props) => {
             const unsubscribeUnits = onSnapshot(unitsQuery, (unitsSnapshot) => {
                 const fetchedUnits = unitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setUnits(fetchedUnits);
+                
                 if (fetchedUnits.length > 0) {
-                    // --- FIX: Query all lessons for the subject, not just for fetched units ---
                     const lessonsQuery = query(collection(db, 'lessons'), where('subjectId', '==', activeSubject.id));
                     const unsubscribeLessons = onSnapshot(lessonsQuery, (lessonsSnapshot) => {
                         const fetchedLessons = lessonsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -144,57 +186,73 @@ const SubjectDetail = (props) => {
         }
     };
 
-    if (!activeSubject) {
-        return <Spinner />;
-    }
+    // --- DYNAMIC BACK NAVIGATION ---
+    const handleBackNavigation = () => {
+        if (activeUnit) {
+            // Context: Inside a Unit -> Go back to Unit List
+            onSetActiveUnit(null);
+        } else {
+            // Context: Inside Unit List -> Go back to Subject List
+            navigate(`/dashboard/courses/${contentGroup}/${categoryName}`);
+        }
+    };
+
+    if (!activeSubject) return <Spinner />;
 
     return (
-        <div className={`${commonContainerClasses} flex flex-col`}>
-            <div className={`${windowContainerClasses} flex flex-col flex-1 min-h-0`}>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-3">
-                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                        <button
-                            onClick={() => navigate(`/dashboard/courses/${contentGroup}/${categoryName}`)}
-                            className={secondaryButton}
-                        >
-                            <ArrowUturnLeftIcon className="w-5 h-5" />
-                            <span className="hidden sm:inline">Back</span>
+        <div className={commonContainerClasses}>
+            <style>{auroraStyles}</style>
+            <AuroraBackground />
+
+            <div className={windowContainerClasses}>
+                
+                {/* HEADER - Fixed at top of the Flex Container */}
+                <div className="flex-none flex flex-col md:flex-row justify-between items-start md:items-center py-2 px-4 sm:p-6 gap-4 border-b border-slate-200/60 dark:border-slate-700/50 bg-white/50 dark:bg-[#1A1D24]/50 backdrop-blur-md z-20">
+                    {/* Title & Navigation */}
+                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full md:w-auto">
+                        <button onClick={handleBackNavigation} className={secondaryButton}>
+                            {activeUnit ? (
+                                <Squares2X2Icon className="w-4 h-4" />
+                            ) : (
+                                <ArrowUturnLeftIcon className="w-4 h-4" />
+                            )}
+                            {/* Dynamic Button Text */}
+                            <span className="hidden sm:inline font-bold">
+                                {activeUnit ? 'All Units' : 'Back'}
+                            </span>
                         </button>
-                        <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+                        <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block"></div>
+                        <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight truncate max-w-[180px] sm:max-w-sm">
                             {activeSubject.title}
                         </h2>
-                        <button
-                            onClick={() => handleOpenEditSubject(activeSubject)}
-                            className={iconButton}
-                            title="Edit Subject Name"
-                        >
-                            <PencilSquareIcon className="w-5 h-5" />
-                        </button>
-                        <button
-                            onClick={() => handleInitiateDelete('subject', activeSubject.id, activeSubject.title)}
-                            className={destructiveIconButton}
-                            title="Delete Subject"
-                        >
-                            <TrashIcon className="w-5 h-5" />
-                        </button>
+                        <div className="flex items-center ml-auto sm:ml-2 space-x-1">
+                            <button onClick={() => handleOpenEditSubject(activeSubject)} className={iconButton} title="Edit Subject Name"><PencilSquareIcon className="w-4 h-4" /></button>
+                            <button onClick={() => handleInitiateDelete('subject', activeSubject.id, activeSubject.title)} className={destructiveIconButton} title="Delete Subject"><TrashIcon className="w-4 h-4" /></button>
+                        </div>
                     </div>
-                    <div className="flex gap-2 sm:gap-3 flex-wrap">
-                        <button onClick={() => setShareContentModalOpen(true)} className={secondaryButton}>
-                            <ShareIcon className="w-5 h-5" />Send
+
+                    {/* Actions Toolbar */}
+                    <div className="flex gap-2 sm:gap-3 flex-wrap w-full md:w-auto">
+                        <button onClick={() => setShareContentModalOpen(true)} className={`${secondaryButton} flex-1 sm:flex-none justify-center`}>
+                            <ShareIcon className="w-4 h-4 text-blue-500" />
+                            <span className="text-slate-700 dark:text-slate-200 text-xs sm:text-sm">Share</span>
                         </button>
-                        <button onClick={() => setAddUnitModalOpen(true)} className={primaryButton}>
-                            <PlusCircleIcon className="w-5 h-5" />Add Unit
+                        <button onClick={() => setAddUnitModalOpen(true)} className={`${secondaryButton} flex-1 sm:flex-none justify-center`}>
+                            <PlusCircleIcon className="w-5 h-5 text-emerald-500" />
+                            <span className="text-slate-700 dark:text-slate-200 text-xs sm:text-sm">Add Unit</span>
                         </button>
-                        <button onClick={() => setIsAiHubOpen(true)} className={primaryButton}>
-                            <SparklesIcon className="w-5 h-5" />AI Tools
+                        <button onClick={() => setIsAiHubOpen(true)} className={`${primaryButton} pl-4 pr-5 flex-1 sm:flex-none justify-center whitespace-nowrap`}>
+                            <SparklesIcon className="w-5 h-5 text-yellow-300" />AI Tools
                         </button>
                     </div>
                 </div>
-                <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
+
+                {/* CONTENT AREA - Scrolls independently */}
+                <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-2 sm:p-4">
                     {isLoadingUnitsAndLessons ? (
-                        <div className="flex justify-center items-center py-10">
-                            <Spinner />
-                            <p className="ml-4 text-slate-500 dark:text-slate-400">Loading content...</p>
+                        <div className="space-y-4 p-4 animate-pulse">
+                             <div className="h-12 bg-slate-200 dark:bg-white/5 rounded-xl w-1/3 mb-8"></div>
+                             {[1,2,3].map(i => <div key={i} className="h-24 bg-slate-200 dark:bg-white/5 rounded-2xl w-full"></div>)}
                         </div>
                     ) : (
                         <UnitAccordion
@@ -209,22 +267,13 @@ const SubjectDetail = (props) => {
                             onLessonSelect={handleLessonSelect}
                             handleGenerateQuizForLesson={handleGenerateQuizForLesson}
                             renderGeneratePptButton={(unit) => (
-                                // --- MODIFICATION: This button now shows a spinner ---
                                 <button
-                                    onClick={() => {
-                                        setSelectedLessons(new Set());
-                                        setActiveUnitForPicker(unit);
-                                        setShowLessonPicker(true);
-                                    }}
-                                    className={primaryButton}
+                                    onClick={() => { setSelectedLessons(new Set()); setActiveUnitForPicker(unit); setShowLessonPicker(true); }}
+                                    className={`${secondaryButton} !px-3 !py-1.5 text-xs border-slate-200 shadow-sm`}
                                     disabled={isAiGenerating}
                                 >
-                                    {isAiGenerating ? (
-                                        <ArrowPathIcon className="w-5 h-5 animate-spin" />
-                                    ) : (
-                                        <PresentationChartBarIcon className="w-5 h-5" />
-                                    )}
-                                    <span>{isAiGenerating ? 'Generating...' : 'Generate PPT'}</span>
+                                    {isAiGenerating ? <ArrowPathIcon className="w-4 h-4 animate-spin text-blue-500" /> : <PresentationChartBarIcon className="w-4 h-4 text-blue-500" />}
+                                    <span>{isAiGenerating ? 'Wait...' : 'PPT'}</span>
                                 </button>
                             )}
                         />
@@ -232,110 +281,68 @@ const SubjectDetail = (props) => {
                 </div>
             </div>
 
-            {/* --- ADDED: Custom Scrollbar Styles --- */}
             <style>{`
-              .custom-scrollbar::-webkit-scrollbar {
-                width: 8px;
-                height: 8px;
-              }
-              .custom-scrollbar::-webkit-scrollbar-track {
-                background: transparent;
-              }
-              .custom-scrollbar::-webkit-scrollbar-thumb {
-                background-color: rgba(156, 163, 175, 0.5); /* gray-400 */
-                border-radius: 4px;
-              }
-              .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                background-color: rgba(107, 114, 128, 0.5); /* gray-500 */
-              }
-              .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-                background-color: rgba(100, 116, 139, 0.5); /* slate-500 */
-              }
-              .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                background-color: rgba(148, 163, 184, 0.5); /* slate-400 */
-              }
+              .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+              @media (min-width: 640px) { .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; } }
+              .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+              .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(148, 163, 184, 0.4); border-radius: 999px; }
+              .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.2); }
             `}</style>
 
-            {/* --- MODIFIED: Lesson Picker Modal (Themed) --- */}
+            {/* Lesson Picker Modal */}
             {showLessonPicker && activeUnitForPicker && (
-                <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-[5000] p-4">
-                    <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-lg w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+                <div className="fixed inset-0 flex items-center justify-center bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm z-[5000] p-4 transition-all duration-300">
+                    <div className="bg-white/95 dark:bg-[#1E212B]/95 rounded-[2rem] shadow-2xl dark:shadow-black/80 w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col border border-white/20 dark:border-white/5 animate-in fade-in zoom-in-95 duration-200">
                         
-                        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-neumorphic-shadow-dark/30 dark:border-slate-700 flex justify-between items-center">
+                        <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white dark:from-white/5 dark:to-transparent">
                             <div>
-                                <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">Select Lessons</h2>
-                                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                                    From unit: <span className="font-medium">{activeUnitForPicker.title}</span>
+                                <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">Select Lessons</h2>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                                    <span className="opacity-70">Unit:</span> <span className="font-medium text-slate-700 dark:text-slate-300">{activeUnitForPicker.title}</span>
                                 </p>
                             </div>
-                            <button onClick={() => setShowLessonPicker(false)} className={`${iconButton} !p-1.5`}>
-                                <XMarkIcon className="w-5 h-5" />
-                            </button>
+                            <button onClick={() => setShowLessonPicker(false)} className={iconButton}><XMarkIcon className="w-5 h-5" /></button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4 space-y-3">
+                        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2 custom-scrollbar">
                             {(() => {
                                 const lessonsInUnit = allLessonsForSubject
                                     .filter((lesson) => lesson.unitId === activeUnitForPicker.id)
-                                    .sort((a, b) =>
-                                        (a.order || 0) - (b.order || 0)
-                                    );
+                                    .sort((a, b) => (a.order || 0) - (b.order || 0));
                                 
                                 if (lessonsInUnit.length === 0) {
                                     return (
-                                        <p className="text-center text-slate-500 dark:text-slate-400 py-6">
-                                            No lessons available in this unit.
-                                        </p>
+                                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                                            <BookOpenIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-3" />
+                                            <p className="text-slate-500 dark:text-slate-400">No lessons available.</p>
+                                        </div>
                                     );
                                 }
 
                                 return lessonsInUnit.map((lesson) => (
-                                    <label
-                                        key={lesson.id}
-                                        className={`flex items-center justify-between p-3 sm:p-4 rounded-2xl transition-all cursor-pointer bg-neumorphic-base dark:bg-neumorphic-base-dark ${
-                                            selectedLessons.has(lesson.id)
-                                                ? 'shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark'
-                                                : 'shadow-neumorphic dark:shadow-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'
-                                        }`}
-                                    >
-                                        <div className="min-w-0">
-                                            <div className="text-slate-800 dark:text-slate-100 font-medium truncate text-sm sm:text-base">{lesson.title}</div>
-                                            {lesson.subtitle && (
-                                                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">
-                                                    {lesson.subtitle}
-                                                </div>
-                                            )}
+                                    <label key={lesson.id} className={`flex items-center justify-between p-4 rounded-xl cursor-pointer border ${selectedLessons.has(lesson.id) ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700/50' : 'bg-slate-50 dark:bg-white/5 border-transparent hover:bg-slate-100 dark:hover:bg-white/10 shadow-sm'}`}>
+                                        <div className="min-w-0 pr-4">
+                                            <div className={`font-medium truncate transition-colors ${selectedLessons.has(lesson.id) ? 'text-blue-700 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'}`}>{lesson.title}</div>
+                                            {lesson.subtitle && <div className="text-xs text-slate-400 dark:text-slate-500 mt-1 truncate">{lesson.subtitle}</div>}
                                         </div>
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedLessons.has(lesson.id)}
-                                            onChange={() => handleLessonSelect(lesson.id)}
-                                            className="w-5 h-5 rounded text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400 border-gray-300 dark:border-slate-600 dark:bg-slate-700"
-                                        />
+                                        <div className="relative flex items-center">
+                                            <input type="checkbox" checked={selectedLessons.has(lesson.id)} onChange={() => handleLessonSelect(lesson.id)} className="peer w-6 h-6 rounded-lg border-2 border-slate-300 dark:border-slate-600 checked:bg-blue-500 checked:border-blue-500 transition-all appearance-none cursor-pointer bg-white dark:bg-slate-700" />
+                                            <svg className="absolute w-4 h-4 text-white pointer-events-none opacity-0 peer-checked:opacity-100 left-1 transition-opacity" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 011.04-.207z" clipRule="evenodd" /></svg>
+                                        </div>
                                     </label>
                                 ));
                             })()}
                         </div>
 
-                        <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-neumorphic-shadow-dark/30 dark:border-slate-700 flex justify-end gap-3">
-                            <button onClick={() => setShowLessonPicker(false)} className={secondaryButton}>
-                                Cancel
-                            </button>
-                            {/* --- MODIFICATION: This button now shows a spinner --- */}
-                            <button
-                                onClick={() => {
-                                    setShowLessonPicker(false);
-                                    handleGeneratePresentationClick();
-                                }}
+                        <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 flex justify-end gap-3 bg-slate-50 dark:bg-black/20">
+                            <button onClick={() => setShowLessonPicker(false)} className={secondaryButton}>Cancel</button>
+                            <button 
+                                onClick={() => { setShowLessonPicker(false); handleGeneratePresentationClick(); }} 
                                 className={primaryButton}
                                 disabled={selectedLessons.size === 0 || isAiGenerating}
                             >
-                                {isAiGenerating ? (
-                                    <ArrowPathIcon className="w-5 h-5 animate-spin" />
-                                ) : (
-                                    <PresentationChartBarIcon className="w-5 h-5" />
-                                )}
-                                <span>{isAiGenerating ? 'Generating...' : 'Generate'}</span>
+                                {isAiGenerating ? <ArrowPathIcon className="w-5 h-5 animate-spin" /> : <PresentationChartBarIcon className="w-5 h-5" />}
+                                <span>{isAiGenerating ? 'Processing...' : 'Generate Deck'}</span>
                             </button>
                         </div>
                     </div>
@@ -351,7 +358,6 @@ const SubjectList = (props) => {
     const { contentGroup, categoryName } = useParams();
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
-
     const decodedCategoryName = decodeURIComponent(categoryName);
 
     useEffect(() => {
@@ -366,52 +372,54 @@ const SubjectList = (props) => {
 
     return (
         <div className={commonContainerClasses}>
+            <style>{auroraStyles}</style>
+            <AuroraBackground />
             <div className={windowContainerClasses}>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                    <div className="flex items-start gap-2 sm:gap-4">
-                        <button onClick={() => navigate(`/dashboard/courses/${contentGroup}`)} className={secondaryButton}><ArrowUturnLeftIcon className="w-5 h-5" /></button>
-                        <h1 className="text-xl sm:text-3xl font-extrabold text-slate-800 dark:text-slate-100 leading-tight">{decodedCategoryName.replace(/\s\((Teacher|Learner)'s Content\)/i, '')}</h1>
+                {/* Header */}
+                <div className="flex-none flex flex-col md:flex-row justify-between items-start md:items-end gap-4 p-5 sm:p-8 border-b border-slate-200/50 dark:border-white/5 bg-white/50 dark:bg-[#1A1D24]/50 backdrop-blur-md z-20">
+                    <div className="flex flex-col gap-2 w-full md:w-auto">
+                        <div className="flex items-center gap-2">
+                             <button onClick={() => navigate(`/dashboard/courses/${contentGroup}`)} className={`${iconButton} w-8 h-8 p-1.5`}><ArrowUturnLeftIcon className="w-4 h-4" /></button>
+                             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{contentGroup} View</span>
+                        </div>
+                        <h1 className="text-2xl sm:text-4xl font-black text-slate-800 dark:text-white tracking-tight leading-tight">
+                            {decodedCategoryName.replace(/\s\((Teacher|Learner)'s Content\)/i, '')}
+                        </h1>
                     </div>
-                    <button onClick={() => { if (onAddSubjectClick) { onAddSubjectClick(decodedCategoryName); } }} className={primaryButton}><PlusCircleIcon className="w-5 h-5" />Add Subject</button>
-                </div>
-                <div className="mb-6">
-                    <div className="relative">
-                        <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        <input type="text" placeholder={`Search in ${decodedCategoryName}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full max-w-md p-3 pl-10 sm:pl-12 rounded-xl focus:ring-0 border-none bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-slate-800 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm sm:text-base" />
+                    <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                        <div className="relative w-full sm:w-64">
+                            <MagnifyingGlassIcon className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                            <input type="text" placeholder="Filter subjects..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={searchInputStyles} />
+                        </div>
+                        <button onClick={() => onAddSubjectClick && onAddSubjectClick(decodedCategoryName)} className={primaryButton}><PlusCircleIcon className="w-5 h-5" />New Subject</button>
                     </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                    {filteredCourses.length > 0 ? (
-                        filteredCourses.map((course) => {
+
+                {/* Scrollable List */}
+                <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+                        {filteredCourses.map((course) => {
                             const { icon: Icon, iconColor, gradient } = getSubjectStyling(course.title);
                             const unitCount = course.unitCount || 0;
                             return (
-                                <Link 
-                                    key={course.id} 
-                                    to={course.id}
-                                    className={`group relative rounded-3xl p-4 sm:p-6 shadow-neumorphic dark:shadow-lg transition-shadow duration-300 cursor-pointer bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark`}
-                                >
-                                    <div className="relative z-5 flex flex-col h-full justify-between">
-                                        <div>
-                                            <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mb-3 sm:mb-4 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
-                                                <Icon className={`w-6 h-6 sm:w-7 h-7 ${iconColor}`} />
+                                <Link key={course.id} to={course.id} className={`group relative rounded-[2rem] p-6 transition-all duration-300 cursor-pointer overflow-hidden ring-1 ring-slate-900/5 dark:ring-white/10 hover:-translate-y-1 shadow-lg shadow-slate-200/50 hover:shadow-xl hover:shadow-slate-300/50 dark:shadow-black/50 bg-gradient-to-br ${gradient}`}>
+                                    <div className="relative z-10 flex flex-col h-full justify-between">
+                                        <div className="flex justify-between items-start">
+                                            <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/60 dark:bg-black/20 shadow-sm backdrop-blur-sm ring-1 ring-white/50 dark:ring-white/10"><Icon className={`w-6 h-6 ${iconColor}`} /></div>
+                                            <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 sm:translate-x-2 sm:group-hover:translate-x-0">
+                                                <button onClick={(e) => {e.preventDefault(); props.handleOpenEditSubject(course)}} className={iconButton} title="Edit"><PencilSquareIcon className="w-4 h-4"/></button> 
+                                                <button onClick={(e)=>{e.preventDefault(); handleInitiateDelete('subject', course.id, course.title)}} className={destructiveIconButton} title="Delete"><TrashIcon className="w-4 h-4"/></button>
                                             </div>
-											<h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">
-											    {course.title}
-											</h2>
                                         </div>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium">{unitCount} {unitCount === 1 ? 'Unit' : 'Units'}</p>
-                                    </div>
-                                    <div className="absolute top-4 right-4 z-5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                        <button onClick={(e) => { e.stopPropagation(); e.preventDefault(); props.handleOpenEditSubject(course); }} className={iconButton} title="Edit Subject Name"><PencilSquareIcon className="w-5 h-5" /></button>
-                                        <button onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleInitiateDelete('subject', course.id, course.title); }} className={destructiveIconButton} title="Delete Subject"><TrashIcon className="w-5 h-5" /></button>
+                                        <div className="mt-6">
+                                            <h2 className="text-lg font-bold text-slate-800 dark:text-white mb-2 leading-tight">{course.title}</h2>
+                                            <span className="px-3 py-1 rounded-full bg-white/40 dark:bg-black/20 text-xs font-bold text-slate-600 dark:text-slate-300 border border-white/40 dark:border-white/10">{unitCount} {unitCount === 1 ? 'Unit' : 'Units'}</span>
+                                        </div>
                                     </div>
                                 </Link>
                             );
-                        })
-                    ) : (
-                        <p className="col-span-full text-center text-slate-500 dark:text-slate-400 py-10">No subjects found matching your search.</p>
-                    )}
+                        })}
+                    </div>
                 </div>
             </div>
         </div>
@@ -430,7 +438,8 @@ const CategoryList = (props) => {
     }, [setActiveSubject, handleCategoryClick]);
 
     const isLearner = contentGroup.toLowerCase() === 'learner';
-    const title = isLearner ? "Learner's Content" : "Teacher's Content";
+    const title = isLearner ? "Learner's Space" : "Teacher's Space";
+    const subtitle = isLearner ? "Access your curated learning materials" : "Manage your curriculum and resources";
     
     const categoriesToShow = courseCategories.filter(cat => {
         const lowerName = cat.name.toLowerCase();
@@ -445,39 +454,49 @@ const CategoryList = (props) => {
 
     return (
         <div className={commonContainerClasses}>
+            <style>{auroraStyles}</style>
+            <AuroraBackground />
             <div className={windowContainerClasses}>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                    <div className="flex items-center gap-2 sm:gap-4">
-                        <button onClick={() => navigate('/dashboard/courses')} className={secondaryButton} title="Back to Content Types"><ArrowUturnLeftIcon className="w-5 h-5" /></button>
-                        <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-800 dark:text-slate-100 leading-tight truncate">{title}</h1>
+                <div className="flex-none flex flex-col sm:flex-row justify-between items-end gap-4 p-6 sm:p-10 border-b border-slate-200/60 dark:border-white/5 bg-white/50 dark:bg-[#1A1D24]/50 backdrop-blur-md z-20">
+                    <div className="w-full">
+                        <button onClick={() => navigate('/dashboard/courses')} className="flex items-center gap-2 text-slate-400 hover:text-blue-500 text-xs font-bold uppercase tracking-wider mb-2 transition-colors"><ArrowUturnLeftIcon className="w-3 h-3" /> Change Profile</button>
+                        <h1 className="text-3xl sm:text-5xl font-black text-slate-800 dark:text-white tracking-tighter leading-tight">{title}</h1>
+                        <p className="text-base sm:text-lg text-slate-500 dark:text-slate-400 mt-1 font-light">{subtitle}</p>
                     </div>
-                    <button onClick={() => setCreateCategoryModalOpen(true)} className={primaryButton}><PlusCircleIcon className="w-5 h-5" />Add Category</button>
+                    <button onClick={() => setCreateCategoryModalOpen(true)} className={`${primaryButton} w-full sm:w-auto`}><PlusCircleIcon className="w-5 h-5" />New Category</button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
-                    {categoriesToShow.map((cat) => {
-                        const courseCount = courses.filter(c => c.category === cat.name).length;
-                        const { icon: Icon, iconColor, gradient } = getSubjectStyling(cat.name);
-                        const cleanName = cat.name.replace(/\s\((Teacher|Learner)'s Content\)/i, '');
-                        return (
-                            <Link 
-                                key={cat.id} 
-                                to={encodeURIComponent(cat.name)} // Encode the name for the URL
-                                className={`group relative p-4 sm:p-6 rounded-3xl shadow-neumorphic dark:shadow-lg transition-shadow cursor-pointer bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark h-full flex flex-col justify-between`}
-                            >
-                                <div className="relative z-5 flex-grow">
-                                    <div className="p-3 sm:p-4 inline-block bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-xl mb-4"><Icon className={`w-7 h-7 sm:w-8 h-8 ${iconColor}`} /></div>
-                                    <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 mb-1">
-                                        {cleanName}
-                                    </h2>
-                                    <p className="text-slate-500 dark:text-slate-400 text-sm sm:text-base">{courseCount} {courseCount === 1 ? 'Subject' : 'Subjects'}</p>
-                                </div>
-                                <div className="absolute top-4 right-4 z-5 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleEditCategory(cat); }} className={iconButton} title={`Edit category ${cat.name}`}><PencilSquareIcon className="w-5 h-5" /></button>
-                                    <button onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleInitiateDelete('category', cat.id, cat.name);}} className={destructiveIconButton} title={`Delete category ${cat.name}`}><TrashIcon className="w-5 h-5" /></button>
-                                </div>
-                            </Link>
-                        );
-                    })}
+                
+                <div className="flex-1 overflow-y-auto p-6 sm:p-10 custom-scrollbar">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {categoriesToShow.map((cat) => {
+                            // 👇 FIX APPLIED HERE: Calculate courseCount for the current category
+                            const courseCount = courses.filter(c => c.category === cat.name).length; 
+                            
+                            const { icon: Icon, iconColor, gradient } = getSubjectStyling(cat.name);
+                            const cleanName = cat.name.replace(/\s\((Teacher|Learner)'s Content\)/i, '');
+                            
+                            return (
+                                <Link key={cat.id} to={encodeURIComponent(cat.name)} className={`group relative p-8 rounded-[2.5rem] cursor-pointer bg-gradient-to-br ${gradient} ring-1 ring-slate-900/5 dark:ring-white/10 hover:shadow-2xl hover:shadow-slate-300/50 dark:hover:shadow-black/50 hover:-translate-y-1 transition-all overflow-hidden`}>
+                                    <div className="relative z-10 flex flex-col h-full">
+                                        <div className="flex justify-between items-start mb-6">
+                                            <div className="p-4 bg-white/70 dark:bg-black/20 rounded-2xl shadow-sm backdrop-blur-md ring-1 ring-white/50 dark:ring-white/10"><Icon className={`w-8 h-8 ${iconColor}`} /></div>
+                                            <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 sm:scale-90 sm:group-hover:scale-100">
+                                                <button onClick={(e) => {e.preventDefault(); handleEditCategory(cat)}} className={iconButton}><PencilSquareIcon className="w-4 h-4"/></button> 
+                                                <button onClick={(e)=>{e.preventDefault(); handleInitiateDelete('category', cat.id, cat.name)}} className={destructiveIconButton}><TrashIcon className="w-4 h-4"/></button>
+                                            </div>
+                                        </div>
+                                        <div className="mt-auto">
+                                            <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 tracking-tight">{cleanName}</h2>
+                                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 font-medium">
+                                                <span className="w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-500"></span>
+                                                {courseCount} {courseCount === 1 ? 'Subject' : 'Subjects'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Link>
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
         </div>
@@ -493,25 +512,51 @@ const ContentGroupSelector = (props) => {
 
     return (
         <div className={commonContainerClasses}>
-            <div className={windowContainerClasses}>
-                <div className="flex flex-col md:flex-row items-stretch justify-center gap-4 md:gap-12">
-                    <Link to="learner" className="group relative p-6 sm:p-12 rounded-3xl shadow-neumorphic dark:shadow-lg transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark cursor-pointer flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark flex flex-col justify-between items-start">
-                        <div className="relative z-5">
-                            <div className="p-4 sm:p-5 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-2xl mb-4 sm:mb-6 inline-block"><LearnerIcon className="w-10 h-10 sm:w-12 h-12 text-sky-600 dark:text-sky-400" /></div>
-                            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-800 dark:text-slate-100">Learner's Content</h2>
-                            <p className="text-slate-600 dark:text-slate-400 mt-2 text-base sm:text-lg">Access a world of knowledge and curated subjects designed for students.</p>
-                        </div>
-                        <div className="relative z-10 mt-8 px-5 py-2 sm:px-6 sm:py-3 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-lg rounded-full font-semibold text-sm sm:text-base text-slate-700 dark:text-slate-200">Explore Now</div>
-                    </Link>
+            <style>{auroraStyles}</style>
+            <AuroraBackground />
 
-                    <Link to="teacher" className="group relative p-6 sm:p-12 rounded-3xl shadow-neumorphic dark:shadow-lg transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark cursor-pointer flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark flex flex-col justify-between items-start">
-                        <div className="relative z-5">
-                            <div className="p-4 sm:p-5 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-2xl mb-4 sm:mb-6 inline-block"><TeacherIcon className="w-10 h-10 sm:w-12 h-12 text-emerald-600 dark:text-emerald-400" /></div>
-                            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-800 dark:text-slate-100">Teacher's Content</h2>
-                            <p className="text-slate-600 dark:text-slate-400 mt-2 text-base sm:text-lg">Discover powerful tools and resources to manage subjects and lessons.</p>
-                        </div>
-                        <div className="relative z-5 mt-8 px-5 py-2 sm:px-6 sm:py-3 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-lg rounded-full font-semibold text-sm sm:text-base text-slate-700 dark:text-slate-200">Manage Content</div>
-                    </Link>
+            <div className="relative z-10 flex items-center justify-center h-full">
+                <div className="w-full max-w-6xl mx-auto">
+                    <div className="text-center mb-8 sm:mb-12">
+                         <h1 className="text-3xl sm:text-5xl font-black text-slate-800 dark:text-white tracking-tight mb-4 leading-tight">Who is learning today?</h1>
+                         <p className="text-lg sm:text-xl text-slate-500 dark:text-slate-400">Select your portal to access content.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-12 px-4">
+                        {/* Learner Card */}
+                        <Link to="learner" className="group relative p-8 sm:p-12 rounded-[3rem] transition-all duration-500 cursor-pointer overflow-hidden ring-1 ring-slate-900/5 dark:ring-white/10 bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 dark:from-[#1A1D24] dark:to-[#101216] shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-sky-200/50 dark:hover:shadow-sky-900/20 hover:-translate-y-2">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-sky-400/20 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+                            <div className="relative z-10 flex flex-col h-full items-start">
+                                <div className="p-4 sm:p-5 bg-white/70 dark:bg-sky-900/20 rounded-2xl sm:rounded-3xl mb-6 sm:mb-8 shadow-sm ring-1 ring-sky-100 dark:ring-sky-800/30 backdrop-blur-md">
+                                    <LearnerIcon className="w-10 h-10 sm:w-12 sm:h-12 text-sky-600 dark:text-sky-300" />
+                                </div>
+                                <h2 className="text-2xl sm:text-4xl font-bold text-slate-800 dark:text-white tracking-tight mb-3">Learner</h2>
+                                <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-8 sm:mb-10">
+                                    Dive into your subjects, track your progress, and explore interactive lessons designed just for you.
+                                </p>
+                                <div className="mt-auto flex items-center gap-2 font-bold text-sky-600 dark:text-sky-400 group-hover:gap-4 transition-all text-sm sm:text-base">
+                                    Enter Portal <span className="text-lg sm:text-xl">→</span>
+                                </div>
+                            </div>
+                        </Link>
+
+                        {/* Teacher Card */}
+                        <Link to="teacher" className="group relative p-8 sm:p-12 rounded-[3rem] transition-all duration-500 cursor-pointer overflow-hidden ring-1 ring-slate-900/5 dark:ring-white/10 bg-gradient-to-br from-emerald-50 via-teal-50 to-green-50 dark:from-[#1A1D24] dark:to-[#101216] shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-emerald-200/50 dark:hover:shadow-emerald-900/20 hover:-translate-y-2">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-400/20 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+                            <div className="relative z-10 flex flex-col h-full items-start">
+                                <div className="p-4 sm:p-5 bg-white/70 dark:bg-emerald-900/20 rounded-2xl sm:rounded-3xl mb-6 sm:mb-8 shadow-sm ring-1 ring-emerald-100 dark:ring-emerald-800/30 backdrop-blur-md">
+                                    <TeacherIcon className="w-10 h-10 sm:w-12 sm:h-12 text-emerald-600 dark:text-emerald-300" />
+                                </div>
+                                <h2 className="text-2xl sm:text-4xl font-bold text-slate-800 dark:text-white tracking-tight mb-3">Teacher</h2>
+                                <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-8 sm:mb-10">
+                                    Manage curriculum, create engaging units, and organize educational resources efficiently.
+                                </p>
+                                <div className="mt-auto flex items-center gap-2 font-bold text-emerald-600 dark:text-emerald-400 group-hover:gap-4 transition-all text-sm sm:text-base">
+                                    Manage Content <span className="text-lg sm:text-xl">→</span>
+                                </div>
+                            </div>
+                        </Link>
+                    </div>
                 </div>
             </div>
         </div>

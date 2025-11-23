@@ -1,8 +1,12 @@
-// src/components/UpdateOverlay.jsx
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Lottie from "lottie-react";
-import maintenanceAnimation from "../assets/systemmaintenance.json"; // adjust path if needed
+import maintenanceAnimation from "../assets/systemmaintenance.json"; 
+
+// --- macOS 26 Visual Constants ---
+const glassCard = "bg-white/60 dark:bg-black/40 backdrop-blur-3xl border border-white/40 dark:border-white/10 shadow-2xl shadow-black/5 dark:shadow-black/50 rounded-[32px]";
+const progressTrack = "bg-slate-200 dark:bg-white/10 h-1.5 rounded-full overflow-hidden";
+const progressBar = "h-full bg-[#007AFF] rounded-full transition-all duration-300 ease-out";
 
 export default function UpdateOverlay({ status, timeLeft, onEnter }) {
   const [progress, setProgress] = useState(0);
@@ -24,7 +28,6 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
     "Update complete. Launching new version..."
   ];
 
-  // Progress + text simulation
   useEffect(() => {
     let progressInterval, fileInterval;
 
@@ -33,17 +36,19 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
       setMessage("Preparing update...");
       let fileIndex = 0;
 
+      // Simulate progress bar movement
       progressInterval = setInterval(() => {
         setProgress((prev) => Math.min(prev + 1, 99));
-      }, 2000);
+      }, 2000); // Slower, more realistic feel for "building"
 
+      // Simulate file log updates
       fileInterval = setInterval(() => {
         if (fileIndex < files.length - 1) {
           fileIndex++;
           setCurrentFile(files[fileIndex]);
           setMessage(files[fileIndex]);
         }
-      }, 12000);
+      }, 8000);
     } else if (status === "complete") {
       setProgress(100);
       setMessage("System update successful!");
@@ -61,60 +66,54 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
-  const estimatedTime = timeLeft ? formatTime(timeLeft) : "Rebuilding...";
+  const estimatedTime = timeLeft ? formatTime(timeLeft) : "--:--";
 
   return (
-    <div className="fixed inset-0 bg-neumorphic-base dark:bg-neumorphic-base-dark flex items-center justify-center z-[9999] font-[Inter] text-slate-600 dark:text-slate-300 select-none overflow-hidden">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#f5f5f7] dark:bg-black font-sans overflow-hidden">
+        {/* Background Mesh (Matching App Theme) */}
+        <div className="absolute inset-0 pointer-events-none opacity-40 dark:opacity-20">
+             <div className="absolute top-[-20%] left-[-10%] w-[70vw] h-[70vw] bg-blue-400/30 rounded-full blur-[150px] animate-pulse-slow" />
+             <div className="absolute bottom-[-20%] right-[-10%] w-[70vw] h-[70vw] bg-indigo-400/30 rounded-full blur-[150px] animate-pulse-slow delay-1000" />
+        </div>
+
       <AnimatePresence mode="wait">
         {status === "building" && (
           <motion.div
             key="building"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="flex flex-col items-center justify-center gap-8 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark px-10 py-12 max-w-md w-[90%]"
+            initial={{ opacity: 0, scale: 0.95, filter: 'blur(10px)' }}
+            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, scale: 0.98, filter: 'blur(10px)' }}
+            transition={{ duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }}
+            className={`relative w-full max-w-md p-8 sm:p-10 flex flex-col items-center text-center ${glassCard}`}
           >
-            {/* Circular progress ring */}
-            <div className="relative">
-              <motion.div
-                className="absolute inset-0 rounded-full"
-                style={{
-                  // Note: conic-gradient in inline styles can't easily read Tailwind's dark mode.
-                  // We'll keep the light-mode track color (#d9dee6), which is neutral enough.
-                  // The progress color (#86c8ff) is vibrant on both backgrounds.
-                  background: `conic-gradient(#86c8ff ${progress * 3.6}deg, #d9dee6 0deg)`,
-                }}
-              ></motion.div>
-              <div className="w-40 h-40 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark flex items-center justify-center relative overflow-hidden">
-                <motion.img
-                  src="https://i.ibb.co/XfJ8scGX/1.png"
-                  alt="LMS Logo"
-                  className="w-20 h-20 object-contain"
-                  animate={{ scale: [1, 1.05, 1], opacity: [1, 0.95, 1] }}
-                  transition={{
-                    duration: 3,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                />
-              </div>
+            {/* Icon / Animation */}
+            <div className="w-32 h-32 mb-6 relative">
+                 <div className="absolute inset-0 bg-blue-500/20 blur-xl rounded-full animate-pulse"></div>
+                 <Lottie animationData={maintenanceAnimation} loop autoplay className="relative z-10" />
             </div>
 
-            {/* Lottie animation */}
-            <div className="w-40 h-40 md:w-48 md:h-48">
-              <Lottie animationData={maintenanceAnimation} loop autoplay />
-            </div>
+            {/* Main Text */}
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
+                Updating System
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 h-5 overflow-hidden">
+                 <span className="inline-block animate-fade-in-up key={currentFile}">{message}</span>
+            </p>
 
-            {/* Status text */}
-            <div className="text-center text-sm bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl px-6 py-4 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark w-full">
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 tracking-wide">
-                SYSTEM STATUS: UPDATING
-              </p>
-              <p className="font-medium text-slate-700 dark:text-slate-200">{message}</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
-                {progress}% Complete • Est. time {estimatedTime}
-              </p>
+            {/* Progress Bar */}
+            <div className="w-full space-y-2">
+                <div className={progressTrack}>
+                    <motion.div 
+                        className={progressBar} 
+                        style={{ width: `${progress}%` }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                    />
+                </div>
+                <div className="flex justify-between text-[11px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    <span>{progress}% Completed</span>
+                    <span>Est. {estimatedTime}</span>
+                </div>
             </div>
           </motion.div>
         )}
@@ -122,41 +121,30 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
         {status === "complete" && (
           <motion.div
             key="complete"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="flex flex-col items-center gap-6 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark px-10 py-12 max-w-md w-[90%]"
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
+            className={`relative w-full max-w-md p-10 flex flex-col items-center text-center ${glassCard}`}
           >
-            <motion.img
-              src="https://i.ibb.co/XfJ8scGX/1.png"
-              alt="LMS Logo"
-              className="w-20 h-20 object-contain"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{
-                scale: [1, 1.05, 1],
-                opacity: 1,
-                rotate: [0, 360],
-              }}
-              transition={{
-                duration: 3,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-            />
-            <h2 className="text-slate-700 dark:text-slate-200 font-semibold text-lg text-center">
+            <div className="w-24 h-24 mb-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/30 flex items-center justify-center animate-bounce-slow">
+                 <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="Logo" className="w-12 h-12 object-contain brightness-0 invert" />
+            </div>
+
+            <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">
               Update Complete
             </h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm text-center max-w-xs">
-              All systems are now up to date. You can safely enter the new
-              version of the LMS.
+            <p className="text-base text-slate-500 dark:text-slate-400 mb-8 max-w-xs leading-relaxed">
+              The system has been successfully updated to the latest version.
             </p>
+
             <motion.button
               onClick={onEnter}
-              whileTap={{ scale: 0.97 }}
-              className="px-8 py-3 rounded-xl font-semibold text-blue-600 dark:text-blue-400 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark transition-all hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full py-3.5 rounded-full bg-[#007AFF] hover:bg-[#0062CC] text-white font-semibold text-lg shadow-lg shadow-blue-500/25 transition-all"
             >
-              Enter
+              Enter Portal
             </motion.button>
           </motion.div>
         )}

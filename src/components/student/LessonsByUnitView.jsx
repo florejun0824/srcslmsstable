@@ -1,190 +1,236 @@
-// src/components/student/LessonsByUnitView.jsx
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   BookOpenIcon,
   SparklesIcon,
   ChevronRightIcon,
   ChevronLeftIcon,
-} from '@heroicons/react/24/outline';
-import ViewLessonModal from './StudentViewLessonModal';
+  ArrowPathIcon,
+  FolderIcon,
+  CheckCircleIcon,
+  PlayCircleIcon,
+  StopIcon,
+  ChartPieIcon // Added for in-progress visual
+} from '@heroicons/react/24/solid';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { db } from '../../services/firebase';
-import { doc, updateDoc, increment, arrayUnion } from 'firebase/firestore';
 
-// ... (EmptyState, LessonListItem, and UnitBook components remain unchanged) ...
-// ---------- Empty state (themed) ----------
-const EmptyState = ({ icon: Icon, text, subtext }) => (
-  <div className="text-center py-20 px-6 animate-fadeIn">
-    <Icon className="h-14 w-14 mb-4 text-slate-300 dark:text-slate-600 mx-auto" />
-    <p className="text-lg font-semibold text-slate-600 dark:text-slate-300">{text}</p>
-    <p className="mt-2 text-base text-slate-400 dark:text-slate-500">{subtext}</p>
+// --- COMPONENT: Glass Base (Shared) ---
+const GlassBase = ({ children, className = "", onClick }) => (
+  <div 
+    onClick={onClick}
+    className={`
+      relative overflow-hidden
+      bg-white/70 dark:bg-slate-900/60 
+      backdrop-blur-xl 
+      border border-white/60 dark:border-slate-700/50
+      shadow-sm hover:shadow-xl dark:shadow-black/40
+      transition-all duration-300 ease-out
+      ${className}
+    `}
+  >
+    {children}
   </div>
 );
 
-// ---------- ENHANCED: LessonListItem (themed) ----------
-const LessonListItem = ({ lesson, onClick, completedLessons }) => {
-  const isLessonCompleted =
-    lesson.isCompleted || (completedLessons && completedLessons.includes(lesson.id));
-  const isInProgress = lesson.pagesRead && lesson.totalPages && lesson.pagesRead > 0;
-
-  let progressText;
-  let badgeClasses;
-  let iconBgClass;
-  let borderColorClass;
-
-  if (isLessonCompleted) {
-    progressText = 'Completed';
-    badgeClasses = 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-    iconBgClass = 'bg-green-500';
-    borderColorClass = 'border-green-500';
-  } else if (isInProgress) {
-    progressText = `In Progress: Page ${lesson.pagesRead} of ${lesson.totalPages}`;
-    badgeClasses = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
-    iconBgClass = 'bg-yellow-500';
-    borderColorClass = 'border-yellow-500';
-  } else {
-    progressText = 'Not Started';
-    badgeClasses = 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300';
-    iconBgClass = 'bg-red-500';
-    borderColorClass = 'border-red-500';
-  }
+// --- COMPONENT: Spatial Unit Card (Grid Item) ---
+const UnitCard = ({ title, onClick, lessonCount, isNew, index, progress }) => {
+  const gradients = [
+    'from-blue-400/20 to-cyan-300/20',
+    'from-purple-400/20 to-pink-300/20',
+    'from-emerald-400/20 to-teal-300/20',
+    'from-orange-400/20 to-amber-300/20',
+  ];
+  const bgGradient = gradients[index % gradients.length];
+  
+  const isCompleted = progress === 100;
+  const isInProgress = progress > 0 && progress < 100;
 
   return (
-    <div
+    <GlassBase 
       onClick={onClick}
-      role="button"
-      tabIndex={0}
-      className={`group relative flex items-center gap-4 p-4 cursor-pointer rounded-2xl
-                 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark transition-all duration-200
-                 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:scale-[0.98]
-                 border-l-4 ${borderColorClass}`}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
+      className="cursor-pointer active:scale-[0.97] group min-h-[11rem] flex flex-col touch-manipulation rounded-[1.5rem]"
     >
-      {/* Lesson Icon */}
-      <div className={`flex-shrink-0 h-11 w-11 rounded-full flex items-center justify-center
-                       ${iconBgClass} shadow-inner`}>
-        <SparklesIcon className="h-5 w-5 text-white" />
-      </div>
+      <div className={`absolute inset-0 bg-gradient-to-br ${bgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+      
+      <div className="relative z-10 p-5 flex flex-col h-full">
+        <div className="flex justify-between items-start mb-4">
+          <div className={`h-11 w-11 rounded-2xl shadow-sm flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${isCompleted ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-white/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+            {isCompleted ? <CheckCircleIcon className="h-6 w-6" /> : <FolderIcon className="h-6 w-6" />}
+          </div>
+          
+          {/* Badges */}
+          <div className="flex flex-col items-end gap-1">
+            {isNew && !isCompleted && (
+                <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-500/90 text-white text-[10px] font-bold uppercase tracking-wider shadow-md shadow-red-500/20 animate-pulse-slow">
+                <SparklesIcon className="h-3 w-3 text-yellow-200" /> New
+                </span>
+            )}
+            {isCompleted && (
+                <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-500/90 text-white text-[10px] font-bold uppercase tracking-wider shadow-md shadow-green-500/20">
+                Done
+                </span>
+            )}
+          </div>
+        </div>
 
-      {/* Lesson Info */}
-      <div className="flex-1 min-w-0">
-        <h3 className="text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-100 truncate">
-          {lesson.title}
+        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+          {title}
         </h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{lesson.description || ''}</p>
+
+        <div className="mt-auto pt-4">
+           <div className="flex items-center justify-between mb-2">
+               {isCompleted ? (
+                   <span className="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider flex items-center gap-1">
+                       All Completed
+                   </span>
+               ) : (
+                   <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                       {lessonCount} {lessonCount === 1 ? 'Lesson' : 'Lessons'}
+                   </span>
+               )}
+               
+               <div className="h-8 w-8 rounded-full bg-white/50 dark:bg-slate-800/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                 <ChevronRightIcon className="h-4 w-4 text-slate-400" />
+               </div>
+           </div>
+
+           {/* Progress Bar (Visible if In Progress) */}
+           {isInProgress && (
+               <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                   <div 
+                        className="h-full bg-blue-500 rounded-full transition-all duration-500 ease-out" 
+                        style={{ width: `${progress}%` }}
+                   />
+               </div>
+           )}
+        </div>
       </div>
-
-      {/* Progress Badge */}
-      <span
-        className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-medium ${badgeClasses}`}
-      >
-        {progressText}
-      </span>
-
-      {/* Right Arrow */}
-      <ChevronRightIcon className="absolute right-3 h-4 w-4 text-slate-400 dark:text-slate-500 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors" />
-    </div>
+    </GlassBase>
   );
 };
 
+// --- COMPONENT: Enhanced Lesson List Item (Strip View) ---
+const LessonListItem = ({ lesson, onClick, completedLessons }) => {
+  const isCompleted = lesson.isCompleted || (completedLessons && completedLessons.includes(lesson.id));
+  const progress = lesson.totalPages > 0 ? (lesson.pagesRead / lesson.totalPages) * 100 : 0;
+  const isInProgress = !isCompleted && progress > 0;
 
-// --- MODIFIED: UnitBook (New "Book" look + "NEW" Badge) ---
-const UnitBook = ({ title, onClick, lessonCount, isNew }) => {
   return (
     <div
       onClick={onClick}
       role="button"
       tabIndex={0}
-      // --- Themed book container ---
-      className={`relative p-4 cursor-pointer group transition-all duration-300
-                 bg-neumorphic-base dark:bg-neumorphic-base-dark 
-                 shadow-neumorphic dark:shadow-neumorphic-dark
-                 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark
-                 hover:-translate-y-0.5 active:scale-[0.97]
-                 rounded-lg flex flex-col items-center justify-center min-h-[9rem] w-full
-                 border-l-4 border-slate-300 dark:border-slate-600 overflow-hidden`} // UI: Book spine
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
+      className={`
+        group relative flex items-center gap-4 p-4 mb-3
+        bg-white/60 dark:bg-slate-800/50 
+        backdrop-blur-md
+        hover:bg-white dark:hover:bg-slate-800
+        border border-white/50 dark:border-slate-700
+        rounded-2xl
+        shadow-sm hover:shadow-lg dark:shadow-black/20
+        transition-all duration-200 ease-out
+        active:scale-[0.98] cursor-pointer touch-manipulation
+        overflow-hidden
+      `}
     >
-      {/* --- NEW: "NEW" Badge --- */}
-      {isNew && (
-        <span className="absolute top-2 left-2 z-10 text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-600 text-white shadow-md">
-          NEW
-        </span>
+      {/* Progress Bar Background (Only if In Progress) */}
+      {isInProgress && (
+        <div 
+          className="absolute bottom-0 left-0 h-1 bg-amber-400/50 dark:bg-amber-500/50 transition-all duration-500" 
+          style={{ width: `${progress}%` }}
+        />
       )}
 
-      {/* --- NEW: Bookmark Ribbon --- */}
-      <div className="absolute top-0 right-2 z-0 w-4 h-6 bg-red-500 dark:bg-red-600 shadow-md transform translate-y-[-1px]">
-        <div 
-          className="absolute bottom-0 left-0 w-full h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[6px] border-b-neumorphic-base dark:border-b-neumorphic-base-dark"
-          style={{ content: '""' }}
-        ></div>
+      {/* Status Icon Indicator */}
+      <div className="flex-shrink-0">
+        {isCompleted ? (
+          <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400">
+            <CheckCircleIcon className="h-6 w-6" />
+          </div>
+        ) : isInProgress ? (
+          <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400 relative">
+            {/* Mini Circular Progress visual */}
+            <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 36 36">
+              <path className="text-amber-200 dark:text-amber-900" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+              <path className="text-amber-500" strokeDasharray={`${progress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+            </svg>
+            <span className="text-[9px] font-bold relative z-10">{Math.round(progress)}%</span>
+          </div>
+        ) : (
+          <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500 group-hover:bg-blue-50 dark:group-hover:bg-slate-600 group-hover:text-blue-500 transition-colors">
+            <PlayCircleIcon className="h-6 w-6" />
+          </div>
+        )}
       </div>
-      
-      {/* Spacer to push content down */}
-      <div className="flex-1"></div>
 
-      {/* Lesson Count (Above Title) */}
-      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-neumorphic-base dark:bg-slate-700 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-red-700 dark:text-red-300">
-        {lessonCount} {lessonCount === 1 ? 'Lesson' : 'Lessons'}
-      </span>
-      
-      {/* Unit Name (Below Count) */}
-      <p className="mt-1.5 text-xs sm:text-sm font-semibold text-center text-slate-700 dark:text-slate-200 line-clamp-2">
-        {title}
-      </p>
+      {/* Text Content */}
+      <div className="flex-1 min-w-0 py-1">
+        <h4 className={`text-base font-bold truncate ${isCompleted ? 'text-slate-500 dark:text-slate-500 decoration-slate-400' : 'text-slate-800 dark:text-slate-100'}`}>
+          {lesson.title}
+        </h4>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
+          {isCompleted ? 'Completed' : isInProgress ? `Resume from page ${lesson.pagesRead}` : lesson.description || 'Ready to start'}
+        </p>
+      </div>
 
-      {/* Spacer */}
-      <div className="flex-1"></div>
+      {/* Action Chevron / Button */}
+      <div className="flex-shrink-0">
+        <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-700/50 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors duration-300">
+           <ChevronRightIcon className="h-4 w-4" />
+        </div>
+      </div>
     </div>
   );
 };
 
-// ---------- Main component ----------
+const EmptyState = ({ icon: Icon, text, subtext }) => (
+  <div className="flex flex-col items-center justify-center py-24 px-6 opacity-80">
+    <div className="bg-slate-100 dark:bg-slate-800 p-6 rounded-full mb-4 shadow-inner">
+      <Icon className="h-10 w-10 text-slate-400" />
+    </div>
+    <p className="text-xl font-bold text-slate-700 dark:text-slate-200">{text}</p>
+    <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-xs text-center leading-relaxed">
+      {subtext}
+    </p>
+  </div>
+);
+
+
+// --- MAIN COMPONENT ---
 const LessonsByUnitView = ({
   selectedClass,
   lessons,
   units,
-  onBack,
+  onBack, // This maps to "Back to Class List"
   onContentUpdate,
-  setLessonToView, // <-- MODIFIED: Accept setLessonToView as a prop
-  showBackButton = true, // <-- NEW PROP
-  showRefreshButton = true, // <-- NEW PROP
+  setLessonToView,
+  showBackButton = true,
+  showRefreshButton = true,
 }) => {
   const [lessonsByUnit, setLessonsByUnit] = useState({});
-  // --- MODIFIED: Removed local lessonToView state ---
-  // const [lessonToView, setLessonToView] = useState(null); 
   const [localProgressUpdates, setLocalProgressUpdates] = useState({});
+  const [selectedUnit, setSelectedUnit] = useState(null); // Controls Grid vs List view
   
-  const [selectedUnit, setSelectedUnit] = useState(null);
-
   // Pull-to-refresh state
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartY = useRef(null);
   const pullDistance = useRef(0);
   const containerRef = useRef(null);
 
-  const { userProfile, setUserProfile } = useAuth();
+  const { userProfile } = useAuth();
   const { showToast } = useToast();
 
-  // (useEffect for grouping lessons... remains unchanged)
+  // --- Grouping Logic ---
   useEffect(() => {
     if (lessons.length > 0 || units.length > 0) {
-      // Create a map of unit IDs to the full unit object
       const unitsMap = new Map(units.map((unit) => [unit.id, unit]));
-
       const grouped = lessons.reduce((acc, lesson) => {
         const unit = unitsMap.get(lesson.unitId);
         const unitTitle = unit ? unit.title : 'Uncategorized';
-        
-        // Get createdAt from the unit, if it exists
         const unitCreatedAt = unit ? unit.createdAt : null;
 
         if (!acc[unitTitle]) {
-          acc[unitTitle] = { 
-            lessons: [], 
-            createdAt: unitCreatedAt // Store createdAt against the title
-          };
+          acc[unitTitle] = { lessons: [], createdAt: unitCreatedAt };
         }
 
         const lessonId = lesson.id;
@@ -202,35 +248,33 @@ const LessonsByUnitView = ({
           return orderA !== orderB ? orderA - orderB : a.title.localeCompare(b.title);
         });
       });
-
       setLessonsByUnit(grouped);
     } else {
       setLessonsByUnit({});
     }
   }, [lessons, units, localProgressUpdates]);
 
-  // (useMemo for sorting... remains unchanged)
   const sortedUnitTitles = useMemo(() => {
     return Object.keys(lessonsByUnit).sort((a, b) => 
       a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
     );
   }, [lessonsByUnit]);
-  
-  // (Haptic helper, pull-to-refresh... remain unchanged)
-  // ...
-    // ---------- Haptic helper ----------
-  const maybeHaptic = (pattern = 30) => {
-    try {
-      if (navigator?.vibrate) {
-        navigator.vibrate(pattern);
-      }
-    } catch (e) {
-      // ignore
+
+  // --- SMART BACK BUTTON LOGIC ---
+  const handleSmartBack = () => {
+    if (selectedUnit) {
+      // If inside a unit, go back to Unit Grid
+      setSelectedUnit(null);
+    } else {
+      // If at Unit Grid, go back to Class List (parent)
+      onBack();
     }
   };
 
-  // ---------- Pull-to-refresh touch handlers (unchanged) ----------
-  const pullThreshold = 70; // px to trigger refresh
+  // --- Interactions (Haptic/Touch) ---
+  const maybeHaptic = (pattern = 20) => {
+    if (navigator?.vibrate) navigator.vibrate(pattern);
+  };
 
   const handleTouchStart = (e) => {
     if (containerRef.current && containerRef.current.scrollTop > 0) return;
@@ -250,6 +294,7 @@ const LessonsByUnitView = ({
   const handleTouchEnd = async () => {
     if (touchStartY.current == null) return;
     try {
+      const pullThreshold = 70;
       if (pullDistance.current >= pullThreshold) {
         setIsRefreshing(true);
         maybeHaptic(50);
@@ -258,11 +303,8 @@ const LessonsByUnitView = ({
             await onContentUpdate();
             showToast('Refreshed.', 'success');
           } catch (err) {
-            console.error('Refresh failed:', err);
             showToast('Refresh failed.', 'error');
           }
-        } else {
-          showToast('No refresh handler provided.', 'info');
         }
         setIsRefreshing(false);
       }
@@ -279,188 +321,122 @@ const LessonsByUnitView = ({
     }
   };
 
-  // --- MODIFIED: Lesson completion handler (Uses prop setLessonToView) ---
-  const handleLessonComplete = useCallback(
-    async (progress) => {
-      if (!progress.lessonId) return;
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    maybeHaptic(30);
+    try {
+      if (onContentUpdate) await onContentUpdate();
+      showToast('Refreshed.', 'success');
+    } catch (err) {
+      showToast('Refresh failed.', 'error');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
-      const updatedLessonData = {
-        pagesRead: progress.pagesRead,
-        totalPages: progress.totalPages,
-        isCompleted: progress.isFinished,
-      };
-
-      // --- Use prop setter ---
-      if (setLessonToView) {
-        setLessonToView((prev) => (prev ? { ...prev, ...updatedLessonData } : null));
-      }
-      setLocalProgressUpdates((prev) => ({
-        ...prev,
-        [progress.lessonId]: updatedLessonData,
-      }));
-
-      if (!progress.isFinished || !userProfile?.id) return;
-
-      // --- MODIFIED: Updated XP from 25 to 250 ---
-      const XP_FOR_LESSON = 250; 
-      const completedLessons = userProfile.completedLessons || [];
-
-      if (completedLessons.includes(progress.lessonId)) return;
-
-      const updatedUser = {
-        ...userProfile,
-        xp: (userProfile.xp || 0) + XP_FOR_LESSON,
-        completedLessons: [...completedLessons, progress.lessonId],
-      };
-      setUserProfile(updatedUser);
-      localStorage.setItem('loggedInUser', JSON.stringify(updatedUser));
-      showToast(`🎉 Lesson finished! You earned ${XP_FOR_LESSON} XP!`, 'success');
-
-      maybeHaptic(30);
-
-      try {
-        const userRef = doc(db, 'users', userProfile.id);
-        await updateDoc(userRef, {
-          xp: increment(XP_FOR_LESSON),
-          completedLessons: arrayUnion(progress.lessonId),
-        });
-      } catch (error) {
-        console.warn('Firestore sync failed, will retry later:', error);
-        const pending = JSON.parse(localStorage.getItem('pendingCompletions') || '[]');
-        pending.push(progress.lessonId);
-        localStorage.setItem('pendingCompletions', JSON.stringify(pending));
-      }
-    },
-    [userProfile, setUserProfile, showToast, setLessonToView] // --- Added setLessonToView
-  );
-
-  // (Auto-sync... remains unchanged)
-  useEffect(() => {
-    const syncPending = async () => {
-      const pending = JSON.parse(localStorage.getItem('pendingCompletions') || '[]');
-      if (!pending.length || !userProfile?.id) return;
-      try {
-        const userRef = doc(db, 'users', userProfile.id);
-        await updateDoc(userRef, { completedLessons: arrayUnion(...pending) });
-        localStorage.removeItem('pendingCompletions');
-      } catch (e) {
-        console.error('Pending sync failed:', e);
-      }
-    };
-    window.addEventListener('online', syncPending);
-    return () => window.removeEventListener('online', syncPending);
-  }, [userProfile?.id]);
-
-  // ---------- Render ----------
   return (
-    <div className="min-h-full font-sans antialiased">
-      {/* --- MODIFIED: Removed max-w-4xl and padding to let parent control it --- */}
-      <div className=""> 
-        {/* --- MODIFIED: Conditionally render Back Button --- */}
-        {showBackButton && (
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 px-4 py-2 mb-4 text-sm sm:text-base font-semibold text-red-600 dark:text-red-400
-                       bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark
-                       hover:text-red-700 dark:hover:text-red-300 transition-all duration-200"
-          >
-            <ChevronLeftIcon className="h-5 w-5" />
-            All Classes
-          </button>
-        )}
+    <div className="min-h-full font-sans antialiased pb-32 px-2 sm:px-4">
+      
+      {/* --- NAV HEADER --- */}
+      <div className="flex flex-col gap-4 mb-6 mt-2">
+        
+        <div className="flex items-center justify-between">
+          {/* SMART BACK BUTTON */}
+          {showBackButton ? (
+            <button
+              onClick={handleSmartBack}
+              className="group flex items-center gap-1 pl-2 pr-4 py-2 rounded-full bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-700 backdrop-blur-md text-sm font-bold text-slate-600 dark:text-slate-300 transition-all active:scale-95 shadow-sm border border-white/20"
+            >
+              <div className="bg-white dark:bg-slate-600 rounded-full p-1 shadow-sm">
+                <ChevronLeftIcon className="h-4 w-4" />
+              </div>
+              {/* Dynamic Text based on context */}
+              <span>{selectedUnit ? "All Units" : "All Classes"}</span>
+            </button>
+          ) : <div />}
 
-        <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-1">Lessons</h1>
-            <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400">For {selectedClass?.name}</p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* --- MODIFIED: Conditionally render Refresh Button --- */}
-            {showRefreshButton && (
-              <button
-                onClick={async () => {
-                  setIsRefreshing(true);
-                  maybeHaptic(30);
-                  try {
-                    if (onContentUpdate) await onContentUpdate();
-                    showToast('Refreshed.', 'success');
-                  } catch (err) {
-                    console.error('Refresh failed:', err);
-                    showToast('Refresh failed.', 'error');
-                  } finally {
-                    setIsRefreshing(false);
-                  }
-                }}
-                className="px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
-              >
-                {isRefreshing ? (
-                  <div className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4 text-red-600 dark:text-red-400" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                    </svg>
-                    <span>Refreshing...</span>
-                  </div>
-                ) : (
-                  'Refresh'
-                )}
-              </button>
-            )}
-          </div>
+          {showRefreshButton && (
+            <button
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              className="p-2 rounded-full bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-700 backdrop-blur-md text-slate-600 dark:text-slate-300 shadow-sm active:scale-90 transition-all border border-white/20"
+            >
+              <ArrowPathIcon className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+          )}
         </div>
 
-        {/* ----- Master-Detail Render Logic ----- */}
+        {/* Title Block */}
+        <div className="px-2">
+          {selectedUnit ? (
+            // Unit View Title
+            <div className="animate-fadeIn">
+               <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">
+                 Module
+               </p>
+               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight line-clamp-2">
+                 {selectedUnit}
+               </h1>
+            </div>
+          ) : (
+            // Main Class Title
+            <div className="animate-fadeIn">
+               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
+                 {selectedClass?.name || 'Class Lessons'}
+               </h1>
+               <p className="text-base text-slate-500 dark:text-slate-400 mt-1">
+                 Select a unit to view lessons
+               </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* --- CONTENT AREA --- */}
+      <div
+        ref={containerRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="min-h-[50vh]"
+      >
+        {/* Loading Spinner */}
+        <div className={`flex justify-center transition-all duration-300 overflow-hidden ${isRefreshing ? 'h-10 opacity-100' : 'h-0 opacity-0'}`}>
+             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Syncing Content...</span>
+        </div>
+
         {sortedUnitTitles.length > 0 ? (
-          <div
-            ref={containerRef}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onMouseDown={handleTouchStart}
-            onMouseMove={handleTouchMove}
-            onMouseUp={handleTouchEnd}
-            style={{ WebkitOverflowScrolling: 'touch' }}
-          >
-            {/* ... (Rest of the render logic is unchanged) ... */}
-            {isRefreshing && (
-              <div className="text-center text-red-600 dark:text-red-400 text-sm font-semibold pt-2">
-                Fetching updates...
-              </div>
-            )}
+          <>
             {selectedUnit ? (
-              <div className="animate-fadeIn">
-                <button
-                  onClick={() => setSelectedUnit(null)}
-                  className="flex items-center gap-2 px-4 py-2 mb-4 text-sm sm:text-base font-semibold text-red-600 dark:text-red-400
-                             bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark
-                             hover:text-red-700 dark:hover:text-red-300 transition-all duration-200"
-                >
-                  <ChevronLeftIcon className="h-5 w-5" />
-                  Back to Units
-                </button>
-                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-3 px-1">
-                  {selectedUnit}
-                </h2>
-                <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark p-2 sm:p-3 space-y-2">
-                  {(lessonsByUnit[selectedUnit]?.lessons || []).map((lesson) => (
-                    <LessonListItem
-                      key={lesson.id}
-                      lesson={lesson}
-                      completedLessons={userProfile?.completedLessons || []}
-                      onClick={() => {
-                        maybeHaptic(20);
-                        if (setLessonToView) setLessonToView(lesson); // --- Use prop setter ---
-                      }}
-                    />
-                  ))}
-                </div>
+              /* --- VIEW 1: LESSON LIST (The Enhanced UI) --- */
+              <div className="animate-slideInUp space-y-2">
+                {(lessonsByUnit[selectedUnit]?.lessons || []).map((lesson) => (
+                  <LessonListItem
+                    key={lesson.id}
+                    lesson={lesson}
+                    completedLessons={userProfile?.completedLessons || []}
+                    onClick={() => {
+                      maybeHaptic(20);
+                      if (setLessonToView) setLessonToView(lesson);
+                    }}
+                  />
+                ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 pt-2 animate-fadeIn">
-                {sortedUnitTitles.map((unitTitle) => {
+              /* --- VIEW 2: UNITS GRID --- */
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-fadeIn">
+                {sortedUnitTitles.map((unitTitle, index) => {
                   const unitData = lessonsByUnit[unitTitle];
                   const lessonsInUnit = unitData?.lessons || [];
+                  
+                  // Calculate Progress
+                  const totalLessons = lessonsInUnit.length;
+                  const completedCount = lessonsInUnit.filter(l => 
+                    l.isCompleted || (userProfile?.completedLessons?.includes(l.id))
+                  ).length;
+                  const progressPercentage = totalLessons > 0 ? (completedCount / totalLessons) * 100 : 0;
+
+                  // Check "New" status
                   const sevenDaysAgo = new Date();
                   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
                   let isNew = false;
@@ -468,15 +444,16 @@ const LessonsByUnitView = ({
                       const createdAtDate = unitData.createdAt.toDate ? 
                                             unitData.createdAt.toDate() : 
                                             new Date(unitData.createdAt);
-                      if (createdAtDate > sevenDaysAgo) {
-                          isNew = true;
-                      }
+                      if (createdAtDate > sevenDaysAgo) isNew = true;
                   }
+
                   return (
-                    <UnitBook
+                    <UnitCard
                       key={unitTitle}
+                      index={index}
                       title={unitTitle}
-                      lessonCount={lessonsInUnit.length}
+                      lessonCount={totalLessons}
+                      progress={progressPercentage}
                       isNew={isNew}
                       onClick={() => {
                         maybeHaptic(20);
@@ -487,27 +464,15 @@ const LessonsByUnitView = ({
                 })}
               </div>
             )}
-          </div>
+          </>
         ) : (
           <EmptyState
             icon={BookOpenIcon}
-            text="No Lessons Available"
-            subtext="Your teacher hasn't shared any lessons for this class yet."
+            text="No Content Yet"
+            subtext="Lessons for this class will appear here once your teacher publishes them."
           />
         )}
       </div>
-
-      {/* --- MODIFIED: This component no longer manages its own modal --- */}
-      {/* The parent component (StudentDashboard or StudentClassDetailView) will render it */}
-      {/* {lessonToView && (
-        <ViewLessonModal
-          isOpen={!!lessonToView}
-          onClose={() => setLessonToView(null)}
-          lesson={lessonToView}
-          onComplete={handleLessonComplete}
-        />
-      )}
-      */}
     </div>
   );
 };

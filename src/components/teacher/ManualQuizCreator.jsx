@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { db } from '../../services/firebase'; // Adjust path
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; // Adjust path
-import { Title, Button } from '@tremor/react';
+import { db } from '../../services/firebase'; 
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; 
 import {
   PlusCircleIcon,
   TrashIcon,
@@ -12,8 +11,15 @@ import {
   LinkIcon,
   QueueListIcon,
   PaintBrushIcon,
-  ChatBubbleLeftRightIcon
-} from '@heroicons/react/24/solid';
+  ChatBubbleLeftRightIcon,
+  CheckIcon,
+  DevicePhoneMobileIcon,
+  PhotoIcon,
+  CalculatorIcon,
+  XMarkIcon,
+  ArrowPathIcon,
+  CursorArrowRaysIcon // Icon for "Click to Label" hint
+} from '@heroicons/react/24/outline';
 
 import ContentRenderer from './ContentRenderer'; 
 import 'katex/dist/katex.min.css'; 
@@ -23,78 +29,111 @@ const questionTypes = [
   { value: 'true-false', label: 'True/False' },
   { value: 'identification', label: 'Identification' },
   { value: 'matching-type', label: 'Matching Type' },
+  { value: 'image-labeling', label: 'Image Labeling' },
   { value: 'essay', label: 'Essay' },
 ];
 
-// --- Neumorphic Style Helpers ---
-// --- MODIFIED: Added dark theme styles ---
-const getSegmentedButtonClasses = (isActive) => {
-    const baseClasses = "flex-1 rounded-lg py-2.5 px-3 text-sm font-semibold transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 ring-offset-2 ring-offset-slate-200 dark:ring-offset-neumorphic-base-dark ring-sky-500";
-    if (isActive) {
-        return `${baseClasses} bg-slate-200 text-sky-600 shadow-[3px_3px_6px_#bdc1c6,-3px_-3px_6px_#ffffff] dark:bg-neumorphic-base-dark dark:text-sky-400 dark:shadow-lg scale-100`;
-    }
-    return `${baseClasses} bg-transparent text-slate-600 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-neumorphic-base-dark/50`;
-};
-// --- MODIFIED: Added dark theme styles ---
-const inputBaseStyles = "bg-slate-200 dark:bg-neumorphic-base-dark rounded-xl shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:shadow-neumorphic-inset-dark focus:outline-none focus:ring-2 focus:ring-sky-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 border-none dark:text-slate-100";
-// --- MODIFIED: Added dark theme styles ---
-const btnBase = "w-full inline-flex items-center justify-center px-4 py-3 text-sm font-semibold rounded-xl transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-200 dark:focus:ring-offset-neumorphic-base-dark";
-// --- MODIFIED: Added dark theme styles ---
-const btnExtruded = `shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff]
-                   dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark`;
-// --- MODIFIED: Added dark theme styles ---
-const btnDisabled = "disabled:opacity-60 disabled:text-slate-500 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] dark:disabled:text-slate-600 dark:disabled:shadow-neumorphic-inset-dark";
+const MATH_SYMBOLS = [
+    'π', '∑', '√', '∞', '≈', '≠', '≤', '≥', '±', '×', '÷', '°', 'θ', 'Δ', 'Ω', 'μ', 'α', 'β', '→', '⇌', '↑', '↓'
+];
+
 const uniqueId = () => `id_${Math.random().toString(36).substr(2, 9)}`;
 
-// --- Icons for Markdown Toolbar ---
-const BoldIcon = (props) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props} className="w-5 h-5">
-      <path d="M7 5v14h7c2.21 0 4-1.79 4-4s-1.79-4-4-4h-4m4 0H7" />
-    </svg>
-);
-const ItalicIcon = (props) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props} className="w-5 h-5">
-      <path d="M10 5l-4 14h3l4-14h-3z" />
-    </svg>
-);
-const H1Icon = (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props} className="w-5 h-5">
-        <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fontSize="12" fontWeight="bold">H1</text>
-    </svg>
-);
-const H2Icon = (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props} className="w-5 h-5">
-        <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fontSize="12" fontWeight="bold">H2</text>
-    </svg>
-);
-const H3Icon = (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props} className="w-5 h-5">
-        <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fontSize="12" fontWeight="bold">H3</text>
-    </svg>
+// --- IMAGE UTILS ---
+const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 1024; 
+                let width = img.width;
+                let height = img.height;
+
+                if (width > MAX_WIDTH) {
+                    height *= MAX_WIDTH / width;
+                    width = MAX_WIDTH;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        const compressedFile = new File([blob], file.name, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now(),
+                        });
+                        resolve(compressedFile);
+                    } else {
+                        reject(new Error('Canvas is empty'));
+                    }
+                }, 'image/jpeg', 0.7);
+            };
+        };
+        reader.onerror = (error) => reject(error);
+    });
+};
+
+const uploadImageToCloudinary = async (file) => {
+    // REPLACE WITH YOUR CLOUD NAME & PRESET
+    const CLOUDINARY_CLOUD_NAME = "de2uhc6gl"; 
+    const CLOUDINARY_UPLOAD_PRESET = "teacher_posts"; 
+
+    const compressedFile = await compressImage(file);
+    const formData = new FormData();
+    formData.append("file", compressedFile);
+    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    formData.append("folder", "quiz_images"); 
+
+    const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, 
+        { method: "POST", body: formData }
+    );
+
+    if (!response.ok) throw new Error("Image upload failed");
+    const data = await response.json();
+    return data.secure_url;
+};
+
+// --- CUSTOM ICONS ---
+const BoldIcon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" /><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" /></svg>);
+const ItalicIcon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="19" y1="4" x2="10" y2="4" /><line x1="14" y1="20" x2="5" y2="20" /><line x1="15" y1="4" x2="9" y2="20" /></svg>);
+const H1Icon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M17 18V6l-4 2" /></svg>);
+const H2Icon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1" /></svg>);
+const H3Icon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1" /></svg>);
+
+// --- LANDSCAPE WARNING ---
+const LandscapeWarning = () => (
+    <div className="fixed inset-0 z-[100] bg-[#f5f5f7]/95 dark:bg-black/95 backdrop-blur-3xl flex flex-col items-center justify-center p-8 text-center lg:hidden portrait:flex">
+        <div className="w-24 h-24 rounded-[32px] bg-white dark:bg-white/10 shadow-2xl flex items-center justify-center mb-8 animate-bounce-slow ring-1 ring-black/5">
+            <DevicePhoneMobileIcon className="w-12 h-12 text-[#007AFF] rotate-90 stroke-[1.5]" />
+        </div>
+        <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4 tracking-tight">Rotate to Edit</h3>
+        <p className="text-lg text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed font-medium">
+            The quiz creator requires landscape mode for the best experience.
+        </p>
+    </div>
 );
 
-
-// --- Upgraded MarkdownEditableField Component ---
+// --- MARKDOWN EDITOR ---
 const MarkdownEditableField = ({
-    value,
-    onChange,
-    fieldId,
-    editingField,
-    setEditingField,
-    isTextarea = false,
-    placeholder = "Click to edit"
+    value, onChange, fieldId, editingField, setEditingField, isTextarea = false, placeholder = "Click to edit"
 }) => {
     const isEditing = editingField === fieldId;
-    
     const textareaRef = useRef(null);
     const [showColorPicker, setShowColorPicker] = useState(false);
+    const [showSymbolPicker, setShowSymbolPicker] = useState(false);
 
     const TEXT_COLORS = [
-        { name: 'Blue', hex: '#3B82F6' },
-        { name: 'Green', hex: '#22C55E' },
-        { name: 'Orange', hex: '#F97316' },
-        { name: 'Red', hex: '#EF4444' },
-        { name: 'Slate', hex: '#475569' },
+        { name: 'Blue', hex: '#007AFF' }, { name: 'Green', hex: '#34C759' },
+        { name: 'Orange', hex: '#FF9500' }, { name: 'Red', hex: '#FF3B30' },
+        { name: 'Purple', hex: '#AF52DE' }, { name: 'Black', hex: '#1d1d1f' },
     ];
 
     const adjustHeight = () => {
@@ -104,171 +143,84 @@ const MarkdownEditableField = ({
         ta.style.height = `${ta.scrollHeight}px`;
     };
 
-    useEffect(() => {
-        if (isEditing) {
-            adjustHeight();
-        }
-    }, [isEditing, value]);
+    useEffect(() => { if (isEditing) adjustHeight(); }, [isEditing, value]);
 
-    const applyStyle = (startTag, endTag = '', isBlock = false) => {
+    const insertText = (textToInsert, cursorOffset = 0) => {
+        const ta = textareaRef.current;
+        if (!ta) return;
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const text = ta.value;
+        const newText = text.substring(0, start) + textToInsert + text.substring(end);
+        onChange({ target: { value: newText } });
+        setTimeout(() => {
+            ta.focus();
+            ta.selectionStart = ta.selectionEnd = start + textToInsert.length + cursorOffset;
+        }, 0);
+        setShowSymbolPicker(false);
+    };
+
+    const applyStyle = (startTag, endTag = '') => {
         const ta = textareaRef.current;
         if (!ta) return;
         const start = ta.selectionStart;
         const end = ta.selectionEnd;
         const text = ta.value;
         const selectedText = text.substring(start, end);
-
-        let newText;
-        let cursorPos;
-        if (isBlock) {
-            newText = `${text.substring(0, start)}${startTag}${selectedText || 'Type here...'}${endTag}${text.substring(end)}`;
-            cursorPos = start + startTag.length + (selectedText ? selectedText.length : 'Type here...'.length);
-        } else {
-            newText = `${text.substring(0, start)}${startTag}${selectedText}${endTag}${text.substring(end)}`;
-            cursorPos = start + startTag.length + selectedText.length;
-        }
-
-        onChange && onChange({ target: { value: newText } });
-        setTimeout(() => {
-            adjustHeight();
-            ta.focus();
-            if (isBlock && !selectedText) {
-                ta.selectionStart = start + startTag.length;
-                ta.selectionEnd = cursorPos;
-            } else {
-                ta.selectionStart = ta.selectionEnd = cursorPos;
-            }
-        }, 0);
+        const newText = `${text.substring(0, start)}${startTag}${selectedText}${endTag}${text.substring(end)}`;
+        onChange({ target: { value: newText } });
     };
+
+    const applyColor = (hex) => { applyStyle(`<span style="color: ${hex};">`, `</span>`); setShowColorPicker(false); };
     
-    const applyColor = (hex) => {
-        applyStyle(`<span style="color: ${hex};">`, `</span>`);
-        setShowColorPicker(false);
-    };
-
-    const applyBlockQuote = () => {
-        const ta = textareaRef.current;
-        if (!ta) return;
-        let selectedText = ta.value.substring(ta.selectionStart, ta.selectionEnd);
-        if (!selectedText) selectedText = "Quoted text";
-        const blockTextContent = selectedText.split('\n').map(line => `> ${line}`).join('\n');
-        applyStyle(`\n${blockTextContent}\n`, '', true);
-    };
-
-    const applyMarkdown = (syntax) => {
-        const ta = textareaRef.current;
-        if (!ta) return;
-        const start = ta.selectionStart;
-        const end = ta.selectionEnd;
-        const text = ta.value;
-        const selectedText = text.substring(start, end);
-        let newText, cursorPos;
-
-        switch (syntax) {
-            case 'bold':
-                newText = `${text.substring(0, start)}<strong>${selectedText}</strong>${text.substring(end)}`;
-                cursorPos = start + `<strong>`.length + selectedText.length;
-                break;
-            case 'italic':
-                newText = `${text.substring(0, start)}<em>${selectedText}</em>${text.substring(end)}`;
-                cursorPos = start + `<em>`.length + selectedText.length;
-                break;
-            case 'list':
-                const lines = selectedText ? selectedText.split('\n').map(l => `- ${l}`) : ['- '];
-                newText = `${text.substring(0, start)}${lines.join('\n')}${text.substring(end)}`;
-                cursorPos = start + lines.join('\n').length;
-                break;
-            case 'code':
-                newText = `${text.substring(0, start)}\`${selectedText}\`${text.substring(end)}`;
-                cursorPos = start + 1 + selectedText.length + 1;
-                break;
-            case 'link':
-                newText = `${text.substring(0, start)}[${selectedText}](url)${text.substring(end)}`;
-                cursorPos = start + 1 + selectedText.length + 1 + 3;
-                break;
-            case 'h1':
-                newText = `${text.substring(0, start)}# ${selectedText}${text.substring(end)}`;
-                cursorPos = start + 2;
-                break;
-            case 'h2':
-                newText = `${text.substring(0, start)}## ${selectedText}${text.substring(end)}`;
-                cursorPos = start + 3;
-                break;
-            case 'h3':
-                newText = `${text.substring(0, start)}### ${selectedText}${text.substring(end)}`;
-                cursorPos = start + 4;
-                break;
-            default:
-                return;
-        }
-
-        onChange && onChange({ target: { value: newText } });
-        setTimeout(() => {
-            adjustHeight();
-            ta.focus();
-            ta.selectionStart = ta.selectionEnd = cursorPos;
-        }, 0);
-    };
-
-    const ToolbarButton = ({ icon, syntax, tooltip, onClick, onMouseDown }) => (
-        <Button 
-            size="xs" 
-            variant="light" 
-            icon={icon} 
-            onClick={onClick || (() => applyMarkdown(syntax))} 
-            tooltip={tooltip} 
-            // --- MODIFIED: Added dark theme styles ---
-            className="p-2 rounded-lg dark:text-slate-400 dark:hover:!bg-neumorphic-base-dark/60"
-            onMouseDown={onMouseDown}
-        />
+    const ToolbarButton = ({ icon: Icon, text, tooltip, onClick, onMouseDown }) => (
+        <button onClick={onClick} title={tooltip} onMouseDown={onMouseDown} className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-black/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white transition-all active:scale-90 flex items-center justify-center">
+            {Icon ? <Icon className="w-5 h-5 stroke-[2]" /> : <span className="text-xs font-bold px-1">{text}</span>}
+        </button>
     );
-
 
     if (isEditing) {
         const InputComponent = isTextarea ? 'textarea' : 'input';
         return (
-            // --- MODIFIED: Added dark theme styles ---
-            <div className={`w-full ${inputBaseStyles} p-0 overflow-hidden`}>
-                {/* --- MODIFIED: Added dark theme styles --- */}
-                <div className="flex items-center flex-wrap gap-1 p-2 border-b border-slate-300/50 dark:border-slate-700 bg-slate-200/50 dark:bg-neumorphic-base-dark/60">
-                    <ToolbarButton icon={BoldIcon} syntax="bold" tooltip="Bold" onMouseDown={(e) => e.preventDefault()} />
-                    <ToolbarButton icon={ItalicIcon} syntax="italic" tooltip="Italic" onMouseDown={(e) => e.preventDefault()} />
-                    <ToolbarButton icon={QueueListIcon} syntax="list" tooltip="Bulleted List" onMouseDown={(e) => e.preventDefault()} />
-                    <ToolbarButton icon={CodeBracketIcon} syntax="code" tooltip="Inline Code" onMouseDown={(e) => e.preventDefault()} />
-                    <ToolbarButton icon={LinkIcon} syntax="link" tooltip="Link" onMouseDown={(e) => e.preventDefault()} />
-                    {/* --- MODIFIED: Added dark theme styles --- */}
-                    <div className="w-px h-6 bg-slate-300/70 dark:bg-slate-700 mx-1"></div>
+            <div className="w-full bg-white dark:bg-[#1e1e1e] border border-black/5 dark:border-white/10 rounded-[16px] shadow-lg shadow-blue-500/10 overflow-visible ring-2 ring-[#007AFF] relative z-20">
+                <div className="flex items-center flex-wrap gap-1 p-2 border-b border-black/5 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 backdrop-blur-md rounded-t-[16px]">
+                    <ToolbarButton icon={BoldIcon} tooltip="Bold" onClick={() => applyStyle('**', '**')} onMouseDown={(e) => e.preventDefault()} />
+                    <ToolbarButton icon={ItalicIcon} tooltip="Italic" onClick={() => applyStyle('*', '*')} onMouseDown={(e) => e.preventDefault()} />
+                    
+                    {/* Math Tools */}
+                    <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-1"></div>
+                    <ToolbarButton text="½" tooltip="Fraction" onClick={() => insertText('$\\frac{a}{b}$', -1)} onMouseDown={(e) => e.preventDefault()} />
+                    <ToolbarButton text="x²" tooltip="Exponent" onClick={() => insertText('$x^{2}$', -1)} onMouseDown={(e) => e.preventDefault()} />
+                    <ToolbarButton text="°" tooltip="Degree" onClick={() => insertText('$\\degree$')} onMouseDown={(e) => e.preventDefault()} />
+                    
+                    <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-1"></div>
+                    
                     <div className="relative">
-                        <ToolbarButton icon={PaintBrushIcon} tooltip="Text Color" onClick={() => setShowColorPicker(s => !s)} onMouseDown={(e) => e.preventDefault()} />
+                        <ToolbarButton icon={PaintBrushIcon} tooltip="Color" onClick={() => setShowColorPicker(s => !s)} onMouseDown={(e) => e.preventDefault()} />
                         {showColorPicker && (
-                            <div 
-                                onMouseDown={(e) => e.preventDefault()}
-                                onMouseLeave={() => setShowColorPicker(false)} 
-                                // --- MODIFIED: Added dark theme styles ---
-                                className="absolute top-full mt-2 z-10 bg-slate-100 dark:bg-neumorphic-base-dark dark:border dark:border-slate-700 p-2 rounded-lg shadow-lg flex gap-2"
-                            >
-                                {TEXT_COLORS.map(color => (
-                                    <button key={color.name} title={color.name} onClick={() => applyColor(color.hex)} className="w-6 h-6 rounded-full" style={{ backgroundColor: color.hex }} />
+                            <div onMouseLeave={() => setShowColorPicker(false)} className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 p-2 rounded-[12px] shadow-xl flex gap-2">
+                                {TEXT_COLORS.map(color => (<button key={color.name} onClick={() => applyColor(color.hex)} className="w-6 h-6 rounded-full border border-black/5" style={{ backgroundColor: color.hex }} />))}
+                            </div>
+                        )}
+                    </div>
+                    <div className="relative">
+                        <ToolbarButton icon={CalculatorIcon} tooltip="Symbols" onClick={() => setShowSymbolPicker(s => !s)} onMouseDown={(e) => e.preventDefault()} />
+                        {showSymbolPicker && (
+                            <div onMouseLeave={() => setShowSymbolPicker(false)} className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 p-2 rounded-[12px] shadow-xl grid grid-cols-6 gap-1 w-64">
+                                {MATH_SYMBOLS.map(sym => (
+                                    <button key={sym} onClick={() => insertText(sym)} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded text-sm font-mono text-slate-700 dark:text-slate-200">{sym}</button>
                                 ))}
                             </div>
                         )}
                     </div>
-                    <ToolbarButton icon={ChatBubbleLeftRightIcon} tooltip="Block Quote" onClick={applyBlockQuote} onMouseDown={(e) => e.preventDefault()} />
-                    {/* --- MODIFIED: Added dark theme styles --- */}
-                    <div className="w-px h-6 bg-slate-300/70 dark:bg-slate-700 mx-1"></div>
-                    <ToolbarButton icon={H1Icon} syntax="h1" tooltip="Heading 1" onMouseDown={(e) => e.preventDefault()} />
-                    <ToolbarButton icon={H2Icon} syntax="h2" tooltip="Heading 2" onMouseDown={(e) => e.preventDefault()} />
-                    <ToolbarButton icon={H3Icon} syntax="h3" tooltip="Heading 3" onMouseDown={(e) => e.preventDefault()} />
                 </div>
                 <InputComponent
                     ref={textareaRef}
-                    type="text"
                     value={value || ''}
                     onChange={onChange}
-                    onBlur={() => setEditingField(null)} 
-                    autoFocus 
-                    // --- MODIFIED: Added dark theme styles ---
-                    className={`w-full ${isTextarea ? 'min-h-[80px]' : ''} p-3 text-sm bg-transparent border-none resize-none focus:outline-none focus:ring-0 dark:text-slate-100 dark:placeholder-slate-500`}
+                    onBlur={() => setEditingField(null)}
+                    autoFocus
+                    className={`w-full ${isTextarea ? 'min-h-[120px]' : ''} p-4 text-sm bg-transparent border-none resize-none focus:outline-none focus:ring-0 dark:text-slate-100`}
                     rows={isTextarea ? 3 : undefined}
                     placeholder={placeholder}
                 />
@@ -276,57 +228,42 @@ const MarkdownEditableField = ({
         );
     }
 
-    // --- MODIFICATION: Fixed the layout expansion bug & added dark theme ---
     return (
-        <div
-            onClick={() => setEditingField(fieldId)}
-            className={`w-full ${inputBaseStyles} ${isTextarea ? 'min-h-[80px] p-3' : 'min-h-[40px] py-2 px-3'} 
-                      text-sm cursor-text dark:prose-invert dark:text-slate-100
-                      [&_.prose_p]:my-0 [&_.prose_ul]:my-0 [&_.prose_ol]:my-0 
-                      [&_.prose_h1]:my-0 [&_.prose_h2]:my-0 [&_.prose_h3]:my-0 
-                      [&_.prose_blockquote]:my-0`}
-        >
-            <ContentRenderer text={value || <span className="text-slate-400 dark:text-slate-500">{placeholder}</span>} />
+        <div onClick={() => setEditingField(fieldId)} className={`w-full bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-[16px] ${isTextarea ? 'min-h-[120px] p-4' : 'min-h-[48px] py-3 px-4'} text-sm cursor-text dark:prose-invert dark:text-slate-100 hover:bg-white/80 dark:hover:bg-white/10 transition-colors shadow-sm backdrop-blur-sm`}>
+            <ContentRenderer text={value || <span className="text-slate-400 dark:text-slate-600 italic">{placeholder}</span>} />
         </div>
     );
 };
-// --- END MODIFICATION ---
 
-
-export default function ManualQuizCreator({
-    onClose,
-    onBack,
-    unitId,
-    subjectId,
-    initialData = null
-}) {
+export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, initialData = null }) {
   const [title, setTitle] = useState('');
   const [questions, setQuestions] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false); 
   const hasInitialData = !!initialData;
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(-1);
-  const [isWarningModalOpen, setIsWarningModalOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
   const [editingField, setEditingField] = useState(null);
+
+  // --- DRAGGABLE PIN LOGIC ---
+  const [draggedPin, setDraggedPin] = useState(null); // { partIndex: number }
+  const imageRef = useRef(null);
+
+  // UI CONSTANTS
+  const inputClass = "w-full bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-[12px] px-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-[#007AFF]/50 outline-none transition-all shadow-sm";
 
   useEffect(() => {
     if (initialData) {
         setTitle(initialData.title || '');
         const populatedQuestions = (initialData.questions || []).map(q => ({
-            text: '', points: 1, explanation: '', options: [], prompts: [], correctPairs: {}, rubric: [],
-            ...q 
+            text: '', points: 1, explanation: '', options: [], prompts: [], correctPairs: {}, rubric: [], image: null, parts: [], ...q 
         }));
         setQuestions(populatedQuestions);
-        setError('AI-generated quiz loaded. Please review all questions, types, and answers for accuracy before saving.');
         setSelectedQuestionIndex(populatedQuestions.length > 0 ? 0 : -1);
-        setEditingField(null);
     } else {
         setTitle('');
         setQuestions([]);
-        setError('');
         setSelectedQuestionIndex(-1);
-        setEditingField(null);
     }
   }, [initialData]);
 
@@ -335,7 +272,6 @@ export default function ManualQuizCreator({
         text: '',
         type: 'multiple-choice',
         points: 1,
-        // --- MODIFICATION: Default to 3 options ---
         options: ['', '', ''],
         correctAnswerIndex: 0,
         explanation: ''
@@ -349,14 +285,8 @@ export default function ManualQuizCreator({
   const handleRemoveQuestion = (indexToRemove) => {
     const newQuestions = questions.filter((_, i) => i !== indexToRemove);
     setQuestions(newQuestions);
-
-    if (newQuestions.length === 0) {
-        setSelectedQuestionIndex(-1);
-    } else if (selectedQuestionIndex === indexToRemove) {
-        setSelectedQuestionIndex(Math.max(0, indexToRemove - 1));
-    } else if (selectedQuestionIndex > indexToRemove) {
-        setSelectedQuestionIndex(selectedQuestionIndex - 1);
-    }
+    if (newQuestions.length === 0) setSelectedQuestionIndex(-1);
+    else if (selectedQuestionIndex >= indexToRemove) setSelectedQuestionIndex(Math.max(0, selectedQuestionIndex - 1));
     setEditingField(null);
   };
 
@@ -364,201 +294,208 @@ export default function ManualQuizCreator({
     const newQuestions = [...questions];
     const oldQuestion = newQuestions[index];
     let newQuestion = { ...oldQuestion, [field]: value };
+    
     if (field === 'type') {
-        const oldType = oldQuestion.type;
-        if (value !== oldType) {
-            delete newQuestion.options; delete newQuestion.correctAnswerIndex;
-            delete newQuestion.correctAnswer; delete newQuestion.prompts;
-            delete newQuestion.correctPairs; delete newQuestion.rubric; 
+        if (value !== oldQuestion.type) {
+            newQuestion = { text: oldQuestion.text, type: value, explanation: oldQuestion.explanation };
             switch (value) {
-                case 'multiple-choice':
-                    // --- MODIFICATION: Default to 3 options ---
-                    newQuestion.options = ['', '', '']; 
-                    newQuestion.correctAnswerIndex = 0; 
-                    newQuestion.points = 1;
-                    break;
-                case 'true-false':
-                    newQuestion.correctAnswer = true; newQuestion.points = 1;
-                    break;
-                case 'identification':
-                    newQuestion.correctAnswer = ''; newQuestion.points = 1;
-                    break;
-                case 'matching-type':
-                    newQuestion.prompts = [{ id: uniqueId(), text: '' }]; newQuestion.options = [{ id: uniqueId(), text: '' }, { id: uniqueId(), text: '' }];
-                    newQuestion.correctPairs = {}; newQuestion.points = 1;
-                    break;
-                case 'essay':
-                    newQuestion.rubric = [{ id: uniqueId(), criteria: 'Clarity', points: 5 }, { id: uniqueId(), criteria: 'Relevance', points: 5 }];
-                    newQuestion.points = 10;
-                    break;
+                case 'multiple-choice': newQuestion.options = ['', '', '']; newQuestion.correctAnswerIndex = 0; newQuestion.points = 1; break;
+                case 'true-false': newQuestion.correctAnswer = true; newQuestion.points = 1; break;
+                case 'identification': newQuestion.correctAnswer = ''; newQuestion.points = 1; break;
+                case 'matching-type': newQuestion.prompts = [{ id: uniqueId(), text: '' }]; newQuestion.options = [{ id: uniqueId(), text: '' }]; newQuestion.correctPairs = {}; newQuestion.points = 1; break;
+                case 'image-labeling': newQuestion.image = null; newQuestion.parts = []; newQuestion.points = 0; break;
+                case 'essay': newQuestion.rubric = [{ id: uniqueId(), criteria: 'Content', points: 10 }]; newQuestion.points = 10; break;
                 default: newQuestion.points = 1; break;
             }
         }
     }
+    // Auto-calc points
     if (newQuestion.type === 'essay' && field !== 'points') {
-        const rubricTotal = (newQuestion.rubric || []).reduce((sum, item) => sum + (Number(item.points) || 0), 0);
-        if (newQuestion.points !== rubricTotal) { newQuestion.points = rubricTotal; }
+        newQuestion.points = (newQuestion.rubric || []).reduce((sum, r) => sum + (Number(r.points) || 0), 0);
     }
+    if (newQuestion.type === 'image-labeling' && field !== 'points') {
+        newQuestion.points = (newQuestion.parts || []).length; // 1 point per label
+    }
+    if (newQuestion.type === 'matching-type' && field !== 'points') {
+        newQuestion.points = (newQuestion.prompts || []).length;
+    }
+
     newQuestions[index] = newQuestion;
     setQuestions(newQuestions);
   };
-  
-  // --- MODIFICATION: Renamed from handleOptionChange to handleOptionTextChange ---
-  const handleOptionTextChange = (qIndex, oIndex, value) => {
-    const newQuestions = [...questions];
-    let optionsArray = newQuestions[qIndex].options; 
-    if (!optionsArray) { optionsArray = []; }
-    const currentOption = optionsArray[oIndex];
-    optionsArray = [...optionsArray];
-    if (typeof currentOption === 'object' && currentOption !== null) { optionsArray[oIndex] = { ...currentOption, text: value }; }
-    else { optionsArray[oIndex] = value; }
-    newQuestions[qIndex].options = optionsArray;
-    setQuestions(newQuestions);
+
+  // --- IMAGE LABELING HANDLERS (INTERACTIVE) ---
+  const handleImageUpload = async (qIndex, file) => {
+      setUploadingImage(true);
+      try {
+          const imageUrl = await uploadImageToCloudinary(file);
+          const newQuestions = [...questions];
+          newQuestions[qIndex].image = imageUrl;
+          setQuestions(newQuestions);
+      } catch (err) {
+          console.error("Image upload error:", err);
+          setError("Failed to upload image. Please try again.");
+      } finally {
+          setUploadingImage(false);
+      }
   };
 
-  // --- MODIFICATION: New handler to add an option ---
-  const handleAddOption = (qIndex) => {
-    const newQuestions = [...questions];
-    const optionsArray = newQuestions[qIndex].options || [];
-    optionsArray.push('');
-    newQuestions[qIndex].options = optionsArray;
-    setQuestions(newQuestions);
-    // Focus the new option field
-    setEditingField(`option-${optionsArray.length - 1}`);
+  const handleImageClick = (e, qIndex) => {
+      // Only add if not dragging
+      if (draggedPin !== null) return;
+
+      const rect = imageRef.current.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+      const newQuestions = [...questions];
+      const parts = newQuestions[qIndex].parts || [];
+      parts.push({ 
+          id: uniqueId(), 
+          number: parts.length + 1, 
+          correctAnswer: '',
+          x: Math.max(0, Math.min(100, x)), // Clamp 0-100
+          y: Math.max(0, Math.min(100, y))
+      });
+      newQuestions[qIndex].parts = parts;
+      newQuestions[qIndex].points = parts.length;
+      setQuestions(newQuestions);
   };
 
-  // --- MODIFICATION: New handler to remove an option ---
-  const handleRemoveOption = (qIndex, oIndex) => {
-    const newQuestions = [...questions];
-    let optionsArray = newQuestions[qIndex].options || [];
-    
-    // Enforce minimum 3 options
-    if (optionsArray.length <= 3) {
-        return; 
-    }
-    
-    optionsArray = optionsArray.filter((_, i) => i !== oIndex);
-    
-    // Check if the removed option was the correct one
-    if (newQuestions[qIndex].correctAnswerIndex === oIndex) {
-        newQuestions[qIndex].correctAnswerIndex = 0; // Reset to first option
-    } else if (newQuestions[qIndex].correctAnswerIndex > oIndex) {
-        newQuestions[qIndex].correctAnswerIndex -= 1; // Shift index down
-    }
-    
-    newQuestions[qIndex].options = optionsArray;
-    setQuestions(newQuestions);
+  // --- DRAG LOGIC ---
+  // We'll use basic mouse events for drag
+  const handlePinMouseDown = (e, pIndex) => {
+      e.stopPropagation(); // Prevent adding new pin
+      setDraggedPin({ pIndex });
   };
 
-  const handleRubricChange = (qIndex, rIndex, field, value) => {
-    const newQuestions = [...questions]; const question = newQuestions[qIndex];
-    const updatedRubric = [...(question.rubric || [])];
-    updatedRubric[rIndex] = { ...updatedRubric[rIndex], [field]: value };
-    question.rubric = updatedRubric; 
-    if (field === 'points') {
-        const rubricTotal = question.rubric.reduce((sum, item) => sum + (Number(item.points) || 0), 0);
-        question.points = rubricTotal; 
-    }
-    setQuestions(newQuestions); 
+  const handleMouseMove = (e) => {
+      if (draggedPin === null || !imageRef.current) return;
+      
+      const rect = imageRef.current.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+      const newQuestions = [...questions];
+      const part = newQuestions[selectedQuestionIndex].parts[draggedPin.pIndex];
+      part.x = Math.max(0, Math.min(100, x));
+      part.y = Math.max(0, Math.min(100, y));
+      
+      setQuestions(newQuestions);
+  };
+
+  const handleMouseUp = () => {
+      setDraggedPin(null);
+  };
+
+  // Global mouse listeners for drag (attached to window when dragging)
+  useEffect(() => {
+      if (draggedPin !== null) {
+          window.addEventListener('mousemove', handleMouseMove);
+          window.addEventListener('mouseup', handleMouseUp);
+      } else {
+          window.removeEventListener('mousemove', handleMouseMove);
+          window.removeEventListener('mouseup', handleMouseUp);
+      }
+      return () => {
+          window.removeEventListener('mousemove', handleMouseMove);
+          window.removeEventListener('mouseup', handleMouseUp);
+      };
+  }, [draggedPin, questions]); // Re-bind if questions state changes mid-drag (less optimal but functional)
+
+
+  const handleLabelPartChange = (qIndex, pIndex, val) => {
+      const newQuestions = [...questions];
+      newQuestions[qIndex].parts[pIndex].correctAnswer = val;
+      setQuestions(newQuestions);
+  };
+
+  const handleRemoveLabelPart = (qIndex, pIndex) => {
+      const newQuestions = [...questions];
+      let parts = newQuestions[qIndex].parts || [];
+      parts = parts.filter((_, i) => i !== pIndex);
+      parts = parts.map((p, i) => ({ ...p, number: i + 1 })); // Renumber
+      newQuestions[qIndex].parts = parts;
+      newQuestions[qIndex].points = parts.length;
+      setQuestions(newQuestions);
+  };
+
+  // --- OTHER HANDLERS ---
+  const handleMatchingSubItemChange = (qIndex, type, idx, val) => {
+      const newQ = [...questions]; newQ[qIndex][type][idx].text = val; setQuestions(newQ);
+  };
+  const handleAddMatchingItem = (qIndex, type) => {
+      const newQ = [...questions]; 
+      newQ[qIndex][type].push({ id: uniqueId(), text: '' });
+      if(type === 'prompts') newQ[qIndex].points = newQ[qIndex][type].length; 
+      setQuestions(newQ);
+  };
+  const handleRemoveMatchingItem = (qIndex, type, idx) => {
+      const newQ = [...questions];
+      if(type === 'prompts' && newQ[qIndex].correctPairs) delete newQ[qIndex].correctPairs[newQ[qIndex][type][idx].id];
+      newQ[qIndex][type].splice(idx, 1);
+      if(type === 'prompts') newQ[qIndex].points = newQ[qIndex][type].length;
+      setQuestions(newQ);
+  };
+  const handlePairChange = (qIndex, promptId, optId) => {
+      const newQ = [...questions];
+      if(!newQ[qIndex].correctPairs) newQ[qIndex].correctPairs = {};
+      newQ[qIndex].correctPairs[promptId] = optId;
+      setQuestions(newQ);
+  };
+  const handleRubricChange = (qIndex, rIndex, field, val) => {
+      const newQ = [...questions];
+      newQ[qIndex].rubric[rIndex][field] = val;
+      newQ[qIndex].points = newQ[qIndex].rubric.reduce((sum, r) => sum + (Number(r.points) || 0), 0);
+      setQuestions(newQ);
   };
   const handleAddRubricItem = (qIndex) => {
-    const newQuestions = [...questions]; const question = newQuestions[qIndex];
-    const currentRubric = question.rubric || [];
-    question.rubric = [...currentRubric, { id: uniqueId(), criteria: '', points: 0 }];
-    setQuestions(newQuestions);
-    setEditingField(`rubric-${currentRubric.length}`);
+      const newQ = [...questions];
+      newQ[qIndex].rubric.push({ id: uniqueId(), criteria: '', points: 0 });
+      setQuestions(newQ);
   };
   const handleRemoveRubricItem = (qIndex, rIndex) => {
-    const newQuestions = [...questions]; const question = newQuestions[qIndex];
-    question.rubric = (question.rubric || []).filter((_, i) => i !== rIndex);
-    const rubricTotal = question.rubric.reduce((sum, item) => sum + (Number(item.points) || 0), 0);
-    question.points = rubricTotal;
-    setQuestions(newQuestions);
+      const newQ = [...questions];
+      newQ[qIndex].rubric.splice(rIndex, 1);
+      newQ[qIndex].points = newQ[qIndex].rubric.reduce((sum, r) => sum + (Number(r.points) || 0), 0);
+      setQuestions(newQ);
   };
-  const handleMatchingSubItemChange = (qIndex, itemType, itemIndex, newText) => {
-    const newQuestions = [...questions]; const question = newQuestions[qIndex];
-    const updatedItems = [...(question[itemType] || [])];
-    if(updatedItems[itemIndex]) {
-        updatedItems[itemIndex] = { ...updatedItems[itemIndex], text: newText };
-        question[itemType] = updatedItems;
-        setQuestions(newQuestions);
-    }
+  const handleOptionTextChange = (qIndex, oIndex, val) => {
+      const newQ = [...questions]; newQ[qIndex].options[oIndex] = val; setQuestions(newQ);
   };
-  const handleAddMatchingSubItem = (qIndex, itemType) => {
-    const newQuestions = [...questions]; const question = newQuestions[qIndex];
-    const currentItems = question[itemType] || [];
-    question[itemType] = [...currentItems, { id: uniqueId(), text: '' }];
-    if (itemType === 'prompts') { 
-        question.points = question[itemType].length; 
-        setEditingField(`prompt-${currentItems.length}`);
-    } else {
-        setEditingField(`match-option-${currentItems.length}`);
-    }
-    setQuestions(newQuestions);
+  const handleAddOption = (qIndex) => {
+      const newQ = [...questions]; newQ[qIndex].options.push(''); setQuestions(newQ);
   };
-  const handleRemoveMatchingSubItem = (qIndex, itemType, itemIndex) => {
-    const newQuestions = [...questions]; const question = newQuestions[qIndex];
-    if (!question[itemType]) return; 
-    const removedItem = question[itemType][itemIndex];
-    question[itemType] = question[itemType].filter((_, i) => i !== itemIndex);
-    if (itemType === 'prompts') {
-        if(question.correctPairs) { delete question.correctPairs[removedItem.id]; }
-        question.points = question[itemType].length; 
-    } else {
-        if(question.correctPairs){
-            for (const promptId in question.correctPairs) {
-                if (question.correctPairs[promptId] === removedItem.id) { question.correctPairs[promptId] = ''; }
-            }
-        }
-    }
-    setQuestions(newQuestions);
+  const handleRemoveOption = (qIndex, oIndex) => {
+      const newQ = [...questions]; 
+      if(newQ[qIndex].options.length <= 3) return;
+      newQ[qIndex].options.splice(oIndex, 1);
+      if(newQ[qIndex].correctAnswerIndex >= oIndex) newQ[qIndex].correctAnswerIndex = Math.max(0, newQ[qIndex].correctAnswerIndex - 1);
+      setQuestions(newQ);
   };
-  const handlePairChange = (qIndex, promptId, optionId) => {
-    const newQuestions = [...questions]; const question = newQuestions[qIndex];
-    const currentPairs = question.correctPairs || {};
-    question.correctPairs = { ...currentPairs, [promptId]: optionId };
-    setQuestions(newQuestions);
-  };
-  
+
   const handleSubmit = async () => {
     if (!title.trim()) return setError('Quiz title cannot be empty.');
     if (questions.length === 0) return setError('Please add at least one question.');
-    for (const [qIndex, q] of questions.entries()) {
-      const points = Number(q.points) || 0;
-      const startNum = questions.slice(0, qIndex).reduce((sum, prevQ) => sum + (Number(prevQ.points) || 1), 1);
-      const endNum = startNum + points - 1;
-      const qLabel = points <= 1 ? `Question ${startNum}` : `Questions ${startNum}-${endNum}`;
-      if (!q.text.trim()) { return setError(`${qLabel}: must have text (or an instruction).`); }
-      if (points <= 0 && q.type !== 'essay') { return setError(`${qLabel}: Points must be greater than 0.`); }
-      if (q.type === 'multiple-choice') {
-          // --- MODIFICATION: Check for minimum 3 options ---
-          if (!q.options || q.options.length < 3) { 
-              return setError(`${qLabel}: Must have at least 3 options.`); 
-          }
-          if (q.options.some(opt => { const optionText = (typeof opt === 'object' && opt !== null) ? opt.text : opt; return !String(optionText).trim(); })) { 
-              return setError(`${qLabel}: All multiple choice options must be filled in.`); 
-          }
-          if (q.correctAnswerIndex === undefined || q.correctAnswerIndex < 0 || q.correctAnswerIndex >= q.options.length) { 
-              return setError(`${qLabel}: A correct multiple choice answer must be selected.`); 
-          }
-      } else if (q.type === 'identification') {
-        if (typeof q.correctAnswer !== 'string' || !q.correctAnswer.trim()) { return setError(`${qLabel}: (Identification) must have a correct answer.`); }
-      } else if (q.type === 'matching-type') {
-          if(!q.prompts || q.prompts.length === 0) return setError(`${qLabel}: (Matching) must have at least one prompt.`);
-          if(!q.options || q.options.length === 0) return setError(`${qLabel}: (Matching) must have at least one option.`);
-          if (q.points !== q.prompts.length) { return setError(`${qLabel}: (Matching) Number of points (${q.points}) must match the number of prompts (${q.prompts.length}). Add/remove prompts.`); }
-          if (q.prompts.some(p => !p.text.trim())) { return setError(`${qLabel}: (Matching) All prompts must have text.`); }
-          if (q.options.some(o => !o.text.trim())) { return setError(`${qLabel}: (Matching) All options must have text.`); }
-          if (q.options.length <= q.prompts.length) { return setError(`${qLabel}: (Matching) must have at least one distractor (more options than prompts).`); }
-          if (!q.correctPairs || Object.keys(q.correctPairs).length !== q.prompts.length || Object.values(q.correctPairs).some(val => !val)) { return setError(`${qLabel}: (Matching) All prompts must be paired with an answer.`); }
-      } else if (q.type === 'essay') {
-          if (!q.rubric || q.rubric.length === 0) { return setError(`${qLabel}: (Essay) must have at least one rubric criterion.`); }
-          if (q.rubric.some(r => !r.criteria.trim() || (Number(r.points) || 0) <= 0)) { return setError(`${qLabel}: (Essay) All rubric items must have a criteria description and points greater than 0.`); }
-          const rubricTotal = q.rubric.reduce((sum, item) => sum + (Number(item.points) || 0), 0);
-           if (rubricTotal === 0) { return setError(`${qLabel}: (Essay) Total points for the rubric cannot be 0.`); }
-          if (rubricTotal !== q.points) { console.error("Rubric total mismatch validation:", q.points, rubricTotal); return setError(`${qLabel}: (Essay) Rubric total (${rubricTotal}) does not match question points (${q.points}). Please adjust rubric points.`); }
-      }
-    } 
+    
+    for (const [i, q] of questions.entries()) {
+        const label = `Question ${i + 1}`;
+        if (!q.text.trim()) return setError(`${label}: Text is required.`);
+        
+        if (q.type === 'image-labeling') {
+            if (!q.image) return setError(`${label}: Image is required.`);
+            if (!q.parts || q.parts.length === 0) return setError(`${label}: Click on the image to label at least one part.`);
+            if (q.parts.some(p => !p.correctAnswer.trim())) return setError(`${label}: All labels must have an answer.`);
+        }
+        if (q.type === 'matching-type') {
+            if (!q.prompts.length || !q.options.length) return setError(`${label}: Needs prompts and options.`);
+            for(const p of q.prompts) {
+                if(!q.correctPairs?.[p.id]) return setError(`${label}: Map all prompts to an answer.`);
+            }
+        }
+        if (q.type === 'essay' && q.rubric.length === 0) return setError(`${label}: Needs rubric.`);
+    }
+
     setLoading(true); setError('');
     try {
       await addDoc(collection(db, 'quizzes'), {
@@ -567,382 +504,310 @@ export default function ManualQuizCreator({
       });
       onClose();
     } catch (err) {
-      console.error("Error adding quiz:", err); setError("Failed to add quiz.");
+      setError("Failed to save quiz.");
     } finally { setLoading(false); }
   };
-  
-  const getQuestionLabel = (q, index) => {
-    const startNumber = questions.slice(0, index).reduce((sum, currentQ) => sum + (Number(currentQ.points) || 1), 1);
-    const points = Number(q.points) || 1; 
-    const endNumber = startNumber + Math.max(0, points - 1); 
-    return points <= 1 ? `Question ${startNumber}` : `Questions ${startNumber}-${endNumber}`;
-  };
 
-  const totalPoints = useMemo(() => {
-    return questions.reduce((sum, q) => sum + (Number(q.points) || 0), 0);
-  }, [questions]);
-
+  const totalPoints = useMemo(() => questions.reduce((sum, q) => sum + (Number(q.points) || 0), 0), [questions]);
   const currentQuestion = questions[selectedQuestionIndex];
 
-  const handleAttemptNavigation = (actionCallback) => {
-    if (title.trim() || questions.length > 0) {
-      setPendingAction(() => actionCallback);
-      setIsWarningModalOpen(true);
-    } else {
-      actionCallback();
-    }
-  };
-
-  const handleConfirmLeave = () => {
-    if (pendingAction) {
-      pendingAction();
-    }
-    setIsWarningModalOpen(false);
-    setPendingAction(null);
-  };
-
-  const handleCancelLeave = () => {
-    setIsWarningModalOpen(false);
-    setPendingAction(null);
-  };
-
   return (
-    // --- MODIFIED: Added dark theme styles ---
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-200 dark:bg-neumorphic-base-dark">
-      <button 
-        onClick={() => handleAttemptNavigation(onBack)}
-        // --- MODIFIED: Added dark theme styles ---
-        className={`absolute top-4 left-4 z-10 h-10 w-10 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 dark:bg-neumorphic-base-dark dark:text-slate-400 ${btnExtruded}`}
-      >
-        <ArrowUturnLeftIcon className="h-6 w-6" />
-      </button>
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#f5f5f7] dark:bg-[#121212] font-sans text-slate-900 dark:text-white overflow-hidden">
+      <LandscapeWarning />
+
+      {/* Header */}
+      <div className="flex-shrink-0 px-6 py-4 border-b border-black/5 dark:border-white/5 bg-white/70 dark:bg-[#1e1e1e]/70 backdrop-blur-xl z-20 sticky top-0 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+              <button onClick={onClose} className="p-2 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 transition-all active:scale-95">
+                  <ArrowUturnLeftIcon className="w-5 h-5 stroke-[2.5] text-slate-600 dark:text-white" />
+              </button>
+              <div>
+                  <h3 className="text-lg font-bold tracking-tight leading-none">{hasInitialData ? 'Review Quiz' : 'Quiz Creator'}</h3>
+                  <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">Manual Editor</p>
+              </div>
+          </div>
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/50 dark:bg-white/10 border border-black/5 dark:border-white/5 shadow-sm">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Points</span>
+              <span className="text-sm font-black text-[#007AFF]">{totalPoints}</span>
+          </div>
+      </div>
       
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden pt-12">
+      {/* Main Content Area */}
+      <div className="flex-grow flex flex-col lg:flex-row overflow-hidden p-4 gap-4 relative z-0">
         
-        {/* Left Pane: Question List */}
-        {/* --- MODIFIED: Added dark theme styles --- */}
-        <div className="w-full md:w-1/3 lg:w-1/4 p-4 md:p-6 overflow-y-auto bg-slate-200/50 dark:bg-neumorphic-base-dark/50 border-r border-slate-300/70 dark:border-r dark:border-slate-700/50 space-y-4">
-            {/* --- MODIFIED: Added dark theme text --- */}
-            <Title className="text-xl font-bold text-slate-800 dark:text-slate-100 text-center">
-                {hasInitialData ? 'Review Quiz' : 'Quiz Creator'}
-            </Title>
-            
-            {/* --- MODIFIED: Added dark theme styles --- */}
-            <div className="p-4 rounded-2xl shadow-[inset_3px_3px_7px_#bdc1c6,inset_-3px_-3px_7px_#ffffff] dark:shadow-neumorphic-inset-dark space-y-2">
-                {/* --- MODIFIED: Added dark theme text --- */}
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Quiz Title</label>
+        {/* Left Pane: Sidebar */}
+        <div className="w-full lg:w-[320px] flex-shrink-0 flex flex-col bg-white/40 dark:bg-[#1c1c1e]/40 backdrop-blur-xl border border-black/5 dark:border-white/5 rounded-[24px] shadow-sm overflow-hidden ring-1 ring-white/20 dark:ring-white/5">
+            <div className="p-5 space-y-4 border-b border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5">
                 <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g., Chapter 1 Review"
-                    className={`w-full ${inputBaseStyles} py-2.5 px-3`}
+                    placeholder="Quiz Title"
+                    className={`${inputClass} font-bold text-lg bg-white/80 dark:bg-white/10`}
                 />
             </div>
 
-            {/* --- MODIFIED: Added dark theme styles --- */}
-            <div className="p-4 rounded-2xl bg-slate-200 shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] dark:bg-neumorphic-base-dark dark:shadow-lg">
-                {/* --- MODIFIED: Added dark theme text --- */}
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Total Points</p>
-                {/* --- MODIFIED: Added dark theme text --- */}
-                <p className="text-3xl font-bold text-sky-600 dark:text-sky-400">{totalPoints}</p>
-            </div>
-
-            <div className="space-y-2">
+            <div className="flex-grow overflow-y-auto p-3 custom-scrollbar space-y-2">
                 {questions.map((q, qIndex) => (
                     <button
                         key={qIndex} 
-                        onClick={() => {
-                            setSelectedQuestionIndex(qIndex);
-                            setEditingField(null);
-                        }}
-                        // --- MODIFIED: Added dark theme styles ---
-                        className={`w-full text-left p-3 rounded-xl transition-all ${
-                            selectedQuestionIndex === qIndex
-                            ? 'bg-slate-50 text-sky-600 shadow-[3px_3px_6px_#bdc1c6,-3px_-3px_6px_#ffffff] ring-2 ring-sky-500 dark:bg-slate-100 dark:text-sky-600'
-                            : `bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 ${btnExtruded}`
+                        onClick={() => { setSelectedQuestionIndex(qIndex); setEditingField(null); }}
+                        className={`w-full text-left p-3.5 rounded-[16px] transition-all duration-200 flex flex-col gap-1
+                            ${selectedQuestionIndex === qIndex
+                            ? 'bg-white dark:bg-white/10 shadow-lg ring-1 ring-black/5 dark:ring-white/10 scale-[1.02] z-10'
+                            : 'hover:bg-white/50 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400 hover:shadow-sm'
                         }`}
                     >
-                        <span className="font-semibold">{getQuestionLabel(q, qIndex)}</span>
-                        <span className="block text-xs opacity-70">{q.type} - {q.points || 0} pt(s)</span>
+                        <div className="flex items-center justify-between w-full">
+                            <span className={`font-bold text-sm ${selectedQuestionIndex === qIndex ? 'text-slate-900 dark:text-white' : ''}`}>Question {qIndex + 1}</span>
+                            {selectedQuestionIndex === qIndex && <div className="h-2 w-2 rounded-full bg-[#007AFF] shadow-lg shadow-blue-500/50"></div>}
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-medium opacity-60 uppercase tracking-wide">{q.type.replace('-', ' ')}</span>
+                            <span className="text-[10px] font-bold opacity-80 bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded">{q.points} pts</span>
+                        </div>
                     </button>
                 ))}
             </div>
 
-            <button
-              type="button"
-              onClick={handleAddQuestion}
-              // --- MODIFIED: Added dark theme styles ---
-              className={`${btnBase} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 ${btnExtruded} w-full mt-4`}
-            >
-              <PlusCircleIcon className="h-5 w-5 mr-2" />
-              Add Question
-            </button>
+            <div className="p-4 border-t border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/20 backdrop-blur-md">
+              <button onClick={handleAddQuestion} className="w-full flex justify-center items-center gap-2 px-4 py-3 rounded-[16px] bg-white/80 dark:bg-white/10 hover:bg-[#007AFF]/10 dark:hover:bg-white/20 shadow-sm border border-black/5 dark:border-white/5 text-sm font-bold text-[#007AFF] dark:text-white transition-all active:scale-95 group">
+                <PlusCircleIcon className="h-5 w-5 stroke-[2.5] transition-transform group-hover:rotate-90" /> Add Question
+              </button>
+            </div>
         </div>
 
-        {/* Right Pane: Question Editor */}
-        <div className="flex-1 w-full md:w-2/3 lg:w-3/4 p-4 md:p-8 overflow-y-auto">
+        {/* Right Pane: Editor */}
+        <div className="flex-grow flex flex-col min-h-0 bg-white/40 dark:bg-[#1c1c1e]/40 backdrop-blur-xl border border-black/5 dark:border-white/5 rounded-[24px] shadow-sm overflow-hidden ring-1 ring-white/20 dark:ring-white/5">
             {!currentQuestion ? (
-                // --- MODIFIED: Added dark theme text ---
-                <div className="flex flex-col items-center justify-center h-full text-center text-slate-500 dark:text-slate-400">
-                    <DocumentTextIcon className="w-16 h-16 opacity-50" />
-                    <p className="mt-4 text-lg font-semibold">
-                        {questions.length === 0 ? "No questions yet" : "Select a question"}
-                    </p>
-                    <p className="text-sm">
-                        {questions.length === 0 ? "Click 'Add Question' in the left pane to get started." : "Select a question from the list on the left to edit it."}
-                    </p>
+                <div className="flex flex-col items-center justify-center h-full text-center p-8 opacity-60">
+                    <div className="w-24 h-24 rounded-[28px] bg-slate-100 dark:bg-white/5 flex items-center justify-center mb-6 shadow-inner border border-black/5 dark:border-white/5">
+                        <DocumentTextIcon className="w-10 h-10 text-slate-300 dark:text-slate-600 stroke-[1.5]" />
+                    </div>
+                    <p className="text-lg font-bold text-slate-900 dark:text-white">No Question Selected</p>
                 </div>
             ) : (
-                // --- MODIFIED: Added dark theme styles ---
-                <div className="p-5 rounded-2xl bg-slate-200 shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] dark:bg-neumorphic-base-dark dark:shadow-lg space-y-4 relative">
-                    
-                    <div className="flex justify-between items-center">
-                      {/* --- MODIFIED: Added dark theme text --- */}
-                      <label className="font-semibold text-slate-800 dark:text-slate-100 text-lg">
-                        {getQuestionLabel(currentQuestion, selectedQuestionIndex)}
-                      </label>
-                      {/* --- MODIFIED: Added dark theme styles --- */}
-                      <button onClick={() => handleRemoveQuestion(selectedQuestionIndex)} className={`h-9 w-9 flex items-center justify-center rounded-full bg-slate-200 text-red-500 dark:bg-neumorphic-base-dark dark:text-red-500 ${btnExtruded} hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] dark:hover:shadow-neumorphic-inset-dark`}>
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
+                <div className="flex flex-col h-full overflow-hidden">
+                    <div className="flex items-center justify-between p-6 border-b border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5 backdrop-blur-md">
+                        <h3 className="text-lg font-bold tracking-tight">Question {selectedQuestionIndex + 1}</h3>
+                        <button onClick={() => handleRemoveQuestion(selectedQuestionIndex)} className="p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                            <TrashIcon className="h-5 w-5 stroke-[2]" />
+                        </button>
                     </div>
 
-                    <MarkdownEditableField
-                        value={currentQuestion.text || ''}
-                        onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'text', e.target.value)}
-                        fieldId="question-text"
-                        editingField={editingField}
-                        setEditingField={setEditingField}
-                        isTextarea={true}
-                        placeholder={
-                           currentQuestion.type === 'essay' ? "Enter the essay prompt..." :
-                           currentQuestion.type === 'matching-type' ? "Enter the instruction (e.g., Match Column A...)" :
-                           "Enter the question text"
-                        }
-                    />
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        {/* --- MODIFIED: Added dark theme text --- */}
-                        <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 block">Question Type</label>
-                        <select
-                          value={currentQuestion.type || 'multiple-choice'} 
-                          onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'type', e.target.value)}
-                          className={`w-full ${inputBaseStyles} py-2.5 px-3 text-sm appearance-none`}
-                        >
-                          {questionTypes.map((type) => (
-                            <option key={type.value} value={type.value}>
-                              {type.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        {/* --- MODIFIED: Added dark theme text --- */}
-                        <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 block">Points</label>
-                        <input
-                          type="number"
-                          value={currentQuestion.points || 1} 
-                          disabled={currentQuestion.type === 'matching-type' || currentQuestion.type === 'essay'}
-                          onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'points', Math.max(1, parseInt(e.target.value, 10) || 1))}
-                          // --- MODIFIED: Added dark theme disabled styles ---
-                          className={`w-full ${inputBaseStyles} py-2.5 px-3 text-sm ${currentQuestion.type === 'matching-type' || currentQuestion.type === 'essay' ? 'opacity-70 bg-slate-100 cursor-not-allowed dark:bg-neumorphic-base-dark/50' : ''}`}
-                          min={1}
-                        />
-                         {(currentQuestion.type === 'matching-type' || currentQuestion.type === 'essay') && (
-                            // --- MODIFIED: Added dark theme text ---
-                            <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
-                                Points auto-calculated based on {currentQuestion.type === 'matching-type' ? 'prompts' : 'rubric'}.
-                            </p>
-                         )}
-                      </div>
-                    </div>
-
-                    {/* --- MODIFIED: Added dark theme border --- */}
-                    <div className="pt-2 pl-4 border-l-2 border-slate-300 dark:border-slate-700 space-y-3">
-                        
-                      {currentQuestion.type === 'multiple-choice' && (
-                        <div className="space-y-3">
-                          {/* --- MODIFIED: Added dark theme text --- */}
-                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Options (Select the correct one):</p>
-                          {(currentQuestion.options || []).map((opt, oIndex) => (
-                            <div key={oIndex} className="flex items-center gap-3">
-                              <input
-                                type="radio"
-                                name={`correct-answer-${selectedQuestionIndex}`}
-                                checked={currentQuestion.correctAnswerIndex === oIndex}
-                                onChange={() => handleQuestionChange(selectedQuestionIndex, 'correctAnswerIndex', oIndex)}
-                                // --- MODIFIED: Added dark theme styles ---
-                                className="form-radio h-5 w-5 text-sky-500 bg-slate-200 border-none shadow-[inset_1px_1px_2px_#bdc1c6,inset_-1px_-1px_2px_#ffffff] focus:ring-sky-500 focus:ring-1
-                                           dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:focus:ring-sky-600 dark:focus:ring-offset-0"
-                              />
-                              <div className="flex-1"> {/* Wrapper to make field take up space */}
+                    <div className="flex-grow overflow-y-auto p-6 sm:p-8 custom-scrollbar">
+                        <div className="max-w-3xl mx-auto space-y-8">
+                            
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Prompt</label>
                                 <MarkdownEditableField
-                                  value={opt.text || opt || ''}
-                                  onChange={(e) => handleOptionTextChange(selectedQuestionIndex, oIndex, e.target.value)}
-                                  fieldId={`option-${oIndex}`}
-                                  editingField={editingField}
-                                  setEditingField={setEditingField}
-                                  placeholder={`Option ${oIndex + 1}`}
+                                    value={currentQuestion.text || ''}
+                                    onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'text', e.target.value)}
+                                    fieldId="question-text"
+                                    editingField={editingField}
+                                    setEditingField={setEditingField}
+                                    isTextarea={true}
+                                    placeholder="Type your question here..."
                                 />
-                              </div>
-                              {/* --- MODIFICATION: Remove Option Button --- */}
-                              <button 
-                                type="button"
-                                onClick={() => handleRemoveOption(selectedQuestionIndex, oIndex)}
-                                disabled={currentQuestion.options.length <= 3}
-                                // --- MODIFIED: Added dark theme styles ---
-                                className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 ${btnExtruded} text-xs disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff]
-                                           dark:bg-neumorphic-base-dark dark:text-red-500 dark:disabled:shadow-neumorphic-inset-dark`}
-                                title="Remove option"
-                              >
-                                <TrashIcon className="h-4 w-4" />
-                              </button>
                             </div>
-                          ))}
-                          {/* --- MODIFICATION: Add Option Button --- */}
-                          <button 
-                            type="button"
-                            onClick={() => handleAddOption(selectedQuestionIndex)} 
-                            // --- MODIFIED: Added dark theme styles ---
-                            className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 text-xs py-2 w-auto`}
-                          >
-                            <PlusCircleIcon className="h-4 w-4 mr-1" /> Add Option
-                          </button>
-                        </div>
-                      )}
 
-                      {currentQuestion.type === 'true-false' && (
-                        <div className="space-y-2">
-                          {/* --- MODIFIED: Added dark theme text --- */}
-                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Correct Answer:</p>
-                          <div className={`flex space-x-1 p-1 rounded-xl ${inputBaseStyles} max-w-xs`}>
-                            <button type="button" onClick={() => handleQuestionChange(selectedQuestionIndex, 'correctAnswer', true)} className={getSegmentedButtonClasses(currentQuestion.correctAnswer === true)}>True</button>
-                            <button type="button" onClick={() => handleQuestionChange(selectedQuestionIndex, 'correctAnswer', false)} className={getSegmentedButtonClasses(currentQuestion.correctAnswer === false)}>False</button>
-                          </div>
-                        </div>
-                      )}
-
-                      {currentQuestion.type === 'identification' && (
-                        <div className="space-y-2">
-                          {/* --- MODIFIED: Added dark theme text --- */}
-                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Correct Answer:</p>
-                          <MarkdownEditableField
-                            value={currentQuestion.correctAnswer || ''}
-                            onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'correctAnswer', e.target.value)}
-                            fieldId="identification-answer"
-                            editingField={editingField}
-                            setEditingField={setEditingField}
-                            placeholder="Enter the exact answer"
-                          />
-                        </div>
-                      )}
-
-                       {currentQuestion.type === 'matching-type' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-3">
-                             {/* --- MODIFIED: Added dark theme text --- */}
-                             <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Column A (Prompts) - {(currentQuestion.prompts || []).length} items</p>
-                             {(currentQuestion.prompts || []).map((prompt, pIndex) => (
-                              <div key={prompt.id || pIndex} className="flex items-center gap-2"> 
-                                {/* --- MODIFIED: Added dark theme text --- */}
-                                <span className="font-semibold text-slate-600 dark:text-slate-400 text-sm w-5 text-center">{pIndex + 1}.</span>
-                                <MarkdownEditableField
-                                    value={prompt.text || ''}
-                                    onChange={(e) => handleMatchingSubItemChange(selectedQuestionIndex, 'prompts', pIndex, e.target.value)}
-                                    fieldId={`prompt-${pIndex}`}
-                                    editingField={editingField}
-                                    setEditingField={setEditingField}
-                                    placeholder={`Prompt ${pIndex + 1}`}
-                                />
-                                <select value={currentQuestion.correctPairs?.[prompt.id] || ''} onChange={(e) => handlePairChange(selectedQuestionIndex, prompt.id, e.target.value)} className={`w-40 ${inputBaseStyles} py-2 px-3 text-sm appearance-none`}>
-                                  <option value="" disabled>Select Match</option>
-                                  {(currentQuestion.options || []).map((opt, oIndex) => (<option key={opt.id || oIndex} value={opt.id}>Option {String.fromCharCode(97 + oIndex)}</option>))}
-                                </select>
-                                {/* --- MODIFIED: Added dark theme styles --- */}
-                                <button onClick={() => handleRemoveMatchingSubItem(selectedQuestionIndex, 'prompts', pIndex)} className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 dark:bg-neumorphic-base-dark dark:text-red-500 ${btnExtruded} text-xs`}><TrashIcon className="h-4 w-4" /></button>
-                              </div>
-                            ))}
-                            {/* --- MODIFIED: Added dark theme styles --- */}
-                            <button onClick={() => handleAddMatchingSubItem(selectedQuestionIndex, 'prompts')} className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 text-xs py-2 w-auto`}><PlusCircleIcon className="h-4 w-4 mr-1" /> Add Prompt</button>
-                          </div>
-                          <div className="space-y-3">
-                             {/* --- MODIFIED: Added dark theme text --- */}
-                             <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Column B (Options) - {(currentQuestion.options || []).length} items</p>
-                             {(currentQuestion.options || []).map((option, oIndex) => (
-                              <div key={option.id || oIndex} className="flex items-center gap-2">
-                                {/* --- MODIFIED: Added dark theme text --- */}
-                                <span className="font-semibold text-slate-600 dark:text-slate-400 text-sm w-8 text-center">{String.fromCharCode(97 + oIndex)}.</span>
-                                <MarkdownEditableField
-                                    value={option.text || ''}
-                                    onChange={(e) => handleMatchingSubItemChange(selectedQuestionIndex, 'options', oIndex, e.target.value)}
-                                    fieldId={`match-option-${oIndex}`}
-                                    editingField={editingField}
-                                    setEditingField={setEditingField}
-                                    placeholder={`Option ${String.fromCharCode(97 + oIndex)}`}
-                                />
-                                {/* --- MODIFIED: Added dark theme styles --- */}
-                                <button onClick={() => handleRemoveMatchingSubItem(selectedQuestionIndex, 'options', oIndex)} className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 dark:bg-neumorphic-base-dark dark:text-red-500 ${btnExtruded} text-xs`}><TrashIcon className="h-4 w-4" /></button>
-                              </div>
-                            ))}
-                            {/* --- MODIFIED: Added dark theme styles --- */}
-                            <button onClick={() => handleAddMatchingSubItem(selectedQuestionIndex, 'options')} className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 text-xs py-2 w-auto`}><PlusCircleIcon className="h-4 w-4 mr-1" /> Add Option (Distractor)</button>
-                          </div>
-                        </div>
-                      )}
-
-                      {currentQuestion.type === 'essay' && (
-                        <div className="space-y-3">
-                          {/* --- MODIFIED: Added dark theme text --- */}
-                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Rubric (Total Points: {currentQuestion.points || 0})</p>
-                          <div className="space-y-2">
-                            {(currentQuestion.rubric || []).map((item, rIndex) => (
-                                <div key={item.id || rIndex} className="flex items-center gap-2"> 
-                                    <MarkdownEditableField
-                                        value={item.criteria || ''}
-                                        onChange={(e) => handleRubricChange(selectedQuestionIndex, rIndex, 'criteria', e.target.value)}
-                                        fieldId={`rubric-${rIndex}`}
-                                        editingField={editingField}
-                                        setEditingField={setEditingField}
-                                        placeholder="Criteria Description (e.g., Clarity)"
-                                    />
-                                    <input
-                                      type="number"
-                                      value={item.points || 0} 
-                                      onChange={(e) => handleRubricChange(selectedQuestionIndex, rIndex, 'points', e.target.value)}
-                                      placeholder="Pts"
-                                      className={`w-24 ${inputBaseStyles} py-2 px-3 text-sm`}
-                                      min={0}
-                                    />
-                                    {/* --- MODIFIED: Added dark theme styles --- */}
-                                    <button onClick={() => handleRemoveRubricItem(selectedQuestionIndex, rIndex)} className={`h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 dark:bg-neumorphic-base-dark dark:text-red-500 ${btnExtruded} text-xs`}>
-                                        <TrashIcon className="h-4 w-4" />
-                                    </button>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Type</label>
+                                    <div className="relative">
+                                        <select
+                                            value={currentQuestion.type || 'multiple-choice'} 
+                                            onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'type', e.target.value)}
+                                            className={`${inputClass} appearance-none`}
+                                        >
+                                            {questionTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+                                        </select>
+                                    </div>
                                 </div>
-                            ))}
-                          </div>
-                          {/* --- MODIFIED: Added dark theme styles --- */}
-                          <button onClick={() => handleAddRubricItem(selectedQuestionIndex)} className={`${btnBase} ${btnExtruded} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 text-xs py-2 w-auto`}>
-                              <PlusCircleIcon className="h-4 w-4 mr-1" /> Add Criteria
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Points</label>
+                                    <input
+                                        type="number"
+                                        value={currentQuestion.points || 1} 
+                                        disabled={['matching-type', 'essay', 'image-labeling'].includes(currentQuestion.type)}
+                                        onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'points', Math.max(1, parseInt(e.target.value, 10) || 1))}
+                                        className={`${inputClass} ${['matching-type', 'essay', 'image-labeling'].includes(currentQuestion.type) ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-white/5' : ''}`}
+                                        min={1}
+                                    />
+                                </div>
+                            </div>
 
-                    <div className="pt-3">
-                      {/* --- MODIFIED: Added dark theme text --- */}
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Rationale / Explanation (Optional)</label>
-                      <MarkdownEditableField
-                        value={currentQuestion.explanation || ''}
-                        onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'explanation', e.target.value)}
-                        fieldId="explanation"
-                        editingField={editingField}
-                        setEditingField={setEditingField}
-                        isTextarea={true}
-                        placeholder="Explain why the answer is correct (for auto-graded items)..."
-                      />
+                            <div className="h-px bg-black/5 dark:bg-white/5 w-full" />
+
+                            <div className="space-y-6">
+                                {/* Multiple Choice */}
+                                {currentQuestion.type === 'multiple-choice' && (
+                                    <div className="space-y-4">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Options</label>
+                                        {(currentQuestion.options || []).map((opt, oIndex) => (
+                                            <div key={oIndex} className="flex items-center gap-3 group">
+                                                <div onClick={() => handleQuestionChange(selectedQuestionIndex, 'correctAnswerIndex', oIndex)} className={`w-6 h-6 rounded-full flex items-center justify-center border cursor-pointer transition-all ${currentQuestion.correctAnswerIndex === oIndex ? 'bg-green-500 border-green-500 text-white' : 'bg-white dark:bg-white/5 border-slate-300 dark:border-slate-600'}`}>
+                                                    {currentQuestion.correctAnswerIndex === oIndex && <CheckIcon className="w-4 h-4 stroke-[3]" />}
+                                                </div>
+                                                <div className="flex-1"><MarkdownEditableField value={opt.text || opt || ''} onChange={(e) => handleOptionTextChange(selectedQuestionIndex, oIndex, e.target.value)} fieldId={`option-${oIndex}`} editingField={editingField} setEditingField={setEditingField} placeholder={`Option ${oIndex + 1}`} /></div>
+                                                <button onClick={() => handleRemoveOption(selectedQuestionIndex, oIndex)} disabled={currentQuestion.options.length <= 3} className="p-2 text-slate-400 hover:text-red-500 transition-colors disabled:opacity-0"><TrashIcon className="w-5 h-5 stroke-[2]" /></button>
+                                            </div>
+                                        ))}
+                                        <button onClick={() => handleAddOption(selectedQuestionIndex)} className="text-sm font-bold text-[#007AFF] hover:underline flex items-center gap-1 mt-2 ml-9"><PlusCircleIcon className="w-4 h-4 stroke-[2.5]" /> Add Option</button>
+                                    </div>
+                                )}
+
+                                {/* Image Labeling - INTERACTIVE */}
+                                {currentQuestion.type === 'image-labeling' && (
+                                    <div className="space-y-6">
+                                        <div className="p-6 bg-white/60 dark:bg-white/5 rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Diagram Source</label>
+                                                <label className={`flex items-center gap-2 cursor-pointer px-4 py-2 bg-[#007AFF] text-white text-xs font-bold rounded-[12px] hover:bg-[#0062CC] transition-all shadow-lg shadow-blue-500/30 ${uploadingImage ? 'opacity-70 cursor-not-allowed' : ''}`}>
+                                                    {uploadingImage ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <PhotoIcon className="w-4 h-4" />} 
+                                                    {uploadingImage ? 'Uploading...' : 'Upload Image'}
+                                                    <input type="file" accept="image/*" className="hidden" disabled={uploadingImage} onChange={(e) => e.target.files[0] && handleImageUpload(selectedQuestionIndex, e.target.files[0])} />
+                                                </label>
+                                            </div>
+                                            
+                                            {currentQuestion.image ? (
+                                                <div className="relative rounded-[16px] overflow-hidden border border-black/10 dark:border-white/10 bg-black/5 group">
+                                                    <img 
+                                                        src={currentQuestion.image} 
+                                                        alt="Diagram" 
+                                                        className="w-full h-auto object-contain max-h-[500px] cursor-crosshair"
+                                                        ref={imageRef}
+                                                        onClick={(e) => handleImageClick(e, selectedQuestionIndex)}
+                                                    />
+                                                    
+                                                    {/* Interactive Pins */}
+                                                    {(currentQuestion.parts || []).map((part, pIndex) => (
+                                                        <div
+                                                            key={part.id}
+                                                            onMouseDown={(e) => handlePinMouseDown(e, pIndex)}
+                                                            className="absolute w-8 h-8 bg-[#007AFF] text-white rounded-full flex items-center justify-center font-bold text-sm border-2 border-white shadow-lg cursor-move hover:scale-110 transition-transform z-10"
+                                                            style={{ left: `${part.x}%`, top: `${part.y}%`, transform: 'translate(-50%, -50%)' }}
+                                                        >
+                                                            {part.number}
+                                                        </div>
+                                                    ))}
+
+                                                    <div className="absolute top-3 right-3 bg-black/60 text-white text-[10px] px-2 py-1 rounded-full backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        Click image to label
+                                                    </div>
+                                                    <button onClick={() => handleQuestionChange(selectedQuestionIndex, 'image', null)} className="absolute bottom-3 right-3 p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-transform hover:scale-110 opacity-0 group-hover:opacity-100"><TrashIcon className="w-4 h-4" /></button>
+                                                </div>
+                                            ) : (
+                                                <div className="h-48 rounded-[16px] border-2 border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 dark:bg-white/5">
+                                                    <PhotoIcon className="w-12 h-12 mb-2 opacity-50" />
+                                                    <span className="text-sm font-medium">No image uploaded</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Correct Answers</label>
+                                                <span className="text-xs font-bold text-[#007AFF] bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg flex items-center gap-1">
+                                                    <CursorArrowRaysIcon className="w-3 h-3" /> Click pins to drag
+                                                </span>
+                                            </div>
+                                            {(currentQuestion.parts || []).map((part, pIndex) => (
+                                                <div key={part.id} className="flex items-center gap-3 p-2 bg-white/40 dark:bg-white/5 rounded-[12px] border border-black/5 dark:border-white/5">
+                                                    <div className="w-8 h-8 rounded-full bg-[#007AFF] flex items-center justify-center font-bold text-sm text-white shadow-md shrink-0">{part.number}</div>
+                                                    <div className="flex-1"><input type="text" value={part.correctAnswer} onChange={(e) => handleLabelPartChange(selectedQuestionIndex, pIndex, e.target.value)} placeholder={`Correct Answer for Part ${part.number}`} className={inputClass} /></div>
+                                                    <button onClick={() => handleRemoveLabelPart(selectedQuestionIndex, pIndex)} className="p-2 text-slate-400 hover:text-red-500 bg-white dark:bg-white/10 rounded-full shadow-sm hover:shadow-md transition-all"><TrashIcon className="w-4 h-4" /></button>
+                                                </div>
+                                            ))}
+                                            {(!currentQuestion.parts || currentQuestion.parts.length === 0) && (
+                                                <p className="text-center text-sm text-slate-400 italic py-2">Click on the image above to add labels.</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Matching Type */}
+                                {currentQuestion.type === 'matching-type' && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between"><label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Prompts (Column A)</label></div>
+                                            {(currentQuestion.prompts || []).map((p, idx) => (
+                                                <div key={p.id} className="flex gap-2 items-center">
+                                                    <div className="w-6 text-center font-bold text-slate-400 text-sm">{idx + 1}.</div>
+                                                    <div className="flex-1"><MarkdownEditableField value={p.text} onChange={(e) => handleMatchingSubItemChange(selectedQuestionIndex, 'prompts', idx, e.target.value)} fieldId={`prompt-${idx}`} editingField={editingField} setEditingField={setEditingField} placeholder={`Prompt ${idx + 1}`} /></div>
+                                                    <div className="w-24"><select value={currentQuestion.correctPairs?.[p.id] || ''} onChange={(e) => handlePairChange(selectedQuestionIndex, p.id, e.target.value)} className={inputClass}><option value="" disabled>Match</option>{(currentQuestion.options || []).map((o, oid) => <option key={o.id} value={o.id}>{String.fromCharCode(65 + oid)}</option>)}</select></div>
+                                                    <button onClick={() => handleRemoveMatchingItem(selectedQuestionIndex, 'prompts', idx)} className="p-2 text-slate-400 hover:text-red-500"><TrashIcon className="w-4 h-4" /></button>
+                                                </div>
+                                            ))}
+                                            <button onClick={() => handleAddMatchingItem(selectedQuestionIndex, 'prompts')} className="w-full py-2 border border-dashed border-slate-300 dark:border-white/10 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5">Add Prompt</button>
+                                        </div>
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between"><label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Options (Column B)</label></div>
+                                            {(currentQuestion.options || []).map((o, idx) => (
+                                                <div key={o.id} className="flex gap-2 items-center">
+                                                    <div className="w-6 text-center font-bold text-slate-400 text-sm">{String.fromCharCode(65 + idx)}.</div>
+                                                    <div className="flex-1"><MarkdownEditableField value={o.text} onChange={(e) => handleMatchingSubItemChange(selectedQuestionIndex, 'options', idx, e.target.value)} fieldId={`opt-${idx}`} editingField={editingField} setEditingField={setEditingField} placeholder={`Option ${String.fromCharCode(65 + idx)}`} /></div>
+                                                    <button onClick={() => handleRemoveMatchingItem(selectedQuestionIndex, 'options', idx)} className="p-2 text-slate-400 hover:text-red-500"><TrashIcon className="w-4 h-4" /></button>
+                                                </div>
+                                            ))}
+                                            <button onClick={() => handleAddMatchingItem(selectedQuestionIndex, 'options')} className="w-full py-2 border border-dashed border-slate-300 dark:border-white/10 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5">Add Option</button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Essay */}
+                                {currentQuestion.type === 'essay' && (
+                                    <div className="space-y-4">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Rubric</label>
+                                        <div className="bg-white/60 dark:bg-white/5 rounded-[16px] border border-black/5 dark:border-white/5 overflow-hidden">
+                                            <div className="grid grid-cols-12 gap-4 px-4 py-2 bg-slate-50/50 dark:bg-white/5 border-b border-black/5 dark:border-white/5 text-[10px] font-bold text-slate-500 uppercase">
+                                                <div className="col-span-9">Criteria</div>
+                                                <div className="col-span-2 text-center">Points</div>
+                                            </div>
+                                            {(currentQuestion.rubric || []).map((r, idx) => (
+                                                <div key={r.id} className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-black/5 dark:border-white/5 items-center last:border-0">
+                                                    <div className="col-span-9"><MarkdownEditableField value={r.criteria} onChange={(e) => handleRubricChange(selectedQuestionIndex, idx, 'criteria', e.target.value)} fieldId={`rubric-${idx}`} editingField={editingField} setEditingField={setEditingField} placeholder="Criteria Description" /></div>
+                                                    <div className="col-span-2"><input type="number" value={r.points} onChange={(e) => handleRubricChange(selectedQuestionIndex, idx, 'points', e.target.value)} className={`${inputClass} text-center`} min="1" /></div>
+                                                    <div className="col-span-1 flex justify-end"><button onClick={() => handleRemoveRubricItem(selectedQuestionIndex, idx)} className="text-slate-400 hover:text-red-500"><TrashIcon className="w-4 h-4" /></button></div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <button onClick={() => handleAddRubricItem(selectedQuestionIndex)} className="text-sm font-bold text-[#007AFF] hover:underline flex items-center gap-1"><PlusCircleIcon className="w-4 h-4" /> Add Criteria</button>
+                                    </div>
+                                )}
+
+                                {/* Identification & True/False */}
+                                {currentQuestion.type === 'identification' && (
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Correct Answer</label>
+                                        <input value={currentQuestion.correctAnswer || ''} onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'correctAnswer', e.target.value)} className={inputClass} placeholder="Exact match answer..." />
+                                    </div>
+                                )}
+                                {currentQuestion.type === 'true-false' && (
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Correct Answer</label>
+                                        <div className="flex p-1 bg-slate-100 dark:bg-black/20 rounded-[12px] w-fit">
+                                            <button onClick={() => handleQuestionChange(selectedQuestionIndex, 'correctAnswer', true)} className={`px-6 py-2 rounded-[10px] text-sm font-bold transition-all ${currentQuestion.correctAnswer === true ? 'bg-white dark:bg-[#3A3A3C] text-green-600 dark:text-green-400 shadow-sm' : 'text-slate-500'}`}>True</button>
+                                            <button onClick={() => handleQuestionChange(selectedQuestionIndex, 'correctAnswer', false)} className={`px-6 py-2 rounded-[10px] text-sm font-bold transition-all ${currentQuestion.correctAnswer === false ? 'bg-white dark:bg-[#3A3A3C] text-red-600 dark:text-red-400 shadow-sm' : 'text-slate-500'}`}>False</button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Explanation */}
+                            <div className="space-y-2 pt-4 border-t border-black/5 dark:border-white/5">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Rationale (Optional)</label>
+                                <MarkdownEditableField
+                                    value={currentQuestion.explanation || ''}
+                                    onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'explanation', e.target.value)}
+                                    fieldId="explanation"
+                                    editingField={editingField}
+                                    setEditingField={setEditingField}
+                                    isTextarea={true}
+                                    placeholder="Explain why the answer is correct..."
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -950,78 +815,16 @@ export default function ManualQuizCreator({
       </div>
 
       {/* Footer */}
-      {/* --- MODIFIED: Added dark theme styles --- */}
-      <div className="flex-shrink-0 px-6 py-5 bg-slate-200/50 dark:bg-transparent border-t border-slate-300/70 dark:border-t dark:border-slate-700/50">
-        {/* --- MODIFIED: Added dark theme styles --- */}
-        {error && <p className={`text-sm mb-4 text-center p-3 rounded-lg shadow-[inset_1px_1px_2px_#d1d9e8,inset_-1px_-1px_2px_#ffffff] dark:shadow-neumorphic-inset-dark ${hasInitialData ? 'text-blue-800 bg-blue-100 dark:text-blue-300 dark:bg-blue-900/50' : 'text-red-800 bg-red-200 dark:text-red-400 dark:bg-red-900/50'}`}>{error}</p>}
-        <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={() => handleAttemptNavigation(onClose)}
-            disabled={loading}
-            // --- MODIFIED: Added dark theme styles ---
-            className={`${btnBase} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 ${btnExtruded} ${btnDisabled}`}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={loading}
-            // --- MODIFIED: Added dark theme styles ---
-            className={`${btnBase} ${hasInitialData ? 'bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700' : 'bg-sky-500 hover:bg-sky-600 dark:bg-sky-600 dark:hover:bg-sky-700'} text-white ${btnExtruded} ${btnDisabled}`}
-          >
-            {loading ? 'Saving...' : (hasInitialData ? 'Confirm & Save Quiz' : 'Add Quiz')}
+      <div className="flex-shrink-0 flex justify-between items-center px-6 py-4 border-t border-black/5 dark:border-white/5 bg-white/70 dark:bg-[#1e1e1e]/70 backdrop-blur-xl z-20">
+        <p className="text-sm font-bold text-red-500 ml-2">{error}</p>
+        <div className="flex gap-3">
+          <button onClick={onClose} className="px-6 py-2.5 rounded-[16px] font-bold text-sm text-slate-600 dark:text-slate-300 bg-white/50 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20 border border-black/5 dark:border-white/5 transition-all shadow-sm active:scale-95">Cancel</button>
+          <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 font-bold text-sm bg-gradient-to-r from-[#007AFF] to-[#0051A8] hover:shadow-blue-500/40 text-white shadow-lg shadow-blue-500/30 transition-all rounded-[16px] disabled:bg-slate-400 disabled:shadow-none active:scale-95 flex items-center gap-2">
+            {loading ? <ArrowPathIcon className="w-4 h-4 animate-spin"/> : <CheckIcon className="w-5 h-5 stroke-[2.5]"/>}
+            {loading ? 'Saving...' : (hasInitialData ? 'Save Changes' : 'Create Quiz')}
           </button>
         </div>
       </div>
-
-      {/* Warning Modal */}
-      {isWarningModalOpen && (
-          <div 
-            // --- MODIFIED: Added dark theme styles ---
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/80 p-4 transition-opacity duration-150"
-            onClick={handleCancelLeave}
-          >
-            <div 
-              // --- MODIFIED: Added dark theme styles ---
-              className="w-full max-w-md rounded-2xl bg-slate-200 dark:bg-neumorphic-base-dark p-6 shadow-[8px_8px_16px_#bdc1c6,-8px_-8px_16px_#ffffff] dark:shadow-lg space-y-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3">
-                {/* --- MODIFIED: Added dark theme styles --- */}
-                <div className={`h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-200 text-red-500 dark:bg-neumorphic-base-dark dark:text-red-500 ${btnExtruded}`}>
-                    <ExclamationTriangleIcon className="h-6 w-6" />
-                </div>
-                {/* --- MODIFIED: Added dark theme text --- */}
-                <Title className="text-xl font-semibold text-slate-800 dark:text-slate-100">Unsaved Changes</Title>
-              </div>
-              
-              {/* --- MODIFIED: Added dark theme text --- */}
-              <p className="text-slate-600 dark:text-slate-400 sm:pl-[60px]">
-                You have unsaved changes. Are you sure you want to leave? Your quiz will not be saved.
-              </p>
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={handleCancelLeave}
-                  // --- MODIFIED: Added dark theme styles ---
-                  className={`${btnBase} bg-slate-200 text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-300 ${btnExtruded} w-auto`}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmLeave}
-                  // --- MODIFIED: Added dark theme styles ---
-                  className={`${btnBase} bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white ${btnExtruded} w-auto`}
-                >
-                  Yes, Leave
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
     </div>
   );
 }

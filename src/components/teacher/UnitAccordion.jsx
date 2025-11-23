@@ -10,18 +10,14 @@ import {
     SparklesIcon,
     DocumentTextIcon,
     ClipboardDocumentListIcon,
-    EyeIcon,
     Bars3Icon,
     BookOpenIcon,
     RectangleStackIcon,
     QueueListIcon,
-    ArrowUturnLeftIcon,
     ArrowsUpDownIcon,
     EllipsisVerticalIcon,
-    CheckCircleIcon,
     CloudArrowUpIcon,
     ChevronDownIcon,
-    ChevronLeftIcon,
 } from '@heroicons/react/24/solid';
 import {
     DndContext,
@@ -42,21 +38,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { marked } from 'marked';
 import { useToast } from '../../contexts/ToastContext';
 import htmlToDocx from 'html-to-docx-ts';
-import Spinner from '../common/Spinner';
 import htmlToPdfmake from 'html-to-pdfmake';
-import {
-    Document,
-    Packer,
-    Paragraph,
-    TextRun,
-    HeadingLevel,
-    AlignmentType,
-    PageOrientation,
-    ImageRun,
-    Numbering,
-    Header,
-    Footer,
-} from "docx";
+import { Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx";
 import { saveAs } from "file-saver";
 
 import pdfMake from "pdfmake/build/pdfmake";
@@ -65,7 +48,7 @@ pdfMake.vfs = pdfFonts;
 
 // NATIVE FIX: Import Capacitor plugins for native functionality
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FileOpener } from '@capacitor-community/file-opener';
 
 
@@ -99,13 +82,9 @@ const nativeSave = async (blob, fileName, mimeType, showToast) => {
   }
   
   // 1. Use the app's internal, private data directory.
-  // This requires NO permissions and is guaranteed to work.
   const directory = Directory.Data; 
 
   try {
-    // 2. --- PERMISSION CHECK REMOVED ---
-    // We don't need to ask for permissions when using Directory.Data.
-
     const base64Data = await blobToBase64(blob);
     
     // Write the file to the app's private data directory
@@ -116,11 +95,9 @@ const nativeSave = async (blob, fileName, mimeType, showToast) => {
       recursive: true
     });
 
-    // 3. Update toast to be more accurate for this workflow.
     showToast(`Opening file...`, 'info');
 
     // Now, use FileOpener to open the file with the native OS
-    // FileOpener can access the internal app URI just fine.
     await FileOpener.open({
       filePath: result.uri,
       contentType: mimeType,
@@ -145,9 +122,6 @@ let dejaVuLoaded = false;
 async function registerDejaVuFonts() {
   if (dejaVuLoaded) return;
   
-  // Use relative paths for fonts. 
-  // This works on both localhost and the deployed server (Netlify),
-  // assuming the /fonts folder is in your /public directory.
   try {
     await loadFontToVfs("DejaVuSans.ttf", "/fonts/DejaVuSans.ttf");
     await loadFontToVfs("DejaVuSans-Bold.ttf", "/fonts/DejaVuSans-Bold.ttf");
@@ -166,12 +140,10 @@ async function registerDejaVuFonts() {
     dejaVuLoaded = true;
   } catch (error) {
     console.error("Failed to load custom fonts:", error);
-    // Optionally show a toast to the user
-    // showToast("Failed to load fonts for PDF export.", "error"); 
   }
 }
 
-// ✅ CORRECTED: Helper function to process special text characters
+// Helper function to process special text characters
 const processLatex = (text) => {
     if (!text) return '';
     let processedText = text;
@@ -180,8 +152,7 @@ const processLatex = (text) => {
     processedText = processedText.replace(/\\degree/g, '°');
     processedText = processedText.replace(/\\angle/g, '∠');
 
-    // ✅ ADDED: Handle \vec{...} command for vectors
-    // This finds \vec{...} and applies a combining arrow over each character inside.
+    // Handle \vec{...} command for vectors
     processedText = processedText.replace(/\\vec\{(.*?)\}/g, (match, content) => {
         return content.split('').map(char => char + '\u20D7').join('');
     });
@@ -294,15 +265,13 @@ function markdownToDocx(content) {
     return paragraphs;
 }
 
-// --- START MODIFICATION ---
+// --- SVG Converter ---
 const convertSvgStringToPngDataUrl = (svgString) => {
     return new Promise((resolve, reject) => {
-        // 1. Define a max width that fits within A4/Letter margins (approx 6.5in * 96dpi, minus padding)
-        const MAX_WIDTH = 550; // 550 pixels
+        const MAX_WIDTH = 550;
 
         let correctedSvgString = svgString;
         
-        // Fix malformed xmlns attributes that might contain markdown
         correctedSvgString = correctedSvgString.replace(
             /xmlns="\[http:\/\/www\.w3\.org\/2000\/svg\]\(http:\/\/www\.w3\.org\/2000\/svg\)"/g,
             'xmlns="http://www.w3.org/2000/svg"'
@@ -313,20 +282,17 @@ const convertSvgStringToPngDataUrl = (svgString) => {
         }
         
         const img = new Image();
-        // Use Base64 encoding for robustness
         const dataUri = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(correctedSvgString)))}`;
         
         img.onload = () => {
             const canvas = document.createElement('canvas');
             
-            // 2. Calculate dimensions based on viewBox or image aspect ratio
             let width, height;
             const viewBoxMatch = correctedSvgString.match(/viewBox="([0-9\s.,-]+)"/);
             
             let svgWidth = img.width;
             let svgHeight = img.height;
 
-            // Try to get dimensions from viewBox first, as it's more reliable
             if (viewBoxMatch && viewBoxMatch[1]) {
                 const viewBox = viewBoxMatch[1].split(/[,\s]+/);
                 if (viewBox.length >= 4) {
@@ -339,18 +305,15 @@ const convertSvgStringToPngDataUrl = (svgString) => {
                 }
             }
 
-            // Fallback to image natural dimensions if viewBox fails
             if (!svgWidth || !svgHeight || svgWidth === 0 || svgHeight === 0) {
                 svgWidth = img.width;
                 svgHeight = img.height;
             }
 
-            // Final fallback if all else fails
             if (!svgWidth || !svgHeight || svgWidth === 0 || svgHeight === 0) {
                 width = MAX_WIDTH;
-                height = 450; // Default height if aspect ratio is unknown
+                height = 450;
             } else {
-                // 3. Calculate new dimensions while preserving aspect ratio
                 const aspectRatio = svgHeight / svgWidth;
                 width = MAX_WIDTH;
                 height = MAX_WIDTH * aspectRatio;
@@ -360,13 +323,12 @@ const convertSvgStringToPngDataUrl = (svgString) => {
             canvas.height = height;
 
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height); // Draw resized image
+            ctx.drawImage(img, 0, 0, width, height);
             const dataUrl = canvas.toDataURL('image/png');
             
             if (dataUrl === 'data:,') {
                 reject(new Error("Canvas generated an empty data URL, the SVG might be invalid."));
             } else {
-                // 4. Resolve with the *new calculated dimensions*
                 resolve({ dataUrl, width, height });
             }
         };
@@ -374,9 +336,31 @@ const convertSvgStringToPngDataUrl = (svgString) => {
         img.src = dataUri;
     });
 };
-// --- END MODIFICATION ---
 
-// UI Components
+// --- DESIGN SYSTEM CONSTANTS (MacOS 26) ---
+const baseButtonStyles = `font-semibold rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-95 tracking-wide`;
+const secondaryButton = `${baseButtonStyles} px-4 py-2 text-sm text-slate-700 dark:text-slate-300 bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/10 shadow-sm backdrop-blur-md`;
+
+// --- UI COMPONENTS ---
+
+// Skeleton Component
+const ContentListSkeleton = () => {
+    return (
+        <div className="space-y-4 animate-pulse">
+            {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="w-full flex items-center p-4 bg-white/40 dark:bg-white/5 rounded-2xl border border-white/20 dark:border-white/5">
+                    <div className="h-10 w-10 flex-shrink-0 rounded-xl bg-slate-200/50 dark:bg-white/10 mx-3"></div>
+                    <div className="flex-grow min-w-0 space-y-2">
+                        <div className="h-4 w-1/3 bg-slate-200/50 dark:bg-white/10 rounded-full"></div>
+                        <div className="h-3 w-1/4 bg-slate-200/30 dark:bg-white/5 rounded-full"></div>
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-slate-200/50 dark:bg-white/10 ml-4"></div>
+                </div>
+            ))}
+        </div>
+    );
+};
+
 const MenuPortal = ({ children, menuStyle, onClose }) => {
     const menuRef = useRef(null);
     useEffect(() => {
@@ -386,8 +370,13 @@ const MenuPortal = ({ children, menuStyle, onClose }) => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [onClose]);
-    // --- MODIFIED: Added dark mode classes ---
-    return createPortal(<div ref={menuRef} style={menuStyle} className="fixed bg-neumorphic-base dark:bg-slate-800 rounded-md shadow-neumorphic dark:shadow-lg z-[5000]"><div className="py-1" onClick={onClose}>{children}</div></div>, document.body);
+    
+    return createPortal(
+        <div ref={menuRef} style={menuStyle} className="fixed bg-white/90 dark:bg-[#1E212B]/95 backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-slate-900/5 dark:ring-white/10 z-[5000] p-1.5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex flex-col gap-0.5" onClick={onClose}>{children}</div>
+        </div>, 
+        document.body
+    );
 };
 
 const ActionMenu = ({ children }) => {
@@ -408,8 +397,7 @@ const ActionMenu = ({ children }) => {
     };
     return (
         <>
-            {/* --- MODIFIED: Added dark mode classes --- */}
-            <div role="button" tabIndex={0} ref={iconRef} onClick={handleToggle} onPointerDown={(e) => e.stopPropagation()} className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 rounded-full cursor-pointer transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark">
+            <div role="button" tabIndex={0} ref={iconRef} onClick={handleToggle} onPointerDown={(e) => e.stopPropagation()} className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full cursor-pointer transition-all duration-200">
                 <EllipsisVerticalIcon className="h-5 w-5" />
             </div>
             {isOpen && <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>{children}</MenuPortal>}
@@ -418,15 +406,12 @@ const ActionMenu = ({ children }) => {
 };
 
 const MenuItem = ({ icon: Icon, text, onClick, disabled = false, loading = false }) => (
-    // --- MODIFIED: Added dark mode classes ---
-    <button onClick={onClick} disabled={disabled || loading} className="flex items-center w-full px-4 py-2 text-sm text-left text-slate-700 dark:text-slate-200 rounded-lg hover:bg-neumorphic-base/50 hover:shadow-neumorphic-inset dark:hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed">
-        <Icon className={`h-5 w-5 mr-3 ${loading ? 'animate-spin' : ''}`} />
-        <span>{text}</span>
+    <button onClick={onClick} disabled={disabled || loading} className="flex items-center w-full px-3 py-2.5 text-sm text-left text-slate-700 dark:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group">
+        <Icon className={`h-4 w-4 mr-3 text-slate-400 dark:text-slate-500 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors ${loading ? 'animate-spin text-blue-500' : ''}`} />
+        <span className="font-medium tracking-wide">{text}</span>
     </button>
 );
 
-// --- MODIFICATION START ---
-// Replaced the "Add Lesson" button with an "Add Content" dropdown menu
 const AddContentButton = ({ onAddLesson, onAddQuiz }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [menuStyle, setMenuStyle] = useState({});
@@ -438,16 +423,15 @@ const AddContentButton = ({ onAddLesson, onAddQuiz }) => {
         
         const btnRect = buttonRef.current.getBoundingClientRect();
         const style = { 
-            right: `${window.innerWidth - btnRect.right}px`, // Align to the right edge of the button
-            top: `${btnRect.bottom + 8}px`, // Position below the button
-            width: '180px' // Set a reasonable width
+            right: `${window.innerWidth - btnRect.right}px`,
+            top: `${btnRect.bottom + 8}px`,
+            width: '180px' 
         };
 
-        // Handle case where menu would go off-bottom
         const spaceBelow = window.innerHeight - btnRect.bottom;
-        if (spaceBelow < 120) { // 120 is approx height of 2 menu items
+        if (spaceBelow < 120) {
              style.top = 'auto';
-             style.bottom = `${window.innerHeight - btnRect.top + 8}px`; // Position above the button
+             style.bottom = `${window.innerHeight - btnRect.top + 8}px`;
         }
         
         setMenuStyle(style);
@@ -459,31 +443,21 @@ const AddContentButton = ({ onAddLesson, onAddQuiz }) => {
             <button 
                 ref={buttonRef}
                 onClick={handleToggle}
-                onPointerDown={(e) => e.stopPropagation()} // Prevent DND kit from capturing
-                // --- MODIFIED: Added dark mode classes ---
-                className="flex items-center gap-2 text-sm font-semibold bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-800 dark:to-blue-900 text-blue-700 dark:text-blue-200 py-2 px-4 rounded-full shadow-neumorphic dark:shadow-lg transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
+                onPointerDown={(e) => e.stopPropagation()}
+                className={`${secondaryButton} !bg-blue-600 hover:!bg-blue-500 !text-white !border-transparent shadow-blue-500/30 hover:shadow-blue-500/50`}
             >
                 <PlusIcon className="w-5 h-5" />
                 Add Content
             </button>
             {isOpen && (
                 <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>
-                    <MenuItem 
-                        icon={DocumentTextIcon} // Already imported
-                        text="Add Lesson" 
-                        onClick={onAddLesson} // MenuPortal's onClose will handle closing
-                    />
-                    <MenuItem 
-                        icon={ClipboardDocumentListIcon} // Already imported
-                        text="Add Quiz" 
-                        onClick={onAddQuiz} // MenuPortal's onClose will handle closing
-                    />
+                    <MenuItem icon={DocumentTextIcon} text="Add Lesson" onClick={onAddLesson} />
+                    <MenuItem icon={ClipboardDocumentListIcon} text="Add Quiz" onClick={onAddQuiz} />
                 </MenuPortal>
             )}
         </>
     );
 };
-// --- END MODIFICATION ---
 
 function SortableContentItem({ item, isReordering, ...props }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
@@ -491,38 +465,35 @@ function SortableContentItem({ item, isReordering, ...props }) {
         data: { type: item.type, unitId: item.unitId },
         disabled: !isReordering,
     });
-    const style = { transform: CSS.Transform.toString(transform), transition: transition || 'transform 250ms ease' };
+    const style = { transform: CSS.Transform.toString(transform), transition: transition || 'transform 250ms cubic-bezier(0.2, 0.8, 0.2, 1)' };
     
     const isLesson = item.type === 'lesson';
     const Icon = isLesson ? DocumentTextIcon : ClipboardDocumentListIcon;
-    const iconColor = isLesson ? 'text-blue-600 dark:text-blue-400' : 'text-purple-600 dark:text-purple-400';
+    const iconBg = isLesson ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400';
 
     return (
-        <div ref={setNodeRef} style={style} {...attributes} className="mb-3 touch-none"> 
-            {/* --- MODIFIED: Added dark mode classes --- */}
-            <div className={`w-full flex items-center p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-lg transition-all duration-200 ${isReordering ? 'ring-2 ring-sky-400' : 'hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'}`}>
+        <div ref={setNodeRef} style={style} {...attributes} className="mb-3 touch-none group"> 
+            <div className={`w-full flex items-center p-3 bg-white/60 dark:bg-[#1E212B]/60 backdrop-blur-sm rounded-2xl border border-white/60 dark:border-white/5 shadow-sm transition-all duration-300 ${isReordering ? 'ring-2 ring-blue-500/50 bg-blue-50/50' : 'hover:shadow-lg hover:shadow-blue-900/5 dark:hover:shadow-black/30 hover:bg-white/80 dark:hover:bg-[#1E212B]/80'}`}>
                 {isReordering && (
-                    <button {...listeners} className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-grab flex-shrink-0" title="Drag to reorder">
+                    <button {...listeners} className="p-2 rounded-full text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-grab flex-shrink-0 transition-colors" title="Drag to reorder">
                         <Bars3Icon className="w-5 h-5" />
                     </button>
                 )}
                 
-                {/* --- MODIFIED: Added dark mode classes for icon container --- */}
-                <div className={`h-12 w-12 flex-shrink-0 rounded-full flex items-center justify-center bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark mx-3`}>
-                    <Icon className={`h-6 w-6 ${iconColor}`} />
+                <div className={`h-10 w-10 flex-shrink-0 rounded-xl flex items-center justify-center mx-3 ${iconBg}`}>
+                    <Icon className="h-5 w-5" />
                 </div>
                 
                 <div className="flex-grow min-w-0">
-                    {/* --- MODIFIED: Added dark mode classes --- */}
                     <h4 
-                        className={`font-semibold text-slate-800 dark:text-slate-100 leading-tight line-clamp-2 ${!isReordering ? 'cursor-pointer hover:text-sky-600 dark:hover:text-sky-400' : 'cursor-default'}`}
+                        className={`font-semibold text-slate-800 dark:text-slate-200 leading-snug line-clamp-2 tracking-tight ${!isReordering ? 'cursor-pointer group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors' : 'cursor-default'}`}
                         onClick={() => !isReordering && props.onView()}
                     >
                         {item.title || 'Untitled'}
                     </h4>
                 </div>
                 
-                <div className="flex items-center gap-1 ml-4 flex-shrink-0">
+                <div className="flex items-center gap-1 ml-4 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <ActionMenu>
                       <MenuItem icon={PencilIcon} text={isLesson ? "Edit Lesson" : "Edit Quiz"} onClick={props.onEdit} />
                       {isLesson && (
@@ -548,25 +519,33 @@ function SortableUnitCard(props) {
     });
     const style = { transform: CSS.Transform.toString(transform), transition };
     const { icon: Icon, gradient, iconColor } = visuals;
+    
     return (
-        <div ref={setNodeRef} style={style} {...attributes} className="touch-none">
-            {/* --- MODIFIED: Added dark mode classes to Unit Card --- */}
-            <div onClick={() => onSelect(unit)} className={`group relative p-6 rounded-2xl shadow-neumorphic dark:shadow-lg transition-shadow duration-300 cursor-pointer overflow-hidden flex flex-col justify-between h-full bg-gradient-to-br ${gradient} hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark`}>
-                <button {...listeners} className="absolute top-3 left-3 p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 cursor-grab opacity-50 group-hover:opacity-100 transition-opacity" title="Drag to reorder"><ArrowsUpDownIcon className="h-5 w-5" /></button>
-                {/* --- MODIFIED: Added dark mode classes to action buttons --- */}
-                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={(e) => { e.stopPropagation(); onOpenAiHub(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 dark:bg-slate-700/50 text-slate-700 dark:text-slate-200 shadow-neumorphic dark:shadow-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="AI Tools for this unit"><SparklesIcon className="w-5 h-5" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); onEdit(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 dark:bg-slate-700/50 text-slate-700 dark:text-slate-200 shadow-neumorphic dark:shadow-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Edit Unit"><PencilIcon className="w-5 h-5" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); onDelete(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/50 dark:bg-slate-700/50 text-red-600 dark:text-red-400 shadow-neumorphic dark:shadow-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Delete Unit"><TrashIcon className="w-5 h-5" /></button>
+        <div ref={setNodeRef} style={style} {...attributes} className="touch-none h-full">
+            <div 
+                onClick={() => onSelect(unit)} 
+                className={`group relative p-6 rounded-[2rem] transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between h-full border border-white/20 shadow-lg hover:shadow-2xl hover:-translate-y-1 bg-gradient-to-br ${gradient}`}
+            >
+                <button {...listeners} className="absolute top-4 left-4 p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 cursor-grab opacity-0 group-hover:opacity-100 transition-all duration-300 bg-white/40 dark:bg-black/20 rounded-full backdrop-blur-sm" title="Drag to reorder"><ArrowsUpDownIcon className="h-4 w-4" /></button>
+                
+                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                    <button onClick={(e) => { e.stopPropagation(); onOpenAiHub(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/60 dark:bg-black/30 text-slate-600 dark:text-slate-300 hover:bg-white hover:text-blue-600 dark:hover:text-blue-400 shadow-sm backdrop-blur-md transition-colors" title="AI Tools"><SparklesIcon className="w-4 h-4" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); onEdit(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/60 dark:bg-black/30 text-slate-600 dark:text-slate-300 hover:bg-white hover:text-blue-600 dark:hover:text-blue-400 shadow-sm backdrop-blur-md transition-colors" title="Edit"><PencilIcon className="w-4 h-4" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(unit); }} onPointerDown={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/60 dark:bg-black/30 text-slate-600 dark:text-slate-300 hover:bg-white hover:text-red-600 dark:hover:text-red-400 shadow-sm backdrop-blur-md transition-colors" title="Delete"><TrashIcon className="w-4 h-4" /></button>
                 </div>
-                <div className="relative z-10">
-                    {/* --- MODIFIED: Added dark mode classes to icon container --- */}
-                    <div className="mb-4 p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-lg inline-block shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark"><Icon className={`w-8 h-8 ${iconColor}`} /></div>
-                    {/* --- MODIFIED: Added dark mode classes to text --- */}
-                    <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">{unit.title}</h2>
+                
+                <div className="relative z-10 mt-8">
+                    <div className="mb-4 w-14 h-14 rounded-2xl flex items-center justify-center bg-white/60 dark:bg-white/10 shadow-sm ring-1 ring-white/50 dark:ring-white/10 backdrop-blur-md">
+                        <Icon className={`w-7 h-7 ${iconColor}`} />
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-white leading-tight tracking-tight">{unit.title}</h2>
                 </div>
-                {/* --- MODIFIED: Added dark mode classes to text --- */}
-                <p className="relative z-10 text-slate-600 dark:text-slate-300 text-sm mt-2">Select to view content</p>
+                
+                <div className="relative z-10 mt-4 pt-4 border-t border-slate-200/50 dark:border-white/10">
+                    <p className="text-slate-500 dark:text-slate-400 text-sm font-medium flex items-center gap-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        View Contents <ChevronDownIcon className="w-4 h-4 -rotate-90 group-hover:translate-x-1 transition-transform" />
+                    </p>
+                </div>
             </div>
         </div>
     );
@@ -716,7 +695,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 		        for (const page of lesson.pages) {
 		            const cleanTitle = (page.title || '').replace(/^page\s*\d+\s*[:-]?\s*/i, '');
 	            
-	                // ✅ FIXED: Process the content string before parsing
 	                const contentString = typeof page.content === 'string' ? page.content : '';
 	                const processedContent = processLatex(contentString);
 	                const rawHtml = marked.parse(processedContent);
@@ -732,12 +710,9 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 		                const result = await convertSvgStringToPngDataUrl(svgString);
 		                const img = document.createElement('img');
 		                img.src = result.dataUrl;
-		                // --- START MODIFICATION ---
-                        // Use styles for docx conversion, as it's more reliable
 		                img.style.width = `${result.width}px`;
 		                img.style.height = `${result.height}px`;
 		                img.style.maxWidth = '100%';
-                        // --- END MODIFICATION ---
 		                svg.parentNode.replaceChild(img, svg);
 		            } catch (err) {
 		                console.error("Could not convert one of the SVGs:", err);
@@ -750,7 +725,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 		        await Promise.all(conversionPromises);
 		        const fileBlob = await htmlToDocx(tempDiv.innerHTML, null, { table: { row: { cantSplit: true } }, footer: true, pageNumber: true });
 		        
-                // NATIVE FIX: Use nativeSave for APK, otherwise use browser download
                 if (isNativePlatform()) {
 					await nativeSave(
 					    fileBlob,
@@ -788,10 +762,8 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 		        try {
 		            await registerDejaVuFonts();
 
-		            // --- START FIX: Use local public folder paths ---
 		            const headerBase64 = await fetchImageAsBase64("/header-port.png");
 		            const footerBase64 = await fetchImageAsBase64("/Footer.png");
-		            // --- END FIX ---
 
 		            const pdfStyles = {
 		                coverTitle: { fontSize: 32, bold: true, margin: [0, 0, 0, 15] },
@@ -818,7 +790,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 		                const contentString = typeof page.content === 'string' ? page.content : '';
 		                let html = marked.parse(contentString);
 
-                        // --- START SVG to PNG CONVERSION FOR PDF ---
                         const tempDiv = document.createElement('div');
                         tempDiv.innerHTML = html;
                         const svgElements = tempDiv.querySelectorAll('svg');
@@ -831,11 +802,9 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                     
                                     const img = document.createElement('img');
                                     img.src = result.dataUrl;
-                                    // --- START MODIFICATION ---
                                     img.style.width = `${result.width}px`;
                                     img.style.height = `${result.height}px`;
                                     img.style.maxWidth = '100%';
-                                    // --- END MODIFICATION ---
                                     
                                     svg.parentNode.replaceChild(img, svg);
                                 } catch (err) {
@@ -850,7 +819,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                             await Promise.all(conversionPromises);
                             html = tempDiv.innerHTML;
                         }
-                        // --- END SVG to PNG CONVERSION FOR PDF ---
 
 		                const convertedContent = htmlToPdfmake(html, { defaultStyles: pdfStyles.default });
         
@@ -891,14 +859,11 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 		                    }
 		                ],
 		                images: {
-		                    // --- START FIX: Use Base64 variables ---
 		                    headerImg: headerBase64,
 		                    footerImg: footerBase64
-		                    // --- END FIX ---
 		                }
 		            };
 
-		            // NATIVE FIX: Use getBlob for native, download for web
 		            const pdfDoc = pdfMake.createPdf(docDefinition);
 		            if (isNativePlatform()) {
 		                pdfDoc.getBlob(async (blob) => {
@@ -906,7 +871,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 		                    setExportingLessonId(null);
 		                });
 		            } else {
-		                // ✅ FIX: Use saveAs (file-saver) for web download, as pdfMake.download() is unreliable
 		                pdfDoc.getBlob((blob) => {
 		                    saveAs(blob, sanitizedFileName);
 		                    setExportingLessonId(null);
@@ -952,10 +916,8 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         );
 
 
-        // --- START FIX: Use local public folder paths ---
         const headerBase64 = await fetchImageAsBase64("/header-port.png");
         const footerBase64 = await fetchImageAsBase64("/Footer.png");
-        // --- END FIX ---
         
         const fileBuffer = await htmlToDocx(ulpHtmlContent, null, {
           table: { row: { cantSplit: false } },
@@ -971,7 +933,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
           }
         });
 
-        // NATIVE FIX: Use nativeSave for APK, file-saver for web
         if (isNativePlatform()) {
 			await nativeSave(
 			    fileBuffer,
@@ -992,15 +953,12 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     };
     
 	const handleExportAtgPdf = (lesson) => {
-        // NATIVE FIX: window.print() will freeze the app. 
-        // We re-route this to the standard PDF export function, which is now fixed.
         if (isNativePlatform()) {
             showToast("Preparing PDF...", "info");
-            handleExportLessonPdf(lesson); // Use the working PDF export
+            handleExportLessonPdf(lesson); 
             return;
         }
 
-        // Original web-only code
 	    if (exportingLessonId) return;
 	    setExportingLessonId(lesson.id);
 	    showToast("Preparing PDF for printing...", "info");
@@ -1027,28 +985,21 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 			    setExportingLessonId(lesson.id);
 				showToast("Preparing PDF...", "info");
 		        
-		        // --- START MODIFICATION ---
 		        const lessonTitleToExport = lesson.lessonTitle || lesson.title || 'Untitled Lesson';
 	
-		        // 1. Aggressively replace any character that is NOT a letter, number, dot, hyphen, or underscore
 		        let safeTitle = lessonTitleToExport.replace(/[^a-zA-Z0-9.-_]/g, '_');
 
-		        // 2. Truncate the name to a safe length (e.g., 200 chars)
 		        if (safeTitle.length > 200) {
 		            safeTitle = safeTitle.substring(0, 200);
 		        }
 
-		        // 3. Ensure the name isn't empty after sanitization
 		        const sanitizedFileName = (safeTitle || 'lesson') + '.pdf';
-		        // --- END MODIFICATION ---
 
 			    try {
 		            await registerDejaVuFonts();
 
-		            // --- START FIX: Use local public folder paths ---
 		            const headerBase64 = await fetchImageAsBase64("/header-port.png");
 		            const footerBase64 = await fetchImageAsBase64("/Footer.png");
-		            // --- END FIX ---
 
 			        const pdfStyles = {
 			            coverTitle: { fontSize: 32, bold: true, margin: [0, 0, 0, 15] },
@@ -1074,12 +1025,10 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 
 			            let contentString = typeof page.content === 'string' ? page.content : '';
                 
-		                // ✅ FIX 1: Process raw text before parsing markdown
 		                contentString = processLatex(contentString);
 
 			            let html = marked.parse(contentString);
 
-                        // --- START SVG to PNG CONVERSION FOR PDF ---
                         const tempDiv = document.createElement('div');
                         tempDiv.innerHTML = html;
                         const svgElements = tempDiv.querySelectorAll('svg');
@@ -1088,22 +1037,17 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                             const conversionPromises = Array.from(svgElements).map(async (svg) => {
                                 try {
                                     const svgString = svg.outerHTML;
-                                    // Use the existing converter function
                                     const result = await convertSvgStringToPngDataUrl(svgString); 
                                     
-                                    // Create an img element to replace the svg
                                     const img = document.createElement('img');
                                     img.src = result.dataUrl;
-                                    // --- START MODIFICATION ---
                                     img.style.width = `${result.width}px`;
                                     img.style.height = `${result.height}px`;
                                     img.style.maxWidth = '100%';
-                                    // --- END MODIFICATION ---
                                     
                                     svg.parentNode.replaceChild(img, svg);
                                 } catch (err) {
                                     console.error("Could not convert one of the SVGs for PDF:", err);
-                                    // Replace broken SVG with an error message
                                     const errorMsg = document.createElement('p');
                                     errorMsg.style.color = 'red';
                                     errorMsg.innerText = '[Failed to render diagram]';
@@ -1111,15 +1055,11 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                 }
                             });
                             
-                            // Wait for all conversions to finish
                             await Promise.all(conversionPromises);
                             
-                            // Get the updated HTML with <img> tags
                             html = tempDiv.innerHTML;
                         }
-                        // --- END SVG to PNG CONVERSION FOR PDF ---
 
-		                // ✅ FIX 2: Clean up blockquote HTML for proper rendering
 		                html = html
 		                    .replace(/<blockquote>\s*<p>/g, '<blockquote>')
 		                    .replace(/<\/p>\s*<\/blockquote>/g, '</blockquote>');
@@ -1147,7 +1087,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 			            content: [
 			                {
 			                    stack: [
-		                            // Use the original (non-sanitized) title for the PDF content
 			                        { text: lessonTitleToExport, style: "coverTitle" }, 
 			                        { text: subjectTitle, style: "coverSub" }
 			                    ],
@@ -1158,23 +1097,18 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 			                ...lessonContent
 			            ],
 			            images: {
-			 		        // --- START FIX: Use Base64 variables ---
 	                        headerImg: headerBase64,
 	                        footerImg: footerBase64
-	                        // --- END FIX ---
 			            }
 			        };
             
-		            // NATIVE FIX: Use getBlob for native, download for web
 			        const pdfDoc = pdfMake.createPdf(docDefinition);
 		            if (isNativePlatform()) {
 		                pdfDoc.getBlob(async (blob) => {
-		                    // Pass the new sanitizedFileName to nativeSave
 		                    await nativeSave(blob, sanitizedFileName, 'application/pdf', showToast);
 		                    setExportingLessonId(null);
 		                });
 		            } else {
-		                // ✅ FIX: Use saveAs (file-saver) for web download, as pdfMake.download() is unreliable
 						pdfDoc.getBlob((blob) => {
 						    saveAs(blob, sanitizedFileName);
 						    setExportingLessonId(null);
@@ -1189,10 +1123,9 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 			};
     
     const unitVisuals = useMemo(() => [
-        // --- MODIFIED: Added dark mode gradient classes ---
-        { icon: RectangleStackIcon, gradient: 'from-white to-blue-50 dark:from-slate-800 dark:to-blue-900/50', iconColor: 'text-blue-500 dark:text-blue-400' },
-        { icon: BookOpenIcon, gradient: 'from-white to-green-50 dark:from-slate-800 dark:to-green-900/50', iconColor: 'text-green-500 dark:text-green-400' },
-        { icon: QueueListIcon, gradient: 'from-white to-purple-50 dark:from-slate-800 dark:to-purple-900/50', iconColor: 'text-purple-500 dark:text-purple-400' },
+        { icon: RectangleStackIcon, gradient: 'from-blue-50 via-indigo-50 to-white dark:from-blue-900/20 dark:via-indigo-900/10 dark:to-[#1E212B]', iconColor: 'text-blue-600 dark:text-blue-400' },
+        { icon: BookOpenIcon, gradient: 'from-emerald-50 via-teal-50 to-white dark:from-emerald-900/20 dark:via-teal-900/10 dark:to-[#1E212B]', iconColor: 'text-emerald-600 dark:text-emerald-400' },
+        { icon: QueueListIcon, gradient: 'from-purple-50 via-fuchsia-50 to-white dark:from-purple-900/20 dark:via-fuchsia-900/10 dark:to-[#1E212B]', iconColor: 'text-purple-600 dark:text-purple-400' },
     ], []);
     
     const unifiedContent = useMemo(() => {
@@ -1209,45 +1142,39 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                     (() => {
                         const isLoading = !allLessons || !allQuizzes;
                         return (
-                            <div>
-                                <button
-                                    onClick={() => { onSetActiveUnit(null); setIsReordering(false); }}
-                                    // --- MODIFIED: Added dark mode classes ---
-                                    className="flex items-center gap-1.5 mb-6 text-sm font-semibold text-slate-600 dark:text-slate-400 p-2 rounded-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
-                                >
-                                    <ChevronLeftIcon className="w-4 h-4" />
-                                    <span>Back to All Units</span>
-                                </button>
-                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-                                    <div className="min-w-0">
-                                        {/* --- MODIFIED: Added dark mode classes --- */}
-                                        <h2 className="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">{activeUnit.title}</h2>
-                                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Structure the learning path for this unit.</p>
-                                    </div>
-                                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 flex-shrink-0 self-end sm:self-center">
-                                        {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
-                                        <button 
-                                            onClick={() => setIsReordering(prev => !prev)} 
-                                            // --- MODIFIED: Added dark mode classes ---
-                                            className={`font-semibold px-4 py-2 rounded-full transition-all text-sm shadow-neumorphic dark:shadow-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark ${
-                                                isReordering ? 'bg-sky-600 dark:bg-sky-500 text-white dark:text-slate-900' : 'bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-700 dark:text-slate-200'
-                                            }`}
-                                        >
-                                            {isReordering ? 'Done' : 'Reorder'}
-                                        </button>
-                                        <AddContentButton
-                                            onAddLesson={() => handleOpenUnitModal(setAddLessonModalOpen, activeUnit)}
-                                            onAddQuiz={() => handleOpenUnitModal(setAddQuizModalOpen, activeUnit)}
-                                        />
+                            <div className="relative">
+                                {/* STICKY HEADER WRAPPER - Removed Back Button, Smaller Title, Optimized Transitions */}
+                                <div className="sticky top-0 z-30 -mx-4 px-4 pt-4 pb-4 bg-slate-50/90 dark:bg-[#0F1115]/90 backdrop-blur-xl border-b border-white/20 dark:border-white/5 transition-all duration-300 mb-6 animate-in fade-in slide-in-from-top-2">
+                                    <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+                                        <div className="max-w-3xl">
+                                            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">{activeUnit.title}</h2>
+                                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-1">Organize and manage the learning materials for this unit.</p>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                                            {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
+                                            
+                                            <button 
+                                                onClick={() => setIsReordering(prev => !prev)} 
+                                                className={`${secondaryButton} ${isReordering ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 border-blue-200 dark:border-blue-800' : ''}`}
+                                            >
+                                                {isReordering ? 'Done' : 'Reorder'}
+                                            </button>
+                                            
+                                            <AddContentButton
+                                                onAddLesson={() => handleOpenUnitModal(setAddLessonModalOpen, activeUnit)}
+                                                onAddQuiz={() => handleOpenUnitModal(setAddQuizModalOpen, activeUnit)}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
+
                                 {isLoading ? (
-                                    <div className="w-full flex justify-center items-center p-20"><Spinner /></div>
+                                    // REPLACED SPINNER WITH SKELETON LOADER
+                                    <div className="pb-20">
+                                        <ContentListSkeleton />
+                                    </div>
                                 ) : unifiedContent.length > 0 ? (
-                                    <div className={`p-1 sm:p-2 md:p-4 rounded-2xl transition-colors ${
-                                        // --- MODIFIED: Added dark mode classes for reordering background ---
-                                        isReordering ? 'bg-sky-50 dark:bg-slate-700/50' : 'bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark'
-                                    }`}>
+                                    <div className="space-y-4 pb-20 animate-in slide-in-from-bottom-4 fade-in duration-500">
                                         <SortableContext items={unifiedContent.map(item => item.id)} strategy={verticalListSortingStrategy}>
                                             {unifiedContent.map(item => (
                                                 <SortableContentItem
@@ -1265,10 +1192,16 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                         </SortableContext>
                                     </div>
                                 ) : (
-                                    <div className="text-center py-16 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
-                                        <RectangleStackIcon className="mx-auto h-12 w-12 text-slate-400 dark:text-slate-600 mb-5" />
-                                        <h3 className="mt-2 text-lg font-semibold text-slate-800 dark:text-slate-100">This unit is empty</h3>
-                                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Add a lesson or a quiz to get started.</p>
+                                    <div className="flex flex-col items-center justify-center py-24 px-6 text-center border-2 border-dashed border-slate-200 dark:border-white/10 rounded-3xl bg-slate-50/50 dark:bg-white/5 animate-in zoom-in-95 fade-in duration-300">
+                                        <div className="w-16 h-16 bg-white dark:bg-white/10 rounded-full flex items-center justify-center mb-6 shadow-sm ring-1 ring-slate-100 dark:ring-white/10">
+                                            <RectangleStackIcon className="h-8 w-8 text-slate-300 dark:text-slate-500" />
+                                        </div>
+                                        <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Start Building Content</h3>
+                                        <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8">This unit is currently empty. Add lessons or quizzes to create a learning path.</p>
+                                        <AddContentButton
+                                            onAddLesson={() => handleOpenUnitModal(setAddLessonModalOpen, activeUnit)}
+                                            onAddQuiz={() => handleOpenUnitModal(setAddQuizModalOpen, activeUnit)}
+                                        />
                                     </div>
                                 )}
                             </div>
@@ -1277,7 +1210,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                 ) : (
                     units.length > 0 ? (
                         <SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-10 animate-in slide-in-from-bottom-4 fade-in duration-500">
                                 {units.map((unit, index) => (
                                     <SortableUnitCard 
                                         key={unit.id}
@@ -1292,14 +1225,16 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                             </div>
                         </SortableContext>
                     ) : (
-                        <p className="text-center text-slate-500 dark:text-slate-400 py-10">
-                            No units in this subject yet. Add one to get started!
-                        </p>
+                        <div className="flex flex-col items-center justify-center py-32 text-center opacity-60 animate-in fade-in duration-700">
+                            <QueueListIcon className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4" />
+                            <h3 className="text-xl font-medium text-slate-900 dark:text-white">No units yet</h3>
+                            <p className="text-slate-500 dark:text-slate-400 mt-1">Create a unit to organize your lessons.</p>
+                        </div>
                     )
                 )}
             </DndContext>
             
-            <Suspense fallback={<Spinner />}>
+            <Suspense fallback={<ContentListSkeleton />}>
                 {isAiHubOpen && <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} unitId={unitForAi?.id} subjectId={subject?.id} />}
                 {editUnitModalOpen && <EditUnitModal isOpen={editUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={selectedUnit} />}
                 {addLessonModalOpen && <AddLessonModal isOpen={addLessonModalOpen} onClose={() => setAddLessonModalOpen(false)} unitId={selectedUnit?.id} subjectId={subject?.id} setIsAiGenerating={setIsAiGenerating} />}

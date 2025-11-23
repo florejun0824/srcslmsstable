@@ -1,31 +1,37 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'; // <-- 1. Import useRef
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { db } from '../../services/firebase';
 import { collection, query, where, getDocs, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { getAllSubjects } from '../../services/firestoreService';
-// We still need the original sanitizer for the *Planner* call
 import { sanitizeLessonsJson as sanitizeJsonBlock } from './sanitizeLessonText';
 
 import { Dialog } from '@headlessui/react';
-import { ArrowUturnLeftIcon, DocumentArrowUpIcon, DocumentTextIcon, XMarkIcon, SparklesIcon, ChevronRightIcon, CheckIcon } from '@heroicons/react/24/solid';
+import { 
+    ArrowUturnLeftIcon, 
+    DocumentArrowUpIcon, 
+    DocumentTextIcon, 
+    XMarkIcon, 
+    SparklesIcon, 
+    ChevronRightIcon, 
+    CheckIcon,
+    ListBulletIcon,
+    ArrowPathIcon,
+    ExclamationTriangleIcon,
+    FunnelIcon,
+    ChevronDownIcon
+} from '@heroicons/react/24/outline'; 
 import Spinner from '../common/Spinner';
 import LessonPage from './LessonPage';
 import mammoth from 'mammoth';
-import { marked } from 'marked'; 
 
 // PDF processing setup
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
-/**
- * --- Micro-Worker Sanitizer ---
- * (This function is unchanged)
- */
 const sanitizeJsonComponent = (aiResponse) => {
     try {
-        // Find the first { and last }
         const startIndex = aiResponse.indexOf('{');
         const endIndex = aiResponse.lastIndexOf('}');
         
@@ -34,16 +40,13 @@ const sanitizeJsonComponent = (aiResponse) => {
         }
 
         const jsonString = aiResponse.substring(startIndex, endIndex + 1);
-        
-        // Now, parse this string
         return JSON.parse(jsonString);
 
     } catch (error) {
         console.error("sanitizeJsonComponent error:", error.message, "Preview:", aiResponse.substring(0, 300));
-        throw new Error(`The AI component response was not valid JSON. Preview: ${aiResponse.substring(0, 150)}`);
+        throw new Error(`The AI component response was not valid JSON.`);
     }
 };
-
 
 export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }) {
     const { showToast } = useToast();
@@ -71,16 +74,22 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const [subjects, setSubjects] = useState([]);
     const [selectedSubject, setSelectedSubject] = useState(null);
 
-    // --- 2. Add isMounted ref ---
     const isMounted = useRef(false);
 
-    // --- 3. Add useEffect to track mount state ---
+    // --- 1. ALPHANUMERIC SORTING ---
+    // Sorts subjects safely (e.g., "Math 9" comes before "Math 10")
+    const sortedSubjects = useMemo(() => {
+        return [...subjects].sort((a, b) => 
+            (a.title || '').localeCompare((b.title || ''), undefined, { numeric: true, sensitivity: 'base' })
+        );
+    }, [subjects]);
+
     useEffect(() => {
         isMounted.current = true;
         return () => {
-            isMounted.current = false; // Set to false when component unmounts
+            isMounted.current = false;
         };
-    }, []); // Empty array means this runs only on mount and unmount
+    }, []);
 
     useEffect(() => {
         const fetchSubjects = async () => {
@@ -109,7 +118,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     setSubjectContext({ units: unitsData, lessons: lessonsData });
                 } catch (error) {
                     console.error("Error fetching subject context:", error);
-                    setError("Could not scan existing subject content.");
                 }
             };
             fetchFullSubjectContext();
@@ -207,10 +215,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         }
     };
 
-    // --- START OF COMPONENT-BASED REFACTOR ---
-
     const getBasePromptContext = () => {
-        // (This function is unchanged)
         let existingSubjectContextString = "No other lessons exist yet.";
         if (subjectContext && subjectContext.lessons.length > 0) {
             existingSubjectContextString = subjectContext.units
@@ -240,26 +245,21 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         if (selectedSubjectData && catholicSubjects.includes(selectedSubjectData.title)) {
             perspectiveInstruction = `
                 **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. All explanations must align with Catholic teachings.
-                **CRITICAL SOURCE REQUIREMENT (NON-NEGOTIABLE):** Prioritize citing and referencing official Catholic sources (CCC, Youcat, Encyclicals, etc.).
             `;
         }
 
         const scaffoldingInstruction = `
         **CONTEXT: PREVIOUSLY COVERED MATERIAL**
         This section lists topics from lessons that already exist.
-
-        **YOUR SCAFFOLDING TASK (NON-NEGOTIABLE):**
         1.  **DO NOT RE-TEACH:** You are strictly forbidden from re-teaching the specific concepts, keywords, or learning objectives listed below.
-        2.  **BUILD UPON:** Your new lesson MUST act as a logical "next step." It must **actively build upon this previous knowledge**.
-        3.  **CREATE A BRIDGE:** Where appropriate, the introduction of your new lesson should briefly reference a concept from the prerequisite lessons to create a smooth transition, but it must immediately move into new, more advanced material.
-
+        2.  **BUILD UPON:** Your new lesson MUST act as a logical "next step."
+        
         ---
-        **PREVIOUSLY COVERED MATERIAL (DO NOT RE-TEACH):**
+        **PREVIOUSLY COVERED MATERIAL:**
         - **User-Selected Prerequisites:** ${scaffoldInfo.summary || "N/A"}
         - **Other Existing Lessons:** ${existingSubjectContextString}
         ---
         `;
-
 
         const standardsInstruction = `
         **UNIT STANDARDS (NON-NEGOTIABLE CONTEXT):**
@@ -276,10 +276,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         };
     };
 
-    /**
-     * --- This is the smart planner prompt that handles single vs. multi-lesson logic ---
-     * (This function is unchanged)
-     */
     const getPlannerPrompt = (sourceText, baseContext) => {
         const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
         
@@ -292,348 +288,212 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         ${scaffoldingInstruction}
 
         **CRITICAL TASK: ANALYZE THE SOURCE TEXT'S STRUCTURE**
-        You must first analyze the provided source text to determine its structure.
+        
+        **SCENARIO 1: Single Lesson**
+        - If the text is short or has a specific "Lesson X" title, create ONE lesson object. Do NOT create a Unit Overview.
 
-        **SCENARIO 1: The Source Text is ALREADY a Single Lesson**
-        - Look for a "Table of Contents" (like the one in the user's example PDF) or a title (like "Lesson 3") that indicates the *entire document* is just *one* lesson.
-        - **If this is the case**, your plan MUST contain **exactly ONE item**: The *single* lesson object.
-        - **You MUST NOT include a "Unit Overview" in this case.** The user does not want it.
+        **SCENARIO 2: Large Document (Unit)**
+        - If the text is a chapter or book, create:
+          1. A "Unit Overview" lesson.
+          2. A logical sequence of 2-7 lessons based on the text.
 
-        **SCENARIO 2: The Source Text is a Large Document (NOT a single lesson)**
-        - If the text does *not* appear to be a single lesson (e.g., it's a long chapter, a full book, or raw text without a single-lesson structure), THEN you must apply the following constraints:
-        - Your plan MUST contain **a "Unit Overview" as the first item**, followed by a logical sequence of 2-7 lessons.
-        - You MUST group related topics together into fewer, more comprehensive lessons.
-        - **Do NOT** create a new lesson for every single paragraph.
-
-        **CRITICAL QUOTE ESCAPING:** All double quotes (") inside string values MUST be escaped (\\").
-
-        =============================
-        JSON OUTPUT FORMAT
-        =============================
-        **If SCENARIO 1 (Single Lesson) applies, use this exact format:**
+        **JSON OUTPUT FORMAT:**
         {
           "lessons": [
             {
-              "lessonTitle": "Lesson ${existingLessonCount + 1}: [Proposed Engaging Title Based on Source]",
-              "summary": "A 1-2 sentence summary of what this specific lesson will cover from the source text."
+              "lessonTitle": "Lesson ${existingLessonCount + 1}: [Title]",
+              "summary": "1-2 sentence summary."
             }
+            // ... more lessons
           ]
         }
 
-        **If SCENARIO 2 (Multiple Lessons) applies, use this exact format:**
-        {
-          "lessons": [
-            {
-              "lessonTitle": "Unit Overview",
-              "summary": "An overview of the entire unit and its main learning targets."
-            },
-            {
-              "lessonTitle": "Lesson ${existingLessonCount + 1}: [First Lesson Title]",
-              "summary": "Summary of the first lesson."
-            },
-            {
-              "lessonTitle": "Lesson ${existingLessonCount + 2}: [Second Lesson Title]",
-              "summary": "Summary of the second lesson."
-            }
-            // ... etc, up to 7 lessons total
-          ]
-        }
-
-        =============================
-        SOURCE TEXT TO ANALYZE
-        =============================
-        ${sourceText}
+        **SOURCE TEXT:**
+        ${sourceText.substring(0, 30000)} 
         `;
     };
 
-
-    /**
-     * --- Micro-Worker Prompt Generator ---
-     * (This function is unchanged)
-     */
     const getComponentPrompt = (sourceText, baseContext, lessonPlan, componentType, extraData = {}) => {
         const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
         let taskInstruction, jsonFormat;
 
-        // Common header for all component prompts
         const commonHeader = `
-        You are an expert curriculum designer. Your task is to generate *only* the specific component requested.
-        
+        You are an expert curriculum designer.
         ${languageAndGradeInstruction}
         ${perspectiveInstruction}
-        ${scaffoldingInstruction}
-        ${standardsInstruction}
-
+        
         **LESSON CONTEXT:**
         - **Lesson Title:** ${lessonPlan.lessonTitle}
         - **Lesson Summary:** ${lessonPlan.summary}
         `;
 
-        // Common style rules
         const styleRules = `
-        **CRITICAL STYLE RULE:** You MUST use **pure Markdown only**. No HTML tags.
-        - **Headings:** \`### Heading\`
-        - **Key Terms:** \`**bold**\`
-        - **Blockquotes:** \`> Note:\`
-        - **Inline Terms:** \`backticks\`
-        - **LaTeX:** Use $inline$ and $$display$$ (with \\\\ for escapes, e.g., $90\\\\degree$).
-        - **Quote Escaping:** All double quotes (") inside JSON string values MUST be escaped (\\").
+        **STYLE:** Pure Markdown. No HTML.
+        - Headings: \`### Heading\`
+        - Bold: \`**bold**\`
+        - Escape double quotes in JSON.
         `;
 
         switch (componentType) {
             case 'objectives':
-                taskInstruction = 'Generate 3-5 specific, measurable, and student-friendly learning objectives for this lesson. They must be based on the lesson summary and the source text.';
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "objectives": [\n    "Objective 1...",\n    "Objective 2..."\n  ]\n}`;
+                taskInstruction = 'Generate 3-5 specific, measurable, and student-friendly learning objectives.';
+                jsonFormat = `{"objectives": ["Objective 1...", "Objective 2..."]}`;
                 break;
             
             case 'competencies':
-                taskInstruction = `Analyze the "Learning Competencies (Master List)" from the context and select 1-3 competencies that are *directly* addressed by this specific lesson.`;
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "competencies": [\n    "Competency 1 from master list...",\n    "Competency 2 from master list..."\n  ]\n}`;
+                taskInstruction = `Select 1-3 competencies from the provided Master List that are addressed by this lesson.`;
+                jsonFormat = `{"competencies": ["Competency 1...", "Competency 2..."]}`;
                 break;
 
             case 'UnitOverview_Overview':
-                taskInstruction = 'Generate the "Overview" page for the "Unit Overview" lesson. This should be a 1-2 paragraph summary of the entire unit, based on the *full* source text.';
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Overview",\n    "content": "One or two paragraphs of markdown text..."\n  }\n}`;
+                taskInstruction = 'Generate the "Overview" page content (1-2 paragraphs).';
+                jsonFormat = `{"page": {"title": "Overview", "content": "Markdown content..."}}`;
                 break;
 
             case 'UnitOverview_Targets':
-                taskInstruction = 'Generate the "Learning Targets" page for the "Unit Overview" lesson. This should be a bulleted list of the main skills or knowledge students will gain in the *entire unit*, based on the *full* source text.';
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Learning Targets",\n    "content": "- Target 1...\n- Target 2..."\n  }\n}`;
+                taskInstruction = 'Generate the "Learning Targets" page content (bullet points).';
+                jsonFormat = `{"page": {"title": "Learning Targets", "content": "Markdown content..."}}`;
                 break;
 
             case 'Introduction':
-                taskInstruction = 'Generate the "Engaging Introduction" page. It MUST have a thematic, captivating subheader title (e.g., "Why Water Shapes Our World"). The content must hook attention with a story, real-world example, or surprising fact from the text.';
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "A Captivating Thematic Title (NOT 'Introduction')",\n    "content": "Engaging intro markdown..."\n  }\n}`;
+                taskInstruction = 'Generate an "Engaging Introduction" page. Use a thematic subheader title.';
+                jsonFormat = `{"page": {"title": "Thematic Title", "content": "Markdown content..."}}`;
                 break;
             
             case 'LetsGetStarted':
-                taskInstruction = 'Generate the "Let\'s Get Started" page. This must be a short, simple, interactive warm-up activity (e.g., quick brainstorm, matching, or short scenario).';
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Let's Get Started",\n    "content": "Warm-up activity instructions..."\n  }\n}`;
+                taskInstruction = 'Generate a "Let\'s Get Started" warm-up activity page.';
+                jsonFormat = `{"page": {"title": "Let's Get Started", "content": "Activity instructions..."}}`;
                 break;
 
-            // --- START OF CRITICAL FIX ---
             case 'CoreContentPlanner':
-                taskInstruction = `Analyze the source text *only* as it pertains to this lesson.
-            
-                **CRITICAL CONTENT FIDELITY (NON-NEGOTIABLE):** Your task is to identify *all* the main sub-topics required to cover the *entire* core content for this lesson.
-                - Do **NOT** summarize or omit key sections.
-                - If the lesson's content in the source text is broken into 3 sections (e.g., "Understanding Historical Context," "Impact on Themes," "Appreciating Truths"), you MUST return 3 titles.
-                - If the content is long and requires 6 or 10 sub-topics to cover it fully, you MUST return 6 or 10 titles.
-                - Do **NOT** artificially limit this to 2-4 topics. Create as many as are necessary to cover all the material.
-                
-                Do *not* include titles for "Introduction," "Warm-Up," "Summary," etc. Just the main, teachable content topics found in the source text.`;
-                
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "coreContentTitles": [\n    "First Sub-Topic Title",\n    "Second Sub-Topic Title",\n    "Third Sub-Topic Title"\n    // ... (as many as necessary)
-      ]\n}`;
+                taskInstruction = `Identify the main sub-topics required to cover the content for this lesson found in the source text. Return a list of titles.`;
+                jsonFormat = `{"coreContentTitles": ["Sub-Topic 1", "Sub-Topic 2"]}`;
                 break;
-            // --- END OF CRITICAL FIX ---
-
 
 			case 'CoreContentPage':
-			                // --- MODIFICATION START ---
-			                // Destructure the new context data. Provide defaults for safety.
-			                const allTitles = extraData.allContentTitles || [extraData.contentTitle];
-			                const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
-			                const currentTitle = extraData.contentTitle;
+                const allTitles = extraData.allContentTitles || [extraData.contentTitle];
+                const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
+                const currentTitle = extraData.contentTitle;
 
-			                // Build a dynamic instruction to "fence in" the AI
-			                const contentContextInstruction = `
-			                **CRITICAL CONTENT BOUNDARIES (NON-NEGOTIABLE):**
-			                This lesson's core content is divided into ${allTitles.length} main page(s).
+                const contentContextInstruction = `
+                **CRITICAL CONTENT BOUNDARIES (NON-NEGOTIABLE):**
+                This lesson's core content is divided into ${allTitles.length} main page(s).
                 
-			                **This is Page ${currentIndex + 1} of ${allTitles.length}.**
+                **This is Page ${currentIndex + 1} of ${allTitles.length}.**
                 
-			                - **Your Page Title:** "${currentTitle}"
-			                - **All Page Titles (in order):** ${allTitles.map((t, i) => `\n  ${i + 1}. ${t} ${i === currentIndex ? "(THIS IS YOUR PAGE)" : ""}`).join('')}
+                - **Your Page Title:** "${currentTitle}"
+                - **All Page Titles (in order):** ${allTitles.map((t, i) => `\n  ${i + 1}. ${t} ${i === currentIndex ? "(THIS IS YOUR PAGE)" : ""}`).join('')}
 
-			                **YOUR TASK:**
-			                1.  You are **strictly forbidden** from discussing topics belonging to the *other* page titles.
-			                2.  Your content MUST focus *exclusively* on the material from the source text that is relevant *only* to your assigned title: "**${currentTitle}**".
-			                3.  Do NOT repeat content from previous pages. Do NOT summarize the entire document.
-			                `;
-			                // --- MODIFICATION END ---
+                **YOUR TASK:**
+                1.  You are **strictly forbidden** from discussing topics belonging to the *other* page titles.
+                2.  Your content MUST focus *exclusively* on the material from the source text that is relevant *only* to your assigned title: "**${currentTitle}**".
+                3.  Do NOT repeat content from previous pages. Do NOT summarize the entire document.
+                `;
 
-						                taskInstruction = `Generate *one* core content page for this lesson.
-						                - **Page Title:** It MUST be exactly: "${currentTitle}"
+                taskInstruction = `Generate *one* core content page for this lesson.
+                - **Page Title:** It MUST be exactly: "${currentTitle}"
 
-						                ${contentContextInstruction}
+                ${contentContextInstruction}
 
-						                **CRITICAL CONTENT GENERATION RULES (NON-NEGOTIABLE):**
-                
-						                1.  **Information Fidelity:** The generated content must be detail-rich and **100% faithful** to all information, facts, and concepts from the source text relevant to **your specific page title**. Do **not** omit key information or concepts *from your section*.
-                
-						                2.  **Paraphrasing (Copyright):** You are **strictly forbidden** from copying the source text verbatim. You MUST **paraphrase and rewrite** all content in your own words to avoid copyright infringement. The core *ideas* must be preserved, but the *wording* must be original.
-                
-						                3.  **Academic Tone & Audience:** The language MUST be **academic, clear, and informative**. The choice of words must be **strictly appropriate for the target Grade Level** (e.g., ${gradeLevel}) in a Philippine (DepEd) educational context. Do not oversimplify, but ensure clarity.
-						                `;
-                
-						                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed, *paraphrased*, and academic markdown content for **this specific page only**..."\n  }\n}`;
-						                break;
+                **CRITICAL CONTENT GENERATION RULES (NON-NEGOTIABLE):**
+
+                1.  **Information Fidelity:** The generated content must be detail-rich and **100% faithful** to all information, facts, and concepts from the source text relevant to **your specific page title**. Do **not** omit key information or concepts *from your section*.
+
+                2.  **Paraphrasing (Copyright):** You are **strictly forbidden** from copying the source text verbatim. You MUST **paraphrase and rewrite** all content in your own words to avoid copyright infringement. The core *ideas* must be preserved, but the *wording* must be original.
+
+                3.  **Academic Tone & Audience:** The language MUST be **academic, clear, and informative**. The choice of words must be **strictly appropriate for the target Grade Level** (e.g., ${gradeLevel}) in a Philippine (DepEd) educational context. Do not oversimplify, but ensure clarity.
+                `;
+
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed, *paraphrased*, and academic markdown content for **this specific page only**..."\n  }\n}`;
+                break;
             
             case 'CheckForUnderstanding':
-                taskInstruction = 'Generate the "Check for Understanding" page. This must be a short, formative activity with 3-4 concept questions or problems based on the core content.';
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Check for Understanding",\n    "content": "1. Question 1...\n2. Question 2..."\n  }\n}`;
+                taskInstruction = 'Generate a "Check for Understanding" page with 3-4 questions.';
+                jsonFormat = `{"page": {"title": "Check for Understanding", "content": "Questions..."}}`;
                 break;
 
             case 'LessonSummary':
-                taskInstruction = 'Generate the "Lesson Summary" page. This must be a concise recap of the most important points from the lesson, as bullet points or a short narrative.';
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Lesson Summary",\n    "content": "Concise recap in markdown..."\n  }\n}`;
+                taskInstruction = 'Generate a "Lesson Summary" page (concise recap).';
+                jsonFormat = `{"page": {"title": "Lesson Summary", "content": "Recap..."}}`;
                 break;
             
             case 'WrapUp':
-                taskInstruction = 'Generate the "Wrap Up" page. This must be a motivational, inspiring closure that ties the lesson back to the big picture.';
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Wrap Up",\n    "content": "Motivational closure in markdown..."\n  }\n}`;
+                taskInstruction = 'Generate a motivational "Wrap Up" page.';
+                jsonFormat = `{"page": {"title": "Wrap Up", "content": "Closure..."}}`;
                 break;
 
             case 'EndofLessonAssessment':
-                taskInstruction = 'Generate the "End of Lesson Assessment" page. This must be 5-8 questions (mix of multiple-choice, short-answer, and application) that align with the lesson\'s objectives.';
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "End of Lesson Assessment",\n    "content": "### Multiple Choice\n1. Question...\n\n### Short Answer\n4. Question..."\n  }\n}`;
+                taskInstruction = 'Generate an "End of Lesson Assessment" with 5-8 questions.';
+                jsonFormat = `{"page": {"title": "End of Lesson Assessment", "content": "Questions..."}}`;
                 break;
 
             case 'AnswerKey':
-                taskInstruction = 'Generate the "Answer Key" page. Provide clear answers to all questions from the "End of Lesson Assessment". Use the same numbering.';
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Answer Key",\n    "content": "1. Answer...\n4. Answer..."\n  }\n}`;
+                taskInstruction = 'Generate the "Answer Key" for the assessment.';
+                jsonFormat = `{"page": {"title": "Answer Key", "content": "Answers..."}}`;
                 break;
 
             case 'References':
-                taskInstruction = 'Generate the "References" page. This must be an academic-style reference list, including the uploaded file and any other credible sources derived from the text.';
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "References",\n    "content": "- Source 1...\n- Source 2..."\n  }\n}`;
+                taskInstruction = 'Generate a "References" page.';
+                jsonFormat = `{"page": {"title": "References", "content": "Sources..."}}`;
                 break;
 
             default:
                 throw new Error(`Unknown component type: ${componentType}`);
         }
 
-        return `
-        ${commonHeader}
-
-        =============================
-        YOUR SPECIFIC TASK
-        =============================
-        ${taskInstruction}
-
-        ${styleRules}
-
-        =============================
-        JSON OUTPUT FORMAT
-        =============================
-        ${jsonFormat}
-
-        =============================
-        SOURCE TEXT (FOR REFERENCE)
-        =============================
-        ${sourceText}
-        `;
+        return `${commonHeader}\n\n**TASK:** ${taskInstruction}\n${styleRules}\n\n**JSON FORMAT:**\n${jsonFormat}\n\n**SOURCE TEXT:**\n${sourceText}`;
     };
 
-    /**
-     * --- Micro-Worker Function with Retries ---
-     * --- 4. MODIFIED: Accept isMountedRef ---
-     */
     const generateLessonComponent = async (sourceText, baseContext, lessonPlan, componentType, isMountedRef, extraData = {}, maxRetries = 3) => {
         const prompt = getComponentPrompt(sourceText, baseContext, lessonPlan, componentType, extraData);
 
         for (let attempt = 0; attempt < maxRetries; attempt++) {
-            
-            // --- 5. ADD ABORT CHECK ---
-            if (!isMountedRef.current) throw new Error("Generation aborted by user.");
+            if (!isMountedRef.current) throw new Error("Aborted");
 
             try {
-                // 1. Attempt the AI call
                const aiResponse = await callGeminiWithLimitCheck(prompt, { maxOutputTokens: 8192 });
-                // --- 5. ADD ABORT CHECK ---
-                if (!isMountedRef.current) throw new Error("Generation aborted by user.");
+                if (!isMountedRef.current) throw new Error("Aborted");
 
-                // 2. Attempt to parse the response
                 const jsonData = sanitizeJsonComponent(aiResponse);
-                
-                // 3. If both succeed, return the data immediately
                 return jsonData; 
 
             } catch (error) {
-                // --- 5. ADD ABORT CHECK ---
-                if (!isMountedRef.current) throw new Error("Generation aborted by user.");
-
-                console.warn(
-                    `Attempt ${attempt + 1} of ${maxRetries} failed for component: ${componentType} (Lesson: ${lessonPlan.lessonTitle})`,
-                    error.message
-                );
-
-                // If this was the last attempt, re-throw the error to stop the process
-                if (attempt === maxRetries - 1) {
-                    console.error(`All ${maxRetries} retries failed for component: ${componentType}. Aborting.`);
-                    throw new Error(`Failed to generate component ${componentType} after ${maxRetries} attempts: ${error.message}`);
-                }
-                
-                // Wait for a short duration before retrying (e.g., 500ms)
-                await new Promise(res => setTimeout(res, 500));
-
-                // --- 5. ADD ABORT CHECK ---
-                if (!isMountedRef.current) throw new Error("Generation aborted by user.");
+                if (!isMountedRef.current) throw new Error("Aborted");
+                if (attempt === maxRetries - 1) throw error;
+                await new Promise(res => setTimeout(res, 1000)); // Wait 1s before retry
             }
         }
-        
-        // This line should be unreachable if maxRetries > 0, but as a fallback:
-        throw new Error(`Failed to generate component ${componentType} after ${maxRetries} attempts.`);
     };
 
-
-    /**
-     * --- The "Orchestrator" ---
-     * --- 6. MODIFIED: Add abort checks and pass isMounted ref ---
-     */
     const handleGenerateLesson = async () => {
-        if (!file) {
-            setError('Please upload a file first.');
-            return;
-        }
+        if (!file) { setError('Please upload a file first.'); return; }
         setIsProcessing(true);
         setError('');
         setPreviewLessons([]);
-        const allGeneratedLessons = []; // Store lessons as they are created
+        const allGeneratedLessons = [];
 
         try {
-            // --- STEP 1: Extract Text ---
-            setProgressMessage('Step 1 of 3: Reading and extracting text...');
+            setProgressMessage('Step 1/3: Extracting text...');
             let extractedText = await extractTextFromFile(file);
-            
-            // --- ABORT CHECK ---
             if (!isMounted.current) return;
-
             extractedText = extractedText.replace(/₱/g, 'PHP ');
             const sourceText = extractedText;
             
-            // --- STEP 2: Planner Call (Now with new conditional prompt) ---
-            setProgressMessage('Step 2 of 3: Planning unit structure with AI...');
+            setProgressMessage('Step 2/3: Planning curriculum...');
             const baseContext = getBasePromptContext();
             const plannerPrompt = getPlannerPrompt(sourceText, baseContext);
-
-const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutputTokens: 8192 });
-            
-            // --- ABORT CHECK ---
+            const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutputTokens: 8192 });
             if (!isMounted.current) return;
-
-            // Use the *original* sanitizer here, as it's built for the `{"lessons": [...]}` structure
             const lessonPlans = sanitizeJsonBlock(plannerResponse); 
 
-            if (!lessonPlans || lessonPlans.length === 0) {
-                throw new Error("The AI failed to create a lesson plan.");
-            }
-
-            // --- STEP 3: Orchestrator Loop ---
-            setProgressMessage(`Step 3: Building ${lessonPlans.length} lessons...`);
+            setProgressMessage(`Step 3/3: Building ${lessonPlans.length} lessons...`);
             let lessonCounter = existingLessonCount;
 
             for (const [index, plan] of lessonPlans.entries()) {
-                
-                // --- ABORT CHECK ---
                 if (!isMounted.current) return;
                 
                 const isUnitOverview = plan.lessonTitle.toLowerCase().includes('unit overview');
-                
-                if (!isUnitOverview) {
-                    lessonCounter++;
-                }
+                if (!isUnitOverview) lessonCounter++;
                 
                 const numberedPlan = { ...plan };
                 if (!isUnitOverview) {
@@ -643,7 +503,6 @@ const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutpu
                     numberedPlan.lessonTitle = 'Unit Overview';
                 }
 
-                // This object will be built piece-by-piece
                 let newLesson = {
                     lessonTitle: numberedPlan.lessonTitle,
                     pages: [],
@@ -651,149 +510,68 @@ const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutpu
                     assignedCompetencies: []
                 };
 
-                setProgressMessage(`Building Lesson ${index + 1}/${lessonPlans.length}: "${numberedPlan.lessonTitle}"`);
+                const safeGenerate = async (type, extra = {}) => {
+                    try {
+                        setProgressMessage(`Building "${numberedPlan.lessonTitle}": ${type}...`);
+                        return await generateLessonComponent(sourceText, baseContext, numberedPlan, type, isMounted, extra);
+                    } catch (e) {
+                        console.warn(`Skipping ${type} due to error:`, e);
+                        return null;
+                    }
+                };
 
                 if (isUnitOverview) {
-                    // --- Special Flow for Unit Overview ---
-                    setProgressMessage(`Building ${numberedPlan.lessonTitle}: Overview Page...`);
-                    const overviewData = await generateLessonComponent(sourceText, baseContext, numberedPlan, 'UnitOverview_Overview', isMounted); // Pass isMounted
-                    newLesson.pages.push(overviewData.page);
-
-                    // --- ABORT CHECK ---
-                    if (!isMounted.current) return;
-
-                    setProgressMessage(`Building ${numberedPlan.lessonTitle}: Learning Targets Page...`);
-                    const targetsData = await generateLessonComponent(sourceText, baseContext, numberedPlan, 'UnitOverview_Targets', isMounted); // Pass isMounted
-                    newLesson.pages.push(targetsData.page);
-                
+                    const overview = await safeGenerate('UnitOverview_Overview');
+                    if(overview) newLesson.pages.push(overview.page);
+                    
+                    const targets = await safeGenerate('UnitOverview_Targets');
+                    if(targets) newLesson.pages.push(targets.page);
                 } else {
-                    // --- Standard Lesson Flow ---
+                    const objs = await safeGenerate('objectives');
+                    if(objs) newLesson.learningObjectives = objs.objectives;
+
+                    const comps = await safeGenerate('competencies');
+                    if(comps) newLesson.assignedCompetencies = comps.competencies;
                     
-                    // --- Objectives ---
-                    setProgressMessage(`Building ${numberedPlan.lessonTitle}: Objectives...`);
-                    const objectivesData = await generateLessonComponent(sourceText, baseContext, numberedPlan, 'objectives', isMounted, {}); // Pass isMounted
-                    newLesson.learningObjectives = objectivesData.objectives;
-
-                    // --- ABORT CHECK ---
-                    if (!isMounted.current) return;
-
-                    // --- Competencies ---
-                    setProgressMessage(`Building ${numberedPlan.lessonTitle}: Competencies...`);
-                    const competenciesData = await generateLessonComponent(sourceText, baseContext, numberedPlan, 'competencies', isMounted, {}); // Pass isMounted
-                    newLesson.assignedCompetencies = competenciesData.competencies;
+                    const intro = await safeGenerate('Introduction');
+                    if(intro) newLesson.pages.push(intro.page);
                     
-                    // --- ABORT CHECK ---
-                    if (!isMounted.current) return;
+                    const activity = await safeGenerate('LetsGetStarted');
+                    if(activity) newLesson.pages.push(activity.page);
 
-                    // --- Intro Page ---
-                    setProgressMessage(`Building ${numberedPlan.lessonTitle}: Intro...`);
-                    const introData = await generateLessonComponent(sourceText, baseContext, numberedPlan, 'Introduction', isMounted, {}); // Pass isMounted
-                    newLesson.pages.push(introData.page);
+                    const planner = await safeGenerate('CoreContentPlanner');
+                    const contentTitles = planner ? planner.coreContentTitles : [];
                     
-                    // --- ABORT CHECK ---
-                    if (!isMounted.current) return;
-
-                    // --- 'Let's Get Started' Page ---
-                    setProgressMessage(`Building ${numberedPlan.lessonTitle}: Activity...`);
-                    const activityData = await generateLessonComponent(sourceText, baseContext, numberedPlan, 'LetsGetStarted', isMounted, {}); // Pass isMounted
-                    newLesson.pages.push(activityData.page);
-
-                    // --- ABORT CHECK ---
-                    if (!isMounted.current) return;
-
-                    // --- Core Content Planner (This now returns a variable-length array) ---
-                    setProgressMessage(`Building ${numberedPlan.lessonTitle}: Planning Content...`);
-                    const contentPlannerData = await generateLessonComponent(sourceText, baseContext, numberedPlan, 'CoreContentPlanner', isMounted, {}); // Pass isMounted
-                    const contentPlanTitles = contentPlannerData.coreContentTitles || [];
-                    
-                    // --- ABORT CHECK ---
-                    if (!isMounted.current) return;
-
-// --- Core Content Worker Loop (This will now loop as many times as needed) ---
-                    for (const [contentIndex, contentTitle] of contentPlanTitles.entries()) {
-                        
-                        // --- ABORT CHECK ---
-                        if (!isMounted.current) return;
-
-                        setProgressMessage(`Building ${numberedPlan.lessonTitle}: Content ${contentIndex + 1}/${contentPlanTitles.length}...`);
-                        
-                        // --- MODIFICATION START ---
-                        // Pass the full context (all titles and current index) to the component generator
-                        // This allows the prompt to build a "fence" around the AI's task.
-                        const contentPageData = await generateLessonComponent(
-                            sourceText, 
-                            baseContext, 
-                            numberedPlan, 
-                            'CoreContentPage', 
-                            isMounted, 
-                            { 
-                                contentTitle: contentTitle,
-                                allContentTitles: contentPlanTitles,
-                                currentIndex: contentIndex
-                            }
-                        ); 
-                        // --- MODIFICATION END ---
-
-                        newLesson.pages.push(contentPageData.page);
+                    for (const [cIdx, title] of contentTitles.entries()) {
+                        const pageData = await safeGenerate('CoreContentPage', { contentTitle: title, allContentTitles: contentTitles, currentIndex: cIdx });
+                        if (pageData) newLesson.pages.push(pageData.page);
                     }
                     
-                    // --- Standard Footer Pages ---
                     const standardPages = ['CheckForUnderstanding', 'LessonSummary', 'WrapUp', 'EndofLessonAssessment', 'AnswerKey', 'References'];
                     for (const pageType of standardPages) {
-                        
-                        // --- ABORT CHECK ---
-                        if (!isMounted.current) return;
-
-                        setProgressMessage(`Building ${numberedPlan.lessonTitle}: ${pageType}...`);
-                        const pageData = await generateLessonComponent(sourceText, baseContext, numberedPlan, pageType, isMounted, {}); // Pass isMounted
-                        if (pageData && pageData.page) {
-                            newLesson.pages.push(pageData.page);
-                        } else {
-                            console.warn(`Missing page data for ${pageType}`);
-                        }
+                        const pData = await safeGenerate(pageType);
+                        if (pData) newLesson.pages.push(pData.page);
                     }
                 }
                 
-                // --- ABORT CHECK ---
-                if (!isMounted.current) return;
-
                 allGeneratedLessons.push(newLesson);
                 setPreviewLessons([...allGeneratedLessons]);
                 setSelectedLessonIndex(allGeneratedLessons.length - 1);
                 setSelectedPageIndex(0);
             }
-            
-            // --- ABORT CHECK ---
-            if (!isMounted.current) return;
-            
-            setProgressMessage('All lessons generated successfully!');
+            setProgressMessage('Done!');
 
         } catch (err) {
-            // --- 7. MODIFY CATCH BLOCK ---
-            if (!isMounted.current || (err.message && err.message.includes("aborted"))) {
-                console.log("Generation loop aborted by user (AiLessonGenerator).");
-                // Silently stop, don't show an error
-            } else {
-                console.error('Lesson generation error:', err);
-                setError(err.message.includes('overloaded')
-                    ? 'The AI service is currently busy. Please try again in a moment.'
-                    : `Error during generation: ${err.message}`
-                );
-            }
-            // --- END MODIFY ---
+            if (!isMounted.current) return;
+            console.error('Generation error:', err);
+            setError('An error occurred. Parts of the lesson may be missing.');
         } finally {
             setIsProcessing(false);
-            // Don't clear message, so user sees "All lessons generated successfully!"
         }
     };
     
-    // --- END OF REFACTOR ---
-    
     const handleSaveLesson = async () => {
-        if (previewLessons.length === 0 || !unitId || !subjectId) {
-            setError('Cannot save without generated lessons and unit context.');
-            return;
-        }
+        if (previewLessons.length === 0) return;
         setSaving(true);
         try {
             const savePromises = previewLessons.map((lesson, index) =>
@@ -806,7 +584,6 @@ const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutpu
                     contentType: "studentLesson",
                     createdAt: serverTimestamp(),
                     order: existingLessonCount + index,
-                    
                     learningCompetencies: lesson.assignedCompetencies || [],
                     contentStandard: contentStandard || '',
                     performanceStandard: performanceStandard || ''
@@ -817,8 +594,7 @@ const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutpu
             resetGeneratorState();
             onClose(); 
         } catch (err) {
-            console.error('Error saving lessons: ', err);
-            setError('Failed to save one or more lessons.');
+            setError('Failed to save lessons.');
         } finally {
             setSaving(false);
         }
@@ -826,271 +602,371 @@ const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutpu
 
     const selectedLesson = previewLessons[selectedLessonIndex];
     const selectedPage = selectedLesson?.pages?.[selectedPageIndex];
-
-    const objectivesAsMarkdown = useMemo(() => {
-        if (!selectedLesson?.learningObjectives?.length) return null;
-        return selectedLesson.learningObjectives.map(obj => `* ${obj}`).join('\n');
-    }, [selectedLesson]);
+    const objectivesAsMarkdown = useMemo(() => selectedLesson?.learningObjectives?.map(obj => `* ${obj}`).join('\n'), [selectedLesson]);
 
     const gradeLevels = ["Kindergarten", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
 
-    const formInputStyle = "block w-full rounded-lg border-transparent bg-neumorphic-base shadow-neumorphic-inset text-slate-900 placeholder-slate-400 focus:border-sky-500 focus:ring-sky-500 text-sm dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:text-slate-100 dark:placeholder-slate-500";
+    // --- UI CONSTANTS (macOS 26) ---
+    // Optimized for mobile touch targets and cleaner visuals
+    const panelClass = "bg-white/60 dark:bg-[#1e1e1e]/60 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-[24px] shadow-2xl shadow-black/5";
+    
+    // Inputs with better touch targets and visual feedback
+    const inputClass = "w-full bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-[14px] px-4 py-3 text-[15px] text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-[#007AFF]/50 outline-none transition-all shadow-inner appearance-none";
+    
+    const labelClass = "text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-2 block tracking-wide uppercase ml-1";
 
     return (
-        <div className="flex flex-col h-full">
-            <div className="flex-shrink-0 pb-4 border-b border-neumorphic-shadow-dark/20 dark:border-slate-700">
-                <div className="flex justify-between items-center mb-2">
-                    <Dialog.Title as="h3" className="text-2xl font-bold text-slate-800 dark:text-slate-100">Generate with AI</Dialog.Title>
-                    <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-slate-600 dark:text-slate-400 rounded-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark">
-                        <ArrowUturnLeftIcon className="w-4 h-4" />
-                        Back
-                    </button>
+        <div className="flex flex-col h-[100dvh] bg-[#f5f5f7] dark:bg-[#121212] font-sans text-slate-900 dark:text-white overflow-hidden">
+            
+            {/* Header */}
+            <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between bg-white/70 dark:bg-[#1e1e1e]/70 backdrop-blur-xl border-b border-black/5 dark:border-white/5 z-20 sticky top-0">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                        <SparklesIcon className="w-5 h-5 text-white stroke-[2]" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold tracking-tight leading-tight">AI Lesson Generator</h3>
+                        <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400 hidden sm:block">Upload material to create structured lessons</p>
+                    </div>
                 </div>
-                 <p className="text-slate-500 dark:text-slate-400">
-                    Upload a document and AI will structure it into a full unit.
-                </p>
+                <button onClick={onBack} className="px-4 py-2 rounded-[20px] bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-[13px] font-semibold transition-all flex items-center gap-2 backdrop-blur-md active:scale-95">
+                    <ArrowUturnLeftIcon className="w-4 h-4 stroke-[2.5]" /> Back
+                </button>
             </div>
 
-            <div className="flex-grow pt-4 overflow-hidden flex flex-col md:flex-row gap-6">
-                <div className="w-full md:w-1/3 flex flex-col gap-4 overflow-y-auto pr-2">
-                    {isProcessing ? (
-                        <div className="w-full flex-grow flex flex-col items-center justify-center p-4 rounded-2xl bg-neumorphic-base shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
-                            <Spinner/>
-                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mt-4 text-center">{progressMessage}</p>
-                        </div>
-                    ) : (
-                        !file ? (
-                            <label htmlFor="file-upload" className="relative flex-grow block w-full rounded-2xl p-8 text-center cursor-pointer transition-shadow duration-300 bg-neumorphic-base shadow-neumorphic-inset hover:shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:hover:shadow-lg">
-                                <div className="flex flex-col items-center justify-center h-full">
-                                    <DocumentArrowUpIcon className="mx-auto h-16 w-16 text-slate-400 dark:text-slate-600" />
-                                    <span className="mt-4 block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                                        Click to upload or drag & drop
-                                    </span>
-                                    <span className="mt-1 block text-xs text-slate-500 dark:text-slate-500">
-                                        PDF, DOCX, or TXT
-                                    </span>
-                                </div>
-                                <input id="file-upload" name="file-upload" type="file" className="sr-only" accept=".pdf,.docx,.txt" onChange={handleFileChange} />
-                            </label>
-                        ) : (
-                            <div className="relative w-full flex-grow rounded-2xl p-4 shadow-neumorphic dark:shadow-lg dark:bg-neumorphic-base-dark flex flex-col justify-center">
-                                <div className="flex items-center gap-4">
-                                    <DocumentTextIcon className="h-12 w-12 text-sky-600 dark:text-sky-400 flex-shrink-0" />
-                                    <div className="overflow-hidden">
-                                        <p className="truncate font-semibold text-slate-800 dark:text-slate-100">{file.name}</p>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400">{Math.round(file.size / 1024)} KB</p>
-                                    </div>
-                                </div>
-                                <button onClick={removeFile} className="absolute top-3 right-3 p-1.5 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-colors">
-                                    <XMarkIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-                                </button>
-                            </div>
-                        )
-                    )}
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label htmlFor="language" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Language</label>
-                            <select id="language" name="language" value={language} onChange={(e) => setLanguage(e.target.value)} className={formInputStyle}>
-                                <option>English</option>
-                                <option>Filipino</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label htmlFor="gradeLevel" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Grade Level</label>
-                            <select id="gradeLevel" name="gradeLevel" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} className={formInputStyle}>
-                                {gradeLevels.map(level => (
-                                    <option key={level} value={level}>{level}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label htmlFor="subject" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Subject</label>
-                        <select id="subject" name="subject" value={selectedSubject || ''} onChange={(e) => setSelectedSubject(e.target.value)} className={formInputStyle}>
-                            <option value="" disabled>Select a subject</option>
-                            {subjects.map(subject => (
-                                <option key={subject.id} value={subject.id}>{subject.title}</option>
-                            ))}
-                        </select>
-                    </div>
+            {/* Content Area - Mobile: Single Scroll View, Desktop: Split View */}
+            <div className="flex-grow overflow-y-auto lg:overflow-hidden">
+                <div className="flex flex-col lg:flex-row lg:h-full p-3 sm:p-4 gap-4 max-w-[1920px] mx-auto">
                     
-                    <div>
-                        <label htmlFor="learningCompetencies" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Learning Competencies (Master List)</label>
-                        <textarea
-                            id="learningCompetencies"
-                            name="learningCompetencies"
-                            value={learningCompetencies}
-                            onChange={(e) => setLearningCompetencies(e.target.value)}
-                            className={formInputStyle}
-                            rows={4}
-                            placeholder="e.g., Describe the process of photosynthesis..."
-                        />
-                    </div>
-
-                    <div>
-                        <label htmlFor="contentStandard" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Content Standard (Optional)</label>
-                        <textarea
-                            id="contentStandard"
-                            name="contentStandard"
-                            value={contentStandard}
-                            onChange={(e) => setContentStandard(e.target.value)}
-                            className={formInputStyle}
-                            rows={2}
-                            placeholder="e.g., The learners demonstrate an understanding of..."
-                        />
-                    </div>
-
-                    <div>
-                        <label htmlFor="performanceStandard" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Performance Standard (Optional)</label>
-                        <textarea
-                            id="performanceStandard"
-                            name="performanceStandard"
-                            value={performanceStandard}
-                            onChange={(e) => setPerformanceStandard(e.target.value)}
-                            className={formInputStyle}
-                            rows={2}
-                            placeholder="e.g., The learners shall be able to..."
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300">Scaffolding (Optional)</h3>
-                        <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark p-3 rounded-xl max-h-[18rem] overflow-y-auto shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Explicitly select lessons for the AI to build upon.</p>
-                            {subjectContext && subjectContext.units.length > 0 ? (
-                                subjectContext.units
-                                    .slice()
-                                    .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }))
-                                    .map(unit => {
-                                    const lessonsInUnit = subjectContext.lessons.filter(lesson => lesson.unitId === unit.id);
-                                    if (lessonsInUnit.length === 0) return null;
-                                    const selectedCount = lessonsInUnit.filter(l => scaffoldLessonIds.has(l.id)).length;
-                                    const isAllSelected = selectedCount > 0 && selectedCount === lessonsInUnit.length;
-                                    const isPartiallySelected = selectedCount > 0 && selectedCount < lessonsInUnit.length;
-                                    const isExpanded = expandedScaffoldUnits.has(unit.id);
-                                    return (
-                                        <div key={unit.id} className="pt-2 first:pt-0">
-                                            <div className="flex items-center p-2 rounded-md">
-                                                <button onClick={() => handleToggleUnitExpansion(unit.id)} className="p-1"><ChevronRightIcon className={`h-4 w-4 text-slate-500 dark:text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} /></button>
-                                                <input type="checkbox" id={`scaffold-unit-${unit.id}`} checked={isAllSelected} ref={el => { if(el) el.indeterminate = isPartiallySelected; }} onChange={() => handleUnitCheckboxChange(lessonsInUnit)} className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 dark:focus:ring-sky-600 ml-2" />
-                                                <label htmlFor={`scaffold-unit-${unit.id}`} className="ml-2 flex-1 text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">{unit.title}</label>
-                                            </div>
-                                            {isExpanded && (
-                                                <div className="pl-6 pt-2 space-y-2">
-                                                    {lessonsInUnit.map(lesson => (
-                                                        <div key={lesson.id} className="flex items-center">
-                                                            <input
-                                                                type="checkbox"
-                                                                id={`scaffold-lesson-${lesson.id}`}
-                                                                checked={scaffoldLessonIds.has(lesson.id)}
-                                                                onChange={() => {
-                                                                    const newSet = new Set(scaffoldLessonIds);
-                                                                    if (newSet.has(lesson.id)) newSet.delete(lesson.id);
-                                                                    else newSet.add(lesson.id);
-                                                                    setScaffoldLessonIds(newSet);
-                                                                }}
-                                                                className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-600"
-                                                            />
-                                                            <label htmlFor={`scaffold-lesson-${lesson.id}`} className="ml-2 block text-sm text-slate-800 dark:text-slate-200">
-                                                                {lesson.title}
-                                                            </label>
-                                                        </div>
-                                                    ))}
+                    {/* Left Panel: Inputs */}
+                    {/* On mobile, this just stacks. On desktop, it has fixed width and internal scroll. */}
+                    <div className={`w-full lg:w-[380px] flex flex-col flex-shrink-0 ${panelClass} lg:h-full lg:overflow-hidden`}>
+                        <div className="flex-grow lg:overflow-y-auto custom-scrollbar p-5 space-y-6">
+                            
+                            {/* Processing State */}
+                            {isProcessing ? (
+                                <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-in fade-in duration-500">
+                                    <div className="relative">
+                                        <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl animate-pulse" />
+                                        <Spinner size="lg" />
+                                    </div>
+                                    <p className="text-[15px] font-medium text-slate-700 dark:text-slate-200 text-center max-w-[240px] leading-relaxed">
+                                        {progressMessage}
+                                    </p>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* File Upload */}
+                                    <div>
+                                        <label className={labelClass}>Source Material</label>
+                                        {!file ? (
+                                            <label className="group flex flex-col items-center justify-center w-full h-40 rounded-[20px] border-[1.5px] border-dashed border-slate-300 dark:border-slate-700 bg-white/40 dark:bg-white/5 hover:bg-blue-50/50 dark:hover:bg-white/10 hover:border-[#007AFF] transition-all cursor-pointer relative overflow-hidden active:scale-[0.99]">
+                                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"/>
+                                                <DocumentArrowUpIcon className="w-8 h-8 text-slate-400 dark:text-slate-500 mb-2 group-hover:scale-110 transition-transform duration-300 stroke-[1.5]" />
+                                                <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">Upload PDF, DOCX, or TXT</span>
+                                                <input type="file" className="hidden" accept=".pdf,.docx,.txt" onChange={handleFileChange} />
+                                            </label>
+                                        ) : (
+                                            <div className="relative flex items-center p-3.5 bg-white/60 dark:bg-white/10 rounded-[18px] border border-black/5 dark:border-white/10 shadow-sm group">
+                                                <div className="w-10 h-10 rounded-[12px] bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center mr-3 text-blue-600 dark:text-blue-400">
+                                                    <DocumentTextIcon className="w-6 h-6" />
                                                 </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{file.name}</p>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{(file.size/1024).toFixed(0)} KB</p>
+                                                </div>
+                                                <button onClick={removeFile} className="p-2 rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors active:scale-90">
+                                                    <XMarkIcon className="w-4 h-4 stroke-[2.5]" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="h-px bg-gradient-to-r from-transparent via-black/5 dark:via-white/5 to-transparent" />
+
+                                    {/* Filters */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label htmlFor="language" className={labelClass}>Language</label>
+                                            <div className="relative">
+                                                <select id="language" value={language} onChange={(e) => setLanguage(e.target.value)} className={inputClass}>
+                                                    <option>English</option>
+                                                    <option>Filipino</option>
+                                                </select>
+                                                <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label htmlFor="grade" className={labelClass}>Grade Level</label>
+                                            <div className="relative">
+                                                <select id="grade" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} className={inputClass}>
+                                                    {gradeLevels.map(l => <option key={l} value={l}>{l}</option>)}
+                                                </select>
+                                                <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="subject" className={labelClass}>Subject</label>
+                                        <div className="relative w-full min-w-0">
+                                            <select id="subject" value={selectedSubject || ''} onChange={(e) => setSelectedSubject(e.target.value)} className={`${inputClass} truncate pr-10`}>
+                                                <option value="" disabled>Select Subject</option>
+                                                {sortedSubjects.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+                                            </select>
+                                            <FunnelIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                        </div>
+                                    </div>
+
+                                    {/* Standards */}
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className={labelClass}>Learning Competencies</label>
+                                            <textarea value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className={`${inputClass} min-h-[80px] resize-none`} placeholder="Paste competencies here..." />
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-4">
+                                            <div>
+                                                <label className={labelClass}>Content Standard (Optional)</label>
+                                                <textarea value={contentStandard} onChange={(e) => setContentStandard(e.target.value)} className={`${inputClass} min-h-[60px] resize-none`} placeholder="Demonstrate understanding..." />
+                                            </div>
+                                            <div>
+                                                <label className={labelClass}>Performance Standard (Optional)</label>
+                                                <textarea value={performanceStandard} onChange={(e) => setPerformanceStandard(e.target.value)} className={`${inputClass} min-h-[60px] resize-none`} placeholder="Learners shall be able to..." />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Scaffolding */}
+                                    <div>
+                                        <label className={labelClass}>Prerequisites (Scaffolding)</label>
+                                        <div className="bg-white/40 dark:bg-black/20 border border-black/5 dark:border-white/5 rounded-[18px] p-2 max-h-[220px] overflow-y-auto custom-scrollbar">
+                                            {subjectContext && subjectContext.units.length > 0 ? (
+                                                subjectContext.units.slice().sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true })).map(unit => {
+                                                    const lessonsInUnit = subjectContext.lessons.filter(l => l.unitId === unit.id);
+                                                    if (lessonsInUnit.length === 0) return null;
+                                                    const isExpanded = expandedScaffoldUnits.has(unit.id);
+                                                    const selectedCount = lessonsInUnit.filter(l => scaffoldLessonIds.has(l.id)).length;
+                                                    const isAll = selectedCount > 0 && selectedCount === lessonsInUnit.length;
+                                                    const isPartial = selectedCount > 0 && !isAll;
+
+                                                    return (
+                                                        <div key={unit.id} className="mb-1">
+                                                            <div 
+                                                                className="flex items-center p-2 rounded-[12px] hover:bg-white/60 dark:hover:bg-white/5 transition-colors cursor-pointer select-none"
+                                                                onClick={() => handleToggleUnitExpansion(unit.id)}
+                                                            >
+                                                                <div className="p-1 text-slate-400">
+                                                                    <ChevronRightIcon className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} strokeWidth={3} />
+                                                                </div>
+                                                                
+                                                                {/* Premium iOS-style Checkbox */}
+                                                                <div 
+                                                                    onClick={(e) => { e.stopPropagation(); handleUnitCheckboxChange(lessonsInUnit); }}
+                                                                    className={`w-5 h-5 mx-2 rounded-[6px] flex items-center justify-center transition-all duration-300 shadow-sm border ${
+                                                                        isAll || isPartial 
+                                                                        ? 'bg-gradient-to-br from-[#007AFF] to-blue-600 border-transparent scale-105' 
+                                                                        : 'bg-white dark:bg-white/10 border-slate-300 dark:border-slate-600'
+                                                                    }`}
+                                                                >
+                                                                    {isAll && <CheckIcon className="w-3.5 h-3.5 text-white stroke-[3.5]" />}
+                                                                    {isPartial && <div className="w-2.5 h-0.5 bg-white rounded-full" />}
+                                                                </div>
+                                                                
+                                                                <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200 truncate">{unit.title}</span>
+                                                            </div>
+                                                            
+                                                            {isExpanded && (
+                                                                <div className="ml-9 pl-2 border-l-2 border-slate-200 dark:border-white/5 space-y-1 mt-1">
+                                                                    {lessonsInUnit.map(lesson => {
+                                                                        const isSelected = scaffoldLessonIds.has(lesson.id);
+                                                                        return (
+                                                                            <div 
+                                                                                key={lesson.id} 
+                                                                                className="flex items-center gap-3 p-2 cursor-pointer hover:bg-white/50 dark:hover:bg-white/5 rounded-[10px] group transition-all" 
+                                                                                onClick={() => {
+                                                                                    const newSet = new Set(scaffoldLessonIds);
+                                                                                    if (newSet.has(lesson.id)) newSet.delete(lesson.id);
+                                                                                    else newSet.add(lesson.id);
+                                                                                    setScaffoldLessonIds(newSet);
+                                                                                }}
+                                                                            >
+                                                                                <div className={`w-4 h-4 rounded-[5px] flex items-center justify-center transition-all duration-200 border ${
+                                                                                    isSelected 
+                                                                                    ? 'bg-[#007AFF] border-transparent' 
+                                                                                    : 'bg-transparent border-slate-300 dark:border-slate-600 group-hover:border-slate-400'
+                                                                                }`}>
+                                                                                    {isSelected && <CheckIcon className="w-3 h-3 text-white stroke-[3]" />}
+                                                                                </div>
+                                                                                <span className={`text-[12px] font-medium truncate transition-colors ${isSelected ? 'text-[#007AFF]' : 'text-slate-600 dark:text-slate-400'}`}>{lesson.title}</span>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )
+                                                })
+                                            ) : (
+                                                <p className="text-xs text-slate-400 p-4 text-center italic">No existing lessons to scaffold from.</p>
                                             )}
                                         </div>
-                                    );
-                                })
-                            ) : (
-                                <p className="text-sm text-slate-400 dark:text-slate-500">Scanning subject content...</p>
+                                    </div>
+                                </>
                             )}
+                        </div>
+
+                        {/* Action Button */}
+                        <div className="p-4 border-t border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/20 backdrop-blur-md sticky bottom-0 z-10 rounded-b-[24px]">
+                            <button 
+                                onClick={handleGenerateLesson} 
+                                disabled={!file || isProcessing}
+                                className={`w-full h-12 rounded-[16px] font-bold text-[15px] text-white shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98]
+                                    ${!file || isProcessing 
+                                        ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed shadow-none opacity-70' 
+                                        : 'bg-[#007AFF] hover:bg-[#0062CC] hover:shadow-blue-500/40'}`}
+                            >
+                                {isProcessing ? <Spinner size="sm" color="border-white" /> : <SparklesIcon className="w-5 h-5 stroke-[2]" />}
+                                {previewLessons.length > 0 ? 'Regenerate Content' : 'Generate Lessons'}
+                            </button>
                         </div>
                     </div>
 
-                    <button onClick={handleGenerateLesson} disabled={!file || isProcessing} 
-                        className="w-full flex items-center justify-center font-semibold bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 rounded-xl py-3 mt-auto shadow-neumorphic hover:shadow-neumorphic-inset active:shadow-neumorphic-inset disabled:opacity-60
-                                   dark:from-sky-700 dark:to-blue-800 dark:text-sky-100 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark">
-                        <SparklesIcon className="w-5 h-5 mr-2" />
-                        {previewLessons.length > 0 ? 'Regenerate Lessons' : 'Generate Lessons'}
-                    </button>
-                </div>
-                
-                <div className="w-full md:w-2/3 flex flex-col bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl p-3 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark overflow-hidden">
-                    {previewLessons.length > 0 ? (
-                        <div className="flex-grow flex flex-col md:flex-row gap-3 overflow-hidden">
-                            <div className="w-full md:w-1/3 flex-shrink-0 flex flex-col">
-                                <h4 className="p-2 text-sm font-semibold text-slate-600 dark:text-slate-400">Generated Lessons</h4>
-                                <div className="flex-grow overflow-y-auto pr-1 space-y-1.5">
-                                    {previewLessons.map((lesson, index) => (
-                                        <button 
-                                            key={index} 
-                                            onClick={() => { setSelectedLessonIndex(index); setSelectedPageIndex(0); }} 
-                                            className={`w-full text-left p-3 rounded-xl transition-all duration-300 
-                                                        ${selectedLessonIndex === index 
-                                                            ? 'bg-white shadow-neumorphic ring-2 ring-sky-300 dark:bg-slate-100 dark:text-slate-900 dark:shadow-neumorphic-light dark:ring-sky-400' 
-                                                            : 'bg-neumorphic-base shadow-neumorphic hover:shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark'
-                                                        }`}
-                                        >
-                                            <span className={`font-semibold ${selectedLessonIndex === index ? 'text-slate-800' : 'text-slate-800 dark:text-slate-100'}`}>{lesson.lessonTitle}</span>
-                                        </button>
-                                    ))}
+                    {/* Right Panel: Preview - Stacked below on Mobile, Side by Side on Desktop */}
+                    <div className={`flex-grow flex flex-col relative overflow-hidden rounded-[24px] min-h-[500px] lg:min-h-0 lg:h-full ${panelClass}`}>
+                        {previewLessons.length === 0 ? (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
+                                {isProcessing ? (
+                                    <div className="flex flex-col items-center animate-in fade-in zoom-in duration-500">
+                                        <div className="relative mb-6">
+                                            <div className="absolute inset-0 bg-blue-500/30 blur-2xl rounded-full animate-pulse" />
+                                            <Spinner size="xl" />
+                                        </div>
+                                        <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">Generating Content</h4>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">{progressMessage}</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="w-24 h-24 rounded-[28px] bg-slate-100 dark:bg-white/5 flex items-center justify-center mb-6 shadow-inner border border-black/5 dark:border-white/5">
+                                            <SparklesIcon className="w-10 h-10 text-slate-300 dark:text-slate-600" />
+                                        </div>
+                                        <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">Ready to Create</h3>
+                                        <p className="text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
+                                            AI will analyze your document and generate a structured lesson plan with objectives, activities, and assessments.
+                                        </p>
+                                    </>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="flex flex-col lg:flex-row h-full gap-4">
+                                {/* Navigation Sidebar */}
+                                <div className="w-full lg:w-[280px] flex-shrink-0 border-b lg:border-b-0 lg:border-r border-black/5 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 flex flex-col">
+                                    <div className="p-4">
+                                        <h4 className={labelClass}>GENERATED LESSONS</h4>
+                                    </div>
+                                    <div className="flex-grow overflow-y-auto custom-scrollbar p-2 space-y-1">
+                                        {previewLessons.map((lesson, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => { setSelectedLessonIndex(idx); setSelectedPageIndex(0); }}
+                                                className={`w-full text-left px-4 py-3 rounded-[14px] transition-all flex items-start gap-3 group border ${
+                                                    selectedLessonIndex === idx 
+                                                    ? 'bg-white dark:bg-white/10 shadow-md border-black/5 dark:border-white/5 ring-1 ring-black/5 dark:ring-white/5' 
+                                                    : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400'
+                                                }`}
+                                            >
+                                                <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 transition-colors ${selectedLessonIndex === idx ? 'bg-[#007AFF] shadow-[0_0_8px_rgba(0,122,255,0.5)]' : 'bg-slate-300 dark:bg-slate-600 group-hover:bg-slate-400'}`} />
+                                                <div>
+                                                    <p className={`text-[13px] font-bold leading-snug ${selectedLessonIndex === idx ? 'text-slate-900 dark:text-white' : ''}`}>{lesson.lessonTitle}</p>
+                                                    <p className="text-[11px] opacity-70 mt-0.5 font-medium">{lesson.pages.length} pages</p>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Main Content View */}
+                                <div className="flex-grow flex flex-col overflow-hidden">
+                                    {selectedLesson && (
+                                        <>
+                                            {/* Content Header */}
+                                            <div className="flex-shrink-0 p-6 border-b border-black/5 dark:border-white/5 bg-white/50 dark:bg-white/5 backdrop-blur-md z-10">
+                                                <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4 tracking-tight leading-tight">{selectedLesson.lessonTitle}</h2>
+                                                
+                                                {objectivesAsMarkdown && (
+                                                    <div className="p-4 rounded-[18px] bg-blue-50/60 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 mb-6">
+                                                        <h5 className="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-1.5">
+                                                            <ListBulletIcon className="w-4 h-4" /> Objectives
+                                                        </h5>
+                                                        <div className="prose prose-sm prose-blue max-w-none dark:prose-invert leading-relaxed opacity-90">
+                                                            <LessonPage page={{ content: objectivesAsMarkdown }} isEditable={false} />
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Page Tabs */}
+                                                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                                                    {selectedLesson.pages?.map((page, idx) => (
+                                                        <button
+                                                            key={idx}
+                                                            onClick={() => setSelectedPageIndex(idx)}
+                                                            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[12px] font-bold transition-all whitespace-nowrap border ${
+                                                                selectedPageIndex === idx 
+                                                                ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-black dark:border-white shadow-md' 
+                                                                : 'bg-white/60 dark:bg-white/5 border-black/5 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10'
+                                                            }`}
+                                                        >
+                                                            {page.title}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Content Body */}
+                                            <div className="flex-grow overflow-y-auto custom-scrollbar p-8 bg-white/40 dark:bg-[#1c1c1e]/40">
+                                                <div className="max-w-3xl mx-auto min-h-[300px]">
+                                                    {selectedPage ? (
+                                                        <div className="prose prose-slate prose-lg dark:prose-invert max-w-none leading-7">
+                                                            <LessonPage page={selectedPage} isEditable={false} />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex flex-col items-center justify-center h-64 text-slate-400">
+                                                            <ArrowPathIcon className="w-8 h-8 animate-spin mb-2 opacity-50" />
+                                                            <p className="text-sm font-medium">Loading content...</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
-                             <div className="w-full md:w-2/3 flex-grow bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl flex flex-col overflow-hidden shadow-neumorphic dark:shadow-lg min-h-0">
-                                {selectedLesson && (
-                                  <>
-                                    <div className="flex-shrink-0 p-4 border-b border-neumorphic-shadow-dark/20 dark:border-slate-700">
-                                      <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 truncate">{selectedLesson.lessonTitle}</h3>
-                                      {objectivesAsMarkdown && ( <div className="my-2 p-3 bg-sky-50 dark:bg-sky-900/50 border-l-4 border-sky-300 dark:border-sky-700 rounded-r-lg">
-                                          <p className="font-semibold mb-1 text-sky-900 dark:text-sky-200">Learning Objectives</p>
-                                          <div className="prose prose-sm max-w-none prose-sky text-sky-800 dark:text-sky-300">
-                                            <LessonPage page={{ content: objectivesAsMarkdown }} isEditable={false} />
-                                          </div>
-                                        </div>)}
-                                      
-                                      <div className="flex space-x-2 mt-2 -mb-2 pb-2 overflow-x-auto">
-                                        {selectedLesson.pages && Array.isArray(selectedLesson.pages) && selectedLesson.pages.map((page, index) => (
-                                          <button
-                                            key={index}
-                                            onClick={() => setSelectedPageIndex(index)}
-                                            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${selectedPageIndex === index 
-                                                ? "bg-sky-600 text-white shadow-neumorphic dark:bg-sky-600 dark:text-white dark:shadow-lg" 
-                                                : "bg-neumorphic-base text-slate-600 shadow-neumorphic hover:shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark"
-                                            }`}
-                                          >{page ? page.title : 'Loading...'}</button>
-                                        ))}
-                                      </div>
-                                    </div>
-                                    <div className="flex-grow min-h-0 overflow-y-auto p-6">
-                                      <div className="prose max-w-none prose-slate dark:prose-invert">
-                                        {selectedPage ? <LessonPage page={selectedPage} isEditable={false} /> : <p>Select a page to view its content.</p>}
-                                      </div>
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                        </div>
-                    ) : (
-                        <div className="m-auto text-center">
-                            <DocumentTextIcon className="mx-auto h-16 w-16 text-slate-300 dark:text-slate-700" />
-                            <p className="mt-2 text-sm font-semibold text-slate-500 dark:text-slate-400">AI-Generated Preview</p>
-                            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Your unit lessons will appear here.</p>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
 
-            <div className="flex-shrink-0 flex justify-end items-center gap-3 pt-6 mt-4 border-t border-neumorphic-shadow-dark/20 dark:border-slate-700">
-                {error && <p className="text-red-500 dark:text-red-400 text-sm mr-auto">{error}</p>}
-                <button className="px-4 py-2 bg-neumorphic-base text-slate-700 rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset
-                                 dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark" onClick={onClose}>Cancel</button>
-                <button onClick={handleSaveLesson} disabled={saving || previewLessons.length === 0 || isProcessing} 
-                    className="px-4 py-2 font-semibold bg-gradient-to-br from-sky-100 to-blue-200 text-blue-700 rounded-xl shadow-neumorphic hover:shadow-neumorphic-inset disabled:opacity-60
-                               dark:from-sky-700 dark:to-blue-800 dark:text-sky-100 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark">
-                    {saving ? 'Saving...' : `Save ${previewLessons.length} Lesson(s)`}
-                </button>
+            {/* Footer */}
+            <div className="flex-shrink-0 px-4 sm:px-6 py-4 bg-white/70 dark:bg-[#1e1e1e]/70 backdrop-blur-xl border-t border-black/5 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 z-20">
+                <div className="flex items-center gap-3 order-2 sm:order-1 w-full sm:w-auto justify-center sm:justify-start">
+                    {error && (
+                        <div className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-full border border-red-100 dark:border-red-900/30">
+                            <ExclamationTriangleIcon className="w-4 h-4 stroke-[2]" />
+                            <span className="text-xs font-bold">{error}</span>
+                        </div>
+                    )}
+                </div>
+                <div className="flex items-center gap-3 order-1 sm:order-2 w-full sm:w-auto">
+                    <button onClick={onClose} className="flex-1 sm:flex-none px-6 py-2.5 rounded-[14px] font-bold text-sm text-slate-600 dark:text-slate-300 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors active:scale-95">
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={handleSaveLesson} 
+                        disabled={saving || previewLessons.length === 0 || isProcessing}
+                        className="flex-1 sm:flex-none px-8 py-2.5 rounded-[14px] font-bold text-sm text-white bg-[#007AFF] hover:bg-[#0062CC] shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:shadow-none transition-all active:scale-95"
+                    >
+                        {saving ? 'Saving...' : `Save ${previewLessons.length} Lesson(s)`}
+                    </button>
+                </div>
             </div>
         </div>
     );

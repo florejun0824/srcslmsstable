@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Modal from '../common/Modal';
 import { collection, getDocs, query, orderBy, doc, getDoc, where } from 'firebase/firestore';
-import { CheckIcon, MagnifyingGlassIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
+import { CheckIcon, MagnifyingGlassIcon, XMarkIcon, ArrowPathIcon, UsersIcon } from '@heroicons/react/24/solid';
 
-// --- (Styles and sub-components are unchanged) ---
-const primaryButtonStyles = "w-full sm:w-auto px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base font-semibold text-white bg-blue-600 rounded-full shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400 dark:focus-visible:outline-blue-500 transition-all duration-200 disabled:opacity-50 active:scale-95";
-const secondaryButtonStyles = "w-full sm:w-auto px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base font-semibold text-gray-900 bg-neumorphic-base rounded-full shadow-neumorphic hover:text-blue-600 dark:bg-neumorphic-base-dark dark:text-slate-200 dark:shadow-lg dark:hover:text-blue-400 dark:active:shadow-neumorphic-inset-dark transition-all disabled:opacity-50 active:scale-95";
+// --- DESIGN SYSTEM CONSTANTS ---
+const glassPanel = "bg-white/60 dark:bg-[#1a1d24]/60 backdrop-blur-xl border border-white/40 dark:border-white/5 shadow-lg rounded-2xl transition-all p-5 h-full flex flex-col";
+const glassInput = "w-full bg-white/50 dark:bg-black/20 border border-slate-200/60 dark:border-white/10 rounded-xl px-4 py-3 pl-11 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all";
+
+const primaryBtn = "w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-sm text-white shadow-lg shadow-blue-500/30 bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 border border-blue-400/20 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
+const secondaryBtn = "w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-sm text-slate-600 dark:text-slate-300 bg-white/50 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 border border-white/20 dark:border-white/5 active:scale-[0.98] transition-all duration-200 disabled:opacity-50";
 
 const NeumorphicCheckbox = React.memo(({ checked, indeterminate, ...props }) => {
     const ref = React.useRef(null);
@@ -24,8 +27,12 @@ const NeumorphicCheckbox = React.memo(({ checked, indeterminate, ...props }) => 
                 {...props} 
                 className="sr-only peer" 
             />
-            <span className="w-full h-full bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-md shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark flex items-center justify-center transition-all peer-checked:bg-blue-500 peer-checked:dark:bg-blue-400 peer-checked:shadow-neumorphic peer-checked:dark:shadow-lg">
-                <CheckIcon className={`w-4 h-4 text-white transition-opacity ${checked ? 'opacity-100' : 'opacity-0'}`} />
+            <span className={`w-full h-full rounded-md border flex items-center justify-center transition-all duration-200 ${
+                checked 
+                ? 'bg-blue-500 border-blue-500 shadow-md shadow-blue-500/30' 
+                : 'bg-white/50 dark:bg-white/5 border-slate-300 dark:border-slate-600 hover:border-blue-400'
+            }`}>
+                <CheckIcon className={`w-3.5 h-3.5 text-white transition-transform duration-200 ${checked ? 'scale-100' : 'scale-0'}`} />
             </span>
         </div>
     );
@@ -34,10 +41,14 @@ const NeumorphicCheckbox = React.memo(({ checked, indeterminate, ...props }) => 
 const StudentListMessage = ({ icon, title, message }) => {
     const IconComponent = icon;
     return (
-        <div className="flex flex-col items-center justify-center h-full text-center p-8 text-gray-500 dark:text-slate-400">
-            {IconComponent && <IconComponent className="w-10 h-10 sm:w-12 h-12 mb-4 text-gray-400 dark:text-slate-500" />}
-            <h3 className="font-semibold text-gray-700 dark:text-slate-200 text-base sm:text-lg">{title}</h3>
-            <p className="text-sm">{message}</p>
+        <div className="flex flex-col items-center justify-center h-full text-center p-8 opacity-60">
+            {IconComponent ? (
+                <IconComponent className="w-12 h-12 mb-3 text-slate-400 dark:text-slate-500" />
+            ) : (
+                <UsersIcon className="w-12 h-12 mb-3 text-slate-400 dark:text-slate-500" />
+            )}
+            <h3 className="font-bold text-slate-700 dark:text-slate-200 text-lg mb-1">{title}</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{message}</p>
         </div>
     );
 };
@@ -230,7 +241,7 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses = [
 
     const classListContent = useMemo(() => {
         if (filteredClasses.length === 0) {
-            return <div className="p-4 text-center text-gray-500 dark:text-slate-400">No classes match search.</div>
+            return <div className="p-8 text-center text-slate-400 dark:text-slate-500">No classes match your search.</div>
         }
         
         return filteredClasses.map(cls => {
@@ -244,26 +255,32 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses = [
             return (
                 <div 
                     key={cls.value} 
-                    className={`flex items-center gap-3 p-2 sm:p-3 rounded-xl cursor-pointer transition-all ${activeClassId === cls.value ? 'bg-blue-500/10 dark:bg-blue-500/20 shadow-neumorphic dark:shadow-lg' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}
+                    onClick={() => setActiveClassId(cls.value)}
+                    className={`group flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border border-transparent ${
+                        activeClassId === cls.value 
+                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-500/30 shadow-sm' 
+                        : 'hover:bg-slate-50 dark:hover:bg-white/5'
+                    }`}
                 >
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                         {isLoading ? (
-                            <ArrowPathIcon className="w-5 h-5 text-gray-400 dark:text-slate-400 animate-spin" />
+                            <ArrowPathIcon className="w-5 h-5 text-slate-400 animate-spin" />
                         ) : (
-                            <NeumorphicCheckbox 
-                                checked={isChecked}
-                                indeterminate={isIndeterminate}
-                                onChange={() => handleToggleClass(cls.value)}
-                                aria-label={`Select all in ${cls.label}`}
-                            />
+                            <div onClick={() => handleToggleClass(cls.value)}>
+                                <NeumorphicCheckbox 
+                                    checked={isChecked}
+                                    indeterminate={isIndeterminate}
+                                    onChange={() => {}} 
+                                    aria-label={`Select all in ${cls.label}`}
+                                />
+                            </div>
                         )}
                     </div>
-                    <div 
-                        className="flex-grow select-none min-w-0" // Added min-w-0 for truncation
-                        onClick={() => setActiveClassId(cls.value)}
-                    >
-                        <div className="font-medium text-gray-900 dark:text-slate-100 text-sm sm:text-base truncate">{cls.label}</div>
-                        <div className="text-sm text-gray-500 dark:text-slate-400">
+                    <div className="flex-grow select-none min-w-0">
+                        <div className={`font-bold text-sm truncate ${activeClassId === cls.value ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200'}`}>
+                            {cls.label}
+                        </div>
+                        <div className="text-xs font-medium text-slate-400 dark:text-slate-500 mt-0.5">
                             {selection.size} / {totalCount} selected
                         </div>
                     </div>
@@ -274,13 +291,13 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses = [
 
     const studentListContent = useMemo(() => {
         if (loadingStudents) {
-            return <StudentListMessage icon={ArrowPathIcon} title="Loading Students..." message="Please wait..." />;
+            return <StudentListMessage icon={ArrowPathIcon} title="Loading..." message="Fetching students..." />;
         }
         if (!activeClassId) {
-            return <StudentListMessage title="No Class Selected" message="Select a class from the list to see its students." />;
+            return <StudentListMessage title="Select a Class" message="Choose a class from the list to view students." />;
         }
         if (students.length === 0) {
-            return <StudentListMessage title="No Students" message="This class doesn't have any students enrolled." />;
+            return <StudentListMessage title="Empty Class" message="This class has no students enrolled." />;
         }
         
         const currentSet = tempSelectionMap.get(activeClassId) || new Set();
@@ -289,35 +306,43 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses = [
 
         return (
             <>
-                <header className="flex-shrink-0 flex items-center gap-3 p-3 sm:p-4 border-b border-black/10 dark:border-slate-700">
-                    <NeumorphicCheckbox
-                        checked={allVisibleSelected}
-                        indeterminate={isIndeterminate}
-                        onChange={handleToggleAllStudents}
-                        aria-label="Select all students in this class"
-                    />
+                <header className="flex-shrink-0 flex items-center gap-3 p-4 border-b border-slate-200/60 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">
+                    <div onClick={handleToggleAllStudents} className="cursor-pointer">
+                        <NeumorphicCheckbox
+                            checked={allVisibleSelected}
+                            indeterminate={isIndeterminate}
+                            onChange={() => {}}
+                            aria-label="Select all students"
+                        />
+                    </div>
                     <label
                         onClick={handleToggleAllStudents}
-                        className="font-semibold text-gray-900 dark:text-slate-100 cursor-pointer select-none flex-grow text-sm sm:text-base"
+                        className="font-bold text-sm text-slate-700 dark:text-slate-200 cursor-pointer select-none flex-grow"
                     >
-                        Select all students
-                        <span className="text-gray-500 dark:text-slate-400 font-normal ml-2">
-                            ({students.filter(s => currentSet.has(s.id)).length}/{students.length})
+                        Select All
+                        <span className="text-xs font-normal text-slate-400 dark:text-slate-500 ml-2 bg-white dark:bg-black/20 px-2 py-0.5 rounded">
+                            {students.filter(s => currentSet.has(s.id)).length} / {students.length}
                         </span>
                     </label>
                 </header>
                 
-                <ul className="flex-grow overflow-y-auto">
+                <ul className="flex-grow overflow-y-auto custom-scrollbar p-2">
                     {students.map(student => {
                         const isSelected = currentSet.has(student.id);
                         return (
                             <li 
                                 key={student.id} 
                                 onClick={() => handleToggleStudent(student.id)}
-                                className={`flex items-center gap-3 p-3 sm:p-4 cursor-pointer transition-colors ${isSelected ? 'bg-blue-500/10 dark:bg-blue-500/20' : 'hover:bg-black/5 dark:hover:bg-white/5'} border-t border-black/5 dark:border-slate-700/50`}
+                                className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all mb-1 ${
+                                    isSelected 
+                                    ? 'bg-blue-50 dark:bg-blue-900/20' 
+                                    : 'hover:bg-slate-50 dark:hover:bg-white/5'
+                                }`}
                             >
                                 <NeumorphicCheckbox checked={isSelected} readOnly className="pointer-events-none" />
-                                <span className="text-gray-800 dark:text-slate-200 select-none text-sm sm:text-base">{student.displayName}</span>
+                                <span className={`text-sm font-medium select-none ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-300'}`}>
+                                    {student.displayName}
+                                </span>
                             </li>
                         );
                     })}
@@ -331,56 +356,75 @@ const ClassStudentSelectionModal = ({ isOpen, onClose, onConfirm, allClasses = [
         <Modal 
             isOpen={isOpen} 
             onClose={onClose} 
-            title="Select Classes & Students"
-            description="Select classes and the specific students you want to share with."
-            size="3xl"
-            contentClassName="bg-neumorphic-base dark:bg-neumorphic-base-dark"
+            title="Select Recipients"
+            description="Choose classes and specific students."
+            
+            // [MODIFIED] Desktop width override
+            size="screen"
+            roundedClass="rounded-[2.5rem] !bg-white/90 dark:!bg-[#18181b]/95 !backdrop-blur-3xl !border !border-white/20 dark:!border-white/5 !shadow-2xl"
+            containerClassName="h-full p-2 sm:p-6 bg-slate-900/40 backdrop-blur-md"
+            contentClassName="!p-0"
         >
-            <div className="flex flex-col h-[80vh] md:h-[70vh]">
+            <div className="relative h-[85vh] flex flex-col bg-white/50 dark:bg-transparent rounded-b-[2.5rem]">
                 
-                <main className="flex-grow flex flex-col md:flex-row gap-2 sm:gap-4 min-h-0">
+                <main className="flex-grow flex flex-col lg:flex-row gap-6 min-h-0 p-6 sm:p-8 overflow-hidden">
                     
                     {/* Column 1: Search */}
-                    <div className="w-full md:w-1/3 p-3 sm:p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-lg flex flex-col">
-                        <h3 className="text-base sm:text-lg font-semibold mb-3 text-gray-900 dark:text-slate-100">Search</h3>
-                        <div className="relative">
-                            <input 
-                                type="text"
-                                placeholder="Search class name..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full p-2.5 sm:p-3 pl-10 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all text-sm sm:text-base text-gray-900 dark:text-slate-100 placeholder:text-gray-500 dark:placeholder:text-slate-500"
-                            />
-                            <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 dark:text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                            {searchTerm && (
-                                <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1">
-                                    <XMarkIcon className="w-4 h-4 text-gray-500 dark:text-slate-400" />
-                                </button>
-                            )}
+                    <div className="w-full lg:w-1/3 flex flex-col gap-4 min-h-[200px] lg:min-h-0">
+                        <div className={glassPanel + " h-auto flex-shrink-0"}>
+                            <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">Filter Classes</h3>
+                            <div className="relative">
+                                <input 
+                                    type="text"
+                                    placeholder="Search class..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className={glassInput}
+                                />
+                                <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                {searchTerm && (
+                                    <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 transition-colors">
+                                        <XMarkIcon className="w-4 h-4" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                        
+                        {/* Instructions / Summary Box */}
+                        <div className={`${glassPanel} justify-center items-center text-center p-8 opacity-70 hidden lg:flex`}>
+                            <div className="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-4">
+                                <UsersIcon className="w-8 h-8 text-blue-500" />
+                            </div>
+                            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                                Select a class from the list to manage individual student access.
+                            </p>
                         </div>
                     </div>
 
                     {/* Column 2: Class list */}
-                    {/* --- MODIFIED: Fixed typo md:w-1D/3 to md:w-1/3 --- */}
-                    <div className="w-full md:w-1/3 p-3 sm:p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-lg flex flex-col flex-grow min-h-0">
-                        <h3 className="text-base sm:text-lg font-semibold mb-3 text-gray-900 dark:text-slate-100">Class list</h3>
-                        <div className="flex-grow overflow-y-auto space-y-2 -m-1 p-1">
-                            {classListContent}
+                    <div className="w-full lg:w-1/3 flex flex-col min-h-[300px] lg:min-h-0">
+                        <div className={glassPanel}>
+                            <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">Class List</h3>
+                            <div className="flex-grow overflow-y-auto custom-scrollbar space-y-1 -mx-2 px-2">
+                                {classListContent}
+                            </div>
                         </div>
                     </div>
 
                     {/* Column 3: Student list */}
-                    <div className="w-full md:w-1/3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-lg flex flex-col flex-grow min-h-0 overflow-hidden">
-                        {studentListContent}
+                    <div className="w-full lg:w-1/3 flex flex-col min-h-[300px] lg:min-h-0">
+                        <div className={`${glassPanel} !p-0 overflow-hidden`}>
+                            {studentListContent}
+                        </div>
                     </div>
 
                 </main>
                 
-                <footer className="flex-shrink-0 pt-4 sm:pt-5 mt-4 sm:mt-5 border-t border-black/10 dark:border-slate-700">
-                    <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
-                        <button type="button" onClick={onClose} className={secondaryButtonStyles}>Cancel</button>
-                        <button onClick={handleDone} className={primaryButtonStyles}>
-                            Done
+                <footer className="flex-shrink-0 pt-6 pb-8 px-8 border-t border-slate-200/60 dark:border-white/5 bg-white/40 dark:bg-[#121212]/40 backdrop-blur-md rounded-b-[2.5rem]">
+                    <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-4">
+                        <button type="button" onClick={onClose} className={secondaryBtn}>Cancel</button>
+                        <button onClick={handleDone} className={primaryBtn}>
+                            Confirm Selection
                         </button>
                     </div>
                 </footer>

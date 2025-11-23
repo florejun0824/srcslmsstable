@@ -1,3 +1,4 @@
+// src/components/teacher/dashboard/hooks/useBanner.js
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { db } from '../../../../../services/firebase'; // Adjust path if needed
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -11,8 +12,9 @@ const DEFAULT_BANNER_IMAGE = 'https://i.ibb.co/FqJPnT1J/buwan-ng-wika.png';
  * the necessary data and controls for displaying and editing the banner.
  *
  * While this hook itself doesn't render UI, the data it provides is
- * intended to be used within neumorphic components. For example, the banner
- * image could be displayed within a container with a `shadow-neumorphic` class.
+ * intended to be used within macOS 26 Glassmorphic components. 
+ * For example, the banner image should be displayed within a container 
+ * with a `glass-panel` class and rounded squircle borders.
  *
  * @param {function} showToast - A function to display toast notifications.
  * @returns {object} An object containing banner settings, activity status,
@@ -25,7 +27,7 @@ export const useBanner = (showToast) => {
     });
 
     // State to manage the visibility of the BannerEditModal.
-    // A neumorphic button would call `openBannerEditModal` to show it.
+    // A glassmorphic button would call `openBannerEditModal` to show it.
     const [isBannerEditModalOpen, setIsBannerEditModalOpen] = useState(false);
 
     // Sets up a real-time listener for banner settings from Firestore.

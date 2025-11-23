@@ -6,40 +6,57 @@ import UserInitialsAvatar from '../common/UserInitialsAvatar';
 import Linkify from 'react-linkify';
 import { Link } from 'react-router-dom';
 
-// --- (Helper data remains the same) ---
+// --- Design Helpers ---
+
+// 3D "Pop" Emoji
+const EmojiBase = ({ symbol, className = "" }) => (
+    <span 
+        className={`inline-block transform transition-transform duration-200 ${className}`} 
+        style={{ 
+            fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
+            filter: 'drop-shadow(0px 4px 6px rgba(0,0,0,0.15))'
+        }}
+    >
+        {symbol}
+    </span>
+);
+
 const reactionIcons = {
-  like: { component: (props) => (<span {...props}>👍</span>), label: 'Like', color: 'text-blue-500 dark:text-blue-400' },
-  love: { component: (props) => (<span {...props}>❤️</span>), label: 'Love', color: 'text-red-500 dark:text-red-400' },
-  haha: { component: (props) => (<span {...props}>😂</span>), label: 'Haha', color: 'text-yellow-500 dark:text-yellow-400' },
-  wow: { component: (props) => (<span {...props}>😮</span>), label: 'Wow', color: 'text-amber-500 dark:text-amber-400' },
-  sad: { component: (props) => (<span {...props}>😢</span>), label: 'Sad', color: 'text-slate-500 dark:text-slate-400' },
-  angry: { component: (props) => (<span {...props}>😡</span>), label: 'Angry', color: 'text-red-700 dark:text-red-500' },
-  care: { component: (props) => (<span {...props}>🤗</span>), label: 'Care', color: 'text-pink-500 dark:text-pink-400' },
+  like: { component: (props) => (<EmojiBase symbol="👍" {...props} />), label: 'Like', color: 'text-blue-600' },
+  love: { component: (props) => (<EmojiBase symbol="❤️" {...props} />), label: 'Love', color: 'text-red-500' },
+  haha: { component: (props) => (<EmojiBase symbol="😂" {...props} />), label: 'Haha', color: 'text-yellow-500' },
+  wow: { component: (props) => (<EmojiBase symbol="😮" {...props} />), label: 'Wow', color: 'text-amber-500' },
+  sad: { component: (props) => (<EmojiBase symbol="😢" {...props} />), label: 'Sad', color: 'text-blue-400' },
+  angry: { component: (props) => (<EmojiBase symbol="😡" {...props} />), label: 'Angry', color: 'text-orange-600' },
+  care: { component: (props) => (<EmojiBase symbol="🤗" {...props} />), label: 'Care', color: 'text-pink-500' },
 };
+
 const reactionTypes = ['like', 'love', 'haha', 'wow', 'sad', 'angry', 'care'];
 const POST_TRUNCATE_LENGTH = 300;
+
 const componentDecorator = (href, text, key) => (
     <a 
         href={href} 
         key={key} 
         target="_blank" 
         rel="noopener noreferrer"
-        className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+        className="text-blue-600 dark:text-blue-400 hover:text-blue-500 font-bold transition-all underline decoration-blue-300/50 hover:decoration-blue-500"
         onClick={(e) => e.stopPropagation()}
     >
         {text}
     </a>
 );
+
 const LockedButtonsPlaceholder = () => (
-    <div className="flex justify-around items-center pt-3 mt-4 border-t border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30 opacity-60">
-        <div className="flex items-center space-x-2 py-2 px-4 rounded-full text-slate-500 dark:text-slate-400">
-            <LockClosedIcon className="h-5 w-5" />
-            <span className="font-semibold text-sm">Reach Lvl 40 to React & Comment</span>
+    <div className="flex justify-around items-center pt-4 mt-4 border-t border-indigo-50/50 dark:border-white/5">
+        <div className="flex items-center gap-2 py-2 px-6 rounded-full bg-slate-50/50 dark:bg-white/5 backdrop-blur-md border border-white/60 dark:border-white/10 text-slate-400 dark:text-slate-500">
+            <LockClosedIcon className="h-4 w-4" />
+            <span className="font-bold text-xs tracking-wider uppercase">Level 40 Required</span>
         </div>
     </div>
 );
-// --- (End of helpers) ---
 
+// --- Main Component ---
 
 const StudentPostCard = ({
     post,
@@ -66,6 +83,7 @@ const StudentPostCard = ({
     const currentUserReaction = postReactions[userProfile.id];
     const isAuthor = userProfile.id === post.authorId;
     const isTruncated = post.content && post.content.length > POST_TRUNCATE_LENGTH;
+    const commentCount = post.commentsCount || 0;
 
     const postAuthor = author || {
         id: post.authorId,
@@ -78,48 +96,61 @@ const StudentPostCard = ({
         ? (userProfile.role === 'student' ? '/student/profile' : '/dashboard/profile')
         : (userProfile.role === 'student' ? `/student/profile/${post.authorId}` : `/dashboard/profile/${post.authorId}`);
     
-    // --- (Functions remain the same as last time) ---
-    
+    // --- Handlers ---
     const openReactionPicker = () => {
         clearTimeout(pickerTimerRef.current);
         setIsReactionPickerOpen(true);
     };
 
     const closeReactionPicker = () => {
-        // Delay closing to allow user to move mouse into picker
         pickerTimerRef.current = setTimeout(() => {
             setIsReactionPickerOpen(false);
-        }, 200);
+        }, 300);
     };
 
     const handleReactionSelect = (reactionType) => {
         onToggleReaction(post.id, reactionType);
-        setIsReactionPickerOpen(false); // Close immediately
+        setIsReactionPickerOpen(false);
         clearTimeout(pickerTimerRef.current);
     };
 
+    // --- Logic: Stacked Reactions ---
     const formatReactionCount = () => {
+        if (!postReactions || Object.keys(postReactions).length === 0) return <div className="h-6"></div>; 
+
         const counts = {};
-        let total = 0;
-        if (postReactions) {
-            Object.values(postReactions).forEach(type => {
-                counts[type] = (counts[type] || 0) + 1;
-                total++;
-            });
-        }
-        if (total === 0) return null;
+        Object.values(postReactions).forEach(type => {
+            counts[type] = (counts[type] || 0) + 1;
+        });
+
+        const sortedReactionTypes = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+        const topReactions = sortedReactionTypes.slice(0, 3);
+        const total = Object.values(counts).reduce((a, b) => a + b, 0);
         
         return (
-            <span 
-                className="cursor-pointer hover:underline font-medium" 
-                // --- THIS IS THE FIX (C) ---
-                onClick={() => onViewReactions(post.id)} // Pass ID, not object
+            <div 
+                className="flex items-center gap-2 cursor-pointer group/stats select-none py-1 px-2 rounded-full hover:bg-white/40 dark:hover:bg-white/5 transition-colors" 
+                onClick={() => onViewReactions(post.id)}
             >
-                {total} {total === 1 ? 'Reaction' : 'Reactions'}
-            </span>
+                <div className="flex -space-x-2">
+                    {topReactions.map((type, index) => (
+                        <div 
+                            key={type} 
+                            className="relative w-6 h-6 flex items-center justify-center rounded-full bg-white dark:bg-gray-800 ring-2 ring-white dark:ring-gray-800 shadow-sm z-10"
+                            style={{ zIndex: 30 - index }}
+                        >
+                            <div className="text-[14px] transform scale-110">
+                                {reactionIcons[type].component({})}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <span className="text-[13px] font-bold text-slate-600 dark:text-slate-300 group-hover/stats:text-blue-600 dark:group-hover/stats:text-blue-400 transition-colors">
+                    {total}
+                </span>
+            </div>
         );
     };
-    // --- END OF FIX (C) ---
 
     const {
         component: ReactionButtonIcon,
@@ -127,109 +158,201 @@ const StudentPostCard = ({
         color: reactionColor
     } = currentUserReaction && reactionIcons[currentUserReaction]
         ? reactionIcons[currentUserReaction]
-        : { component: HandThumbUpIcon, label: 'Like', color: 'text-slate-600 dark:text-slate-400' };
+        : { component: HandThumbUpIcon, label: 'Like', color: 'text-slate-500 dark:text-slate-400' };
 
     return (
         <motion.div
             layout
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.4 }}
-            className={`bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl p-4 sm:p-6 relative group transition-shadow duration-300 shadow-neumorphic dark:shadow-neumorphic-dark`}
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.5, type: "spring", bounce: 0.3 }}
+            // --- DESIGN: Aurora Pop ---
+            // Gradient background with subtle color shifts + colored shadow for the "Pop"
+            className="
+                relative group mb-8
+                bg-gradient-to-br from-white/95 via-indigo-50/30 to-blue-50/10 
+                dark:from-gray-900/95 dark:via-indigo-900/20 dark:to-gray-900/40
+                backdrop-blur-2xl 
+                rounded-[32px] 
+                p-6 sm:p-8
+                border border-white/60 dark:border-white/10 
+                shadow-[0_15px_40px_-10px_rgba(59,130,246,0.15)] dark:shadow-[0_15px_40px_-10px_rgba(0,0,0,0.6)]
+                hover:shadow-[0_25px_60px_-15px_rgba(59,130,246,0.25)] dark:hover:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)]
+                transition-all duration-500 ease-out
+            "
         >
-            {/* Post Header */}
-            <div className="flex items-start mb-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0 z-0">
-                    <Link to={profileLink} state={{ profileData: postAuthor }}>
-                        <UserInitialsAvatar 
-                            user={postAuthor}
-                            size="full"
-                        />
+            {/* Header */}
+            <div className="flex items-start justify-between mb-5">
+                <div className="flex items-center gap-4">
+                    <Link to={profileLink} state={{ profileData: postAuthor }} className="relative block">
+                        {/* Avatar Pop Effect */}
+                        <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-full opacity-0 group-hover:opacity-100 blur transition duration-500"></div>
+                        <div className="relative w-12 h-12 rounded-full p-0.5 bg-white dark:bg-gray-800">
+                            <UserInitialsAvatar user={postAuthor} size="full" />
+                        </div>
                     </Link>
-                </div>
-                <div className="ml-3">
-                    <Link to={profileLink} state={{ profileData: postAuthor }} className="hover:underline">
-                        <p className="font-bold text-slate-800 dark:text-slate-100">{postAuthor.firstName} {postAuthor.lastName}</p>
-                    </Link>
-                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                        <span>{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString() : 'Just now'}</span>
-                        {post.audience === 'Public' ? (
-                            <GlobeAltIcon className="w-3 h-3" title="Public" />
-                        ) : (
-                            <LockClosedIcon className="w-3 h-3" title="Private" />
-                        )}
-                        {post.editedAt && (
-                            <span>(Edited)</span>
-                        )}
+                    
+                    <div className="flex flex-col">
+                        <Link to={profileLink} state={{ profileData: postAuthor }}>
+                            <h3 className="font-bold text-[17px] text-slate-900 dark:text-white tracking-tight hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                                {postAuthor.firstName} {postAuthor.lastName}
+                            </h3>
+                        </Link>
+                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 dark:text-slate-500">
+                            <span>{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Now'}</span>
+                            <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                            {post.audience === 'Public' ? (
+                                <GlobeAltIcon className="w-3 h-3 opacity-80" />
+                            ) : (
+                                <LockClosedIcon className="w-3 h-3 opacity-80" />
+                            )}
+                        </div>
                     </div>
                 </div>
+
+                {/* Actions (Visible on Hover) */}
                 {isAuthor && (
-                    <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark rounded-full p-1">
-                        <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); onStartEdit(post); }} className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-shadow" title="Edit Post">
-                            <PencilIcon className="w-5 h-5" />
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
+                        <motion.button 
+                            whileHover={{ scale: 1.1, backgroundColor: "rgba(255,255,255,0.8)" }} whileTap={{ scale: 0.9 }}
+                            onClick={(e) => { e.stopPropagation(); onStartEdit(post); }} 
+                            className="p-2.5 rounded-full bg-white/40 dark:bg-white/5 text-slate-500 hover:text-indigo-600 backdrop-blur-md shadow-sm transition-colors"
+                        >
+                            <PencilIcon className="w-4 h-4" />
                         </motion.button>
-                        <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); onDelete(post.id); }} className="p-2 rounded-full text-red-500 dark:text-red-400 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-shadow" title="Delete Post">
-                            <TrashIcon className="w-5 h-5" />
+                        <motion.button 
+                            whileHover={{ scale: 1.1, backgroundColor: "rgba(255,255,255,0.8)" }} whileTap={{ scale: 0.9 }}
+                            onClick={(e) => { e.stopPropagation(); onDelete(post.id); }} 
+                            className="p-2.5 rounded-full bg-white/40 dark:bg-white/5 text-slate-500 hover:text-red-600 backdrop-blur-md shadow-sm transition-colors"
+                        >
+                            <TrashIcon className="w-4 h-4" />
                         </motion.button>
                     </div>
                 )}
             </div>
 
-            {/* Post Content */}
-            {isEditing ? (
-                <>
-                    <textarea
-                        className="w-full p-3 border-none ring-0 focus:ring-0 rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 resize-none mb-4 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark"
-                        rows="5"
-                        value={editingPostText}
-                        onChange={(e) => onTextChange(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        autoFocus
-                    />
-                    <div className="flex justify-end gap-2">
-                        <button className="px-5 py-2 rounded-full font-semibold text-slate-700 dark:text-slate-200 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" onClick={(e) => { e.stopPropagation(); onCancelEdit(); }}>Cancel</button>
-                        <button className="px-5 py-2 rounded-full font-semibold text-blue-600 dark:text-blue-400 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" onClick={(e) => { e.stopPropagation(); onSave(); }}>Save</button>
-                    </div>
-                </>
-            ) : (
-                post.content && (
-                    <p className="text-slate-700 dark:text-slate-300 text-base leading-relaxed whitespace-pre-wrap break-words">
-                        {isTruncated && !isExpanded ? (
-                            post.content.substring(0, POST_TRUNCATE_LENGTH) + '...'
-                        ) : (
-                            <Linkify componentDecorator={componentDecorator}>
-                                {post.content}
-                            </Linkify>
-                        )}
-                        {isTruncated && (
-                            <button
-                                onClick={() => onToggleExpansion(post.id)}
-                                className="text-blue-600 dark:text-blue-400 hover:underline ml-1 font-semibold"
-                            >
-                                {isExpanded ? 'Show Less' : 'See More'}
-                            </button>
-                        )}
-                    </p>
-                )
-            )}
-            
-            {/* Post Counts */}
-            {((postReactions && Object.keys(postReactions).length > 0) || (post.commentsCount || 0) > 0) && (
-                <div className="flex justify-between items-center text-sm text-slate-500 dark:text-slate-400 mt-4">
-                    {formatReactionCount()}
-                    <span 
-                        className="cursor-pointer hover:underline font-medium" 
-                        // --- THIS IS THE FIX (D) ---
-                        onClick={() => onViewComments(post.id)} // Pass ID, not object
-                    >
-                        {post.commentsCount || 0} {post.commentsCount === 1 ? 'Comment' : 'Comments'}
+				{/* Content */}
+				            <div className="px-1 mb-3">
+				                {/* 1. Text Content Area */}
+				                {isEditing ? (
+				                    <motion.div 
+				                        initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
+				                        className="bg-white/60 dark:bg-black/30 rounded-2xl p-2 ring-2 ring-indigo-500/20 dark:ring-indigo-500/40 backdrop-blur-sm"
+				                    >
+				                        <textarea
+				                            className="w-full p-4 border-none bg-transparent focus:ring-0 text-slate-800 dark:text-slate-100 text-[16px] resize-none leading-relaxed font-medium"
+				                            rows="4"
+				                            value={editingPostText}
+				                            onChange={(e) => onTextChange(e.target.value)}
+				                            autoFocus
+				                            onClick={(e) => e.stopPropagation()}
+				                        />
+				                        <div className="flex justify-end gap-3 p-2">
+				                            <button className="px-5 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors" onClick={(e) => { e.stopPropagation(); onCancelEdit(); }}>Cancel</button>
+				                            <button className="px-6 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-full shadow-lg shadow-indigo-500/30 transition-all transform hover:-translate-y-0.5" onClick={(e) => { e.stopPropagation(); onSave(); }}>Save</button>
+				                        </div>
+				                    </motion.div>
+				                ) : (
+				                    post.content && (
+				                        <div className="text-[17px] leading-[1.7] text-slate-700 dark:text-slate-200 font-normal tracking-wide mb-4">
+				                            {isTruncated && !isExpanded ? (
+				                                <div>
+				                                    <span>{post.content.substring(0, POST_TRUNCATE_LENGTH)}...</span>
+				                                    <button
+				                                        onClick={() => onToggleExpansion(post.id)}
+				                                        className="ml-2 text-indigo-600 dark:text-indigo-400 hover:underline font-bold text-sm"
+				                                    >
+				                                        Read more
+				                                    </button>
+				                                </div>
+				                            ) : (
+				                                <>
+				                                    <Linkify componentDecorator={componentDecorator}>
+				                                        {post.content}
+				                                    </Linkify>
+				                                    {isTruncated && (
+				                                        <button
+				                                            onClick={() => onToggleExpansion(post.id)}
+				                                            className="block mt-3 text-indigo-600 dark:text-indigo-400 hover:underline font-bold text-sm"
+				                                        >
+				                                            Show Less
+				                                        </button>
+				                                    )}
+				                                </>
+				                            )}
+				                        </div>
+				                    )
+				                )}
+
+				                {/* 2. Image Content Area (NEW ADDITION) */}
+				                {/* Check for array of images first, then fallback to single imageURL */}
+				                {(post.images?.length > 0 || post.imageURL) && (
+				                    <div className="mt-3 rounded-2xl overflow-hidden border border-slate-100 dark:border-white/10">
+				                        {/* A. Multiple Images Grid */}
+				                        {post.images && post.images.length > 1 ? (
+				                            <div className={`grid gap-0.5 ${
+				                                post.images.length === 2 ? 'grid-cols-2' :
+				                                post.images.length === 3 ? 'grid-cols-2' : // First big, two small
+				                                post.images.length === 4 ? 'grid-cols-2' :
+				                                'grid-cols-2' // 5+ layout
+				                            }`}>
+				                                {post.images.slice(0, 4).map((img, idx) => (
+				                                    <div 
+				                                        key={idx} 
+				                                        className={`relative overflow-hidden bg-slate-100 dark:bg-white/5 ${
+				                                            // Specific layout tweaks for 3 images: first one spans full height or width
+				                                            post.images.length === 3 && idx === 0 ? 'row-span-2 h-full' : 'aspect-square'
+				                                        }`}
+				                                    >
+				                                        <img 
+				                                            src={img} 
+				                                            alt={`Attachment ${idx + 1}`} 
+				                                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-500 cursor-pointer"
+				                                            onClick={() => window.open(img, '_blank')} // Simple lightbox fallback
+				                                        />
+				                                        {/* Overlay for "More" images if > 4 */}
+				                                        {post.images.length > 4 && idx === 3 && (
+				                                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center cursor-pointer" onClick={() => window.open(post.images[3], '_blank')}>
+				                                                <span className="text-white font-bold text-xl">+{post.images.length - 4}</span>
+				                                            </div>
+				                                        )}
+				                                    </div>
+				                                ))}
+				                            </div>
+				                        ) : (
+				                            /* B. Single Image */
+				                            <div className="relative bg-slate-100 dark:bg-white/5">
+				                                <img 
+				                                    src={post.images ? post.images[0] : post.imageURL} 
+				                                    alt="Post attachment" 
+				                                    className="w-full max-h-[600px] object-contain cursor-pointer"
+				                                    onClick={() => window.open(post.images ? post.images[0] : post.imageURL, '_blank')}
+				                                />
+				                            </div>
+				                        )}
+				                    </div>
+				                )}
+				            </div>
+
+            {/* Stats Bar */}
+            <div className="flex justify-between items-center mt-6 px-1">
+                {formatReactionCount()}
+                
+                <div 
+                    className="group/comments flex items-center gap-2 cursor-pointer py-1 px-3 rounded-full hover:bg-white/40 dark:hover:bg-white/5 transition-all"
+                    onClick={() => onViewComments(post.id)}
+                >
+                    <span className={`text-[13px] font-bold transition-colors ${commentCount > 0 ? 'text-slate-600 dark:text-slate-300 group-hover/comments:text-indigo-600' : 'text-slate-400 dark:text-slate-500'}`}>
+                        {commentCount > 0 ? `${commentCount} Comments` : 'View Comments'}
                     </span>
                 </div>
-            )}
+            </div>
 
-            {/* Post Actions (Conditional) */}
+            {/* Action Deck - The "Pop" Control Panel */}
             {canReact ? (
-                <div className="flex justify-around items-center pt-3 mt-4 border-t border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30">
+                <div className="grid grid-cols-2 gap-4 mt-5 pt-5 border-t border-indigo-100/50 dark:border-white/5 relative">
+                    
                     {/* Like Button */}
                     <div
                         className="relative"
@@ -237,48 +360,52 @@ const StudentPostCard = ({
                         onMouseLeave={closeReactionPicker}
                     >
                         <motion.button
-                            whileTap={{ scale: 0.95 }}
-                            className={`flex items-center space-x-2 py-2 px-4 rounded-full transition-all duration-200 w-full justify-center ${currentUserReaction ? reactionColor : 'text-slate-600 dark:text-slate-400'} hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark`}
-                            onClick={() => onToggleReaction(post.id, 'like')} // Default toggle is 'like'
+                            whileTap={{ scale: 0.97 }}
+                            className={`
+                                group/btn w-full flex items-center justify-center gap-3 py-3 rounded-2xl transition-all duration-300 font-bold text-[15px]
+                                ${currentUserReaction 
+                                    ? 'bg-indigo-50/80 dark:bg-indigo-900/30 ' + reactionColor 
+                                    : 'text-slate-500 dark:text-slate-400 hover:bg-indigo-50/50 dark:hover:bg-white/5 hover:text-indigo-600 dark:hover:text-indigo-300'
+                                }
+                            `}
+                            onClick={() => onToggleReaction(post.id, 'like')}
                         >
                             {currentUserReaction ? (
                                 <motion.div
-                                    key={currentUserReaction}
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    className="w-6 h-6 flex items-center justify-center"
+                                    initial={{ scale: 0, rotate: -20 }} 
+                                    animate={{ scale: 1, rotate: 0 }}
+                                    className="text-xl filter drop-shadow-md"
                                 >
-                                    <ReactionButtonIcon className="text-2xl" />
+                                    <ReactionButtonIcon />
                                 </motion.div>
                             ) : (
-                                <HandThumbUpIcon className="h-5 w-5" />
+                                <HandThumbUpIcon className="w-6 h-6 stroke-2 group-hover/btn:scale-110 transition-transform" />
                             )}
-                            <span className="font-semibold">{reactionLabel}</span>
+                            <span>{reactionLabel}</span>
                         </motion.button>
 
-                        {/* Reaction Picker */}
+                        {/* Pop-up Reaction Dock */}
                         <AnimatePresence>
                             {isReactionPickerOpen && (
                                 <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: 10 }}
-                                    className="absolute bottom-full mb-2 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic dark:shadow-neumorphic-dark p-2 flex space-x-1 z-50"
-                                    onMouseEnter={openReactionPicker} // Keep open when mouse enters picker
-                                    onMouseLeave={closeReactionPicker} // Close when mouse leaves picker
+                                    initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                                    animate={{ opacity: 1, y: -10, scale: 1 }}
+                                    exit={{ opacity: 0, y: 10, scale: 0.8 }}
+                                    transition={{ type: "spring", bounce: 0.4 }}
+                                    className="absolute bottom-full left-0 right-0 mx-auto w-max mb-1 flex gap-2 p-2.5 bg-white/80 dark:bg-gray-900/90 backdrop-blur-2xl rounded-full shadow-2xl border border-white/50 dark:border-white/10 z-50 ring-1 ring-black/5"
+                                    onMouseEnter={openReactionPicker}
+                                    onMouseLeave={closeReactionPicker}
                                 >
                                     {reactionTypes.map((type) => (
-                                        <motion.div
+                                        <motion.button
                                             key={type}
+                                            whileHover={{ scale: 1.35, y: -5 }}
                                             whileTap={{ scale: 0.9 }}
-                                            whileHover={{ scale: 1.2, y: -5 }}
-                                            className="p-1 rounded-full group/reaction relative"
-                                            onClick={() => handleReactionSelect(type)} // Use the new handler
+                                            onClick={() => handleReactionSelect(type)}
+                                            className="p-1 text-3xl cursor-pointer transition-transform hover:drop-shadow-xl"
                                         >
-                                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark transition-shadow duration-200 cursor-pointer shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark">
-                                                <span className="text-2xl">{reactionIcons[type].component({}).props.children}</span>
-                                            </div>
-                                        </motion.div>
+                                            {reactionIcons[type].component({})}
+                                        </motion.button>
                                     ))}
                                 </motion.div>
                             )}
@@ -287,17 +414,18 @@ const StudentPostCard = ({
 
                     {/* Comment Button */}
                     <motion.button
-                        whileTap={{ scale: 0.95 }}
-                        className="flex items-center space-x-2 py-2 px-4 rounded-full text-slate-600 dark:text-slate-400 transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
-                        // --- THIS IS THE FIX (E) ---
-                        onClick={() => onViewComments(post.id)} // Pass ID, not object
+                        whileTap={{ scale: 0.97 }}
+                        className="
+                            group/btn flex items-center justify-center gap-3 py-3 rounded-2xl text-slate-500 dark:text-slate-400 
+                            hover:bg-indigo-50/50 dark:hover:bg-white/5 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all duration-300 font-bold text-[15px]
+                        "
+                        onClick={() => onViewComments(post.id)}
                     >
-                        <ChatBubbleLeftIcon className="h-5 w-5" />
-                        <span className="font-semibold">Comment</span>
+                        <ChatBubbleLeftIcon className="w-6 h-6 stroke-2 group-hover/btn:scale-110 transition-transform" />
+                        <span>Comment</span>
                     </motion.button>
                 </div>
             ) : (
-                // --- LOCKED BUTTONS ---
                 <LockedButtonsPlaceholder />
             )}
         </motion.div>

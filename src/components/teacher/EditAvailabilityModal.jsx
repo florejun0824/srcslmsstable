@@ -15,7 +15,14 @@ import {
     ShieldCheckIcon
 } from '@heroicons/react/24/solid';
 
-// --- (Reusable NeumorphicCheckbox component remains unchanged) ---
+// --- DESIGN SYSTEM CONSTANTS (New) ---
+const glassPanel = "bg-white/60 dark:bg-[#1a1d24]/60 backdrop-blur-xl border border-white/40 dark:border-white/5 shadow-lg rounded-2xl transition-all";
+const glassInput = "w-full bg-white/50 dark:bg-black/20 border border-slate-200/60 dark:border-white/10 rounded-xl px-4 py-3 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all";
+const primaryBtn = "px-6 py-3 rounded-xl font-bold text-sm text-white shadow-lg shadow-blue-500/30 bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 border border-blue-400/20 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
+const secondaryBtn = "px-6 py-3 rounded-xl font-bold text-sm text-slate-600 dark:text-slate-300 bg-white/50 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 border border-white/20 dark:border-white/5 active:scale-[0.98] transition-all duration-200 disabled:opacity-50";
+const deleteBtn = "px-6 py-3 rounded-xl font-bold text-sm text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 border border-red-200/50 dark:border-red-500/20 active:scale-[0.98] transition-all duration-200 disabled:opacity-50";
+
+// --- (Refined Checkbox - Logic Unchanged, Style Updated) ---
 const NeumorphicCheckbox = React.memo(({ checked, indeterminate, ...props }) => {
     const ref = React.useRef(null);
     useEffect(() => {
@@ -33,21 +40,30 @@ const NeumorphicCheckbox = React.memo(({ checked, indeterminate, ...props }) => 
                 {...props} 
                 className="sr-only peer" 
             />
-            <span className="w-full h-full bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-md shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark flex items-center justify-center transition-all peer-checked:bg-blue-500 peer-checked:shadow-neumorphic dark:peer-checked:shadow-neumorphic-dark">
-                <CheckIcon className={`w-4 h-4 text-white transition-opacity ${checked ? 'opacity-100' : 'opacity-0'}`} />
+            {/* Replaced neumorphic style with glass style */}
+            <span className={`w-full h-full rounded-md border flex items-center justify-center transition-all duration-200 ${
+                checked 
+                ? 'bg-blue-500 border-blue-500 shadow-md shadow-blue-500/30' 
+                : 'bg-white/50 dark:bg-white/5 border-slate-300 dark:border-slate-600 hover:border-blue-400'
+            }`}>
+                <CheckIcon className={`w-3.5 h-3.5 text-white transition-transform duration-200 ${checked ? 'scale-100' : 'scale-0'}`} />
             </span>
         </div>
     );
 });
 
-// --- (Reusable ToggleSwitch component remains unchanged) ---
+// --- (Refined ToggleSwitch - Logic Unchanged, Style Updated) ---
 const ToggleSwitch = ({ label, enabled, onChange, disabled = false }) => (
-    <label className={`flex items-center justify-between ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
-        <span className="font-medium text-slate-800 dark:text-slate-100">{label}</span>
+    <label className={`flex items-center justify-between group ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+        <span className="font-medium text-sm text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">{label}</span>
         <div className="relative">
             <input type="checkbox" className="sr-only" checked={enabled} onChange={onChange} disabled={disabled} />
-            <div className={`block w-14 h-8 rounded-full transition-colors ${enabled ? 'bg-blue-500' : 'bg-gray-300 dark:bg-slate-700'}`}></div>
-            <div className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${enabled ? 'translate-x-6' : ''}`}></div>
+            <div className={`block w-12 h-7 rounded-full transition-all duration-300 ${
+                enabled 
+                ? 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' 
+                : 'bg-slate-200 dark:bg-slate-700 inner-shadow'
+            }`}></div>
+            <div className={`absolute left-1 top-1 bg-white w-5 h-5 rounded-full shadow-sm transition-transform duration-300 ${enabled ? 'translate-x-5' : ''}`}></div>
         </div>
     </label>
 );
@@ -64,12 +80,14 @@ const defaultQuizSettings = {
     maxAttempts: 3, 
 };
 
-// --- (Empty State for 3rd Column remains unchanged) ---
+// --- (Refined Empty State - Logic Unchanged) ---
 const EmptyState = ({ icon: Icon, text, subtext }) => (
-    <div className="text-center p-8 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark h-full flex flex-col justify-center items-center">
-        <Icon className="h-16 w-16 mb-4 text-slate-300 dark:text-slate-600 mx-auto" />
-        <p className="text-xl font-semibold text-slate-700 dark:text-slate-200">{text}</p>
-        <p className="mt-2 text-base text-slate-500 dark:text-slate-400">{subtext}</p>
+    <div className="text-center p-8 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl h-full flex flex-col justify-center items-center opacity-70">
+        <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mb-4">
+            <Icon className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+        </div>
+        <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{text}</p>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtext}</p>
     </div>
 );
 
@@ -92,8 +110,7 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
     
     const [quizSettings, setQuizSettings] = useState(defaultQuizSettings);
     
-    // --- NEW STATE FOR MOBILE TABS ---
-    const [mobileTab, setMobileTab] = useState('general'); // 'general', 'recipients', 'security'
+    const [mobileTab, setMobileTab] = useState('general'); 
 
 
     const allStudents = useMemo(() => {
@@ -142,7 +159,7 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
         }
     }, [post, allStudents]); 
 
-    // (All helper functions and handlers remain unchanged, except for the handleUpdate)
+    // (All helper functions and handlers remain unchanged)
     const handleDateChange = (date, field) => {
         const setter = field === 'from' ? setAvailableFrom : setAvailableUntil;
         const currentDate = field === 'from' ? availableFrom : availableUntil;
@@ -193,7 +210,6 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
         setQuizSettings(prev => ({ ...prev, [field]: value }));
     }, []);
     
-    // --- (handleUpdate remains unchanged from your provided file) ---
     const handleUpdate = async () => {
         if (!post?.id || !classId) { showToast("Missing information to update dates.", "error"); return; }
         if (!postTitle.trim()) { showToast("Title cannot be empty.", "error"); return; }
@@ -203,20 +219,18 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
         const unselectedOriginals = Array.from(originalRecipientIds).filter(id => !tempRecipientIds.has(id));
         if (unselectedOriginals.length > 0) { showToast("Cannot unselect a student who already received the post.", "error"); return; }
         
-        // --- (This logic remains the same as your fix) ---
         const finalQuizSettings = { ...quizSettings };
         const finalAttempts = parseInt(finalQuizSettings.maxAttempts, 10);
         
         if (isNaN(finalAttempts) || finalAttempts < 1) {
-            finalQuizSettings.maxAttempts = 1; // Enforce minimum
+            finalQuizSettings.maxAttempts = 1; 
         } else if (finalAttempts > 10) {
-            finalQuizSettings.maxAttempts = 10; // Enforce maximum
+            finalQuizSettings.maxAttempts = 10; 
         } else {
-            finalQuizSettings.maxAttempts = finalAttempts; // Ensure it's a number
+            finalQuizSettings.maxAttempts = finalAttempts; 
         }
 
         setQuizSettings(finalQuizSettings);
-        // --- (End of validation logic) ---
 
         setIsSubmitting(true);
         try {
@@ -231,7 +245,7 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                 availableUntil: Timestamp.fromDate(availableUntil),
                 targetAudience: isAllStudentsSelected ? 'all' : 'specific',
                 targetStudentIds: isAllStudentsSelected ? [] : recipientIdsArray, 
-                quizSettings: finalQuizSettings, // Use the validated settings
+                quizSettings: finalQuizSettings, 
             };
 
             const postRef = doc(db, `classes/${classId}/posts`, post.id);
@@ -251,7 +265,6 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
         }
     };
     
-    // --- (handleDelete remains unchanged) ---
     const handleDelete = async () => {
         if (!window.confirm("Are you sure? This will permanently delete the post and all associated student submissions. This cannot be undone.")) return;
         if (!post?.id || !classId) { showToast("Cannot delete. Missing required information.", "error"); return; }
@@ -330,7 +343,7 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
             setIsSubmitting(false);
         }
     };
-    // --- (formatTime, filteredStudents, isAllSelectedInClass, isPartiallySelected remain unchanged) ---
+
     const formatTime = (date) => {
         if (!date) return '';
         return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
@@ -354,126 +367,151 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
             isOpen={isOpen}
             onClose={onClose}
             title="" 
-            size="screen"
-            roundedClass="rounded-2xl"
-            containerClassName="h-full p-2 sm:p-4 bg-black/30 backdrop-blur-sm"
+            size="7xl" 
+            roundedClass="rounded-[2rem]"
+            // Updated container/content styles for glassmorphism
+            containerClassName="h-full p-2 sm:p-6 bg-slate-900/40 backdrop-blur-md"
             contentClassName="p-0"
             showCloseButton={true}
         >
-            <div className="p-2 sm:p-4 md:p-6 bg-neumorphic-base dark:bg-neumorphic-base-dark h-[95vh] sm:h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl rounded-2xl">
+            <div className="p-4 sm:p-6 md:p-8 bg-white/90 dark:bg-[#121212]/95 h-[90vh] max-h-[90vh] flex flex-col mx-auto w-full rounded-[2rem] shadow-2xl border border-white/20 dark:border-white/5">
                 
-                <header className="mb-4 p-3 sm:p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark flex-shrink-0">
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Edit Activity Settings</h1>
-                    <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400 mt-1 truncate">
+                {/* Header */}
+                <header className="mb-6 flex-shrink-0 border-b border-slate-200/60 dark:border-white/5 pb-4">
+                    <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                        Activity Settings
+                    </h1>
+                    <p className="text-sm sm:text-base font-medium text-slate-500 dark:text-slate-400 mt-1 truncate">
                         {postTitle || 'Untitled Activity'}
                     </p>
                 </header>
 
-                {/* --- (Mobile tab navigation remains unchanged) --- */}
-                <nav className="lg:hidden flex-shrink-0 flex items-center gap-2 p-2 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark overflow-x-auto mb-4">
+                {/* Mobile Tabs (Updated to Pills) */}
+                <nav className="lg:hidden flex-shrink-0 flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-white/5 rounded-xl overflow-x-auto mb-4">
                     {mobileTabs.map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setMobileTab(tab.id)}
-                            className={`flex-shrink-0 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 ${
+                            className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition-all duration-200 ${
                                 mobileTab === tab.id
-                                    ? 'shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-blue-600 dark:text-blue-400'
-                                    : 'text-slate-700 dark:text-slate-300 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark'
+                                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                             }`}
                         >
-                            <tab.icon className="h-5 w-5" />
+                            <tab.icon className="h-4 w-4" />
                             <span>{tab.name}</span>
                         </button>
                     ))}
                 </nav>
                 
-                {/* --- (Main content grid remains unchanged) --- */}
-                <main className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
+                {/* Main Content Grid */}
+                <main className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8 min-h-0">
 
-                    {/* --- (COLUMN 1: General Settings - Unchanged) --- */}
+                    {/* --- COLUMN 1: General Settings --- */}
                     <div className={`
                         ${mobileTab === 'general' ? 'flex' : 'hidden'} 
-                        lg:flex flex-col min-h-0
+                        lg:flex flex-col min-h-0 gap-6
                     `}>
-                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex-shrink-0 mb-4">General Settings</h2>
+                        <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex-shrink-0">
+                            Basic Info
+                        </h2>
                         
-                        <div className="flex-1 flex flex-col space-y-6 overflow-y-auto custom-scrollbar p-2 pr-4 min-h-0">
-                            <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark p-5 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark space-y-4"> 
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Title</label>
-                                <input
-                                    type="text"
-                                    value={postTitle}
-                                    onChange={(e) => setPostTitle(e.target.value)}
-                                    className="w-full p-2.5 border-none rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark focus:ring-0"
-                                />
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Comments (Optional)</label>
-                                <textarea
-                                    value={postContent}
-                                    onChange={(e) => setPostContent(e.target.value)}
-                                    placeholder="Add an optional comment for your students..."
-                                    rows={3}
-                                    className="w-full p-2.5 border-none rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark focus:ring-0 resize-none"
-                                />
-                            </div>
-
-                            <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark p-5 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark space-y-4">
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Period: Available From</label>
-                                <div className="flex gap-2">
-                                    <DatePicker
-                                        selected={availableFrom}
-                                        onChange={(date) => handleDateChange(date, 'from')}
-                                        dateFormat="MMMM d, yyyy"
-                                        className="w-2/3 p-2.5 border-none rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark focus:ring-0"
-                                    />
+                        <div className="flex-1 flex flex-col space-y-6 overflow-y-auto custom-scrollbar min-h-0 pr-2">
+                            <div className={glassPanel + " p-6 space-y-5"}> 
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2 ml-1">Title</label>
                                     <input
-                                        type="time"
-                                        value={formatTime(availableFrom)}
-                                        onChange={(e) => handleTimeChange(e, 'from')}
-                                        className="w-1/3 p-2.5 border-none rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark focus:ring-0"
+                                        type="text"
+                                        value={postTitle}
+                                        onChange={(e) => setPostTitle(e.target.value)}
+                                        className={glassInput}
                                     />
                                 </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2 ml-1">Instructions (Optional)</label>
+                                    <textarea
+                                        value={postContent}
+                                        onChange={(e) => setPostContent(e.target.value)}
+                                        placeholder="Add context for your students..."
+                                        rows={4}
+                                        className={glassInput + " resize-none"}
+                                    />
+                                </div>
+                            </div>
 
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Available Until</label>
-                                <div className="flex gap-2">
-                                    <DatePicker
-                                        selected={availableUntil}
-                                        onChange={(date) => handleDateChange(date, 'until')}
-                                        dateFormat="MMMM d, yyyy"
-                                        className="w-2/3 p-2.5 border-none rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark focus:ring-0"
-                                    />
-                                    <input
-                                        type="time"
-                                        value={formatTime(availableUntil)}
-                                        onChange={(e) => handleTimeChange(e, 'until')}
-                                        className="w-1/3 p-2.5 border-none rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark focus:ring-0"
-                                    />
+                            <div className={glassPanel + " p-6 space-y-5"}>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2 ml-1">Start Date</label>
+                                    <div className="flex gap-3">
+                                        <div className="w-2/3">
+                                            <DatePicker
+                                                selected={availableFrom}
+                                                onChange={(date) => handleDateChange(date, 'from')}
+                                                dateFormat="MMM d, yyyy"
+                                                className={glassInput}
+                                            />
+                                        </div>
+                                        <input
+                                            type="time"
+                                            value={formatTime(availableFrom)}
+                                            onChange={(e) => handleTimeChange(e, 'from')}
+                                            className={`${glassInput} w-1/3 text-center`}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2 ml-1">Due Date</label>
+                                    <div className="flex gap-3">
+                                        <div className="w-2/3">
+                                            <DatePicker
+                                                selected={availableUntil}
+                                                onChange={(date) => handleDateChange(date, 'until')}
+                                                dateFormat="MMM d, yyyy"
+                                                className={glassInput}
+                                            />
+                                        </div>
+                                        <input
+                                            type="time"
+                                            value={formatTime(availableUntil)}
+                                            onChange={(e) => handleTimeChange(e, 'until')}
+                                            className={`${glassInput} w-1/3 text-center`}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    {/* --- (COLUMN 2: Recipients - Unchanged) --- */}
+                    {/* --- COLUMN 2: Recipients --- */}
                     <div className={`
                         ${mobileTab === 'recipients' ? 'flex' : 'hidden'} 
-                        lg:flex flex-col min-h-0
+                        lg:flex flex-col min-h-0 gap-4
                     `}>
-                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">Recipients ({classData?.name || 'Class Roster'})</h2>
+                        <div className="flex justify-between items-end mb-2">
+                            <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                Recipients
+                            </h2>
+                            <span className="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-md">
+                                {classData?.name || 'Class Roster'}
+                            </span>
+                        </div>
                         
-                        <div className="relative flex-shrink-0 mb-4">
+                        <div className="relative flex-shrink-0">
                             <input
                                 type="text"
-                                placeholder="Search student..."
+                                placeholder="Filter students..."
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.g.value)}
-                                className="w-full p-3 pl-10 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-slate-800 dark:text-slate-100"
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className={`${glassInput} pl-10`}
                             />
-                            <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                         </div>
 
-                        <div className="flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark overflow-hidden flex flex-col min-h-0">
+                        <div className={`${glassPanel} flex-1 overflow-hidden flex flex-col min-h-0`}>
                             <header 
                                 onClick={handleToggleAllStudents}
-                                className="flex items-center gap-3 p-4 border-b border-black/10 dark:border-white/10 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 flex-shrink-0"
+                                className="flex items-center gap-3 p-4 border-b border-slate-200/50 dark:border-white/5 cursor-pointer hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors flex-shrink-0"
                             >
                                 <NeumorphicCheckbox
                                     checked={isAllSelectedInClass}
@@ -481,15 +519,15 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                                     onChange={handleToggleAllStudents}
                                     aria-label="Select all students"
                                 />
-                                <label className="font-semibold text-slate-800 dark:text-slate-100 flex-grow cursor-pointer select-none">
-                                    Select all students
+                                <label className="font-bold text-sm text-slate-700 dark:text-slate-200 flex-grow cursor-pointer select-none">
+                                    Select All
                                 </label>
-                                <span className="text-sm text-slate-500 dark:text-slate-400 font-normal">
-                                    ({tempRecipientIds.size}/{allStudents.length})
+                                <span className="text-xs font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded text-center min-w-[3rem]">
+                                    {tempRecipientIds.size} / {allStudents.length}
                                 </span>
                             </header>
 
-                            <ul className="flex-1 overflow-y-auto custom-scrollbar">
+                            <ul className="flex-1 overflow-y-auto custom-scrollbar p-2">
                                 {filteredStudents.length > 0 ? filteredStudents.map(student => {
                                     const studentName = student.displayName; 
                                     const isSelected = tempRecipientIds.has(student.id);
@@ -498,43 +536,43 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                                         <li
                                             key={student.id}
                                             onClick={() => handleToggleStudent(student.id)}
-                                            className={`flex items-center gap-3 p-4 transition-colors border-t border-black/5 dark:border-white/5 first:border-t-0 ${
-                                                isDisabled ? 'bg-gray-100 dark:bg-slate-800 cursor-default opacity-80' : 
-                                                isSelected ? 'bg-blue-500/10 dark:bg-blue-900/30 cursor-pointer' : 'hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer'
+                                            className={`flex items-center gap-3 p-3 rounded-xl transition-all mb-1 ${
+                                                isDisabled ? 'bg-slate-50 dark:bg-white/5 cursor-not-allowed opacity-60 grayscale' : 
+                                                isSelected ? 'bg-blue-50 dark:bg-blue-900/20 cursor-pointer' : 'hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer'
                                             }`}
                                         >
                                             <NeumorphicCheckbox checked={isSelected} readOnly disabled={isDisabled} />
-                                            <span className="text-slate-800 dark:text-slate-100 flex-grow select-none">{studentName}</span>
-                                            {isSelected && <CheckIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />}
+                                            <span className={`text-sm font-medium flex-grow select-none ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                {studentName}
+                                            </span>
                                         </li>
                                     );
                                 }) : (
-                                    <li className="p-8 text-center text-slate-500 dark:text-slate-400">
-                                        <UserGroupIcon className="w-8 h-8 mx-auto mb-2 text-slate-400" />
-                                        No students match your search.
+                                    <li className="p-12 text-center text-slate-400 dark:text-slate-500 flex flex-col items-center">
+                                        <UserGroupIcon className="w-10 h-10 mb-3 opacity-50" />
+                                        <p className="text-sm font-medium">No students found.</p>
                                     </li>
-
                                 )}
                             </ul>
                         </div>
                     </div>
 
-                    {/* --- COLUMN 3: Security Settings (MODIFIED) --- */}
+                    {/* --- COLUMN 3: Security Settings --- */}
                     <div className={`
                         ${mobileTab === 'security' ? 'flex' : 'hidden'} 
-                        lg:flex flex-col min-h-0
+                        lg:flex flex-col min-h-0 gap-6
                     `}>
-                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex-shrink-0 mb-4">Quiz Settings</h2>
+                        <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex-shrink-0">
+                            Anti-Cheating
+                        </h2>
                         
                         {hasQuizzes ? (
-                            <div className="flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark p-5 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark space-y-4 overflow-y-auto custom-scrollbar min-h-0 pr-4">
-                                <div className="space-y-4">
+                            <div className={`${glassPanel} flex-1 p-6 overflow-y-auto custom-scrollbar min-h-0`}>
+                                <div className="space-y-6">
                                     
-                                    {/* --- ⬇⬇⬇ START OF MODIFICATION ⬇⬇⬇ --- */}
-
-                                    {/* MAX ATTEMPTS IS NOW SEPARATE AND ALWAYS VISIBLE */}
-                                    <div className="flex items-center justify-between pt-2">
-                                        <label className="font-medium text-slate-800 dark:text-slate-100">Max Attempts</label>
+                                    {/* Max Attempts */}
+                                    <div className="flex items-center justify-between p-4 bg-slate-50/50 dark:bg-white/5 rounded-xl border border-slate-200/50 dark:border-white/5">
+                                        <label className="font-bold text-sm text-slate-700 dark:text-slate-200">Max Attempts</label>
                                         <input
                                             type="tel"
                                             inputMode="numeric"
@@ -549,90 +587,82 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                                             onBlur={() => {
                                                 const currentVal = parseInt(quizSettings.maxAttempts, 10);
                                                 if (isNaN(currentVal) || currentVal < 1) {
-                                                    handleQuizSettingsChange('maxAttempts', 1); // Default to 1
+                                                    handleQuizSettingsChange('maxAttempts', 1); 
                                                 } else if (currentVal > 10) {
-                                                    handleQuizSettingsChange('maxAttempts', 10); // Enforce max
+                                                    handleQuizSettingsChange('maxAttempts', 10); 
                                                 } else {
                                                     handleQuizSettingsChange('maxAttempts', currentVal);
                                                 }
                                             }}
-                                            className="w-20 p-2 border-none rounded-lg bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark focus:ring-0"
+                                            className={`${glassInput} w-16 text-center !p-2`}
                                         />
                                     </div>
 
-                                    {/* SECURITY FEATURES ARE IN THEIR OWN GROUP */}
-                                    <div className="pt-4 border-t border-black/10 dark:border-white/10">
-                                        <ToggleSwitch
-                                            label="Enable Anti-Cheating Features"
-                                            enabled={quizSettings.enabled}
-                                            onChange={() => handleQuizSettingsChange('enabled', !quizSettings.enabled)}
-                                        />
-                                        {quizSettings.enabled && (
-                                            <div className="pl-4 pt-4 mt-4 border-t border-black/10 dark:border-white/10 space-y-3">
-                                                <ToggleSwitch
-                                                    label="Shuffle Questions"
-                                                    enabled={quizSettings.shuffleQuestions}
-                                                    onChange={() => handleQuizSettingsChange('shuffleQuestions', !quizSettings.shuffleQuestions)}
-                                                />
-                                                <ToggleSwitch
-                                                    label="Lock on Leaving Quiz Tab/App"
-                                                    enabled={quizSettings.lockOnLeave}
-                                                    onChange={() => handleQuizSettingsChange('lockOnLeave', !quizSettings.lockOnLeave)}
-                                                />
-                                                <ToggleSwitch
-                                                    label="Prevent Screen Recording & Screenshots"
-                                                    enabled={quizSettings.preventScreenCapture}
-                                                    onChange={() => handleQuizSettingsChange('preventScreenCapture', !quizSettings.preventScreenCapture)}
-                                                />
-                                                <ToggleSwitch
-                                                    label="Detect Developer Tools (Desktop)"
-                                                    enabled={quizSettings.detectDevTools}
-                                                    onChange={() => handleQuizSettingsChange('detectDevTools', !quizSettings.detectDevTools)}
-                                                />
-                                                <ToggleSwitch
-                                                    label="Issue Warning on Paste"
-                                                    enabled={quizSettings.warnOnPaste}
-                                                    onChange={() => handleQuizSettingsChange('warnOnPaste', !quizSettings.warnOnPaste)}
-                                                />
-                                                <ToggleSwitch
-                                                    label="Prevent Going Back to Questions"
-                                                    enabled={quizSettings.preventBackNavigation}
-                                                    onChange={() => handleQuizSettingsChange('preventBackNavigation', !quizSettings.preventBackNavigation)}
-                                                />
-                                            </div>
-                                        )}
+                                    {/* Toggles Group */}
+                                    <div>
+                                        <div className="mb-4">
+                                            <ToggleSwitch
+                                                label="Enable Security Features"
+                                                enabled={quizSettings.enabled}
+                                                onChange={() => handleQuizSettingsChange('enabled', !quizSettings.enabled)}
+                                            />
+                                        </div>
+                                        
+                                        <div className={`space-y-1 pl-4 border-l-2 border-slate-200 dark:border-white/10 transition-all duration-300 ${quizSettings.enabled ? 'opacity-100' : 'opacity-40 pointer-events-none grayscale'}`}>
+                                            {[
+                                                { key: 'shuffleQuestions', label: 'Shuffle Questions' },
+                                                { key: 'lockOnLeave', label: 'Lock on Tab Switch' },
+                                                { key: 'preventScreenCapture', label: 'Block Screenshots' },
+                                                { key: 'detectDevTools', label: 'Detect DevTools' },
+                                                { key: 'warnOnPaste', label: 'Warn on Paste' },
+                                                { key: 'preventBackNavigation', label: 'No Back Navigation' },
+                                            ].map((toggle) => (
+                                                <div key={toggle.key} className="py-3">
+                                                    <ToggleSwitch
+                                                        label={toggle.label}
+                                                        enabled={quizSettings[toggle.key]}
+                                                        onChange={() => handleQuizSettingsChange(toggle.key, !quizSettings[toggle.key])}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                    
-                                    {/* --- ⬆⬆⬆ END OF MODIFICATION ⬆⬆⬆ --- */}
-
                                 </div>
                             </div>
                         ) : (
                             <EmptyState
                                 icon={ShieldExclamationIcon}
-                                text="No Quiz Settings"
-                                subtext="This post does not contain any quizzes. Security settings are only available for quizzes."
+                                text="No Quizzes Found"
+                                subtext="Security settings are only available when a quiz is attached to this activity."
                             />
                         )}
                     </div>
                 </main>
                 
-                {/* --- (Footer remains unchanged) --- */}
-                <footer className="flex-shrink-0 flex flex-wrap justify-between items-center pt-6 border-t border-black/10 dark:border-white/10 mt-6 gap-2">
+                {/* Footer */}
+                <footer className="flex-shrink-0 flex flex-wrap justify-between items-center pt-6 border-t border-slate-200/60 dark:border-white/5 mt-2 gap-4">
                     <button
                         onClick={handleDelete}
-                        className="px-4 py-2 text-sm font-semibold text-red-600 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark disabled:opacity-50"
+                        className={deleteBtn}
                         disabled={isSubmitting}
                     >
-                        Delete Post
+                        Delete Activity
                     </button>
                     
-                    <div className="flex justify-end gap-2">
-                        <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark disabled:opacity-50" disabled={isSubmitting}>
+                    <div className="flex justify-end gap-3">
+                        <button onClick={onClose} className={secondaryBtn} disabled={isSubmitting}>
                             Cancel
                         </button>
-                        <button onClick={handleUpdate} className="px-4 py-2 text-sm font-semibold text-blue-700 dark:text-blue-300 bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-800 dark:to-blue-900 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark disabled:opacity-50" disabled={isSubmitting || tempRecipientIds.size === 0 || !postTitle.trim()}>
-                            {isSubmitting ? 'Saving...' : 'Save Settings'}
+                        <button onClick={handleUpdate} className={primaryBtn} disabled={isSubmitting || tempRecipientIds.size === 0 || !postTitle.trim()}>
+                            {isSubmitting ? (
+                                <span className="flex items-center gap-2">
+                                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Saving...
+                                </span>
+                            ) : 'Save Changes'}
                         </button>
                     </div>
                 </footer>

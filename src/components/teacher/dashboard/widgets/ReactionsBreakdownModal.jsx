@@ -1,53 +1,26 @@
+// src/components/teacher/dashboard/widgets/ReactionsBreakdownModal.jsx
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import UserInitialsAvatar from '../../../common/UserInitialsAvatar';
 
-// NEW: iOS-inspired emoji component for a more vibrant, modern feel.
-const IOSEmoji = ({ type = 'like', size = 20, className = '' }) => {
-    const map = {
-        like: '👍',
-        heart: '❤️',
-        haha: '😂', // Using a slightly different 'haha' for variety
-        wow: '😮',
-        sad: '😢',
-        angry: '😡',
-        care: '🤗',
-    };
-    const labelMap = {
-        like: 'Like',
-        heart: 'Love',
-        haha: 'Haha',
-        wow: 'Wow',
-        sad: 'Sad',
-        angry: 'Angry',
-        care: 'Care',
-    };
-    const emoji = map[type] || map.like;
-    const label = labelMap[type] || 'Like';
-    return (
-        <span
-            role="img"
-            aria-label={label}
-            title={label}
-            className={className}
-            style={{ fontSize: size, lineHeight: 1, display: 'inline-block' }}
-        >
-            {emoji}
-        </span>
-    );
-};
+// --- Reaction Config (Consistent with AnnouncementModal) ---
+const IOSEmoji = ({ emoji, className = '' }) => (
+    <span className={`inline-block leading-none ${className}`} style={{ fontSize: '1.25rem' }}>
+        {emoji}
+    </span>
+);
 
-// UPDATED: Reaction icons now use the new IOSEmoji component.
 const reactionIcons = {
-    all: { color: 'text-zinc-600', label: 'All', component: null },
-    like: { color: 'text-blue-500', label: 'Like', component: (props) => <IOSEmoji type="like" {...props} /> },
-    heart: { color: 'text-red-500', label: 'Love', component: (props) => <IOSEmoji type="heart" {...props} /> },
-    haha: { color: 'text-yellow-500', label: 'Haha', component: (props) => <IOSEmoji type="haha" {...props} /> },
-    wow: { color: 'text-purple-500', label: 'Wow', component: (props) => <IOSEmoji type="wow" {...props} /> },
-    sad: { color: 'text-zinc-700', label: 'Sad', component: (props) => <IOSEmoji type="sad" {...props} /> },
-    angry: { color: 'text-red-700', label: 'Angry', component: (props) => <IOSEmoji type="angry" {...props} /> },
-    care: { color: 'text-pink-500', label: 'Care', component: (props) => <IOSEmoji type="care" {...props} /> },
+    all: { label: 'All', emoji: null },
+    like: { label: 'Like', emoji: '👍' },
+    heart: { label: 'Love', emoji: '❤️' },
+    haha: { label: 'Haha', emoji: '😂' },
+    wow: { label: 'Wow', emoji: '😮' },
+    sad: { label: 'Sad', emoji: '😢' },
+    angry: { label: 'Angry', emoji: '😡' },
+    care: { label: 'Care', emoji: '🤗' },
 };
 
 const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, usersMap }) => {
@@ -55,7 +28,7 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, usersMap }) =
     const [groupedReactions, setGroupedReactions] = useState({});
 
     useEffect(() => {
-        if (!isOpen) return; // Reset tab to 'all' when modal opens
+        if (!isOpen) return;
 
         if (!reactionsData || !usersMap) {
             setGroupedReactions({});
@@ -69,12 +42,15 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, usersMap }) =
 
         Object.entries(reactionsData).forEach(([userId, reactionType]) => {
             const user = usersMap[userId];
+            // Fallback to 'like' if reactionType is unknown to prevent crashes
+            const safeReactionType = reactionIcons[reactionType] ? reactionType : 'like';
+            
             const userName = user ? `${user.firstName} ${user.lastName}`.trim() : `User ID: ${userId.substring(0, 5)}...`;
-            const reactionEntry = { userId, userName, reactionType, userProfile: user };
+            const reactionEntry = { userId, userName, reactionType: safeReactionType, userProfile: user };
 
             newGroupedReactions.all.push(reactionEntry);
-            if (newGroupedReactions[reactionType]) {
-                newGroupedReactions[reactionType].push(reactionEntry);
+            if (newGroupedReactions[safeReactionType]) {
+                newGroupedReactions[safeReactionType].push(reactionEntry);
             }
         });
 
@@ -94,29 +70,48 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, usersMap }) =
         exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } }
     };
 
-    return (
+    // Close on Escape
+    useEffect(() => {
+        const handleEsc = (event) => {
+            if (event.key === 'Escape') onClose();
+        }
+        if (isOpen) window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [isOpen, onClose]);
+
+    if (!isOpen) return null;
+
+    return createPortal(
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/40 backdrop-blur-xl p-4 font-sans" onClick={(e) => e.target === e.currentTarget && onClose()}>
                     <motion.div
                         variants={modalVariants}
                         initial="hidden"
                         animate="visible"
                         exit="exit"
-                        className="bg-zinc-50/95 rounded-3xl shadow-xl w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col border border-zinc-200/80"
+                        className="relative glass-panel bg-white/90 dark:bg-slate-900/90 rounded-[2.5rem] shadow-2xl w-full max-w-md max-h-[70vh] overflow-hidden flex flex-col border border-white/40 dark:border-white/10"
                     >
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between p-4 flex-shrink-0">
-                            <h2 className="text-lg font-semibold text-zinc-900 ml-2">Reactions ({totalReactionsCount})</h2>
-                            <button onClick={onClose} className="p-2 rounded-full hover:bg-zinc-200/80 active:scale-95 transition-colors">
-                                <XMarkIcon className="w-6 h-6 text-zinc-500" />
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-200/50 dark:border-white/5">
+                            <div>
+                                <h2 className="text-xl font-black text-slate-800 dark:text-white tracking-tight">Reactions</h2>
+                                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mt-0.5">
+                                    {totalReactionsCount} Total
+                                </p>
+                            </div>
+                            <button 
+                                onClick={onClose} 
+                                className="p-2 rounded-full bg-slate-100/50 dark:bg-white/5 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-all active:scale-90"
+                            >
+                                <XMarkIcon className="w-5 h-5 text-slate-500 dark:text-slate-400" />
                             </button>
                         </div>
 
-                        {/* iOS-Style Segmented Control Tabs */}
-                        <div className="flex-shrink-0 border-b border-zinc-200/80 px-4 pb-2">
-                            <div className="p-1 bg-zinc-200/70 rounded-xl flex items-center overflow-x-auto custom-scrollbar-horizontal space-x-1">
-                                {Object.entries(reactionIcons).map(([type, { component: Icon, color, label }]) => {
+                        {/* macOS Segmented Control Tabs */}
+                        <div className="px-6 py-2 bg-white/30 dark:bg-black/10 backdrop-blur-md border-b border-slate-200/50 dark:border-white/5">
+                            <div className="flex items-center gap-1 overflow-x-auto pb-2 no-scrollbar mask-linear-fade">
+                                {Object.entries(reactionIcons).map(([type, { emoji, label }]) => {
                                     const count = groupedReactions[type] ? groupedReactions[type].length : 0;
                                     if (count === 0 && type !== 'all') return null;
 
@@ -125,77 +120,75 @@ const ReactionsBreakdownModal = ({ isOpen, onClose, reactionsData, usersMap }) =
                                         <button 
                                             key={type} 
                                             onClick={() => setActiveTab(type)} 
-                                            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg transition-colors duration-300 whitespace-nowrap ${
-                                                isActive ? 'bg-white text-zinc-800 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
-                                            }`}
+                                            className="relative px-4 py-2 rounded-full flex-shrink-0 transition-all group outline-none"
                                         >
-                                            {Icon && <Icon className="h-5 w-5" />}
-                                            <span className="capitalize">{label}</span>
-                                            <span className={`text-xs font-medium px-1.5 py-0.5 rounded-md ${
-                                                isActive ? 'bg-zinc-200 text-zinc-600' : 'bg-zinc-300/70 text-zinc-500'
-                                            }`}>{count}</span>
+                                            {isActive && (
+                                                <motion.div 
+                                                    layoutId="activeReactionTab"
+                                                    className="absolute inset-0 bg-white dark:bg-slate-700 rounded-full shadow-sm border border-slate-200/50 dark:border-white/5"
+                                                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                                />
+                                            )}
+                                            <div className="relative z-10 flex items-center gap-2">
+                                                {emoji && <IOSEmoji emoji={emoji} className="text-lg filter drop-shadow-sm" />}
+                                                <span className={`text-xs font-bold ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300'}`}>
+                                                    {type === 'all' ? 'All' : ''}
+                                                </span>
+                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md leading-none ${
+                                                    isActive ? 'bg-slate-100 dark:bg-black/20 text-slate-600 dark:text-slate-300' : 'bg-slate-200/50 dark:bg-white/5 text-slate-500 dark:text-slate-500'
+                                                }`}>
+                                                    {count}
+                                                </span>
+                                            </div>
                                         </button>
                                     );
                                 })}
                             </div>
                         </div>
 
-
                         {/* User List */}
-                        <div className="flex-grow overflow-y-auto p-4 space-y-2 custom-scrollbar">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar bg-slate-50/30 dark:bg-black/5">
                             {groupedReactions[activeTab] && groupedReactions[activeTab].length > 0 ? (
                                 groupedReactions[activeTab].map((reaction, index) => (
-                                    <div key={index} className="flex items-center p-2 rounded-xl transition-colors duration-200 hover:bg-zinc-200/60">
-                                        <div className="w-9 h-9 mr-3 flex-shrink-0">
-                                            <UserInitialsAvatar user={reaction.userProfile} size="w-9 h-9" />
+                                    <motion.div 
+                                        key={index} 
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: index * 0.03 }}
+                                        className="flex items-center p-3 rounded-2xl bg-white/40 dark:bg-white/5 border border-white/40 dark:border-white/5 hover:bg-white/60 dark:hover:bg-white/10 transition-colors"
+                                    >
+                                        <div className="w-10 h-10 mr-3 flex-shrink-0 rounded-full shadow-sm ring-2 ring-white dark:ring-white/5">
+                                            <UserInitialsAvatar user={reaction.userProfile} size="full" className="w-full h-full text-xs" />
                                         </div>
-                                        <div className="flex-grow text-zinc-800 text-sm font-medium">
-                                            {reaction.userName}
+                                        <div className="flex-grow min-w-0">
+                                            <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
+                                                {reaction.userName}
+                                            </p>
+                                            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate">
+                                                Reacted with {reactionIcons[reaction.reactionType]?.label || 'Like'}
+                                            </p>
                                         </div>
-                                        {reaction.reactionType && reactionIcons[reaction.reactionType]?.component && (
-                                            <div className="flex-shrink-0">
-                                                {React.createElement(reactionIcons[reaction.reactionType].component)}
+                                        {reaction.reactionType && (
+                                            <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-800 rounded-full shadow-sm text-xl">
+                                                {reactionIcons[reaction.reactionType]?.emoji}
                                             </div>
                                         )}
-                                    </div>
+                                    </motion.div>
                                 ))
                             ) : (
-                                <p className="text-center text-zinc-500 pt-10 text-sm">No {reactionIcons[activeTab]?.label || activeTab} reactions yet.</p>
+                                <div className="flex flex-col items-center justify-center h-full text-center py-10 opacity-60">
+                                    <div className="text-4xl mb-2 grayscale">
+                                        {reactionIcons[activeTab]?.emoji || '📭'}
+                                    </div>
+                                    <p className="text-sm font-bold text-slate-500 dark:text-slate-400">No reactions yet</p>
+                                </div>
                             )}
                         </div>
                     </motion.div>
-                    <style jsx>{`
-                        .custom-scrollbar::-webkit-scrollbar {
-                            width: 6px;
-                            height: 6px;
-                        }
-                        .custom-scrollbar::-webkit-scrollbar-track {
-                            background: transparent;
-                        }
-                        .custom-scrollbar::-webkit-scrollbar-thumb {
-                            background-color: #a1a1aa; /* zinc-400 */
-                            border-radius: 10px;
-                        }
-                        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                            background-color: #71717a; /* zinc-500 */
-                        }
-                        .custom-scrollbar-horizontal {
-                            scrollbar-width: thin;
-                            scrollbar-color: #a1a1aa transparent;
-                        }
-                        .custom-scrollbar-horizontal::-webkit-scrollbar {
-                            height: 4px;
-                        }
-                        .custom-scrollbar-horizontal::-webkit-scrollbar-thumb {
-                            background-color: transparent;
-                        }
-                        .custom-scrollbar-horizontal:hover::-webkit-scrollbar-thumb {
-                            background-color: #d4d4d8; /* zinc-300 */
-                        }
-                    `}</style>
                 </div>
             )}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
     );
 };
 

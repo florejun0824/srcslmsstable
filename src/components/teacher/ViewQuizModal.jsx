@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { Dialog, DialogPanel } from '@headlessui/react';
-import { ArrowLeftIcon, ArrowRightIcon, XMarkIcon, DocumentArrowDownIcon, ShieldExclamationIcon } from '@heroicons/react/24/solid';
-import { db } from '../../services/firebase'; // Adjust path if needed
+import { ArrowLeftIcon, ArrowRightIcon, XMarkIcon, DocumentArrowDownIcon, ShieldExclamationIcon, ClockIcon } from '@heroicons/react/24/solid';
+import { db } from '../../services/firebase'; 
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { useToast } from '../../contexts/ToastContext'; // Adjust path if needed
-import { handleExportPdf as exportPdfUtil } from './quiz/quizUtils'; // Adjust path if needed
+import { useToast } from '../../contexts/ToastContext'; 
+import { handleExportPdf as exportPdfUtil } from './quiz/quizUtils'; 
 import QuizContent from './quiz/QuizContent';
-import QuizWarningModal from '../../components/common/QuizWarningModal'; // Adjust path if needed
+import QuizWarningModal from '../../components/common/QuizWarningModal'; 
 
-import useQuizState from '../../hooks/useQuizState'; // Adjust path if needed
-import Watermark from '../quiz/Watermark'; // Adjust path if needed
-import TimerDisplay from '../quiz/TimerDisplay'; // Adjust path if needed
+import useQuizState from '../../hooks/useQuizState'; 
+import Watermark from '../quiz/Watermark'; 
+import TimerDisplay from '../quiz/TimerDisplay'; 
 
 const QuizContext = createContext(null);
 export const useQuiz = () => useContext(QuizContext);
@@ -32,65 +32,47 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
 
     // --- MODIFIED: Show warning modal immediately on infraction ---
     useEffect(() => {
-        // If an infraction is active AND the warning modal isn't already shown...
         if (quizState.isInfractionActive && !showWarningModal) {
-            setShowWarningModal(true); // ...show the warning modal.
+            setShowWarningModal(true); 
         }
-        // Dependency is now isInfractionActive
     }, [quizState.isInfractionActive, showWarningModal]);
-    // --- END MODIFIED ---
 
-
-    // handleClose remains the same - it acts as a backup trigger if needed
     const handleClose = () => {
-        // --- MODIFIED: Reset infraction state if user closes warning manually before action ---
-        // Although handleStay/handleLeave should handle this, it's safer here too.
         if (showWarningModal) {
              quizState.setIsInfractionActive(false);
         }
-        // --- END MODIFIED ---
 
-        // --- ⬇⬇⬇ THIS IS THE FIX FROM LAST TIME (KEEPING IT) ⬇⬇⬇ ---
         const antiCheatEnabled = (quiz?.settings?.enabled ?? false) && (quiz?.settings?.lockOnLeave ?? false);
 
-        // Check quizState for quiz progress
         if (isOpen && classId && !quizState.isLocked && quizState.score === null && !quizState.hasSubmitted && !isTeacherView && antiCheatEnabled && quizState.isAvailable) {
-            setShowWarningModal(true); // Trigger warning if trying to close while in progress
+            setShowWarningModal(true); 
         } else {
-            onClose(); // Close modal directly if no warning needed or if locked
+            onClose(); 
         }
     };
 
-    // --- MODIFIED: handleStayInQuiz resets infraction state ---
     const handleStayInQuiz = () => {
         setShowWarningModal(false);
-        // Reset the infraction state *unless* the quiz is already locked
         if (!quizState.isLocked) {
              quizState.setIsInfractionActive(false);
         }
 
-        // If the quiz is locked, "Acknowledge" (onStay) should
-        // close the main modal, not just the warning modal.
         if (quizState.isLocked) {
             onClose();
         }
     };
-    // --- END MODIFIED ---
 
-    // handleLeaveQuiz remains the same
     const handleLeaveQuiz = async () => {
-        await quizState.issueWarning('general'); // Use the handler from the hook
+        await quizState.issueWarning('general'); 
         setShowWarningModal(false);
         quizState.setIsInfractionActive(false);
         onClose();
     };
 
-    // PDF Export (unchanged)
     const handleExportPdf = () => {
         exportPdfUtil(quiz, showToast);
     };
 
-    // Keydown handler (unchanged)
     const handleKeyDown = useCallback((event) => {
         if (quizState.score !== null || quizState.isLocked || quizState.showReview || ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
         
@@ -125,14 +107,12 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         quizState.setMatchingResult, quizState.setQuestionStartTime
     ]);
 
-    // Keydown Listener (unchanged)
     useEffect(() => {
         if (isOpen) { window.addEventListener('keydown', handleKeyDown); }
         else { window.removeEventListener('keydown', handleKeyDown); }
         return () => { window.removeEventListener('keydown', handleKeyDown); };
     }, [isOpen, handleKeyDown]);
 
-    // Quiz Theming Logic (unchanged)
     const getQuizThemeClass = () => {
         const cosmeticsEnabled = userProfile?.cosmeticsEnabled ?? true;
         const selectedBorder = userProfile?.selectedBorder;
@@ -152,97 +132,131 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
 
     return (
         <>
-            <Dialog open={isOpen} onClose={handleClose} static={true} className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4">
-                {/* Backdrop */}
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" />
+            <Dialog open={isOpen} onClose={handleClose} static={true} className="fixed inset-0 z-[100] flex items-center justify-center font-sans">
+                {/* Immersive Backdrop */}
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md transition-opacity" aria-hidden="true" />
                 
-                {/* --- MODIFIED: Added dark theme --- */}
-                <DialogPanel className={`quiz-container relative flex flex-col w-full max-w-lg md:max-w-3xl rounded-3xl bg-neumorphic-base shadow-neumorphic max-h-[95vh] sm:max-h-[90vh] overflow-hidden ${quizThemeClass} dark:bg-neumorphic-base-dark dark:shadow-lg`}>
+                {/* Main Container: Glass Sheet */}
+                <DialogPanel className={`
+                    quiz-container relative flex flex-col w-full max-w-4xl h-[100dvh] md:h-[92vh] 
+                    bg-[#F3F4F6] dark:bg-[#0F172A] 
+                    md:rounded-[32px] shadow-2xl overflow-hidden 
+                    border-0 md:border border-white/20 dark:border-white/10
+                    ${quizThemeClass}
+                `}>
                     
-                    <Watermark
-                        userProfile={userProfile}
-                        quizSettings={quiz?.settings}
-                        isTeacherView={isTeacherView}
-                    />
+                    {/* Watermark Layer */}
+                    <div className="absolute inset-0 pointer-events-none z-0 opacity-50">
+                        <Watermark
+                            userProfile={userProfile}
+                            quizSettings={quiz?.settings}
+                            isTeacherView={isTeacherView}
+                        />
+                    </div>
                     
-                    {/* Header */}
-                    {/* --- MODIFIED: Added dark theme --- */}
-                    <div className="relative z-20 flex-shrink-0 p-4 pb-3 border-b border-slate-300/50 dark:border-slate-700">
-                        {/* --- MODIFIED: Added dark theme --- */}
-                        <button onClick={handleClose} className="absolute top-4 right-4 p-2 rounded-full bg-neumorphic-base text-slate-500 shadow-neumorphic active:shadow-neumorphic-inset transition-all hover:text-slate-700 dark:bg-neumorphic-base-dark dark:text-slate-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark dark:hover:text-slate-200" aria-label="Close Quiz">
-                            <XMarkIcon className="h-6 w-6" />
-                        </button>
-                        <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
-                            <div className="flex-1">
-                                {/* --- MODIFIED: Added dark theme --- */}
-                                <h2 className="text-lg sm:text-xl font-bold text-slate-900 leading-tight pr-8 sm:pr-0 dark:text-slate-100">{quiz?.title || "Quiz"}</h2>
+                    {/* --- HEADER --- */}
+                    <header className="relative z-20 flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 transition-colors">
+                        <div className="flex justify-between items-center px-4 py-3 sm:px-6 sm:py-4">
+                            
+                            {/* Left: Title & Export */}
+                            <div className="flex flex-col min-w-0 pr-4">
+                                <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white truncate tracking-tight leading-tight">
+                                    {quiz?.title || "Quiz"}
+                                </h2>
+                                
+                                {/* Teacher Export Button */}
                                 {isTeacherView && (
-                                    /* --- MODIFIED: Added dark theme --- */
-                                    <button onClick={handleExportPdf} className="flex items-center gap-1 mt-2 px-3 py-1 rounded-lg bg-neumorphic-base text-blue-600 text-xs font-semibold shadow-neumorphic active:shadow-neumorphic-inset transition-all hover:text-blue-800 dark:bg-neumorphic-base-dark dark:text-blue-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark dark:hover:text-blue-300">
-                                        <DocumentArrowDownIcon className="h-4 w-4"/> Export PDF
+                                    <button 
+                                        onClick={handleExportPdf} 
+                                        className="flex items-center gap-1.5 mt-1 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                                    >
+                                        <DocumentArrowDownIcon className="h-3.5 w-3.5"/> 
+                                        <span>Export PDF</span>
                                     </button>
                                 )}
                             </div>
-                            <div className="flex flex-col-reverse sm:flex-row items-end sm:items-center gap-2 self-end sm:self-center mt-2 sm:mt-0">
-                                
-                                <TimerDisplay
-                                    timeRemaining={quizState.timeRemaining}
-                                    quizSettings={quiz?.settings}
-                                    isTeacherView={isTeacherView}
-                                    loading={quizState.loading}
-                                    isLocked={quizState.isLocked}
-                                    isAvailable={quizState.isAvailable}
-                                    score={quizState.score}
-                                    hasSubmitted={quizState.hasSubmitted}
-                                />
 
-                                {/* --- ⬇⬇⬇ START OF FIX ⬇⬇⬇ --- */}
-                                {/* This condition now checks quiz.settings.enabled FIRST.
-                                    The warning counter will now only show if anti-cheat is
-                                    globally enabled AND lockOnLeave is enabled.
-                                */}
+                            {/* Right: Timer, Anti-Cheat, Close */}
+                            <div className="flex items-center gap-3">
+                                
+                                {/* Warning Indicator (Conditionally Rendered) */}
                                 {!isTeacherView && classId && !quizState.isLocked && quizState.score === null && !quizState.hasSubmitted && (quiz?.settings?.enabled ?? false) && (quiz?.settings?.lockOnLeave ?? false) && quizState.isAvailable && (
-                                    /* --- MODIFIED: Added dark theme --- */
-                                    <div className="flex items-center gap-1 bg-neumorphic-base text-amber-800 px-3 py-1 rounded-full shadow-neumorphic-inset flex-shrink-0 dark:bg-neumorphic-base-dark dark:text-amber-300 dark:shadow-neumorphic-inset-dark" title="Anti-cheat warnings">
-                                        <ShieldExclamationIcon className="w-4 h-4 text-amber-600 dark:text-amber-500"/>
-                                        <span className="text-xs font-semibold">{quizState.warnings} / {quizState.MAX_WARNINGS}</span>
+                                    <div className="hidden sm:flex items-center gap-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 text-amber-700 dark:text-amber-400 px-3 py-1.5 rounded-full shadow-sm animate-pulse-slow" title="Anti-cheat warnings">
+                                        <ShieldExclamationIcon className="w-4 h-4"/>
+                                        <span className="text-xs font-bold tabular-nums">{quizState.warnings}/{quizState.MAX_WARNINGS}</span>
                                     </div>
                                 )}
-                                {/* --- ⬆⬆⬆ END OF FIX ⬆⬆⬆ --- */}
 
+                                {/* Timer Display Wrapper */}
+                                <div className="bg-slate-100 dark:bg-white/5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10">
+                                    <TimerDisplay
+                                        timeRemaining={quizState.timeRemaining}
+                                        quizSettings={quiz?.settings}
+                                        isTeacherView={isTeacherView}
+                                        loading={quizState.loading}
+                                        isLocked={quizState.isLocked}
+                                        isAvailable={quizState.isAvailable}
+                                        score={quizState.score}
+                                        hasSubmitted={quizState.hasSubmitted}
+                                    />
+                                </div>
+
+                                {/* Close Button */}
+                                <button 
+                                    onClick={handleClose} 
+                                    className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400 hover:bg-red-500 hover:text-white dark:hover:bg-red-500 transition-all duration-200 shadow-sm" 
+                                    aria-label="Close Quiz"
+                                >
+                                    <XMarkIcon className="h-5 w-5" />
+                                </button>
                             </div>
                         </div>
+
+                        {/* Teacher Warning Banner */}
                         {isTeacherView && (
-                            /* --- MODIFIED: Added dark theme --- */
-                            <p className="text-center text-xs font-semibold text-blue-800 bg-blue-500/10 p-2 rounded-lg mt-3 shadow-neumorphic-inset dark:text-blue-200 dark:bg-blue-500/20 dark:shadow-neumorphic-inset-dark">
-                                Teacher Preview - Answers shown, anti-cheat disabled.
-                            </p>
+                            <div className="w-full bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800/30 py-1.5 px-4 text-center">
+                                <p className="text-[10px] sm:text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wide">
+                                    Teacher Preview Mode • Answers Visible • Anti-Cheat Inactive
+                                </p>
+                            </div>
                         )}
+                    </header>
+
+                    {/* --- CONTENT AREA --- */}
+                    <div className="relative z-20 flex-grow overflow-y-auto custom-scrollbar bg-slate-50/50 dark:bg-black/20">
+                        <div className="max-w-3xl mx-auto w-full px-4 py-6 sm:px-6 sm:py-8">
+                            {/* White Paper Card Effect */}
+                            <div className="bg-white dark:bg-[#1E293B] rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-black/50 border border-white/50 dark:border-white/5 p-1 sm:p-2">
+                                <QuizContext.Provider value={quizState}>
+                                    <QuizContent />
+                                </QuizContext.Provider>
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Content Area */}
-                    <div className="relative z-20 flex-grow overflow-y-auto px-4 sm:px-6 py-4 custom-scrollbar">
-                        <QuizContext.Provider value={quizState}>
-                            <QuizContent />
-                        </QuizContext.Provider>
-                    </div>
-
-                    {/* Footer */}
-                    {/* --- MODIFIED: Added dark theme --- */}
-                    <div className="relative z-20 flex-shrink-0 p-4 pt-3 border-t border-slate-300/50 dark:border-slate-700">
+                    {/* --- FOOTER --- */}
+                    <footer className="relative z-20 flex-shrink-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-200/60 dark:border-white/5 p-4 sm:px-6">
                         {(!isTeacherView && quizState.isAvailable && !quizState.isLocked && quizState.score === null && !quizState.hasSubmitted && !quizState.questionResult && !quizState.matchingResult) && (
                             (quizState.currentQuestionAttempted || (quizState.shuffledQuestions[quizState.currentQ]?.type === 'essay' && quizState.userAnswers[quizState.currentQ]?.trim())) ? (
-                                <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-                                    <div className="text-center sm:text-left flex-shrink-0">
-                                        {/* --- MODIFIED: Added dark theme --- */}
-                                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                                            {quizState.renderQuestionNumber()} ({quizState.shuffledQuestions[quizState.currentQ]?.points || 0} pts)
-                                            <span className="hidden sm:inline"> / {quizState.questionNumbering.totalItems} Total Points</span>
+                                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 max-w-5xl mx-auto">
+                                    
+                                    {/* Question Info */}
+                                    <div className="flex flex-col items-center sm:items-start">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-bold text-slate-900 dark:text-white">
+                                                Question {quizState.renderQuestionNumber()}
+                                            </span>
+                                            <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/10 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                                {quizState.shuffledQuestions[quizState.currentQ]?.points || 0} PTS
+                                            </span>
+                                        </div>
+                                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                                            Attempt {quizState.attemptsTaken + 1} of {quizState.maxAttempts}
                                         </span>
-                                        {/* --- MODIFIED: Added dark theme --- */}
-                                        <span className="block text-xs text-slate-500 dark:text-slate-400 mt-0.5">Attempt {quizState.attemptsTaken + 1} of {quizState.maxAttempts}</span>
                                     </div>
-                                    <div className="flex gap-2 w-full sm:w-auto">
+
+                                    {/* Navigation Controls */}
+                                    <div className="flex items-center gap-3 w-full sm:w-auto">
                                         {!(quiz?.settings?.preventBackNavigation) && quizState.currentQ > 0 && (
                                             <button
                                                 onClick={() => {
@@ -252,29 +266,27 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                                     quizState.setCurrentQ(prev => prev - 1);
                                                     quizState.setQuestionStartTime(Date.now());
                                                 }}
-                                                /* --- MODIFIED: Added dark theme --- */
-                                                className="flex items-center justify-center gap-1 w-full sm:w-auto px-4 py-2.5 rounded-xl bg-neumorphic-base text-slate-600 font-semibold shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
+                                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-200 dark:hover:bg-white/10 transition-all active:scale-95"
                                                 aria-label="Previous Question"
                                             >
-                                                <ArrowLeftIcon className="h-5 w-5"/> Back
+                                                <ArrowLeftIcon className="h-4 w-4"/> Back
                                             </button>
                                         )}
+
                                         {quizState.currentQ < quizState.shuffledQuestions.length - 1 ? (
                                             <button
                                                 onClick={quizState.handleNextQuestion}
                                                 disabled={quizState.shuffledQuestions[quizState.currentQ]?.type === 'essay' && !quizState.userAnswers[quizState.currentQ]?.trim()}
-                                                /* --- MODIFIED: Added dark theme --- */
-                                                className="flex items-center justify-center gap-1 w-full sm:w-auto px-5 py-2.5 rounded-xl bg-neumorphic-base text-blue-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all disabled:opacity-50 disabled:text-slate-400 disabled:shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:text-blue-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark dark:disabled:text-slate-500 dark:disabled:shadow-neumorphic-inset-dark"
+                                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-sm shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                                                 aria-label="Next Question"
                                             >
-                                                Next <ArrowRightIcon className="h-5 w-5"/>
+                                                Next <ArrowRightIcon className="h-4 w-4"/>
                                             </button>
                                         ) : (
                                             <button
                                                 onClick={quizState.handleSubmit}
                                                 disabled={quizState.shuffledQuestions[quizState.currentQ]?.type === 'essay' && !quizState.userAnswers[quizState.currentQ]?.trim()}
-                                                /* --- MODIFIED: Added dark theme --- */
-                                                className="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-neumorphic-base text-green-700 font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all disabled:opacity-50 disabled:text-slate-400 disabled:shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:text-green-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark dark:disabled:text-slate-500 dark:disabled:shadow-neumorphic-inset-dark"
+                                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-sm shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                                                 aria-label="Submit Quiz"
                                             >
                                                 Submit Quiz
@@ -285,40 +297,42 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                             ) : null
                         )}
 
+                        {/* Teacher Navigation Controls */}
                         {isTeacherView && quizState.shuffledQuestions.length > 0 && (
-                            <div className="flex justify-between items-center">
+                            <div className="flex justify-between items-center max-w-3xl mx-auto">
                                 <button
                                     onClick={() => {
                                         quizState.setCurrentQ(prev => Math.max(0, prev - 1));
                                         quizState.setQuestionStartTime(Date.now());
                                     }}
                                     disabled={quizState.currentQ === 0}
-                                    /* --- MODIFIED: Added dark theme --- */
-                                    className="flex items-center gap-1 px-4 py-2 rounded-xl bg-neumorphic-base text-slate-700 font-semibold shadow-neumorphic active:shadow-neumorphic-inset disabled:opacity-50 transition-all dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
-                                    aria-label="Previous Question"
+                                    className="flex items-center gap-1 px-4 py-2 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 dark:hover:bg-white/10 disabled:opacity-30 transition-all"
                                 >
-                                    <ArrowLeftIcon className="h-5 w-5"/>Previous
+                                    <ArrowLeftIcon className="h-3.5 w-3.5"/> Prev
                                 </button>
-                                {/* --- MODIFIED: Added dark theme --- */}
-                                <span className="text-xs text-center font-medium text-slate-600 dark:text-slate-400">
-                                    {quizState.renderQuestionNumber()} ({quizState.shuffledQuestions[quizState.currentQ]?.points || 0} pts)
-                                    <br/>(Item {quizState.currentQ + 1} of {quizState.shuffledQuestions.length})
-                                </span>
+
+                                <div className="text-center">
+                                    <span className="block text-sm font-bold text-slate-900 dark:text-white">
+                                        Item {quizState.currentQ + 1} <span className="text-slate-400 dark:text-slate-600">/</span> {quizState.shuffledQuestions.length}
+                                    </span>
+                                    <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                                        {quizState.shuffledQuestions[quizState.currentQ]?.points || 0} Points
+                                    </span>
+                                </div>
+
                                 <button
                                     onClick={() => {
                                         quizState.setCurrentQ(prev => Math.min(quizState.shuffledQuestions.length - 1, prev + 1));
                                         quizState.setQuestionStartTime(Date.now());
                                     }}
                                     disabled={quizState.currentQ === quizState.shuffledQuestions.length - 1}
-                                    /* --- MODIFIED: Added dark theme --- */
-                                    className="flex items-center gap-1 px-4 py-2 rounded-xl bg-neumorphic-base text-slate-700 font-semibold shadow-neumorphic active:shadow-neumorphic-inset disabled:opacity-50 transition-all dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
-                                    aria-label="Next Question"
+                                    className="flex items-center gap-1 px-4 py-2 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 dark:hover:bg-white/10 disabled:opacity-30 transition-all"
                                 >
-                                    Next<ArrowRightIcon className="h-5 w-5"/>
+                                    Next <ArrowRightIcon className="h-3.5 w-3.5"/>
                                 </button>
                             </div>
                         )}
-                    </div>
+                    </footer>
                 </DialogPanel>
             </Dialog>
             

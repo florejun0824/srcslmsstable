@@ -1,6 +1,6 @@
 // src/pages/AdminDashboard.jsx
 
-import React, { useState, useEffect, Fragment } from 'react'; // <-- ADDED Fragment
+import React, { useState, useEffect, Fragment } from 'react';
 import { memo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -17,20 +17,44 @@ import {
   UserCheck,
   ChevronDown,
   Settings,
-  AlertTriangle, // <-- ADDED
-  Info, // <-- ADDED
+  AlertTriangle,
+  Info,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { Dialog, Transition } from '@headlessui/react'; // <-- ADDED
+import { Dialog, Transition } from '@headlessui/react';
 
-import Spinner from '../components/common/Spinner';
 import AddUserModal from '../components/admin/AddUserModal';
 import GenerateUsersModal from '../components/admin/GenerateUsersModal';
 import DownloadAccountsModal from '../components/admin/DownloadAccountsModal';
 import EditUserModal from '../components/admin/EditUserModal';
 
-// --- NEW COMPONENT: AlertModal ---
-// --- MODIFIED: Added 'export' ---
+// --- DESIGN TOKENS & UTILS ---
+// Apple-style glass panel class
+const glassPanel = "bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-xl shadow-black/5";
+// Apple-style input/item hover
+const listItemHover = "hover:bg-black/5 dark:hover:bg-white/10 transition-colors duration-200";
+
+// --- SKELETON COMPONENT ---
+const TableSkeleton = () => (
+  <div className={`${glassPanel} rounded-2xl mb-5 overflow-hidden animate-pulse`}>
+    <div className="p-4 flex items-center justify-between">
+      <div className="flex items-center gap-4">
+        {/* Icon Placeholder */}
+        <div className="w-10 h-10 rounded-xl bg-gray-200 dark:bg-white/10"></div>
+        <div className="space-y-2">
+          {/* Title Placeholder */}
+          <div className="h-5 w-32 bg-gray-200 dark:bg-white/10 rounded-md"></div>
+          {/* Subtitle Placeholder */}
+          <div className="h-3 w-20 bg-gray-200 dark:bg-white/5 rounded-md"></div>
+        </div>
+      </div>
+      {/* Chevron Placeholder */}
+      <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-white/5"></div>
+    </div>
+  </div>
+);
+
+// --- ALERT MODAL ---
 export const AlertModal = ({ isOpen, onClose, title, message }) => (
   <Transition appear show={isOpen} as={Fragment}>
     <Dialog as="div" className="relative z-50" onClose={onClose}>
@@ -43,7 +67,8 @@ export const AlertModal = ({ isOpen, onClose, title, message }) => (
         leaveFrom="opacity-100"
         leaveTo="opacity-0"
       >
-        <div className="fixed inset-0 bg-black/30" />
+        {/* Standard Apple dimming */}
+        <div className="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm" />
       </Transition.Child>
 
       <div className="fixed inset-0 overflow-y-auto">
@@ -51,28 +76,31 @@ export const AlertModal = ({ isOpen, onClose, title, message }) => (
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
-            enterFrom="opacity-0 scale-95"
-            enterTo="opacity-100 scale-100"
+            enterFrom="opacity-0 scale-95 blur-sm"
+            enterTo="opacity-100 scale-100 blur-0"
             leave="ease-in duration-200"
-            leaveFrom="opacity-100 scale-100"
-            leaveTo="opacity-0 scale-95"
+            leaveFrom="opacity-100 scale-100 blur-0"
+            leaveTo="opacity-0 scale-95 blur-sm"
           >
-            <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-neumorphic-base dark:bg-neumorphic-base-dark p-6 text-left align-middle shadow-neumorphic dark:shadow-neumorphic-dark transition-all">
+            {/* MacOS Dialog Style */}
+            <Dialog.Panel className="w-full max-w-sm transform overflow-hidden rounded-2xl bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur-2xl p-6 text-left align-middle shadow-2xl ring-1 ring-black/5 transition-all">
               <Dialog.Title
                 as="h3"
-                className="text-lg font-bold leading-6 text-slate-900 dark:text-slate-100 flex items-center gap-2"
+                className="text-lg font-semibold leading-6 text-gray-900 dark:text-white flex items-center gap-3"
               >
-                <Info className="w-6 h-6 text-blue-600" />
+                <div className="p-2 bg-blue-100 dark:bg-blue-500/20 rounded-full">
+                    <Info className="w-5 h-5 text-blue-500" />
+                </div>
                 {title}
               </Dialog.Title>
               <div className="mt-4">
-                <p className="text-sm text-slate-600 dark:text-slate-300 break-words">{message}</p>
+                <p className="text-[15px] text-gray-500 dark:text-gray-300 break-words leading-relaxed">{message}</p>
               </div>
 
               <div className="mt-6 flex justify-end">
                 <button
                   type="button"
-                  className="inline-flex justify-center rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark bg-neumorphic-base dark:bg-neumorphic-base-dark px-5 py-2.5 text-sm font-semibold text-blue-800 dark:text-blue-300 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-none"
+                  className="inline-flex justify-center rounded-lg bg-[#007AFF] px-5 py-2 text-[15px] font-medium text-white hover:bg-[#0062CC] focus:outline-none active:scale-95 transition-transform"
                   onClick={onClose}
                 >
                   OK
@@ -86,8 +114,7 @@ export const AlertModal = ({ isOpen, onClose, title, message }) => (
   </Transition>
 );
 
-// --- NEW COMPONENT: ConfirmActionModal ---
-// --- MODIFIED: Added 'export' ---
+// --- CONFIRM MODAL ---
 export const ConfirmActionModal = ({
   isOpen,
   onClose,
@@ -105,20 +132,23 @@ export const ConfirmActionModal = ({
 
   const variantMap = {
     danger: {
-      icon: <AlertTriangle className="w-6 h-6 text-red-600" />,
-      buttonClass: 'bg-red-600 hover:bg-red-700 focus-visible:ring-red-500',
+      icon: <AlertTriangle className="w-5 h-5 text-red-500" />,
+      iconBg: 'bg-red-100 dark:bg-red-500/20',
+      buttonClass: 'bg-red-500 hover:bg-red-600 text-white shadow-sm',
     },
     warning: {
-      icon: <AlertTriangle className="w-6 h-6 text-orange-600" />,
-      buttonClass: 'bg-orange-600 hover:bg-orange-700 focus-visible:ring-orange-500',
+      icon: <AlertTriangle className="w-5 h-5 text-orange-500" />,
+      iconBg: 'bg-orange-100 dark:bg-orange-500/20',
+      buttonClass: 'bg-orange-500 hover:bg-orange-600 text-white shadow-sm',
     },
     info: {
-      icon: <Info className="w-6 h-6 text-blue-600" />,
-      buttonClass: 'bg-blue-600 hover:bg-blue-700 focus-visible:ring-blue-500',
+      icon: <Info className="w-5 h-5 text-blue-500" />,
+      iconBg: 'bg-blue-100 dark:bg-blue-500/20',
+      buttonClass: 'bg-[#007AFF] hover:bg-[#0062CC] text-white shadow-sm',
     },
   };
 
-  const { icon, buttonClass } = variantMap[variant] || variantMap.info;
+  const { icon, iconBg, buttonClass } = variantMap[variant] || variantMap.info;
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -132,7 +162,7 @@ export const ConfirmActionModal = ({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black/30" />
+          <div className="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm" />
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-y-auto">
@@ -140,35 +170,37 @@ export const ConfirmActionModal = ({
             <Transition.Child
               as={Fragment}
               enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
+              enterFrom="opacity-0 scale-95 blur-sm"
+              enterTo="opacity-100 scale-100 blur-0"
               leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
+              leaveFrom="opacity-100 scale-100 blur-0"
+              leaveTo="opacity-0 scale-95 blur-sm"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-neumorphic-base dark:bg-neumorphic-base-dark p-6 text-left align-middle shadow-neumorphic dark:shadow-neumorphic-dark transition-all">
+              <Dialog.Panel className="w-full max-w-sm transform overflow-hidden rounded-2xl bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur-2xl p-6 text-left align-middle shadow-2xl ring-1 ring-black/5 transition-all">
                 <Dialog.Title
                   as="h3"
-                  className="text-lg font-bold leading-6 text-slate-900 dark:text-slate-100 flex items-center gap-2"
+                  className="text-lg font-semibold leading-6 text-gray-900 dark:text-white flex items-center gap-3"
                 >
-                  {icon}
+                  <div className={`p-2 rounded-full ${iconBg}`}>
+                    {icon}
+                  </div>
                   {title}
                 </Dialog.Title>
                 <div className="mt-4">
-                  <p className="text-sm text-slate-600 dark:text-slate-300">{message}</p>
+                  <p className="text-[15px] text-gray-500 dark:text-gray-300 leading-relaxed">{message}</p>
                 </div>
 
-                <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end sm:gap-3 space-y-2 space-y-reverse sm:space-y-0">
+                <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end sm:gap-3 gap-2">
                   <button
                     type="button"
-                    className="inline-flex justify-center rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark bg-neumorphic-base dark:bg-neumorphic-base-dark px-5 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-none"
+                    className="inline-flex justify-center rounded-lg px-4 py-2 text-[15px] font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none"
                     onClick={onClose}
                   >
                     {cancelText}
                   </button>
                   <button
                     type="button"
-                    className={`inline-flex justify-center rounded-xl border border-transparent px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${buttonClass}`}
+                    className={`inline-flex justify-center rounded-lg px-4 py-2 text-[15px] font-medium focus:outline-none active:scale-95 transition-all ${buttonClass}`}
                     onClick={handleConfirm}
                   >
                     {confirmText}
@@ -224,81 +256,83 @@ const CollapsibleUserTable = memo(({
     userIdsInTable.length > 0 && userIdsInTable.every((id) => selectedUserIds.has(id));
 
   return (
-    <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark mb-6 transition-all duration-300 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark">
+    <div className={`${glassPanel} rounded-2xl mb-5 overflow-hidden`}>
       <button
         onClick={onToggle}
-        className="w-full flex justify-between items-center p-4 sm:p-5 cursor-pointer"
+        className="w-full flex justify-between items-center p-4 cursor-pointer hover:bg-white/40 dark:hover:bg-white/5 transition-colors duration-200 group"
       >
-        <div className="flex items-center">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center bg-slate-200 dark:bg-slate-700 shadow-inner dark:shadow-none">
-            {React.cloneElement(icon, { className: 'text-slate-700 dark:text-slate-200', size: 20 })}
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 shadow-sm ring-1 ring-black/5 dark:ring-white/5">
+            {React.cloneElement(icon, { className: 'text-gray-600 dark:text-gray-300', size: 20 })}
           </div>
-          <div className="ml-3 sm:ml-4 text-left">
-            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">{title}</h2>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{users.length} Accounts</span>
+          <div className="text-left">
+            <h2 className="text-[17px] font-semibold text-gray-900 dark:text-white tracking-tight group-hover:text-[#007AFF] transition-colors">{title}</h2>
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{users.length} Accounts</span>
           </div>
         </div>
-        <ChevronDown
-          size={20}
-          className={`text-slate-500 dark:text-slate-400 transform transition-transform duration-500 ${isOpen ? 'rotate-180' : ''
-            }`}
-        />
+        <div className={`w-7 h-7 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-all duration-300 ${isOpen ? 'bg-[#007AFF] text-white rotate-180' : 'text-gray-400'}`}>
+            <ChevronDown size={16} strokeWidth={3} />
+        </div>
       </button>
       <div
-        className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[1500px] opacity-100' : 'max-h-0 opacity-0'
+        className={`transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${isOpen ? 'max-h-[1500px] opacity-100' : 'max-h-0 opacity-0'
           }`}
-        style={{ overflow: 'hidden' }}
       >
-        <div className="overflow-x-auto p-4">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-slate-600 dark:text-slate-400">
-                <th className="px-2 py-2 sm:px-4 text-left">
+        {/* Divider */}
+        <div className="h-px w-full bg-gray-200/50 dark:bg-gray-700/50" />
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm text-left">
+            <thead className="bg-gray-50/50 dark:bg-black/20 text-xs uppercase font-semibold text-gray-400">
+              <tr>
+                <th className="px-6 py-3 w-12">
                   <input
                     type="checkbox"
                     onChange={() => handleSelectAll(userIdsInTable)}
                     checked={allInTableSelected}
                     disabled={userIdsInTable.length === 0}
-                    className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-slate-700"
+                    className="h-4 w-4 rounded-[4px] border-gray-300 dark:border-gray-600 text-[#007AFF] focus:ring-[#007AFF] dark:bg-gray-700 cursor-pointer"
                   />
                 </th>
-                <th className="px-2 py-2 sm:px-4 text-left">Name</th>
-                <th className="px-2 py-2 sm:px-4 text-left">Email</th>
-                <th className="px-2 py-2 sm:px-4 text-left">Role</th>
-                <th className="px-2 py-2 sm:px-4 text-right">Actions</th>
+                <th className="px-4 py-3 tracking-wider">Name</th>
+                <th className="px-4 py-3 tracking-wider">Email</th>
+                <th className="px-4 py-3 tracking-wider">Role</th>
+                <th className="px-6 py-3 text-right tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {users.length > 0 ? (
                 users.map((user) => (
                   <tr
                     key={user.id}
-                    className={`hover:bg-slate-50 dark:hover:bg-slate-800 ${selectedUserIds.has(user.id) ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''
+                    className={`group transition-colors ${selectedUserIds.has(user.id) ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'hover:bg-gray-50/80 dark:hover:bg-white/5'
                       }`}
                   >
-                    <td className="px-2 py-2 sm:px-4">
+                    <td className="px-6 py-3.5">
                       <input
                         type="checkbox"
                         onChange={() => handleSelectUser(user.id)}
                         checked={selectedUserIds.has(user.id)}
-                        className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-slate-700"
+                        className="h-4 w-4 rounded-[4px] border-gray-300 dark:border-gray-600 text-[#007AFF] focus:ring-[#007AFF] dark:bg-gray-700 cursor-pointer"
                       />
                     </td>
-                    <td className="px-2 py-2 sm:px-4 whitespace-nowrap font-medium text-slate-800 dark:text-slate-100">
-                      {user.firstName} {user.lastName}
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                        <span className="font-medium text-gray-900 dark:text-gray-100">{user.firstName} {user.lastName}</span>
                     </td>
-                    <td className="px-2 py-2 sm:px-4 whitespace-nowrap text-slate-600 dark:text-slate-300">{user.email}</td>
-                    <td className="px-2 py-2 sm:px-4 whitespace-nowTcap text-slate-600 dark:text-slate-300 capitalize">
-                      {user.role}
+                    <td className="px-4 py-3.5 whitespace-nowrap text-gray-500 dark:text-gray-400 font-light">{user.email}</td>
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 capitalize">
+                        {user.role}
+                      </span>
                     </td>
-                    <td className="px-2 py-2 sm:px-4 whitespace-nowrap text-right space-x-3 relative">
+                    <td className="px-6 py-3.5 whitespace-nowrap text-right relative">
                       {isRestrictedTable ? (
                         <button
                           onClick={() => handleSetRestriction(user.id, false, `${user.firstName} ${user.lastName}`)}
-                          className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                          className="p-2 rounded-full text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/40 transition-colors"
                           title="Unrestrict Account"
                         >
-                          <UserCheck size={18} />
+                          <UserCheck size={16} />
                         </button>
                       ) : (
                         <>
@@ -308,25 +342,26 @@ const CollapsibleUserTable = memo(({
                               e.stopPropagation();
                               setLocalActionMenuOpenFor(user.id === localActionMenuOpenFor ? null : user.id);
                             }}
-                            className="text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"
+                            className="p-1.5 rounded-md text-gray-400 hover:text-[#007AFF] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
                             title="Actions"
                           >
-                            <Settings size={18} />
+                            <Settings size={18} strokeWidth={2} />
                           </button>
 
+                          {/* Action Menu - Popover Style */}
                           {localActionMenuOpenFor === user.id && (
                             <div
                               onClick={(e) => e.stopPropagation()}
-                              className="absolute right-0 top-10 z-20 w-48 bg-white dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 py-1"
+                              className="absolute right-8 top-8 z-30 w-48 bg-white/95 dark:bg-[#2c2c2e]/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 py-1.5 origin-top-right animate-in fade-in zoom-in-95 duration-100"
                             >
                               <button
                                 onClick={() => {
                                   handleShowPassword(user.password);
                                   setLocalActionMenuOpenFor(null);
                                 }}
-                                className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-3"
+                                className="w-full text-left px-3 py-2 text-[13px] text-gray-700 dark:text-gray-200 hover:bg-[#007AFF] hover:text-white flex items-center gap-3 transition-colors mx-1 rounded-lg w-[calc(100%-8px)]"
                               >
-                                <Eye size={16} />
+                                <Eye size={14} />
                                 Show Password
                               </button>
                               <button
@@ -335,9 +370,9 @@ const CollapsibleUserTable = memo(({
                                   setIsEditUserModalOpen(true);
                                   setLocalActionMenuOpenFor(null);
                                 }}
-                                className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-3"
+                                className="w-full text-left px-3 py-2 text-[13px] text-gray-700 dark:text-gray-200 hover:bg-[#007AFF] hover:text-white flex items-center gap-3 transition-colors mx-1 rounded-lg w-[calc(100%-8px)]"
                               >
-                                <Edit size={16} />
+                                <Edit size={14} />
                                 Edit User
                               </button>
                               <button
@@ -345,12 +380,12 @@ const CollapsibleUserTable = memo(({
                                   handleSetRestriction(user.id, true, `${user.firstName} ${user.lastName}`);
                                   setLocalActionMenuOpenFor(null);
                                 }}
-                                className="w-full text-left px-4 py-2 text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 flex items-center gap-3"
+                                className="w-full text-left px-3 py-2 text-[13px] text-orange-600 dark:text-orange-400 hover:bg-orange-500 hover:text-white flex items-center gap-3 transition-colors mx-1 rounded-lg w-[calc(100%-8px)]"
                               >
-                                <UserX size={16} />
+                                <UserX size={14} />
                                 Restrict Account
                               </button>
-                              <div className="border-t border-slate-100 dark:border-slate-700 my-1"></div>
+                              <div className="h-px bg-gray-200 dark:bg-gray-700 my-1 mx-2"></div>
                               <button
                                 onClick={() => {
                                   handleSingleDelete(
@@ -359,9 +394,9 @@ const CollapsibleUserTable = memo(({
                                   );
                                   setLocalActionMenuOpenFor(null);
                                 }}
-                                className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-3"
+                                className="w-full text-left px-3 py-2 text-[13px] text-red-600 dark:text-red-400 hover:bg-red-500 hover:text-white flex items-center gap-3 transition-colors mx-1 rounded-lg w-[calc(100%-8px)]"
                               >
-                                <Trash2 size={16} />
+                                <Trash2 size={14} />
                                 Delete User
                               </button>
                             </div>
@@ -373,8 +408,8 @@ const CollapsibleUserTable = memo(({
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="text-center text-slate-500 dark:text-slate-400 py-6">
-                    No users in this category.
+                  <td colSpan="5" className="text-center text-gray-400 dark:text-gray-500 py-8 text-sm">
+                    No users found.
                   </td>
                 </tr>
               )}
@@ -707,81 +742,89 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="bg-transparent">
-      <div className="p-6 max-w-7xl mx-auto">
-        <header className="mb-8">
+    <div className="min-h-screen bg-transparent font-sans">
+      {/* Subtle gradient backdrop if needed, otherwise transparent */}
+      <div className="p-4 sm:p-8 max-w-7xl mx-auto">
+        
+        <header className="mb-8 sm:mb-12">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div>
-              <h1 className="text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
+              <h1 className="text-[32px] sm:text-[40px] font-bold text-gray-900 dark:text-white tracking-tight leading-tight">
                 Admin Console
               </h1>
-              <p className="mt-2 text-slate-600 dark:text-slate-400">
-                Central hub for user management and system settings.
+              <p className="mt-1 text-lg text-gray-500 dark:text-gray-400">
+                Manage your organization's users and settings.
               </p>
             </div>
-            <div className="flex flex-wrap items-center justify-start md:justify-end gap-3 shrink-0">
+            
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
               {selectedUserIds.size > 0 && (
                 <button
                   onClick={handleDeleteSelected}
-                  className="flex items-center font-semibold bg-red-100 text-red-700 px-4 py-2 rounded-xl shadow hover:bg-red-200 transition-all hover:scale-105"
+                  className="flex-1 md:flex-none flex items-center justify-center font-medium bg-red-500 hover:bg-red-600 active:bg-red-700 text-white px-4 py-2.5 rounded-xl shadow-lg shadow-red-500/30 transition-all active:scale-95"
                 >
-                  <Trash2 size={16} className="mr-2" />
+                  <Trash2 size={18} className="mr-2" />
                   Delete ({selectedUserIds.size})
                 </button>
               )}
               <button
                 onClick={() => setDownloadModalOpen(true)}
-                className="flex items-center font-semibold bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-xl shadow hover:bg-slate-50 dark:hover:bg-slate-600 transition-all hover:scale-105"
+                className="flex-1 md:flex-none flex items-center justify-center font-medium bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2.5 rounded-xl hover:bg-white/80 dark:hover:bg-gray-700 transition-all active:scale-95"
               >
-                <Download size={16} className="mr-2" />
-                Download
+                <Download size={18} className="mr-2" />
+                Export
               </button>
               <button
                 onClick={() => setGenerateModalOpen(true)}
-                className="flex items-center font-semibold bg-gradient-to-r from-indigo-500 to-blue-500 text-white px-4 py-2 rounded-xl shadow hover:shadow-lg transition-all hover:scale-105"
+                className="flex-1 md:flex-none flex items-center justify-center font-medium bg-[#007AFF] hover:bg-[#0062CC] text-white px-5 py-2.5 rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-95"
               >
-                <Users size={16} className="mr-2" />
-                Generate Users
+                <Users size={18} className="mr-2" />
+                New User
               </button>
             </div>
           </div>
         </header>
 
-        <div className="mb-6">
-          <nav className="flex space-x-2 border-b border-slate-200 dark:border-slate-700 overflow-x-auto" aria-label="Tabs">
+        {/* iOS Segmented Control Style Tabs */}
+        <div className="mb-8">
+          <div className="inline-flex p-1.5 bg-gray-200/50 dark:bg-gray-800/50 backdrop-blur-md rounded-xl border border-black/5 dark:border-white/5 w-full sm:w-auto overflow-x-auto">
             <button
               onClick={() => setActiveTab('active')}
-              className={`-mb-0.5 py-3 px-3 sm:px-5 font-bold text-base transition-colors rounded-t-lg ${
+              className={`flex-1 sm:flex-none px-6 py-2 rounded-lg text-[14px] font-semibold transition-all duration-200 ease-out ${
                 activeTab === 'active'
-                  ? 'border-b-4 border-indigo-500 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100'
+                  ? 'bg-white dark:bg-[#3A3A3C] text-black dark:text-white shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
               Active Accounts
             </button>
             <button
               onClick={() => setActiveTab('restricted')}
-              className={`-mb-0.5 flex items-center py-3 px-3 sm:px-5 font-bold text-base transition-colors rounded-t-lg ${
+              className={`flex-1 sm:flex-none px-6 py-2 rounded-lg text-[14px] font-semibold transition-all duration-200 ease-out flex items-center justify-center gap-2 ${
                 activeTab === 'restricted'
-                  ? 'border-b-4 border-orange-500 dark:border-orange-400 text-orange-600 dark:text-orange-400'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100'
+                  ? 'bg-white dark:bg-[#3A3A3C] text-black dark:text-white shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
               Restricted
-              <span className="ml-2 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs font-semibold px-2.5 py-1 rounded-full">
-                {restrictedUsers.length}
-              </span>
+              {restrictedUsers.length > 0 && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === 'restricted' ? 'bg-gray-100 dark:bg-black/20 text-gray-600 dark:text-gray-300' : 'bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                  {restrictedUsers.length}
+                </span>
+              )}
             </button>
-          </nav>
+          </div>
         </div>
 
         {loading ? (
-          <div className="flex flex-col justify-center items-center h-96">
-            <Spinner />
-            <p className="mt-4 text-slate-500 dark:text-slate-400 font-semibold">Fetching user data...</p>
-          </div>
+           <div className="space-y-4 animate-in fade-in duration-500">
+             {/* Render skeletal table items */}
+             <TableSkeleton />
+             <TableSkeleton />
+             <TableSkeleton />
+           </div>
         ) : (
-          <div>
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             {activeTab === 'active' ? (
               <>
                 <CollapsibleUserTable
@@ -814,38 +857,34 @@ const AdminDashboard = () => {
                   setIsEditUserModalOpen={setIsEditUserModalOpen}
                   handleSingleDelete={handleSingleDelete}
                 />
-                <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark mb-6">
+                <div className={`${glassPanel} rounded-2xl mb-6 overflow-hidden transition-all duration-300`}>
                   <button
                     onClick={() => toggleSection('studentsContainer')}
-                    className="w-full flex justify-between items-center p-4 sm:p-5 cursor-pointer"
+                    className="w-full flex justify-between items-center p-4 cursor-pointer hover:bg-white/40 dark:hover:bg-white/5 transition-colors duration-200 group"
                   >
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center bg-slate-200 dark:bg-slate-700 shadow-inner dark:shadow-none">
-                        <User size={20} className="text-slate-700 dark:text-slate-200" />
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 shadow-sm ring-1 ring-black/5 dark:ring-white/5">
+                        <User size={20} className="text-gray-600 dark:text-gray-300" />
                       </div>
-                      <div className="ml-3 sm:ml-4 text-left">
-                        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Students</h2>
-                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      <div className="text-left">
+                        <h2 className="text-[17px] font-semibold text-gray-900 dark:text-white tracking-tight group-hover:text-[#007AFF] transition-colors">Students</h2>
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
                           {groupedUsers.students.length} Accounts
                         </span>
                       </div>
                     </div>
-                    <ChevronDown
-                      size={20}
-                      className={`text-slate-500 dark:text-slate-400 transform transition-transform duration-500 ${
-                        openSections.studentsContainer ? 'rotate-180' : ''
-                      }`}
-                    />
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-all duration-300 ${openSections.studentsContainer ? 'bg-[#007AFF] text-white rotate-180' : 'text-gray-400'}`}>
+                        <ChevronDown size={16} strokeWidth={3} />
+                    </div>
                   </button>
                   <div
-                    className={`transition-all duration-500 ease-in-out ${
+                    className={`transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
                       openSections.studentsContainer
                         ? 'max-h-[3000px] opacity-100'
                         : 'max-h-0 opacity-0'
                     }`}
-                    style={{ overflow: 'hidden' }}
                   >
-                    <div className="p-4 space-y-2 bg-slate-50 dark:bg-slate-800/50">
+                    <div className="p-4 space-y-4 bg-gray-50/30 dark:bg-black/20 border-t border-gray-200/50 dark:border-white/5">
                       {groupedUsers.students.length > 0 ? (
                         Object.entries(studentsByGrade).map(([grade, list]) => (
                           <CollapsibleUserTable
@@ -866,7 +905,7 @@ const AdminDashboard = () => {
                           />
                         ))
                       ) : (
-                        <p className="text-center text-slate-500 dark:text-slate-400 py-6">No student accounts found.</p>
+                        <p className="text-center text-gray-400 dark:text-gray-500 py-6 text-sm">No student accounts found.</p>
                       )}
                     </div>
                   </div>
@@ -914,7 +953,7 @@ const AdminDashboard = () => {
           onSubmit={handleUpdateUser}
           onUpdatePassword={handleUpdatePassword}
           onClose={() => setIsEditUserModalOpen(false)}
-          isLoading={isUpdatingUser} // <-- PASS LOADING STATE
+          isLoading={isUpdatingUser}
         />
       )}
       

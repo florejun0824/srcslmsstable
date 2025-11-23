@@ -5,6 +5,7 @@ import { Dialog } from '@headlessui/react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
+import { PencilSquareIcon } from '@heroicons/react/24/solid';
 
 export default function EditSubjectModal({ isOpen, onClose, subject }) {
   const [subjectName, setSubjectName] = useState('');
@@ -54,75 +55,108 @@ export default function EditSubjectModal({ isOpen, onClose, subject }) {
     <Dialog 
       open={isOpen} 
       onClose={onClose} 
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="relative z-[6000]"
     >
-      {/* ✅ Backdrop with dark mode */}
-      <div 
-        className="fixed inset-0 bg-black/40 dark:bg-black/70 backdrop-blur-sm transition-colors duration-300" 
-        aria-hidden="true" 
-      />
+      {/* Backdrop with deep blur */}
+      <div className="fixed inset-0 bg-slate-900/30 dark:bg-black/60 backdrop-blur-md transition-opacity duration-300" aria-hidden="true" />
 
-      {/* ✅ Neumorphic Modal with Dark Theme Support */}
-      <Dialog.Panel 
-        className="bg-neumorphic-base dark:bg-neumorphic-base-dark 
-                   text-slate-800 dark:text-slate-100 
-                   p-6 rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark 
-                   w-full max-w-md z-10 text-center transition-colors duration-300"
-      >
-        <Dialog.Title className="text-2xl font-bold mb-2">
-          Edit Subject
-        </Dialog.Title>
-        <p className="mb-6 text-sm text-slate-600 dark:text-slate-400">
-          Enter the new name for the subject.
-        </p>
-        
-        {/* ✅ Input field with adaptive inset shadows */}
-        <input
-          type="text"
-          value={subjectName}
-          onChange={(e) => setSubjectName(e.target.value)}
-          placeholder="Subject Name"
-          className="w-full text-center rounded-lg border-none 
-                     bg-neumorphic-base dark:bg-neumorphic-base-dark 
-                     shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark 
-                     px-4 py-3 text-slate-900 dark:text-slate-100 
-                     placeholder-slate-500 dark:placeholder-slate-400 
-                     focus:outline-none mb-6 transition-colors duration-300"
-        />
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+        {/* Modal Panel - Ultra-Glass Style */}
+        <Dialog.Panel 
+          className="w-full max-w-md transform overflow-hidden rounded-[2.5rem] 
+                     bg-white/90 dark:bg-[#16181D]/90 backdrop-blur-3xl 
+                     p-8 text-left align-middle shadow-2xl shadow-slate-400/20 dark:shadow-black/60 
+                     border border-white/60 dark:border-white/5 
+                     ring-1 ring-slate-900/5 transition-all animate-in fade-in zoom-in-95 duration-300 scale-100"
+        >
+          
+          {/* Icon Header with Ambient Bloom */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="relative group">
+                {/* Bloom behind icon */}
+                <div className="absolute inset-0 bg-blue-500 rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
+                <div className="relative h-16 w-16 rounded-[1.2rem] bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 ring-1 ring-white/20">
+                    <PencilSquareIcon className="h-8 w-8 text-white drop-shadow-sm" />
+                </div>
+            </div>
+            <Dialog.Title as="h3" className="mt-5 text-2xl font-bold text-slate-900 dark:text-white tracking-tight text-center">
+              Edit Subject
+            </Dialog.Title>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 text-center font-medium">
+              Update the course title below.
+            </p>
+          </div>
 
-        {/* ✅ Buttons with neumorphic styling and dark mode feedback */}
-        <div className="grid grid-cols-2 gap-4">
-          <button 
-            onClick={onClose} 
-            disabled={isSaving}
-            className="py-3 text-base font-semibold 
-                       bg-neumorphic-base dark:bg-neumorphic-base-dark 
-                       text-slate-700 dark:text-slate-200 
-                       rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark 
-                       hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark 
-                       active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark 
-                       hover:text-slate-900 dark:hover:text-white 
-                       transition-all duration-300 disabled:opacity-60"
-          >
-            Cancel
-          </button>
+          {/* Input Field - Recessed "Deep Field" Look */}
+          <div className="mb-8">
+            <div className="relative group">
+                <input
+                type="text"
+                value={subjectName}
+                onChange={(e) => setSubjectName(e.target.value)}
+                placeholder="Enter subject name..."
+                className="w-full px-5 py-4 rounded-2xl 
+                            bg-slate-100/80 dark:bg-black/40 
+                            border border-transparent focus:border-blue-500/50 
+                            text-slate-900 dark:text-white text-center font-semibold text-lg
+                            placeholder:text-slate-400 dark:placeholder:text-slate-600 placeholder:font-normal
+                            focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white dark:focus:bg-black/60
+                            transition-all duration-300 shadow-inner group-hover:bg-slate-100 dark:group-hover:bg-black/50"
+                />
+            </div>
+          </div>
 
-          <button 
-            onClick={handleSave} 
-            disabled={isSaving} 
-            className="py-3 text-base font-semibold 
-                       bg-neumorphic-base dark:bg-neumorphic-base-dark 
-                       text-primary-700 dark:text-primary-400 
-                       rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark 
-                       hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark 
-                       active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark 
-                       hover:text-primary-800 dark:hover:text-primary-300 
-                       transition-all duration-300 disabled:opacity-60"
-          >
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </button>
-        </div>
-      </Dialog.Panel>
+          {/* Buttons - "Gem" & "Glass" Styles */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Cancel: Frosted Glass */}
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSaving}
+              className="inline-flex justify-center rounded-full px-4 py-3.5 text-sm font-bold 
+                         text-slate-600 dark:text-slate-300 
+                         bg-white/50 dark:bg-white/5 
+                         hover:bg-white/80 dark:hover:bg-white/10 
+                         border border-slate-200/60 dark:border-white/10 
+                         shadow-sm hover:shadow-md backdrop-blur-sm
+                         transition-all duration-200 active:scale-[0.98] 
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+
+            {/* Save: Aurora Gem */}
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="relative inline-flex justify-center rounded-full px-4 py-3.5 text-sm font-bold 
+                         text-white 
+                         bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600
+                         hover:from-blue-500 hover:via-indigo-500 hover:to-purple-500
+                         shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 
+                         border border-white/20 
+                         transition-all duration-300 active:scale-[0.98] 
+                         disabled:opacity-70 disabled:cursor-not-allowed disabled:shadow-none overflow-hidden"
+            >
+              {/* Shine effect overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/20 pointer-events-none"></div>
+              
+              {isSaving ? (
+                <span className="flex items-center gap-2 relative z-10">
+                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </span>
+              ) : (
+                <span className="relative z-10">Save Changes</span>
+              )}
+            </button>
+          </div>
+        </Dialog.Panel>
+      </div>
     </Dialog>
   );
 }

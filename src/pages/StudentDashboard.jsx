@@ -1,5 +1,5 @@
 // src/pages/StudentDashboard.jsx
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
@@ -126,7 +126,6 @@ const StudentDashboard = () => {
   const taskPerformed = useRef(false);
   useEffect(() => {
     if (userProfile && !taskPerformed.current) {
-      console.log('Running user profile maintenance tasks...');
       taskPerformed.current = true;
       const userRef = doc(db, 'users', userProfile.id);
       const updateData = {};
@@ -187,18 +186,14 @@ const StudentDashboard = () => {
       }
 
       if (needsUpdate) {
-        console.log('Applying profile updates:', updateData);
         updateDoc(userRef, updateData)
         .then(() => {
-          console.log('Profile maintenance complete. Refreshing profile...');
           refreshUserProfile();
         })
         .catch((err) => {
           console.error('Failed to update profile:', err);
           taskPerformed.current = false; 
         });
-      } else {
-        console.log('No profile maintenance needed.');
       }
     }
   }, [userProfile, refreshUserProfile]);
@@ -352,7 +347,6 @@ const StudentDashboard = () => {
   const fetchLoungePosts = useCallback(async () => {
     if (!userProfile?.id) return;
     
-    // Always set loading to true when a manual fetch is triggered
     setIsLoungeLoading(true);
     
     try {
@@ -381,7 +375,7 @@ const StudentDashboard = () => {
       setIsLoungeLoading(false);
       setHasLoungeFetched(true); 
     }
-  }, [userProfile?.id, showToast, fetchMissingLoungeUsers]); // Removed hasLoungeFetched dependency
+  }, [userProfile?.id, showToast, fetchMissingLoungeUsers]);
 
   
   const fetchContentRef = useRef();
@@ -450,7 +444,7 @@ const StudentDashboard = () => {
     } catch (err) {
       console.error('Error in fetchContent:', err);
       if (!isBackgroundSync) {
-        showToastRef.current('Could not refresh content.', 'error'); // Use ref
+        showToastRef.current('Could not refresh content.', 'error'); 
       }
       setLessons([]);
       setAllQuizzes([]);
@@ -491,11 +485,9 @@ const StudentDashboard = () => {
     if (!shouldAutoSync) {
         return;
     }
-    console.log('Attaching real-time content listeners...');
     const listeners = myClasses.map(c => {
       const postsQuery = query(collection(db, `classes/${c.id}/posts`));
       const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
-        console.log(`Post update detected in class ${c.id}, refreshing all content...`);
         fetchContentRef.current(true); 
       }, (error) => {
         console.error(`Listener error for class ${c.id}:`, error);
@@ -503,7 +495,6 @@ const StudentDashboard = () => {
       return unsubscribe;
     });
     return () => {
-      console.log('Cleaning up content listeners...');
       listeners.forEach(unsubscribe => unsubscribe());
     };
   }, [authLoading, userProfile?.id, myClasses, isFirstContentLoad, view]); 
@@ -586,17 +577,88 @@ const StudentDashboard = () => {
     return () => clearInterval(intervalId);
   }, [allQuizzes]);
 
+  // --- CALCULATE UP NEXT TASK ---
+  // Calculates the single most important item for the student to see in the Hero section
+  const upNextTask = useMemo(() => {
+      // 1. Priority: Overdue Quizzes
+      if (quizzes.overdue && quizzes.overdue.length > 0) {
+        const urgent = quizzes.overdue[0];
+        return {
+           type: 'quiz',
+           title: urgent.title || urgent.postTitle,
+           dueDate: urgent.availableUntil?.toDate ? urgent.availableUntil.toDate() : new Date(),
+           isOverdue: true
+        };
+      }
+
+      // 2. Priority: Active Quizzes with Deadlines
+      if (quizzes.active && quizzes.active.length > 0) {
+         const activeWithDeadlines = quizzes.active.filter(q => q.availableUntil);
+         
+         // Sort by soonest deadline
+         activeWithDeadlines.sort((a, b) => {
+            const dateA = a.availableUntil?.toDate ? a.availableUntil.toDate() : new Date(a.availableUntil);
+            const dateB = b.availableUntil?.toDate ? b.availableUntil.toDate() : new Date(b.availableUntil);
+            return dateA - dateB;
+         });
+         
+         if (activeWithDeadlines.length > 0) {
+             const next = activeWithDeadlines[0];
+             return {
+                 type: 'quiz',
+                 title: next.title || next.postTitle,
+                 dueDate: next.availableUntil?.toDate ? next.availableUntil.toDate() : next.availableUntil,
+                 id: next.id
+             };
+         }
+         
+         // 3. Fallback: Any Active Quiz (No deadline)
+         const anyNext = quizzes.active[0];
+         return {
+             type: 'quiz',
+             title: anyNext.title || anyNext.postTitle,
+             dueDate: new Date(), // Now
+             id: anyNext.id
+         };
+      }
+
+      // 4. Priority: Recent Incomplete Lesson
+      if (lessons && lessons.length > 0) {
+          const completedIds = userProfile?.completedLessons || [];
+          const incompleteLessons = lessons.filter(l => !completedIds.includes(l.id));
+          
+          if (incompleteLessons.length > 0) {
+              // Sort by newest first
+              incompleteLessons.sort((a, b) => {
+                  const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+                  const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+                  return dateB - dateA;
+              });
+              
+              const nextLesson = incompleteLessons[0];
+              return {
+                  type: 'lesson',
+                  title: nextLesson.title,
+                  dueDate: nextLesson.createdAt?.toDate ? nextLesson.createdAt.toDate() : new Date(),
+                  id: nextLesson.id
+              };
+          }
+      }
+      
+      return null;
+  }, [quizzes, lessons, userProfile]);
+
   // Quiz click handler
   const handleTakeQuizClick = useCallback(async (quiz) => {
     if (!quiz.postId || !quiz.classId) {
-      showToastRef.current("Error: Missing quiz information.", "error"); // Use ref
+      showToastRef.current("Error: Missing quiz information.", "error"); 
       return;
     }
     try {
       const postRef = doc(db, `classes/${quiz.classId}/posts`, quiz.postId);
       const postSnap = await getDoc(postRef);
       if (!postSnap.exists()) {
-        showToastRef.current("Error: This quiz is no longer available.", "error"); // Use ref
+        showToastRef.current("Error: This quiz is no longer available.", "error"); 
         fetchContent(false);
         return;
       }
@@ -610,7 +672,7 @@ const StudentDashboard = () => {
       setQuizToTake(quizWithFreshSettings);
     } catch (err) {
       console.error("Error fetching fresh quiz settings:", err);
-      showToastRef.current("Could not load quiz. Please check your connection and try again.", "error"); // Use ref
+      showToastRef.current("Could not load quiz. Please check your connection and try again.", "error"); 
     }
   }, [fetchContent]);
 
@@ -629,7 +691,7 @@ const StudentDashboard = () => {
     if (!progress?.isFinished || !userProfile?.id || !progress?.lessonId) return;
     const completedLessons = userProfile.completedLessons || [];
     if (completedLessons.includes(progress.lessonId)) {
-      showToastRef.current('Lesson already completed.', 'info'); // Use ref
+      showToastRef.current('Lesson already completed.', 'info'); 
       return;
     }
     try {
@@ -650,10 +712,10 @@ const StudentDashboard = () => {
           ...prev,
           completedLessons: [...(prev.completedLessons || []), progress.lessonId]
       }) : prev);
-      showToastRef.current(`Lesson finished! You earned ${XP_FOR_LESSON} XP!`, 'success'); // Use ref
+      showToastRef.current(`Lesson finished! You earned ${XP_FOR_LESSON} XP!`, 'success'); 
     } catch (err) {
       console.error('Error awarding lesson XP:', err);
-      showToastRef.current('An error occurred while saving your progress.', 'error'); // Use ref
+      showToastRef.current('An error occurred while saving your progress.', 'error'); 
     }
   }, [userProfile, refreshUserProfile, handleGamificationUpdate]);
 
@@ -693,6 +755,9 @@ const StudentDashboard = () => {
 		    fetchContent={() => fetchContent(false)} 
         hasNewLessons={hasNewLessons}
         hasNewQuizzes={hasNewQuizzes}
+        
+        // --- UP NEXT LOGIC PASSED HERE ---
+        upNextTask={upNextTask}
 
         // --- LOUNGE PROPS ---
         isLoungeLoading={isLoungeLoading}

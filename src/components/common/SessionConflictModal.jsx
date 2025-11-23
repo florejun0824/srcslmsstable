@@ -3,7 +3,7 @@ import { ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import React, { Fragment } from 'react';
 
 /**
- * A modal component to inform the user about a session conflict, styled with a neumorphic design.
+ * A modal component to inform the user about a session conflict, styled with MacOS 26 design.
  *
  * @param {object} props - The component props.
  * @param {boolean} props.isOpen - Controls the visibility of the modal.
@@ -14,7 +14,7 @@ export default function SessionConflictModal({ isOpen, message, onClose }) {
     return (
         <Transition show={isOpen} as={Fragment}>
             <Dialog as="div" className="relative z-[1000] font-sans" onClose={onClose}>
-                {/* Neumorphic Design Changes: Removed backdrop-blur for a clean overlay */}
+                {/* Backdrop */}
                 <TransitionChild
                     as={Fragment}
                     enter="ease-out duration-300"
@@ -24,7 +24,7 @@ export default function SessionConflictModal({ isOpen, message, onClose }) {
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-black/40 transition-opacity" />
+                    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity" />
                 </TransitionChild>
 
                 <div className="fixed inset-0 z-[1000] w-screen overflow-y-auto">
@@ -32,36 +32,36 @@ export default function SessionConflictModal({ isOpen, message, onClose }) {
                         <TransitionChild
                             as={Fragment}
                             enter="ease-out duration-300"
-                            enterFrom="opacity-0 scale-95"
-                            enterTo="opacity-100 scale-100"
+                            enterFrom="opacity-0 scale-95 translate-y-4"
+                            enterTo="opacity-100 scale-100 translate-y-0"
                             leave="ease-in duration-200"
-                            leaveFrom="opacity-100 scale-100"
-                            leaveTo="opacity-0 scale-95"
+                            leaveFrom="opacity-100 scale-100 translate-y-0"
+                            leaveTo="opacity-0 scale-95 translate-y-4"
                         >
-                            {/* Neumorphic Design Changes: Replaced glassmorphism with neumorphic styles */}
-                            <DialogPanel className="relative transform overflow-hidden rounded-3xl bg-neumorphic-base text-center shadow-neumorphic transition-all sm:w-full sm:max-w-sm">
-                                <div className="p-6">
-                                    {/* Neumorphic Design Changes: Icon container is now "pressed in" with an inset shadow */}
-                                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-neumorphic-base shadow-neumorphic-inset">
-                                        <ExclamationCircleIcon className="h-10 w-10 text-primary-600" aria-hidden="true" />
+                            {/* Glass Panel */}
+                            <DialogPanel className="relative transform overflow-hidden rounded-[2.5rem] bg-white/80 dark:bg-[#18181b]/90 backdrop-blur-2xl border border-white/20 dark:border-white/5 text-center shadow-2xl transition-all sm:w-full sm:max-w-sm p-8">
+                                <div className="flex flex-col items-center">
+                                    {/* Icon Container */}
+                                    <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/20 text-orange-500 mb-6 relative">
+                                        <div className="absolute inset-0 bg-orange-500 blur-xl opacity-20 rounded-full"></div>
+                                        <ExclamationCircleIcon className="h-10 w-10 relative z-10" aria-hidden="true" strokeWidth={1.5} />
                                     </div>
-                                    <div className="mt-4">
-                                        <DialogTitle as="h3" className="text-lg font-bold text-slate-800">
-                                            Session Conflict
-                                        </DialogTitle>
-                                        <div className="mt-2">
-                                            <p className="text-sm text-slate-600">
-                                                {message}
-                                            </p>
-                                        </div>
+                                    
+                                    <DialogTitle as="h3" className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                                        Session Conflict
+                                    </DialogTitle>
+                                    
+                                    <div className="mt-3 mb-8">
+                                        <p className="text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
+                                            {message}
+                                        </p>
                                     </div>
                                 </div>
 
-                                {/* Neumorphic Design Changes: Button is now a distinct, extruded element */}
-                                <div className="p-4 pt-0">
+                                <div>
                                     <button
                                         type="button"
-                                        className="w-full py-3 text-center text-sm font-semibold bg-neumorphic-base text-primary-700 rounded-xl shadow-neumorphic active:shadow-neumorphic-inset transition-all hover:text-primary-600"
+                                        className="w-full py-3.5 rounded-2xl text-sm font-bold text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg shadow-orange-500/30 active:scale-[0.98] transition-all"
                                         onClick={onClose}
                                     >
                                         Acknowledge & Logout

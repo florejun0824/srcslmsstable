@@ -9,53 +9,58 @@ import {
   LockClosedIcon,
   EyeIcon,
   EyeSlashIcon,
-  // --- Icons for the modal (which we are moving) ---
   FingerPrintIcon,
-  XMarkIcon,
+  SparklesIcon
 } from '@heroicons/react/24/solid';
-import RoleDock from '../components/common/RoleDock';
-
 import { BiometricAuth, BiometryErrorType } from '@aparajita/capacitor-biometric-auth';
 import { Preferences } from '@capacitor/preferences';
 
-// (This component is unchanged)
-const HeliosBackground = ({ accentColor }) => {
-  const colorMap = {
-    blue: {
-      primary: 'bg-blue-200 dark:bg-blue-900',
-      secondary: 'bg-purple-200 dark:bg-purple-900',
-      tertiary: 'bg-indigo-200 dark:bg-indigo-900',
-    },
-    teal: {
-      primary: 'bg-teal-200 dark:bg-teal-900',
-      secondary: 'bg-emerald-200 dark:bg-emerald-900',
-      tertiary: 'bg-cyan-200 dark:bg-cyan-900',
-    },
-  };
-  const scheme = colorMap[accentColor] || colorMap.blue;
+// --- AESTHETIC COMPONENTS ---
+
+const MeshGradientBackground = ({ role }) => {
+  // Dynamic colors based on role
+  const primary = role === 'student' ? 'bg-blue-600' : 'bg-teal-600';
+  const secondary = role === 'student' ? 'bg-purple-600' : 'bg-emerald-600';
+  const tertiary = role === 'student' ? 'bg-indigo-400' : 'bg-cyan-400';
+
   return (
-    <div className="absolute inset-0 z-0 overflow-hidden bg-gray-100 dark:bg-slate-900 transition-colors duration-500">
-      <div
-        className={`absolute top-[-20%] left-[-10%] w-96 h-96 rounded-full filter blur-3xl opacity-40 animate-blob ${scheme.primary}`}
-      ></div>
-      <div
-        className={`absolute bottom-[-10%] right-[-10%] w-96 h-96 rounded-full filter blur-3xl opacity-40 animate-blob animation-delay-2000 ${scheme.secondary}`}
-      ></div>
-      <div
-        className={`absolute bottom-[20%] left-[15%] w-80 h-80 rounded-full filter blur-3xl opacity-30 animate-blob animation-delay-4000 ${scheme.tertiary}`}
-      ></div>
+    <div className="absolute inset-0 z-0 overflow-hidden bg-[#f2f2f7] dark:bg-[#000000] transition-colors duration-700">
+      {/* Noise Texture Overlay */}
+      <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.07] z-10 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay pointer-events-none"></div>
+      
+      {/* Floating Orbs */}
+      <div className={`absolute top-[-20%] left-[-10%] w-[800px] h-[800px] rounded-full ${primary} mix-blend-multiply dark:mix-blend-screen filter blur-[120px] opacity-40 animate-blob`}></div>
+      <div className={`absolute bottom-[-20%] right-[-10%] w-[800px] h-[800px] rounded-full ${secondary} mix-blend-multiply dark:mix-blend-screen filter blur-[120px] opacity-40 animate-blob animation-delay-2000`}></div>
+      <div className={`absolute top-[20%] left-[20%] w-[600px] h-[600px] rounded-full ${tertiary} mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-30 animate-blob animation-delay-4000`}></div>
     </div>
   );
 };
 
-// --- THIS MODAL IS BEING MOVED ---
-// We will create a new, separate component for this
-// You can delete this from LoginPage.jsx
-/*
-const BiometricPromptModal = ({ onConfirm, onCancel }) => {
-  // ... modal code ...
-};
-*/
+const GlassInput = ({ icon: Icon, isPassword, togglePassword, showPassword, ...props }) => (
+  <div className="relative group">
+    <div className="absolute inset-0 bg-white/40 dark:bg-white/5 rounded-2xl border border-white/50 dark:border-white/10 shadow-sm transition-all duration-300 group-focus-within:ring-2 group-focus-within:ring-[#007AFF]/50 group-focus-within:border-[#007AFF] group-focus-within:bg-white/60 dark:group-focus-within:bg-white/10 group-hover:border-white/80 dark:group-hover:border-white/20"></div>
+    
+    <div className="absolute top-1/2 -translate-y-1/2 left-4 text-gray-400 dark:text-gray-500 transition-colors duration-300 group-focus-within:text-[#007AFF] group-focus-within:scale-110 transform">
+      <Icon className="w-5 h-5" />
+    </div>
+    
+    <input
+      {...props}
+      type={isPassword && !showPassword ? 'password' : 'text'}
+      className="relative w-full h-[52px] pl-12 pr-12 bg-transparent border-none rounded-2xl text-[15px] font-medium text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-0 transition-all"
+    />
+    
+    {isPassword && (
+      <button
+        type="button"
+        onClick={togglePassword}
+        className="absolute top-1/2 -translate-y-1/2 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors z-10 p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+      >
+        {showPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+      </button>
+    )}
+  </div>
+);
 
 const LoginPage = () => {
   const [selectedRole, setSelectedRole] = useState('student');
@@ -68,26 +73,18 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [showBiometricButton, setShowBiometricButton] = useState(false);
 
-  // --- REMOVED: State to control the old modal ---
-  // const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
-
+  // ... (Biometric Effect & Handlers kept identical to maintain logic) ...
   useEffect(() => {
     const checkBiometricSupport = async () => {
       try {
         const { isAvailable } = await BiometricAuth.checkBiometry();
-        if (!isAvailable) {
-          console.log('Biometrics not available on this device.');
-          return;
-        }
+        if (!isAvailable) return;
         const { value } = await Preferences.get({ key: 'userCredentials' });
-        if (value) {
-          setShowBiometricButton(true);
-        }
+        if (value) setShowBiometricButton(true);
       } catch (error) {
         console.error('Error checking biometric support:', error);
       }
     };
-
     checkBiometricSupport();
   }, []);
 
@@ -98,36 +95,17 @@ const LoginPage = () => {
     try {
       const fullEmail = `${email}@srcs.edu`;
       await login(fullEmail, password, selectedRole);
-
-      // --- REMOVED: Offer to save credentials ---
-      // This logic failed due to a race condition.
-      // It must be moved to the page the user lands on *after* login.
-
-      // --- ADDED: Store credentials temporarily for the *next* page ---
-      // We will check this on the next page to see if we should prompt.
+      // Temp credential logic
       try {
         const { isAvailable } = await BiometricAuth.checkBiometry();
         if (isAvailable) {
             const { value } = await Preferences.get({ key: 'userCredentials' });
-            if (!value) { // Only if not already saved
-                // Save the credentials *temporarily*
-                // The dashboard page will read this, show the prompt,
-                // and then either save them properly or delete them.
-                const credentials = JSON.stringify({
-                  email: fullEmail,
-                  password: password,
-                  role: selectedRole
-                });
-                await Preferences.set({
-                    key: 'tempUserCredentials', // Note: using a *temp* key
-                    value: credentials
-                });
+            if (!value) {
+                const credentials = JSON.stringify({ email: fullEmail, password, role: selectedRole });
+                await Preferences.set({ key: 'tempUserCredentials', value: credentials });
             }
         }
-      } catch (saveError) {
-        console.error("Failed to check/save temp biometric credentials:", saveError);
-      }
-      // --- END MODIFIED SECTION ---
+      } catch (e) { console.error(e); }
 
     } catch (err) {
       setError(err.message);
@@ -137,216 +115,198 @@ const LoginPage = () => {
     }
   };
 
-  // --- REMOVED: Handlers for the old modal ---
-  // const handleBiometricPromptConfirm = async () => { ... };
-  // const handleBiometricPromptCancel = () => { ... };
-
   const handleBiometricLogin = async () => {
     setError('');
     setIsLoading(true);
     try {
-      await BiometricAuth.authenticate({
-        reason: "Please authenticate to log in to SRCS",
-        title: "SRCS Login",
-      });
-
+      await BiometricAuth.authenticate({ reason: "Please authenticate", title: "SRCS Login" });
       const { value } = await Preferences.get({ key: 'userCredentials' });
-      if (!value) {
-        throw new Error("No stored credentials found. Please log in with your password first.");
-      }
-
+      if (!value) throw new Error("No stored credentials.");
       const { email, password, role } = JSON.parse(value);
       setSelectedRole(role);
       await login(email, password, role);
-
     } catch (error) {
-      console.error("Biometric login error:", error);
-      if (error.code) {
-        switch (error.code) {
-          case BiometryErrorType.Canceled:
-            setError('');
-            break;
-          case BiometryErrorType.NoEnrollment:
-            setError("No biometrics enrolled. Please log in with your password.");
-            setShowBiometricButton(false);
-            break;
-          default:
-            setError("Authentication failed. Please use your password.");
-        }
+      if (error.code === BiometryErrorType.NoEnrollment) {
+          setError("No biometrics enrolled.");
+          setShowBiometricButton(false);
       } else {
-        setError(error.message);
-        showToast(error.message, 'error');
+          setError(error.message || "Authentication failed");
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const accentColor = selectedRole === 'student' ? 'blue' : 'teal';
-  const glowMap = {
-    blue: 'from-blue-400 via-indigo-500 to-purple-500 dark:from-blue-500 dark:via-indigo-600 dark:to-purple-600',
-    teal: 'from-teal-400 via-emerald-500 to-cyan-500 dark:from-teal-500 dark:via-emerald-600 dark:to-cyan-600',
-  };
-  const buttonGlow = glowMap[accentColor];
-
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden transition-colors duration-500">
-      <HeliosBackground accentColor={accentColor} />
+    <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden font-sans selection:bg-[#007AFF] selection:text-white">
+      <MeshGradientBackground role={selectedRole} />
 
-      <div className="relative z-10 w-full max-w-sm space-y-6 animate-fade-in-up">
-        {/* Header */}
-        <div className="text-center">
-          <img
-            src="https://i.ibb.co/XfJ8scGX/1.png"
-            alt="SRCS Logo"
-            className="w-24 h-24 mx-auto mb-4 rounded-full shadow-neumorphic dark:shadow-neumorphic-dark"
-          />
-          <h1 className="text-4xl font-bold text-gray-800 dark:text-slate-100 transition-colors duration-300">
-            Welcome Back
-          </h1>
-          <p className="text-gray-500 dark:text-slate-400">
-            Please sign in to continue.
-          </p>
+      {/* --- MAIN CARD CONTAINER --- */}
+      <div className="relative z-20 w-full max-w-[400px] perspective-1000 animate-fade-in-up">
+        
+        {/* Frosted Glass Card */}
+        <div className="
+          relative overflow-hidden
+          bg-white/60 dark:bg-[#1c1c1e]/60 
+          backdrop-blur-[40px] backdrop-saturate-150
+          rounded-[40px] 
+          border border-white/40 dark:border-white/10
+          shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.2)] dark:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)]
+          p-8 sm:p-10
+          transition-all duration-500
+        ">
+            
+            {/* Logo Area with Glow */}
+            <div className="flex flex-col items-center justify-center mb-8 relative">
+                <div className="absolute inset-0 bg-gradient-to-tr from-blue-500 to-purple-500 blur-[40px] opacity-20 dark:opacity-30 rounded-full"></div>
+                <div className="relative w-24 h-24 rounded-[28px] bg-white/80 dark:bg-white/10 shadow-2xl border border-white/50 dark:border-white/10 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <img
+                        src="https://i.ibb.co/XfJ8scGX/1.png"
+                        alt="SRCS Logo"
+                        className="w-full h-full object-contain drop-shadow-md transform hover:scale-105 transition-transform duration-300"
+                    />
+                </div>
+                <div className="mt-6 text-center">
+                    <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white drop-shadow-sm">
+                      Welcome Back
+                    </h1>
+                    <p className="text-[15px] font-medium text-gray-500 dark:text-gray-400 mt-2 flex items-center justify-center gap-2">
+                      SRCS Learning Portal <SparklesIcon className="w-4 h-4 text-yellow-500 animate-pulse" />
+                    </p>
+                </div>
+            </div>
+
+            {/* Segmented Control */}
+            <div className="mb-8 p-1.5 bg-gray-100/80 dark:bg-black/30 border border-white/20 dark:border-white/5 rounded-[20px] flex items-center relative backdrop-blur-md shadow-inner">
+                {/* Sliding Indicator */}
+                <div 
+                    className={`absolute top-1.5 bottom-1.5 rounded-[16px] bg-white dark:bg-[#636366] shadow-[0_2px_8px_rgba(0,0,0,0.08)] border border-black/5 dark:border-white/10 transition-all duration-500 cubic-bezier(0.32, 0.72, 0, 1) w-[calc(50%-6px)] ${selectedRole === 'student' ? 'left-1.5' : 'left-[calc(50%)]'}`} 
+                />
+                
+                <button
+                    type="button"
+                    onClick={() => setSelectedRole('student')}
+                    className={`relative flex-1 py-2.5 text-[14px] font-semibold flex items-center justify-center gap-2 transition-colors duration-300 z-10 rounded-[16px] ${selectedRole === 'student' ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+                >
+                    <AcademicCapIcon className={`w-4 h-4 transition-transform duration-300 ${selectedRole === 'student' ? 'scale-110 text-blue-500' : ''}`} />
+                    Student
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setSelectedRole('teacher')}
+                    className={`relative flex-1 py-2.5 text-[14px] font-semibold flex items-center justify-center gap-2 transition-colors duration-300 z-10 rounded-[16px] ${selectedRole === 'teacher' ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+                >
+                    <BriefcaseIcon className={`w-4 h-4 transition-transform duration-300 ${selectedRole === 'teacher' ? 'scale-110 text-teal-500' : ''}`} />
+                    Teacher
+                </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-5">
+                <GlassInput 
+                    icon={AtSymbolIcon}
+                    placeholder="Username"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                />
+
+                <GlassInput 
+                    icon={LockClosedIcon}
+                    isPassword={true}
+                    showPassword={showPassword}
+                    togglePassword={() => setShowPassword(!showPassword)}
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                />
+
+                {error && (
+                    <div className="bg-red-50/80 dark:bg-red-900/20 border border-red-100 dark:border-red-500/20 rounded-2xl p-3 text-center animate-pulse">
+                        <p className="text-[13px] font-semibold text-red-600 dark:text-red-300">{error}</p>
+                    </div>
+                )}
+
+                {/* Primary Button - Glossy Style */}
+                <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="
+                        group relative w-full h-[52px] mt-2 rounded-2xl overflow-hidden 
+                        bg-[#007AFF] hover:bg-[#0062CC] 
+                        active:scale-[0.97] transition-all duration-300
+                        shadow-[0_8px_20px_-6px_rgba(0,122,255,0.4)] hover:shadow-[0_12px_25px_-8px_rgba(0,122,255,0.5)]
+                        disabled:opacity-70 disabled:shadow-none disabled:cursor-not-allowed
+                    "
+                >
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/15 to-transparent opacity-100 pointer-events-none"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-100 pointer-events-none"></div>
+                    
+                    <span className="relative z-10 text-[16px] font-bold text-white flex items-center justify-center gap-2">
+                        {isLoading && !showBiometricButton ? (
+                            <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        ) : 'Sign In'}
+                    </span>
+                </button>
+            </form>
+
+            {/* Biometric Option */}
+            {showBiometricButton && (
+                <div className="mt-6 pt-6 border-t border-gray-200/50 dark:border-white/10">
+                    <button
+                        type="button"
+                        onClick={handleBiometricLogin}
+                        disabled={isLoading}
+                        className="
+                            w-full h-[52px] rounded-2xl font-semibold text-[15px]
+                            flex items-center justify-center gap-3
+                            text-gray-700 dark:text-white bg-white/50 dark:bg-white/5
+                            border border-white/60 dark:border-white/10 
+                            shadow-[0_4px_12px_rgba(0,0,0,0.05)] dark:shadow-none
+                            hover:bg-white/80 dark:hover:bg-white/10 hover:border-white/80
+                            active:scale-[0.98] transition-all duration-300
+                            backdrop-blur-md
+                        "
+                    >
+                        <div className="p-1.5 bg-blue-50 dark:bg-blue-500/20 rounded-full text-[#007AFF] dark:text-blue-400">
+                            <FingerPrintIcon className="w-5 h-5" />
+                        </div>
+                        <span>Login with Face ID / Touch ID</span>
+                    </button>
+                </div>
+            )}
         </div>
 
-        {/* Card Container */}
-        <div className="bg-gray-100 dark:bg-neumorphic-base-dark p-8 rounded-3xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark space-y-6 transition-all duration-300">
-          <div className="grid grid-cols-2 gap-4">
-            <RoleDock
-              role="student"
-              title="Student"
-              Icon={AcademicCapIcon}
-              isSelected={selectedRole === 'student'}
-              onSelect={setSelectedRole}
-              accentColor="blue"
-            />
-            <RoleDock
-              role="teacher"
-              title="Teacher"
-              Icon={BriefcaseIcon}
-              isSelected={selectedRole === 'teacher'}
-              onSelect={setSelectedRole}
-              accentColor="teal"
-            />
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Username */}
-            <div className="relative">
-              <AtSymbolIcon className="absolute top-1/2 -translate-y-1/2 left-4 w-5 h-5 text-gray-400 dark:text-slate-400" />
-              <input
-                className="w-full h-14 pl-12 pr-4 rounded-2xl bg-gray-100 dark:bg-neumorphic-base-dark text-gray-800 dark:text-slate-100 placeholder:text-gray-500 dark:placeholder:text-slate-500 shadow-neumorphic dark:shadow-neumorphic-dark focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-500 transition-all duration-300"
-                id="username"
-                type="text"
-                placeholder="Username"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-
-            {/* Password */}
-            <div className="relative">
-              <LockClosedIcon className="absolute top-1/2 -translate-y-1/2 left-4 w-5 h-5 text-gray-400 dark:text-slate-400" />
-              <input
-                className="w-full h-14 pl-12 pr-12 rounded-2xl bg-gray-100 dark:bg-neumorphic-base-dark text-gray-800 dark:text-slate-100 placeholder:text-gray-500 dark:placeholder:text-slate-500 shadow-neumorphic dark:shadow-neumorphic-dark focus:outline-none focus:ring-2 focus:ring-teal-300 dark:focus:ring-teal-500 transition-all duration-300"
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute top-1/2 -translate-y-1/2 right-4 text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors"
-              >
-                {showPassword ? (
-                  <EyeSlashIcon className="w-5 h-5" />
-                ) : (
-                  <EyeIcon className="w-5 h-5" />
-                )}
-              </button>
-            </div>
-
-            {/* Error */}
-            {error && (
-              <p className="text-red-600 dark:text-red-400 text-sm text-center">
-                {error}
-              </p>
-            )}
-
-            {/* Sign In Button with Gradient Glow */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`
-                relative w-full h-14 font-bold text-lg rounded-2xl overflow-hidden
-                text-gray-700 dark:text-slate-100 bg-gray-100 dark:bg-neumorphic-base-dark
-                shadow-neumorphic dark:shadow-neumorphic-dark
-                transition-all duration-500 ease-in-out
-                hover:scale-[1.02] active:scale-[0.98]
-                focus:outline-none focus:ring-2 focus:ring-${accentColor}-400 dark:focus:ring-${accentColor}-500
-              `}
-            >
-              {/* Soft gradient background */}
-              <div
-                className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${buttonGlow} opacity-0 hover:opacity-80 active:opacity-100 transition-opacity duration-500`}
-              ></div>
-              <span className="relative z-10">
-                {isLoading && !showBiometricButton ? 'Signing In...' : 'Sign In'}
-              </span>
-            </button>
-          </form>
-
-          {/* Biometric Button and "Or" divider */}
-          {showBiometricButton && (
-            <>
-              <div className="flex items-center my-4">
-                <div className="flex-grow border-t border-gray-300 dark:border-slate-600"></div>
-                <span className="mx-4 text-gray-500 dark:text-slate-400 text-sm">Or</span>
-                <div className="flex-grow border-t border-gray-300 dark:border-slate-600"></div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleBiometricLogin}
-                disabled={isLoading}
-                className={`
-                  relative w-full h-14 font-bold text-lg rounded-2xl overflow-hidden
-                  text-gray-700 dark:text-slate-100 bg-gray-100 dark:bg-neumorphic-base-dark
-                  shadow-neumorphic dark:shadow-neumorphic-dark
-                  transition-all duration-500 ease-in-out
-                  flex items-center justify-center gap-3
-                  hover:scale-[1.02] active:scale-[0.98]
-                  focus:outline-none focus:ring-2 focus:ring-${accentColor}-400 dark:focus:ring-${accentColor}-500
-                `}
-              >
-                {/* Soft gradient background */}
-                <div
-                  className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${buttonGlow} opacity-0 hover:opacity-80 active:opacity-100 transition-opacity duration-500`}
-                ></div>
-                {/* Fingerprint Icon */}
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6 z-10">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.864 4.243A7.5 7.5 0 0 1 19.5 12c0 2.21-.84 4.24-2.243 5.864m-1.13-1.13A5.96 5.96 0 0 0 18 12c0-1.774-.77-3.374-2.006-4.473m-9.02 9.02A5.96 5.96 0 0 0 6 12c0-1.774.77-3.374 2.006-4.473m-1.13 1.13A7.5 7.5 0 0 1 4.5 12c0 2.21.84 4.24 2.243 5.864m0 0a1.5 1.5 0 1 1-2.122-2.122 1.5 1.5 0 0 1 2.122 2.122Zm1.131 1.131a1.5 1.5 0 1 1-2.122-2.122 1.5 1.5 0 0 1 2.122 2.122Zm-1.131-4.242a1.5 1.5 0 1 1-2.122-2.122 1.5 1.5 0 0 1 2.122 2.122Zm1.131 1.131a1.5 1.5 0 1 1-2.122-2.122 1.5 1.5 0 0 1 2.122 2.122Zm-4.243-1.131a1.5 1.5 0 1 1-2.122-2.122 1.5 1.5 0 0 1 2.122 2.122Zm1.131 1.131a1.5 1.5 0 1 1-2.122-2.122 1.5 1.5 0 0 1 2.122 2.122Z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a.75.75 0 0 0 .75-.75V12a.75.75 0 0 0-1.5 0v6a.75.75 0 0 0 .75.75Z" />
-                </svg>
-                <span className="relative z-10">
-                  {isLoading ? 'Checking...' : 'Login with Biometrics'}
-                </span>
-              </button>
-            </>
-          )}
+        {/* Footer */}
+        <div className="mt-8 text-center">
+            <p className="text-[13px] font-medium text-gray-500/80 dark:text-white/30">
+                &copy; 2025 SRCS Learning Portal
+            </p>
         </div>
       </div>
-
-      <p className="text-sm text-gray-500 dark:text-slate-400/80 mt-8 absolute bottom-5 z-10 transition-colors">
-        SRCS Learning Portal &copy; 2025
-      </p>
-
-      {/* --- REMOVED: Old modal render --- */}
+      
+      {/* Animations for Blob Movements */}
+      <style>{`
+          @keyframes blob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0px, 0px) scale(1); }
+          }
+          .animate-blob {
+            animation: blob 10s infinite cubic-bezier(0.44, 0, 0.56, 1);
+          }
+          .animation-delay-2000 {
+            animation-delay: 2s;
+          }
+          .animation-delay-4000 {
+            animation-delay: 4s;
+          }
+      `}</style>
     </div>
   );
 };

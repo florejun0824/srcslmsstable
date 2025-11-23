@@ -1,154 +1,234 @@
-// src/components/teacher/dashboard/modals/RemediationPreviewModal.jsx
 import React from 'react';
-import { IconX, IconAlertTriangle, IconBook, IconCheck, IconRefresh } from '@tabler/icons-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  IconX, 
+  IconAlertTriangle, 
+  IconBook, 
+  IconCheck, 
+  IconRefresh, 
+  IconDeviceFloppy,
+  IconList,
+  IconClock,
+  IconBulb
+} from '@tabler/icons-react';
 import Spinner from '../../../common/Spinner';
 
+// --- MACOS 26 DESIGN SYSTEM CONSTANTS ---
+
+const headingStyle = "font-display font-bold tracking-tight text-slate-800 dark:text-white";
+const subHeadingStyle = "font-medium tracking-wide text-slate-500 dark:text-slate-400 uppercase text-[0.65rem] letter-spacing-2";
+
+const windowContainerClasses = "relative w-full max-w-3xl max-h-[90vh] flex flex-col bg-white/80 dark:bg-[#121212]/80 backdrop-blur-[50px] rounded-[2rem] shadow-2xl shadow-black/20 dark:shadow-black/50 ring-1 ring-white/40 dark:ring-white/5 overflow-hidden";
+const cardSurface = "bg-white/40 dark:bg-[#1F2229]/40 backdrop-blur-xl rounded-[1.5rem] border border-white/20 dark:border-white/5 shadow-sm";
+
+// Button Styles
+const baseButtonStyles = `
+    relative font-semibold rounded-full transition-all duration-300 
+    flex items-center justify-center gap-2 active:scale-95 tracking-wide shrink-0 select-none
+    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed
+`;
+
+const primaryButton = `
+    ${baseButtonStyles} px-6 py-2.5 text-sm text-white 
+    bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500
+    shadow-[0_4px_12px_rgba(37,99,235,0.3)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.4)]
+    border border-blue-400/20
+`;
+
+const secondaryButton = `
+    ${baseButtonStyles} px-5 py-2.5 text-sm text-slate-700 dark:text-slate-200 
+    bg-white/40 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 
+    backdrop-blur-md border border-white/20 shadow-sm hover:shadow-md
+`;
+
+const closeIconButton = `
+    ${baseButtonStyles} p-2 text-slate-500 dark:text-slate-400 
+    hover:bg-slate-100 dark:hover:bg-white/10 rounded-full border border-transparent hover:border-white/20
+`;
+
+// --- COMPONENT ---
+
 const RemediationPreviewModal = ({ isOpen, onClose, remediationData, onSave, isSaving }) => {
-  if (!isOpen || !remediationData) return null;
+  const lesson = remediationData?.remediation_lessons?.[0];
+  const action = remediationData?.recommendation_action || 'UNKNOWN';
 
-  const lesson = remediationData.remediation_lessons?.[0];
-  const action = remediationData.recommendation_action || 'UNKNOWN';
-
-  // 🎖 Badge color themes (light + dark)
-  const badgeClasses = {
-    NONE: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-    REVIEW: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-200',
-    PARTIAL_RETEACH: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-    FULL_RETEACH: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-    UNKNOWN: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-  };
-
-  // 🪶 Badge Renderer
-  const getBadge = () => {
-    const className = `inline-flex items-center px-3 py-1 rounded-full font-semibold text-sm shadow-sm gap-1 ${badgeClasses[action] || badgeClasses.UNKNOWN}`;
-    switch (action) {
+  // Badge Styles (Glassy)
+  const getBadgeStyle = (type) => {
+    switch (type) {
       case 'NONE':
-        return <div className={className}><IconCheck size={16} /> No Remediation Needed</div>;
+        return { style: 'bg-emerald-50/50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800', icon: <IconCheck size={14} />, label: 'No Action' };
       case 'REVIEW':
-        return <div className={className}><IconBook size={16} /> Review Activity</div>;
+        return { style: 'bg-yellow-50/50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/10 dark:text-yellow-400 dark:border-yellow-800', icon: <IconBook size={14} />, label: 'Review' };
       case 'PARTIAL_RETEACH':
-        return <div className={className}><IconRefresh size={16} /> Partial Reteach</div>;
+        return { style: 'bg-orange-50/50 text-orange-700 border-orange-200 dark:bg-orange-900/10 dark:text-orange-400 dark:border-orange-800', icon: <IconRefresh size={14} />, label: 'Partial Reteach' };
       case 'FULL_RETEACH':
-        return <div className={className}><IconAlertTriangle size={16} /> Full Reteach</div>;
+        return { style: 'bg-red-50/50 text-red-700 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800', icon: <IconAlertTriangle size={14} />, label: 'Full Reteach' };
       default:
-        return <div className={className}>Unknown Recommendation</div>;
+        return { style: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-white/5 dark:text-slate-400 dark:border-white/10', icon: <IconAlertTriangle size={14} />, label: 'Unknown' };
     }
   };
 
+  const badgeProps = getBadgeStyle(action);
+
   return (
-    <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex justify-center items-center p-4 z-50">
-      <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark w-full max-w-3xl max-h-[90vh] flex flex-col transition-colors duration-300">
-        
-        {/* Header */}
-        <div className="p-4 flex justify-between items-center flex-shrink-0 border-b border-slate-200/60 dark:border-slate-700/60">
-          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3">
-            Generated Remediation Plan
-            {getBadge()}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg text-slate-600 dark:text-slate-300 bg-neumorphic-base dark:bg-neumorphic-base-dark
-                       shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark
-                       transition-all duration-300 active:scale-[0.97]"
-          >
-            <IconX size={20} />
-          </button>
-        </div>
+    <AnimatePresence>
+      {isOpen && remediationData && (
+        <div className="fixed inset-0 z-[100] flex justify-center items-center p-4">
+            
+            {/* Backdrop */}
+            <motion.div 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                exit={{ opacity: 0 }}
+                onClick={onClose}
+                className="absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm"
+            />
 
-        {/* Body */}
-        <div className="p-6 overflow-y-auto space-y-4 border-t border-b border-slate-300/50 dark:border-slate-700/50">
-          {remediationData.error ? (
-            <p className="text-red-600 dark:text-red-300 text-sm font-semibold">
-              Error: {remediationData.error}
-            </p>
-          ) : (
-            <>
-              {remediationData.weak_topics && (
-                <div className="p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-lg shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
-                  <h4 className="font-semibold text-slate-700 dark:text-slate-100 mb-2">
-                    Identified Weak Topics
-                  </h4>
-                  <ul className="list-disc list-inside text-slate-600 dark:text-slate-300 text-sm space-y-1">
-                    {remediationData.weak_topics.map((t, i) => (
-                      <li key={i}>{t}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {lesson && (
-                <div className="p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-lg shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark space-y-3">
-                  <h4 className="font-semibold text-slate-700 dark:text-slate-100 mb-2">
-                    Remediation Lesson: {lesson.topic}
-                  </h4>
-                  <p className="text-sm pb-2">
-                    <strong className="text-slate-600 dark:text-slate-300">Objectives:</strong>{' '}
-                    {lesson.objectives?.join(' • ')}
-                  </p>
-
-                  {(lesson.lesson_plan || []).map((phase, index) => (
-                    <div
-                      key={index}
-                      className="p-3 bg-white/70 dark:bg-slate-800/60 rounded-md border border-slate-200 dark:border-slate-700 shadow-sm-floating-xs transition-colors"
-                    >
-                      <p className="font-bold text-slate-800 dark:text-slate-100">
-                        {phase.phase} ({phase.time})
-                      </p>
-                      <div className="prose prose-sm dark:prose-invert max-w-none mt-1 text-slate-600 dark:text-slate-300 whitespace-pre-wrap">
-                        {phase.teacher_instructions}
-                      </div>
-                      {phase.activity && (
-                        <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-                          <p className="font-semibold text-sm text-slate-700 dark:text-slate-200">
-                            {phase.activity.title}
-                          </p>
-                          <div className="prose prose-xs dark:prose-invert max-w-none mt-1 text-slate-500 dark:text-slate-400 whitespace-pre-wrap">
-                            {phase.activity.instructions}
-                          </div>
+            {/* Modal Window */}
+            <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                transition={{ type: "spring", duration: 0.5, bounce: 0.3 }}
+                className={windowContainerClasses}
+            >
+                {/* Header */}
+                <div className="flex items-center justify-between p-6 border-b border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-md">
+                    <div>
+                        <div className="flex items-center gap-3 mb-1">
+                            <h2 className={`${headingStyle} text-lg`}>Remediation Plan</h2>
+                            <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border uppercase tracking-wide ${badgeProps.style}`}>
+                                {badgeProps.icon}
+                                <span>{badgeProps.label}</span>
+                            </div>
                         </div>
-                      )}
+                        <p className={subHeadingStyle}>Generated Content Preview</p>
                     </div>
-                  ))}
+                    <button onClick={onClose} className={closeIconButton}>
+                        <IconX size={20} />
+                    </button>
                 </div>
-              )}
-            </>
-          )}
-        </div>
 
-        {/* Footer */}
-        <div className="p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark flex justify-end gap-3 flex-shrink-0 border-t border-slate-200/60 dark:border-slate-700/60">
-          {/* Close Button with glow */}
-          <button
-            onClick={onClose}
-            className="relative px-4 py-2 rounded-lg text-slate-700 dark:text-slate-200 bg-neumorphic-base dark:bg-neumorphic-base-dark
-                       shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark
-                       font-semibold text-sm transition-all duration-300 ease-in-out hover:scale-[1.02] active:scale-[0.98] focus:outline-none"
-          >
-            <span className="relative z-10">Close</span>
-            <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 
-                            dark:from-slate-700 dark:via-slate-800 dark:to-slate-700 opacity-0 hover:opacity-10 transition-opacity duration-500" />
-          </button>
+                {/* Content Body */}
+                <div className="p-6 overflow-y-auto custom-scrollbar space-y-6 flex-1">
+                    {remediationData.error ? (
+                        <div className="p-6 text-center text-red-500 bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-100 dark:border-red-900/30">
+                            <IconAlertTriangle className="mx-auto mb-2" />
+                            <p className="font-bold">Generation Error</p>
+                            <p className="text-sm opacity-80">{remediationData.error}</p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Weak Topics Section */}
+                            {remediationData.weak_topics && (
+                                <div className={cardSurface + " p-5"}>
+                                    <h4 className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wide">
+                                        <IconAlertTriangle size={16} className="text-amber-500" />
+                                        Target Areas
+                                    </h4>
+                                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {remediationData.weak_topics.map((t, i) => (
+                                            <li key={i} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300 bg-white/40 dark:bg-white/5 p-2 rounded-lg border border-white/10">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0" />
+                                                <span className="leading-snug">{t}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
 
-          {/* Save Button with gradient animation */}
-          <button
-            onClick={onSave}
-            disabled={isSaving}
-            className="relative px-4 py-2 text-sm font-semibold text-white rounded-lg overflow-hidden
-                       transition-all duration-500 ease-in-out shadow-md hover:scale-[1.03] active:scale-[0.98]
-                       focus:outline-none focus:ring-2 focus:ring-sky-400 dark:focus:ring-sky-500
-                       disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-500 
-                            dark:from-sky-500 dark:via-blue-600 dark:to-indigo-600 opacity-90 hover:opacity-100
-                            transition-opacity duration-500 animate-gradient-x" />
-            <span className="relative z-10 flex items-center gap-2">
-              {isSaving && <Spinner size="sm" />}
-              {isSaving ? 'Saving...' : 'Save Recommendation'}
-            </span>
-          </button>
+                            {/* Lesson Plan Section */}
+                            {lesson && (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className={`${headingStyle} text-xl`}>{lesson.topic}</h3>
+                                        {lesson.time_allotment && (
+                                            <span className="text-xs font-bold px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 rounded-full border border-blue-100 dark:border-blue-800">
+                                                {lesson.time_allotment}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Objectives */}
+                                    <div className="bg-slate-50/50 dark:bg-white/5 rounded-2xl p-4 border border-slate-200/50 dark:border-white/10">
+                                        <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                            <IconList size={14} /> Objectives
+                                        </h4>
+                                        <div className="flex flex-wrap gap-2">
+                                            {lesson.objectives?.map((obj, i) => (
+                                                <span key={i} className="text-xs font-medium px-2.5 py-1 rounded-md bg-white dark:bg-black/20 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10 shadow-sm">
+                                                    {obj}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Phases */}
+                                    <div className="space-y-4 pt-2">
+                                        {(lesson.lesson_plan || []).map((phase, index) => (
+                                            <div key={index} className={cardSurface + " overflow-hidden group"}>
+                                                <div className="px-5 py-3 border-b border-white/10 bg-white/20 dark:bg-white/5 flex justify-between items-center">
+                                                    <span className="font-bold text-slate-800 dark:text-white text-sm">
+                                                        {phase.phase}
+                                                    </span>
+                                                    <span className="text-xs font-mono text-slate-500 dark:text-slate-400 flex items-center gap-1 bg-white/40 dark:bg-black/20 px-2 py-0.5 rounded">
+                                                        <IconClock size={12} /> {phase.time}
+                                                    </span>
+                                                </div>
+                                                
+                                                <div className="p-5 space-y-4">
+                                                    <div>
+                                                        <p className="text-xs font-bold text-slate-400 uppercase mb-1">Instructions</p>
+                                                        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                                                            {phase.teacher_instructions}
+                                                        </p>
+                                                    </div>
+
+                                                    {phase.activity && (
+                                                        <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-3 border border-blue-100 dark:border-blue-800/30">
+                                                            <div className="flex items-center gap-2 mb-2 text-blue-700 dark:text-blue-300">
+                                                                <IconBulb size={16} />
+                                                                <span className="font-bold text-sm">{phase.activity.title}</span>
+                                                            </div>
+                                                            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed pl-6">
+                                                                {phase.activity.instructions}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="p-5 border-t border-white/10 bg-white/40 dark:bg-white/5 backdrop-blur-md flex justify-end gap-3">
+                    <button onClick={onClose} className={secondaryButton}>
+                        Discard
+                    </button>
+                    <button onClick={onSave} disabled={isSaving || remediationData.error} className={primaryButton}>
+                        {isSaving ? (
+                            <>
+                                <Spinner size="sm" className="text-white" />
+                                <span>Saving...</span>
+                            </>
+                        ) : (
+                            <>
+                                <IconDeviceFloppy size={18} />
+                                <span>Save Plan</span>
+                            </>
+                        )}
+                    </button>
+                </div>
+
+            </motion.div>
         </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 };
 

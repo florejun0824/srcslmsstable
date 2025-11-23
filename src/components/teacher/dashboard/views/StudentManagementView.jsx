@@ -1,8 +1,8 @@
 // src/components/teacher/StudentManagementView.jsx
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useAuth } from '../../../../contexts/AuthContext'; // Check this path
-import { useToast } from '../../../../contexts/ToastContext'; // Check this path
+import { useAuth } from '../../../../contexts/AuthContext'; 
+import { useToast } from '../../../../contexts/ToastContext'; 
 import {
   Cog,
   Search,
@@ -12,101 +12,178 @@ import {
   ChevronDown,
   ChevronsUpDown,
   CheckIcon,
+  ListFilter,
+  Trash2
 } from 'lucide-react';
-// --- NEW: Added framer-motion import ---
 import { motion, AnimatePresence } from 'framer-motion';
 
-import Spinner from '../../../common/Spinner';
-import EditUserModal from '../../../admin/EditUserModal'; // Check this path
-import ImportToClassModal from './ImportToClassModal'; // Make sure this path is correct
+import EditUserModal from '../../../admin/EditUserModal'; 
+import ImportToClassModal from './ImportToClassModal'; 
+import UserInitialsAvatar from '../../../common/UserInitialsAvatar';
 
-// ... (StudentRow component remains unchanged) ...
+// --- SKELETAL LOADING COMPONENT ---
+const StudentTableSkeleton = () => (
+  <div className="flex-1 glass-panel rounded-[2rem] border border-white/40 dark:border-white/10 shadow-xl overflow-hidden flex flex-col p-4 animate-pulse">
+    <div className="hidden md:flex items-center gap-4 mb-4 px-4 py-3 bg-slate-100/50 dark:bg-white/5 rounded-xl border border-white/20 dark:border-white/5">
+      <div className="w-6 h-6 rounded-md bg-slate-300/50 dark:bg-white/10"></div>
+      <div className="h-4 w-32 bg-slate-300/50 dark:bg-white/10 rounded-full"></div>
+      <div className="h-4 w-24 bg-slate-300/50 dark:bg-white/10 rounded-full"></div>
+      <div className="flex-1"></div>
+      <div className="h-4 w-16 bg-slate-300/50 dark:bg-white/10 rounded-full"></div>
+    </div>
+    <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1">
+      {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+        <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50/50 dark:bg-white/5 border border-white/20 dark:border-white/5">
+           <div className="w-5 h-5 rounded-md bg-slate-200/50 dark:bg-white/10 flex-shrink-0"></div>
+           <div className="flex-1 space-y-2">
+              <div className="h-4 w-48 bg-slate-300/50 dark:bg-white/10 rounded-full"></div>
+              <div className="md:hidden h-3 w-24 bg-slate-200/50 dark:bg-white/5 rounded-full"></div>
+           </div>
+           <div className="hidden md:block w-32 h-6 bg-slate-200/50 dark:bg-white/10 rounded-full"></div>
+           <div className="hidden md:block w-48 h-6 bg-slate-200/50 dark:bg-white/10 rounded-full"></div>
+           <div className="w-8 h-8 rounded-full bg-slate-200/50 dark:bg-white/10 flex-shrink-0"></div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// --- STUDENT ROW (Fixed Avatar Glitch) ---
 const StudentRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => {
   return (
     <>
-      {/* ==================================
-        MOBILE CARD VIEW (default)
-        ================================== */}
-      <div className="block md:hidden p-3 mb-2 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark">
-        {/* Top: Name and Actions */}
-        <div className="flex justify-between items-start">
-          <div className="flex items-start gap-2.5">
-            <input
-              type="checkbox"
-              checked={isSelected}
-              onChange={onSelect}
-              className="mt-1 h-4 w-4 rounded border-gray-400 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-slate-700"
-            />
-            <div className="mb-1.5">
-              <div className="font-bold text-slate-800 dark:text-slate-100 text-sm">{user.firstName} {user.lastName}</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">{user.gradeLevel || 'N/A'}</div>
+      {/* MOBILE CARD VIEW */}
+      <motion.div 
+        layout
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`block md:hidden relative p-4 mb-3 rounded-[2rem] border shadow-sm overflow-hidden transition-all duration-300
+            ${isSelected 
+                ? 'bg-indigo-50/80 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-500/30 ring-1 ring-indigo-500/20' 
+                : 'glass-panel border-white/40 dark:border-white/5'}`}
+      >
+        {/* Card Header */}
+        <div className="flex items-start gap-3.5">
+            <div className="pt-1">
+                <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={onSelect}
+                    className="h-5 w-5 rounded-lg border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-offset-0 focus:ring-indigo-500 dark:bg-white/10 cursor-pointer"
+                />
             </div>
-          </div>
-          <button
-            onClick={onEdit}
-            className="p-2 rounded-full text-slate-600 dark:text-slate-300 shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark"
-            title="Edit User"
-          >
-            <Cog size={18} />
-          </button>
+
+            <div className="flex-1 flex gap-3">
+                {/* FIX: Wrapped Avatar in a ringed, overflow-hidden container to prevent bleed/glitch */}
+                <div className="flex-shrink-0 w-12 h-12 rounded-full shadow-sm ring-2 ring-white dark:ring-white/10 overflow-hidden bg-slate-100 dark:bg-white/5">
+                    <UserInitialsAvatar 
+                        user={user} 
+                        size="full" 
+                        className="w-full h-full text-sm"
+                    />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <h3 className="font-black text-slate-900 dark:text-white text-base leading-tight truncate pr-2">
+                                {user.firstName} {user.lastName}
+                            </h3>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/10 text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wide border border-slate-200/50 dark:border-white/5">
+                                    {user.gradeLevel || 'N/A'}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <button
+                            onClick={onEdit}
+                            className="p-2 rounded-xl bg-white/50 dark:bg-white/5 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-white/10 transition-all shadow-sm border border-white/20"
+                        >
+                            <Cog size={18} />
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        {/* Bottom: Enrolled Classes */}
-        <div className="border-t border-slate-200 dark:border-slate-700 pt-2.5">
-          <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-0.5">Enrolled Classes:</div>
-          {enrolledClasses.length > 0 ? (
-            enrolledClasses.map(className => (
-              <div key={className} className="text-xs text-slate-500 dark:text-slate-400 truncate">{className}</div>
-            ))
-          ) : (
-            <div className="text-xs text-slate-400 dark:text-slate-500 italic">No classes</div>
-          )}
+        <div className="mt-4 pl-9"> 
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                {enrolledClasses.length > 0 ? (
+                    enrolledClasses.map(className => (
+                    <span 
+                        key={className} 
+                        className="flex-shrink-0 px-2.5 py-1 rounded-lg bg-blue-50/50 dark:bg-blue-900/20 text-xs font-bold text-blue-600 dark:text-blue-300 border border-blue-100 dark:border-blue-500/20 whitespace-nowrap"
+                    >
+                        {className}
+                    </span>
+                    ))
+                ) : (
+                    <span className="text-xs text-slate-400 italic pl-1">No active classes</span>
+                )}
+            </div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* ==================================
-        DESKTOP TABLE ROW (md:table-row)
-        ================================== */}
-      <tr className={`hidden md:table-row ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
-        <td className="px-4 py-3 text-center">
+      {/* DESKTOP TABLE ROW */}
+      <motion.tr 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={`hidden md:table-row transition-colors border-b border-slate-100/50 dark:border-white/5 last:border-none group ${isSelected ? 'bg-indigo-50/60 dark:bg-indigo-900/20' : 'hover:bg-slate-50/50 dark:hover:bg-white/5'}`}
+      >
+        <td className="px-6 py-4 text-center w-16">
           <input
               type="checkbox"
               checked={isSelected}
               onChange={onSelect}
-              className="h-5 w-5 rounded border-gray-400 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-slate-700"
+              className="h-5 w-5 rounded-md border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-black/20 cursor-pointer"
             />
         </td>
-        <td className="px-4 py-3 whitespace-nowrap font-medium text-slate-800 dark:text-slate-100">
-          {user.firstName} {user.lastName}
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="flex items-center gap-3">
+                {/* FIX: Wrapped Avatar in a ringed, overflow-hidden container */}
+                <div className="flex-shrink-0 w-9 h-9 rounded-full shadow-sm ring-2 ring-white dark:ring-white/10 overflow-hidden bg-slate-100 dark:bg-white/5">
+                    <UserInitialsAvatar user={user} size="full" className="w-full h-full text-xs font-bold" />
+                </div>
+                <span className="font-bold text-slate-800 dark:text-white">{user.firstName} {user.lastName}</span>
+            </div>
         </td>
-        <td className="px-4 py-3 whitespace-nowrap text-slate-600 dark:text-slate-300 capitalize">
-          {user.gradeLevel || 'N/A'}
+        <td className="px-6 py-4 whitespace-nowrap">
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 capitalize">
+                {user.gradeLevel || 'N/A'}
+            </span>
         </td>
-        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+        <td className="px-6 py-4">
           {enrolledClasses.length > 0 ? (
-            enrolledClasses.map(className => (
-              <div key={className} className="truncate">{className}</div>
-            ))
+            <div className="flex flex-wrap gap-1.5">
+                {enrolledClasses.slice(0, 3).map(className => (
+                    <span key={className} className="text-xs font-medium text-slate-600 dark:text-slate-300 bg-white/50 dark:bg-black/20 px-2 py-0.5 rounded border border-slate-200 dark:border-white/10">
+                        {className}
+                    </span>
+                ))}
+                {enrolledClasses.length > 3 && (
+                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 self-center">+{enrolledClasses.length - 3} more</span>
+                )}
+            </div>
           ) : (
-            <span className="text-slate-400 dark:text-slate-500 italic">No classes</span>
+            <span className="text-xs text-slate-400 italic">Unassigned</span>
           )}
         </td>
-        <td className="px-4 py-3 whitespace-nowrap text-right">
+        <td className="px-6 py-4 whitespace-nowrap text-right">
           <button
             onClick={onEdit}
-            className="p-2 rounded-full text-slate-600 dark:text-slate-300 shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark"
-            title="Edit User"
+            className="p-2 rounded-full text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"
           >
             <Cog size={18} />
           </button>
         </td>
-      </tr>
+      </motion.tr>
     </>
   );
 };
 
 
-// --- [NEW] Custom Select Component ---
+// --- CUSTOM SELECT ---
 const CustomSelect = ({ value, onChange, options }) => {
     const [isOpen, setIsOpen] = useState(false);
     const selectRef = useRef(null);
@@ -127,19 +204,20 @@ const CustomSelect = ({ value, onChange, options }) => {
             <button
                 type="button"
                 onClick={() => setIsOpen(prev => !prev)}
-                className="w-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-slate-800 dark:text-slate-100 px-4 py-2.5 rounded-xl flex justify-between items-center text-left"
+                className="w-full bg-slate-100/50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 px-4 py-2.5 rounded-xl flex justify-between items-center text-left text-sm font-medium hover:bg-white dark:hover:bg-white/5 transition-colors"
             >
-                <span className="font-medium">{selectedLabel}</span>
-                <ChevronsUpDown className="w-5 h-5 text-slate-400 dark:text-slate-500" />
+                <span>{selectedLabel}</span>
+                <ChevronsUpDown className="w-4 h-4 text-slate-400" />
             </button>
 
             <AnimatePresence>
                 {isOpen && (
                     <motion.ul
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute z-20 top-full mt-2 w-full max-h-48 overflow-y-auto bg-white dark:bg-slate-900 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-2"
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute z-50 top-full mt-1 w-full max-h-48 overflow-y-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-xl shadow-xl border border-slate-200/50 dark:border-white/10 p-1"
                     >
                         {options.map(option => (
                             <li
@@ -148,11 +226,11 @@ const CustomSelect = ({ value, onChange, options }) => {
                                     onChange(option.value);
                                     setIsOpen(false);
                                 }}
-                                className="flex items-center justify-between p-2 rounded-lg text-slate-800 dark:text-slate-100 font-medium cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                                className="flex items-center justify-between p-2 rounded-lg text-sm text-slate-700 dark:text-slate-200 font-medium cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
                             >
                                 <span>{option.label}</span>
                                 {value === option.value && (
-                                    <CheckIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                                    <CheckIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                                 )}
                             </li>
                         ))}
@@ -164,46 +242,30 @@ const CustomSelect = ({ value, onChange, options }) => {
 };
 
 
-// --- MODIFIED: Filter Popup Component ---
+// --- FILTER POPUP (High Opacity) ---
 const FilterPopup = ({
   allClasses,
   filters,
   onFilterChange,
-  onClose,
+  onClose, // Passed but logic moved to parent
+  onClear
 }) => {
   const [classSearch, setClassSearch] = useState('');
   const [isClassSearchOpen, setIsClassSearchOpen] = useState(false);
-  const popupRef = useRef(null);
-
-  // Close popup if clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (popupRef.current && !popupRef.current.contains(event.target)) {
-        onClose();
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [onClose]);
+  
+  // Note: We removed the internal click-outside logic here 
+  // because the parent now controls closing when clicking outside the container.
 
   const availableClasses = useMemo(() => {
     const lowerSearch = classSearch.toLowerCase();
-    
     return allClasses.filter(cls => {
-      // 1. Grade Level Check
       if (filters.grade !== 'All') {
-        if (cls.gradeLevel !== filters.grade) {
-          return false;
-        }
+        if (cls.gradeLevel !== filters.grade) return false;
       }
-      
-      // 2. Search Text Check
       return cls.name.toLowerCase().includes(lowerSearch);
     });
-    
   }, [allClasses, classSearch, filters.grade]);
 
-  // --- NEW: Defined options for the CustomSelect ---
   const gradeLevelOptions = [
     { value: 'All', label: 'All Grades' },
     { value: 'Grade 7', label: 'Grade 7' },
@@ -216,107 +278,104 @@ const FilterPopup = ({
   ];
 
   return (
-    <div 
-      ref={popupRef} 
-      className="absolute top-14 left-0 z-20 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 animate-scale-in"
-    >
-      <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-        <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">Filters</h3>
-      </div>
-      <div className="p-4 space-y-4">
-        {/* Name Filter */}
-        <div>
-          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-            Filter by Name
-          </label>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search by student name..."
-              value={filters.name}
-              onChange={(e) => onFilterChange('name', e.target.value)}
-              className="w-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-slate-800 dark:text-slate-100 px-4 py-2.5 pl-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-500"
-            />
-            <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 pointer-events-none" />
-          </div>
-        </div>
+    <>
+        {/* Mobile Backdrop */}
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden" onClick={onClose} />
 
-        {/* --- MODIFIED: Replaced <select> with <CustomSelect> --- */}
-        <div>
-          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-            Filter by Grade
-          </label>
-          <CustomSelect
-            value={filters.grade}
-            onChange={(value) => onFilterChange('grade', value)}
-            options={gradeLevelOptions}
-          />
-        </div>
-
-        {/* Class Filter */}
-        <div>
-          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-            Filter by Class
-          </label>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder={filters.grade !== 'All' ? `Search ${filters.grade} classes...` : "Search all classes..."}
-              value={filters.class ? filters.class.name : classSearch}
-              onFocus={() => setIsClassSearchOpen(true)}
-              onBlur={() => setTimeout(() => setIsClassSearchOpen(false), 150)}
-              onChange={(e) => {
-                setClassSearch(e.target.value);
-                onFilterChange('class', null);
-                setIsClassSearchOpen(true); 
-              }}
-              disabled={!!filters.class}
-              className="w-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-slate-800 dark:text-slate-100 px-4 py-2.5 pl-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-500"
-            />
-            <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 pointer-events-none" />
-            {filters.class && (
-              <button 
-                onClick={() => onFilterChange('class', null)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400"
-              >
-                <X size={18} />
-              </button>
-            )}
-            
-            {isClassSearchOpen && !filters.class && (
-              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-900 rounded-lg shadow-lg max-h-40 overflow-auto custom-scrollbar border border-slate-200 dark:border-slate-700">
-                {availableClasses.length > 0 ? (
-                  availableClasses.map(cls => (
-                    <div 
-                      key={cls.id} 
-                      className="px-4 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-800 dark:text-slate-100 cursor-pointer"
-                      onMouseDown={() => {
-                        onFilterChange('class', cls);
-                        setClassSearch('');
-                        setIsClassSearchOpen(false);
-                      }}
-                    >
-                      {cls.name}
-                    </div>
-                  ))
-                ) : (
-                  <div className="px-4 py-2 text-slate-500 dark:text-slate-400 italic">No classes found.</div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-      </div>
-      <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl border-t border-slate-200 dark:border-slate-700">
-        <button
-          onClick={onClose}
-          className="w-full px-4 py-2 font-semibold text-sm text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/30"
+        <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="fixed top-24 left-4 right-4 z-50 md:absolute md:top-14 md:left-0 md:right-auto md:w-80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-[2rem] shadow-2xl border border-white/40 dark:border-white/10"
         >
-          Done
-        </button>
-      </div>
-    </div>
+            <div className="p-4 border-b border-slate-200/50 dark:border-white/10 flex justify-between items-center">
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">Filters</h3>
+                <button 
+                    onClick={onClear}
+                    className="flex items-center gap-1 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-2 py-1 rounded-lg transition-colors"
+                >
+                    <Trash2 size={12} />
+                    Clear
+                </button>
+            </div>
+            <div className="p-4 space-y-4">
+                {/* Grade Filter */}
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+                        By Grade
+                    </label>
+                    <CustomSelect
+                        value={filters.grade}
+                        onChange={(value) => onFilterChange('grade', value)}
+                        options={gradeLevelOptions}
+                    />
+                </div>
+
+                {/* Class Filter */}
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+                        By Class
+                    </label>
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder={filters.grade !== 'All' ? `Search ${filters.grade} classes...` : "Search classes..."}
+                            value={filters.class ? filters.class.name : classSearch}
+                            onFocus={() => setIsClassSearchOpen(true)}
+                            onBlur={() => setTimeout(() => setIsClassSearchOpen(false), 150)}
+                            onChange={(e) => {
+                                setClassSearch(e.target.value);
+                                onFilterChange('class', null);
+                                setIsClassSearchOpen(true); 
+                            }}
+                            disabled={!!filters.class}
+                            className="w-full bg-slate-100/50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 px-4 py-2.5 pl-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm transition-all disabled:opacity-60"
+                        />
+                        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        {filters.class && (
+                            <button 
+                                onClick={() => onFilterChange('class', null)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full bg-slate-200 dark:bg-white/10 text-slate-500 hover:text-red-500 transition-colors"
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
+                        
+                        {isClassSearchOpen && !filters.class && (
+                            <div className="absolute z-10 w-full mt-1 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-xl shadow-xl max-h-40 overflow-auto custom-scrollbar border border-slate-200/50 dark:border-white/10 p-1">
+                                {availableClasses.length > 0 ? (
+                                    availableClasses.map(cls => (
+                                        <div 
+                                            key={cls.id} 
+                                            className="px-3 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-sm text-slate-700 dark:text-slate-200 cursor-pointer transition-colors"
+                                            onMouseDown={() => {
+                                                onFilterChange('class', cls);
+                                                setClassSearch('');
+                                                setIsClassSearchOpen(false);
+                                            }}
+                                        >
+                                            {cls.name}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="px-4 py-3 text-xs text-slate-500 italic text-center">No classes found.</div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+            
+            <div className="p-3 bg-slate-50/50 dark:bg-white/5 border-t border-slate-200/50 dark:border-white/10">
+                <button
+                    onClick={onClose}
+                    className="w-full px-4 py-2.5 font-bold text-sm text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl shadow-lg shadow-indigo-500/30 hover:scale-[1.02] transition-all"
+                >
+                    Apply Filters
+                </button>
+            </div>
+        </motion.div>
+    </>
   );
 };
 
@@ -326,12 +385,13 @@ const StudentManagementView = () => {
   const { firestoreService, userProfile } = useAuth();
   const { showToast } = useToast();
 
-  // Data State
+  // Ref for the Filter Button Container to detect outside clicks
+  const filterContainerRef = useRef(null);
+
   const [allStudents, setAllStudents] = useState([]);
   const [allClasses, setAllClasses] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Filter & Selection State
   const [filters, setFilters] = useState({
     name: '',
     grade: 'All',
@@ -340,12 +400,23 @@ const StudentManagementView = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedStudentIds, setSelectedStudentIds] = useState(new Set());
   
-  // Modal State
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  // --- 1. DATA FETCHING ---
+  // --- FIX: Handle Outside Click for Filter ---
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // If filter is open, and click is NOT inside the filter container
+      if (isFilterOpen && filterContainerRef.current && !filterContainerRef.current.contains(event.target)) {
+        setIsFilterOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isFilterOpen]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -353,10 +424,8 @@ const StudentManagementView = () => {
         firestoreService.getAllUsers(),
         firestoreService.getAllClasses()
       ]);
-      
       setAllStudents(users.filter(u => u.role === 'student' && !u.isRestricted));
       setAllClasses(classes);
-
     } catch (error) {
       console.error("Error fetching data:", error);
       showToast('Failed to fetch data.', 'error');
@@ -367,9 +436,7 @@ const StudentManagementView = () => {
 
   useEffect(() => {
     fetchData();
-  }, []); // Runs once on mount
-
-  // --- 2. DATA PROCESSING & FILTERING ---
+  }, []);
 
   const enrolledClassesMap = useMemo(() => {
     const map = new Map();
@@ -383,53 +450,42 @@ const StudentManagementView = () => {
     return map;
   }, [allStudents, allClasses]);
 
-  
   const filteredStudents = useMemo(() => {
     const lowerName = filters.name.toLowerCase();
-    
     return allStudents
       .filter(student => {
-        // Filter by Class
         if (filters.class) {
           const enrolled = enrolledClassesMap.get(student.id) || [];
-          if (!enrolled.includes(filters.class.name)) {
-            return false;
-          }
+          if (!enrolled.includes(filters.class.name)) return false;
         }
-        
-        // Filter by Grade
         if (filters.grade !== 'All') {
-          const studentGrade = student.gradeLevel || 'N/A';
-          if (studentGrade !== filters.grade) {
-            return false;
-          }
+          if ((student.gradeLevel || 'N/A') !== filters.grade) return false;
         }
-
-        // Filter by Name
         return `${student.firstName} ${student.lastName}`.toLowerCase().includes(lowerName);
       })
-      // Default Sort: Alphabetical by last name
       .sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
   }, [allStudents, filters, enrolledClassesMap]);
-  
-  // --- 3. EVENT HANDLERS ---
   
   const handleFilterChange = (key, value) => {
     setFilters(prev => {
       const newFilters = { ...prev, [key]: value };
-      
-      if (key === 'grade') {
-        newFilters.class = null; 
-      }
-      
+      if (key === 'grade') newFilters.class = null; 
       return newFilters;
     });
   };
 
-  // Count active filters to show on the button
+  const handleClearFilters = () => {
+      setFilters({
+          name: filters.name, 
+          grade: 'All',
+          class: null
+      });
+      setIsFilterOpen(false);
+      showToast('Filters cleared', 'success');
+  };
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (filters.name) count++;
     if (filters.grade !== 'All') count++;
     if (filters.class) count++;
     return count;
@@ -438,11 +494,8 @@ const StudentManagementView = () => {
   const handleSelectStudent = (studentId) => {
     setSelectedStudentIds(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(studentId)) {
-        newSet.delete(studentId);
-      } else {
-        newSet.add(studentId);
-      }
+      if (newSet.has(studentId)) newSet.delete(studentId);
+      else newSet.add(studentId);
       return newSet;
     });
   };
@@ -491,161 +544,185 @@ const StudentManagementView = () => {
     setIsImportModalOpen(false);
   };
   
-  // --- 4. RENDER ---
   const allVisibleSelected = filteredStudents.length > 0 && selectedStudentIds.size === filteredStudents.length;
 
   return (
-    <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark h-screen flex flex-col p-4 md:p-6">
-      <div className="max-w-7xl mx-auto w-full flex flex-col flex-1 min-h-0">
-        
-        {/* Header */}
-        <header className="mb-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="flex flex-col h-full font-sans space-y-6 p-1 lg:p-0 relative z-10">
+      
+        {/* Header Section */}
+        <motion.header 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-2"
+        >
             <div>
-              <h1 className="text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
+              <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
                 Students
               </h1>
-              <p className="mt-1 text-slate-600 dark:text-slate-400">
-                Manage all active student accounts.
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
+                Manage enrollment and student profiles.
               </p>
             </div>
-          </div>
-        </header>
+        </motion.header>
 
-        {/* --- MODIFIED: Simplified Filter Bar --- */}
-        <div className="mb-6 p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            {/* Filter Button */}
-            <div className="relative w-full md:w-auto">
-              <button
-                onClick={() => setIsFilterOpen(prev => !prev)}
-                className="w-full md:w-auto flex items-center justify-center gap-2 font-semibold bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-700 dark:text-slate-200 px-5 py-3 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all"
-              >
-                <Filter size={18} />
-                <span>Filter</span>
-                {activeFilterCount > 0 && (
-                  <span className="w-5 h-5 bg-indigo-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </button>
-              
-              {isFilterOpen && (
-                <FilterPopup
-                  allClasses={allClasses}
-                  filters={filters}
-                  onFilterChange={handleFilterChange}
-                  onClose={() => setIsFilterOpen(false)}
-                />
-              )}
+        {/* Toolbar (Control Center Style) */}
+        <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="glass-panel p-2 rounded-[1.25rem] border border-white/40 dark:border-white/10 shadow-lg flex flex-col md:flex-row gap-2 items-center justify-between relative z-50"
+        >
+            {/* Integrated Search & Filter Group */}
+            <div className="flex flex-1 w-full gap-2">
+                {/* Search Input */}
+                <div className="relative flex-1">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    <input
+                        type="text"
+                        placeholder="Search students by name..."
+                        value={filters.name}
+                        onChange={(e) => handleFilterChange('name', e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-200/50 dark:border-white/5 text-sm font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 outline-none transition-all shadow-inner"
+                    />
+                </div>
+
+                {/* Filter Toggle Button & Popup Wrapper */}
+                {/* FIX: Added filterContainerRef here to capture clicks inside the button OR popup */}
+                <div className="relative" ref={filterContainerRef}>
+                    <button
+                        onClick={() => setIsFilterOpen(prev => !prev)}
+                        className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all h-full font-bold text-xs
+                            ${isFilterOpen || activeFilterCount > 0 
+                                ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-300' 
+                                : 'bg-white dark:bg-white/5 border-slate-200/50 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/10'
+                            }`}
+                    >
+                        <ListFilter className="w-4 h-4" />
+                        <span className="hidden sm:inline">Filters</span>
+                        {activeFilterCount > 0 && (
+                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-500 text-white text-[9px] font-bold shadow-sm">
+                                {activeFilterCount}
+                            </span>
+                        )}
+                    </button>
+
+                    <AnimatePresence>
+                        {isFilterOpen && (
+                            <FilterPopup
+                                allClasses={allClasses}
+                                filters={filters}
+                                onFilterChange={handleFilterChange}
+                                onClose={() => setIsFilterOpen(false)}
+                                onClear={handleClearFilters} 
+                            />
+                        )}
+                    </AnimatePresence>
+                </div>
             </div>
 
-            {/* Import Button */}
+            {/* Primary Action */}
             <button
               onClick={() => setIsImportModalOpen(true)}
               disabled={selectedStudentIds.size === 0}
-              className="w-full md:w-auto flex justify-center items-center gap-2 font-semibold bg-gradient-to-r from-indigo-500 to-blue-500 text-white px-5 py-3 rounded-xl shadow-lg hover:shadow-indigo-500/50 transition-all disabled:opacity-50 disabled:shadow-none"
+              className="w-full md:w-auto flex justify-center items-center gap-2.5 font-bold text-white px-6 py-3.5 rounded-xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed bg-gradient-to-br from-indigo-500 via-purple-500 to-blue-500 ring-1 ring-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)]"
             >
-              <UserPlus size={18} />
-              Add ({selectedStudentIds.size}) Student(s) to Class...
+              <div className="bg-white/20 rounded-full p-1">
+                <UserPlus size={16} />
+              </div>
+              <span className="whitespace-nowrap">Add {selectedStudentIds.size > 0 ? `(${selectedStudentIds.size})` : ''} to Class</span>
             </button>
-          </div>
-        </div>
+        </motion.div>
         
-        {/* ... (Content Area, Table, Modals all remain unchanged) ... */}
-		<div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
-        {loading ? (
-          <div className="flex flex-col justify-center items-center h-96">
-            <Spinner />
-            <p className="mt-4 text-slate-500 dark:text-slate-400 font-semibold">Fetching student data...</p>
-          </div>
-        ) : (
-          <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark">
-            
-            {/* Desktop Table */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="text-slate-600 dark:text-slate-400">
-                    <th className="px-4 py-3 text-center w-16">
-                      <input
+        {/* Table / Content Area */}
+		<div className="flex-1 overflow-hidden flex flex-col min-h-0 relative z-0">
+            {loading ? (
+                <StudentTableSkeleton />
+            ) : (
+            <div className="flex-1 glass-panel rounded-[2rem] border border-white/40 dark:border-white/10 shadow-xl overflow-hidden flex flex-col">
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto custom-scrollbar flex-1">
+                <table className="min-w-full text-sm">
+                    <thead className="bg-slate-50/80 dark:bg-white/5 backdrop-blur-md sticky top-0 z-10">
+                    <tr>
+                        <th className="px-6 py-4 text-center w-16">
+                        <input
+                            type="checkbox"
+                            checked={allVisibleSelected}
+                            onChange={handleSelectAll}
+                            disabled={filteredStudents.length === 0}
+                            className="h-5 w-5 rounded-md border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-black/20 cursor-pointer"
+                        />
+                        </th>
+                        <th className="px-6 py-4 text-left font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">Name</th>
+                        <th className="px-6 py-4 text-left font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">Grade</th>
+                        <th className="px-6 py-4 text-left font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">Classes</th>
+                        <th className="px-6 py-4 text-right font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">Edit</th>
+                    </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-white/5 bg-white/40 dark:bg-transparent">
+                    {filteredStudents.length > 0 ? (
+                        filteredStudents.map(user => (
+                        <StudentRow 
+                            key={user.id} 
+                            user={user} 
+                            enrolledClasses={enrolledClassesMap.get(user.id) || []}
+                            onEdit={() => handleEditClick(user)} 
+                            isSelected={selectedStudentIds.has(user.id)}
+                            onSelect={() => handleSelectStudent(user.id)}
+                        />
+                        ))
+                    ) : (
+                        <tr>
+                        <td colSpan="5" className="text-center text-slate-500 dark:text-slate-400 py-16 font-medium">
+                            No students found matching your filters.
+                        </td>
+                        </tr>
+                    )}
+                    </tbody>
+                </table>
+                </div>
+
+                {/* Mobile List */}
+                <div className="block md:hidden flex-1 overflow-y-auto p-4 custom-scrollbar">
+                {filteredStudents.length > 0 && (
+                    <div className="flex items-center gap-3 px-4 py-3 bg-white/50 dark:bg-white/5 rounded-xl mb-4 border border-slate-200/50 dark:border-white/5">
+                    <input
                         type="checkbox"
                         checked={allVisibleSelected}
                         onChange={handleSelectAll}
-                        disabled={filteredStudents.length === 0}
-                        className="h-5 w-5 rounded border-gray-400 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-slate-700"
-                        title="Select all visible students"
-                      />
-                    </th>
-                    <th className="px-4 py-3 text-left">Student Name</th>
-                    <th className="px-4 py-3 text-left">Grade</th>
-                    <th className="px-4 py-3 text-left">Enrolled Classes</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                  {filteredStudents.length > 0 ? (
-                    filteredStudents.map(user => (
-                      <StudentRow 
-                        key={user.id} 
-                        user={user} 
-                        enrolledClasses={enrolledClassesMap.get(user.id) || []}
-                        onEdit={() => handleEditClick(user)} 
-                        isSelected={selectedStudentIds.has(user.id)}
-                        onSelect={() => handleSelectStudent(user.id)}
-                      />
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="5" className="text-center text-slate-500 dark:text-slate-400 py-12">
-                        No students found matching your criteria.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Card List */}
-            <div className="block md:hidden p-4">
-              {filteredStudents.length > 0 && (
-                <div className="flex items-center gap-3 px-2 py-3 border-b-2 border-slate-200 dark:border-slate-700 mb-3">
-                  <input
-                    type="checkbox"
-                    checked={allVisibleSelected}
-                    onChange={handleSelectAll}
-                    className="h-5 w-5 rounded border-gray-400 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-slate-700"
-                  />
-                  <label 
-                    className="font-semibold text-slate-700 dark:text-slate-200"
-                    onClick={handleSelectAll}
-                  >
-                    Select all ({filteredStudents.length})
-                  </label>
+                        className="h-5 w-5 rounded-md border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <label 
+                        className="font-bold text-slate-700 dark:text-slate-200 text-sm"
+                        onClick={handleSelectAll}
+                    >
+                        Select All ({filteredStudents.length})
+                    </label>
+                    </div>
+                )}
+                
+                {filteredStudents.length > 0 ? (
+                    <div className="space-y-2">
+                        {filteredStudents.map(user => (
+                        <StudentRow 
+                            key={user.id} 
+                            user={user} 
+                            enrolledClasses={enrolledClassesMap.get(user.id) || []}
+                            onEdit={() => handleEditClick(user)} 
+                            isSelected={selectedStudentIds.has(user.id)}
+                            onSelect={() => handleSelectStudent(user.id)}
+                        />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center text-slate-500 dark:text-slate-400 py-12 font-medium">
+                    No students found.
+                    </div>
+                )}
                 </div>
-              )}
-              
-              {filteredStudents.length > 0 ? (
-                filteredStudents.map(user => (
-                  <StudentRow 
-                    key={user.id} 
-                    user={user} 
-                    enrolledClasses={enrolledClassesMap.get(user.id) || []}
-                    onEdit={() => handleEditClick(user)} 
-                    isSelected={selectedStudentIds.has(user.id)}
-                    onSelect={() => handleSelectStudent(user.id)}
-                  />
-                ))
-              ) : (
-                <div className="text-center text-slate-500 dark:text-slate-400 py-12">
-                  No students found matching your criteria.
-                </div>
-              )}
             </div>
-          </div>
-        )}
+            )}
 		</div>
-      </div>
 
       {/* Modals */}
       {isEditUserModalOpen && selectedUser && (
@@ -670,40 +747,6 @@ const StudentManagementView = () => {
           userProfile={userProfile} 
         />
       )}
-
-      {/* Animation Style */}
-	  <style>{`
-	          @keyframes scaleIn { 
-	            from { opacity: 0; transform: scale(0.95); } 
-	            to { opacity: 1; transform: scale(1); } 
-	          }
-	          .animate-scale-in { 
-	            animation: scaleIn 0.2s ease-out forwards; 
-	            transform-origin: top left; 
-	          }
-
-	          /* --- ADD THESE SCROLLBAR STYLES --- */
-	          .custom-scrollbar::-webkit-scrollbar {
-	            width: 8px;
-	            height: 8px;
-	          }
-	          .custom-scrollbar::-webkit-scrollbar-track {
-	            background: transparent;
-	          }
-	          .custom-scrollbar::-webkit-scrollbar-thumb {
-	            background-color: rgba(156, 163, 175, 0.5); /* gray-400 */
-	            border-radius: 4px;
-	          }
-	          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-	            background-color: rgba(107, 114, 128, 0.5); /* gray-500 */
-	          }
-	          .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-	            background-color: rgba(100, 116, 139, 0.5); /* slate-500 */
-	          }
-	          .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-	            background-color: rgba(148, 163, 184, 0.5); /* slate-400 */
-	          }
-	        `}</style>
     </div>
   );
 };

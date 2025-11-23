@@ -1,13 +1,13 @@
 import React, { useState, useCallback, Suspense, lazy } from 'react';
 import { Dialog, DialogPanel } from '@headlessui/react';
 import {
-    XMarkIcon, SparklesIcon, DocumentPlusIcon, ChevronRightIcon, DocumentArrowUpIcon
+    XMarkIcon, DocumentPlusIcon, ChevronRightIcon, DocumentArrowUpIcon, SparklesIcon
 } from '@heroicons/react/24/outline';
-import Spinner from '../common/Spinner'; // Adjust path if needed
+import Spinner from '../common/Spinner';
 
 // Lazy load the main panel components
-const AiQuizGenerator = lazy(() => import('./AiQuizGenerator')); // <-- NEW
-const ManualQuizCreator = lazy(() => import('./ManualQuizCreator')); // <-- NEW (was AddQuizModal)
+const AiQuizGenerator = lazy(() => import('./AiQuizGenerator'));
+const ManualQuizCreator = lazy(() => import('./ManualQuizCreator'));
 
 // Fallback component for Suspense
 const LoadingPanel = () => (
@@ -16,106 +16,119 @@ const LoadingPanel = () => (
     </div>
 );
 
-// Component for the initial mode selection
+// --- REDESIGNED MODE SELECTION ---
 const ModeSelection = ({ onSelect }) => (
-    <div className="p-8">
-        {/* --- MODIFIED: Added dark theme text --- */}
-        <Dialog.Title as="h3" className="text-2xl font-bold text-center text-slate-800 dark:text-slate-100 mb-2">
-            Create New Quiz
-        </Dialog.Title>
-        {/* --- MODIFIED: Added dark theme text --- */}
-        <p className="text-center text-slate-500 dark:text-slate-400 mb-8">How would you like to build your quiz?</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="p-8 sm:p-12 flex flex-col h-full justify-center">
+        <div className="text-center mb-10">
+            <Dialog.Title as="h3" className="text-3xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">
+                New Quiz
+            </Dialog.Title>
+            <p className="text-lg text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+                Choose how you'd like to create your assessment today.
+            </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto w-full">
+            {/* AI Option */}
             <button
                 onClick={() => onSelect('ai')}
-                // --- MODIFIED: Added dark theme styles ---
-                className="group flex flex-col items-center justify-center p-6 bg-neumorphic-base rounded-2xl shadow-neumorphic transition-shadow duration-300 hover:shadow-neumorphic-inset text-center
-                           dark:bg-neumorphic-base-dark dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark"
+                className="group relative flex flex-col items-start text-left p-6 h-auto
+                           bg-white/60 dark:bg-[#2c2c2e]/60 backdrop-blur-xl 
+                           border border-white/20 dark:border-white/10
+                           rounded-[32px] shadow-sm hover:shadow-2xl hover:shadow-blue-500/10 
+                           transition-all duration-300 
+                           hover:scale-[1.02] active:scale-[0.98] overflow-hidden"
             >
-                {/* --- MODIFIED: Added dark theme styles --- */}
-                <div className="p-4 bg-neumorphic-base shadow-neumorphic-inset rounded-full mb-4
-                                dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
-                    {/* --- MODIFIED: Added dark theme icon --- */}
-                    <DocumentArrowUpIcon className="w-8 h-8 text-sky-600 dark:text-sky-400" />
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                
+                <div className="w-14 h-14 rounded-[20px] bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-5 shadow-lg shadow-blue-500/30 ring-1 ring-white/20 group-hover:scale-110 transition-transform duration-300">
+                    <SparklesIcon className="w-7 h-7 text-white" />
                 </div>
-                {/* --- MODIFIED: Added dark theme text --- */}
-                <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Upload & AI Generate</h4>
-                {/* --- MODIFIED: Added dark theme text --- */}
-                <p className="text-sm text-slate-700 dark:text-slate-300">Generate a quiz from a DOCX, PDF, or TXT file.</p>
-                {/* --- MODIFIED: Added dark theme icon --- */}
-                <ChevronRightIcon className="w-6 h-6 text-slate-500 dark:text-slate-400 mt-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                
+                <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
+                    AI Generator
+                </h4>
+                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 font-medium">
+                    Upload a document (PDF, DOCX) and let AI generate questions automatically.
+                </p>
+                
+                <div className="mt-auto flex items-center text-sm font-bold text-[#007AFF] dark:text-blue-400 group-hover:translate-x-1 transition-transform">
+                    Generate with AI <ChevronRightIcon className="w-4 h-4 ml-1 stroke-[2.5]" />
+                </div>
             </button>
+
+            {/* Manual Option */}
             <button
                 onClick={() => onSelect('manual')}
-                // --- MODIFIED: Added dark theme styles ---
-                className="group flex flex-col items-center justify-center p-6 bg-neumorphic-base rounded-2xl shadow-neumorphic transition-shadow duration-300 hover:shadow-neumorphic-inset text-center
-                           dark:bg-neumorphic-base-dark dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark"
+                className="group relative flex flex-col items-start text-left p-6 h-auto
+                           bg-white/60 dark:bg-[#2c2c2e]/60 backdrop-blur-xl 
+                           border border-white/20 dark:border-white/10
+                           rounded-[32px] shadow-sm hover:shadow-2xl hover:shadow-green-500/10 
+                           transition-all duration-300 
+                           hover:scale-[1.02] active:scale-[0.98] overflow-hidden"
             >
-                {/* --- MODIFIED: Added dark theme styles --- */}
-                <div className="p-4 bg-neumorphic-base shadow-neumorphic-inset rounded-full mb-4
-                                dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
-                    {/* --- MODIFIED: Added dark theme icon --- */}
-                    <DocumentPlusIcon className="w-8 h-8 text-green-700 dark:text-green-500" />
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                <div className="w-14 h-14 rounded-[20px] bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mb-5 shadow-lg shadow-emerald-500/30 ring-1 ring-white/20 group-hover:scale-110 transition-transform duration-300">
+                    <DocumentPlusIcon className="w-7 h-7 text-white" />
                 </div>
-                {/* --- MODIFIED: Added dark theme text --- */}
-                <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Manual Creation</h4>
-                {/* --- MODIFIED: Added dark theme text --- */}
-                <p className="text-sm text-slate-700 dark:text-slate-300">Build your quiz question by question with the editor.</p>
-                {/* --- MODIFIED: Added dark theme icon --- */}
-                <ChevronRightIcon className="w-6 h-6 text-slate-500 dark:text-slate-400 mt-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                
+                <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
+                    Manual Creation
+                </h4>
+                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 font-medium">
+                    Build your quiz question-by-question using our visual editor.
+                </p>
+
+                <div className="mt-auto flex items-center text-sm font-bold text-emerald-600 dark:text-emerald-400 group-hover:translate-x-1 transition-transform">
+                    Start Blank <ChevronRightIcon className="w-4 h-4 ml-1 stroke-[2.5]" />
+                </div>
             </button>
         </div>
     </div>
 );
 
-
 export default function AddQuizModal({ isOpen, onClose, unitId, subjectId }) {
     const [creationMode, setCreationMode] = useState(null);
-    // State to hold AI-generated data to pass to the manual editor
     const [generatedQuizData, setGeneratedQuizData] = useState(null);
 
     const handleClose = useCallback(() => {
-        // Add a delay to allow animations to finish before resetting state
         setTimeout(() => {
             setCreationMode(null);
-            setGeneratedQuizData(null); // Clear generated data
+            setGeneratedQuizData(null);
         }, 300);
         onClose();
     }, [onClose]);
 
-    // This is the new data flow: AI -> Manual Editor
     const handleAiComplete = (quizData) => {
-        setGeneratedQuizData(quizData); // Store the generated data
-        setCreationMode('manual'); // Switch to the manual editor
+        setGeneratedQuizData(quizData);
+        setCreationMode('manual');
     };
 
     const handleBack = () => {
         setCreationMode(null);
-        setGeneratedQuizData(null); // Clear data when going back
+        setGeneratedQuizData(null);
     };
 
-	const getPanelClassName = () => {
-            // --- MODIFIED: Added dark theme styles to all cases ---
-	        switch (creationMode) {
-	            case 'ai':
-	                // AI generator panel
-	                return "w-full max-w-4xl rounded-2xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-lg p-6 flex flex-col";
-	            case 'manual':
-	                // --- MODIFICATION: Make Manual Creator Full Screen ---
-	                return "w-screen h-screen max-w-full max-h-screen rounded-none bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-lg flex flex-col transition-all";
-	                // --- END MODIFICATION ---
-	            default:
-	                // Selection panel
-	                return "w-full max-w-2xl rounded-2xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-lg";
-	        }
-	    };
+    const getPanelClassName = () => {
+        const baseClasses = "relative flex flex-col transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden border border-white/20 dark:border-white/10 shadow-2xl shadow-black/20 ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-2xl";
+        
+        switch (creationMode) {
+            case 'ai':
+                return `${baseClasses} w-full max-w-5xl rounded-[32px] bg-[#f5f5f7]/90 dark:bg-[#1c1c1e]/90 min-h-[600px]`;
+            case 'manual':
+                return `${baseClasses} w-screen h-screen max-w-full max-h-screen rounded-none bg-[#f5f5f7] dark:bg-[#1c1c1e]`;
+            default:
+                return `${baseClasses} w-full max-w-3xl rounded-[36px] bg-white/80 dark:bg-[#1c1c1e]/80`;
+        }
+    };
 
     const renderContent = () => {
         switch (creationMode) {
             case 'ai':
                 return <AiQuizGenerator
                             onBack={handleBack}
-                            onAiComplete={handleAiComplete} // Pass the new handler
+                            onAiComplete={handleAiComplete}
                         />;
             case 'manual':
                 return <ManualQuizCreator
@@ -123,7 +136,7 @@ export default function AddQuizModal({ isOpen, onClose, unitId, subjectId }) {
                             onClose={handleClose}
                             unitId={unitId}
                             subjectId={subjectId}
-                            initialData={generatedQuizData} // Pass generated data as a prop
+                            initialData={generatedQuizData}
                         />;
             default:
                 return <ModeSelection onSelect={setCreationMode} />;
@@ -132,23 +145,25 @@ export default function AddQuizModal({ isOpen, onClose, unitId, subjectId }) {
 
     return (
         <Dialog open={isOpen} onClose={handleClose} className="relative z-50">
-            {/* --- MODIFIED: Added dark theme backdrop --- */}
-            <div className="fixed inset-0 bg-black/30 dark:bg-black/80 backdrop-blur-sm" aria-hidden="true" />
-            <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-                <DialogPanel className={`relative transition-all duration-300 ease-in-out ${getPanelClassName()}`}>
+            {/* Ultra-smooth backdrop blur */}
+            <div className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-md transition-opacity duration-300" aria-hidden="true" />
+            
+            <div className="fixed inset-0 flex w-screen items-center justify-center p-0 sm:p-4">
+                <DialogPanel className={getPanelClassName()}>
+                    
+                    {/* Floating Close Button */}
                     <button
                         onClick={handleClose}
-                        // --- MODIFIED: Added dark theme styles to both button states ---
-                        className={`absolute top-4 right-4 z-10 p-2 rounded-full
+                        className={`absolute top-6 right-6 z-20 p-2.5 rounded-full transition-all duration-200 backdrop-blur-md group
                             ${creationMode === 'manual' 
-                                ? 'h-10 w-10 flex items-center justify-center bg-slate-200 text-slate-600 shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff] dark:bg-neumorphic-base-dark dark:text-slate-400 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark' 
-                                : 'bg-neumorphic-base shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark'
+                                ? 'bg-white/80 dark:bg-black/50 text-slate-500 hover:text-red-500 hover:bg-white shadow-sm border border-black/5 dark:border-white/10' 
+                                : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-slate-500 dark:text-slate-400'
                             }`}
                         aria-label="Close"
                     >
-                        {/* --- MODIFIED: Added dark theme icon --- */}
-                        <XMarkIcon className="w-6 h-6 text-slate-600 dark:text-slate-400" />
+                        <XMarkIcon className="w-5 h-5 stroke-[2.5] group-hover:scale-110 transition-transform" />
                     </button>
+
                     <Suspense fallback={<LoadingPanel />}>
                         {renderContent()}
                     </Suspense>

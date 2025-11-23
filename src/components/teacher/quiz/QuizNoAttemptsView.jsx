@@ -1,13 +1,12 @@
 import React from 'react';
 import { useQuiz } from '../ViewQuizModal';
-import { LockClosedIcon } from '@heroicons/react/24/solid';
+import { LockClosedIcon, DocumentCheckIcon, ChevronRightIcon } from '@heroicons/react/24/solid';
 
 /**
- * Renders the view shown to a student when they have no attempts remaining.
- * Replaces the old renderNoAttemptsLeftView() function.
+ * macOS 26 Design Overhaul
+ * Features: Ultra-Glassmorphism, Vivid Blurs, System Fonts, Adaptive Dark Mode
  */
 export default function QuizNoAttemptsView() {
-    // Get all necessary state and handlers from context
     const {
         maxAttempts,
         latestSubmission,
@@ -22,59 +21,94 @@ export default function QuizNoAttemptsView() {
     const lastTotal = lastSub?.totalItems ?? questionNumbering.totalItems;
     const lastStatus = lastSub?.status;
 
-    // Sort submissions by attempt number, ascending
+    // Sort submissions by attempt number
     const sortedSubmissions = [...allSubmissions].sort((a, b) => (a.attemptNumber || 0) - (b.attemptNumber || 0));
 
     return (
-        // --- MODIFIED: Added dark theme ---
-        <div className="text-center p-8 bg-neumorphic-base rounded-3xl shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg">
-            {/* --- MODIFIED: Added dark theme --- */}
-            <div className="mx-auto inline-block p-4 rounded-full bg-neumorphic-base shadow-neumorphic-inset mb-5 dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
-                {/* --- MODIFIED: Added dark theme --- */}
-                <LockClosedIcon className="h-20 w-20 text-red-500 dark:text-red-400" />
-            </div>
-            {/* --- MODIFIED: Added dark theme --- */}
-            <h3 className="text-3xl font-extrabold text-slate-900 mb-2 dark:text-slate-100">No Attempts Remaining</h3>
-            {/* --- MODIFIED: Added dark theme --- */}
-            <p className="text-lg mt-2 text-slate-600 dark:text-slate-300">You have used all {maxAttempts} of your attempts for this quiz.</p>
-            
-            {/* Display score from the last attempt */}
-            {lastSub && (
-                // --- MODIFIED: Added dark theme ---
-                <p className="text-2xl font-bold mt-4 text-slate-800 dark:text-slate-200">
-                    Your final score was <strong className={lastStatus === 'pending_ai_grading' || lastStatus === 'pending_review' ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"}>{lastScore}</strong> out of <strong className="text-slate-900 dark:text-slate-100">{lastTotal}</strong>
-                    {/* --- MODIFIED: Added dark theme --- */}
-                    {lastStatus === 'pending_ai_grading' && <span className="block text-sm text-blue-600 dark:text-blue-400">(Essays Pending Review)</span>}
-                    {/* --- MODIFIED: Added dark theme --- */}
-                    {lastStatus === 'pending_review' && <span className="block text-sm text-orange-600 dark:text-orange-400">(Manual Review Needed)</span>}
+        <div className="relative overflow-hidden p-6 sm:p-10 rounded-[32px] 
+            bg-white/60 dark:bg-black/40 
+            backdrop-blur-2xl 
+            border border-white/40 dark:border-white/10 
+            shadow-2xl shadow-black/5 dark:shadow-black/50 
+            text-center transition-all duration-500 ease-out">
+
+            {/* Header Status */}
+            <div className="flex flex-col items-center mb-8">
+                <div className="h-20 w-20 flex items-center justify-center rounded-full 
+                    bg-red-500/10 text-red-500 dark:text-red-400 mb-4 backdrop-blur-md border border-red-500/20">
+                    <LockClosedIcon className="h-10 w-10" />
+                </div>
+                <h3 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+                    No Attempts Left
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400 mt-2 font-medium">
+                    You have used all {maxAttempts} attempts.
                 </p>
+            </div>
+            
+            {/* Final Score Display */}
+            {lastSub && (
+                <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-white/50 to-white/10 dark:from-white/5 dark:to-transparent border border-white/40 dark:border-white/5 shadow-sm backdrop-blur-md">
+                    <p className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">
+                        Final Score
+                    </p>
+                    <div className="flex items-baseline justify-center gap-1 text-gray-900 dark:text-white">
+                        <span className={`text-5xl font-light tracking-tighter ${
+                             lastStatus === 'pending_ai_grading' || lastStatus === 'pending_review' ? "text-blue-600 dark:text-blue-400" : ""
+                        }`}>
+                            {lastScore}
+                        </span>
+                        <span className="text-2xl text-gray-400 dark:text-gray-600">
+                            /{lastTotal}
+                        </span>
+                    </div>
+                    
+                    {(lastStatus === 'pending_ai_grading' || lastStatus === 'pending_review') && (
+                        <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-bold">
+                            <DocumentCheckIcon className="h-3.5 w-3.5" />
+                            {lastStatus === 'pending_review' ? "Needs Manual Review" : "Pending AI Grading"}
+                        </div>
+                    )}
+                </div>
             )}
             
-            {/* Review Past Attempts */}
+            {/* Review Past Attempts List */}
             {sortedSubmissions.length > 0 && (
-                // --- MODIFIED: Added dark theme ---
-                <div className="mt-8 w-full space-y-2 pt-4 border-t border-slate-300/50 dark:border-slate-700">
-                    {/* --- MODIFIED: Added dark theme --- */}
-                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Review Your Attempts:</p>
-                    {sortedSubmissions.map((sub) => (
-                        <button
-                            key={sub.id || sub.attemptNumber}
-                            onClick={() => {
-                                setSubmissionToReview(sub);
-                                setShowReview(true);
-                            }}
-                            // --- MODIFIED: Added dark theme ---
-                            className="w-full py-2.5 rounded-xl bg-neumorphic-base text-blue-700 font-semibold shadow-neumorphic active:shadow-neumorphic-inset transition-all text-sm dark:bg-neumorphic-base-dark dark:text-blue-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
-                        >
-                            Review Attempt {sub.attemptNumber}
-                            {/* --- MODIFIED: Added dark theme --- */}
-                            <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">
-                                ({sub.score ?? 0} / {sub.totalItems ?? '?'})
-                                {sub.status === 'pending_ai_grading' && " (Pending)"}
-                                {sub.status === 'pending_review' && " (Review)"}
-                            </span>
-                        </button>
-                    ))}
+                <div className="text-left animate-in fade-in slide-in-from-bottom-4">
+                    <p className="px-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">
+                        History
+                    </p>
+                    <div className="space-y-2">
+                        {sortedSubmissions.map((sub) => (
+                            <button
+                                key={sub.id || sub.attemptNumber}
+                                onClick={() => {
+                                    setSubmissionToReview(sub);
+                                    setShowReview(true);
+                                }}
+                                className="group w-full p-4 rounded-2xl flex items-center justify-between
+                                    bg-white/40 hover:bg-white/80 dark:bg-white/5 dark:hover:bg-white/10
+                                    border border-white/50 dark:border-white/5
+                                    backdrop-blur-sm transition-all duration-200 active:scale-[0.98]"
+                            >
+                                <div className="flex flex-col items-start">
+                                    <span className="font-semibold text-gray-900 dark:text-white">
+                                        Attempt {sub.attemptNumber}
+                                    </span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                        {sub.status === 'pending_ai_grading' ? 'Grading...' : sub.status === 'pending_review' ? 'In Review' : 'Graded'}
+                                    </span>
+                                </div>
+                                
+                                <div className="flex items-center gap-3">
+                                    <span className="font-bold text-gray-700 dark:text-gray-300 bg-black/5 dark:bg-white/10 px-2 py-1 rounded-lg text-sm">
+                                        {sub.score ?? '-'} / {sub.totalItems ?? '?'}
+                                    </span>
+                                    <ChevronRightIcon className="h-4 w-4 text-gray-400 group-hover:translate-x-0.5 transition-transform" />
+                                </div>
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
         </div>

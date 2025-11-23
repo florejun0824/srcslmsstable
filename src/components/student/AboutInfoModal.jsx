@@ -1,26 +1,55 @@
-import React, { Fragment } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { XMarkIcon } from '@heroicons/react/24/outline';
-import {
-    BriefcaseIcon,
-    AcademicCapIcon,
-    MapPinIcon,
-    PhoneIcon,
-    HeartIcon 
-} from '@heroicons/react/24/solid';
+import { 
+    IconX, 
+    IconBriefcase, 
+    IconSchool, 
+    IconMapPin, 
+    IconPhone, 
+    IconHeart 
+} from '@tabler/icons-react';
 
-// Helper component for each info row
+// --- MACOS 26 DESIGN SYSTEM CONSTANTS ---
+
+const headingStyle = "font-display font-bold tracking-tight text-slate-800 dark:text-white";
+const subHeadingStyle = "font-medium tracking-wide text-slate-500 dark:text-slate-400 uppercase text-[0.65rem] letter-spacing-2";
+
+const windowContainerClasses = "relative w-full max-w-lg flex flex-col bg-white/80 dark:bg-[#121212]/80 backdrop-blur-[50px] rounded-[2rem] shadow-2xl shadow-black/20 dark:shadow-black/50 ring-1 ring-white/40 dark:ring-white/5 overflow-hidden";
+const cardSurface = "bg-white/40 dark:bg-[#1F2229]/40 backdrop-blur-xl rounded-[1.5rem] border border-white/20 dark:border-white/5 shadow-sm";
+
+const iconButton = `
+    relative font-semibold rounded-full transition-all duration-300 
+    flex items-center justify-center p-2 text-slate-500 dark:text-slate-400 
+    bg-white/40 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/15 
+    hover:text-slate-700 dark:hover:text-slate-200
+    backdrop-blur-md border border-white/20 shadow-sm hover:shadow-md
+    active:scale-95
+`;
+
+const secondaryButton = `
+    relative font-semibold rounded-full transition-all duration-300 
+    flex items-center justify-center gap-2 active:scale-95 tracking-wide shrink-0 select-none
+    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500/50 
+    px-5 py-2.5 text-sm text-slate-700 dark:text-slate-200 
+    bg-white/40 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 
+    backdrop-blur-md border border-white/20 shadow-sm hover:shadow-md
+`;
+
+// --- COMPONENT ---
+
 const InfoRow = ({ icon: Icon, label, value }) => {
     const hasValue = value && value.trim() !== '';
     
     return (
-        <div className="flex items-start gap-4">
-            <Icon className="w-6 h-6 text-slate-500 dark:text-slate-400 flex-shrink-0 mt-0.5" />
+        <div className="group flex items-center gap-4 p-3 rounded-2xl hover:bg-white/40 dark:hover:bg-white/5 transition-colors border border-transparent hover:border-white/10">
+            <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-blue-500 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 transition-colors shadow-inner">
+                <Icon size={18} stroke={2} />
+            </div>
             <div className="flex-grow">
-                <p className={`font-medium ${!hasValue ? 'text-slate-400 dark:text-slate-500 italic' : 'text-slate-800 dark:text-slate-100'}`}>
-                    {hasValue ? value : `No ${label.toLowerCase()} provided`}
+                <p className={`text-sm font-semibold ${!hasValue ? 'text-slate-400 dark:text-slate-600 italic' : 'text-slate-700 dark:text-slate-200'}`}>
+                    {hasValue ? value : `No ${label.toLowerCase()} added`}
                 </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
+                <p className={subHeadingStyle}>{label}</p>
             </div>
         </div>
     );
@@ -38,46 +67,63 @@ const AboutInfoModal = ({ isOpen, onClose, userProfile }) => {
         <AnimatePresence>
             {isOpen && (
                 <div 
-                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4"
                     aria-labelledby="about-info-title"
                     role="dialog"
                     aria-modal="true"
                 >
+                    {/* Backdrop */}
+                    <motion.div 
+                        initial={{ opacity: 0 }} 
+                        animate={{ opacity: 1 }} 
+                        exit={{ opacity: 0 }}
+                        onClick={onClose}
+                        className="absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm"
+                    />
+
+                    {/* Modal Window */}
                     <motion.div
-                        initial={{ scale: 0.9, opacity: 0, y: 30 }}
+                        initial={{ scale: 0.95, opacity: 0, y: 20 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}
-                        exit={{ scale: 0.9, opacity: 0, y: 30 }}
-                        transition={{ type: 'spring', stiffness: 260, damping: 25 }}
-                        className="relative w-full max-w-lg bg-neumorphic-base shadow-neumorphic rounded-3xl dark:bg-neumorphic-base-dark dark:shadow-lg overflow-hidden max-h-[90vh] flex flex-col"
+                        exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                        className={windowContainerClasses}
                     >
                         {/* Header */}
-                        <div className="pt-6 pb-4 px-6 border-b border-slate-300/50 dark:border-slate-700 flex-shrink-0 flex items-center justify-between">
-                            <h2 id="about-info-title" className="text-xl font-bold text-slate-900 leading-tight dark:text-slate-100">
-                                About Info
-                            </h2>
+                        <div className="pt-6 pb-4 px-6 border-b border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-md flex items-center justify-between">
+                            <div>
+                                <h2 id="about-info-title" className={headingStyle + " text-xl"}>
+                                    About Info
+                                </h2>
+                                <p className={subHeadingStyle}>Personal Details</p>
+                            </div>
                             <button 
                                 onClick={onClose} 
-                                className="p-2 rounded-full bg-neumorphic-base shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark z-20"
+                                className={iconButton}
                                 aria-label="Close"
                             >
-                                <XMarkIcon className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                                <IconX size={20} />
                             </button>
                         </div>
 
                         {/* Content */}
-                        <div className="p-6 flex-grow overflow-y-auto">
-                            <div className="space-y-5">
-                                <InfoRow icon={BriefcaseIcon} label="Work" value={userProfile?.work} />
-                                <InfoRow icon={AcademicCapIcon} label="Education" value={userProfile?.education} />
-                                <InfoRow icon={MapPinIcon} label="Lives in" value={userProfile?.current_city} />
-                                <InfoRow icon={MapPinIcon} label="From" value={userProfile?.hometown} />
-                                <InfoRow icon={PhoneIcon} label="Mobile" value={userProfile?.mobile_phone} />
-                                <InfoRow icon={HeartIcon} label="Relationship" value={relationshipValue} />
+                        <div className="p-6 overflow-y-auto custom-scrollbar">
+                            <div className={cardSurface + " p-2 space-y-1"}>
+                                <InfoRow icon={IconBriefcase} label="Work" value={userProfile?.work} />
+                                <InfoRow icon={IconSchool} label="Education" value={userProfile?.education} />
+                                <InfoRow icon={IconMapPin} label="Lives in" value={userProfile?.current_city} />
+                                <InfoRow icon={IconMapPin} label="From" value={userProfile?.hometown} />
+                                <InfoRow icon={IconPhone} label="Mobile" value={userProfile?.mobile_phone} />
+                                <InfoRow icon={IconHeart} label="Relationship" value={relationshipValue} />
                             </div>
                         </div>
 
-                        {/* Footer (just for padding) */}
-                        <div className="p-2 flex-shrink-0"></div>
+                        {/* Footer */}
+                        <div className="p-5 border-t border-white/10 bg-white/40 dark:bg-white/5 backdrop-blur-md flex justify-end">
+                            <button onClick={onClose} className={secondaryButton}>
+                                Close
+                            </button>
+                        </div>
 
                     </motion.div>
                 </div>

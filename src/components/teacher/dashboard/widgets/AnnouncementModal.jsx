@@ -1,4 +1,7 @@
+// src/components/teacher/dashboard/widgets/AnnouncementModal.jsx
 import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
+import { motion, AnimatePresence } from 'framer-motion' // <-- Added framer-motion imports
 import {
   FaPaperPlane,
   FaEdit,
@@ -20,20 +23,20 @@ import {
 } from 'firebase/firestore'
 import ReactionsBreakdownModal from './ReactionsBreakdownModal'
 import UserInitialsAvatar from '../../../common/UserInitialsAvatar'
-import Linkify from 'react-linkify' // <-- FIX 1: IMPORTED
+import Linkify from 'react-linkify'
 
-const reactionTypes = ['like', 'love', 'haha', 'wow', 'sad', 'angry', 'care']
+const reactionTypes = ['like', 'heart', 'haha', 'wow', 'sad', 'angry', 'care']
 
 const NativeEmoji = ({ emoji, ...props }) => <span {...props}>{emoji}</span>
 
-// --- MODIFIED: Added dark mode colors ---
+// Reaction Config
 const reactionIcons = {
   like: {
     component: (props) => <NativeEmoji emoji="👍" {...props} />,
     color: 'text-blue-500 dark:text-blue-400',
     label: 'Like',
   },
-  love: {
+  heart: {
     component: (props) => <NativeEmoji emoji="❤️" {...props} />,
     color: 'text-red-500 dark:text-red-400',
     label: 'Love',
@@ -65,20 +68,19 @@ const reactionIcons = {
   },
 }
 
-// --- FIX 2 & MODIFIED: Added dark mode link color ---
+// Link Decorator
 const componentDecorator = (href, text, key) => (
   <a
     href={href}
     key={key}
     target="_blank"
     rel="noopener noreferrer"
-    className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
-    onClick={(e) => e.stopPropagation()} // Prevents clicks from propagating
+    className="text-blue-600 dark:text-blue-400 hover:underline font-bold tracking-wide"
+    onClick={(e) => e.stopPropagation()} 
   >
     {text}
   </a>
 )
-// --- END OF ADDED SECTION ---
 
 const AnnouncementModal = ({
   isOpen,
@@ -118,26 +120,22 @@ const AnnouncementModal = ({
     ? collection(db, `teacherAnnouncements/${announcement.id}/comments`)
     : null
 
-  // --- ADDED: Close modal on Escape key press ---
+  // Close modal on Escape
   useEffect(() => {
     const handleEsc = (event) => {
       if (event.key === 'Escape') {
         onClose()
       }
     }
-
     if (isOpen) {
       document.addEventListener('keydown', handleEsc)
     }
-
-    // Cleanup function
     return () => {
       document.removeEventListener('keydown', handleEsc)
     }
   }, [isOpen, onClose])
-  // --- END OF ADDED SECTION ---
 
-  // Convert timestamp to Date safely
+  // Time utils
   const convertTimestampToDate = (timestamp) => {
     if (!timestamp) return null
     if (typeof timestamp.toDate === 'function') return timestamp.toDate()
@@ -165,12 +163,12 @@ const AnnouncementModal = ({
     return `${weeks}w`
   }
 
-  // keep live comment count in sync with announcement prop
+  // Sync comment count
   useEffect(() => {
     setLiveCommentCount(announcement?.commentsCount || 0)
   }, [announcement])
 
-  // subscribe to comments and each comment's reactions
+  // Real-time comments
   useEffect(() => {
     if (!isOpen || !announcement?.id || !commentsCollectionRef) {
       setComments([])
@@ -188,7 +186,6 @@ const AnnouncementModal = ({
       setComments(fetchedComments)
       setLiveCommentCount(fetchedComments.length)
 
-      // subscribe to reactions for each comment
       const commentReactionUnsubs = fetchedComments.map((comment) => {
         const commentReactionsRef = collection(
           db,
@@ -206,18 +203,15 @@ const AnnouncementModal = ({
         })
       })
 
-      // cleanup reaction listeners when snapshot changes
       return () => commentReactionUnsubs.forEach((unsub) => unsub())
     })
 
-    // cleanup comments subscription
     return () => {
       if (unsubscribeComments) unsubscribeComments()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, announcement?.id])
 
-  // Posting a comment (handles replies via parentId)
   const handlePostComment = async () => {
     if (!newCommentText.trim() || !commentsCollectionRef) return
     const announcementRef = doc(db, 'teacherAnnouncements', announcement.id)
@@ -245,7 +239,6 @@ const AnnouncementModal = ({
     }
   }
 
-  // toggle comment reaction for current user
   const handleToggleCommentReaction = async (commentId, reactionType) => {
     if (!currentUserId || !announcement?.id) return
 
@@ -267,7 +260,6 @@ const AnnouncementModal = ({
     }
   }
 
-  // prepare reply
   const handleSetReplyTo = (comment) => {
     const userName = usersMap[comment.userId]?.firstName
       ? `${usersMap[comment.userId].firstName} ${usersMap[comment.userId].lastName}`
@@ -277,7 +269,6 @@ const AnnouncementModal = ({
     commentInputRef.current?.focus()
   }
 
-  // edit handlers
   const handleStartEditing = (comment) => {
     setEditingCommentId(comment.id)
     setEditingCommentText(comment.commentText)
@@ -305,7 +296,6 @@ const AnnouncementModal = ({
     }
   }
 
-  // delete comment (also deletes replies)
   const handleDeleteComment = async (commentId) => {
     if (
       !window.confirm(
@@ -320,8 +310,6 @@ const AnnouncementModal = ({
       commentId,
     )
     const announcementRef = doc(db, 'teacherAnnouncements', announcement.id)
-
-    // Find replies to delete
     const repliesToDelete = comments.filter((c) => c.parentId === commentId)
 
     try {
@@ -338,7 +326,6 @@ const AnnouncementModal = ({
         transaction.update(announcementRef, { commentsCount: newCount })
         transaction.delete(commentRef)
 
-        // delete replies
         for (const reply of repliesToDelete) {
           const replyRef = doc(
             db,
@@ -353,7 +340,6 @@ const AnnouncementModal = ({
     }
   }
 
-  // reaction picker control
   const toggleReactionPicker = (entityId, type) => {
     if (
       activeReactionPicker?.id === entityId &&
@@ -384,35 +370,63 @@ const AnnouncementModal = ({
     }, 300)
   }
 
+  // --- Components ---
+
+  // --- UPDATED: Horizontal macOS Picker ---
   const renderReactionPicker = (entityId, type, onSelect) => {
     const isActive =
       activeReactionPicker?.id === entityId && activeReactionPicker?.type === type
     const isHovered =
       hoveredReactionData?.id === entityId && hoveredReactionData?.type === type
 
+    // Use AnimatePresence to allow for exit animations, but conditionally render content
     if (!isActive && !isHovered) return null
 
     return (
-      // --- MODIFIED: Added dark mode classes ---
-      <div className="absolute bottom-full mb-2 left-1 -translate-x-1 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark p-1 flex flex-wrap gap-1 z-50 w-64">
-        {reactionTypes.map((rType) => (
-          <button
-            key={rType}
-            // --- MODIFIED: Added dark mode classes ---
-            className="p-2 rounded-full transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
-            onClick={() => {
-              setActiveReactionPicker(null)
-              handleReactionOptionsMouseLeave()
-              onSelect(rType)
-            }}
-          >
-            <NativeEmoji
-              emoji={reactionIcons[rType].component({}).props.emoji}
-              className="text-2xl"
-            />
-          </button>
-        ))}
-      </div>
+        <AnimatePresence>
+            <motion.div
+                initial="hidden"
+                animate="visible"
+                exit="hidden"
+                variants={{
+                    visible: { opacity: 1, y: 0, scale: 1, transition: { staggerChildren: 0.04 } },
+                    hidden: { opacity: 0, y: 10, scale: 0.9, transition: { staggerChildren: 0.02, staggerDirection: -1 } }
+                }}
+                className="absolute bottom-full mb-3 left-0 glass-panel rounded-full p-1.5 flex items-center gap-1 z-50 shadow-2xl border border-white/40 dark:border-white/10 min-w-max"
+                onMouseEnter={() => handleReactionOptionsMouseEnter(entityId, type)}
+                onMouseLeave={handleReactionOptionsMouseLeave}
+            >
+                {reactionTypes.map((rType) => {
+                    const icon = reactionIcons[rType];
+                    return (
+                        <motion.button
+                            key={rType}
+                            variants={{
+                                hidden: { opacity: 0, y: 15, scale: 0.5 },
+                                visible: { opacity: 1, y: 0, scale: 1 }
+                            }}
+                            whileHover={{ scale: 1.3, y: -5 }}
+                            whileTap={{ scale: 0.9 }}
+                            className="p-2 rounded-full hover:bg-white/50 dark:hover:bg-white/10 transition-colors relative group/emoji"
+                            onClick={() => {
+                                setActiveReactionPicker(null)
+                                handleReactionOptionsMouseLeave()
+                                onSelect(rType)
+                            }}
+                        >
+                            <NativeEmoji
+                                emoji={icon.component({}).props.emoji}
+                                className="text-2xl drop-shadow-sm"
+                            />
+                            {/* Tooltip */}
+                            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover/emoji:opacity-100 transition-opacity whitespace-nowrap shadow-lg pointer-events-none backdrop-blur-sm">
+                                {icon.label}
+                            </div>
+                        </motion.button>
+                    );
+                })}
+            </motion.div>
+        </AnimatePresence>
     )
   }
 
@@ -438,28 +452,26 @@ const AnnouncementModal = ({
       >
         <div className="flex items-center">
           {sortedUniqueReactions.map(([type], index) => {
-            const reaction = reactionIcons[type]
-            if (!reaction) return null
-
-            const { component: Icon } = reaction
-            const zIndex = sortedUniqueReactions.length - index
+            // Fallback safety check to prevent crashes on undefined types
+            const reactionConfig = reactionIcons[type] || reactionIcons['like'];
+            
+            const { component: Icon } = reactionConfig;
+            const zIndex = sortedUniqueReactions.length - index;
 
             return (
               <div
                 key={type}
-                // --- MODIFIED: Added dark mode classes ---
-                className={`relative w-6 h-6 flex items-center justify-center rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark ring-2 ring-neumorphic-base dark:ring-neumorphic-base-dark ${
-                  index > 0 ? '-ml-2' : ''
+                className={`relative w-5 h-5 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 ring-2 ring-white dark:ring-slate-900 ${
+                  index > 0 ? '-ml-1.5' : ''
                 }`}
                 style={{ zIndex: zIndex }}
               >
-                <Icon className="text-xl" />
+                <Icon className="text-sm" />
               </div>
             )
           })}
         </div>
-        {/* --- MODIFIED: Added dark mode classes --- */}
-        <span className="text-sm text-slate-500 dark:text-slate-400 font-medium ml-2">
+        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1.5 hover:text-blue-500 transition-colors">
           {totalReactions}
         </span>
       </div>
@@ -470,66 +482,59 @@ const AnnouncementModal = ({
   const getReplies = (commentId) =>
     comments.filter((comment) => comment.parentId === commentId)
 
-  // --- ADDED: Backdrop click handler ---
   const handleBackdropClick = (e) => {
-    // Check if the click is on the backdrop itself (e.target)
-    // and not on a child element (which would bubble up to e.currentTarget)
     if (e.target === e.currentTarget) {
       onClose()
     }
   }
-  // --- END OF ADDED SECTION ---
 
-  if (!isOpen || !announcement) return null
+  if (!isOpen || !announcement) return null;
 
-  return (
+  // --- USE CREATEPORTAL TO RENDER AT BODY LEVEL ---
+  return createPortal(
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 font-sans"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/30 backdrop-blur-md p-4 font-sans"
       onClick={handleBackdropClick}
     >
-      {/* --- MODIFIED: Added dark mode classes --- */}
-      <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-[28px] shadow-neumorphic dark:shadow-neumorphic-dark w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
-        {/* Header (not fixed) */}
-        {/* --- MODIFIED: Added dark mode classes --- */}
-        <div className="flex items-center justify-center p-4 border-b border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30 relative">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 pt-2">
-            Announcement
+      {/* --- GLASS MODAL --- */}
+      <div className="glass-panel bg-white/80 dark:bg-slate-900/80 rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col border border-white/40 dark:border-white/10">
+        
+        {/* Header */}
+        <div className="flex items-center justify-center p-4 border-b border-slate-200/50 dark:border-white/5 relative">
+          <h2 className="text-base font-black text-slate-800 dark:text-slate-100 tracking-tight pt-1">
+            Announcement Details
           </h2>
           <button
             onClick={onClose}
-            // --- MODIFIED: Added dark mode classes ---
-            className="absolute top-3 right-4 p-2 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark"
+            className="absolute top-3.5 right-4 p-2 rounded-full bg-slate-100/50 dark:bg-white/5 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-all active:scale-90"
           >
-            {/* --- MODIFIED: Added dark mode classes --- */}
-            <FaTimes className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+            <FaTimes className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
           </button>
         </div>
 
         {/* Body - scrollable */}
-        <div className="p-5 overflow-y-auto flex-grow">
-          <div className="flex items-center mb-4">
-            <div className="w-12 h-12 mr-4 flex-shrink-0">
+        <div className="p-6 overflow-y-auto flex-grow custom-scrollbar">
+          <div className="flex items-center mb-5">
+            <div className="w-12 h-12 mr-4 flex-shrink-0 rounded-full shadow-sm ring-2 ring-white dark:ring-white/10">
               <UserInitialsAvatar
                 user={usersMap[announcement.teacherId]}
-                size="w-12 h-12 text-lg"
+                size="full"
+                className="w-full h-full text-sm"
               />
             </div>
             <div>
-              {/* --- MODIFIED: Added dark mode classes --- */}
-              <p className="font-semibold text-slate-800 dark:text-slate-100">
+              <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">
                 {usersMap[announcement.teacherId]?.firstName}{' '}
                 {usersMap[announcement.teacherId]?.lastName}
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-0.5">
                 {formatRelativeTime(convertTimestampToDate(announcement.createdAt))}
               </p>
             </div>
           </div>
 
-          {/* --- FIX 3: LINKIFY & WORD-BREAK --- */}
-          <div className="mb-4 pb-4">
-            {/* --- MODIFIED: Added dark mode classes --- */}
-            <p className="text-slate-700 dark:text-slate-300 text-base leading-relaxed whitespace-pre-wrap break-words">
+          <div className="mb-6">
+            <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-wrap break-words tracking-wide">
               <Linkify componentDecorator={componentDecorator}>
                 {announcement.content}
               </Linkify>
@@ -537,45 +542,41 @@ const AnnouncementModal = ({
           </div>
 
           <div>
-            {/* --- MODIFIED: Added dark mode classes --- */}
-            <div className="flex justify-between items-center text-sm text-slate-500 dark:text-slate-400 border-y border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30 py-2 my-2 max-w-lg pl-4 sm:pl-7">
+            <div className="flex justify-between items-center text-xs font-bold text-slate-500 dark:text-slate-400 border-y border-slate-100/50 dark:border-white/5 py-3 my-2 max-w-lg px-2">
               <div>{renderReactionCount(postReactions)}</div>
-              <span className="text-sm text-slate-500 dark:text-slate-400">
+              <span className="hover:text-blue-500 cursor-pointer transition-colors">
                 {liveCommentCount} {liveCommentCount === 1 ? 'Comment' : 'Comments'}
               </span>
             </div>
 
             {/* Action buttons */}
-            <div className="flex justify-around items-center py-1 mb-4 max-w-lg pl-4 sm:pl-7">
+            <div className="flex justify-around items-center py-2 mb-6 max-w-lg">
               <div
-                className="relative flex justify-center"
+                className="relative flex justify-center flex-1"
                 onMouseEnter={() =>
                   handleReactionOptionsMouseEnter(announcement.id, 'post')
                 }
                 onMouseLeave={handleReactionOptionsMouseLeave}
               >
                 <button
-                  // --- MODIFIED: Added dark mode classes ---
-                  className={`flex items-center justify-center py-2 px-5 rounded-full font-semibold transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark ${
+                  className={`flex items-center justify-center py-2 px-6 rounded-xl font-bold text-xs transition-all w-full hover:bg-slate-50 dark:hover:bg-white/5 ${
                     postReactions[currentUserId]
-                      ? reactionIcons[postReactions[currentUserId]].color
-                      : 'text-slate-600 dark:text-slate-400'
+                      ? (reactionIcons[postReactions[currentUserId]]?.color || 'text-slate-600 dark:text-slate-400')
+                      : 'text-slate-500 dark:text-slate-400'
                   }`}
                   onClick={() => toggleReactionPicker(announcement.id, 'post')}
                 >
                   {postReactions[currentUserId] ? (
                     <NativeEmoji
                       emoji={
-                        reactionIcons[
-                          postReactions[currentUserId]
-                        ].component({}).props.emoji
+                        (reactionIcons[postReactions[currentUserId]] || reactionIcons['like']).component({}).props.emoji
                       }
-                      className="text-xl"
+                      className="text-lg mr-2"
                     />
                   ) : (
-                    <FaThumbsUp className="h-5 w-5" />
+                    <FaThumbsUp className="h-4 w-4 mr-2" />
                   )}
-                  <span className="capitalize ml-2">
+                  <span className="capitalize">
                     {postReactions[currentUserId] || 'Like'}
                   </span>
                 </button>
@@ -584,22 +585,21 @@ const AnnouncementModal = ({
                 )}
               </div>
               <button
-                // --- MODIFIED: Added dark mode classes ---
-                className="flex items-center justify-center py-2 px-5 rounded-full font-semibold text-slate-600 dark:text-slate-400 transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark"
+                className="flex items-center justify-center py-2 px-6 rounded-xl font-bold text-xs text-slate-500 dark:text-slate-400 transition-all flex-1 hover:bg-slate-50 dark:hover:bg-white/5"
                 onClick={() => commentInputRef.current?.focus()}
               >
-                <FaComment className="h-5 w-5" />
-                <span className="ml-2">Comment</span>
+                <FaComment className="h-4 w-4 mr-2" />
+                Comment
               </button>
             </div>
 
             {/* Comment list */}
-            <div className="space-y-4 pl-4 sm:pl-7">
+            <div className="space-y-5 pl-2 sm:pl-4">
               {topLevelComments.length === 0 && (
-                // --- MODIFIED: Added dark mode classes ---
-                <p className="text-slate-500 dark:text-slate-400 text-center py-6">
-                  Be the first to comment.
-                </p>
+                <div className="text-center py-8 bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5">
+                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500">No comments yet.</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Be the first to start the conversation.</p>
+                </div>
               )}
               {topLevelComments.map((comment) => {
                 const isCurrentUserComment = comment.userId === currentUserId
@@ -608,49 +608,45 @@ const AnnouncementModal = ({
                   commentReactions[comment.id]?.[currentUserId]
 
                 return (
-                  <div key={comment.id} className="flex items-start space-x-4">
-                    <div className="w-9 h-9 flex-shrink-0 mt-2">
+                  <div key={comment.id} className="flex items-start space-x-3">
+                    <div className="w-8 h-8 flex-shrink-0 mt-1 rounded-full shadow-sm">
                       <UserInitialsAvatar
                         user={usersMap[comment.userId]}
-                        size="w-6 h-6 text-xs leading-none"
+                        size="full"
+                        className="w-full h-full text-[10px]"
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="max-w-lg">
-                        {/* --- MODIFIED: Added dark mode classes --- */}
-                        <div className="relative group bg-neumorphic-base dark:bg-neumorphic-base-dark p-2.5 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark">
+                      <div className="max-w-lg group">
+                        <div className="relative bg-slate-100/70 dark:bg-white/5 p-3.5 rounded-2xl rounded-tl-none">
                           {isCurrentUserComment && !isBeingEdited && (
-                            <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
-                                // --- MODIFIED: Added dark mode classes ---
                                 onClick={() => handleStartEditing(comment)}
-                                className="p-1.5 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                                title="Edit comment"
+                                className="p-1.5 rounded-full hover:bg-white/50 dark:hover:bg-white/10 text-slate-400 hover:text-blue-500 transition-colors"
+                                title="Edit"
                               >
-                                <FaEdit className="w-3.5 h-3.5" />
+                                <FaEdit className="w-3 h-3" />
                               </button>
                               <button
-                                // --- MODIFIED: Added dark mode classes ---
                                 onClick={() => handleDeleteComment(comment.id)}
-                                className="p-1.5 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
-                                title="Delete comment"
+                                className="p-1.5 rounded-full hover:bg-white/50 dark:hover:bg-white/10 text-slate-400 hover:text-red-500 transition-colors"
+                                title="Delete"
                               >
-                                <FaTrash className="w-3.5 h-3.5" />
+                                <FaTrash className="w-3 h-3" />
                               </button>
                             </div>
                           )}
 
-                          {/* --- MODIFIED: Added dark mode classes --- */}
-                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 pr-12">
+                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100 mb-1">
                             {usersMap[comment.userId]?.firstName}{' '}
                             {usersMap[comment.userId]?.lastName}
                           </p>
 
                           {isBeingEdited ? (
                             <div className="mt-2">
-                              {/* --- MODIFIED: Added dark mode classes --- */}
                               <textarea
-                                className="w-full p-2 border-none rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:ring-0 resize-y"
+                                className="w-full p-3 text-xs rounded-xl bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 focus:ring-2 focus:ring-blue-500/50 outline-none resize-none"
                                 rows="3"
                                 value={editingCommentText}
                                 onChange={(e) =>
@@ -659,17 +655,15 @@ const AnnouncementModal = ({
                                 autoFocus
                               />
                               <div className="flex items-center justify-end gap-2 mt-2">
-                                {/* --- MODIFIED: Added dark mode classes --- */}
                                 <button
                                   onClick={handleCancelEditing}
-                                  className="px-3 py-1 text-sm font-semibold text-slate-600 dark:text-slate-300 rounded-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
+                                  className="px-3 py-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg transition-colors"
                                 >
                                   Cancel
                                 </button>
-                                {/* --- MODIFIED: Added dark mode classes --- */}
                                 <button
                                   onClick={handleSaveEdit}
-                                  className="px-3 py-1 text-sm font-semibold text-white bg-blue-500 dark:bg-blue-600 rounded-lg shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark disabled:opacity-50"
+                                  className="px-3 py-1 text-[10px] font-bold text-white bg-blue-500 hover:bg-blue-600 rounded-lg shadow-md transition-all disabled:opacity-50"
                                   disabled={!editingCommentText.trim()}
                                 >
                                   Save
@@ -677,36 +671,32 @@ const AnnouncementModal = ({
                               </div>
                             </div>
                           ) : (
-                            // --- MODIFIED: Added dark mode classes ---
-                            <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap mt-1 break-words">
+                            <p className="text-xs text-slate-600 dark:text-slate-300 whitespace-pre-wrap leading-relaxed break-words">
                               <Linkify componentDecorator={componentDecorator}>
                                 {comment.commentText}
                               </Linkify>
                             </p>
                           )}
                         </div>
-                        {/* --- MODIFIED: Added dark mode classes --- */}
-                        <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 mt-1 pl-2 space-x-3">
+                        
+                        <div className="flex items-center text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1.5 pl-2 space-x-3">
                           <span>{formatRelativeTime(comment.createdAt)}</span>
                           <div
-                            className="relative flex justify-center"
+                            className="relative"
                             onMouseEnter={() =>
                               handleReactionOptionsMouseEnter(comment.id, 'comment')
                             }
                             onMouseLeave={handleReactionOptionsMouseLeave}
                           >
                             <button
-                              className="font-semibold hover:underline"
+                              className={`hover:underline transition-colors ${
+                                currentUserCommentReaction ? 'text-blue-500 dark:text-blue-400' : 'hover:text-slate-600 dark:hover:text-slate-300'
+                              }`}
                               onClick={() =>
                                 toggleReactionPicker(comment.id, 'comment')
                               }
                             >
-                              <span
-                                // --- MODIFIED: Added dark mode classes ---
-                                className={`capitalize ${
-                                  currentUserCommentReaction ? 'text-blue-500 dark:text-blue-400' : ''
-                                }`}
-                              >
+                              <span className="capitalize">
                                 {currentUserCommentReaction || 'Like'}
                               </span>
                             </button>
@@ -717,7 +707,7 @@ const AnnouncementModal = ({
                             )}
                           </div>
                           <button
-                            className="font-semibold hover:underline"
+                            className="hover:text-slate-600 dark:hover:text-slate-300 hover:underline transition-colors"
                             onClick={() => handleSetReplyTo(comment)}
                           >
                             Reply
@@ -735,50 +725,47 @@ const AnnouncementModal = ({
                         return (
                           <div
                             key={reply.id}
-                            className="flex items-start space-x-4 mt-2"
+                            className="flex items-start space-x-3 mt-3 pl-4 relative"
                           >
-                            <div className="w-5 h-5 flex-shrink-0 mt-2">
+                            {/* Connector Line */}
+                            <div className="absolute left-0 top-[-10px] bottom-4 w-4 border-l-2 border-b-2 border-slate-100 dark:border-white/5 rounded-bl-xl pointer-events-none" />
+                            
+                            <div className="w-6 h-6 flex-shrink-0 mt-1 rounded-full shadow-sm z-10">
                               <UserInitialsAvatar
                                 user={usersMap[reply.userId]}
-                                size="w-4 h-4 text-3xs leading-none"
+                                size="full"
+                                className="w-full h-full text-[8px]"
                               />
                             </div>
                             <div className="flex-1 min-w-0">
-                              {/* --- MODIFIED: Added dark mode classes --- */}
-                              <div className="ml-2 border-l border-neumorphic-shadow-dark/20 dark:border-neumorphic-shadow-light-dark/20 pl-4">
-                                <div className="max-w-lg">
-                                  {/* --- MODIFIED: Added dark mode classes --- */}
-                                  <div className="relative group bg-neumorphic-base dark:bg-neumorphic-base-dark p-2.5 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark">
+                                <div className="max-w-lg group">
+                                  <div className="relative bg-slate-50 dark:bg-white/5 p-3 rounded-2xl rounded-tl-none border border-slate-100 dark:border-white/5">
                                     {isCurrentUserReply && !isReplyBeingEdited && (
-                                      <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        {/* --- MODIFIED: Added dark mode classes --- */}
+                                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button
                                           onClick={() => handleStartEditing(reply)}
-                                          className="p-1.5 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                                          title="Edit reply"
+                                          className="p-1 rounded-full hover:bg-white/50 dark:hover:bg-white/10 text-slate-400 hover:text-blue-500 transition-colors"
                                         >
-                                          <FaEdit className="w-3 h-3" />
+                                          <FaEdit className="w-2.5 h-2.5" />
                                         </button>
                                         <button
                                           onClick={() => handleDeleteComment(reply.id)}
-                                          className="p-1.5 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
-                                          title="Delete reply"
+                                          className="p-1 rounded-full hover:bg-white/50 dark:hover:bg-white/10 text-slate-400 hover:text-red-500 transition-colors"
                                         >
-                                          <FaTrash className="w-3 h-3" />
+                                          <FaTrash className="w-2.5 h-2.5" />
                                         </button>
                                       </div>
                                     )}
-                                    {/* --- MODIFIED: Added dark mode classes --- */}
-                                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 pr-10">
+                                    
+                                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100 mb-0.5">
                                       {usersMap[reply.userId]?.firstName}{' '}
                                       {usersMap[reply.userId]?.lastName}
                                     </p>
 
                                     {isReplyBeingEdited ? (
                                       <div className="mt-2">
-                                        {/* --- MODIFIED: Added dark mode classes --- */}
                                         <textarea
-                                          className="w-full p-2 border-none rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:ring-0 resize-y"
+                                          className="w-full p-2 text-xs rounded-lg bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 focus:ring-2 focus:ring-blue-500/50 outline-none resize-none"
                                           rows="2"
                                           value={editingCommentText}
                                           onChange={(e) =>
@@ -787,16 +774,15 @@ const AnnouncementModal = ({
                                           autoFocus
                                         />
                                         <div className="flex items-center justify-end gap-2 mt-2">
-                                          {/* --- MODIFIED: Added dark mode classes --- */}
                                           <button
                                             onClick={handleCancelEditing}
-                                            className="px-3 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300 rounded-lg hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
+                                            className="px-2 py-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded-md"
                                           >
                                             Cancel
                                           </button>
                                           <button
                                             onClick={handleSaveEdit}
-                                            className="px-3 py-1 text-xs font-semibold text-white bg-blue-500 dark:bg-blue-600 rounded-lg shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark disabled:opacity-50"
+                                            className="px-2 py-1 text-[10px] font-bold text-white bg-blue-500 hover:bg-blue-600 rounded-md shadow-sm disabled:opacity-50"
                                             disabled={!editingCommentText.trim()}
                                           >
                                             Save
@@ -804,8 +790,7 @@ const AnnouncementModal = ({
                                         </div>
                                       </div>
                                     ) : (
-                                      // --- MODIFIED: Added dark mode classes ---
-                                      <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap mt-0.5 break-words">
+                                      <p className="text-xs text-slate-600 dark:text-slate-300 whitespace-pre-wrap leading-relaxed break-words">
                                         <Linkify componentDecorator={componentDecorator}>
                                           {reply.commentText}
                                         </Linkify>
@@ -813,12 +798,11 @@ const AnnouncementModal = ({
                                     )}
                                   </div>
 
-                                  {/* --- MODIFIED: Added dark mode classes --- */}
-                                  <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 mt-1 pl-2 space-x-3">
+                                  <div className="flex items-center text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1 pl-2 space-x-3">
                                     <span>{formatRelativeTime(reply.createdAt)}</span>
 
                                     <div
-                                      className="relative flex justify-center"
+                                      className="relative"
                                       onMouseEnter={() =>
                                         handleReactionOptionsMouseEnter(
                                           reply.id,
@@ -828,19 +812,14 @@ const AnnouncementModal = ({
                                       onMouseLeave={handleReactionOptionsMouseLeave}
                                     >
                                       <button
-                                        className="font-semibold hover:underline"
+                                        className={`hover:underline transition-colors ${
+                                            currentUserReplyReaction ? 'text-blue-500 dark:text-blue-400' : 'hover:text-slate-600 dark:hover:text-slate-300'
+                                        }`}
                                         onClick={() =>
                                           toggleReactionPicker(reply.id, 'reply')
                                         }
                                       >
-                                        <span
-                                          // --- MODIFIED: Added dark mode classes ---
-                                          className={`capitalize ${
-                                            currentUserReplyReaction
-                                              ? 'text-blue-500 dark:text-blue-400'
-                                              : ''
-                                          }`}
-                                        >
+                                        <span className="capitalize">
                                           {currentUserReplyReaction || 'Like'}
                                         </span>
                                       </button>
@@ -849,7 +828,7 @@ const AnnouncementModal = ({
                                       )}
                                     </div>
                                     <button
-                                      className="font-semibold hover:underline"
+                                      className="hover:text-slate-600 dark:hover:text-slate-300 hover:underline transition-colors"
                                       onClick={() => handleSetReplyTo(reply)}
                                     >
                                       Reply
@@ -859,7 +838,6 @@ const AnnouncementModal = ({
                                     )}
                                   </div>
                                 </div>
-                              </div>
                             </div>
                           </div>
                         )
@@ -872,44 +850,40 @@ const AnnouncementModal = ({
           </div>
         </div>
 
-        {/* Input Section (not fixed) */}
-        {/* --- MODIFIED: Added dark mode classes --- */}
-        <div className="p-3 border-t border-neumorphic-shadow-dark/30 dark:border-neumorphic-shadow-light-dark/30 bg-neumorphic-base dark:bg-neumorphic-base-dark">
+        {/* Input Section */}
+        <div className="p-4 border-t border-slate-200/50 dark:border-white/5 bg-white/50 dark:bg-black/20 backdrop-blur-md">
           <div>
             {replyToCommentId && (
-              // --- MODIFIED: Added dark mode classes ---
-              <div className="mb-2 text-xs text-slate-600 dark:text-slate-400 flex items-center justify-between px-3 max-w-lg pl-7">
-                Replying to{' '}
-                <span className="font-semibold text-slate-800 dark:text-slate-100 ml-1">
-                  {replyToUserName}
+              <div className="mb-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center justify-between px-3 max-w-lg pl-10 bg-blue-50/50 dark:bg-blue-900/10 py-1.5 rounded-lg border border-blue-100 dark:border-blue-500/20">
+                <span>
+                    Replying to <span className="text-blue-600 dark:text-blue-400">{replyToUserName}</span>
                 </span>
                 <button
                   onClick={() => {
                     setReplyToCommentId(null)
                     setReplyToUserName('')
                   }}
-                  // --- MODIFIED: Added dark mode classes ---
-                  className="p-1.5 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
+                  className="p-1 rounded-full hover:bg-blue-100 dark:hover:bg-white/10 text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   <FaTimes className="w-3 h-3" />
                 </button>
               </div>
             )}
-            <div className="flex items-start space-x-4">
-              <div className="w-10 h-10 flex-shrink-0">
+            <div className="flex items-end space-x-3">
+              <div className="w-8 h-8 flex-shrink-0 mb-1 rounded-full shadow-sm ring-2 ring-white dark:ring-white/10">
                 <UserInitialsAvatar
                   user={userProfile}
-                  size="w-6 h-6 text-sm leading-none"
+                  size="full"
+                  className="w-full h-full text-xs"
                 />
               </div>
               <div className="relative flex-grow">
-                <div className="max-w-lg">
-                  {/* --- MODIFIED: Added dark mode classes --- */}
+                <div className="max-w-lg relative">
                   <textarea
                     ref={commentInputRef}
-                    className="w-full p-2 pr-12 border-none rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-800 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:ring-0 resize-none leading-tight"
+                    className="w-full pl-4 pr-12 py-3 rounded-2xl bg-white dark:bg-black/30 border border-slate-200 dark:border-white/10 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500/50 focus:border-transparent outline-none resize-none leading-relaxed shadow-inner"
                     rows="1"
-                    placeholder="Add a comment..."
+                    placeholder="Write a comment..."
                     value={newCommentText}
                     onChange={(e) => setNewCommentText(e.target.value)}
                     onKeyDown={(e) => {
@@ -921,16 +895,14 @@ const AnnouncementModal = ({
                   />
                   <button
                     onClick={handlePostComment}
-                    // --- MODIFIED: Added dark mode classes ---
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark disabled:opacity-50"
+                    className={`absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-300 ${
+                        newCommentText.trim() 
+                        ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30 hover:scale-105 active:scale-95' 
+                        : 'bg-slate-100 dark:bg-white/5 text-slate-300 dark:text-slate-600 cursor-not-allowed'
+                    }`}
                     disabled={!newCommentText.trim()}
                   >
-                    <FaPaperPlane
-                      // --- MODIFIED: Added dark mode classes ---
-                      className={`w-5 h-5 transition-colors ${
-                        newCommentText.trim() ? 'text-sky-600 dark:text-sky-400' : 'text-slate-400 dark:text-slate-500'
-                      }`}
-                    />
+                    <FaPaperPlane className="w-3.5 h-3.5 ml-0.5" />
                   </button>
                 </div>
               </div>
@@ -945,7 +917,8 @@ const AnnouncementModal = ({
         reactionsData={reactionsForBreakdownModal}
         usersMap={usersMap}
       />
-    </div>
+    </div>,
+    document.body 
   )
 }
 

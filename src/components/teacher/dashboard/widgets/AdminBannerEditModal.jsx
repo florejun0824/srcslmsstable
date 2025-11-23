@@ -1,10 +1,12 @@
+// src/components/teacher/dashboard/widgets/AdminBannerEditModal.jsx
 import React, { useState, useEffect } from 'react';
-import { db } from '../../../../services/firebase'; // Adjust path as necessary
+import { createPortal } from 'react-dom'; 
+import { db } from '../../../../services/firebase'; 
 import { doc, setDoc } from 'firebase/firestore';
 import { Dialog } from '@headlessui/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PhotoIcon, ExclamationTriangleIcon, CalendarDaysIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { useToast } from '../../../../contexts/ToastContext'; // Adjust path as necessary
+import { PhotoIcon, ExclamationTriangleIcon, XMarkIcon, CheckIcon } from '@heroicons/react/24/outline'; // Added CheckIcon
+import { useToast } from '../../../../contexts/ToastContext'; 
 
 const AdminBannerEditModal = ({ isOpen, onClose, currentImageUrl, currentStartDate, currentEndDate, onSaveSuccess }) => {
     const { showToast } = useToast();
@@ -24,6 +26,14 @@ const AdminBannerEditModal = ({ isOpen, onClose, currentImageUrl, currentStartDa
             setImgLoadError(false);
         }
     }, [isOpen, currentImageUrl, currentStartDate, currentEndDate]);
+
+    useEffect(() => {
+        const handleEsc = (event) => {
+            if (event.key === 'Escape') onClose();
+        }
+        if (isOpen) window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [isOpen, onClose]);
 
     const handleSave = async () => {
         setError('');
@@ -74,136 +84,177 @@ const AdminBannerEditModal = ({ isOpen, onClose, currentImageUrl, currentStartDa
 
     const modalVariants = {
         hidden: { opacity: 0, scale: 0.95, y: 20 },
-        visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", damping: 20, stiffness: 250 } },
+        visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", damping: 25, stiffness: 300 } },
         exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } }
     };
 
-    return (
+    if (!isOpen) return null;
+
+    return createPortal(
         <AnimatePresence>
             {isOpen && (
-                <Dialog static as="div" className="relative z-50 font-sans" open={isOpen} onClose={onClose}>
-                    {/* Neumorphic Design Changes: Removed backdrop-blur for a clean overlay */}
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 font-sans" onClick={(e) => e.target === e.currentTarget && onClose()}>
+                    
                     <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/50"
-                    />
-
-                    <div className="fixed inset-0 w-screen overflow-y-auto">
-                        <div className="flex min-h-full items-center justify-center p-4">
-                            {/* Neumorphic Design Changes: Replaced glassmorphism with neumorphic styles */}
-                            <motion.div
-                                variants={modalVariants}
-                                initial="hidden"
-                                animate="visible"
-                                exit="exit"
-                                as={Dialog.Panel}
-                                className="relative w-full max-w-md transform overflow-hidden rounded-3xl bg-neumorphic-base p-6 text-left align-middle shadow-neumorphic"
-                            >
-                                <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-neumorphic-base text-slate-500 rounded-full shadow-neumorphic active:shadow-neumorphic-inset transition-all">
-                                    <XMarkIcon className="h-5 w-5" />
-                                </button>
-                                
-                                <Dialog.Title as="h3" className="text-2xl font-semibold text-center text-slate-800">
+                        variants={modalVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        className="relative glass-panel bg-white/95 dark:bg-slate-900/95 rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-white/40 dark:border-white/10"
+                    >
+                        {/* Header */}
+                        <div className="flex justify-between items-center p-6 pb-2 border-b border-slate-100/50 dark:border-white/5">
+                            <div>
+                                <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
                                     Edit Banner
-                                </Dialog.Title>
-                                <p className="text-center text-sm text-slate-500 mt-1 mb-6">Update the primary promotional banner.</p>
+                                </h3>
+                                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-0.5">
+                                    Update the main dashboard visual.
+                                </p>
+                            </div>
+                            <button 
+                                onClick={onClose} 
+                                className="p-2 rounded-full bg-slate-100/50 dark:bg-white/5 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-all active:scale-90"
+                            >
+                                <XMarkIcon className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                            </button>
+                        </div>
 
-                                <div className="space-y-4">
-                                    {/* Neumorphic Design Changes: Image preview is now inset */}
-                                    <div className="w-full aspect-video bg-neumorphic-base rounded-2xl flex items-center justify-center overflow-hidden shadow-neumorphic-inset">
-                                        {imageUrl && !imgLoadError ? (
-                                            <img
-                                                src={imageUrl}
-                                                alt="Banner Preview"
-                                                className="w-full h-full object-cover"
-                                                onError={() => setImgLoadError(true)}
-                                            />
-                                        ) : (
-                                            <div className="flex flex-col items-center text-slate-400">
-                                                <PhotoIcon className="h-10 w-10" />
-                                                <span className="text-xs mt-2 font-medium">{imgLoadError ? "Image Failed to Load" : "Preview"}</span>
-                                            </div>
-                                        )}
+                        {/* Body */}
+                        <div className="p-6 space-y-5">
+                            
+                            {/* Image Preview */}
+                            <div className="w-full aspect-video bg-slate-100/50 dark:bg-black/20 rounded-2xl flex items-center justify-center overflow-hidden border border-slate-200/50 dark:border-white/5 shadow-inner group">
+                                {imageUrl && !imgLoadError ? (
+                                    <img
+                                        src={imageUrl}
+                                        alt="Banner Preview"
+                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                        onError={() => setImgLoadError(true)}
+                                    />
+                                ) : (
+                                    <div className="flex flex-col items-center text-slate-400 dark:text-slate-500">
+                                        <PhotoIcon className="h-10 w-10 mb-2 opacity-50" />
+                                        <span className="text-xs font-bold">{imgLoadError ? "Image Failed" : "Preview Area"}</span>
                                     </div>
-                                    
-                                    {/* Neumorphic Design Changes: Input fields are now inset */}
-                                    <div>
-                                        <label htmlFor="imageUrl" className="block text-sm font-medium text-slate-600 mb-1.5">
-                                            Image URL
-                                        </label>
-                                        <div className="relative">
-                                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                                                <PhotoIcon className="h-5 w-5 text-slate-400" />
-                                            </div>
-                                            <input
-                                                id="imageUrl"
-                                                type="url"
-                                                value={imageUrl}
-                                                onChange={(e) => { setImageUrl(e.target.value); setImgLoadError(false); }}
-                                                className="w-full rounded-xl border-none bg-neumorphic-base shadow-neumorphic-inset py-3 pl-10 pr-4 text-slate-800 placeholder:text-slate-400 focus:outline-none"
-                                            />
-                                        </div>
-                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* URL Input */}
+                            <div className="space-y-1.5">
+                                <label htmlFor="imageUrl" className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide ml-1">
+                                    Image URL
+                                </label>
+                                <div className="relative group">
+                                    <PhotoIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                    <input
+                                        id="imageUrl"
+                                        type="url"
+                                        value={imageUrl}
+                                        onChange={(e) => { setImageUrl(e.target.value); setImgLoadError(false); }}
+                                        placeholder="https://example.com/image.png"
+                                        className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-sm font-medium text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/50 focus:border-transparent outline-none transition-all shadow-sm placeholder:text-slate-400"
+                                    />
+                                </div>
+                            </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label htmlFor="startDate" className="block text-sm font-medium text-slate-600 mb-1.5">
-                                                Display From
-                                            </label>
-                                            <input
-                                                id="startDate"
-                                                type="datetime-local"
-                                                value={startDate}
-                                                onChange={(e) => setStartDate(e.target.value)}
-                                                className="w-full rounded-xl border-none bg-neumorphic-base shadow-neumorphic-inset py-3 px-4 text-slate-800 focus:outline-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label htmlFor="endDate" className="block text-sm font-medium text-slate-600 mb-1.5">
-                                                Display Until
-                                            </label>
-                                            <input
-                                                id="endDate"
-                                                type="datetime-local"
-                                                value={endDate}
-                                                onChange={(e) => setEndDate(e.target.value)}
-                                                className="w-full rounded-xl border-none bg-neumorphic-base shadow-neumorphic-inset py-3 px-4 text-slate-800 focus:outline-none"
-                                            />
-                                        </div>
+                            {/* Dates Grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label htmlFor="startDate" className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide ml-1">
+                                        Start Date
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            id="startDate"
+                                            type="datetime-local"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-sm font-medium text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all dark:[color-scheme:dark]"
+                                        />
                                     </div>
-                                    
-                                    {error && (
-                                        <div className="flex items-center space-x-2 text-red-600 bg-neumorphic-base p-3 rounded-xl shadow-neumorphic">
-                                            <ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
-                                            <p className="text-sm font-medium">{error}</p>
-                                        </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label htmlFor="endDate" className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide ml-1">
+                                        End Date
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            id="endDate"
+                                            type="datetime-local"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-sm font-medium text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all dark:[color-scheme:dark]"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Error Alert */}
+                            <AnimatePresence>
+                                {error && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, y: -10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                        className="flex items-center space-x-3 text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-900/30"
+                                    >
+                                        <ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
+                                        <p className="text-xs font-bold">{error}</p>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                        
+                        {/* Footer Actions */}
+                        <div className="p-6 pt-2 grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-white/5 mt-auto">
+                            {/* Cancel Button */}
+                            <button
+                                onClick={onClose}
+                                disabled={isSaving}
+                                className="w-full rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 px-4 py-3.5 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+
+                            {/* Save Button (Gem Style) */}
+                            <button
+                                onClick={handleSave}
+                                disabled={isSaving}
+                                className="group relative w-full rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-70 disabled:cursor-not-allowed overflow-hidden"
+                            >
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" />
+                                <div className="relative flex items-center justify-center gap-2">
+                                    {isSaving ? (
+                                        <>
+                                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span>Saving...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckIcon className="w-4 h-4 text-white" strokeWidth={2.5} />
+                                            <span>Save Changes</span>
+                                        </>
                                     )}
                                 </div>
-                                
-                                {/* Neumorphic Design Changes: Buttons are now extruded with a pressed effect */}
-                                <div className="mt-8 grid grid-cols-2 gap-4">
-                                    <button
-                                        onClick={onClose}
-                                        className="w-full rounded-xl bg-neumorphic-base px-4 py-3 text-base font-semibold text-slate-700 shadow-neumorphic active:shadow-neumorphic-inset transition-all hover:text-slate-900"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={handleSave}
-                                        disabled={isSaving}
-                                        className="w-full rounded-xl bg-neumorphic-base px-4 py-3 text-base font-semibold text-primary-700 shadow-neumorphic active:shadow-neumorphic-inset transition-all hover:text-primary-600 disabled:opacity-60"
-                                    >
-                                        {isSaving ? 'Saving...' : 'Save Changes'}
-                                    </button>
-                                </div>
-                            </motion.div>
+                            </button>
                         </div>
-                    </div>
-                </Dialog>
+                    </motion.div>
+                    <style>{`
+                        @keyframes shimmer {
+                            100% { transform: translateX(100%); }
+                        }
+                        .animate-shimmer {
+                            animation: shimmer 1.5s infinite;
+                        }
+                    `}</style>
+                </div>
             )}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
     );
 };
 

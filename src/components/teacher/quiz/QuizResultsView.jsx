@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useQuiz } from '../ViewQuizModal';
-// --- MODIFIED: Added StarIcon ---
-import { CheckCircleIcon, PencilSquareIcon, StarIcon } from '@heroicons/react/24/solid';
-// --- END MODIFIED ---
-import { ClockIcon as ClockOutlineIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, PencilSquareIcon, StarIcon, ClockIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
+import { ClockIcon as ClockOutlineIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import Confetti from 'react-confetti';
 
 /**
- * Renders the results screen after a quiz is submitted.
- * Replaces the old renderResults() function.
+ * macOS 26 Design Overhaul
+ * Features: Ultra-Glassmorphism, Vivid Blurs, System Fonts, Adaptive Dark Mode
  */
 export default function QuizResultsView() {
-    // --- MODIFIED: Get xpGained from context ---
     const {
         latestSubmission,
         score,
@@ -22,143 +19,190 @@ export default function QuizResultsView() {
         handleStartNewAttempt,
         setSubmissionToReview,
         setShowReview,
-        xpGained, // Get the XP gained from this session
+        xpGained,
     } = useQuiz();
-    // --- END MODIFIED ---
 
-    // --- ADDED: Confetti State ---
     const [showConfetti, setShowConfetti] = useState(false);
-    // --- END ADDED ---
 
     const submissionStatus = latestSubmission?.status;
     const finalScore = latestSubmission?.score ?? score ?? 0;
     const totalPossiblePoints = latestSubmission?.totalItems ?? questionNumbering.totalItems;
-
-    // --- MODIFIED: Check for XP in state or in the submission data ---
     const xpToShow = xpGained > 0 ? xpGained : (latestSubmission?.xpGained || 0);
-    // --- END MODIFIED ---
+    const attemptsLeft = maxAttempts - attemptsTaken;
 
     // Sort submissions by attempt number, ascending
     const sortedSubmissions = [...allSubmissions].sort((a, b) => (a.attemptNumber || 0) - (b.attemptNumber || 0));
-    
-    // Calculate attempts left based on the attemptsTaken state
-    const attemptsLeft = maxAttempts - attemptsTaken;
 
-    // --- ADDED: useEffect to trigger confetti ---
     useEffect(() => {
-        // Trigger confetti only if the score is fully graded
         if (latestSubmission?.status === 'graded') {
             setShowConfetti(true);
         }
     }, [latestSubmission]);
-    // --- END ADDED ---
+
+    // --- Reusable UI Components (Shared Design Language) ---
+
+    const GlassContainer = ({ children, className = "" }) => (
+        <div className={`relative overflow-hidden p-6 sm:p-10 rounded-[32px] 
+            bg-white/60 dark:bg-black/40 
+            backdrop-blur-2xl 
+            border border-white/40 dark:border-white/10 
+            shadow-2xl shadow-black/5 dark:shadow-black/50 
+            text-center transition-all duration-500 ease-out ${className}`}>
+            {children}
+        </div>
+    );
+
+    const PrimaryButton = ({ onClick, children, className = "" }) => (
+        <button onClick={onClick} className={`group relative w-full px-6 py-4 rounded-full 
+            bg-gradient-to-r from-green-500 to-green-600 hover:from-green-400 hover:to-green-500
+            text-white font-semibold text-lg tracking-tight
+            shadow-lg shadow-green-500/30 hover:shadow-green-500/50 hover:-translate-y-0.5
+            active:scale-[0.98] active:translate-y-0
+            transition-all duration-300 ease-spring flex items-center justify-center gap-2 ${className}`}>
+            {children}
+        </button>
+    );
+
+    const SecondaryGlassButton = ({ onClick, children }) => (
+        <button onClick={onClick} className="group flex items-center justify-between w-full px-5 py-3 rounded-2xl 
+            bg-white/40 hover:bg-white/60 dark:bg-white/5 dark:hover:bg-white/10
+            border border-white/50 dark:border-white/5
+            text-gray-700 dark:text-gray-200 font-medium text-sm sm:text-base
+            backdrop-blur-sm transition-all duration-200 active:scale-[0.98]">
+            {children}
+            <ChevronRightIcon className="h-4 w-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-colors" />
+        </button>
+    );
+
+    const StatusIcon = ({ status }) => {
+        const isPending = status === 'pending_ai_grading' || status === 'pending_review';
+        
+        return (
+            <div className={`mx-auto h-20 w-20 sm:h-24 sm:w-24 flex items-center justify-center rounded-full 
+                ${isPending 
+                    ? 'bg-blue-500/10 text-blue-500 shadow-[0_0_40px_-10px_rgba(59,130,246,0.3)]' 
+                    : 'bg-green-500/10 text-green-500 shadow-[0_0_40px_-10px_rgba(34,197,94,0.3)]'
+                } backdrop-blur-md mb-6 border border-white/20`}>
+                {isPending ? <ClockIcon className="h-10 w-10 sm:h-12 sm:w-12" /> : <CheckCircleIcon className="h-10 w-10 sm:h-12 sm:w-12" />}
+            </div>
+        );
+    };
 
     return (
-        // --- MODIFIED: Added dark theme ---
-        <div className="text-center p-4 sm:p-8 bg-neumorphic-base rounded-3xl shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg">
-            {/* --- ADDED: Confetti Component --- */}
-            {showConfetti && (
-                <Confetti numberOfPieces={200} recycle={false} />
-            )}
-            {/* --- END ADDED --- */}
+        <GlassContainer>
+            {showConfetti && <Confetti numberOfPieces={200} recycle={false} colors={['#22C55E', '#3B82F6', '#EAB308']} />}
 
-            {/* Icon based on status */}
-            {/* --- MODIFIED: Added dark theme --- */}
-            <div className="mx-auto inline-block p-3 sm:p-4 rounded-full bg-neumorphic-base shadow-neumorphic-inset mb-4 dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
+            {/* 1. Status Icon */}
+            <StatusIcon status={submissionStatus} />
+
+            {/* 2. Title */}
+            <h3 className="text-2xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight mb-2">
                 {submissionStatus === 'pending_ai_grading' || submissionStatus === 'pending_review'
-                   // --- MODIFIED: Added dark theme ---
-                   ? <ClockOutlineIcon className="h-14 w-14 sm:h-20 sm:w-20 text-blue-500 dark:text-blue-400" />
-                   // --- MODIFIED: Added dark theme ---
-                   : <CheckCircleIcon className="h-14 w-14 sm:h-20 sm:w-20 text-green-500 dark:text-green-400" />
-                }
-            </div>
-            {/* Title */}
-            {/* --- MODIFIED: Added dark theme --- */}
-            <h3 className="text-xl sm:text-3xl font-extrabold text-slate-900 mb-2 dark:text-slate-100">
-                {submissionStatus === 'pending_ai_grading' || submissionStatus === 'pending_review'
-                    ? "Submission Received!"
-                    : "Quiz Submitted!"
+                    ? "Submission Received"
+                    : "Quiz Completed"
                 }
             </h3>
-            {/* Score Display */}
-            {/* --- MODIFIED: Added dark theme --- */}
-             <p className="text-base sm:text-xl mt-2 text-slate-700 dark:text-slate-300">
-                Your current score is <strong className="text-green-600 dark:text-green-400 text-xl sm:text-3xl">{finalScore}</strong> out of <strong className="text-slate-900 dark:text-slate-100 text-xl sm:text-3xl">{totalPossiblePoints}</strong>
-             </p>
-            
-            {/* --- ADDED: XP GAINED DISPLAY --- */}
+
+            {/* 3. Score Display (Hero Section) */}
+            <div className="mt-6 mb-8">
+                <div className="flex items-baseline justify-center gap-1 text-gray-900 dark:text-white">
+                    <span className="text-6xl sm:text-7xl font-light tracking-tighter">
+                        {finalScore}
+                    </span>
+                    <span className="text-2xl sm:text-3xl font-medium text-gray-400 dark:text-gray-500">
+                        /{totalPossiblePoints}
+                    </span>
+                </div>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-widest mt-2">
+                    Total Score
+                </p>
+            </div>
+
+            {/* 4. XP Badge (Glowing Pill) */}
             {xpToShow > 0 && (
-                // --- MODIFIED: Added dark theme ---
-                <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-800 rounded-full shadow-neumorphic border border-yellow-300/50 dark:bg-yellow-900/50 dark:text-yellow-200 dark:border-yellow-700 dark:shadow-lg">
-                    {/* --- MODIFIED: Added dark theme --- */}
-                    <StarIcon className="w-6 h-6 text-yellow-500 dark:text-yellow-400" />
-                    <span className="text-lg font-bold">You earned +{xpToShow} XP!</span>
+                <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full 
+                    bg-yellow-400/10 border border-yellow-400/20 
+                    shadow-[0_0_20px_-5px_rgba(234,179,8,0.2)] animate-pulse-slow mb-8">
+                    <StarIcon className="w-5 h-5 text-yellow-500" />
+                    <span className="font-bold text-yellow-700 dark:text-yellow-400">+{xpToShow} XP Earned</span>
                 </div>
             )}
-            {/* --- END ADDED --- */}
 
-            {/* Status Messages for Pending/Review */}
+            {/* 5. Pending Status Card (if needed) */}
             {(submissionStatus === 'pending_ai_grading' || submissionStatus === 'pending_review') && (
-                // --- MODIFIED: Added dark theme ---
-                <div className={`mt-4 p-3 bg-neumorphic-base shadow-neumorphic-inset rounded-2xl ${submissionStatus === 'pending_review' ? 'text-orange-800 dark:text-orange-300' : 'text-blue-800 dark:text-blue-300'}`}>
-                    {submissionStatus === 'pending_review' ? (
-                        <PencilSquareIcon className="h-6 w-6 mx-auto mb-2" />
-                    ) : (
-                        <ClockOutlineIcon className="h-6 w-6 mx-auto mb-2" />
-                    )}
-                    <p className="font-semibold">
-                        {submissionStatus === 'pending_review' ? 'Some items require manual teacher review.' : 'Essays are pending teacher review/grading.'}
-                    </p>
-                    <p className="text-sm">
-                        {submissionStatus === 'pending_review' ? 'Your score may be adjusted later.' : 'Your final score will be updated once graded.'}
-                    </p>
+                <div className={`mt-2 mb-8 p-4 rounded-2xl text-left flex items-start gap-4 border backdrop-blur-sm
+                    ${submissionStatus === 'pending_review' 
+                        ? 'bg-orange-500/5 border-orange-500/10 text-orange-800 dark:text-orange-200' 
+                        : 'bg-blue-500/5 border-blue-500/10 text-blue-800 dark:text-blue-200'
+                    }`}>
+                    <div className={`p-2 rounded-xl ${submissionStatus === 'pending_review' ? 'bg-orange-500/10' : 'bg-blue-500/10'}`}>
+                        {submissionStatus === 'pending_review' ? <PencilSquareIcon className="h-6 w-6" /> : <ClockOutlineIcon className="h-6 w-6" />}
+                    </div>
+                    <div>
+                        <p className="font-bold text-base">
+                            {submissionStatus === 'pending_review' ? 'Teacher Review Required' : 'Grading in Progress'}
+                        </p>
+                        <p className="text-sm opacity-80 mt-0.5 leading-relaxed">
+                            {submissionStatus === 'pending_review' 
+                                ? 'Some items need manual checking. Your score may update later.' 
+                                : 'Essays are being reviewed. Final score pending.'}
+                        </p>
+                    </div>
                 </div>
             )}
 
-            {/* Attempts Left */}
-            {attemptsLeft > 0 ? (
-                <>
-                    {/* --- MODIFIED: Added dark theme --- */}
-                    <p className="text-sm sm:text-lg mt-4 text-slate-600 dark:text-slate-400">You have <strong>{attemptsLeft}</strong> attempt(s) left.</p>
-                    <button
-                        onClick={handleStartNewAttempt}
-                        className="mt-6 w-full py-3 rounded-2xl bg-green-600 text-white font-bold shadow-neumorphic active:shadow-neumorphic-inset transition-all hover:bg-green-700"
-                    >
-                        Start New Attempt
-                    </button>
-                </>
-             ) : (
-                // --- MODIFIED: Added dark theme ---
-                <p className="text-sm sm:text-lg mt-4 text-red-600 dark:text-red-400 font-semibold">You have used all {maxAttempts} attempts.</p>
-            )}
-            
-            {/* Review Past Attempts */}
+            {/* 6. Action Area (Start New / Attempts Left) */}
+            <div className="space-y-4">
+                {attemptsLeft > 0 ? (
+                    <>
+                        <PrimaryButton onClick={handleStartNewAttempt}>
+                            <ArrowPathIcon className="h-6 w-6" />
+                            Start New Attempt
+                        </PrimaryButton>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                            {attemptsLeft} attempt{attemptsLeft !== 1 ? 's' : ''} remaining
+                        </p>
+                    </>
+                ) : (
+                    <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/10 text-red-600 dark:text-red-400 font-medium text-sm">
+                        No attempts remaining for this quiz.
+                    </div>
+                )}
+            </div>
+
+            {/* 7. Past Attempts List (Segmented Glass Stack) */}
             {sortedSubmissions.length > 0 && (
-                // --- MODIFIED: Added dark theme ---
-                <div className="mt-4 w-full space-y-2 pt-4 border-t border-slate-300/50 dark:border-slate-700">
-                    {/* --- MODIFIED: Added dark theme --- */}
-                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Review Past Attempts:</p>
-                    {sortedSubmissions.map((sub) => (
-                        <button
-                            key={sub.id || sub.attemptNumber}
-                            onClick={() => {
-                                setSubmissionToReview(sub);
-                                setShowReview(true);
-                            }}
-                            // --- MODIFIED: Added dark theme ---
-                            className="w-full py-2.5 rounded-xl bg-neumorphic-base text-blue-700 font-semibold shadow-neumorphic active:shadow-neumorphic-inset transition-all text-sm dark:bg-neumorphic-base-dark dark:text-blue-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
-                        >
-                            Review Attempt {sub.attemptNumber}
-                            {/* --- MODIFIED: Added dark theme --- */}
-                            <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">
-                                ({sub.score ?? 0} / {sub.totalItems ?? '?'})
-                                {sub.status === 'pending_ai_grading' && " (Pending)"}
-                                {sub.status === 'pending_review' && " (Review)"}
-                            </span>
-                        </button>
-                    ))}
+                <div className="mt-10 pt-8 border-t border-gray-200/50 dark:border-white/10">
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4 text-left px-1">
+                        History
+                    </p>
+                    <div className="space-y-2">
+                        {sortedSubmissions.map((sub) => (
+                            <SecondaryGlassButton
+                                key={sub.id || sub.attemptNumber}
+                                onClick={() => {
+                                    setSubmissionToReview(sub);
+                                    setShowReview(true);
+                                }}
+                            >
+                                <div className="flex flex-col items-start">
+                                    <span className="font-semibold text-gray-900 dark:text-white">Attempt {sub.attemptNumber}</span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                        {sub.status === 'pending_ai_grading' ? 'Grading...' : sub.status === 'pending_review' ? 'In Review' : 'Graded'}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className={`font-bold ${
+                                        !sub.score ? 'text-gray-400' : 'text-green-600 dark:text-green-400'
+                                    }`}>
+                                        {sub.score ?? '-'} / {sub.totalItems ?? '?'}
+                                    </span>
+                                </div>
+                            </SecondaryGlassButton>
+                        ))}
+                    </div>
                 </div>
             )}
-        </div>
+        </GlassContainer>
     );
 }

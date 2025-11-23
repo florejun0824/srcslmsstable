@@ -1,38 +1,27 @@
-// src/components/student/StudentClassDetailView.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '../../services/firebase';
 import { collection, query, getDocs, orderBy, where } from 'firebase/firestore';
 import Spinner from '../common/Spinner';
 import AnnouncementViewModal from '../common/AnnouncementViewModal';
 import { useAuth } from '../../contexts/AuthContext';
+import { motion } from 'framer-motion';
 import { 
     MegaphoneIcon, 
-    BookOpenIcon, 
     ArrowLeftIcon, 
     ArrowRightIcon, 
-} from '@heroicons/react/24/outline';
-
-// --- NEW: Import the component we're using to display lessons ---
-import LessonsByUnitView from './LessonsByUnitView';
-
-// --- REMOVED: UnitPillHeader component (no longer needed) ---
-// --- REMOVED: LessonListItemForStudent component (no longer needed) ---
+    CalendarIcon,
+    UserIcon,
+    BellAlertIcon
+} from '@heroicons/react/24/solid';
 
 const StudentClassDetailView = ({ 
     selectedClass, 
-    onBack, 
-    lessons,  // <-- NEW: Receives all lessons
-    units,    // <-- NEW: Receives all units
-    setLessonToView, // <-- NEW: Receives the modal setter function
-    onContentUpdate  // <-- NEW: Receives the refresh function
+    onBack
 }) => {
     const { userProfile } = useAuth();
-    const [activeTab, setActiveTab] = useState('announcements');
     const [announcements, setAnnouncements] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
-
-    // --- REMOVED: All lesson-related state (lessonsByUnit, collapsedUnits, lessonToView) ---
 
     const fetchData = useCallback(async () => {
         if (!selectedClass?.id || !userProfile?.id) { 
@@ -42,7 +31,6 @@ const StudentClassDetailView = ({
         
         setLoading(true);
         try {
-            // --- MODIFIED: This function ONLY fetches announcements now ---
             const annQuery = query(
                 collection(db, "studentAnnouncements"), 
                 where("classId", "==", selectedClass.id), 
@@ -50,11 +38,7 @@ const StudentClassDetailView = ({
             );
             const annSnap = await getDocs(annQuery);
             setAnnouncements(annSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-
-            // --- REMOVED: All post-fetching, filtering, and lesson-grouping logic ---
-            
-        } catch (err)
- {
+        } catch (err) {
             console.error("Failed to fetch class announcements:", err);
         } finally {
             setLoading(false);
@@ -63,87 +47,111 @@ const StudentClassDetailView = ({
 
     useEffect(() => { fetchData(); }, [fetchData]);
     
-    // ... (getTabClasses remains unchanged) ...
-    const getTabClasses = (tabName) => `
-        flex items-center justify-center flex-1 gap-2 px-4 py-3 font-semibold text-sm rounded-xl transition-all duration-200
-        ${activeTab === tabName 
-            ? 'bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-red-600 dark:text-red-400' // Active tab is "pressed in"
-            : 'bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark text-slate-700 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark' // Inactive tab is "popped out"
-        }
-    `;
-
     const renderContent = () => {
-        if (loading && activeTab === 'announcements') {
-             return <div className="flex justify-center p-10"><Spinner /></div>;
+        if (loading) {
+             return (
+                <div className="flex flex-col items-center justify-center py-24">
+                    <Spinner />
+                    <p className="mt-4 text-slate-400 text-xs font-medium animate-pulse uppercase tracking-wider">Syncing Updates...</p>
+                </div>
+             );
         }
 
-        const EmptyState = ({ icon: Icon, text, subtext }) => (
-            <div className="text-center py-16 px-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic max-w-4xl mx-auto dark:shadow-neumorphic-dark">
-                <Icon className="h-16 w-16 mb-4 text-slate-300 dark:text-slate-600 mx-auto" />
-                <p className="text-xl font-semibold text-slate-800 dark:text-slate-100">{text}</p>
-                <p className="mt-2 text-md text-slate-500 dark:text-slate-400">{subtext}</p>
+        if (announcements.length === 0) {
+            return (
+                <div className="flex flex-col items-center justify-center text-center py-24 px-6">
+                    <div className="w-24 h-24 bg-gradient-to-br from-slate-100 to-white dark:from-slate-800 dark:to-slate-700/50 rounded-[2rem] flex items-center justify-center mb-6 shadow-inner border border-white/50 dark:border-white/5">
+                        <MegaphoneIcon className="h-10 w-10 text-slate-300 dark:text-slate-500" />
+                    </div>
+                    <p className="text-lg font-bold text-slate-700 dark:text-slate-200">No announcements</p>
+                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">Your teacher hasn't posted any updates yet. Check back later!</p>
+                </div>
+            );
+        }
+
+        return (
+            <div className="space-y-4 animate-fade-in-up pb-8">
+                {announcements.map(announcement => (
+                    <AnnouncementListItemForStudent 
+                        key={announcement.id} 
+                        announcement={announcement} 
+                        onClick={() => setSelectedAnnouncement(announcement)} 
+                    />
+                ))}
             </div>
         );
-
-        switch(activeTab) {
-            case 'lessons':
-                // --- NEW: Filter lessons and render the unified component ---
-                const lessonsForThisClass = lessons.filter(lesson => lesson.classId === selectedClass.id);
-                
-                return (
-                    <LessonsByUnitView
-                        selectedClass={selectedClass}
-                        lessons={lessonsForThisClass}
-                        units={units}
-                        setLessonToView={setLessonToView}
-                        onContentUpdate={onContentUpdate}
-                        showBackButton={false} // Hide redundant back button
-                        showRefreshButton={false} // Hide redundant refresh button
-                    />
-                );
-            case 'announcements':
-            default:
-                return announcements.length > 0 ? (
-                    <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark">
-                        {announcements.map(announcement => (
-                            <AnnouncementListItemForStudent 
-                                key={announcement.id} 
-                                announcement={announcement} 
-                                onClick={() => setSelectedAnnouncement(announcement)} 
-                            />
-                        ))}
-                    </div>
-                ) : <EmptyState icon={MegaphoneIcon} text="No announcements for this class." subtext="Important updates will appear here." />;
-        }
     };
 
     return (
         <>
-            {/* --- MODIFIED: Removed max-w-4xl and mx-auto to let parent control sizing --- */}
-            <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark p-6 sm:p-8 rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark animate-scale-in">
-                <button
-                    onClick={onBack}
-                    className="flex items-center bg-neumorphic-base dark:bg-neumorphic-base-dark text-red-600 dark:text-red-400 font-semibold text-sm px-4 py-2 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset transition-all mb-5 group hover:text-red-700 dark:hover:text-red-300"
-                >
-                    <ArrowLeftIcon className="h-4 w-4 mr-2 group-hover:-translate-x-0.5 transition-transform" /> 
-                    Back to All Classes
-                </button>
-                <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">{selectedClass.name}</h1>
-                <p className="text-base sm:text-lg text-slate-500 dark:text-slate-400 mb-8">{selectedClass.gradeLevel} - {selectedClass.section}</p>
+            {/* Main Container - Spatial Glass Panel */}
+            <div className="relative bg-white/80 dark:bg-slate-900/60 backdrop-blur-3xl rounded-[2.5rem] border border-white/40 dark:border-white/5 shadow-xl dark:shadow-2xl overflow-hidden min-h-[600px]">
                 
-                <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl flex items-center mb-6 p-1.5 shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
-                    <nav className="flex flex-1 space-x-2">
-                        <button onClick={() => setActiveTab('announcements')} className={getTabClasses('announcements')}>
-                            <MegaphoneIcon className="h-5 w-5" />
-                            <span>Announcements</span>
+                {/* Ambient Light Glows (Subtle Background) */}
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
+                <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-[100px] pointer-events-none translate-y-1/3 -translate-x-1/3"></div>
+
+                <div className="relative z-10 p-5 sm:p-8">
+                    
+                    {/* Header Section */}
+                    <div className="mb-10">
+                        {/* Back Button - Floating Pill */}
+                        <button
+                            onClick={onBack}
+                            className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full bg-white/50 dark:bg-slate-800/50 hover:bg-white/80 dark:hover:bg-slate-700/50 border border-white/20 dark:border-white/10 shadow-sm hover:shadow-md transition-all duration-300 group"
+                        >
+                            <ArrowLeftIcon className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400 group-hover:-translate-x-1 transition-transform duration-300" /> 
+                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Back to Dashboard</span>
                         </button>
-                        <button onClick={() => setActiveTab('lessons')} className={getTabClasses('lessons')}>
-                            <BookOpenIcon className="h-5 w-5" />
-                            <span>Lessons</span>
-                        </button>
-                    </nav>
+
+                        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                            <div>
+                                {/* Class Title - Responsive Sizing */}
+                                <h1 className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-tight drop-shadow-sm">
+                                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-slate-700 to-slate-900 dark:from-white dark:via-slate-200 dark:to-slate-400">
+                                        {selectedClass.name}
+                                    </span>
+                                </h1>
+                                
+                                {/* Meta Data Capsules */}
+                                <div className="flex flex-wrap items-center gap-2 mt-3">
+                                    <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-500/20 text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-300">
+                                        {selectedClass.section}
+                                    </span>
+                                    <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                        {selectedClass.gradeLevel}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            {/* Instructor Bubble */}
+                            <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/40 dark:bg-white/5 border border-white/50 dark:border-white/5 backdrop-blur-sm shadow-sm max-w-full sm:max-w-xs">
+                                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-600 flex-shrink-0 flex items-center justify-center text-slate-600 dark:text-slate-300 shadow-inner">
+                                    <UserIcon className="h-4 w-4" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Instructor</p>
+                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
+                                        {selectedClass.teacherName || "Teacher"}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Content Section Title (Replaces Tabs) */}
+                    <div className="mb-6 flex items-center gap-2 text-slate-800 dark:text-slate-200">
+                        <div className="p-1.5 bg-orange-50 dark:bg-orange-500/10 rounded-lg">
+                            <BellAlertIcon className="h-5 w-5 text-orange-500" />
+                        </div>
+                        <h2 className="text-lg font-bold tracking-tight">Latest Updates</h2>
+                    </div>
+
+                    {/* Content Area */}
+                    <div className="min-h-[300px]">
+                        {renderContent()}
+                    </div>
                 </div>
-                <div>{renderContent()}</div>
             </div>
 
             {/* Modals */}
@@ -152,32 +160,56 @@ const StudentClassDetailView = ({
                 onClose={() => setSelectedAnnouncement(null)} 
                 announcement={selectedAnnouncement} 
             />
-            {/* --- REMOVED: ViewLessonModal (now handled by the parent component, StudentDashboard) --- */}
         </>
     );
 };
 
-// ... (AnnouncementListItemForStudent remains unchanged) ...
+// Refined Announcement Card (Notification Style)
 const AnnouncementListItemForStudent = ({ announcement, onClick }) => {
     const formattedDate = announcement.createdAt?.toDate 
-        ? announcement.createdAt.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) 
+        ? announcement.createdAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) 
         : 'N/A';
+
     return (
-        <div 
-            className="group p-4 bg-transparent hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all duration-200 cursor-pointer flex items-center space-x-4 rounded-xl"
+        <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ scale: 1.01, y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            className="group relative p-5 bg-white/60 dark:bg-slate-800/40 backdrop-blur-xl rounded-[1.5rem] border border-white/60 dark:border-white/5 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer flex items-start gap-4 overflow-hidden"
             onClick={onClick}
         >
-            <div className="flex-shrink-0 p-2.5 rounded-full bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
-                <MegaphoneIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            {/* Hover Glow */}
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/0 to-blue-500/0 group-hover:via-blue-500/5 transition-all duration-500"></div>
+
+            {/* Icon Container - Glassy Circle */}
+            <div className="flex-shrink-0 h-12 w-12 rounded-full bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 border border-blue-200/50 dark:border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-sm group-hover:scale-110 transition-transform duration-300">
+                <MegaphoneIcon className="h-5 w-5" />
             </div>
-            <div className="flex-1 min-w-0">
-                <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-800 dark:group-hover:text-blue-300 transition-colors line-clamp-2">{announcement.content}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Posted on {formattedDate}</p>
+
+            {/* Content */}
+            <div className="flex-1 min-w-0 pt-1">
+                <div className="flex justify-between items-start gap-4">
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-1 tracking-tight">
+                        {announcement.title || "Class Announcement"}
+                    </h3>
+                    <span className="flex-shrink-0 flex items-center text-[9px] font-bold uppercase tracking-widest text-slate-400 bg-slate-100/80 dark:bg-black/30 px-2.5 py-1 rounded-full border border-slate-200/50 dark:border-white/5">
+                        <CalendarIcon className="w-3 h-3 mr-1.5 opacity-70" />
+                        {formattedDate}
+                    </span>
+                </div>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 line-clamp-2 leading-relaxed font-medium">
+                    {announcement.content}
+                </p>
             </div>
-            <div className="flex-shrink-0 text-slate-400 dark:text-slate-500 group-hover:text-blue-500 dark:hover:text-blue-300 transition-colors">
-                <ArrowRightIcon className="h-5 w-5" />
+
+            {/* Arrow Indicator */}
+            <div className="flex-shrink-0 self-center pl-2">
+                <div className="h-8 w-8 rounded-full flex items-center justify-center text-slate-300 dark:text-slate-600 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 group-hover:text-blue-500 transition-all duration-300">
+                    <ArrowRightIcon className="h-4 w-4 transform group-hover:translate-x-0.5 transition-transform" />
+                </div>
             </div>
-        </div>
+        </motion.div>
     );
 };
 

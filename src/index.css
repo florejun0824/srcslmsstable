@@ -2,24 +2,24 @@
 @import "react-datepicker/dist/react-datepicker.css";
 @import "react-quill/dist/quill.snow.css";
 
-/* 1. Tailwind Directives (Must be at the top) */
+/* 1. Tailwind Directives */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ==========================================================================
-   Spinner Component Styles (iOS 18 Glass Background + Original Animation)
+   Spinner Component Styles (macOS 16 / VisionOS Glass Aesthetics)
    ========================================================================== */
 :root {
   --spinner-size: 80px;
   --spinner-thickness: 10px;
-  --spinner-blur-intensity: 20px;
-  --spinner-pulsate-duration: 2s;
+  --spinner-blur-intensity: 32px; /* Increased for depth */
+  --spinner-pulsate-duration: 3s; /* Slower, breathing rhythm */
   --spinner-rotation-duration: 4s;
   --spinner-gradient-start: #6366F1; /* Indigo-500 */
   --spinner-gradient-mid: #EC4899;   /* Pink-500 */
   --spinner-gradient-end: #8B5CF6;   /* Purple-500 */
-  --spinner-overlay-bg: rgba(10, 10, 15, 0.7);
+  --spinner-overlay-bg: rgba(5, 5, 10, 0.4); /* Darker, cleaner overlay */
 }
 
 .spinner-overlay {
@@ -32,23 +32,45 @@
   justify-content: center;
   align-items: center;
   background-color: var(--spinner-overlay-bg);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  /* The "VisionOS" Ultra Blur */
+  backdrop-filter: blur(24px) saturate(180%); 
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
   z-index: 9999;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
 }
 
 .spinner-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.25rem;
+  gap: 1.5rem;
   text-align: center;
-  padding: 2.5rem 3rem;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 28px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 3rem 3.5rem;
+  
+  /* macOS 16 Ceramic Glass Effect */
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 32px; /* Smoother curvature */
+  
+  /* Optical Border (Inner white highlight + outer subtle rim) */
+  box-shadow: 
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5),
+    0 20px 50px -12px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.2);
+    
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+}
+
+/* Dark Mode support for Spinner (Implicit) */
+@media (prefers-color-scheme: dark) {
+  .spinner-container {
+    background: rgba(30, 32, 40, 0.6);
+    box-shadow: 
+      inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+      0 25px 60px -12px rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
 }
 
 .spinner-wrapper {
@@ -64,9 +86,9 @@
   position: absolute;
   width: calc(var(--spinner-size) / 1.3);
   height: calc(var(--spinner-size) / 1.3);
-  border-radius: 12px;
+  border-radius: 16px; /* Match container curvature style */
   overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   background-color: transparent;
   z-index: 2;
 }
@@ -89,7 +111,7 @@
   );
   animation: spin-gradient var(--spinner-rotation-duration) linear infinite;
   filter: blur(var(--spinner-blur-intensity));
-  opacity: 0.8;
+  opacity: 0.9; /* Higher opacity for vibrancy */
 }
 
 .spinner-pulsar {
@@ -97,33 +119,37 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: radial-gradient(circle at center, rgba(255,255,255,0.4) 0%, transparent 70%);
+  background: radial-gradient(circle at center, rgba(255,255,255,0.5) 0%, transparent 70%);
   animation: pulsate var(--spinner-pulsate-duration) ease-out infinite;
   z-index: 1;
 }
 
 .branding-text {
-  color: rgb(255, 255, 255);
+  color: rgb(30, 41, 59); /* Slate-800 for better contrast on glass */
   font-weight: 700;
   font-size: 1.25rem;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+@media (prefers-color-scheme: dark) {
+  .branding-text { color: white; }
 }
 
 .spinner-text-container {
-  color: rgb(220, 220, 220);
+  color: rgb(71, 85, 105); /* Slate-600 */
   font-size: 1.1em;
   font-weight: 500;
   height: 1.5em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+@media (prefers-color-scheme: dark) {
+  .spinner-text-container { color: rgb(203, 213, 225); }
 }
 
 .typing-cursor {
   display: inline-block;
   width: 2px;
   height: 1em;
-  background-color: rgb(220, 220, 220);
+  background-color: currentColor;
   opacity: 0.8;
   margin-left: 4px;
   animation: blink 1s step-end infinite;
@@ -141,9 +167,9 @@
 }
 
 @keyframes pulsate {
-  0% { transform: scale(0.7); opacity: 0; }
-  50% { transform: scale(1.1); opacity: 1; }
-  100% { transform: scale(0.7); opacity: 0; }
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.05); opacity: 0.6; }
+  100% { transform: scale(0.8); opacity: 0; }
 }
 
 @keyframes blink {
@@ -152,133 +178,181 @@
 
 @keyframes zoom-in-fade-out {
   0% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(1.2); opacity: 0; }
+  100% { transform: scale(1.15); opacity: 0; }
 }
 .animate-zoom-out { animation: zoom-in-fade-out 0.5s ease-in-out forwards; }
 
 @keyframes fade-in {
-    from { opacity: 0; transform: translateY(10px); }
+    from { opacity: 0; transform: translateY(15px); }
     to { opacity: 1; transform: translateY(0); }
 }
-.animate-fade-in { animation: fade-in 0.7s ease-out forwards; }
+.animate-fade-in { animation: fade-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
 @keyframes slide-in-right {
-    from { opacity: 0; transform: translateX(20px); }
+    from { opacity: 0; transform: translateX(25px); }
     to { opacity: 1; transform: translateX(0); }
 }
-.animate-slide-in-right { animation: slide-in-right 0.6s ease-out forwards; }
+.animate-slide-in-right { animation: slide-in-right 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
 /* ================================================================
-   MODIFIED: Keyframes for Borders
+   Border Animations (Refined for Glass Look)
    ================================================================ */
 
 @keyframes spin-slow {
-  /* MODIFIED: Added hue-rotate for "spectral ring" effect (Advanced) */
   from { transform: rotate(0deg); filter: hue-rotate(0deg); }
   to { transform: rotate(360deg); filter: hue-rotate(360deg); }
 }
 
 @keyframes spin-fast {
-  0% { transform: rotate(0deg) scale(1); opacity: 0.9; }
-  50% { transform: rotate(180deg) scale(1.05); opacity: 1; }
-  100% { transform: rotate(360deg) scale(1); opacity: 0.9; }
+  0% { transform: rotate(0deg) scale(1); opacity: 0.8; }
+  50% { transform: rotate(180deg) scale(1.02); opacity: 1; }
+  100% { transform: rotate(360deg) scale(1); opacity: 0.8; }
 }
 
 @keyframes gradient-glow {
-  /* MODIFIED: Added hue-rotate for "iridescence" (Elite) */
-  0% { filter: brightness(1) drop-shadow(0 0 4px rgba(255, 255, 255, 0.3)) hue-rotate(-20deg); }
-  50% { filter: brightness(1.3) drop-shadow(0 0 10px rgba(255, 255, 255, 0.7)) hue-rotate(20deg); }
-  100% { filter: brightness(1) drop-shadow(0 0 4px rgba(255, 255, 255, 0.3)) hue-rotate(-20deg); }
+  0% { filter: brightness(1) drop-shadow(0 0 2px rgba(255, 255, 255, 0.2)) hue-rotate(-20deg); }
+  50% { filter: brightness(1.2) drop-shadow(0 0 8px rgba(255, 255, 255, 0.5)) hue-rotate(20deg); }
+  100% { filter: brightness(1) drop-shadow(0 0 2px rgba(255, 255, 255, 0.2)) hue-rotate(-20deg); }
 }
 
 @keyframes legendary-sparkle {
-  /* This is the "particle sparkle" effect */
   0% { filter: brightness(1.1) saturate(1.1); }
-  15% { filter: brightness(1.5) saturate(1.5) drop-shadow(0 0 8px #fff); } /* The "sparkle" */
+  15% { filter: brightness(1.4) saturate(1.4) drop-shadow(0 0 6px #fff); }
   30% { filter: brightness(1.1) saturate(1.1); }
   100% { filter: brightness(1.1) saturate(1.1); }
 }
 
-/* --- NEW: Keyframe for Legendary "Light Orbit" --- */
 @keyframes light-orbit {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
 @keyframes gentle-pulse-glow {
-  /* This is the "soft pulse shimmer" (now for Basic) */
-  0% { opacity: 0.7; transform: scale(1); filter: hue-rotate(0deg) brightness(1.1); }
-  50% { opacity: 1; transform: scale(1.05); filter: hue-rotate(45deg) brightness(1.3); }
-  100% { opacity: 0.7; transform: scale(1); filter: hue-rotate(0deg) brightness(1.1); }
+  0% { opacity: 0.6; transform: scale(1); filter: hue-rotate(0deg) brightness(1.1); }
+  50% { opacity: 0.9; transform: scale(1.01); filter: hue-rotate(45deg) brightness(1.2); }
+  100% { opacity: 0.6; transform: scale(1); filter: hue-rotate(0deg) brightness(1.1); }
 }
 
-/* --- MODIFIED: Pan animation for Lvl 20 Background --- */
 @keyframes gradient-pan {
   0%   { background-position: 0% 50%; }
   50%  { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
 
-/* --- NEW: Lvl 60 "Elite" Sonar Pulse --- */
-@keyframes pulsing-waves {
-  from {
-    transform: scale(0.5);
-    opacity: 0.5;
-  }
-  to {
-    transform: scale(1.5);
-    opacity: 0;
-  }
-}
-
-/* --- NEW: Lvl 90 "Legendary" Falling Stars --- */
-@keyframes falling-stars {
-  0% { background-position: 0% 0%; }
-  100% { background-position: 0% 100%; }
-}
 
 /* ==========================================================================
-   Custom Reusable Component Layer
+   Custom Reusable Component Layer (macOS 16 Glass System)
    ========================================================================== */
 
 @layer components {
-  /* --- Unified Button System (iOS 18 Vibe) --- */
+  /* --- Unified Button System --- */
   .btn {
-    @apply flex items-center justify-center gap-2 font-semibold rounded-full transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:cursor-not-allowed;
-  }
-  .btn-primary {
-    @apply btn px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-blue-500 text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5;
-  }
-  .btn-secondary {
-    @apply btn px-4 py-2 bg-black/5 backdrop-blur-sm text-slate-700 ring-1 ring-black/10 hover:bg-black/10;
-  }
-  .btn-destructive {
-     @apply btn p-2.5 bg-red-500/10 backdrop-blur-sm text-red-600 ring-1 ring-red-500/20 hover:bg-red-500/20;
-  }
-  .btn-icon {
-     @apply btn p-2.5 bg-black/5 backdrop-blur-sm text-slate-600 ring-1 ring-black/10 hover:bg-black/10;
-  }
-  .input-field {
-    @apply w-full p-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200;
+    @apply flex items-center justify-center gap-2 font-medium rounded-full transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:cursor-not-allowed;
+    -webkit-font-smoothing: antialiased;
   }
 
-  /* --- DARK MODE for .btn --- */
-  .dark .btn-secondary {
-    @apply bg-white/5 text-slate-300 ring-1 ring-white/10 hover:bg-white/10;
+  /* PRIMARY: Vibrant Gradient + Inner Glass Cap */
+  .btn-primary {
+    @apply btn px-5 py-2.5 text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5;
+    background-image: linear-gradient(135deg, #6366F1 0%, #3B82F6 100%);
+    box-shadow: 
+      inset 0 1px 0 rgba(255, 255, 255, 0.3), /* Top glass edge */
+      0 4px 12px rgba(66, 133, 244, 0.3),     /* Glow */
+      0 0 0 1px rgba(255,255,255,0.1);        /* Outer ring */
   }
-  .dark .btn-destructive {
-    @apply bg-red-500/10 text-red-400 ring-1 ring-red-500/20 hover:bg-red-500/20;
+  .btn-primary:hover {
+    background-image: linear-gradient(135deg, #5558E3 0%, #2563EB 100%);
+    box-shadow: 
+      inset 0 1px 0 rgba(255, 255, 255, 0.4), 
+      0 8px 20px rgba(66, 133, 244, 0.4),
+      0 0 0 1px rgba(255,255,255,0.2);
   }
-  .dark .btn-icon {
-    @apply bg-white/5 text-slate-400 ring-1 ring-white/10 hover:bg-white/10;
+
+  /* SECONDARY: Frosted Glass Pane */
+  .btn-secondary {
+    @apply btn px-4 py-2 text-slate-700 backdrop-blur-md;
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.03);
   }
-  .dark .input-field {
-    @apply bg-slate-800 border-slate-700 text-slate-100 focus:ring-indigo-400 focus:border-indigo-400;
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.7);
+    border-color: rgba(0, 0, 0, 0.1);
   }
+
+  /* DESTRUCTIVE: Red Glass */
+  .btn-destructive {
+     @apply btn p-2.5 text-red-600 backdrop-blur-sm;
+     background: rgba(239, 68, 68, 0.1);
+     border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+  .btn-destructive:hover {
+     background: rgba(239, 68, 68, 0.15);
+     box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+  }
+
+  /* ICON: Subtle Glass */
+  .btn-icon {
+     @apply btn p-2.5 text-slate-600 backdrop-blur-sm;
+     background: rgba(255, 255, 255, 0.4);
+     border: 1px solid rgba(0, 0, 0, 0.05);
+  }
+  .btn-icon:hover {
+     background: rgba(255, 255, 255, 0.6);
+  }
+
+  /* INPUTS: Deep Inset Glass */
+  .input-field {
+    @apply w-full p-2.5 text-sm rounded-xl transition-all duration-200;
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+    color: #1e293b;
+  }
+  .input-field:focus {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: #6366F1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    outline: none;
+  }
+
+  /* --- DARK MODE ADAPTATIONS --- */
+    .dark .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      @apply text-slate-300; /* FIXED: Added @apply */
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .dark .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .dark .btn-destructive {
+      background: rgba(239, 68, 68, 0.15);
+      @apply text-red-400; /* FIXED: Added @apply */
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .dark .btn-icon {
+      background: rgba(255, 255, 255, 0.05);
+      @apply text-slate-400; /* FIXED: Added @apply */
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  
+    .dark .input-field {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #f1f5f9;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+    }
+    .dark .input-field:focus {
+      background: rgba(0, 0, 0, 0.5);
+      border-color: #818cf8;
+    }
 }
 
 /* ==========================================================================
-   Third-Party Library Overrides (DatePicker, etc.)
+   Third-Party Library Overrides (DatePicker - FROST EFFECT)
    ========================================================================== */
 .content-renderer svg {
   width: 100%;
@@ -289,81 +363,89 @@
   margin-right: auto;
 }
 
-.tremor-dropdown-menu {
-  z-index: 9999 !important;
-}
+.tremor-dropdown-menu { z-index: 9999 !important; }
+.react-datepicker-popper { z-index: 9999 !important; }
 
-.react-datepicker-popper {
-  z-index: 9999 !important;
-}
-
-/* --- LIGHT MODE DatePicker --- */
+/* --- LIGHT MODE DatePicker (Frosted) --- */
 .react-datepicker {
-  background-color: #ffffff !important;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-  border-radius: 1rem !important; /* 16px */
-  border: 1px solid #e5e7eb !important;
-  box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
+  background-color: rgba(255, 255, 255, 0.75) !important; /* Semi-transparent */
+  backdrop-filter: blur(16px) saturate(180%) !important; /* The Frost */
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  border-radius: 1.25rem !important; /* 20px */
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 
+    0 10px 40px -10px rgba(0, 0, 0, 0.15),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5) !important;
 }
+
 .react-datepicker__header {
-  background-color: #f9fafb !important; /* bg-gray-50 */
-  border-bottom: 1px solid #e5e7eb !important;
+  background-color: rgba(249, 250, 251, 0.5) !important; /* See-through header */
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
 }
+
 .react-datepicker__current-month,
 .react-datepicker__day-name {
-  color: #111827 !important; /* text-gray-900 */
+  color: #111827 !important;
   font-weight: 600 !important;
 }
+
 .react-datepicker__day {
-  color: #374151 !important; /* text-gray-700 */
+  color: #374151 !important;
+  border-radius: 8px !important; /* Squircle days */
 }
+
 .react-datepicker__day--selected,
 .react-datepicker__day:hover {
-  background-color: #4f46e5 !important; /* bg-indigo-600 */
+  background: linear-gradient(135deg, #6366F1 0%, #4f46e5 100%) !important;
   color: white !important;
-  border-radius: 9999px !important;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3) !important;
 }
+
 .react-datepicker__day--keyboard-selected {
-  background-color: transparent !important;
+  background-color: rgba(99, 102, 241, 0.1) !important;
   border: 1px solid #4f46e5 !important;
 }
-.react-datepicker__navigation {
-  top: 0.8rem !important;
-}
 
+.react-datepicker__navigation { top: 1rem !important; }
+
+/* Fix for Tremor within dialogs */
 .tremor-dialog-panel .react-datepicker {
- background-color: white !important;
+ background-color: rgba(255, 255, 255, 0.9) !important;
 }
 
-/* --- DARK MODE DatePicker --- */
+/* --- DARK MODE DatePicker (Frosted) --- */
 .dark .react-datepicker {
-  background-color: #1e293b !important; /* slate-800 */
-  border: 1px solid #334155 !important; /* slate-700 */
+  background-color: rgba(30, 41, 59, 0.75) !important; /* Dark slate glass */
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 
+    0 10px 40px -10px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
 }
 .dark .react-datepicker__header {
-  background-color: #334155 !important; /* slate-700 */
-  border-bottom: 1px solid #475569 !important; /* slate-600 */
+  background-color: rgba(51, 65, 85, 0.4) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 .dark .react-datepicker__current-month,
 .dark .react-datepicker__day-name {
-  color: #f1f5f9 !important; /* slate-100 */
+  color: #f1f5f9 !important;
 }
 .dark .react-datepicker__day {
-  color: #cbd5e1 !important; /* slate-300 */
+  color: #cbd5e1 !important;
 }
 .dark .react-datepicker__day--selected,
 .dark .react-datepicker__day:hover {
-  background-color: #60a5fa !important; /* blue-400 */
-  color: #1e293b !important; /* slate-800 */
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%) !important;
+  color: #ffffff !important;
 }
 .dark .react-datepicker__day--keyboard-selected {
   border: 1px solid #60a5fa !important;
 }
 .dark .react-datepicker__day--disabled {
-  color: #475569 !important; /* slate-600 */
+  color: #475569 !important;
 }
 .dark .tremor-dialog-panel .react-datepicker {
- background-color: #1e293b !important; /* slate-800 */
+ background-color: rgba(30, 41, 59, 0.9) !important;
 }
 
 
@@ -371,89 +453,62 @@
    Utility Layer Additions (Animations, Gradients)
    ========================================================================== */
 @layer utilities {
-    /* --- Border Animations & Gradients --- */
-    .animate-spin-slow {
-        /* This animation is modified in @keyframes to include hue-rotate */
-        animation: spin-slow 4s linear infinite;
-    }
-
-    .animate-spin-fast {
-        animation: spin-fast 2s linear infinite;
-    }
-
-    .animate-gradient-glow {
-        /* This animation is modified in @keyframes to include hue-rotate */
-        animation: gradient-glow 3s ease-in-out infinite;
-    }
+    .animate-spin-slow { animation: spin-slow 4s linear infinite; }
+    .animate-spin-fast { animation: spin-fast 2s linear infinite; }
+    .animate-gradient-glow { animation: gradient-glow 3s ease-in-out infinite; }
+    
     .animate-legendary-sparkle {
-        /* This is for the LEGENDARY border */
         animation: legendary-sparkle 2.5s ease-in-out infinite,
                    light-orbit 10s linear infinite;
     }
     
-    /* --- MODIFIED: Renamed to match its new purpose --- */
     .animate-spin-and-sparkle {
-        /* This is for the new ANIMATED border (AVATAR ONLY) */
         animation: spin-fast 2s linear infinite,
                    legendary-sparkle 2.5s ease-in-out infinite;
     }
     
     .animate-sparkle-only {
-        /* This is for the new ANIMATED border (CARD/MODAL ONLY) */
         animation: legendary-sparkle 2.5s ease-in-out infinite;
     }
     
     .animate-gradient-pan {
-        animation: gradient-pan 8s ease-in-out infinite; /* 8s duration */
+        animation: gradient-pan 8s ease-in-out infinite;
         background-size: 200% 200%;
     }
     .animate-gentle-pulse {
         animation: gentle-pulse-glow 3s ease-in-out infinite;
     }
-    /* --- END --- */
 
     .bg-gradient-gemini {
         background-image: conic-gradient(
-            from 0deg,
-            #4285F4, /* Google Blue */
-            #7C4DFF, /* Deep Purple */
-            #EC4899, /* Pink */
-            #FBBC05, /* Google Yellow */
-            #34A853, /* Google Green */
-            #4285F4  /* Loop back to Blue */
+            from 0deg, #4285F4, #7C4DFF, #EC4899, #FBBC05, #34A853, #4285F4
         );
     }
     
-    /* --- Level 10 Gradient Class (MODIFIED for new border-basic) --- */
     .bg-gradient-advanced {
-        /* A purple/pink/blue gradient for panning */
         background-image: linear-gradient(135deg, #6a11cb 0%, #2575fc 50%, #EC4899 100%);
     }
-    /* --- END --- */
 
     .bg-gradient-elite {
-        /* Define your elite gradient */
         background-image: linear-gradient(135deg, #fccb90 0%, #d57eeb 100%);
     }
     .bg-gradient-legendary {
-        /* Define your legendary gradient */
         background-image: radial-gradient(circle farthest-corner at 10% 20%, rgba(253, 203, 50, 1) 0%, rgba(244, 56, 98, 1) 100.2%);
     }
 }
 
 /* ================================================================
-   PROFILE BACKGROUNDS — AURORA & COSMIC SERIES (ENHANCED)
+   PROFILE BACKGROUNDS — AURORA & COSMIC SERIES
    ================================================================ */
-
-/* --- UNIVERSAL GLASS & DEPTH EFFECTS --- */
 .profile-bg-pattern-1,
 .profile-bg-pattern-2,
 .profile-bg-elite,
 .profile-bg-legendary {
   position: relative;
   overflow: hidden;
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  /* ENHANCED BLUR for better foreground readability */
+  backdrop-filter: blur(24px) saturate(140%); 
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
   border-radius: 1.5rem;
 }
 .profile-bg-pattern-1::after,
@@ -463,16 +518,14 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 60%);
+  /* Subtle glass grain */
+  background: linear-gradient(145deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 60%);
   mix-blend-mode: overlay;
   pointer-events: none;
-  /* --- THIS IS THE FIX --- */
-  z-index: 0; /* Changed from 1 to 0 */
+  z-index: 0;
 }
 
-/* ================================================================
-   AURORA VEIL (Light Mode)
-   ================================================================ */
+/* AURORA VEIL (Light) */
 .profile-bg-pattern-1 {
   background: linear-gradient(120deg, #b3ecff 0%, #dcb9ff 50%, #ffb3d9 100%);
   background-size: 250% 250%;
@@ -484,9 +537,7 @@
   100% { background-position: 0% 50%; filter: hue-rotate(0deg) brightness(1); }
 }
 
-/* ================================================================
-   AURORA VEIL (Enhanced Dark Mode)
-   ================================================================ */
+/* AURORA VEIL (Dark) */
 .dark .profile-bg-pattern-1 {
   background:
     radial-gradient(ellipse at 20% 30%, rgba(77, 255, 255, 0.15) 0%, transparent 50%),
@@ -500,13 +551,7 @@
   content: '';
   position: absolute;
   inset: -20%;
-  background: conic-gradient(
-    from 90deg,
-    rgba(0, 255, 255, 0.2),
-    rgba(255, 0, 255, 0.15),
-    rgba(0, 255, 200, 0.25),
-    rgba(255, 0, 255, 0.1)
-  );
+  background: conic-gradient(from 90deg, rgba(0, 255, 255, 0.2), rgba(255, 0, 255, 0.15), rgba(0, 255, 200, 0.25), rgba(255, 0, 255, 0.1));
   animation: auroraRibbon 15s ease-in-out infinite alternate;
   filter: blur(50px);
   z-index: 0;
@@ -522,9 +567,7 @@
   100% { transform: rotate(-10deg) scale(1); opacity: 0.8; }
 }
 
-/* ================================================================
-   NEBULA FIELD
-   ================================================================ */
+/* NEBULA FIELD */
 .profile-bg-pattern-2 {
   background: radial-gradient(circle at 10% 10%, rgba(255,255,255,0.2) 0%, transparent 40%),
               linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%);
@@ -549,9 +592,7 @@
   100% { background-position: 0% 0%; filter: hue-rotate(0deg); }
 }
 
-/* ================================================================
-   CELESTIAL RIPPLE (Elite)
-   ================================================================ */
+/* CELESTIAL RIPPLE */
 .profile-bg-elite {
   background: linear-gradient(135deg, #fddb92 0%, #d1fdff 100%);
 }
@@ -576,9 +617,7 @@
   background: linear-gradient(135deg, #232526 0%, #414345 100%);
 }
 
-/* ================================================================
-   GALACTIC PRISM (Legendary)
-   ================================================================ */
+/* GALACTIC PRISM */
 .profile-bg-legendary {
   background: linear-gradient(120deg, #ff9a9e 0%, #fad0c4 40%, #fbc2eb 100%);
   background-size: 300% 300%;
@@ -616,21 +655,17 @@
 
 
 /* ==========================================================================
-   Quiz Modal Theming (MODIFIED)
+   Quiz Modal Theming (macOS 16 Border Glows)
    ========================================================================== */
-
-/* --- MODIFIED: Shared base styles for pseudo-element borders --- */
 .quiz-container,
 .theme-border-basic,
 .theme-border-animated,
 .theme-border-advanced,
 .theme-border-elite,
 .theme-border-legendary {
-    position: relative; /* Needed for pseudo-elements */
+    position: relative;
 }
 
-/* --- MODIFIED: Base style for the pseudo-element border --- */
-/* This now applies to .quiz-container AND all .theme-border-* classes */
 .quiz-container::before,
 .theme-border-basic::before,
 .theme-border-animated::before,
@@ -639,343 +674,195 @@
 .theme-border-legendary::before {
     content: '';
     position: absolute;
-    inset: -2px; /* Control border distance from edge */
-    border-radius: inherit; /* Match the modal's border radius */
-    padding: 4px; /* Controls the thickness + spacing */
-    z-index: 0; /* Behind the main content */
+    inset: -2px;
+    border-radius: inherit;
+    /* Refined for sharp light effect */
+    padding: 2px; 
+    z-index: 0;
     pointer-events: none;
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
             mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
             mask-composite: exclude;
     transition: all 0.3s ease-in-out;
-    background-color: transparent; /* Default */
+    background-color: transparent;
+    filter: blur(0.5px); /* Slight bleed for neon effect */
 }
 
-/* Specific theme styles applied to the pseudo-element */
 .theme-border-basic::before {
-    /* --- SWAPPED --- */
-    /* Now the "Majestic Pan" + Pulse */
     @apply bg-gradient-advanced animate-gradient-pan animate-gentle-pulse;
-    background-size: 200% 200%; /* Required for gradient-pan */
+    background-size: 200% 200%;
 }
 .theme-border-animated::before {
-    /* --- SWAPPED & FIXED --- */
-    /* Now the "Marching Ants" (pan) + particle sparkles for cards/modals */
     @apply bg-gradient-gemini animate-gradient-pan animate-sparkle-only;
-    background-size: 400% 400%; /* Needs a larger size for panning */
+    background-size: 400% 400%;
 }
 .theme-border-advanced::before {
-    /* 💚 Advanced: Rotating spectral ring */
-    /* This inherits the modified 'spin-slow' keyframe (with hue-rotate) */
-    @apply border-t-transparent border-solid border-green-500 animate-spin-slow border-4;
-    background-color: transparent !important; /* Override background if using border */
-    inset: -4px; /* Adjust inset if using border */
-    padding: 0; /* Remove padding if using border */
+    @apply border-t-transparent border-solid border-green-500 animate-spin-slow border-2; /* Thinner border */
+    background-color: transparent !important;
+    inset: -2px;
+    padding: 0;
 }
 .theme-border-elite::before {
-    /* 💎 Elite: Prismatic crystal shimmer */
-    /* This inherits the modified 'gradient-glow' keyframe (with hue-rotate) */
     @apply bg-gradient-elite animate-gradient-glow;
 }
 .theme-border-legendary::before {
-    /* 🌌 Legendary: Celestial halo with particle sparkles */
-    /* This inherits the modified 'animate-legendary-sparkle' utility (with light-orbit) */
     @apply bg-gradient-legendary animate-legendary-sparkle;
 }
 
 /* ==========================================================================
-   Lesson Content Styling (Unchanged)
+   Lesson Content Styling (Clean Typography for Glass)
    ========================================================================== */
-/* ... (Existing .content-renderer styles, Masonry, etc.) ... */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translate(-50%, 20px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-}
-@keyframes holoText {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
-}
-
-@keyframes flicker {
-  0% { opacity: 1; }
-  45% { opacity: 0.9; }
-  50% { opacity: 0.4; }
-  55% { opacity: 0.9; }
-  100% { opacity: 1; }
-}
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-/* ================================
-   Lesson Content Styling (iOS-like)
-   ================================ */
-
 .content-renderer {
   line-height: 1.75;
-  font-family: 'Inter', system-ui, sans-serif;
-  color: #1f2937; /* slate-800 */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  color: #1f2937;
 }
 
-/* Headings */
-.content-renderer h1,
-.content-renderer h2,
-.content-renderer h3,
-.content-renderer h4 {
+.content-renderer h1, .content-renderer h2, .content-renderer h3, .content-renderer h4 {
   font-weight: 700;
-  color: #111827; /* slate-900 */
+  color: #111827;
   margin-top: 1.5rem;
   margin-bottom: 0.75rem;
+  letter-spacing: -0.02em; /* Tighter headings */
 }
 
-/* Paragraphs */
-.content-renderer p {
-  margin-bottom: 1rem;
-}
+.content-renderer p { margin-bottom: 1rem; }
+.content-renderer ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+.content-renderer ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 1rem; }
 
-/* Lists */
-.content-renderer ul {
-  list-style-type: disc;
-  padding-left: 1.5rem;
-  margin-bottom: 1rem;
-}
-.content-renderer ol {
-  list-style-type: decimal;
-  padding-left: 1.5rem;
-  margin-bottom: 1rem;
-}
-
-/* ================================
-   Inline Highlights
-   ================================ */
 .content-renderer .highlight-term {
-  background: rgba(37, 99, 235, 0.08); /* subtle blue bg */
-  padding: 0.1rem 0.25rem;
-  border-radius: 0.25rem;
-  color: #1e3a8a; /* indigo-900 */
+  background: rgba(37, 99, 235, 0.1);
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.3rem;
+  color: #1e3a8a;
   font-weight: 600;
 }
+.content-renderer .soft-text { color: #6b7280; font-weight: 300; }
+.content-renderer .strong-text { color: #111827; font-weight: 800; }
 
-.content-renderer .soft-text {
-  color: #6b7280; /* slate-500 */
-  font-weight: 300;
-}
-
-.content-renderer .strong-text {
-  color: #111827;
-  font-weight: 800;
-}
-
-/* ================================
-   Callout Boxes
-   ================================ */
-
+/* Glassy Callout Boxes */
 .content-renderer .callout-info {
-  border-left: 4px solid #2563eb; /* blue-600 */
+  border-left: 4px solid #2563eb;
   padding: 1rem;
   margin: 1.25rem 0;
   border-radius: 0.75rem;
-  background: #eff6ff; /* blue-50 */
-  color: #1e40af; /* blue-900 */
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  background: rgba(239, 246, 255, 0.6); /* Transparent Blue */
+  backdrop-filter: blur(4px);
+  color: #1e40af;
 }
-
 .content-renderer .callout-warning {
-  border-left: 4px solid #facc15; /* yellow-400 */
+  border-left: 4px solid #facc15;
   padding: 1rem;
   margin: 1.25rem 0;
   border-radius: 0.75rem;
-  background: #fefce8; /* yellow-50 */
-  color: #78350f; /* amber-900 */
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  background: rgba(254, 252, 232, 0.6); /* Transparent Yellow */
+  backdrop-filter: blur(4px);
+  color: #78350f;
 }
-
 .content-renderer .callout-success {
-  border-left: 4px solid #22c55e; /* green-500 */
+  border-left: 4px solid #22c55e;
   padding: 1rem;
   margin: 1.25rem 0;
   border-radius: 0.75rem;
-  background: #ecfdf5; /* green-50 */
-  color: #065f46; /* green-900 */
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  background: rgba(236, 253, 245, 0.6); /* Transparent Green */
+  backdrop-filter: blur(4px);
+  color: #065f46;
 }
 
-/* ================================
-   Links & Tables
-   ================================ */
-.content-renderer a {
-  color: #2563eb;
-  font-weight: 500;
-  text-decoration: underline;
-}
-.content-renderer a:hover {
-  color: #1d4ed8;
-}
+.content-renderer a { color: #2563eb; font-weight: 500; text-decoration: underline; }
+.content-renderer a:hover { color: #1d4ed8; }
 
 .content-renderer table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   margin: 1.5rem 0;
   font-size: 0.95rem;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.1);
 }
-.content-renderer th,
-.content-renderer td {
-  border: 1px solid #e5e7eb;
+.content-renderer th, .content-renderer td {
+  border-bottom: 1px solid rgba(0,0,0,0.05);
   padding: 0.75rem;
   text-align: left;
 }
-.content-renderer th {
-  background: #f9fafb;
-  font-weight: 600;
-}
+.content-renderer th { background: rgba(249, 250, 251, 0.8); font-weight: 600; }
 
-/* --- DARK MODE for .content-renderer --- */
-.dark .content-renderer {
-  color: #cbd5e1; /* slate-300 */
-}
-.dark .content-renderer h1,
-.dark .content-renderer h2,
-.dark .content-renderer h3,
-.dark .content-renderer h4 {
-  color: #f1f5f9; /* slate-100 */
-}
-.dark .content-renderer .highlight-term {
-  background: rgba(96, 165, 250, 0.1); /* blue-400 at 10% */
-  color: #93c5fd; /* blue-300 */
-}
-.dark .content-renderer .soft-text {
-  color: #94a3b8; /* slate-400 */
-}
-.dark .content-renderer .strong-text {
-  color: #ffffff;
-}
-.dark .content-renderer .callout-info {
-  border-left-color: #3b82f6; /* blue-500 */
-  background: #1e293b; /* slate-800 */
-  color: #bfdbfe; /* blue-300 */
-}
-.dark .content-renderer .callout-warning {
-  border-left-color: #facc15; /* yellow-400 */
-  background: #3f3318; /* dark yellow bg */
-  color: #fde68a; /* yellow-200 */
-}
-.dark .content-renderer .callout-success {
-  border-left-color: #22c55e; /* green-500 */
-  background: #113123; /* dark green bg */
-  color: #86efac; /* green-300 */
-}
-.dark .content-renderer a {
-  color: #60a5fa; /* blue-400 */
-}
-.dark .content-renderer a:hover {
-  color: #93c5fd; /* blue-300 */
-}
-.dark .content-renderer table {
-  border-color: #334155; /* slate-700 */
-}
-.dark .content-renderer th,
-.dark .content-renderer td {
-  border-color: #334155; /* slate-700 */
-}
-.dark .content-renderer th {
-  background: #334155; /* slate-700 */
-}
+/* Dark Mode Content */
+.dark .content-renderer { color: #cbd5e1; }
+.dark .content-renderer h1, .dark .content-renderer h2, .dark .content-renderer h3, .dark .content-renderer h4 { color: #f1f5f9; }
+.dark .content-renderer .highlight-term { background: rgba(96, 165, 250, 0.15); color: #93c5fd; }
+.dark .content-renderer .soft-text { color: #94a3b8; }
+.dark .content-renderer .strong-text { color: #ffffff; }
+.dark .content-renderer .callout-info { background: rgba(30, 41, 59, 0.6); color: #bfdbfe; border-left-color: #3b82f6; }
+.dark .content-renderer .callout-warning { background: rgba(63, 51, 24, 0.6); color: #fde68a; border-left-color: #facc15; }
+.dark .content-renderer .callout-success { background: rgba(17, 49, 35, 0.6); color: #86efac; border-left-color: #22c55e; }
+.dark .content-renderer a { color: #60a5fa; }
+.dark .content-renderer table { border-color: rgba(255,255,255,0.1); }
+.dark .content-renderer th, .dark .content-renderer td { border-color: rgba(255,255,255,0.05); }
+.dark .content-renderer th { background: rgba(51, 65, 85, 0.6); }
 
 /* ================================== */
-
-/* In your main CSS file, e.g., index.css */
 .my-masonry-grid {
-  display: -webkit-box; /* Not needed if autoprefixing */
-  display: -ms-flexbox; /* Not needed if autoprefixing */
   display: flex;
-  margin-left: -24px; /* gutter size offset */
+  margin-left: -24px;
   width: auto;
 }
 .my-masonry-grid_column {
-  padding-left: 24px; /* gutter size */
+  padding-left: 24px;
   background-clip: padding-box;
 }
+.my-masonry-grid_column > div { margin-bottom: 24px; }
 
-/* Style your items */
-.my-masonry-grid_column > div { /* change div to reference your elements you put in <Masonry> */
-  margin-bottom: 24px;
-}
 @keyframes xpPulse {
-  0% { background-color: #3b82f6; }   /* blue-500 */
-  50% { background-color: #facc15; }  /* yellow-400 */
-  100% { background-color: #3b82f6; } /* back to blue */
+  0% { background-color: #3b82f6; }
+  50% { background-color: #facc15; }
+  100% { background-color: #3b82f6; }
 }
+.xp-pulse { animation: xpPulse 1.2s ease-in-out; }
 
-.xp-pulse {
-  animation: xpPulse 1.2s ease-in-out;
-}
 /* ==========================================================================
    ReactQuill Dark Mode Theme Override
    ========================================================================== */
-.dark .ql-snow {
-  border-color: #334155 !important; /* slate-700 */
-}
-
+.dark .ql-snow { border-color: #334155 !important; }
 .dark .ql-toolbar {
-  background: #1e293b; /* slate-800 */
-  border-bottom-color: #334155 !important; /* slate-700 */
-  border-top-left-radius: 0.75rem; /* 12px */
-  border-top-right-radius: 0.75rem; /* 12px */
+  background: #1e293b;
+  border-bottom-color: #334155 !important;
+  border-top-left-radius: 0.75rem;
+  border-top-right-radius: 0.75rem;
 }
-
 .dark .ql-container {
-  background: #0f172a; /* slate-900 */
-  border-bottom-left-radius: 0.75rem; /* 12px */
-  border-bottom-right-radius: 0.75rem; /* 12px */
+  background: #0f172a;
+  border-bottom-left-radius: 0.75rem;
+  border-bottom-right-radius: 0.75rem;
 }
+.dark .ql-editor { color: #cbd5e1; }
+.dark .ql-editor.ql-blank::before { color: #64748b !important; }
+.dark .ql-stroke { stroke: #94a3b8 !important; }
+.dark .ql-picker-label { color: #94a3b8 !important; }
 
-.dark .ql-editor {
-  color: #cbd5e1; /* slate-300 */
-}
-
-.dark .ql-editor.ql-blank::before {
-  color: #64748b !important; /* slate-500 */
-}
-
-.dark .ql-stroke {
-  stroke: #94a3b8 !important; /* slate-400 */
-}
-.dark .ql-picker-label {
-  color: #94a3b8 !important; /* slate-400 */
-}
 /* ==========================================================================
    Custom Bio Display Styles (OPTIMIZED)
    ========================================================================== */
-
 .bio-content-display {
-  /* Ensure the overall container doesn't get too tall */
-  max-height: 150px; /* Adjust this value if needed, e.g., 100px-150px */
-  overflow: hidden; /* Hides content that exceeds max-height */
+  max-height: 150px;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: normal;
-  display: block; /* Ensure it takes up its own block */
-}
-
-.bio-content-display p {
-  /* Make paragraphs stack instead of being inline */
   display: block;
-  margin-bottom: 0.25rem; /* Reduced margin */
+}
+.bio-content-display p {
+  display: block;
+  margin-bottom: 0.25rem;
   line-height: 1.25;
 }
-
 .bio-content-display img {
-  /* --- MODIFIED: Reduced max-height for large GIFs/images --- */
-  max-width: 100%;    /* Fit to container */
-  max-height: 65px;   /* Reduced height to ~1/2 of 120px */
-  border-radius: 4px; /* Slightly reduced border radius */
+  max-width: 100%;
+  max-height: 65px;
+  border-radius: 4px;
   margin: 4px 0;
   display: inline-block; 
-  object-fit: contain; /* Ensures the GIF is not cropped, but scaled down */
+  object-fit: contain;
 }

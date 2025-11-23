@@ -23,8 +23,8 @@ const QuizWarningModal = ({ isOpen, warnings, maxWarnings, onStay, onLeave, isLo
 
     return (
         <Transition show={isOpen} as={React.Fragment}>
-            {/* --- MODIFIED: Added dark theme to overlay --- */}
             <Dialog as="div" className="relative z-[1000] font-sans" onClose={isLocked ? onStay : onStay}>
+                {/* Backdrop */}
                 <TransitionChild
                     as={React.Fragment}
                     enter="ease-out duration-300"
@@ -34,8 +34,7 @@ const QuizWarningModal = ({ isOpen, warnings, maxWarnings, onStay, onLeave, isLo
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    {/* --- MODIFIED: Added dark theme to backdrop --- */}
-                    <div className="fixed inset-0 bg-black/50 dark:bg-black/70" aria-hidden="true" />
+                    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md" aria-hidden="true" />
                 </TransitionChild>
 
                 <div className="fixed inset-0 overflow-y-auto">
@@ -43,65 +42,62 @@ const QuizWarningModal = ({ isOpen, warnings, maxWarnings, onStay, onLeave, isLo
                         <TransitionChild
                             as={React.Fragment}
                             enter="ease-out duration-300"
-                            enterFrom="opacity-0 scale-95"
-                            enterTo="opacity-100 scale-100"
+                            enterFrom="opacity-0 scale-95 translate-y-4"
+                            enterTo="opacity-100 scale-100 translate-y-0"
                             leave="ease-in duration-200"
-                            leaveFrom="opacity-100 scale-100"
-                            leaveTo="opacity-0 scale-95"
+                            leaveFrom="opacity-100 scale-100 translate-y-0"
+                            leaveTo="opacity-0 scale-95 translate-y-4"
                         >
-                            {/* --- MODIFIED: Added dark theme to modal panel --- */}
-                            <DialogPanel className="w-full max-w-md transform overflow-hidden rounded-3xl bg-neumorphic-base p-6 text-left align-middle shadow-neumorphic transition-all dark:bg-neumorphic-base-dark dark:shadow-lg">
+                            {/* Glass Panel */}
+                            <DialogPanel className="w-full max-w-md transform overflow-hidden rounded-[2.5rem] bg-white/80 dark:bg-[#18181b]/90 backdrop-blur-2xl border border-white/20 dark:border-white/5 p-8 text-left align-middle shadow-2xl transition-all">
                                 
-                                <div className="flex flex-col items-center">
-                                    {/* --- MODIFIED: Added dark theme to icon wrapper --- */}
-                                    <div className="mx-auto inline-block p-3 rounded-full bg-neumorphic-base shadow-neumorphic-inset mb-4 dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
-                                        <ExclamationTriangleIcon className={`h-8 w-8 ${isLocked ? 'text-red-500' : 'text-yellow-500'}`} />
+                                <div className="flex flex-col items-center text-center">
+                                    {/* Icon with Glow */}
+                                    <div className={`relative mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full ${isLocked ? 'bg-red-100 dark:bg-red-900/20 text-red-500' : 'bg-amber-100 dark:bg-amber-900/20 text-amber-500'}`}>
+                                        <div className={`absolute inset-0 rounded-full blur-xl opacity-40 ${isLocked ? 'bg-red-500' : 'bg-amber-500'}`}></div>
+                                        <ExclamationTriangleIcon className="h-10 w-10 relative z-10" strokeWidth={1.5} />
                                     </div>
                                     
-                                    {/* --- MODIFIED: Added dark theme to title --- */}
-                                    <DialogTitle as="h3" className="text-xl font-extrabold leading-6 text-slate-900 dark:text-slate-100">
+                                    <DialogTitle as="h3" className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                                         {getTitle()}
                                     </DialogTitle>
                                     
-                                    {/* --- MODIFIED: Added dark theme to message body --- */}
-                                    <div className="mt-2 text-center">
-                                        <p className="text-sm text-slate-600 dark:text-slate-300">
+                                    <div className="mt-3">
+                                        <p className="text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
                                             {getMessage()}
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="mt-8 grid grid-cols-1 gap-3">
                                     {!isLocked ? (
                                         <>
+                                            {/* Primary Action (Stay) */}
                                             <button
                                                 type="button"
                                                 onClick={onStay}
-                                                // --- MODIFIED: Added dark theme styles for onStay ---
-                                                className="w-full py-3 text-center text-sm font-semibold bg-neumorphic-base text-blue-700 rounded-xl shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-blue-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
+                                                className="w-full py-3.5 rounded-2xl text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98]"
                                             >
                                                 Stay in Quiz
                                             </button>
+                                            
+                                            {/* Secondary Action (Leave) */}
                                             <button
                                                 type="button"
                                                 onClick={onLeave}
-                                                // --- MODIFIED: Added dark theme styles for onLeave ---
-                                                className="w-full py-3 text-center text-sm font-semibold bg-neumorphic-base text-red-600 rounded-xl shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-red-400 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
+                                                className="w-full py-3.5 rounded-2xl text-sm font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 transition-all active:scale-[0.98]"
                                             >
                                                 Leave & Get Warning
                                             </button>
                                         </>
                                     ) : (
-                                        <div className="sm:col-span-2">
-                                            <button
-                                                type="button"
-                                                onClick={onStay}
-                                                // --- MODIFIED: Added dark theme styles for acknowledge button ---
-                                                className="w-full py-3 text-center text-sm font-semibold bg-neumorphic-base text-slate-700 rounded-xl shadow-neumorphic active:shadow-neumorphic-inset transition-all dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:active:shadow-neumorphic-inset-dark"
-                                            >
-                                                Acknowledge
-                                            </button>
-                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={onStay}
+                                            className="w-full py-3.5 rounded-2xl text-sm font-bold text-white bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-200 shadow-lg transition-all active:scale-[0.98]"
+                                        >
+                                            Acknowledge
+                                        </button>
                                     )}
                                 </div>
                             </DialogPanel>

@@ -1,6 +1,7 @@
+// src/components/teacher/dashboard/components/DashboardHeader.jsx
 import React, { lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CalendarDays, Clock } from 'lucide-react';
+import { CalendarDays, Clock, ChevronRight } from 'lucide-react';
 
 import { useBanner } from '../hooks/useBanner';
 import { useSchedule } from '../hooks/useSchedule';
@@ -28,139 +29,197 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
         initial: { opacity: 0, y: 20 },
         animate: { opacity: 1, y: 0 },
         exit: { opacity: 0, y: -20 },
-        transition: { duration: 0.4, ease: "easeInOut" }
+        transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] }
     };
 
     return (
         <>
             <motion.header
                 {...fadeProps}
-                // --- MODIFIED: bg-base, shadow-neumorphic ---
-                className="relative p-4 md:p-6 bg-base rounded-3xl shadow-neumorphic dark:shadow-neumorphic-dark overflow-hidden"
+                className="relative p-6 md:p-8 glass-panel rounded-[3rem] shadow-[0_20px_40px_-12px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.5)] overflow-hidden font-sans border border-white/60 dark:border-white/10"
             >
+                {/* --- macOS 26 "Aurora" Ambient Background --- */}
+                {/* These soft blobs replace the icon for a cleaner, premium feel */}
+                <div className="absolute -top-24 -right-24 w-96 h-96 bg-blue-400/20 dark:bg-blue-500/10 rounded-full blur-[80px] pointer-events-none mix-blend-multiply dark:mix-blend-soft-light" />
+                <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-purple-400/20 dark:bg-purple-500/10 rounded-full blur-[80px] pointer-events-none mix-blend-multiply dark:mix-blend-soft-light" />
+                
+                {/* Inner Shine for Glass Effect */}
+                <div className="absolute inset-0 rounded-[3rem] shadow-[inset_0_0_40px_rgba(255,255,255,0.3)] dark:shadow-none pointer-events-none" />
+
                 {isSpecialBannerActive ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full items-center">
-                        <div className="col-span-1 text-center md:text-left">
-                             {/* --- MODIFIED: text-primary, text-secondary --- */}
-                             <h1 className="text-2xl sm:text-3xl font-bold text-primary leading-tight">
-                                Welcome, {userProfile?.firstName}!
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 h-full items-center relative z-10">
+                        
+                        {/* 1. Welcome Text */}
+                        <div className="col-span-1 text-center md:text-left space-y-3">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/40 dark:bg-white/10 border border-white/50 dark:border-white/10 backdrop-blur-md shadow-sm">
+                                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">
+                                    Dashboard
+                                </span>
+                            </div>
+                            <h1 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
+                                Good Morning, <br className="hidden md:block" />
+                                <span className="text-transparent bg-clip-text bg-gradient-to-br from-blue-600 via-indigo-500 to-purple-600 dark:from-blue-400 dark:via-indigo-300 dark:to-purple-400">
+                                    {userProfile?.firstName}
+                                </span>
                             </h1>
-                            <p className="text-sm text-secondary mt-1">Here's your dashboard at a glance.</p>
+                            <p className="text-sm md:text-base text-slate-600 dark:text-slate-400 font-medium leading-relaxed tracking-wide max-w-xs mx-auto md:mx-0">
+                                Here is today's overview. You have complete control over your classes.
+                            </p>
                         </div>
+
+                         {/* 2. Center Banner Image (Squircle Frame) */}
                          <div
                             className="col-span-1 flex items-center justify-center h-full w-full order-first md:order-none"
                             onClick={handleBannerClick}
                             style={{ cursor: userProfile?.role === 'admin' ? 'pointer' : 'default' }}
                         >
-                            {/* --- MODIFIED: bg-base, shadow-neumorphic-inset --- */}
-                            <div className="bg-base shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark rounded-3xl p-2 transition-shadow hover:shadow-none">
-                                <motion.img
-                                    src={bannerSettings.imageUrl}
-                                    alt="Promotional Banner"
-                                    className="block h-24 md:h-36 w-auto object-contain rounded-2xl"
-                                    onError={(e) => { e.target.onerror = null; e.target.src = 'https://i.ibb.co/FqJPnT1J/buwan-ng-wika.png'; }}
-                                    initial={{ scale: 0.9, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    transition={{ type: "spring", stiffness: 120, damping: 15 }}
-                                />
-                            </div>
+                            <motion.div 
+                                whileHover={userProfile?.role === 'admin' ? { scale: 1.03 } : {}}
+                                className="relative group w-full max-w-xs aspect-[3/2]"
+                            >
+                                <div className="absolute inset-0 bg-white/30 dark:bg-white/5 backdrop-blur-xl border border-white/40 dark:border-white/10 rounded-[2.5rem] shadow-lg transform rotate-3 transition-transform group-hover:rotate-6 duration-500" />
+                                <motion.div className="absolute inset-0 bg-white/60 dark:bg-slate-800/60 backdrop-blur-md border border-white/60 dark:border-white/10 rounded-[2.5rem] p-2 shadow-xl overflow-hidden">
+                                    <motion.img
+                                        src={bannerSettings.imageUrl}
+                                        alt="Promotional Banner"
+                                        className="w-full h-full object-cover rounded-[2rem] shadow-inner"
+                                        onError={(e) => { e.target.onerror = null; e.target.src = 'https://i.ibb.co/FqJPnT1J/buwan-ng-wika.png'; }}
+                                        initial={{ scale: 1.1 }}
+                                        animate={{ scale: 1 }}
+                                        transition={{ duration: 1.5, ease: "easeOut" }}
+                                    />
+                                </motion.div>
+                            </motion.div>
                         </div>
-                        {/* --- THIS BLOCK IS NOW HIDDEN ON MOBILE --- */}
+
+                        {/* 3. Schedule Widget (Glass Tile) */}
                         <div 
                             className="hidden md:flex col-span-1 items-center justify-center h-full"
                             onClick={onOpenScheduleModal}
                         >
-                            {/* --- MODIFIED: bg-base, text-primary, shadow-neumorphic-inset --- */}
-                            <div className="bg-base text-primary rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark w-full h-full p-4 flex flex-col justify-between cursor-pointer transition-shadow duration-300 hover:shadow-none">
-                                {/* --- MODIFIED: text-brand-text --- */}
-                                <p className="font-bold text-brand-text flex items-center gap-2">
-                                    <CalendarDays className="w-5 h-5" />
-                                    <span className="text-lg">Today's Schedule</span>
-                                </p>
+                            <motion.div 
+                                whileHover={{ y: -5, scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                className="relative overflow-hidden bg-gradient-to-br from-white/60 to-white/20 dark:from-slate-800/60 dark:to-slate-800/20 backdrop-blur-xl text-slate-800 dark:text-slate-100 rounded-[2.5rem] border border-white/50 dark:border-white/10 shadow-xl w-full h-full min-h-[180px] p-6 flex flex-col justify-between cursor-pointer group"
+                            >
+                                {/* Widget Header */}
+                                <div className="flex items-center justify-between">
+                                    <div className="w-10 h-10 rounded-[1rem] bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg flex items-center justify-center text-white">
+                                        <CalendarDays className="w-5 h-5" />
+                                    </div>
+                                    <div className="w-8 h-8 rounded-full bg-white/30 dark:bg-white/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <ChevronRight className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                                    </div>
+                                </div>
                                 
-                                <div className="flex-grow flex items-center justify-center text-center min-h-[60px]">
+                                {/* Widget Content */}
+                                <div className="flex-grow flex items-center justify-center text-center pt-2">
                                     <AnimatePresence mode="wait">
                                         {currentActivity ? (
                                             <motion.div
                                                 key={currentActivity.id}
-                                                className="flex flex-col items-center justify-center"
-                                                initial={{ opacity: 0, y: 10 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, y: -10 }}
+                                                className="flex flex-col items-center justify-center w-full"
+                                                initial={{ opacity: 0, y: 10, filter: 'blur(5px)' }}
+                                                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                                                exit={{ opacity: 0, y: -10, filter: 'blur(5px)' }}
                                                 transition={{ duration: 0.3 }}
                                             >
-                                                {/* --- MODIFIED: text-primary, text-secondary --- */}
-                                                <span className="font-bold text-xl text-primary leading-tight block">{currentActivity.title}</span>
+                                                <span className="font-black text-xl text-slate-900 dark:text-white leading-tight mb-2 line-clamp-2">
+                                                    {currentActivity.title}
+                                                </span>
                                                 {currentActivity.time && currentActivity.time !== 'N/A' && (
-                                                    <span className="flex items-center text-md justify-center mt-1 text-secondary font-light">
-                                                        <Clock className="w-4 h-4 mr-2 opacity-70" /> {currentActivity.time}
-                                                    </span>
+                                                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-500 dark:text-slate-400">
+                                                        <Clock className="w-3 h-3" /> 
+                                                        {currentActivity.time}
+                                                    </div>
                                                 )}
                                             </motion.div>
                                         ) : (
                                             <motion.div key="no-activities" className="text-center" {...fadeProps}>
-                                               {/* --- MODIFIED: text-secondary, text-subtle --- */}
-                                               <p className="text-lg font-semibold text-secondary">All Clear!</p>
-                                               <p className="text-sm text-subtle">No more activities today.</p>
+                                               <p className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">All Clear</p>
+                                               <p className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold mt-0.5 tracking-wide uppercase">No events scheduled</p>
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
                                 </div>
-                                {/* --- MODIFIED: text-secondary, border-border --- */}
-                                <p className="text-xs text-center pt-2 text-secondary border-t border-border">Stay on top of your day!</p>
-                            </div>
+                                
+                                <div className="w-full h-1 bg-slate-100 dark:bg-white/5 rounded-full mt-4 overflow-hidden">
+                                    <div className="h-full bg-blue-500 w-2/3 rounded-full" />
+                                </div>
+                            </motion.div>
                         </div>
                     </div>
                 ) : (
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between h-full w-full py-4">
+                    // Standard Layout (No Banner)
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between h-full w-full py-2 relative z-10">
                         <div className="flex-1 text-center md:text-left">
-                            {/* --- MODIFIED: text-primary, text-secondary --- */}
-                            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-primary leading-tight">
+                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/40 dark:bg-white/10 border border-white/50 dark:border-white/10 backdrop-blur-md shadow-sm mb-4">
+                                <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">
+                                    Instructor Portal
+                                </span>
+                            </div>
+                            <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-4">
                                  Welcome, {userProfile?.firstName}!
                             </h1>
-                            <p className="text-base md:text-lg text-secondary mt-2">Here's your dashboard at a glance.</p>
+                            <p className="text-base md:text-lg text-slate-600 dark:text-slate-400 font-medium max-w-xl tracking-wide leading-relaxed">
+                                Ready to shape young minds today? Here's your dashboard at a glance.
+                            </p>
                         </div>
-                        {/* --- THIS BLOCK IS NOW HIDDEN ON MOBILE --- */}
+
+                        {/* Schedule Widget (Standard Layout) */}
                         <div 
-                            // --- MODIFIED: bg-base, text-primary, shadow-neumorphic-inset ---
-                            className="hidden md:flex mt-6 md:mt-0 md:ml-6 p-4 bg-base text-primary rounded-2xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark w-full max-w-sm flex-shrink-0 flex flex-col justify-between cursor-pointer transition-shadow duration-300 hover:shadow-none"
+                            className="hidden md:flex mt-6 md:mt-0 md:ml-8 relative overflow-hidden bg-gradient-to-br from-white/60 to-white/20 dark:from-slate-800/60 dark:to-slate-800/20 backdrop-blur-xl text-slate-800 dark:text-slate-100 rounded-[2.5rem] border border-white/50 dark:border-white/10 shadow-xl w-full max-w-sm flex-shrink-0 flex-col justify-between cursor-pointer transition-transform duration-300 hover:scale-[1.02]"
                             onClick={onOpenScheduleModal}
                         >
-                            {/* --- MODIFIED: text-brand-text --- */}
-                            <p className="font-bold text-brand-text flex items-center gap-2">
-                                <CalendarDays className="w-5 h-5" />
-                                <span className="text-lg">Today's Schedule</span>
-                            </p>
-                            <div className="flex-grow flex items-center justify-center text-center py-4 min-h-[60px]">
+                            <div className="p-6 flex items-center gap-4 border-b border-slate-100/50 dark:border-white/5">
+                                <div className="w-12 h-12 rounded-[1rem] bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg flex items-center justify-center text-white flex-shrink-0">
+                                    <CalendarDays className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-lg text-slate-900 dark:text-white tracking-tight">Today's Schedule</h3>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Check your upcoming classes</p>
+                                </div>
+                            </div>
+
+                            <div className="flex-grow flex items-center justify-center text-center py-8 min-h-[100px] bg-white/30 dark:bg-black/5">
                                 <AnimatePresence mode="wait">
                                     {currentActivity ? (
-                                        <motion.div key={currentActivity.id} className="flex flex-col items-center justify-center" {...fadeProps}>
-                                            {/* --- MODIFIED: text-primary, text-secondary --- */}
-                                            <span className="font-bold text-2xl text-primary leading-tight block">{currentActivity.title}</span>
+                                        <motion.div 
+                                            key={currentActivity.id} 
+                                            className="flex flex-col items-center justify-center px-4"
+                                            initial={{ opacity: 0, y: 10, filter: 'blur(5px)' }}
+                                            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                                            exit={{ opacity: 0, y: -10, filter: 'blur(5px)' }}
+                                        >
+                                            <span className="font-black text-2xl text-slate-900 dark:text-white leading-none mb-3 tracking-tight">
+                                                {currentActivity.title}
+                                            </span>
                                             {currentActivity.time && currentActivity.time !== 'N/A' && (
-                                                <span className="flex items-center text-xl justify-center mt-1 text-secondary font-light">
-                                                    <Clock className="w-4 h-4 mr-2 opacity-70" /> {currentActivity.time}
+                                                <span className="flex items-center text-sm font-bold text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-white/5 px-4 py-2 rounded-full border border-white/50 dark:border-white/10 tracking-wide shadow-sm">
+                                                    <Clock className="w-4 h-4 mr-2 opacity-80 text-blue-500" /> {currentActivity.time}
                                                 </span>
                                             )}
                                         </motion.div>
                                     ) : (
                                         <motion.div key="no-activities" className="text-center" {...fadeProps}>
-                                           {/* --- MODIFIED: text-secondary, text-subtle --- */}
-                                           <p className="text-lg font-semibold text-secondary">All Clear!</p>
-                                           <p className="text-sm text-subtle">No more activities today.</p>
+                                           <p className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">All Clear!</p>
+                                           <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1 tracking-wide">No more activities today.</p>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
                             </div>
-                            {/* --- MODIFIED: text-secondary, border-border --- */}
-                            <p className="text-xs text-center pt-2 text-secondary border-t border-border">Stay on top of your day!</p>
                         </div>
                     </div>
                 )}
             </motion.header>
 
-            {/* --- MODIFIED: text-primary --- */}
-            <Suspense fallback={<div className="text-primary">Loading Editor...</div>}>
+            <Suspense fallback={
+                <div className="fixed inset-0 flex items-center justify-center z-50 bg-white/20 backdrop-blur-sm">
+                    <div className="glass-panel px-6 py-3 rounded-full text-sm font-bold">Loading Editor...</div>
+                </div>
+            }>
                 {isBannerEditModalOpen && (
                     <AdminBannerEditModal
                         isOpen={isBannerEditModalOpen}

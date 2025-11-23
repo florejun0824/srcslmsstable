@@ -8,7 +8,7 @@ const AnimatedRobot = ({ onClick }) => {
     
     // --- MODIFIED MARGINS ---
     const sideMargin = 30; // Original right margin
-    const mobileBottomMargin = 64; // 6rem (4rem nav bar + 2rem spacing)
+    const mobileBottomMargin = 94; // 6rem (4rem nav bar + 2rem spacing)
     const desktopBottomMargin = 30; // Original desktop margin
 
     // --- MODIFIED Initial position ---
@@ -99,7 +99,7 @@ const AnimatedRobot = ({ onClick }) => {
         left: `${position.x}px`,
         top: `${position.y}px`,
         transition: isDragging ? 'none' : 'transform 0.2s ease',
-        zIndex: 52, // MODIFIED: Set to 52 (higher than nav bar's 51)
+        zIndex: 999, // MODIFIED: Set to 52 (higher than nav bar's 51)
         cursor: isDragging ? 'grabbing' : 'grab',
     };
 

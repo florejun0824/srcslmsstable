@@ -3,25 +3,47 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Dialog } from "@headlessui/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  XMarkIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  ListBulletIcon,
-  CheckCircleIcon,
-  DocumentChartBarIcon,
-} from "@heroicons/react/24/solid";
+  IconX,
+  IconArrowLeft,
+  IconArrowRight,
+  IconListCheck,
+  IconCheck,
+  IconChartBar,
+  IconNotes,
+  IconClock
+} from "@tabler/icons-react";
 import { marked } from "marked";
 
+// --- MACOS 26 DESIGN SYSTEM CONSTANTS ---
+
+const headingStyle = "font-display font-bold tracking-tight text-slate-800 dark:text-white";
+const subHeadingStyle = "font-medium tracking-wide text-slate-500 dark:text-slate-400 uppercase text-[0.65rem] letter-spacing-2";
+
+const windowContainerClasses = "relative w-full max-w-4xl h-full md:h-[85vh] flex flex-col bg-white/80 dark:bg-[#121212]/80 backdrop-blur-[50px] rounded-[2rem] shadow-2xl shadow-black/20 dark:shadow-black/50 ring-1 ring-white/40 dark:ring-white/5 overflow-hidden transition-all duration-300";
+const cardSurface = "bg-white/40 dark:bg-[#1F2229]/40 backdrop-blur-xl rounded-[1.5rem] border border-white/20 dark:border-white/5 shadow-sm";
+
+const iconButton = `
+    relative font-semibold rounded-full transition-all duration-300 
+    flex items-center justify-center p-2.5 text-slate-500 dark:text-slate-400 
+    bg-white/40 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/15 
+    hover:text-blue-600 dark:hover:text-blue-400
+    backdrop-blur-md border border-white/20 shadow-sm hover:shadow-md
+    disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none
+    active:scale-95
+`;
+
+// --- ANIMATION VARIANTS ---
+
 const modalVariants = {
-  hidden: { opacity: 0, scale: 0.98 },
-  visible: { opacity: 1, scale: 1, transition: { ease: "easeOut", duration: 0.2 } },
-  exit: { opacity: 0, scale: 0.98, transition: { ease: "easeIn", duration: 0.15 } },
+  hidden: { opacity: 0, scale: 0.95, y: 20 },
+  visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", duration: 0.5, bounce: 0.3 } },
+  exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } },
 };
 
 const pageVariants = {
-  hidden: { opacity: 0, x: 20 },
-  visible: { opacity: 1, x: 0, transition: { ease: "easeOut", duration: 0.25 } },
-  exit: { opacity: 0, x: -20, transition: { ease: "easeIn", duration: 0.2 } },
+  hidden: { opacity: 0, x: 20, filter: "blur(4px)" },
+  visible: { opacity: 1, x: 0, filter: "blur(0px)", transition: { ease: "easeOut", duration: 0.3 } },
+  exit: { opacity: 0, x: -20, filter: "blur(4px)", transition: { ease: "easeIn", duration: 0.2 } },
 };
 
 export default function ViewRecommendationModal({ isOpen, onClose, recDoc }) {
@@ -36,6 +58,8 @@ export default function ViewRecommendationModal({ isOpen, onClose, recDoc }) {
   const lesson = lessons[currentLesson] || null;
   const phases = lesson?.lesson_plan || [];
   const totalPhases = phases.length;
+  
+  // Calculate progress purely based on phases for the current lesson
   const progressPercentage =
     currentPage >= 0 && totalPhases > 0 ? ((currentPage + 1) / totalPhases) * 100 : 0;
 
@@ -48,7 +72,7 @@ export default function ViewRecommendationModal({ isOpen, onClose, recDoc }) {
     } else {
       onClose();
     }
-    contentRef.current?.scrollTo(0, 0);
+    contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentPage, totalPhases, currentLesson, lessons.length, onClose]);
 
   const goPrev = useCallback(() => {
@@ -61,7 +85,7 @@ export default function ViewRecommendationModal({ isOpen, onClose, recDoc }) {
     } else if (currentPage === 0 && hasReport) {
       setCurrentPage(-1);
     }
-    contentRef.current?.scrollTo(0, 0);
+    contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentPage, currentLesson, lessons, hasReport]);
 
   useEffect(() => {
@@ -76,31 +100,43 @@ export default function ViewRecommendationModal({ isOpen, onClose, recDoc }) {
       if (!isOpen) return;
       if (e.key === "ArrowRight") goNext();
       if (e.key === "ArrowLeft") goPrev();
+      if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [isOpen, goNext, goPrev]);
+  }, [isOpen, goNext, goPrev, onClose]);
 
   if (!isOpen || !recDoc) return null;
 
   const renderMarkdown = (htmlContent) => (
     <div
-      className="prose prose-slate dark:prose-invert max-w-none text-slate-700 dark:text-slate-200"
+      className="prose prose-sm prose-slate dark:prose-invert max-w-none text-slate-600 dark:text-slate-300 leading-relaxed font-sans"
       dangerouslySetInnerHTML={{ __html: marked.parse(htmlContent || "") }}
     />
   );
+
+  // Helper for recommendation badges
+  const getBadgeStyle = (action) => {
+    switch (action) {
+        case "FULL_RETEACH": return "bg-red-500/10 text-red-600 border-red-500/20";
+        case "PARTIAL_RETEACH": return "bg-orange-500/10 text-orange-600 border-orange-500/20";
+        case "REVIEW": return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
+        default: return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
+    }
+  };
 
   return (
     <Dialog
       open={isOpen}
       onClose={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
     >
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm"
+        className="fixed inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm"
+        aria-hidden="true"
       />
 
       <Dialog.Panel
@@ -109,42 +145,48 @@ export default function ViewRecommendationModal({ isOpen, onClose, recDoc }) {
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="relative bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark
-                   w-full max-w-4xl z-10 flex flex-col h-full md:h-[90vh] md:max-h-[700px] overflow-hidden transition-colors duration-300"
+        className={windowContainerClasses}
       >
-        {/* Progress Bar */}
-        <div className="w-full bg-neumorphic-base dark:bg-neumorphic-base-dark h-1.5 flex-shrink-0 shadow-neumorphic-flat-inset">
-          <div
-            className="bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-500 dark:from-sky-500 dark:via-blue-600 dark:to-indigo-600
-                       h-1.5 transition-all duration-300 ease-out rounded-r-full"
-            style={{ width: `${progressPercentage}%` }}
-          />
-        </div>
-
         {/* Header */}
-        <header className="flex justify-between items-center p-4 border-b border-slate-200/60 dark:border-slate-700/60">
-          <Dialog.Title className="text-lg font-bold text-slate-800 dark:text-slate-100 truncate">
-            {currentPage === -1
-              ? "Performance Analysis Report"
-              : lesson?.topic || recDoc.lessonTitle || "Lesson Remediation"}
-          </Dialog.Title>
+        <header className="flex flex-col flex-shrink-0 bg-white/50 dark:bg-white/5 border-b border-white/10 backdrop-blur-md">
+            <div className="flex justify-between items-center p-6 pb-4">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                        {currentPage === -1 ? <IconChartBar size={20} /> : <IconListCheck size={20} />}
+                    </div>
+                    <div>
+                        <Dialog.Title className={`${headingStyle} text-xl`}>
+                            {currentPage === -1
+                            ? "Performance Report"
+                            : lesson?.topic || recDoc.lessonTitle || "Remediation Plan"}
+                        </Dialog.Title>
+                        <p className={subHeadingStyle}>
+                            {currentPage === -1 ? "AI Analysis" : `Phase ${currentPage + 1} of ${totalPhases} • ${lesson?.time_allotment || 'Remediation'}`}
+                        </p>
+                    </div>
+                </div>
 
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg text-slate-600 dark:text-slate-300 bg-neumorphic-base dark:bg-neumorphic-base-dark
-                       shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark
-                       transition-all duration-300 active:scale-[0.97]"
-          >
-            <XMarkIcon className="h-6 w-6" />
-          </button>
+                <button onClick={onClose} className={iconButton}>
+                    <IconX size={20} />
+                </button>
+            </div>
+
+            {/* Progress Line */}
+            <div className="w-full h-[2px] bg-slate-200/50 dark:bg-white/5">
+                <motion.div
+                    className="h-full bg-gradient-to-r from-blue-400 to-indigo-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progressPercentage}%` }}
+                    transition={{ ease: "circOut", duration: 0.5 }}
+                />
+            </div>
         </header>
 
-        {/* Body */}
+        {/* Scrollable Body */}
         <main
           ref={contentRef}
-          className="flex-grow overflow-y-auto p-6 bg-neumorphic-base dark:bg-neumorphic-base-dark transition-colors duration-300"
+          className="flex-grow overflow-y-auto custom-scrollbar p-6 sm:p-8"
         >
-          <div className="max-w-3xl mx-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${currentLesson}-${currentPage}`}
@@ -152,55 +194,40 @@ export default function ViewRecommendationModal({ isOpen, onClose, recDoc }) {
                 initial="hidden"
                 animate="visible"
                 exit="exit"
+                className="max-w-3xl mx-auto space-y-6"
               >
-                {/* Report Page */}
+                {/* --- CONTENT: Report --- */}
                 {currentPage === -1 && hasReport ? (
-                  <div className="p-6 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark space-y-4">
-                    <h3 className="flex items-center gap-2 text-xl font-bold text-slate-800 dark:text-slate-100 mb-3">
-                      <DocumentChartBarIcon className="h-6 w-6 text-sky-600 dark:text-sky-400" />
-                      Analysis Summary
-                    </h3>
-
-                    {/* Recommendation Display */}
+                  <div className="space-y-6">
                     {recDoc.recommendation_action && (
-                      <div
-                        className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold shadow-sm border border-slate-300 dark:border-slate-600
-                                    bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300`}
-                      >
-                        Recommendation:
-                        <span
-                          className={`ml-2 px-2 py-0.5 rounded-full text-white ${
-                            recDoc.recommendation_action === "NONE"
-                              ? "bg-green-600"
-                              : recDoc.recommendation_action === "REVIEW"
-                              ? "bg-yellow-500"
-                              : recDoc.recommendation_action === "PARTIAL_RETEACH"
-                              ? "bg-orange-500"
-                              : "bg-red-600"
-                          }`}
-                        >
-                          {recDoc.recommendation_action.replace("_", " ")}
-                        </span>
-                      </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Status:</span>
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wide ${getBadgeStyle(recDoc.recommendation_action)}`}>
+                                {recDoc.recommendation_action.replace("_", " ")}
+                            </span>
+                        </div>
                     )}
-
-                    <div className="prose prose-slate dark:prose-invert max-w-none whitespace-pre-wrap mt-4 text-slate-700 dark:text-slate-200">
-                      {recDoc.narrative_report}
+                    
+                    <div className={`${cardSurface} p-6 sm:p-8`}>
+                        <h3 className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4">Narrative Analysis</h3>
+                        <div className="prose prose-slate dark:prose-invert max-w-none text-slate-700 dark:text-slate-200 leading-relaxed">
+                            {recDoc.narrative_report}
+                        </div>
                     </div>
                   </div>
                 ) : (
                   <>
-                    {/* Learning Objectives */}
+                    {/* --- CONTENT: Objectives (First Slide Only) --- */}
                     {lesson?.objectives?.length > 0 && currentPage === 0 && (
-                      <div className="mb-6 p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
-                        <h3 className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100 mb-3">
-                          <ListBulletIcon className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+                      <div className={`${cardSurface} p-6 border-l-4 border-l-blue-500`}>
+                        <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-white mb-4 uppercase tracking-wide">
+                          <IconListCheck className="text-blue-500" size={18} />
                           Learning Objectives
                         </h3>
-                        <ul className="space-y-2 text-slate-700 dark:text-slate-300">
+                        <ul className="grid gap-3">
                           {lesson.objectives.map((obj, i) => (
-                            <li key={i} className="flex items-start gap-3">
-                              <CheckCircleIcon className="h-5 w-5 text-sky-500 dark:text-sky-400 mt-0.5 flex-shrink-0" />
+                            <li key={i} className="flex items-start gap-3 text-sm text-slate-600 dark:text-slate-300">
+                              <IconCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
                               <span>{obj}</span>
                             </li>
                           ))}
@@ -208,82 +235,91 @@ export default function ViewRecommendationModal({ isOpen, onClose, recDoc }) {
                       </div>
                     )}
 
-                    {/* Lesson Phases */}
+                    {/* --- CONTENT: Lesson Phase --- */}
                     {phases[currentPage] ? (
-                      <div className="p-6 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark space-y-4">
-                        <h4 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-                          {phases[currentPage].phase}{" "}
-                          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                            ({phases[currentPage].time})
-                          </span>
-                        </h4>
+                      <div className={`${cardSurface} p-6 sm:p-8 space-y-6`}>
+                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-4">
+                            <h4 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight">
+                                {phases[currentPage].phase}
+                            </h4>
+                            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-white/10 text-xs font-bold text-slate-600 dark:text-slate-300">
+                                <IconClock size={14} />
+                                {phases[currentPage].time}
+                            </div>
+                        </div>
 
-                        <div>
-                          <h5 className="font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                            Teacher Instructions
-                          </h5>
-                          {renderMarkdown(phases[currentPage].teacher_instructions)}
+                        <div className="space-y-4">
+                          <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-900/30">
+                            <h5 className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase mb-2">Teacher Instructions</h5>
+                            {renderMarkdown(phases[currentPage].teacher_instructions)}
+                          </div>
                         </div>
 
                         {phases[currentPage].activity && (
-                          <div>
-                            <h5 className="font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                              Activity: {phases[currentPage].activity.title}
-                            </h5>
-                            {renderMarkdown(phases[currentPage].activity.instructions)}
-                            {phases[currentPage].activity.materials_needed?.length > 0 && (
-                              <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
-                                <strong>Materials:</strong>{" "}
-                                {phases[currentPage].activity.materials_needed.join(", ")}
-                              </p>
-                            )}
+                          <div className="pt-2">
+                             <h5 className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-white mb-3">
+                                <span className="w-2 h-2 rounded-full bg-purple-500" />
+                                Activity: {phases[currentPage].activity.title}
+                             </h5>
+                             <div className="pl-4 border-l-2 border-slate-200 dark:border-white/10 space-y-3">
+                                {renderMarkdown(phases[currentPage].activity.instructions)}
+                                
+                                {phases[currentPage].activity.materials_needed?.length > 0 && (
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        {phases[currentPage].activity.materials_needed.map((mat, m) => (
+                                            <span key={m} className="px-2 py-1 rounded-md bg-slate-100 dark:bg-white/10 text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/10">
+                                                {mat}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                             </div>
                           </div>
                         )}
 
                         {lesson.notes_for_teachers && currentPage === phases.length - 1 && (
-                          <div className="pt-4 mt-4 border-t border-slate-300 dark:border-slate-700">
-                            <h5 className="font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                              Notes for Teachers
+                          <div className="mt-8 pt-6 border-t border-slate-200/60 dark:border-white/10">
+                            <h5 className="flex items-center gap-2 text-sm font-bold text-amber-600 dark:text-amber-500 mb-3">
+                                <IconNotes size={16} />
+                                Teacher Notes
                             </h5>
-                            {renderMarkdown(lesson.notes_for_teachers)}
+                            <div className="text-sm italic text-slate-500 dark:text-slate-400">
+                                {renderMarkdown(lesson.notes_for_teachers)}
+                            </div>
                           </div>
                         )}
                       </div>
                     ) : (
-                      <p className="text-slate-500 dark:text-slate-400 text-center p-8">
-                        No content for this phase.
-                      </p>
+                      <div className="flex flex-col items-center justify-center py-12 text-slate-400 opacity-60">
+                        <IconChartBar size={48} className="mb-2" />
+                        <p>No content available for this section.</p>
+                      </div>
                     )}
                   </>
                 )}
               </motion.div>
             </AnimatePresence>
-          </div>
         </main>
 
         {/* Footer */}
-        <footer className="flex justify-between items-center p-4 border-t border-slate-200/60 dark:border-slate-700/60">
+        <footer className="flex justify-between items-center p-5 border-t border-white/10 bg-white/40 dark:bg-white/5 backdrop-blur-md">
           <button
             onClick={goPrev}
             disabled={currentLesson === 0 && currentPage === (hasReport ? -1 : 0)}
-            className="relative p-3 rounded-lg text-slate-700 dark:text-slate-200 bg-neumorphic-base dark:bg-neumorphic-base-dark
-                       shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark
-                       transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={iconButton}
           >
-            <ArrowLeftIcon className="h-5 w-5" />
+            <IconArrowLeft size={20} />
           </button>
 
-          <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-            {currentPage === -1 ? "Report" : `Phase ${currentPage + 1} of ${totalPhases}`}
+          <span className="text-xs font-bold tracking-widest uppercase text-slate-400 dark:text-slate-500">
+            {currentPage === -1 ? "Overview" : `Step ${currentPage + 1}`}
           </span>
 
           <button
             onClick={goNext}
-            className="relative p-3 rounded-lg text-slate-700 dark:text-slate-200 bg-neumorphic-base dark:bg-neumorphic-base-dark
-                       shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark
-                       transition-all duration-300 active:scale-[0.98]"
+            className={iconButton}
           >
-            <ArrowRightIcon className="h-5 w-5" />
+            <IconArrowRight size={20} />
           </button>
         </footer>
       </Dialog.Panel>

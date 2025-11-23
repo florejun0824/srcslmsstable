@@ -111,16 +111,13 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
   const handleFinalize = () => { setSelectedLabelIndex(null); const payload = { ...diagramData, labels, images: images.map((img) => ({ url: img.url, left: typeof img.left === "number" ? img.left : 10, top: typeof img.top === "number" ? img.top : 10, width: typeof img.width === "number" ? img.width : DEFAULT_IMAGE_WIDTH, })), generatedImageUrl: images && images[0] ? images[0].url : diagramData?.generatedImageUrl, imageUrls: images.map((i) => i.url), }; if (typeof onFinalizeDiagram === "function") { onFinalizeDiagram(payload); } };
   const allLabelsPlaced = labels.length === 0 ? true : labels.every((l) => l.isPlaced);
   
-  const shouldRenderTitle = page.title && page.title.trim() !== "";
-
   switch (page.type) {
     case "video": {
       const embedUrl = getVideoEmbedUrl(page.content); 
       const isDirectVideo = embedUrl && embedUrl.match(/\.(mp4|webm|ogg)$/i); 
       return ( 
         <div className="my-6"> 
-          {/* --- MODIFIED: Themed title --- */}
-          {shouldRenderTitle && ( <h4 className="text-xl font-bold text-slate-700 dark:text-slate-200 mb-4"> {page.title} </h4> )} 
+          {/* --- REMOVED: Title handled by parent --- */}
           {embedUrl ? ( 
               isDirectVideo ? ( 
                 <video controls className="w-full rounded-lg shadow-md aspect-video bg-black"> 
@@ -142,13 +139,10 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
     }
     case "diagram-data": {
       return (
-        // --- MODIFIED: Themed container ---
         <div className="my-6 p-4 border-2 border-dashed rounded-lg bg-slate-50 dark:bg-slate-900/20 dark:border-slate-700 select-none">
-          {/* --- MODIFIED: Themed title --- */}
-          {shouldRenderTitle && <h4 className="text-xl font-bold text-slate-700 dark:text-slate-200 mb-2">{page.title}</h4>}
+          {/* --- REMOVED: Title handled by parent --- */}
 
           <div
-            // --- MODIFIED: Themed image container ---
             className="relative w-full max-w-4xl mx-auto bg-white dark:bg-slate-800"
             ref={imageContainerRef}
             onMouseMove={(e) => { if (activeImageDrag) handleImageMouseMove(e); if (activeDrag) handleLabelMouseMove(e); }}
@@ -156,7 +150,6 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
             onMouseLeave={() => { handleImageMouseUp(); handleLabelMouseUp(); }}
             style={{ minHeight: 480 }}
           >
-            {/* --- MODIFIED: Themed empty state --- */}
             {images.length === 0 && ( <div className="text-center text-slate-500 dark:text-slate-400 p-6 bg-slate-100 dark:bg-slate-700 rounded-lg"> No diagram available. Add an image to begin. </div> )}
             <div className="absolute top-0 left-0 w-full h-full" style={{ zIndex: 1 }}> 
               {images.map((img, idx) => ( 
@@ -165,7 +158,6 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
                     <img src={img.url} alt={`diagram-${idx + 1}`} className="block w-full h-auto rounded-lg shadow-lg" draggable={false} /> 
                     {isEditable && ( 
                       <> 
-                        {/* --- MODIFIED: Themed resize handle --- */}
                         <div onMouseDown={onImageMouseDown(idx, "resize")} className="absolute w-3.5 h-3.5 -right-1.5 -bottom-1.5 rounded-sm bg-white dark:bg-slate-700 border-2 border-gray-400 dark:border-slate-500 cursor-nwse-resize pointer-events-auto" /> 
                         <button title="Remove image" onClick={(e) => { e.stopPropagation(); handleRemoveImage(idx); }} className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-red-600 text-white flex items-center justify-center shadow z-10" > <TrashIcon className="h-4 w-4" /> 
                         </button> 
@@ -187,7 +179,6 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
               {labels.map((label, index) => ( 
                 <div key={index} onMouseDown={isEditable ? handleLabelMouseDown(index, "label") : null} onClick={() => handleLabelClick(index)} onDoubleClick={() => handleLabelDoubleClick(index)} className={`absolute p-1 rounded font-bold text-white shadow-lg pointer-events-auto ${ isEditable ? "cursor-move" : "cursor-default" } ${label.isPlaced ? "bg-green-600" : "bg-blue-600"} ${ selectedLabelIndex === index ? "ring-2 ring-yellow-400" : "" }`} style={{ left: `${label.labelX}%`, top: `${label.labelY}%`, transform: "translate(-50%, -50%)", fontSize: `${label.fontSize}px`, }} > 
                   {editingLabelIndex === index ? ( 
-                    /* --- MODIFIED: Themed input --- */
                     <input type="text" value={label.text} onChange={handleLabelTextChange} onBlur={handleLabelTextBlur} onKeyDown={(e) => e.key === "Enter" && handleLabelTextBlur()} autoFocus className="bg-transparent text-white w-full outline-none border-b border-white" /> ) : ( label.text )} 
                 </div> 
               ))} 
@@ -195,7 +186,6 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
           </div>
           
           {isEditable && selectedLabelIndex !== null && (
-            /* --- MODIFIED: Themed control bar --- */
             <div className="flex justify-center items-center gap-1 p-1 bg-slate-200 dark:bg-slate-700 rounded-lg mt-4">
               <button onClick={() => handleFontSizeChange(-1)} className="px-2 py-1 bg-white dark:bg-slate-800 rounded shadow hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-800 dark:text-slate-100"><MinusIcon className="h-4 w-4" /></button>
               <span className="text-xs font-semibold w-6 text-center text-slate-800 dark:text-slate-100">{labels[selectedLabelIndex]?.fontSize}pt</span>
@@ -204,7 +194,6 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
             </div>
           )}
 
-          {/* --- MODIFIED: Themed error text --- */}
           {error && <div className="text-red-500 dark:text-red-400 text-sm mt-4 text-center">{error}</div>}
         </div>
       );
@@ -214,12 +203,9 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
         const content = page.content;
         return (
             <div className="my-6">
-                {/* --- MODIFIED: Themed title --- */}
-                {shouldRenderTitle && <h4 className="font-semibold text-gray-700 dark:text-slate-200 mb-2">{page.title}</h4>}
+                {/* --- REMOVED: Title handled by parent --- */}
                 
-                {/* Container for the finalized diagram. */}
                 <div 
-                    // --- MODIFIED: Themed image container ---
                     className="relative block w-full max-w-4xl mx-auto bg-gray-100 dark:bg-slate-800 rounded-lg shadow-md overflow-hidden" 
                     style={{ height: '480px' }}
                 >
@@ -244,8 +230,7 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
       const contentString = (typeof content === 'string') ? content : JSON.stringify(content, null, 2); 
       return (
         <div className="mb-6 last:mb-0 overflow-x-auto"> 
-          {/* --- MODIFIED: Themed title --- */}
-          {shouldRenderTitle && ( <h4 className="font-semibold text-gray-700 dark:text-slate-200 mb-2">{page.title}</h4> )} 
+          {/* --- REMOVED: Title handled by parent --- */}
           <ContentRenderer text={contentString} /> 
         </div> 
       );

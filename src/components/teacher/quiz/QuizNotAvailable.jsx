@@ -3,27 +3,37 @@ import { useQuiz } from '../ViewQuizModal';
 import { ClockIcon } from '@heroicons/react/24/solid';
 
 /**
- * Renders the view shown to a student when a quiz is not yet available
- * or has expired.
- * Replaces the old renderNotAvailable() function.
+ * macOS 26 Design Overhaul
+ * Features: Ultra-Glassmorphism, Vivid Blurs, System Fonts, Adaptive Dark Mode
  */
 export default function QuizNotAvailable() {
-    // Get the message from the context
     const { availabilityMessage } = useQuiz();
 
     return (
-        // --- MODIFIED: Added dark theme ---
-        <div className="text-center p-8 bg-neumorphic-base rounded-3xl shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg">
-            {/* --- MODIFIED: Added dark theme --- */}
-            <div className="mx-auto inline-block p-4 rounded-full bg-neumorphic-base shadow-neumorphic-inset mb-5 dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark">
-                {/* --- MODIFIED: Added dark theme --- */}
-                <ClockIcon className="h-20 w-20 text-slate-500 dark:text-slate-400" />
+        <div className="relative overflow-hidden p-8 sm:p-12 rounded-[32px] 
+            bg-white/60 dark:bg-black/40 
+            backdrop-blur-3xl 
+            border border-white/40 dark:border-white/10 
+            shadow-2xl shadow-black/5 dark:shadow-black/50 
+            text-center flex flex-col items-center justify-center min-h-[400px]">
+            
+            {/* Icon Container */}
+            <div className="relative mb-8">
+                <div className="absolute inset-0 bg-blue-500/20 blur-2xl rounded-full transform scale-150"></div>
+                <div className="relative h-24 w-24 flex items-center justify-center rounded-full 
+                    bg-gradient-to-b from-white/80 to-white/20 dark:from-white/10 dark:to-white/5
+                    border border-white/50 dark:border-white/10 shadow-lg backdrop-blur-md">
+                    <ClockIcon className="h-12 w-12 text-blue-500/80 dark:text-blue-400" />
+                </div>
             </div>
-            {/* --- MODIFIED: Added dark theme --- */}
-            <h3 className="text-3xl font-extrabold text-slate-900 mb-2 dark:text-slate-100">Quiz Not Available</h3>
-            {/* --- MODIFIED: Added dark theme --- */}
-            <p className="text-lg mt-2 text-slate-600 dark:text-slate-300">
-                {availabilityMessage || 'This quiz is not currently available.'}
+
+            {/* Text Content */}
+            <h3 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-3">
+                Not Available Yet
+            </h3>
+            
+            <p className="text-lg text-gray-500 dark:text-gray-400 font-medium max-w-sm leading-relaxed">
+                {availabilityMessage || 'This quiz is currently closed or hasn\'t started yet. Please check back later.'}
             </p>
         </div>
     );
