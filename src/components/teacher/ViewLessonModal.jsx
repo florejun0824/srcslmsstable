@@ -20,7 +20,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
 
-// --- ANIMATIONS ---
+// ... (Keep existing animations: modalVariants, pageTransitionVariants, etc.) ...
 const modalVariants = {
     hidden: { opacity: 0, scale: 0.95, y: 20 },
     visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", bounce: 0.3, duration: 0.5 } },
@@ -43,6 +43,7 @@ const objectiveItemVariants = {
 };
 
 export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, className }) {
+    // ... (Keep existing state and logic hooks) ...
     const [currentPage, setCurrentPage] = useState(0);
     const [currentLesson, setCurrentLesson] = useState(lesson);
     const { showToast } = useToast();
@@ -66,6 +67,7 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
 
     useEffect(() => { const handleKeyDown = (e) => { if (!isOpen) return; if (e.key === 'ArrowRight') goToNextPage(); else if (e.key === 'ArrowLeft') goToPreviousPage(); }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isOpen, goToNextPage, goToPreviousPage]);
 
+    // ... (Keep handleFinalizeDiagram and handleRevertDiagramToEditable) ...
     const handleFinalizeDiagram = async (finalizedContent) => {
         if (isFinalizing) return;
         setIsFinalizing(true);
@@ -147,8 +149,8 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                     </div>
                 </header>
                 
-                {/* Content - Added pb-36 to avoid dock overlap */}
-                <main ref={contentRef} className="flex-grow overflow-y-auto custom-scrollbar flex flex-col items-center p-6 md:p-10 pb-36 relative">
+                {/* Content Area - CHANGED: Removed pb-36, reduced to pb-10 */}
+                <main ref={contentRef} className="flex-grow overflow-y-auto custom-scrollbar flex flex-col items-center p-6 md:p-10 pb-10 relative">
                     <div className="w-full max-w-4xl flex-grow">
                         <AnimatePresence initial={false} mode="wait">
                             <motion.div key={currentPage} variants={pageTransitionVariants} initial="hidden" animate="visible" exit="exit" className="w-full min-h-full">
@@ -181,8 +183,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                                 {/* Main Page Content */}
                                 {pageData ? (
                                     <div className="prose dark:prose-invert max-w-none">
-                                        
-                                        {/* --- ADDED: Explicit Page Title Rendering --- */}
                                         {pageData.title && (
                                             <motion.h1 
                                                 initial={{ opacity: 0, y: -10 }}
@@ -218,9 +218,9 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                     </div>
                 </main>
                 
-                {/* Floating Navigation Dock */}
-                <div className="absolute bottom-8 left-0 right-0 flex justify-center pointer-events-none z-20 px-4">
-                    <div className="pointer-events-auto flex items-center gap-4 p-2 pl-3 pr-3 bg-white/90 dark:bg-[#121212]/90 backdrop-blur-xl rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-black/50 border border-white/20 dark:border-white/10 ring-1 ring-black/5">
+                {/* Footer Navigation - CHANGED: Now a static flex footer, no longer absolute */}
+                <footer className="flex-shrink-0 py-5 px-6 border-t border-slate-200/50 dark:border-white/5 bg-white/40 dark:bg-white/5 flex justify-center items-center z-10">
+                    <div className="flex items-center gap-4 p-2 pl-3 pr-3 bg-white/90 dark:bg-[#121212]/90 backdrop-blur-xl rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-black/50 border border-white/20 dark:border-white/10 ring-1 ring-black/5">
                         
                         {/* Prev Button */}
                         <button 
@@ -231,7 +231,7 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                             <ArrowLeftIcon className="h-5 w-5" />
                         </button>
 
-                        {/* Diagram Tools (Contextual) */}
+                        {/* Diagram Tools */}
                         {pageData?.type === 'diagram-data' && (
                             <div className="flex items-center gap-1 px-2 border-x border-slate-200 dark:border-white/10 mx-1">
                                 <button onClick={() => lessonPageRef.current?.addImage()} className={`${actionBtn} text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20`} title="Add Image">
@@ -263,7 +263,7 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                             {currentPage < totalPages - 1 ? <ArrowRightIcon className="h-4 w-4" /> : <CheckCircleIcon className="h-4 w-4" />}
                         </button>
                     </div>
-                </div>
+                </footer>
 
             </Dialog.Panel>
         </Dialog>
