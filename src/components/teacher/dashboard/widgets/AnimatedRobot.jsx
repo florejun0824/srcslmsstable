@@ -1,28 +1,29 @@
 // src/components/teacher/AnimatedRobot.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import Lottie from 'lottie-react'; // Import Lottie
+// CHANGE THIS PATH to point to your actual Lottie JSON file
+import robotAnimation from '../../../../assets/robot.json'; 
 import './AnimatedRobot.css';
 
 const AnimatedRobot = ({ onClick }) => {
     const isMobile = window.innerWidth <= 768;
-    const size = isMobile ? 52 : 60;
+    // Kept size large since we removed the padding/background
+    const size = isMobile ? 65 : 75; 
     
-    // --- MODIFIED MARGINS ---
-    const sideMargin = 30; // Original right margin
-    const mobileBottomMargin = 94; // 6rem (4rem nav bar + 2rem spacing)
-    const desktopBottomMargin = 30; // Original desktop margin
+    const sideMargin = 30; 
+    const mobileBottomMargin = 94; 
+    const desktopBottomMargin = 30; 
 
-    // --- MODIFIED Initial position ---
     const [position, setPosition] = useState({
         x: window.innerWidth - size - sideMargin,
         y: window.innerHeight - size - (isMobile ? mobileBottomMargin : desktopBottomMargin),
     });
-    // --- (Rest of the states are unchanged) ---
+
     const [isDragging, setIsDragging] = useState(false);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const startPosRef = useRef({ x: 0, y: 0 });
     const draggedRef = useRef(false);
 
-    // --- DRAG START (Unchanged) ---
     const handleDragStart = useCallback(
         (e) => {
             e.preventDefault();
@@ -37,7 +38,6 @@ const AnimatedRobot = ({ onClick }) => {
         [position]
     );
 
-    // --- DRAG MOVE (Unchanged) ---
     const handleDragMove = useCallback(
         (e) => {
             if (!isDragging) return;
@@ -58,12 +58,10 @@ const AnimatedRobot = ({ onClick }) => {
         [isDragging, offset]
     );
 
-    // --- DRAG END (Unchanged) ---
     const handleDragEnd = useCallback(() => {
         setIsDragging(false);
     }, []);
 
-    // --- Attach / Detach listeners (Unchanged) ---
     useEffect(() => {
         if (isDragging) {
             document.addEventListener('mousemove', handleDragMove);
@@ -84,14 +82,12 @@ const AnimatedRobot = ({ onClick }) => {
         };
     }, [isDragging, handleDragMove, handleDragEnd]);
 
-    // --- Handle Click (Unchanged) ---
     const handleClick = (e) => {
         if (!draggedRef.current) {
             onClick?.(e);
         }
     };
 
-    // --- MODIFIED Styles ---
     const buttonStyle = {
         position: 'fixed',
         width: `${size}px`,
@@ -99,23 +95,29 @@ const AnimatedRobot = ({ onClick }) => {
         left: `${position.x}px`,
         top: `${position.y}px`,
         transition: isDragging ? 'none' : 'transform 0.2s ease',
-        zIndex: 999, // MODIFIED: Set to 52 (higher than nav bar's 51)
+        zIndex: 999, 
         cursor: isDragging ? 'grabbing' : 'grab',
+        background: 'transparent',
+        border: 'none',
+        padding: 0,
+        outline: 'none'
     };
 
     return (
         <button
-            className="floating-chat-button"
+            className={`floating-chat-button ${isDragging ? 'dragging' : ''}`}
             style={buttonStyle}
             onClick={handleClick}
             onMouseDown={handleDragStart}
             onTouchStart={handleDragStart}
+            aria-label="Open AI Chat"
         >
             <div className="button-content">
-                <img
-                    src="https://i.ibb.co/Y4WNBnxS/ai-girl.png"
-                    alt="Chatbot"
-                    className="floating-icon-image"
+                {/* UPDATED: Lottie Component */}
+                <Lottie 
+                    animationData={robotAnimation} 
+                    loop={true} 
+                    className="floating-lottie"
                 />
             </div>
         </button>

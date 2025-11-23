@@ -1,6 +1,6 @@
 // src/components/teacher/QuizScoresModal.jsx
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Modal from '../common/Modal';
 import {
     AcademicCapIcon,
@@ -9,7 +9,6 @@ import {
     LockClosedIcon,
     CheckCircleIcon,
     XCircleIcon,
-    ChevronDownIcon,
     ArrowUpIcon,
     ArrowDownIcon,
     SparklesIcon,
@@ -63,8 +62,8 @@ const StatusPill = ({ status }) => {
     const Icon = config.icon;
 
     return (
-        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border ${config.style}`}>
-            <Icon className="w-3.5 h-3.5" />
+        <div className={`inline-flex items-center gap-1.5 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[10px] md:text-[11px] font-bold uppercase tracking-wide border ${config.style} whitespace-nowrap`}>
+            <Icon className="w-3 h-3 md:w-3.5 md:h-3.5" />
             {config.text}
         </div>
     );
@@ -83,8 +82,8 @@ const ScoreBadge = ({ score, totalItems, isLate }) => {
 
     return (
         <div className="flex flex-col items-center gap-1">
-            <div className={`px-2.5 py-1 rounded-[10px] text-sm font-bold ${bgClass}`}>
-                {score ?? '-'} <span className="opacity-50 text-[10px]">/ {totalItems}</span>
+            <div className={`px-2 py-0.5 md:py-1 rounded-[8px] md:rounded-[10px] text-xs md:text-sm font-bold ${bgClass} whitespace-nowrap`}>
+                {score ?? '-'} <span className="opacity-50 text-[9px] md:text-[10px]">/ {totalItems}</span>
             </div>
             {isLate && <span className="text-[9px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded-full">LATE</span>}
         </div>
@@ -106,11 +105,9 @@ const QuizScoresModal = ({
     const [isBulkGrading, setIsBulkGrading] = useState(false);
     const [hasPendingEssaysForThisQuiz, setHasPendingEssaysForThisQuiz] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-
-    // --- NEW: Local State for Real-Time Updates ---
     const [localQuizScores, setLocalQuizScores] = useState(quizScores || []);
 
-    // Sync local state when props change (from DB updates), but only if we aren't actively bulk grading to avoid jitter
+    // Sync local state when props change
     useEffect(() => {
         if (!isBulkGrading) {
             setLocalQuizScores(quizScores || []);
@@ -137,7 +134,6 @@ const QuizScoresModal = ({
         const availableUntilDate = quiz?.availableUntil?.toDate ? quiz.availableUntil.toDate() : new Date(quiz.availableUntil);
 
         let allStudents = classData.students.map(student => {
-            // Use localQuizScores instead of prop quizScores for real-time reflection
             const studentAttempts = localQuizScores.filter(s => 
                 s.studentId === student.id && 
                 s.quizId === quiz.id &&
@@ -194,7 +190,6 @@ const QuizScoresModal = ({
             };
         });
 
-        // Filter
         if (searchTerm) {
             const lowerTerm = searchTerm.toLowerCase();
             allStudents = allStudents.filter(s => 
@@ -203,7 +198,6 @@ const QuizScoresModal = ({
             );
         }
 
-        // Sort
         allStudents.sort((a, b) => {
             const direction = sortConfig.direction === 'ascending' ? 1 : -1;
             if (sortConfig.key === 'name') {
@@ -250,14 +244,13 @@ const QuizScoresModal = ({
         };
     }, [localQuizScores, quiz, classData]);
 
-    // --- BULK GRADING LOGIC (FIXED & REAL-TIME) ---
+    // Bulk Grading
     const handleBulkGradeEssays = async () => {
         if (!classData?.id || !quiz?.id) return;
 
         setIsBulkGrading(true);
         showToast("Starting AI grading sequence...", "info");
         
-        let pendingSubmissions = [];
         try {
             const submissionsRef = collection(db, 'quizSubmissions');
             const q = query(submissionsRef,
@@ -266,7 +259,7 @@ const QuizScoresModal = ({
                 where('hasPendingEssays', '==', true)
             );
             const snapshot = await getDocs(q);
-            pendingSubmissions = snapshot.docs;
+            const pendingSubmissions = snapshot.docs;
 
             if (pendingSubmissions.length === 0) {
                 showToast("No pending essays found.", "success");
@@ -288,7 +281,7 @@ const QuizScoresModal = ({
                 for (let i = 0; i < updatedAnswers.length; i++) {
                     if (updatedAnswers[i].questionType === 'essay' && updatedAnswers[i].status === 'pending_ai_grading') {
                         try {
-                            await delay(2000); // Rate limit buffer
+                            await delay(2000); 
                             const gradingResult = await gradeEssayWithAI(
                                 updatedAnswers[i].questionText,
                                 updatedAnswers[i].rubric,
@@ -317,7 +310,6 @@ const QuizScoresModal = ({
                     const hasStillPending = updatedAnswers.some(a => a.status === 'pending_ai_grading');
                     const finalStatus = updatedAnswers.some(a => a.status === 'grading_failed') ? 'pending_review' : (hasStillPending ? 'pending_ai_grading' : 'graded');
 
-                    // 1. Update Firestore
                     await updateDoc(doc(db, 'quizSubmissions', submissionId), {
                         answers: updatedAnswers,
                         score: Math.round(newTotalScore),
@@ -325,7 +317,6 @@ const QuizScoresModal = ({
                         hasPendingEssays: hasStillPending
                     });
 
-                    // 2. REAL-TIME UPDATE: Update local state immediately
                     setLocalQuizScores(prevScores => prevScores.map(score => {
                         if (score.id === submissionId) {
                             return {
@@ -357,26 +348,26 @@ const QuizScoresModal = ({
             <div className="relative w-full h-full sm:h-[90vh] max-w-7xl bg-white/80 dark:bg-[#0F1115]/80 backdrop-blur-[40px] sm:rounded-[40px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-white/40 dark:border-white/5 flex flex-col overflow-hidden">
                 
                 {/* --- Header --- */}
-                <div className="flex-shrink-0 px-6 py-6 sm:px-10 sm:py-8 border-b border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5">
+                <div className="flex-shrink-0 px-5 py-5 sm:px-10 sm:py-8 border-b border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                        <div>
-                            <h2 className="text-2xl sm:text-4xl font-bold text-slate-900 dark:text-white tracking-tight">
-                                {quiz?.title}
-                            </h2>
-                            <p className="text-slate-500 dark:text-slate-400 font-medium mt-1 flex items-center gap-2">
-                                <ChartBarIcon className="w-4 h-4" /> Performance Overview
-                            </p>
-                        </div>
-                        
-                        <div className="flex items-center gap-3">
-                            <button onClick={onClose} className="p-3 rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors">
+                        <div className="flex justify-between items-start sm:items-center w-full">
+                            <div>
+                                <h2 className="text-xl sm:text-4xl font-bold text-slate-900 dark:text-white tracking-tight line-clamp-1">
+                                    {quiz?.title}
+                                </h2>
+                                <p className="text-slate-500 dark:text-slate-400 font-medium mt-1 text-sm sm:text-base flex items-center gap-2">
+                                    <ChartBarIcon className="w-4 h-4" /> Performance Overview
+                                </p>
+                            </div>
+                            {/* Close button for mobile inside header for easier access */}
+                            <button onClick={onClose} className="p-2 sm:p-3 ml-2 rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors flex-shrink-0">
                                 <XCircleIcon className="w-6 h-6" />
                             </button>
                         </div>
                     </div>
 
-                    {/* Stats Row */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
+                    {/* Stats Row - HIDDEN ON MOBILE */}
+                    <div className="hidden sm:grid grid-cols-3 gap-4 mt-8 animate-in fade-in slide-in-from-top-4 duration-500">
                         <StatCard icon={UsersIcon} title="Completion" value={`${completedCount}/${totalStudents}`} color="blue" />
                         <StatCard icon={AcademicCapIcon} title="Avg. Score" value={`${averageScorePercent.toFixed(0)}%`} color="teal" />
                         <StatCard icon={SparklesIcon} title="Highest" value={`${highestScorePercent.toFixed(0)}%`} color="purple" />
@@ -384,7 +375,7 @@ const QuizScoresModal = ({
                 </div>
 
                 {/* --- Controls --- */}
-                <div className="flex-shrink-0 px-6 sm:px-10 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/20 dark:bg-black/20 backdrop-blur-md">
+                <div className="flex-shrink-0 px-4 sm:px-10 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white/20 dark:bg-black/20 backdrop-blur-md">
                     <div className="relative w-full sm:w-72 group">
                         <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                         <input 
@@ -392,15 +383,15 @@ const QuizScoresModal = ({
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             placeholder="Search students..." 
-                            className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white/50 dark:bg-white/5 border border-transparent focus:bg-white dark:focus:bg-black/40 focus:border-blue-500/30 outline-none transition-all placeholder:text-slate-400 dark:text-white shadow-sm"
+                            className="w-full pl-11 pr-4 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-white/50 dark:bg-white/5 border border-transparent focus:bg-white dark:focus:bg-black/40 focus:border-blue-500/30 outline-none transition-all placeholder:text-slate-400 dark:text-white shadow-sm text-sm"
                         />
                     </div>
 
-                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
                         <button
                             onClick={handleBulkGradeEssays}
                             disabled={!hasPendingEssaysForThisQuiz || isBulkGrading}
-                            className={`flex-1 sm:flex-none px-6 py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg hover:scale-[1.02] active:scale-[0.98]
+                            className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]
                                 ${isBulkGrading 
                                     ? 'bg-slate-100 text-slate-400 cursor-wait' 
                                     : hasPendingEssaysForThisQuiz 
@@ -408,93 +399,100 @@ const QuizScoresModal = ({
                                         : 'bg-slate-100 dark:bg-white/5 text-slate-400 cursor-not-allowed shadow-none'
                                 }`}
                         >
-                            {isBulkGrading ? <ClockOutlineIcon className="w-5 h-5 animate-spin" /> : <SparklesIcon className="w-5 h-5" />}
-                            {isBulkGrading ? 'AI Grading...' : 'Auto-Grade Essays'}
+                            {isBulkGrading ? <ClockOutlineIcon className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : <SparklesIcon className="w-4 h-4 sm:w-5 sm:h-5" />}
+                            {isBulkGrading ? 'Grading...' : 'Auto-Grade'}
                         </button>
 
                         <button
                             onClick={() => setIsReportModalOpen(true)}
-                            className="flex-1 sm:flex-none px-6 py-3 rounded-2xl font-bold text-sm bg-white dark:bg-white/10 text-slate-700 dark:text-white border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/20 flex items-center justify-center gap-2 transition-all"
+                            className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-white dark:bg-white/10 text-slate-700 dark:text-white border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/20 flex items-center justify-center gap-2 transition-all"
                         >
-                            <DocumentChartBarIcon className="w-5 h-5 text-blue-500" />
+                            <DocumentChartBarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
                             Report
                         </button>
                     </div>
                 </div>
 
-                {/* --- Table --- */}
-                <div className="flex-grow overflow-y-auto custom-scrollbar p-6 sm:p-10">
-                    <div className="bg-white/40 dark:bg-white/5 rounded-[32px] border border-white/50 dark:border-white/5 overflow-hidden shadow-sm">
-                        {/* Table Header */}
-                        <div className="grid grid-cols-12 gap-4 px-6 py-4 bg-white/50 dark:bg-white/5 border-b border-slate-200/50 dark:border-white/5 text-xs font-bold uppercase tracking-widest text-slate-400 sticky top-0 backdrop-blur-xl z-10">
-                            <div className="col-span-4 cursor-pointer hover:text-blue-500 flex items-center gap-1" onClick={() => requestSort('name')}>
-                                Student {sortConfig.key === 'name' && (sortConfig.direction === 'ascending' ? <ArrowUpIcon className="w-3 h-3" /> : <ArrowDownIcon className="w-3 h-3" />)}
-                            </div>
-                            <div className="col-span-3 cursor-pointer hover:text-blue-500 flex items-center gap-1" onClick={() => requestSort('status')}>
-                                Status {sortConfig.key === 'status' && (sortConfig.direction === 'ascending' ? <ArrowUpIcon className="w-3 h-3" /> : <ArrowDownIcon className="w-3 h-3" />)}
-                            </div>
-                            <div className="col-span-3 text-center">Attempts</div>
-                            <div className="col-span-2 text-right">Actions</div>
-                        </div>
-
-                        {/* Table Body */}
-                        <div className="divide-y divide-slate-200/50 dark:divide-white/5">
-                            {processedStudentData.map(student => (
-                                <div key={student.id} className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-white/40 dark:hover:bg-white/5 transition-colors">
-                                    
-                                    {/* Name */}
-                                    <div className="col-span-4 flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center text-xs font-bold">
-                                            {student.firstName?.[0]}{student.lastName?.[0]}
-                                        </div>
-                                        <div className="truncate">
-                                            <p className="font-bold text-slate-800 dark:text-slate-200 text-sm">{student.lastName}, {student.firstName}</p>
-                                        </div>
+                {/* --- Table with Horizontal Scroll for Mobile --- */}
+                <div className="flex-grow overflow-y-auto custom-scrollbar p-0 sm:p-10">
+                    <div className="sm:rounded-[32px] sm:border border-white/50 dark:border-white/5 overflow-hidden shadow-sm bg-white/40 dark:bg-white/5">
+                        <div className="overflow-x-auto">
+                            {/* Minimum width wrapper to enforce horizontal scroll on mobile */}
+                            <div className="min-w-[600px] sm:min-w-full">
+                                {/* Table Header */}
+                                <div className="grid grid-cols-12 gap-2 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 bg-white/50 dark:bg-white/5 border-b border-slate-200/50 dark:border-white/5 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-slate-400 sticky top-0 backdrop-blur-xl z-10">
+                                    <div className="col-span-4 cursor-pointer hover:text-blue-500 flex items-center gap-1" onClick={() => requestSort('name')}>
+                                        Student {sortConfig.key === 'name' && (sortConfig.direction === 'ascending' ? <ArrowUpIcon className="w-3 h-3" /> : <ArrowDownIcon className="w-3 h-3" />)}
                                     </div>
-
-                                    {/* Status */}
-                                    <div className="col-span-3">
-                                        <StatusPill status={student.status} />
+                                    <div className="col-span-3 cursor-pointer hover:text-blue-500 flex items-center gap-1" onClick={() => requestSort('status')}>
+                                        Status {sortConfig.key === 'status' && (sortConfig.direction === 'ascending' ? <ArrowUpIcon className="w-3 h-3" /> : <ArrowDownIcon className="w-3 h-3" />)}
                                     </div>
+                                    <div className="col-span-3 text-center">Attempts</div>
+                                    <div className="col-span-2 text-right">Actions</div>
+                                </div>
 
-                                    {/* Attempts */}
-                                    <div className="col-span-3 flex items-center justify-center gap-2">
-                                        {student.attemptsDisplay.map((attempt, idx) => (
-                                            <div key={idx} className="w-12">
-                                                {attempt ? (
-                                                    <ScoreBadge 
-                                                        score={attempt.score} 
-                                                        totalItems={attempt.totalItems} 
-                                                        isLate={attempt.isLate} 
-                                                    />
+                                {/* Table Body */}
+                                <div className="divide-y divide-slate-200/50 dark:divide-white/5">
+                                    {processedStudentData.map(student => (
+                                        <div key={student.id} className="grid grid-cols-12 gap-2 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 items-center hover:bg-white/60 dark:hover:bg-white/10 transition-colors">
+                                            
+                                            {/* Name */}
+                                            <div className="col-span-4 flex items-center gap-2 sm:gap-3">
+                                                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center text-[10px] sm:text-xs font-bold flex-shrink-0">
+                                                    {student.firstName?.[0]}{student.lastName?.[0]}
+                                                </div>
+                                                <div className="truncate">
+                                                    <p className="font-bold text-slate-800 dark:text-slate-200 text-xs sm:text-sm truncate">
+                                                        {student.lastName}, {student.firstName}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* Status */}
+                                            <div className="col-span-3">
+                                                <StatusPill status={student.status} />
+                                            </div>
+
+                                            {/* Attempts */}
+                                            <div className="col-span-3 flex items-center justify-center gap-1 sm:gap-2">
+                                                {student.attemptsDisplay.map((attempt, idx) => (
+                                                    <div key={idx} className="w-10 sm:w-12">
+                                                        {attempt ? (
+                                                            <ScoreBadge 
+                                                                score={attempt.score} 
+                                                                totalItems={attempt.totalItems} 
+                                                                isLate={attempt.isLate} 
+                                                            />
+                                                        ) : (
+                                                            <div className="h-1 w-3 sm:w-4 bg-slate-200 dark:bg-white/10 rounded-full mx-auto"/>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* Actions */}
+                                            <div className="col-span-2 flex justify-end">
+                                                {student.isLocked ? (
+                                                    <button 
+                                                        onClick={() => onUnlockQuiz && onUnlockQuiz(quiz.id, student.id)}
+                                                        className="px-2 sm:px-4 py-1 sm:py-1.5 rounded-full bg-red-50 text-red-600 text-[10px] sm:text-xs font-bold border border-red-100 hover:bg-red-100 transition-colors"
+                                                    >
+                                                        Unlock
+                                                    </button>
                                                 ) : (
-                                                    <div className="h-1 w-4 bg-slate-200 dark:bg-white/10 rounded-full mx-auto"/>
+                                                    <div className="w-8"/>
                                                 )}
                                             </div>
-                                        ))}
-                                    </div>
-
-                                    {/* Actions */}
-                                    <div className="col-span-2 flex justify-end">
-                                        {student.isLocked ? (
-                                            <button 
-                                                onClick={() => onUnlockQuiz && onUnlockQuiz(quiz.id, student.id)}
-                                                className="px-4 py-1.5 rounded-full bg-red-50 text-red-600 text-xs font-bold border border-red-100 hover:bg-red-100 transition-colors"
-                                            >
-                                                Unlock
-                                            </button>
-                                        ) : (
-                                            <div className="w-8"/>
-                                        )}
-                                    </div>
+                                        </div>
+                                    ))}
+                                    
+                                    {processedStudentData.length === 0 && (
+                                        <div className="p-12 text-center text-slate-400 text-sm">
+                                            No students found matching your filters.
+                                        </div>
+                                    )}
                                 </div>
-                            ))}
-                            
-                            {processedStudentData.length === 0 && (
-                                <div className="p-12 text-center text-slate-400">
-                                    No students found matching your filters.
-                                </div>
-                            )}
+                            </div>
                         </div>
                     </div>
                 </div>

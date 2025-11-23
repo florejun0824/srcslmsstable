@@ -651,12 +651,12 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         }
 
         const EmptyState = ({ icon: Icon, text, subtext }) => (
-            <div className="text-center p-10 sm:p-14 bg-white/50 dark:bg-white/5 backdrop-blur-md rounded-3xl border border-white/20 dark:border-white/5 mt-6 flex flex-col items-center justify-center">
-                <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center mb-5">
-                    <Icon className="h-10 w-10 text-slate-400 dark:text-slate-500" />
+            <div className="text-center p-8 sm:p-14 bg-white/50 dark:bg-white/5 backdrop-blur-md rounded-2xl sm:rounded-3xl border border-white/20 dark:border-white/5 mt-4 sm:mt-6 flex flex-col items-center justify-center">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center mb-4 sm:mb-5">
+                    <Icon className="h-8 w-8 sm:h-10 sm:w-10 text-slate-400 dark:text-slate-500" />
                 </div>
-                <p className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">{text}</p>
-                <p className="mt-2 text-base text-slate-500 dark:text-slate-400 max-w-xs mx-auto">{subtext}</p>
+                <p className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">{text}</p>
+                <p className="mt-1 sm:mt-2 text-sm sm:text-base text-slate-500 dark:text-slate-400 max-w-xs mx-auto">{subtext}</p>
             </div>
         );
         const customUnitSort = (a, b) => {
@@ -670,13 +670,13 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             return a.localeCompare(b);
         };
         const ListItem = ({ children, isChecked }) => (
-            <div className={`flex items-center justify-between gap-3 py-3 px-4 transition-colors border-b border-slate-100 dark:border-white/5 last:border-0 ${isChecked ? 'bg-blue-50/60 dark:bg-blue-900/20' : 'hover:bg-slate-50/80 dark:hover:bg-white/5'}`}>
+            <div className={`flex items-center justify-between gap-2 sm:gap-3 py-2.5 sm:py-3 px-3 sm:px-4 transition-colors border-b border-slate-100 dark:border-white/5 last:border-0 ${isChecked ? 'bg-blue-50/60 dark:bg-blue-900/20' : 'hover:bg-slate-50/80 dark:hover:bg-white/5'}`}>
                 {children}
             </div>
         );
         
         const PostGroup = ({ children }) => (
-            <div className="bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-xl rounded-3xl border border-white/20 dark:border-white/5 shadow-sm overflow-hidden mb-6">
+            <div className="bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/20 dark:border-white/5 shadow-sm overflow-hidden mb-4 sm:mb-6">
                 {children}
             </div>
         );
@@ -705,7 +705,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             const selectedSet = selectedLessons;
 
             return (
-                <div className="space-y-6 pb-8">
+                <div className="space-y-4 sm:space-y-6 pb-6 sm:pb-8">
                     {postEntries.length > 0 ? postEntries.map(({ post, units: unitsInPost }) => {
                         
                         const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
@@ -714,39 +714,39 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         return (
                             <PostGroup key={post.id}>
                                 <button 
-                                    className="w-full text-left p-5 group"
+                                    className="w-full text-left p-3 sm:p-5 group"
                                     onClick={() => togglePostCollapse(post.id)}
                                 >
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-bold text-slate-900 dark:text-white text-xl group-hover:text-[#007AFF] dark:group-hover:text-[#0A84FF] transition-colors truncate tracking-tight">{post.title}</h3>
-                                            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-2 flex flex-wrap gap-x-4">
-                                                <span className="flex items-center gap-1.5"><CalendarDaysIcon className="h-3.5 w-3.5 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
-                                                {post.availableUntil && <span className="flex items-center gap-1.5"><ClockIcon className="h-3.5 w-3.5 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
+                                            <h3 className="font-bold text-slate-900 dark:text-white text-base sm:text-xl group-hover:text-[#007AFF] dark:group-hover:text-[#0A84FF] transition-colors truncate tracking-tight">{post.title}</h3>
+                                            <div className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 sm:mt-2 flex flex-wrap gap-x-2 sm:gap-x-4 gap-y-1">
+                                                <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
+                                                {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
                                                 {(() => {
                                                     let targetText = "All Students";
                                                     if (post.targetAudience === 'specific') targetText = `${post.targetStudentIds?.length || 0} Student(s)`;
-                                                    return <span className="flex items-center gap-1.5"><UsersIcon className="h-3.5 w-3.5 text-slate-400" />Target: {targetText}</span>;
+                                                    return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-slate-400" />Target: {targetText}</span>;
                                                 })()}
                                             </div>
                                         </div>
-                                        <div className="flex-shrink-0 flex items-center gap-3 pl-4">
+                                        <div className="flex-shrink-0 flex items-center gap-1 sm:gap-3 pl-2 sm:pl-4">
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); handleEditDatesClick(post); }} 
                                                 title="Edit Availability" 
-                                                className="flex items-center gap-1.5 text-sm font-semibold text-[#007AFF] hover:text-[#0051A8] px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                                className="flex items-center gap-1 text-xs sm:text-sm font-semibold text-[#007AFF] hover:text-[#0051A8] px-1.5 py-1 sm:px-2 sm:py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                                             >
-                                                <PencilSquareIcon className="w-4 h-4" /> <span className="hidden sm:inline">Manage</span>
+                                                <PencilSquareIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Manage</span>
                                             </button>
                                             <div className={`p-1 rounded-full bg-slate-100 dark:bg-white/10 transition-transform duration-300 ${isPostCollapsed ? '' : 'rotate-180'}`}>
-                                                <ChevronDownIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                                                <ChevronDownIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 dark:text-slate-400" />
                                             </div>
                                         </div>
                                     </div>
                                 </button>
                                 
                                 {!isPostCollapsed && (
-                                    <div className="space-y-4 px-4 pb-5">
+                                    <div className="space-y-3 sm:space-y-4 px-3 sm:px-4 pb-3 sm:pb-5">
                                         {sortedUnitKeys.map(unitDisplayName => {
                                             const lessonsInUnit = unitsInPost[unitDisplayName];
                                             const unitKey = `${post.id}_${unitDisplayName}`;
@@ -756,16 +756,16 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                             const isAllSelected = lessonIdsInUnit.length > 0 && lessonIdsInUnit.every(id => selectedSet.has(id));
 
                                             return (
-                                                <div key={unitKey} className="bg-white/50 dark:bg-black/20 rounded-2xl border border-slate-200/60 dark:border-white/5 overflow-hidden">
-                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-4 py-3 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5">
+                                                <div key={unitKey} className="bg-white/50 dark:bg-black/20 rounded-xl sm:rounded-2xl border border-slate-200/60 dark:border-white/5 overflow-hidden">
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5">
                                                         <button className="flex-1 flex items-center gap-2 group min-w-0" onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}>
-                                                            <h4 className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-200 group-hover:text-[#007AFF] transition-colors truncate">{unitDisplayName}</h4>
-                                                            <ChevronDownIcon className={`h-4 w-4 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
+                                                            <h4 className="font-bold text-xs sm:text-base text-slate-800 dark:text-slate-200 group-hover:text-[#007AFF] transition-colors truncate">{unitDisplayName}</h4>
+                                                            <ChevronDownIcon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
                                                         </button>
-                                                        <label className="flex items-center justify-end gap-2.5 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0 select-none">
+                                                        <label className="flex items-center justify-end gap-2 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0 select-none">
                                                             <input
                                                                 type="checkbox"
-                                                                className="h-4 w-4 rounded-[4px] text-[#007AFF] border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-[#007AFF]"
+                                                                className="h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-[4px] text-[#007AFF] border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-[#007AFF]"
                                                                 checked={isAllSelected}
                                                                 onChange={() => {
                                                                     const set = setSelectedLessons;
@@ -777,7 +777,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                     });
                                                                 }}
                                                             />
-                                                            <span className="text-[13px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Select All</span>
+                                                            <span className="text-[11px] sm:text-[13px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Select All</span>
                                                         </label>
                                                     </div>
                                                     
@@ -790,16 +790,16 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                         <label className="p-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
                                                                             <input
                                                                                 type="checkbox"
-                                                                                className="h-5 w-5 rounded-[6px] text-[#007AFF] border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-[#007AFF] transition-all"
+                                                                                className="h-4 w-4 sm:h-5 sm:w-5 rounded-[6px] text-[#007AFF] border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-[#007AFF] transition-all"
                                                                                 checked={isChecked}
                                                                                 onChange={() => handleToggleSelection('lesson', lessonDetails.id)}
                                                                             />
                                                                         </label>
                                                                         <div className="flex-1 min-w-0" onClick={() => setViewLessonData(lessonDetails)}>
-                                                                            <p className="font-semibold text-slate-900 dark:text-white text-base cursor-pointer hover:text-[#007AFF] transition-colors truncate">{lessonDetails.title}</p>
+                                                                            <p className="font-semibold text-slate-900 dark:text-white text-sm sm:text-base cursor-pointer hover:text-[#007AFF] transition-colors truncate">{lessonDetails.title}</p>
                                                                         </div>
                                                                         <div className="flex space-x-1 flex-shrink-0">
-                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, lessonDetails.id, 'lesson'); }} className="p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Unshare Lesson"><TrashIcon className="w-5 h-5" /></button>
+                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, lessonDetails.id, 'lesson'); }} className="p-1.5 sm:p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Unshare Lesson"><TrashIcon className="w-4 h-4 sm:w-5 sm:h-5" /></button>
                                                                         </div>
                                                                     </ListItem>
                                                                 );
@@ -842,7 +842,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             const selectedSet = selectedQuizzes;
 
             return (
-                <div className="space-y-6 pb-8">
+                <div className="space-y-4 sm:space-y-6 pb-6 sm:pb-8">
                     {postEntries.length > 0 ? postEntries.map(({ post, units: unitsInPost }) => {
                         
                         const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
@@ -851,39 +851,39 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         return (
                             <PostGroup key={post.id}>
                                 <button 
-                                    className="w-full text-left p-5 group"
+                                    className="w-full text-left p-3 sm:p-5 group"
                                     onClick={() => togglePostCollapse(post.id)}
                                 >
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-bold text-slate-900 dark:text-white text-xl group-hover:text-[#007AFF] dark:group-hover:text-[#0A84FF] transition-colors truncate tracking-tight">{post.title}</h3>
-                                            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-2 flex flex-wrap gap-x-4">
-                                                <span className="flex items-center gap-1.5"><CalendarDaysIcon className="h-3.5 w-3.5 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
-                                                {post.availableUntil && <span className="flex items-center gap-1.5"><ClockIcon className="h-3.5 w-3.5 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
+                                            <h3 className="font-bold text-slate-900 dark:text-white text-base sm:text-xl group-hover:text-[#007AFF] dark:group-hover:text-[#0A84FF] transition-colors truncate tracking-tight">{post.title}</h3>
+                                            <div className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 sm:mt-2 flex flex-wrap gap-x-2 sm:gap-x-4 gap-y-1">
+                                                <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
+                                                {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
                                                 {(() => {
                                                     let targetText = "All Students";
                                                     if (post.targetAudience === 'specific') targetText = `${post.targetStudentIds?.length || 0} Student(s)`;
-                                                    return <span className="flex items-center gap-1.5"><UsersIcon className="h-3.5 w-3.5 text-slate-400" />Target: {targetText}</span>;
+                                                    return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-slate-400" />Target: {targetText}</span>;
                                                 })()}
                                             </div>
                                         </div>
-                                        <div className="flex-shrink-0 flex items-center gap-3 pl-4">
+                                        <div className="flex-shrink-0 flex items-center gap-1 sm:gap-3 pl-2 sm:pl-4">
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); handleEditDatesClick(post); }} 
                                                 title="Edit Availability" 
-                                                className="flex items-center gap-1.5 text-sm font-semibold text-[#007AFF] hover:text-[#0051A8] px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                                className="flex items-center gap-1 text-xs sm:text-sm font-semibold text-[#007AFF] hover:text-[#0051A8] px-1.5 py-1 sm:px-2 sm:py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                                             >
-                                                <PencilSquareIcon className="w-4 h-4" /> <span className="hidden sm:inline">Manage</span>
+                                                <PencilSquareIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Manage</span>
                                             </button>
                                             <div className={`p-1 rounded-full bg-slate-100 dark:bg-white/10 transition-transform duration-300 ${isPostCollapsed ? '' : 'rotate-180'}`}>
-                                                <ChevronDownIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                                                <ChevronDownIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 dark:text-slate-400" />
                                             </div>
                                         </div>
                                     </div>
                                 </button>
                                 
                                 {!isPostCollapsed && (
-                                    <div className="space-y-4 px-4 pb-5">
+                                    <div className="space-y-3 sm:space-y-4 px-3 sm:px-4 pb-3 sm:pb-5">
                                         {sortedUnitKeys.map(unitDisplayName => {
                                             const quizzesInUnit = unitsInPost[unitDisplayName];
                                             const unitKey = `${post.id}_${unitDisplayName}`;
@@ -893,16 +893,16 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                             const isAllSelected = quizIdsInUnit.length > 0 && quizIdsInUnit.every(id => selectedSet.has(id));
 
                                             return (
-                                                <div key={unitKey} className="bg-white/50 dark:bg-black/20 rounded-2xl border border-slate-200/60 dark:border-white/5 overflow-hidden">
-                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-4 py-3 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5">
+                                                <div key={unitKey} className="bg-white/50 dark:bg-black/20 rounded-xl sm:rounded-2xl border border-slate-200/60 dark:border-white/5 overflow-hidden">
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5">
                                                         <button className="flex-1 flex items-center gap-2 group min-w-0" onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}>
-                                                            <h4 className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-200 group-hover:text-[#007AFF] transition-colors truncate">{unitDisplayName}</h4>
-                                                            <ChevronDownIcon className={`h-4 w-4 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
+                                                            <h4 className="font-bold text-xs sm:text-base text-slate-800 dark:text-slate-200 group-hover:text-[#007AFF] transition-colors truncate">{unitDisplayName}</h4>
+                                                            <ChevronDownIcon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
                                                         </button>
-                                                        <label className="flex items-center justify-end gap-2.5 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0 select-none">
+                                                        <label className="flex items-center justify-end gap-2 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0 select-none">
                                                             <input
                                                                 type="checkbox"
-                                                                className="h-4 w-4 rounded-[4px] text-[#007AFF] border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-[#007AFF]"
+                                                                className="h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-[4px] text-[#007AFF] border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-[#007AFF]"
                                                                 checked={isAllSelected}
                                                                 onChange={() => {
                                                                     const set = setSelectedQuizzes;
@@ -914,7 +914,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                     });
                                                                 }}
                                                             />
-                                                            <span className="text-[13px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Select All</span>
+                                                            <span className="text-[11px] sm:text-[13px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Select All</span>
                                                         </label>
                                                     </div>
                                                     
@@ -927,7 +927,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                         <label className="p-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
                                                                             <input
                                                                                 type="checkbox"
-                                                                                className="h-5 w-5 rounded-[6px] text-[#007AFF] border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-[#007AFF] transition-all"
+                                                                                className="h-4 w-4 sm:h-5 sm:w-5 rounded-[6px] text-[#007AFF] border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-[#007AFF] transition-all"
                                                                                 checked={isChecked}
                                                                                 onChange={() => handleToggleSelection('quiz', quizDetails.id)}
                                                                             />
@@ -941,12 +941,12 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                                 availableUntil: post.availableUntil
                                                                             })}
                                                                         >
-                                                                            <p className="font-semibold text-slate-900 dark:text-white text-base cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors truncate">
+                                                                            <p className="font-semibold text-slate-900 dark:text-white text-sm sm:text-base cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors truncate">
                                                                                 {quizDetails.title}
                                                                             </p>
                                                                         </div>
                                                                         <div className="flex space-x-1 flex-shrink-0">
-                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, quizDetails.id, 'quiz'); }} className="p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Unshare Quiz"><TrashIcon className="w-5 h-5" /></button>
+                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, quizDetails.id, 'quiz'); }} className="p-1.5 sm:p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Unshare Quiz"><TrashIcon className="w-4 h-4 sm:w-5 sm:h-5" /></button>
                                                                         </div>
                                                                     </ListItem>
                                                                 );
@@ -997,21 +997,21 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             return (
                  <div className="space-y-3 pb-8">
                     {(freshStudentData.length > 0) ? (
-                        <div className="bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-xl rounded-3xl border border-white/20 dark:border-white/5 shadow-sm overflow-hidden">
+                        <div className="bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/20 dark:border-white/5 shadow-sm overflow-hidden">
                             <div className="divide-y divide-slate-100 dark:divide-white/5">
                                 {freshStudentData.map(student => (
-                                    <div key={student.id} className="flex items-center justify-between gap-4 py-4 px-5 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden ring-2 ring-white dark:ring-white/10 shadow-sm">
+                                    <div key={student.id} className="flex items-center justify-between gap-3 sm:gap-4 py-3 sm:py-4 px-4 sm:px-5 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
+                                        <div className="flex items-center gap-3 sm:gap-4">
+                                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex-shrink-0 overflow-hidden ring-2 ring-white dark:ring-white/10 shadow-sm">
                                                 <UserInitialsAvatar user={student} size="full" />
                                             </div>
                                             <div>
-                                                <p className="font-bold text-slate-900 dark:text-white text-base">{student.lastName || '[N/A]'}, {student.firstName || '[N/A]'}</p>
-                                                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">ID: {student.id}</p>
+                                                <p className="font-bold text-slate-900 dark:text-white text-sm sm:text-base">{student.lastName || '[N/A]'}, {student.firstName || '[N/A]'}</p>
+                                                <p className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400">ID: {student.id}</p>
                                             </div>
                                         </div>
-                                        <button onClick={() => onRemoveStudent(classData.id, student)} className="p-2 rounded-full text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title={`Remove ${student.firstName}`}>
-                                            <TrashIcon className="w-5 h-5" />
+                                        <button onClick={() => onRemoveStudent(classData.id, student)} className="p-1.5 sm:p-2 rounded-full text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title={`Remove ${student.firstName}`}>
+                                            <TrashIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                                         </button>
                                     </div>
                                 ))}
@@ -1025,7 +1025,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         return (
             <div className="flex flex-col pb-8">
                 {showAddForm && (<div className="mb-6 flex-shrink-0"><CreateClassAnnouncementForm classId={classData.id} onAnnouncementPosted={() => setShowAddForm(false)} /></div>)}
-                <div className="space-y-5 flex-grow">
+                <div className="space-y-4 sm:space-y-5 flex-grow">
                     {announcements.length > 0 ? announcements.map(post => (<AnnouncementListItem key={post.id} post={post} isOwn={userProfile?.id === post.teacherId} onEdit={() => { setEditingId(post.id); setEditContent(post.content); }} onDelete={() => handleDelete(post.id)} isEditing={editingId === post.id} editContent={editContent} onChangeEdit={onChangeEdit} onSaveEdit={() => handleEditSave(post.id)} onCancelEdit={() => setEditingId(null)} onClick={() => setSelectedAnnouncement(post)} />)) : <EmptyState icon={MegaphoneIcon} text="No announcements yet" subtext="Post important updates for your students here." />}
                 </div>
             </div>
@@ -1053,12 +1053,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 contentClassName="p-0 w-full h-full flex items-center justify-center pointer-events-none" 
                 showCloseButton={false}
             >
-                {/* FIXED STRUCTURE WRAPPER:
-                   - h-[100dvh] (Dynamic Viewport Height) ensures full height on mobile including browser bars.
-                   - sm:h-[85vh] gives the "card" look on desktop.
-                   - flex flex-col allows us to pin the header and scroll the rest.
-                   - pointer-events-auto restores interaction.
-                */}
+                {/* FIXED STRUCTURE WRAPPER */}
                 <div className="pointer-events-auto relative w-full max-w-7xl h-[100dvh] sm:h-[85vh] bg-[#f5f5f7] dark:bg-black overflow-hidden flex flex-col mx-auto rounded-none sm:rounded-[32px] shadow-2xl border border-white/20 dark:border-white/10">
                     
                     <AuroraBackground />
@@ -1066,58 +1061,55 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                     {/* --- FIXED HEADER SECTION --- */}
                     <div className="relative z-20 flex-shrink-0 bg-white/60 dark:bg-[#1c1c1e]/80 backdrop-blur-xl border-b border-white/20 dark:border-white/5">
                         {/* Close Button */}
-                        <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-30">
+                        <div className="absolute top-3 right-3 sm:top-6 sm:right-6 z-30">
                              <button onClick={onClose} className="p-2 rounded-full bg-slate-200/50 dark:bg-white/10 hover:bg-slate-300/50 dark:hover:bg-white/20 transition-colors text-slate-600 dark:text-slate-300 backdrop-blur-md">
-                                <XMarkIcon className="w-6 h-6" />
+                                <XMarkIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                             </button>
                         </div>
 
                         {/* Title & Meta Area (reduced padding on mobile) */}
-                        <div className="px-5 pt-5 sm:px-8 sm:pt-8 pb-4">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-4 sm:mb-6 pr-10">
+                        <div className="px-4 pt-4 sm:px-8 sm:pt-8 pb-3 sm:pb-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-3 sm:mb-6 pr-10">
                                 <div>
-                                    <h1 className="text-2xl sm:text-4xl font-bold text-slate-900 dark:text-white tracking-tight drop-shadow-sm line-clamp-1">{classData?.name || 'Class Details'}</h1>
-                                    <div className="flex flex-wrap items-center gap-x-4 sm:gap-x-6 gap-y-2 mt-2">
-                                        <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-2">
-                                            <span className="px-2 py-0.5 rounded-md bg-slate-200/50 dark:bg-white/10 text-[10px] sm:text-xs uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Grade</span>
+                                    <h1 className="text-xl sm:text-4xl font-bold text-slate-900 dark:text-white tracking-tight drop-shadow-sm line-clamp-1">{classData?.name || 'Class Details'}</h1>
+                                    <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-6 gap-y-1.5 sm:gap-y-2 mt-1 sm:mt-2">
+                                        <p className="text-[10px] sm:text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5 sm:gap-2">
+                                            <span className="px-1.5 py-0.5 rounded-md bg-slate-200/50 dark:bg-white/10 text-[9px] sm:text-xs uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Grade</span>
                                             {classData?.gradeLevel}
                                         </p>
                                         
-                                        <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-                                            <span className="px-2 py-0.5 rounded-md bg-slate-200/50 dark:bg-white/10 text-xs uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Owner</span>
-                                            <div className="flex items-center gap-1.5">
-                                                <UserInitialsAvatar user={userProfile} size="w-5 h-5" />
+                                        <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-sm font-medium text-slate-600 dark:text-slate-300">
+                                            <span className="px-1.5 py-0.5 rounded-md bg-slate-200/50 dark:bg-white/10 text-[9px] sm:text-xs uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Owner</span>
+                                            <div className="flex items-center gap-1">
+                                                <UserInitialsAvatar user={userProfile} size="w-4 h-4 sm:w-5 sm:h-5" />
                                                 <span>{userProfile?.displayName}</span>
                                             </div>
                                         </div>
                                         
-                                        <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-2">
-                                             <span className="px-2 py-0.5 rounded-md bg-slate-200/50 dark:bg-white/10 text-[10px] sm:text-xs uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Code</span>
+                                        <p className="text-[10px] sm:text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5 sm:gap-2">
+                                             <span className="px-1.5 py-0.5 rounded-md bg-slate-200/50 dark:bg-white/10 text-[9px] sm:text-xs uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Code</span>
                                             <span className="font-mono font-bold text-[#007AFF] tracking-wider">{classData?.classCode}</span>
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* SEGMENTED CONTROL TABS (Design Enhanced) 
-                                - Uses a background container to look like a segmented control.
-                                - Hides scrollbar but allows horizontal scroll on small screens.
-                            */}
+                            {/* SEGMENTED CONTROL TABS */}
                             <div className="w-full overflow-hidden">
-                                <div className="flex items-center p-1.5 bg-slate-200/50 dark:bg-black/20 backdrop-blur-md rounded-2xl overflow-x-auto no-scrollbar max-w-full sm:w-fit shadow-inner">
+                                <div className="flex items-center p-1 sm:p-1.5 bg-slate-200/50 dark:bg-black/20 backdrop-blur-md rounded-xl sm:rounded-2xl overflow-x-auto no-scrollbar max-w-full sm:w-fit shadow-inner">
                                     {tabs.map(tab => (
                                         <button
                                             key={tab.id}
                                             onClick={() => handleTabChange(tab.id)}
                                             className={`
-                                                relative flex-shrink-0 flex items-center gap-2 px-3 sm:px-5 py-2 rounded-xl font-semibold text-[13px] transition-all duration-300 ease-out
+                                                relative flex-shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-semibold text-xs sm:text-[13px] transition-all duration-300 ease-out
                                                 ${activeTab === tab.id
                                                     ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-sm scale-[1.02]'
                                                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/30 dark:hover:bg-white/5'}
                                             `}
                                         >
-                                            <tab.icon className={`h-4 w-4 transition-colors ${activeTab === tab.id ? 'text-[#007AFF] dark:text-white' : ''}`} />
-                                            <span className="whitespace-nowrap">{tab.name} {tab.count !== undefined && <span className="opacity-60 text-xs ml-0.5">({tab.count})</span>}</span>
+                                            <tab.icon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 transition-colors ${activeTab === tab.id ? 'text-[#007AFF] dark:text-white' : ''}`} />
+                                            <span className="whitespace-nowrap">{tab.name} {tab.count !== undefined && <span className="opacity-60 text-[10px] sm:text-xs ml-0.5">({tab.count})</span>}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -1125,29 +1117,27 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                         </div>
                     </div>
 
-                    {/* --- FIXED TOOLBAR SECTION --- 
-                        Stays docked below header, above content.
-                    */}
-                    <div className="relative z-10 flex-shrink-0 px-5 sm:px-6 py-3 bg-white/30 dark:bg-black/20 backdrop-blur-md border-b border-white/10 flex items-center justify-between gap-4 min-h-[60px]">
+                    {/* --- FIXED TOOLBAR SECTION --- */}
+                    <div className="relative z-10 flex-shrink-0 px-4 sm:px-6 py-2.5 sm:py-3 bg-white/30 dark:bg-black/20 backdrop-blur-md border-b border-white/10 flex items-center justify-between gap-4 min-h-[50px] sm:min-h-[60px]">
                          <div className="text-sm font-medium text-slate-500 dark:text-slate-400 hidden sm:block">
                             {/* Placeholder for status text if needed */}
                          </div>
-                         <div className="flex items-center gap-3 ml-auto w-full sm:w-auto justify-end">
+                         <div className="flex items-center gap-2 sm:gap-3 ml-auto w-full sm:w-auto justify-end">
                                 {activeTab === 'lessons' && selectedLessons.size > 0 && (
                                     <button 
                                         onClick={() => handleDeleteSelected('lesson')} 
-                                        className="flex items-center justify-center gap-2 px-5 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-full shadow-lg shadow-red-500/30 active:scale-95 transition-all w-full sm:w-auto"
+                                        className="flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-1.5 sm:py-2 bg-red-500 hover:bg-red-600 text-white text-xs sm:text-sm font-semibold rounded-full shadow-lg shadow-red-500/30 active:scale-95 transition-all w-full sm:w-auto"
                                     >
-                                        <TrashIcon className="w-4 h-4" />
+                                        <TrashIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                         <span>Delete Selected ({selectedLessons.size})</span>
                                     </button>
                                 )}
                                 {activeTab === 'quizzes' && selectedQuizzes.size > 0 && (
                                     <button 
                                         onClick={() => handleDeleteSelected('quiz')} 
-                                        className="flex items-center justify-center gap-2 px-5 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-full shadow-lg shadow-red-500/30 active:scale-95 transition-all w-full sm:w-auto"
+                                        className="flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-1.5 sm:py-2 bg-red-500 hover:bg-red-600 text-white text-xs sm:text-sm font-semibold rounded-full shadow-lg shadow-red-500/30 active:scale-95 transition-all w-full sm:w-auto"
                                     >
-                                        <TrashIcon className="w-4 h-4" />
+                                        <TrashIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                         <span>Delete Selected ({selectedQuizzes.size})</span>
                                     </button>
                                 )}
@@ -1155,9 +1145,9 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                 {activeTab === 'scores' && (
                                     <button
                                         onClick={() => setIsReportModalOpen(true)}
-                                        className="flex items-center justify-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-bold rounded-full shadow-lg shadow-blue-500/25 active:scale-95 transition-all w-full sm:w-auto"
+                                        className="flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-1.5 sm:py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-xs sm:text-sm font-bold rounded-full shadow-lg shadow-blue-500/25 active:scale-95 transition-all w-full sm:w-auto"
                                     >
-                                        <DocumentChartBarIcon className="h-4 w-4" />
+                                        <DocumentChartBarIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                         <span>Generate Report</span>
                                     </button>
                                 )}
@@ -1165,21 +1155,17 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                 {activeTab === 'announcements' && userProfile?.role === 'teacher' && (
                                     <button 
                                         onClick={() => setShowAddForm(prev => !prev)} 
-                                        className="flex items-center justify-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-bold rounded-full shadow-lg shadow-blue-500/25 active:scale-95 transition-all w-full sm:w-auto"
+                                        className="flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-1.5 sm:py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-xs sm:text-sm font-bold rounded-full shadow-lg shadow-blue-500/25 active:scale-95 transition-all w-full sm:w-auto"
                                     >
-                                        <PlusCircleIcon className={`h-5 w-5 transition-transform ${showAddForm ? 'rotate-45' : ''}`} />
+                                        <PlusCircleIcon className={`h-4 w-4 sm:h-5 sm:w-5 transition-transform ${showAddForm ? 'rotate-45' : ''}`} />
                                         <span>{showAddForm ? 'Cancel' : 'New Post'}</span>
                                     </button>
                                 )}
                             </div>
                     </div>
 
-                    {/* --- SCROLLABLE CONTENT AREA --- 
-                        flex-1: Takes remaining vertical space.
-                        overflow-y-auto: Enables internal scrolling.
-                        overscroll-contain: Prevents parent body scroll.
-                    */}
-                    <div className="relative z-0 flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 overscroll-contain">
+                    {/* --- SCROLLABLE CONTENT AREA --- */}
+                    <div className="relative z-0 flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-6 overscroll-contain">
                         {renderContent()}
                     </div>
 
@@ -1245,26 +1231,26 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 const AnnouncementListItem = ({ post, isOwn, onEdit, onDelete, isEditing, editContent, onChangeEdit, onSaveEdit, onCancelEdit, onClick }) => {
     const formattedDate = post.createdAt?.toDate ? post.createdAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '...';
     return (
-        <div className="group relative bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-xl p-6 rounded-3xl border border-white/20 dark:border-white/5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer" onClick={!isEditing ? onClick : undefined}>
+        <div className="group relative bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-xl p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/20 dark:border-white/5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer" onClick={!isEditing ? onClick : undefined}>
             {isEditing ? (
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3 sm:gap-4">
                     <textarea 
-                        className="w-full border-none p-4 rounded-xl text-base text-slate-900 dark:text-white focus:ring-2 focus:ring-[#007AFF]/20 bg-white dark:bg-black/20 resize-none" 
+                        className="w-full border-none p-3 sm:p-4 rounded-xl text-sm sm:text-base text-slate-900 dark:text-white focus:ring-2 focus:ring-[#007AFF]/20 bg-white dark:bg-black/20 resize-none" 
                         rows={3} 
                         value={editContent} 
                         onChange={onChangeEdit} 
                         onClick={(e) => e.stopPropagation()} 
                         autoFocus
                     />
-                    <div className="flex justify-end gap-3">
+                    <div className="flex justify-end gap-2 sm:gap-3">
                         <button 
-                            className="px-5 py-2 text-sm rounded-full font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors" 
+                            className="px-4 py-1.5 sm:px-5 sm:py-2 text-xs sm:text-sm rounded-full font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors" 
                             onClick={(e) => { e.stopPropagation(); onCancelEdit(); }}
                         >
                             Cancel
                         </button>
                         <button 
-                            className="px-5 py-2 text-sm rounded-full font-semibold text-white bg-[#007AFF] hover:bg-[#0062CC] shadow-lg shadow-blue-500/30 transition-all active:scale-95" 
+                            className="px-4 py-1.5 sm:px-5 sm:py-2 text-xs sm:text-sm rounded-full font-semibold text-white bg-[#007AFF] hover:bg-[#0062CC] shadow-lg shadow-blue-500/30 transition-all active:scale-95" 
                             onClick={(e) => { e.stopPropagation(); onSaveEdit(); }}
                         >
                             Save Changes
@@ -1272,18 +1258,18 @@ const AnnouncementListItem = ({ post, isOwn, onEdit, onDelete, isEditing, editCo
                     </div>
                 </div>
             ) : (
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start justify-between gap-3 sm:gap-4">
                     <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-800 dark:text-white text-lg leading-relaxed group-hover:text-[#007AFF] transition-colors line-clamp-3">{post.content}</p>
-                        <div className="flex items-center gap-2 mt-3 text-xs font-medium text-slate-500 dark:text-slate-400">
-                            <span className="px-2 py-1 rounded-md bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">{post.teacherName}</span>
+                        <p className="font-medium text-slate-800 dark:text-white text-base sm:text-lg leading-relaxed group-hover:text-[#007AFF] transition-colors line-clamp-3">{post.content}</p>
+                        <div className="flex items-center gap-2 mt-2 sm:mt-3 text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400">
+                            <span className="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">{post.teacherName}</span>
                             <span>•</span>
                             <span>{formattedDate}</span>
                         </div>
                     </div>
                     {isOwn && <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <button onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit" className="p-2 rounded-full text-slate-400 hover:text-[#007AFF] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><PencilSquareIcon className="w-5 h-5" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete" className="p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><TrashIcon className="w-5 h-5" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit" className="p-1.5 sm:p-2 rounded-full text-slate-400 hover:text-[#007AFF] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><PencilSquareIcon className="w-4 h-4 sm:w-5 sm:h-5" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete" className="p-1.5 sm:p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><TrashIcon className="w-4 h-4 sm:w-5 sm:h-5" /></button>
                     </div>}
                 </div>
             )}

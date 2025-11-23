@@ -18,6 +18,7 @@ import {
   CalculatorIcon,
   XMarkIcon,
   ArrowPathIcon,
+	ComputerDesktopIcon,
   CursorArrowRaysIcon // Icon for "Click to Label" hint
 } from '@heroicons/react/24/outline';
 
@@ -108,16 +109,22 @@ const H1Icon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentC
 const H2Icon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1" /></svg>);
 const H3Icon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1" /></svg>);
 
-// --- LANDSCAPE WARNING ---
-const LandscapeWarning = () => (
-    <div className="fixed inset-0 z-[100] bg-[#f5f5f7]/95 dark:bg-black/95 backdrop-blur-3xl flex flex-col items-center justify-center p-8 text-center lg:hidden portrait:flex">
-        <div className="w-24 h-24 rounded-[32px] bg-white dark:bg-white/10 shadow-2xl flex items-center justify-center mb-8 animate-bounce-slow ring-1 ring-black/5">
-            <DevicePhoneMobileIcon className="w-12 h-12 text-[#007AFF] rotate-90 stroke-[1.5]" />
+// --- MOBILE RESTRICTION OVERLAY ---
+const MobileRestricted = ({ onClose }) => (
+    <div className="fixed inset-0 z-[100] bg-[#f5f5f7] dark:bg-[#121212] flex flex-col items-center justify-center p-8 text-center lg:hidden">
+        <div className="w-24 h-24 rounded-[32px] bg-white dark:bg-white/10 shadow-2xl flex items-center justify-center mb-8 ring-1 ring-black/5">
+            <ComputerDesktopIcon className="w-12 h-12 text-slate-400 dark:text-slate-500" />
         </div>
-        <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4 tracking-tight">Rotate to Edit</h3>
-        <p className="text-lg text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed font-medium">
-            The quiz creator requires landscape mode for the best experience.
+        <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">Desktop Required</h3>
+        <p className="text-base text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed font-medium mb-8">
+            This feature is disabled on mobile devices. Kindly use the desktop version for the best content creation experience.
         </p>
+        <button 
+            onClick={onClose}
+            className="px-8 py-3 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-sm hover:scale-105 active:scale-95 transition-all"
+        >
+            Go Back
+        </button>
     </div>
 );
 
@@ -513,7 +520,7 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#f5f5f7] dark:bg-[#121212] font-sans text-slate-900 dark:text-white overflow-hidden">
-      <LandscapeWarning />
+     <MobileRestricted onClose={onClose} />
 
       {/* Header */}
       <div className="flex-shrink-0 px-6 py-4 border-b border-black/5 dark:border-white/5 bg-white/70 dark:bg-[#1e1e1e]/70 backdrop-blur-xl z-20 sticky top-0 flex items-center justify-between">

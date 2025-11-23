@@ -57,29 +57,20 @@ const scrollbarStyles = `
     height: 0px;
   }
   
-  /* For specific scrollable areas if needed */
-  .mac-scrollbar::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+  /* Apply to the specific scroll container in the dashboard */
+  .app-scroll-container::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
   }
-  .mac-scrollbar::-webkit-scrollbar-track {
+  .app-scroll-container::-webkit-scrollbar-track {
     background: transparent; 
   }
-  .mac-scrollbar::-webkit-scrollbar-thumb {
+  .app-scroll-container::-webkit-scrollbar-thumb {
     background-color: rgba(0, 0, 0, 0.1); 
     border-radius: 100px;
   }
-  .dark .mac-scrollbar::-webkit-scrollbar-thumb {
+  .dark .app-scroll-container::-webkit-scrollbar-thumb {
     background-color: rgba(255, 255, 255, 0.1); 
-  }
-
-  /* Hide Scrollbar Utility */
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .no-scrollbar {
-    -ms-overflow-style: none;  
-    scrollbar-width: none;  
   }
 
   /* Glass Morphism Utilities - Enhanced for Dark Mode */
@@ -630,15 +621,17 @@ const StudentDashboardUI = ({
     };
 
     return (
-        <div className="min-h-screen font-sans bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-blue-500/30 overflow-hidden flex flex-col">
+        // MODIFIED: h-screen and overflow-hidden on root to lock window scroll
+        <div className="h-screen w-full font-sans bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-blue-500/30 overflow-hidden flex flex-col">
             {/* INJECT STYLES */}
             <style>{scrollbarStyles}</style>
 
             {/* --- Mesh Gradient Background --- */}
             <div className="fixed inset-0 z-0 mesh-bg pointer-events-none opacity-60 dark:opacity-30"></div>
 
-            {/* --- UNIFIED HEADER (Desktop Nav + Actions) --- */}
-            <header className="sticky top-0 z-50 px-4 pt-4 pb-2">
+            {/* --- UNIFIED HEADER (NOW RELATIVE FLEX ITEM) --- */}
+            {/* MODIFIED: Removed 'fixed' and 'absolute'. Added 'flex-none z-50 relative'. */}
+            <header className="flex-none z-50 relative px-4 pt-2 pb-2 transition-all duration-300">
                 <div className="glass-panel mx-auto max-w-[1920px] rounded-[1.5rem] px-4 py-2.5 shadow-lg flex items-center justify-between relative">
                     
                     {/* 1. LEFT: Logo & Brand (ALWAYS VISIBLE) */}
@@ -748,21 +741,23 @@ const StudentDashboardUI = ({
                 </div>
             </header>
 
-            {/* --- Main Content --- */}
-            <main className="flex-1 relative z-0 w-full flex flex-col">
+            {/* --- Main Content (App Shell Scroll Model) --- */}
+            {/* MODIFIED: Removed pt-24. Added flex-1 and relative overflow-hidden */}
+            <main className="flex-1 relative z-0 w-full flex flex-col overflow-hidden">
                 <AnimatePresence mode="wait">
                     {isFetching ? (
-                        <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full">
+                        <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full overflow-y-auto app-scroll-container">
                             <DashboardSkeleton />
                         </motion.div>
                     ) : (
+                        /* MODIFIED: The motion.div is now the scroll container. overflow-y-auto added here. */
                         <motion.div
                             key={view + (selectedClass ? '-detail' : '')}
-                            initial={{ opacity: 0, y: 20, scale: 0.98 }} // Removed filter blur to fix z-index trap
-                            animate={{ opacity: 1, y: 0, scale: 1 }}    // Removed filter blur to fix z-index trap
-                            exit={{ opacity: 0, y: -20, scale: 0.98 }}  // Removed filter blur to fix z-index trap
+                            initial={{ opacity: 0, y: 20, scale: 0.98 }} 
+                            animate={{ opacity: 1, y: 0, scale: 1 }}    
+                            exit={{ opacity: 0, y: -20, scale: 0.98 }}  
                             transition={{ duration: 0.35, ease: [0.25, 1, 0.5, 1] }}
-                            className="w-full h-full flex flex-col"
+                            className="w-full h-full flex flex-col overflow-y-auto app-scroll-container scroll-smooth"
                         >
                             {renderView()}
                         </motion.div>
@@ -771,7 +766,7 @@ const StudentDashboardUI = ({
             </main>
 
             {/* --- Mobile Bottom Dock (Visible ONLY on Mobile/Tablet) --- */}
-            {/* Lowered z-index to 40 to ensure Modals (usually z-50+) are definitely on top */}
+            {/* MODIFIED: Changed z-index to 40 to ensure it sits above the scroll container but below modals */}
             <div className="fixed bottom-6 left-0 right-0 flex justify-center z-40 lg:hidden pointer-events-none">
                 <motion.div layout className="macos-dock pointer-events-auto px-2 py-2 rounded-full flex items-center justify-between w-[90%] max-w-sm sm:gap-3">
                     {sidebarNavItems.map(item => { 

@@ -128,7 +128,8 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
             className={`relative w-full max-w-md p-10 flex flex-col items-center text-center ${glassCard}`}
           >
             <div className="w-24 h-24 mb-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/30 flex items-center justify-center animate-bounce-slow">
-                 <img src="https://i.ibb.co/XfJ8scGX/1.png" alt="Logo" className="w-12 h-12 object-contain brightness-0 invert" />
+                 {/* Updated Image Source */}
+                 <img src="/logo.png" alt="Logo" className="w-12 h-12 object-contain brightness-0 invert" />
             </div>
 
             <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">

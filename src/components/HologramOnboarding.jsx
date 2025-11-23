@@ -97,10 +97,10 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
                 </div>
 
                 {/* UPDATED CONTAINER: 
-                    - Fixed height on mobile (h-[360px]) to prevent jumping/pushing.
-                    - Min-height on desktop (min-h-[320px]) for flexibility.
+                    - Changed from `min-h-[320px]` to fixed height `md:h-[480px]`.
+                    - This constraint forces the flex child (text area) to scroll when content overflows.
                 */}
-                <div className={`p-6 md:p-8 flex flex-col ${isMobile ? 'h-[360px]' : 'min-h-[320px]'}`}>
+                <div className="p-6 md:p-8 flex flex-col h-[360px] md:h-[480px]">
                     
                     {/* UPDATED CODE AREA:
                         - overflow-y-auto: Allows text to scroll inside the box.

@@ -13,8 +13,8 @@ import {
     PuzzlePieceIcon,
     FolderIcon,
     CalendarIcon,
-    PlayIcon,          // Added for new UI
-    ArrowPathIcon      // Added for new UI
+    PlayIcon,          
+    ArrowPathIcon      
 } from '@heroicons/react/24/solid';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -194,8 +194,8 @@ const QuizListItem = ({ quiz, onClick }) => {
                      <span className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-700/50 px-2 py-1 rounded-md">
                         {quiz.status === 'scheduled' && availableDate ? (
                             <>
-                               <CalendarIcon className="h-3.5 w-3.5" />
-                               {availableDate.toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                                <CalendarIcon className="h-3.5 w-3.5" />
+                                {availableDate.toLocaleDateString([], { month: 'short', day: 'numeric' })}
                             </>
                         ) : (
                             <>
@@ -530,16 +530,17 @@ const StudentQuizzesTab = ({
     return (
         <div className="min-h-screen font-sans pb-32 px-2 sm:px-4">
             
-            {/* --- HEADER --- */}
-            <div className="flex flex-col gap-6 mb-8 mt-4">
-                <div>
-                    <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">My Quizzes</h1>
-                    <p className="text-lg text-slate-500 dark:text-slate-400 mt-1">
-                        Assignments & Exams
-                    </p>
-                </div>
+            {/* --- TITLE HEADER (SCROLLS AWAY) --- */}
+            <div className="mt-4 mb-4">
+                <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">My Quizzes</h1>
+                <p className="text-lg text-slate-500 dark:text-slate-400 mt-1">
+                    Assignments & Exams
+                </p>
+            </div>
 
-                {/* --- GLASS SEGMENT CONTROL --- */}
+            {/* --- STICKY TAB BAR (FIXED ON TOP) --- */}
+            {/* Added sticky, top-0, z-50, and backdrop-blur styling here */}
+            <div className="sticky top-0 z-50 py-3 -mx-2 px-2 sm:-mx-4 sm:px-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg transition-all duration-300 border-b border-transparent">
                 <div className="bg-slate-100/80 dark:bg-slate-800/60 backdrop-blur-xl p-1.5 rounded-2xl inline-flex w-full sm:w-auto shadow-inner ring-1 ring-black/5">
                     {['active', 'completed', 'overdue'].map((filter) => (
                         <button
@@ -559,7 +560,7 @@ const StudentQuizzesTab = ({
             </div>
 
             {/* --- MAIN CONTENT --- */}
-            <div className="relative min-h-[400px]">
+            <div className="relative min-h-[400px] mt-4">
                 <AnimatePresence>
                     {isFetchingContent && (
                         <motion.div
