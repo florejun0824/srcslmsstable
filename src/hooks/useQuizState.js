@@ -1,15 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { db } from '../services/firebase'; // Adjust path if needed
+import { db } from '../services/firebase'; 
 import { collection, query, where, getDocs, doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
-import { useToast } from '../contexts/ToastContext'; // Adjust path if needed
-import { useAuth } from '../contexts/AuthContext'; // Adjust path if needed
+import { useToast } from '../contexts/ToastContext'; 
+import { useAuth } from '../contexts/AuthContext'; 
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import localforage from 'localforage';
-import { queueQuizSubmission, syncOfflineSubmissions } from '../services/offlineSyncService'; // Adjust path if needed
-import { shuffleArray } from '../components/teacher/quiz/quizUtils'; // Adjust path if needed
+import { queueQuizSubmission, syncOfflineSubmissions } from '../services/offlineSyncService'; 
+import { shuffleArray } from '../components/teacher/quiz/quizUtils'; 
 
-// Import the hooks we created
 import useQuizAntiCheat from './useQuizAntiCheat';
 import useQuizGamification from './useQuizGamification';
 import { XP_PER_QUIZ_QUESTION } from '../config/gameConfig';
@@ -43,26 +42,27 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
     // --- GAMIFICATION STATE ---
     const [answerStreak, setAnswerStreak] = useState(0);
     const [questionStartTime, setQuestionStartTime] = useState(null);
-    const [xpGained, setXPGained] = useState(0); // Tracks XP gained *in this session*
+    const [xpGained, setXPGained] = useState(0);
 
-    // --- Ref Fix for showToast ---
     const { showToast } = useToast();
     const showToastRef = useRef(showToast);
     useEffect(() => {
         showToastRef.current = showToast;
     }, [showToast]);
-    // --- End Ref Fix ---
 
     const { refreshUserProfile } = useAuth();
-    const { handleGamificationUpdate } = useQuizGamification(); // Get the gamification handler
+    const { handleGamificationUpdate } = useQuizGamification();
 
     const MAX_WARNINGS = 3;
-    const warningKey = `quizWarnings_${quiz?.id}_${userProfile?.id}`;
-    const devToolWarningKey = `devToolWarnings_${quiz?.id}_${userProfile?.id}`;
-    const shuffleKey = `quizShuffle_${quiz?.id}_${userProfile?.id}`;
+    
+    // --- CRITICAL FIX: SCOPE KEYS TO POST ID ---
+    // We allow undefined postId for backward compatibility, but prefer it present
+    const safePostId = postId || 'global'; 
+    const warningKey = `quizWarnings_${quiz?.id}_${userProfile?.id}_${safePostId}`;
+    const devToolWarningKey = `devToolWarnings_${quiz?.id}_${userProfile?.id}_${safePostId}`;
+    const shuffleKey = `quizShuffle_${quiz?.id}_${userProfile?.id}_${safePostId}`;
+    
     const maxAttempts = quiz?.settings?.maxAttempts ?? 3;
-
-    // --- Logic Hooks (useEffect, useCallback) ---
 
     // Calculate question numbering and total possible points
     useEffect(() => {
@@ -89,6 +89,9 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
         const detectDevTools = isAntiCheatEnabled && (quiz?.settings?.detectDevTools ?? false);
         const warnOnPaste = isAntiCheatEnabled && (quiz?.settings?.warnOnPaste ?? false);
 
+        // --- CRITICAL FIX: SCOPE LOCK ID TO POST ID ---
+        const lockDocId = `${quiz.id}_${userProfile.id}_${safePostId}`;
+
         try {
             if (type === 'devTools') {
                 if (!detectDevTools) return;
@@ -99,7 +102,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                 if (newDevToolWarningCount >= MAX_WARNINGS) {
                     setIsLocked(true);
                     if (navigator.onLine) {
-                        const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
+                        const lockRef = doc(db, 'quizLocks', lockDocId); // Updated ID
                         await setDoc(lockRef, { 
                             quizId: quiz.id, 
                             studentId: userProfile.id, 
@@ -124,7 +127,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                 if (newWarningCount >= MAX_WARNINGS) {
                     setIsLocked(true);
                     if (navigator.onLine) {
-                        const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
+                        const lockRef = doc(db, 'quizLocks', lockDocId); // Updated ID
                         await setDoc(lockRef, { 
                             quizId: quiz.id, 
                             studentId: userProfile.id, 
@@ -146,7 +149,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                 if (newWarningCount >= MAX_WARNINGS) {
                     setIsLocked(true);
                     if (navigator.onLine) {
-                        const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
+                        const lockRef = doc(db, 'quizLocks', lockDocId); // Updated ID
                         await setDoc(lockRef, { 
                             quizId: quiz.id, 
                             studentId: userProfile.id, 
@@ -163,7 +166,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
             console.error("Failed to issue warning or update lock status:", error);
             showToastRef.current("Could not process warning. Please proceed with caution.", "error");
         }
-    }, [warnings, devToolWarnings, warningKey, devToolWarningKey, quiz, userProfile, classId, postId, isLocked, score, showReview, isTeacherView, hasSubmitted]);
+    }, [warnings, devToolWarnings, warningKey, devToolWarningKey, quiz, userProfile, classId, postId, safePostId, isLocked, score, showReview, isTeacherView, hasSubmitted]);
 
     // handleSubmit
     const handleSubmit = useCallback(async () => {
@@ -481,7 +484,8 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                     let localDevToolWarningCount = parseInt(localStorage.getItem(devToolWarningKey) || '0', 10);
 
                     if (navigator.onLine) {
-                        const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}`);
+                        // --- CRITICAL FIX: Check for Post-Specific Lock Doc ---
+                        const lockRef = doc(db, 'quizLocks', `${quiz.id}_${userProfile.id}_${safePostId}`);
                         const lockSnap = await getDoc(lockRef);
                         isDbLocked = lockSnap.exists();
 
@@ -495,13 +499,11 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                         }
 
                         const submissionsRef = collection(db, 'quizSubmissions');
-                        // --- ⬇⬇⬇ THIS IS THE FIX ⬇⬇⬇ ---
                         const q = query(submissionsRef,
                             where("postId", "==", postId),
                             where("studentId", "==", userProfile.id),
-                            where("quizId", "==", quiz.id) // <-- THIS LINE IS ADDED
+                            where("quizId", "==", quiz.id) 
                         );
-                        // --- ⬆⬆⬆ END OF FIX ⬆⬆⬆ ---
 
                         const querySnapshot = await getDocs(q);
                         dbSubmissions = querySnapshot.docs.map(d => ({ id: d.id, ...d.data(), submittedAt: d.data().submittedAt?.toDate ? d.data().submittedAt.toDate() : d.data().submittedAt }));
@@ -512,11 +514,10 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
                     setIsLocked(isDbLocked || isLocallyLocked);
 
                     const offlineSubmissions = await localforage.getItem("quiz-submission-outbox") || [];
-                    // --- MODIFIED: Make offline filter specific too ---
 					const myOfflineAttempts = offlineSubmissions.filter(sub =>
 					                        sub.postId === postId && 
                                             sub.studentId === userProfile.id &&
-                                            sub.quizId === quiz.id // <-- THIS LINE IS ADDED
+                                            sub.quizId === quiz.id 
                     );
 
                     if (navigator.onLine && myOfflineAttempts.length > 0) {
@@ -646,7 +647,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
 
     }, [
         isOpen, quiz, isTeacherView, warningKey, devToolWarningKey, shuffleKey,
-        userProfile?.id, classId, postId, maxAttempts, onComplete
+        userProfile?.id, classId, postId, safePostId, maxAttempts, onComplete
     ]);
 
 
@@ -789,8 +790,8 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
         classId,
         isTeacherView,
         maxAttempts,
-        warnings, // Pass warnings state to the main component
-        isInfractionActive, // Pass infraction state
+        warnings, 
+        isInfractionActive, 
 
         // --- GAMIFICATION CONTEXT ---
         answerStreak,
@@ -823,7 +824,7 @@ export default function useQuizState({ isOpen, quiz, userProfile, classId, isTea
         handleStartNewAttempt,
         handleConfirmMatchingAnswer,
         renderQuestionNumber,
-        issueWarning, // Expose issueWarning for handleLeaveQuiz
+        issueWarning, 
         showToast: showToastRef.current,
 
         // Constants

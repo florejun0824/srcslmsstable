@@ -1,7 +1,7 @@
 // src/components/teacher/QuizScoresModal.jsx
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react'; // <-- ADDED useCallback
-import Modal from '../common/Modal'; // Adjust path if needed
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import Modal from '../common/Modal';
 import {
     AcademicCapIcon,
     ChartBarIcon,
@@ -15,118 +15,82 @@ import {
     SparklesIcon,
     PencilSquareIcon,
     ClockIcon,
-    DocumentChartBarIcon
+    DocumentChartBarIcon,
+    MagnifyingGlassIcon
 } from '@heroicons/react/24/solid';
-import { ClockIcon as ClockOutlineIcon } from '@heroicons/react/24/outline'; // Added
-import { Button } from '@tremor/react';
-import { collection, query, where, getDocs, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { ClockIcon as ClockOutlineIcon } from '@heroicons/react/24/outline';
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { gradeEssayWithAI } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 
-
 // Helper function for delay
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --- MODIFIED: StatCard Component (Made Responsive & Themed) ---
-const StatCard = ({ icon: Icon, title, value, color }) => (
-    // --- MODIFIED: Added dark mode classes ---
-    <div className={`flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark p-3 sm:p-4 rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark flex items-center gap-3 sm:gap-4`}>
-        {/* --- MODIFIED: Added dark mode classes --- */}
-        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark flex-shrink-0`}>
-            {/* Dynamically applying text color class (added dark variant) */}
-            <Icon className={`w-5 h-5 sm:w-6 sm:h-6 text-${color}-600 dark:text-${color}-400`} />
-        </div>
-        <div>
-            {/* --- MODIFIED: Added dark mode classes --- */}
-            <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">{title}</p>
-            <p className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100">{value}</p>
-        </div>
-    </div>
-);
-
-// --- MODIFIED: ScoreBadge Component (Slightly more compact & Themed) ---
-const ScoreBadge = ({ score, totalItems, isLate = false, status }) => {
-    let colorClasses = 'bg-gray-100 text-gray-700 dark:bg-slate-700 dark:text-slate-300'; // Default: Not Started / Unknown
-    let displayScore = '—';
-
-    // Determine badge appearance based on submission status
-    if (status === 'pending_ai_grading' || status === 'pending_review' || status === 'grading_failed') {
-        colorClasses = 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'; // Blue for pending/needs review
-        displayScore = 'Pending';
-    } else if (score !== null && score !== undefined && totalItems > 0) { // Graded with valid score & total
-        const percentage = (score / totalItems) * 100;
-        // Color based on percentage (using explicit classes for dark mode visibility)
-        if (percentage >= 90) colorClasses = 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'; // High score
-        else if (percentage >= 70) colorClasses = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300'; // Medium score
-        else colorClasses = 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'; // Low score
-        displayScore = `${score}/${totalItems}`; // Display score fraction
-    } else if (status === 'graded') {
-         // Graded, but score might be 0 or totalItems invalid
-         displayScore = `${score ?? 0}/${totalItems ?? 0}`;
-          const percentage = (totalItems > 0) ? ((score ?? 0) / totalItems) * 100 : 0;
-          // Apply color based on percentage even for 0 scores if graded
-          if (percentage >= 90) colorClasses = 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300';
-          else if (percentage >= 70) colorClasses = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
-          else colorClasses = 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
-    }
-    // 'Not Started' status will use the default '—' display
+// --- macOS 26 Component: Glass Stat Card ---
+const StatCard = ({ icon: Icon, title, value, color }) => {
+    const colorMap = {
+        blue: 'text-blue-600 dark:text-blue-400 bg-blue-500/10',
+        teal: 'text-teal-600 dark:text-teal-400 bg-teal-500/10',
+        purple: 'text-purple-600 dark:text-purple-400 bg-purple-500/10',
+    };
 
     return (
-        <div className="flex items-center justify-center gap-1 flex-col"> {/* Column layout for score + late */}
-            <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${colorClasses}`}>
-                {displayScore}
-            </span>
-            {/* Display 'LATE' badge if applicable */}
-            {/* --- MODIFIED: Added dark mode classes --- */}
-            {isLate && (
-                <span className="text-[10px] font-bold text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 rounded-full">LATE</span>
-            )}
+        <div className="group relative flex-1 overflow-hidden rounded-[24px] border border-white/40 dark:border-white/5 bg-white/40 dark:bg-black/20 backdrop-blur-xl shadow-sm transition-all hover:scale-[1.02] hover:shadow-lg p-5 flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-md shadow-inner ${colorMap[color] || colorMap.blue}`}>
+                <Icon className="w-6 h-6" />
+            </div>
+            <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">{title}</p>
+                <p className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">{value}</p>
+            </div>
         </div>
     );
 };
 
-// --- MODIFIED: StatusPill Component (Made Responsive & Themed) ---
+// --- macOS 26 Component: Status Pill ---
 const StatusPill = ({ status }) => {
-    // Configuration for different statuses
     const statusConfig = {
-        'graded': { icon: CheckCircleIcon, color: 'green', text: 'Completed' },
-        'pending_ai_grading': { icon: ClockOutlineIcon, color: 'blue', text: 'Pending Grade' },
-        'pending_review': { icon: PencilSquareIcon, color: 'orange', text: 'Needs Review' },
-        'grading_failed': { icon: XCircleIcon, color: 'orange', text: 'AI Error' }, // Specific status for AI failure
-        'Locked': { icon: LockClosedIcon, color: 'red', text: 'Locked' },
-        'Not Started': { icon: XCircleIcon, color: 'gray', text: 'Not Started' },
-    };
-    // Get config or fallback to 'Not Started'
-    const { icon: Icon, color, text } = statusConfig[status] || statusConfig['Not Started'];
-
-    // Make sure color classes are fully formed for Tailwind JIT
-    const colorClassMap = {
-        green: 'text-green-700 dark:text-green-300',
-        blue: 'text-blue-700 dark:text-blue-300',
-        orange: 'text-orange-700 dark:text-orange-300',
-        red: 'text-red-700 dark:text-red-300',
-        gray: 'text-gray-700 dark:text-slate-400',
-    };
-    const iconColorClassMap = {
-        green: 'text-green-500 dark:text-green-400',
-        blue: 'text-blue-500 dark:text-blue-400',
-        orange: 'text-orange-500 dark:text-orange-400',
-        red: 'text-red-500 dark:text-red-400',
-        gray: 'text-gray-500 dark:text-slate-500',
+        'graded': { icon: CheckCircleIcon, style: 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20', text: 'Graded' },
+        'pending_ai_grading': { icon: SparklesIcon, style: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20 animate-pulse', text: 'AI Grading' },
+        'pending_review': { icon: PencilSquareIcon, style: 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20', text: 'Needs Review' },
+        'grading_failed': { icon: XCircleIcon, style: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20', text: 'AI Failed' },
+        'Locked': { icon: LockClosedIcon, style: 'bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-500/20', text: 'Locked' },
+        'Not Started': { icon: ClockOutlineIcon, style: 'bg-slate-200/50 text-slate-500 border-slate-200/50', text: 'Pending' },
     };
 
+    const config = statusConfig[status] || statusConfig['Not Started'];
+    const Icon = config.icon;
 
     return (
-        <div className={`flex items-center gap-1 sm:gap-2 text-sm font-semibold ${colorClassMap[color] || colorClassMap['gray']}`}>
-            <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${iconColorClassMap[color] || iconColorClassMap['gray']}`} />
-            <span>{text}</span>
+        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border ${config.style}`}>
+            <Icon className="w-3.5 h-3.5" />
+            {config.text}
         </div>
     );
 };
 
+// --- macOS 26 Component: Score Badge ---
+const ScoreBadge = ({ score, totalItems, isLate }) => {
+    let bgClass = 'bg-slate-100 dark:bg-white/5 text-slate-500';
+    
+    if (score !== null && score !== undefined && totalItems > 0) {
+        const percentage = (score / totalItems) * 100;
+        if (percentage >= 90) bgClass = 'bg-green-500/10 text-green-700 dark:text-green-400';
+        else if (percentage >= 70) bgClass = 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400';
+        else bgClass = 'bg-red-500/10 text-red-700 dark:text-red-400';
+    }
 
-// Main Modal Component
+    return (
+        <div className="flex flex-col items-center gap-1">
+            <div className={`px-2.5 py-1 rounded-[10px] text-sm font-bold ${bgClass}`}>
+                {score ?? '-'} <span className="opacity-50 text-[10px]">/ {totalItems}</span>
+            </div>
+            {isLate && <span className="text-[9px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded-full">LATE</span>}
+        </div>
+    );
+};
+
 const QuizScoresModal = ({ 
     isOpen, 
     onClose, 
@@ -138,626 +102,402 @@ const QuizScoresModal = ({
     setIsReportModalOpen
 }) => {
     const { showToast } = useToast();
-    // State for table sorting configuration
     const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'ascending' });
-    // State for bulk grading process
     const [isBulkGrading, setIsBulkGrading] = useState(false);
-    // State to track if pending essays exist for the *current* quiz
     const [hasPendingEssaysForThisQuiz, setHasPendingEssaysForThisQuiz] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
-    // Get max attempts from quiz settings, default to 3
+    // --- NEW: Local State for Real-Time Updates ---
+    const [localQuizScores, setLocalQuizScores] = useState(quizScores || []);
+
+    // Sync local state when props change (from DB updates), but only if we aren't actively bulk grading to avoid jitter
+    useEffect(() => {
+        if (!isBulkGrading) {
+            setLocalQuizScores(quizScores || []);
+        }
+    }, [quizScores, isBulkGrading]);
+
     const maxAttempts = quiz?.settings?.maxAttempts ?? 3;
 
-
-    // Check for pending essays specific to this quiz whenever scores update
+    // Check for pending essays
     useEffect(() => {
-        if (quiz?.id && quizScores) {
-            // Check if *any* submission for *this quiz* is flagged or has a relevant pending status
-            const pending = quizScores.some(score =>
+        if (quiz?.id && localQuizScores) {
+            const pending = localQuizScores.some(score =>
                 score.quizId === quiz.id &&
                 (score.hasPendingEssays === true || score.status === 'pending_ai_grading')
             );
-            console.log(`[QuizScoresModal useEffect] Pending check for quiz ${quiz.id}: ${pending}`); // Log pending status check
             setHasPendingEssaysForThisQuiz(pending);
-        } else {
-            // Reset if quiz/scores are not available
-            setHasPendingEssaysForThisQuiz(false);
         }
-    }, [quizScores, quiz?.id]); // Re-run when scores or quiz changes
+    }, [localQuizScores, quiz?.id]);
 
-
-// Memoize processed student data for efficient sorting and display
+    // Process Student Data
     const processedStudentData = useMemo(() => {
-        // 1. UPDATE THE GUARD CLAUSE
         if (!classData?.students || !quiz?.id || !quiz?.postId) return [];
 
-        // Get availableUntil from the quiz prop (passed from ScoresTab)
-        const availableUntilDate = quiz?.availableUntil?.toDate();
+        const availableUntilDate = quiz?.availableUntil?.toDate ? quiz.availableUntil.toDate() : new Date(quiz.availableUntil);
 
-        const allStudents = classData.students.map(student => {
-            // 2. THIS IS THE CRITICAL FIX: UPDATE THE FILTER
-            // Find all attempts by this student for this specific quiz AND post
-            const studentAttempts = quizScores.filter(s => 
-                                              s.studentId === student.id && 
-                                              s.quizId === quiz.id &&
-                                              s.postId === quiz.postId // <-- ADD THIS FILTER
-                                          )
-                                          // Sort attempts chronologically (attempt 1 first)
-                                          .sort((a, b) => (a.attemptNumber || 0) - (b.attemptNumber || 0));
+        let allStudents = classData.students.map(student => {
+            // Use localQuizScores instead of prop quizScores for real-time reflection
+            const studentAttempts = localQuizScores.filter(s => 
+                s.studentId === student.id && 
+                s.quizId === quiz.id &&
+                s.postId === quiz.postId
+            ).sort((a, b) => (a.attemptNumber || 0) - (b.attemptNumber || 0));
 
-            // Check if this student is locked for this specific quiz
-            // This filter is likely fine, as locks are probably by quizId
             const isLocked = quizLocks.some(l => l.studentId === student.id && l.quizId === quiz.id && l.postId === quiz.postId);
 
-            // Determine overall status and find the attempt representing the highest score
             let status = 'Not Started';
-            let highestScoreAttempt = null; // Store the entire attempt object with the highest score
+            let highestScoreAttempt = null;
 
             if (studentAttempts.length > 0) {
-                 // Find the attempt with the highest score
-                 // Use reduce, initializing with a dummy object with score -1
                 highestScoreAttempt = studentAttempts.reduce((maxAttempt, currentAttempt) => {
-                    // Treat potentially missing scores as -1 for comparison
                     const maxScore = maxAttempt?.score ?? -1;
                     const currentScore = currentAttempt?.score ?? -1;
-                    // Return the attempt with the higher score
-                    return (currentScore >= maxScore ? currentAttempt : maxAttempt); // Use >= to prefer later attempts on ties
+                    return (currentScore >= maxScore ? currentAttempt : maxAttempt);
                 }, { score: -1 });
 
-                 // If reduce didn't find a valid attempt (e.g., all scores were null/undefined),
-                 // default to the latest attempt for status purposes.
-                 if (!highestScoreAttempt || highestScoreAttempt.score === -1) {
-                     highestScoreAttempt = studentAttempts[studentAttempts.length - 1];
-                 }
-
-                // The overall status reflects the *latest* attempt's status
-                status = studentAttempts[studentAttempts.length - 1].status || 'graded'; // Default to graded if status missing
+                if (!highestScoreAttempt || highestScoreAttempt.score === -1) {
+                    highestScoreAttempt = studentAttempts[studentAttempts.length - 1];
+                }
+                status = studentAttempts[studentAttempts.length - 1].status || 'graded';
             } else if (isLocked) {
-                // If no attempts but locked, set status to Locked
                 status = 'Locked';
             }
 
-            // Prepare an array representing attempt slots for table display (up to maxAttempts)
-             const attemptsDisplay = Array(maxAttempts).fill(null); // Create array based on maxAttempts
-             // Fill the slots with actual attempt data, preserving order
-             studentAttempts.slice(0, maxAttempts).forEach((attempt, index) => {
-                 
-                 // <-- Helper to safely convert to JS Date -->
-                 const getJsDate = (timestamp) => {
-                     if (!timestamp) {
-                         return null;
-                     }
-                     // Case 1: Firestore Timestamp
-                     if (typeof timestamp.toDate === 'function') {
-                         return timestamp.toDate();
-                     }
-                     // Case 2: Already a JS Date
-                     if (timestamp instanceof Date) {
-                         return timestamp;
-                     }
-                     // Case 3: String or number that can be parsed
-                     try {
-                         const date = new Date(timestamp);
-                         // Check if parsing resulted in a valid date
-                         if (!isNaN(date.getTime())) { 
-                             return date;
-                         }
-                     } catch (e) {
-                         // Parsing failed, will return null
-                     }
-                     // Fallback for unknown types
-                     return null;
-                 };
+            const attemptsDisplay = Array(maxAttempts).fill(null);
+            studentAttempts.slice(0, maxAttempts).forEach((attempt, index) => {
+                const getJsDate = (timestamp) => {
+                    if (!timestamp) return null;
+                    if (typeof timestamp.toDate === 'function') return timestamp.toDate();
+                    if (timestamp instanceof Date) return timestamp;
+                    try {
+                        const date = new Date(timestamp);
+                        if (!isNaN(date.getTime())) return date;
+                    } catch (e) {}
+                    return null;
+                };
 
-                 const submissionDate = getJsDate(attempt.submittedAt);
-                 // <-- END Helper -->
+                const submissionDate = getJsDate(attempt.submittedAt);
+                const isLate = !!(availableUntilDate && submissionDate && submissionDate > availableUntilDate);
+                attemptsDisplay[index] = { ...attempt, isLate };
+            });
 
-                 // Calculate isLate flag for each attempt
-                 const isLate = !!(
-                    availableUntilDate && 
-                    submissionDate && // Use the safely converted date
-                    submissionDate > availableUntilDate // Direct date comparison
-                 );
-                 // Store the attempt data along with the isLate flag
-                 attemptsDisplay[index] = { ...attempt, isLate };
-             });
-
-            // Calculate total possible points, fallback to quiz data if attempt data missing
             const totalPossible = highestScoreAttempt?.totalItems ?? (quiz?.questions?.reduce((sum, q) => sum + (Number(q.points) || 1), 0) || 0);
 
             return {
-                ...student, // Spread student info (id, name, etc.)
-                status, // Overall status for display/sorting
-                highestScore: highestScoreAttempt ? (highestScoreAttempt.score ?? -1) : -1, // Highest score achieved, -1 if none/pending
-                totalItems: totalPossible, // Total possible points for this quiz
-                attemptsDisplay: attemptsDisplay, // Array of attempts for table columns
-                isLocked // Boolean indicating lock status
+                ...student,
+                status,
+                highestScore: highestScoreAttempt ? (highestScoreAttempt.score ?? -1) : -1,
+                totalItems: totalPossible,
+                attemptsDisplay,
+                isLocked
             };
         });
 
-        // Sorting logic based on sortConfig state
-        allStudents.sort((a, b) => {
-            let aValue, bValue;
-            const directionMultiplier = sortConfig.direction === 'ascending' ? 1 : -1;
+        // Filter
+        if (searchTerm) {
+            const lowerTerm = searchTerm.toLowerCase();
+            allStudents = allStudents.filter(s => 
+                s.firstName.toLowerCase().includes(lowerTerm) || 
+                s.lastName.toLowerCase().includes(lowerTerm)
+            );
+        }
 
-            switch (sortConfig.key) {
-                case 'score':
-                    aValue = a.highestScore;
-                    bValue = b.highestScore;
-                    // Custom sorting: Not Started/Locked (-1) < Pending (treat as -0.5) < Scored (0+)
-                    const scoreA = (a.status === 'pending_ai_grading' || a.status === 'pending_review' || a.status === 'grading_failed') ? -0.5 : aValue;
-                    const scoreB = (b.status === 'pending_ai_grading' || b.status === 'pending_review' || b.status === 'grading_failed') ? -0.5 : bValue;
-                    const isANotGraded = scoreA < 0; // Includes -1 and -0.5
-                    const isBNotGraded = scoreB < 0;
-                    if (isANotGraded && !isBNotGraded) return directionMultiplier * -1; // Non-graded first in ascending
-                    if (!isANotGraded && isBNotGraded) return directionMultiplier * 1;  // Non-graded first in ascending
-                    if (isANotGraded && isBNotGraded) { // Both non-graded, sort Pending > Locked/Not Started
-                        const statusOrder = { 'Not Started': 0, 'Locked': 1, 'pending_ai_grading': 2, 'pending_review': 3, 'grading_failed': 3 };
-                        return ((statusOrder[a.status] ?? 0) - (statusOrder[b.status] ?? 0)) * directionMultiplier;
-                    }
-                    // Both have scores >= 0, sort normally
-                    return (aValue - bValue) * directionMultiplier;
-                case 'name':
-                    // Sort by Last Name, then First Name, case-insensitive
-                    aValue = `${a.lastName || ''}, ${a.firstName || ''}`.toLowerCase().trim();
-                    bValue = `${b.lastName || ''}, ${b.firstName || ''}`.toLowerCase().trim();
-                    return aValue.localeCompare(bValue) * directionMultiplier;
-                case 'status':
-                    // Define explicit order for statuses
-                    const statusOrder = { 'Not Started': 0, 'Locked': 1, 'pending_ai_grading': 2, 'pending_review': 3, 'grading_failed': 3, 'graded': 4 };
-                    aValue = statusOrder[a.status] ?? -1; // Use ?? for safety, fallback -1
-                    bValue = statusOrder[b.status] ?? -1;
-                    // Primary sort by status order
-                    if (aValue !== bValue) return (aValue - bValue) * directionMultiplier;
-                    // Secondary sort by name if statuses are the same
-                    const nameA = `${a.lastName || ''}, ${a.firstName || ''}`.toLowerCase().trim();
-                    const nameB = `${b.lastName || ''}, ${b.firstName || ''}`.toLowerCase().trim();
-                    return nameA.localeCompare(nameB); // Ascending name within same status
-                default:
-                    return 0; // No sorting if key is unrecognized
+        // Sort
+        allStudents.sort((a, b) => {
+            const direction = sortConfig.direction === 'ascending' ? 1 : -1;
+            if (sortConfig.key === 'name') {
+                return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`) * direction;
+            } else if (sortConfig.key === 'status') {
+                return a.status.localeCompare(b.status) * direction;
+            } else if (sortConfig.key === 'score') {
+                return (a.highestScore - b.highestScore) * direction;
             }
+            return 0;
         });
 
-        return allStudents; // Return the processed and sorted array
-    }, [classData?.students, quizScores, quizLocks, quiz?.id, sortConfig, maxAttempts, quiz?.questions, quiz?.availableUntil]); // Added quiz.availableUntil to dependency array
+        return allStudents;
+    }, [classData?.students, localQuizScores, quizLocks, quiz, sortConfig, maxAttempts, searchTerm]);
 
-
-    // Function to update sort configuration state
-    const requestSort = useCallback((key) => {
+    const requestSort = (key) => {
         let direction = 'ascending';
-        // If clicking the same key, toggle direction
         if (sortConfig.key === key && sortConfig.direction === 'ascending') {
             direction = 'descending';
         }
-        setSortConfig({ key, direction }); // Update state
-    }, [sortConfig.key, sortConfig.direction]); // <-- FIX: useMemo/useCallback must be imported
-
-
-    // Function to get the appropriate sort indicator icon
-    const getSortIcon = (key) => {
-        // Show down arrow dimmed on hover if not active sort key
-        if (sortConfig.key !== key) return <ChevronDownIcon className="w-4 h-4 text-slate-400 dark:text-slate-500 invisible group-hover:visible ml-1" />;
-        // Show up or down arrow if active sort key
-        return sortConfig.direction === 'ascending'
-            ? <ArrowUpIcon className="w-4 h-4 text-sky-600 dark:text-sky-400 ml-1" />
-            : <ArrowDownIcon className="w-4 h-4 text-sky-600 dark:text-sky-400 ml-1" />;
+        setSortConfig({ key, direction });
     };
 
-
-    // Calculate overall quiz statistics (memoized for performance)
-    const { averageScorePercent, completedCount, highestScorePercent, totalStudents, totalPossiblePoints } = useMemo(() => {
-        // Filter submissions relevant only to the current quiz
-        const relevantSubmissions = quizScores.filter(s => s.quizId === quiz?.id);
-        // Get unique student IDs who submitted at least once
+    // Stats
+    const { averageScorePercent, completedCount, highestScorePercent, totalStudents } = useMemo(() => {
+        const relevantSubmissions = localQuizScores.filter(s => s.quizId === quiz?.id);
         const uniqueStudentIds = [...new Set(relevantSubmissions.map(s => s.studentId))];
-        // Calculate total possible points from the quiz structure
         const totalPoints = quiz?.questions?.reduce((sum, q) => sum + (Number(q.points) || 1), 0) || 0;
 
-        // Get the highest final score achieved by each student who submitted
         const studentHighestScores = uniqueStudentIds.map(studentId => {
-            const studentAttempts = relevantSubmissions.filter(s => s.studentId === studentId);
-            // Use Math.max on the 'score' field (final score after grading)
-            return Math.max(0, ...studentAttempts.map(a => a.score ?? 0)); // Default to 0 if score is missing
+            const attempts = relevantSubmissions.filter(s => s.studentId === studentId);
+            return Math.max(0, ...attempts.map(a => a.score ?? 0));
         });
 
-        // Calculate average score across students who submitted
         const avgScore = studentHighestScores.length > 0
             ? studentHighestScores.reduce((acc, s) => acc + s, 0) / studentHighestScores.length
             : 0;
-        // Calculate average percentage
-        const avgPercent = totalPoints > 0 ? (avgScore / totalPoints) * 100 : 0;
-
-        // Find the highest score achieved by any student
-        const highestScore = studentHighestScores.length > 0 ? Math.max(...studentHighestScores) : 0;
-        // Calculate highest score percentage
-        const highestPercent = totalPoints > 0 ? (highestScore / totalPoints) * 100 : 0;
-
-        // Total number of students enrolled in the class
-        const enrolledStudents = classData?.students?.length || 0;
-
+        
         return {
-            averageScorePercent: avgPercent, // Average score as percentage
-            completedCount: uniqueStudentIds.length, // Number of unique students who submitted
-            highestScorePercent: highestPercent, // Highest score as percentage
-            totalStudents: enrolledStudents, // Total students in the class
-            totalPossiblePoints: totalPoints // Max points possible for the quiz
+            averageScorePercent: totalPoints > 0 ? (avgScore / totalPoints) * 100 : 0,
+            completedCount: uniqueStudentIds.length,
+            highestScorePercent: totalPoints > 0 ? (Math.max(...studentHighestScores, 0) / totalPoints) * 100 : 0,
+            totalStudents: classData?.students?.length || 0
         };
-    }, [quizScores, quiz?.id, quiz?.questions, classData?.students]); // Dependencies
+    }, [localQuizScores, quiz, classData]);
 
-
-    // --- Bulk AI Essay Grading Function (Unchanged) ---
+    // --- BULK GRADING LOGIC (FIXED & REAL-TIME) ---
     const handleBulkGradeEssays = async () => {
-        // Ensure necessary IDs are available
-        if (!classData?.id || !quiz?.id) {
-            showToast("Missing class or quiz information to start grading.", "error");
-            console.error("[handleBulkGradeEssays] Missing classId or quizId.");
-            return;
-        }
+        if (!classData?.id || !quiz?.id) return;
 
-        setIsBulkGrading(true); // Set loading state
-        showToast("🚀 Starting bulk AI essay grading...", "info");
-        console.log(`[handleBulkGradeEssays] Initiated for quizId: ${quiz.id}, classId: ${classData.id}`);
-        let submissionsProcessedCount = 0;
-        let essaysGradedCount = 0;
-        let errorsEncounteredCount = 0;
-        let limitReached = false;
-        let pendingSubmissions = []; // To store fetched documents
-
+        setIsBulkGrading(true);
+        showToast("Starting AI grading sequence...", "info");
+        
+        let pendingSubmissions = [];
         try {
-            // 1. Query Firestore for pending submissions
-            console.log(`[handleBulkGradeEssays] Querying submissions...`);
             const submissionsRef = collection(db, 'quizSubmissions');
             const q = query(submissionsRef,
                 where('classId', '==', classData.id),
                 where('quizId', '==', quiz.id),
-                where('hasPendingEssays', '==', true) // Target only relevant submissions
+                where('hasPendingEssays', '==', true)
             );
-            const querySnapshot = await getDocs(q);
-            pendingSubmissions = querySnapshot.docs; // Store the document snapshots
+            const snapshot = await getDocs(q);
+            pendingSubmissions = snapshot.docs;
 
-            // Handle case where no pending submissions are found
             if (pendingSubmissions.length === 0) {
-                console.log("[handleBulkGradeEssays] No pending submissions found.");
-                showToast("✅ No submissions found requiring AI grading.", "success");
-                setHasPendingEssaysForThisQuiz(false); // Update UI state
+                showToast("No pending essays found.", "success");
+                setHasPendingEssaysForThisQuiz(false);
                 setIsBulkGrading(false);
                 return;
             }
 
-            console.log(`[handleBulkGradeEssays] Found ${pendingSubmissions.length} pending submissions.`);
-            showToast(`Found ${pendingSubmissions.length} submissions. Grading essays sequentially... This may take time.`, "info", 5000);
+            let limitReached = false;
 
-            // 2. Process each submission sequentially to respect rate limits
             for (const docSnap of pendingSubmissions) {
-                // Stop processing if AI limit was reached in a previous iteration
-                if (limitReached) {
-                    console.log("[handleBulkGradeEssays] AI limit reached previously, skipping remaining submissions.");
-                    break;
-                }
+                if (limitReached) break;
 
                 const submissionId = docSnap.id;
                 const submissionData = docSnap.data();
-                // Deep copy the answers array to modify it safely
                 let updatedAnswers = JSON.parse(JSON.stringify(submissionData.answers || []));
-                let needsDocUpdate = false; // Flag to track if Firestore update is needed
-                let submissionCompletedProcessing = true; // Assume success unless an error occurs
-
-                console.log(`---> [handleBulkGradeEssays] Processing Submission ID: ${submissionId}`);
-                showToast(`⏳ Processing submission ${submissionsProcessedCount + 1} of ${pendingSubmissions.length}...`, "loading", 6000);
-
-                // 3. Process pending essays *within* the current submission
-                let essayGradingPromises = []; // Store promises if parallelizing *within* submission (currently sequential)
+                let needsUpdate = false;
 
                 for (let i = 0; i < updatedAnswers.length; i++) {
-                    // Check if it's an essay needing AI grading
                     if (updatedAnswers[i].questionType === 'essay' && updatedAnswers[i].status === 'pending_ai_grading') {
-                        console.log(`   [${submissionId}] Attempting to grade essay index ${i}`);
-                        // --- Wrap individual essay grading in an async IIFE ---
-                        essayGradingPromises.push((async () => {
-                             try {
-                                // --- CRUCIAL DELAY ---
-                                console.log(`   [${submissionId}] Waiting for delay before grading essay ${i}...`);
-                                await delay(2500); // Wait 2.5 seconds (adjust based on Gemini limits)
-                                console.log(`   [${submissionId}] Calling AI for essay index ${i}...`);
+                        try {
+                            await delay(2000); // Rate limit buffer
+                            const gradingResult = await gradeEssayWithAI(
+                                updatedAnswers[i].questionText,
+                                updatedAnswers[i].rubric,
+                                updatedAnswers[i].selectedAnswer
+                            );
 
-                                // Call the AI service function
-                                const gradingResult = await gradeEssayWithAI(
-                                    updatedAnswers[i].questionText,
-                                    updatedAnswers[i].rubric,
-                                    updatedAnswers[i].selectedAnswer
-                                );
-                                console.log(`   [${submissionId}] AI call SUCCESS for essay index ${i}. Result:`, gradingResult);
+                            updatedAnswers[i].aiGradingResult = gradingResult;
+                            updatedAnswers[i].score = gradingResult.totalScore;
+                            updatedAnswers[i].status = 'graded';
+                            needsUpdate = true;
 
-                                // --- Update the answer object in memory ---
-                                updatedAnswers[i].aiGradingResult = gradingResult;
-                                updatedAnswers[i].score = gradingResult.totalScore; // Assign AI score
-                                updatedAnswers[i].status = 'graded'; // Mark as graded
-                                essaysGradedCount++;
-                                needsDocUpdate = true; // Mark submission for Firestore update
-                                console.log(`   [${submissionId}] Essay index ${i} marked as graded. Score: ${gradingResult.totalScore}`);
-
-                            } catch (aiError) {
-                                console.error(`   [${submissionId}] AI call FAILED for essay index ${i}:`, aiError);
-                                // --- Handle AI errors ---
-                                updatedAnswers[i].status = 'grading_failed'; // Mark as failed
-                                // Store error message, provide a default if needed
-                                updatedAnswers[i].aiGradingResult = { error: aiError?.message || "Unknown AI grading error" };
-                                needsDocUpdate = true;
-                                errorsEncounteredCount++;
-                                submissionCompletedProcessing = false; // Requires manual review
-
-                                // Check specifically for rate limit error
-                                if (aiError.message === "LIMIT_REACHED" || aiError.message.includes("limit")) {
-                                    console.warn(`[${submissionId}] AI Limit Reached during essay ${i}. Stopping further AI calls for this submission batch.`);
-                                    showToast("🛑 AI call limit reached. Stopping further grading for now.", "error", 7000);
-                                    limitReached = true; // Set global flag to stop all processing
-                                    // Re-throw to break Promise.all for this submission
-                                    throw aiError;
-                                } else {
-                                     // Notify about other AI errors
-                                     showToast(`⚠️ AI grading failed for an essay in submission ${submissionsProcessedCount + 1}.`, "warning");
-                                     // Don't throw for other errors, let Promise.all handle them later
-                                }
+                        } catch (error) {
+                            console.error("AI Error:", error);
+                            updatedAnswers[i].status = 'grading_failed';
+                            if (error.message?.includes("limit")) {
+                                limitReached = true;
+                                showToast("AI Limit Reached. Pausing.", "error");
+                                break;
                             }
-                        })()); // Immediately invoke the async function
-
-                        // If limit was reached, stop queuing more AI calls for this submission
-                        if (limitReached) break;
-
-                    } else if (updatedAnswers[i].status !== 'graded') {
-                         // If any non-essay item is somehow not graded, or an essay failed previously
-                         submissionCompletedProcessing = false;
-                         console.log(`   [${submissionId}] Found non-graded item at index ${i}, status: ${updatedAnswers[i].status}. Marking submission as not fully processed.`);
-                    }
-                } // End of essays loop for one submission
-
-                // --- Wait for all AI calls *for the current submission* to settle ---
-                try {
-                     console.log(`   [${submissionId}] Waiting for ${essayGradingPromises.length} essay grading promises to settle...`);
-                     await Promise.all(essayGradingPromises);
-                     console.log(`   [${submissionId}] All essay promises settled.`);
-                 } catch (batchError) {
-                     // Catch errors (specifically the LIMIT_REACHED one re-thrown from inside)
-                     if (limitReached) {
-                         console.log(`   [${submissionId}] AI Limit reached while processing promises. Proceeding to update document with partial results.`);
-                     } else {
-                         // Log unexpected errors from Promise.all
-                         console.error(`   [${submissionId}] Unexpected error during essay grading batch:`, batchError);
-                     }
-                     // Proceed to update Firestore even if some promises failed
-                 }
-
-
-                // 4. Update the Firestore submission document if changes were made
-                if (needsDocUpdate) {
-                    // Recalculate the final total score based on updated answer scores
-                    const finalCalculatedScore = updatedAnswers.reduce((sum, ans) => sum + (Number(ans.score) || 0), 0);
-                    // Determine the final status based on all answers
-                    const hasFailures = updatedAnswers.some(a => a.status === 'grading_failed');
-                    // Check if *any* essays are *still* pending (only if limit was hit)
-                    const hasStillPending = updatedAnswers.some(a => a.status === 'pending_ai_grading');
-
-                    let finalStatus = 'graded'; // Assume success
-                    if (hasFailures) finalStatus = 'pending_review'; // Set if any AI call failed
-                    else if (hasStillPending) finalStatus = 'pending_ai_grading'; // Set if interrupted by limit
-
-                    const submissionRef = doc(db, 'quizSubmissions', submissionId);
-
-                    // --- Log Data Before Update ---
-                    console.log(`---> [${submissionId}] PREPARING FIRESTORE UPDATE:`);
-                    console.log(`     New Score: ${Math.round(finalCalculatedScore)}`);
-                    console.log(`     New Status: ${finalStatus}`);
-                    console.log(`     New hasPendingEssays: ${hasStillPending}`);
-                    // console.log("     Updated Answers Object:", JSON.stringify(updatedAnswers, null, 2)); // Uncomment for very detailed debug
-
-                    try {
-                         await updateDoc(submissionRef, {
-                            answers: updatedAnswers, // Save the updated answers array
-                            score: Math.round(finalCalculatedScore), // Save the new total score
-                            status: finalStatus, // Update the overall status
-                            hasPendingEssays: hasStillPending // Flag is true only if interrupted
-                        });
-                        console.log(`   [${submissionId}] Firestore update SUCCESS.`);
-                    } catch (updateError) {
-                        console.error(`   [${submissionId}] Firestore update FAILED:`, updateError);
-                        errorsEncounteredCount++; // Count update errors too
-                        showToast(`❌ Failed to save grades for submission ${submissionsProcessedCount + 1}. Error: ${updateError.message}`, "error");
+                        }
                     }
                 }
-// [Inside handleBulkGradeEssays function]
 
-                 // --- Safety Check: Correct flag if no AI calls were made (e.g., essays were already graded/failed) ---
-                 else if (submissionData.hasPendingEssays === true && !limitReached) {
-                     console.log(`[${submissionId}] No AI calls needed. Recalculating score and correcting flag...`); // Updated log
-                     const submissionRef = doc(db, 'quizSubmissions', submissionId);
-                     try {
-                         // Recalculate score from existing answers (auto-graded + previously failed/scored essays)
-                         const finalCalculatedScore = updatedAnswers.reduce((sum, ans) => sum + (Number(ans.score) || 0), 0);
-                         // --- END ADD ---
+                if (needsUpdate || (submissionData.hasPendingEssays && !limitReached)) {
+                    const newTotalScore = updatedAnswers.reduce((sum, a) => sum + (Number(a.score) || 0), 0);
+                    const hasStillPending = updatedAnswers.some(a => a.status === 'pending_ai_grading');
+                    const finalStatus = updatedAnswers.some(a => a.status === 'grading_failed') ? 'pending_review' : (hasStillPending ? 'pending_ai_grading' : 'graded');
 
-                         // Determine correct final status just in case
-                         const finalStatusCheck = updatedAnswers.some(a => a.status === 'grading_failed' || a.status === 'pending_review') ? 'pending_review' : 'graded';
-                         
-                         await updateDoc(submissionRef, {
-                             score: Math.round(finalCalculatedScore), // Save the recalculated score
-                             hasPendingEssays: false,
-                             status: finalStatusCheck
-                         });
-                         console.log(`   [${submissionId}] Flag correction & score update SUCCESS. New score: ${finalCalculatedScore}`); // Updated log
-                     } catch (flagError) {
-                         console.error(`   [${submissionId}] Flag correction FAILED:`, flagError);
-                     }
-                 }
+                    // 1. Update Firestore
+                    await updateDoc(doc(db, 'quizSubmissions', submissionId), {
+                        answers: updatedAnswers,
+                        score: Math.round(newTotalScore),
+                        status: finalStatus,
+                        hasPendingEssays: hasStillPending
+                    });
 
-
-                submissionsProcessedCount++; // Increment after processing each submission
-                console.log(`---> [handleBulkGradeEssays] Finished processing submission ${submissionId}`);
-
-            } // End of submissions loop
-
-            // 5. Final Feedback Toast after loop finishes or breaks
-            console.log("[handleBulkGradeEssays] Bulk grading loop finished.");
-            if (limitReached) {
-                 showToast(`🛑 AI Limit Reached. Processed ${submissionsProcessedCount} submissions. ${essaysGradedCount} essays graded. Others remain pending.`, "warning", 8000);
-                 // Keep button active as some might still be pending
-                 setHasPendingEssaysForThisQuiz(true);
-            } else {
-                 const successMessage = `✅ Finished grading ${submissionsProcessedCount} submissions. ${essaysGradedCount} essays graded.`;
-                 // Add error count if any occurred
-                 const errorMessage = errorsEncounteredCount > 0 ? ` ${errorsEncounteredCount} errors occurred (require manual review).` : '';
-                 showToast(successMessage + errorMessage, errorsEncounteredCount > 0 ? "warning" : "success", 6000);
-                 // Set pending flag based on whether errors require review
-                 setHasPendingEssaysForThisQuiz(errorsEncounteredCount > 0);
+                    // 2. REAL-TIME UPDATE: Update local state immediately
+                    setLocalQuizScores(prevScores => prevScores.map(score => {
+                        if (score.id === submissionId) {
+                            return {
+                                ...score,
+                                answers: updatedAnswers,
+                                score: Math.round(newTotalScore),
+                                status: finalStatus,
+                                hasPendingEssays: hasStillPending
+                            };
+                        }
+                        return score;
+                    }));
+                }
             }
+            
+            showToast("Batch grading cycle complete.", "success");
 
         } catch (error) {
-            // Catch errors from the initial query or unexpected loop issues
-            console.error("[handleBulkGradeEssays] Error during setup or outer loop:", error);
-            if (!limitReached) { // Avoid double toast if limit was the cause
-                 showToast(`Bulk grading stopped unexpectedly: ${error.message}`, "error");
-            }
+            console.error(error);
+            showToast("Error during bulk grading.", "error");
         } finally {
-            console.log("[handleBulkGradeEssays] Setting isBulkGrading to false.");
-            setIsBulkGrading(false); // Reset loading state regardless of outcome
-            // The onSnapshot listener in the parent component (ClassOverviewModal) should handle UI refresh automatically.
+            setIsBulkGrading(false);
         }
     };
-    // --- END NEW FUNCTION ---
 
-    // --- Main JSX Render ---
     return (
-        <Modal 
-            isOpen={isOpen} 
-            onClose={onClose} 
-            title="" 
-            size="screen"
-            roundedClass="rounded-2xl"
-            // --- MODIFIED: Reduced mobile padding ---
-            containerClassName="h-full p-2 sm:p-4 bg-black/30 backdrop-blur-sm"
-            contentClassName="p-0"
-            showCloseButton={true}
-        >
-            {/* --- MODIFIED: Themed main container --- */}
-            <div className="p-2 sm:p-4 md:p-8 bg-neumorphic-base dark:bg-neumorphic-base-dark h-[95vh] sm:h-[90vh] max-h-[95vh] flex flex-col mx-auto w-full max-w-7xl">
+        <Modal isOpen={isOpen} onClose={onClose} size="screen" showCloseButton={false} containerClassName="bg-transparent p-0 sm:p-4 flex items-center justify-center">
+            {/* Main Glass Container */}
+            <div className="relative w-full h-full sm:h-[90vh] max-w-7xl bg-white/80 dark:bg-[#0F1115]/80 backdrop-blur-[40px] sm:rounded-[40px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-white/40 dark:border-white/5 flex flex-col overflow-hidden">
                 
-                {/* 1. Header (flex-shrink-0) */}
-                {/* --- MODIFIED: Themed header --- */}
-                <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-neumorphic-dark flex-shrink-0">
-                    {/* --- MODIFIED: Themed title --- */}
-                    <h1 className="text-xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight truncate">{`Scores for "${quiz?.title || 'Quiz'}"`}</h1>
-                    {/* --- MODIFIED: Themed StatCard container --- */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 mt-4">
-                        <StatCard icon={UsersIcon} title="Completion Rate" value={`${completedCount} / ${totalStudents}`} color="blue" />
-                        <StatCard icon={AcademicCapIcon} title="Average Score (%)" value={totalPossiblePoints > 0 ? `${averageScorePercent.toFixed(1)}%` : 'N/A'} color="teal" />
-                        <StatCard icon={ChartBarIcon} title="Highest Score (%)" value={totalPossiblePoints > 0 ? `${highestScorePercent.toFixed(1)}%` : 'N/A'} color="purple" />
+                {/* --- Header --- */}
+                <div className="flex-shrink-0 px-6 py-6 sm:px-10 sm:py-8 border-b border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                        <div>
+                            <h2 className="text-2xl sm:text-4xl font-bold text-slate-900 dark:text-white tracking-tight">
+                                {quiz?.title}
+                            </h2>
+                            <p className="text-slate-500 dark:text-slate-400 font-medium mt-1 flex items-center gap-2">
+                                <ChartBarIcon className="w-4 h-4" /> Performance Overview
+                            </p>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                            <button onClick={onClose} className="p-3 rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors">
+                                <XCircleIcon className="w-6 h-6" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Stats Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
+                        <StatCard icon={UsersIcon} title="Completion" value={`${completedCount}/${totalStudents}`} color="blue" />
+                        <StatCard icon={AcademicCapIcon} title="Avg. Score" value={`${averageScorePercent.toFixed(0)}%`} color="teal" />
+                        <StatCard icon={SparklesIcon} title="Highest" value={`${highestScorePercent.toFixed(0)}%`} color="purple" />
                     </div>
                 </div>
 
-				{/* 2. Button Row (flex-shrink-0) */}
-                {/* --- MODIFIED: Themed gap/spacing --- */}
-                <div className="flex-shrink-0 mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                    <Button
-                       onClick={handleBulkGradeEssays}
-                       disabled={!hasPendingEssaysForThisQuiz || isBulkGrading}
-                       icon={SparklesIcon}
-                       // --- MODIFIED: Added dark mode classes for backgrounds/text ---
-                       className={`
-                           w-full sm:w-auto font-semibold transition-all rounded-xl border-none outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:ring-offset-2 focus:ring-offset-neumorphic-base dark:focus:ring-offset-neumorphic-base-dark text-sm py-2 px-3 sm:py-2 sm:px-4
-                           ${isBulkGrading 
-                               ? 'text-white bg-gradient-to-r from-blue-400 to-purple-500 shadow-lg opacity-70 cursor-wait animate-pulse' 
-                               : hasPendingEssaysForThisQuiz
-                                   ? 'text-white font-bold bg-gradient-to-r from-blue-500 to-purple-600 shadow-lg hover:from-blue-600 hover:to-purple-700 active:shadow-inner active:opacity-90'
-                                   : 'text-slate-500 dark:text-slate-400 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark cursor-not-allowed'
-                           }
-                       `}
-                    >
-                       {isBulkGrading ? 'Grading...' : 'Grade Pending Essays'}
-                    </Button>
+                {/* --- Controls --- */}
+                <div className="flex-shrink-0 px-6 sm:px-10 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/20 dark:bg-black/20 backdrop-blur-md">
+                    <div className="relative w-full sm:w-72 group">
+                        <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                        <input 
+                            type="text" 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Search students..." 
+                            className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white/50 dark:bg-white/5 border border-transparent focus:bg-white dark:focus:bg-black/40 focus:border-blue-500/30 outline-none transition-all placeholder:text-slate-400 dark:text-white shadow-sm"
+                        />
+                    </div>
 
-                    <button
-                        onClick={() => setIsReportModalOpen(true)}
-                        // --- MODIFIED: Added dark mode classes for backgrounds/text ---
-                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-800 dark:to-blue-900 text-blue-700 dark:text-blue-200 font-semibold text-sm rounded-xl shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow duration-200 hover:shadow-neumorphic-inset active:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
-                    >
-                        <DocumentChartBarIcon className="h-5 w-5" />
-                        Generate Report
-                    </button>
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                        <button
+                            onClick={handleBulkGradeEssays}
+                            disabled={!hasPendingEssaysForThisQuiz || isBulkGrading}
+                            className={`flex-1 sm:flex-none px-6 py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg hover:scale-[1.02] active:scale-[0.98]
+                                ${isBulkGrading 
+                                    ? 'bg-slate-100 text-slate-400 cursor-wait' 
+                                    : hasPendingEssaysForThisQuiz 
+                                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-blue-500/25' 
+                                        : 'bg-slate-100 dark:bg-white/5 text-slate-400 cursor-not-allowed shadow-none'
+                                }`}
+                        >
+                            {isBulkGrading ? <ClockOutlineIcon className="w-5 h-5 animate-spin" /> : <SparklesIcon className="w-5 h-5" />}
+                            {isBulkGrading ? 'AI Grading...' : 'Auto-Grade Essays'}
+                        </button>
+
+                        <button
+                            onClick={() => setIsReportModalOpen(true)}
+                            className="flex-1 sm:flex-none px-6 py-3 rounded-2xl font-bold text-sm bg-white dark:bg-white/10 text-slate-700 dark:text-white border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/20 flex items-center justify-center gap-2 transition-all"
+                        >
+                            <DocumentChartBarIcon className="w-5 h-5 text-blue-500" />
+                            Report
+                        </button>
+                    </div>
                 </div>
-                {/* --- END Button Row --- */}
 
-
-                {/* 3. Main content area (flex-1 for expansion, min-h-0 for scrolling) */}
-                {/* --- MODIFIED: Themed main container --- */}
-                <main className="flex-1 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic flex flex-col min-h-0 overflow-hidden">
-                    {/* --- SCROLLING FIX --- */}
-                    <div className="flex-1 overflow-auto custom-scrollbar">
-                        {/* Table Header (Sticky) */}
-                        <div className="grid grid-cols-12 gap-2 sm:gap-4 px-2 py-2 sm:px-4 sm:py-3 border-b-2 border-slate-300/60 dark:border-slate-700/60 text-left text-[10px] sm:text-sm font-bold text-slate-600 dark:text-slate-400 rounded-t-xl sticky top-0 bg-neumorphic-base dark:bg-neumorphic-base-dark z-10 min-w-[700px]">
-                            {/* Sortable Column Headers */}
-                            <button onClick={() => requestSort('name')} className="col-span-4 group flex items-center gap-1 hover:text-sky-700 dark:hover:text-sky-400 transition-colors"><span>Student Name</span> {getSortIcon('name')}</button>
-                            <button onClick={() => requestSort('status')} className="col-span-3 group flex items-center gap-1 hover:text-sky-700 dark:hover:text-sky-400 transition-colors"><span>Status</span> {getSortIcon('status')}</button>
-                            {/* Attempt Columns Header */}
-                            <div className={`col-span-3 grid grid-cols-${maxAttempts} text-center`}>
-                                {[...Array(maxAttempts)].map((_, i) => (
-                                    <span key={i} className={`col-span-1 ${maxAttempts > 3 ? 'text-[9px] sm:text-[10px]' : ''}`}>Attempt {i + 1}</span>
-                                ))}
+                {/* --- Table --- */}
+                <div className="flex-grow overflow-y-auto custom-scrollbar p-6 sm:p-10">
+                    <div className="bg-white/40 dark:bg-white/5 rounded-[32px] border border-white/50 dark:border-white/5 overflow-hidden shadow-sm">
+                        {/* Table Header */}
+                        <div className="grid grid-cols-12 gap-4 px-6 py-4 bg-white/50 dark:bg-white/5 border-b border-slate-200/50 dark:border-white/5 text-xs font-bold uppercase tracking-widest text-slate-400 sticky top-0 backdrop-blur-xl z-10">
+                            <div className="col-span-4 cursor-pointer hover:text-blue-500 flex items-center gap-1" onClick={() => requestSort('name')}>
+                                Student {sortConfig.key === 'name' && (sortConfig.direction === 'ascending' ? <ArrowUpIcon className="w-3 h-3" /> : <ArrowDownIcon className="w-3 h-3" />)}
                             </div>
+                            <div className="col-span-3 cursor-pointer hover:text-blue-500 flex items-center gap-1" onClick={() => requestSort('status')}>
+                                Status {sortConfig.key === 'status' && (sortConfig.direction === 'ascending' ? <ArrowUpIcon className="w-3 h-3" /> : <ArrowDownIcon className="w-3 h-3" />)}
+                            </div>
+                            <div className="col-span-3 text-center">Attempts</div>
                             <div className="col-span-2 text-right">Actions</div>
                         </div>
-                        
-                        {/* Table Body (This area will scroll vertically inside the parent) */}
-                        <div className="">
-                            {processedStudentData.length > 0 ? (
-                                processedStudentData.map(student => (
-                                    // --- MODIFIED: Themed student row ---
-                                    <div key={student.id} className="grid grid-cols-12 gap-2 sm:gap-4 items-center p-2 sm:p-3 rounded-lg transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark border-b border-slate-200/50 dark:border-slate-700/50 last:border-b-0 min-w-[700px]">
-                                        {/* Student Name */}
-                                        <div className="col-span-4 font-semibold text-slate-800 dark:text-slate-100 truncate text-sm" title={`${student.lastName}, ${student.firstName}`}>{student.lastName}, {student.firstName}</div>
-                                        {/* Status Pill */}
-                                        <div className="col-span-3"><StatusPill status={student.status} /></div>
-                                        {/* Attempts */}
-                                        <div className={`col-span-3 grid grid-cols-${maxAttempts} gap-1`}>
-                                            {student.attemptsDisplay.map((attempt, index) => (
-                                                <div key={index} className="col-span-1 flex justify-center">
-                                                    {attempt ? (
-                                                        <ScoreBadge
-                                                            score={attempt.score}
-                                                            totalItems={attempt.totalItems} // Use total from the specific attempt
-                                                            isLate={!!attempt.isLate} // This now uses the calculated flag
-                                                            status={attempt.status} // Pass status for correct badge display
-                                                        />
-                                                    ) : (
-                                                        <span className="text-slate-400 dark:text-slate-500 text-xs">—</span> // Placeholder if no attempt data
-                                                    )}
-                                                </div>
-                                            ))}
+
+                        {/* Table Body */}
+                        <div className="divide-y divide-slate-200/50 dark:divide-white/5">
+                            {processedStudentData.map(student => (
+                                <div key={student.id} className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-white/40 dark:hover:bg-white/5 transition-colors">
+                                    
+                                    {/* Name */}
+                                    <div className="col-span-4 flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center text-xs font-bold">
+                                            {student.firstName?.[0]}{student.lastName?.[0]}
                                         </div>
-                                        {/* Actions Column */}
-                                        <div className="col-span-2 flex justify-end">
-                                            {/* Unlock Button */}
-                                            {student.isLocked && onUnlockQuiz && ( // Show only if locked and handler provided
-                                                <button
-                                                    onClick={() => quiz?.id && student?.id && onUnlockQuiz(quiz.id, student.id)}
-                                                    // --- MODIFIED: Themed unlock button ---
-                                                    className="px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-semibold text-red-600 dark:text-red-400 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic dark:shadow-neumorphic-dark transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark"
-                                                    title={`Unlock quiz for ${student.firstName}`}
-                                                    aria-label={`Unlock quiz for ${student.firstName} ${student.lastName}`}
-                                                >
-                                                    Unlock
-                                                </button>
-                                            )}
-                                            {/* Placeholder for future actions like "View Details" */}
-                                            {!student.isLocked && <div className="w-[48px] sm:w-[58px]"></div> /* Keep alignment */}
+                                        <div className="truncate">
+                                            <p className="font-bold text-slate-800 dark:text-slate-200 text-sm">{student.lastName}, {student.firstName}</p>
                                         </div>
                                     </div>
-                                ))
-                            ) : (
-                                // Empty state message
-                                <div className="text-center py-8 text-slate-500 dark:text-slate-400">No students enrolled in this class yet or no submissions found.</div>
+
+                                    {/* Status */}
+                                    <div className="col-span-3">
+                                        <StatusPill status={student.status} />
+                                    </div>
+
+                                    {/* Attempts */}
+                                    <div className="col-span-3 flex items-center justify-center gap-2">
+                                        {student.attemptsDisplay.map((attempt, idx) => (
+                                            <div key={idx} className="w-12">
+                                                {attempt ? (
+                                                    <ScoreBadge 
+                                                        score={attempt.score} 
+                                                        totalItems={attempt.totalItems} 
+                                                        isLate={attempt.isLate} 
+                                                    />
+                                                ) : (
+                                                    <div className="h-1 w-4 bg-slate-200 dark:bg-white/10 rounded-full mx-auto"/>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="col-span-2 flex justify-end">
+                                        {student.isLocked ? (
+                                            <button 
+                                                onClick={() => onUnlockQuiz && onUnlockQuiz(quiz.id, student.id)}
+                                                className="px-4 py-1.5 rounded-full bg-red-50 text-red-600 text-xs font-bold border border-red-100 hover:bg-red-100 transition-colors"
+                                            >
+                                                Unlock
+                                            </button>
+                                        ) : (
+                                            <div className="w-8"/>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                            
+                            {processedStudentData.length === 0 && (
+                                <div className="p-12 text-center text-slate-400">
+                                    No students found matching your filters.
+                                </div>
                             )}
                         </div>
                     </div>
-                </main>
+                </div>
             </div>
         </Modal>
     );

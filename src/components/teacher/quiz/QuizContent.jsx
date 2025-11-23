@@ -19,11 +19,17 @@ import {
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/solid';
 
+// --- VIEW SWITCHING IMPORTS ---
+import QuizQuestionFeedback from './QuizQuestionFeedback';
+import QuizResultsView from './QuizResultsView';
+import QuizReviewView from './QuizReviewView';
+import QuizLockedView from './QuizLockedView';
+import QuizNoAttemptsView from './QuizNoAttemptsView';
+
 /**
  * QuizQuestion.jsx - The core question renderer for students.
- * Handles all question types: Essay, Matching, MC, TF, Identification, and Image Labeling.
  */
-export default function QuizQuestion() {
+export default function QuizContent() {
     const {
         currentQ,
         shuffledQuestions,
@@ -35,17 +41,39 @@ export default function QuizQuestion() {
         handleConfirmMatchingAnswer,
         quiz,
         matchingResult,
+        
+        // New props from hook
+        questionResult,
+        score,
+        showReview,
+        isLocked,
+        attemptsTaken,
+        maxAttempts
     } = useQuiz();
 
-    const question = shuffledQuestions[currentQ];
-    
-    // --- Image Labeling State ---
+    // --- STATE MANAGEMENT ---
     const [activeLabelIndex, setActiveLabelIndex] = useState(null);
     const [imageScale, setImageScale] = useState(1);
     const imageContainerRef = useRef(null);
-
-    // --- Matching Type State ---
     const [activeId, setActiveId] = useState(null); // For DragOverlay
+
+    // =========================================================
+    // VIEW SWITCHING LOGIC
+    // =========================================================
+
+    if (isLocked) return <QuizLockedView />;
+
+    if (score !== null) {
+        if (showReview) return <QuizReviewView />;
+        return <QuizResultsView />;
+    }
+
+    if (questionResult || matchingResult) {
+        return <QuizQuestionFeedback />;
+    }
+
+    // 5. Otherwise -> Render Question Input (Essay, Matching, MC, etc.)
+    const question = shuffledQuestions[currentQ];
 
     if (!question) {
         return (
@@ -56,20 +84,12 @@ export default function QuizQuestion() {
     }
 
     const isAutoGraded = ['multiple-choice', 'true-false', 'identification', 'exactAnswer', 'matching-type', 'image-labeling'].includes(question.type);
-    // Disable inputs if teacher view OR if question is locked (attempted)
-    // Exception: Matching type usually allows re-arranging until "Confirm" is clicked, handled separately
     const isDisabled = isTeacherView || (isAutoGraded && currentQuestionAttempted && question.type !== 'matching-type');
 
     // --- IMAGE LABELING HELPERS ---
     const handleLabelInput = (partIndex, value) => {
-        // userAnswers[currentQ] for image labeling is an object: { 0: "Answer1", 1: "Answer2" }
         const currentAnswers = userAnswers[currentQ] || {};
         const newAnswers = { ...currentAnswers, [partIndex]: value };
-        
-        // We need to pass the whole object back
-        // We use a special flag or check in handleAnswer to treat objects correctly
-        // For this implementation, we assume handleAnswer updates the state directly 
-        // OR we use setUserAnswers directly for complex objects
         setUserAnswers(prev => ({
             ...prev,
             [currentQ]: newAnswers
@@ -79,7 +99,7 @@ export default function QuizQuestion() {
     const handleZoom = (direction) => {
         setImageScale(prev => {
             const newScale = direction === 'in' ? prev + 0.25 : prev - 0.25;
-            return Math.min(Math.max(1, newScale), 4); // Clamp between 1x and 4x
+            return Math.min(Math.max(1, newScale), 4); 
         });
     };
 
@@ -102,7 +122,7 @@ export default function QuizQuestion() {
             disabled: isTeacherView || (question.type === 'matching-type' && matchingResult)
         });
         
-        if (isMatched) return null; // Hide from pool if matched
+        if (isMatched) return null; 
 
         return (
             <div
@@ -128,12 +148,10 @@ export default function QuizQuestion() {
 
         return (
             <div className="flex items-stretch gap-3 mb-3">
-                {/* Prompt Text */}
                 <div className="flex-1 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-sm flex items-center font-medium shadow-sm">
                     <ContentRenderer text={text || "Prompt"} />
                 </div>
                 
-                {/* Drop Zone */}
                 <div
                     ref={setNodeRef}
                     onClick={() => !isFinished && matchedOption && onDropRemove(id)}
@@ -182,12 +200,10 @@ export default function QuizQuestion() {
             const optionId = active.id.replace('option-', '');
             const promptId = over.id.replace('prompt-', '');
             
-            // 1. Remove option from any previous prompt
             const newMatches = { ...currentMatches };
             const existingMatchKey = Object.keys(newMatches).find(key => newMatches[key] === optionId);
             if (existingMatchKey) delete newMatches[existingMatchKey];
             
-            // 2. Assign to new prompt
             newMatches[promptId] = optionId;
             handleAnswer(newMatches, 'matching-type');
         }
@@ -202,16 +218,14 @@ export default function QuizQuestion() {
 
     const allPromptsMatched = prompts.length > 0 && prompts.every(p => currentMatches[p.id]);
 
-
     // =========================================================================
-    // RENDER
+    // RENDER QUESTIONS
     // =========================================================================
 
     // 1. ESSAY
     if (question.type === 'essay') {
         return (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {/* Prompt Card */}
                 <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md p-6 sm:p-8 rounded-[24px] border border-white/40 dark:border-white/5 shadow-sm">
                     <div className="prose prose-lg prose-slate dark:prose-invert max-w-none leading-relaxed">
                         <ContentRenderer text={question.text || question.question || "Essay Prompt Missing"} />
@@ -221,7 +235,6 @@ export default function QuizQuestion() {
                     </span>
                 </div>
 
-                {/* Rubric */}
                 {(question.rubric && question.rubric.length > 0) && (
                     <div className="p-5 bg-blue-50/50 dark:bg-blue-900/10 rounded-[20px] border border-blue-100 dark:border-blue-800/30">
                         <p className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-3 uppercase tracking-wide flex items-center gap-2">
@@ -238,13 +251,13 @@ export default function QuizQuestion() {
                     </div>
                 )}
 
-                {/* Text Area */}
                 <div className="relative group">
                     <textarea
                         placeholder="Type your answer here..."
                         value={userAnswers[currentQ] || ''}
                         onChange={e => handleAnswer(e.target.value, 'essay')}
-                        disabled={isTeacherView || currentQuestionAttempted} // Disable if already submitted
+                        // FIX: Removed "|| currentQuestionAttempted" so typing isn't disabled
+                        disabled={isTeacherView} 
                         className="w-full h-80 p-6 rounded-[24px] bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 shadow-inner resize-none transition-all disabled:opacity-60 disabled:cursor-not-allowed text-base leading-relaxed"
                     />
                     {!isTeacherView && !currentQuestionAttempted && (
@@ -260,25 +273,16 @@ export default function QuizQuestion() {
     // 2. MATCHING TYPE
     if (question.type === 'matching-type') {
         const matchedOptionIds = Object.values(currentMatches);
-        const dropAnimation = {
-            sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.5' } } }),
-        };
-
         return (
             <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    
-                    {/* Instruction */}
                     <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md p-5 rounded-[24px] border border-white/40 dark:border-white/5 shadow-sm">
                         <div className="text-lg text-slate-900 dark:text-white font-medium">
                             <ContentRenderer text={question.text || "Match the items correctly."} />
                         </div>
                     </div>
 
-                    {/* Layout: Stack on mobile, Row on desktop */}
                     <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
-                        
-                        {/* Prompts Column */}
                         <div className="w-full lg:w-2/3">
                             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 ml-2">Prompts</h4>
                             <div className="space-y-3">
@@ -290,7 +294,6 @@ export default function QuizQuestion() {
                             </div>
                         </div>
                         
-                        {/* Options Pool (Sticky on desktop) */}
                         <div className="w-full lg:w-1/3">
                             <div className="lg:sticky lg:top-4 bg-slate-100/80 dark:bg-[#1A1D24]/80 backdrop-blur-lg p-5 rounded-[24px] border border-slate-200/50 dark:border-white/5 shadow-inner">
                                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 text-center">Drag Options</h4>
@@ -310,7 +313,6 @@ export default function QuizQuestion() {
                         </div>
                     </div>
 
-                    {/* Submit Button for Matching */}
                     {!isTeacherView && !matchingResult && allPromptsMatched && (
                         <div className="flex justify-center pt-6">
                             <button
@@ -321,19 +323,8 @@ export default function QuizQuestion() {
                             </button>
                         </div>
                     )}
-                    
-                    {/* Result Feedback */}
-                    {matchingResult && (
-                        <div className="p-6 text-center rounded-[24px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg">
-                            <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Result</h4>
-                            <p className="text-slate-600 dark:text-slate-300">
-                                You scored <span className="font-bold text-[#007AFF]">{matchingResult.correct}</span> out of {matchingResult.total}.
-                            </p>
-                        </div>
-                    )}
                 </div>
 
-                {/* Drag Overlay for smooth visuals */}
                 <DragOverlay>
                     {activeId ? (
                         <div className="p-3 rounded-xl bg-blue-600 text-white shadow-2xl scale-105 font-medium text-sm border-2 border-blue-400 cursor-grabbing">
@@ -348,13 +339,10 @@ export default function QuizQuestion() {
     // 3. IMAGE LABELING
     if (question.type === 'image-labeling') {
         const parts = question.parts || [];
-        // userAnswers[currentQ] is { [index]: "value" }
         const currentAnswers = userAnswers[currentQ] || {};
 
         return (
             <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                
-                {/* Instruction Card */}
                 <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md p-6 rounded-[24px] border border-white/40 dark:border-white/5 shadow-sm flex items-start gap-4">
                     <div className="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl shrink-0">
                         <PhotoIcon className="w-6 h-6" />
@@ -370,7 +358,6 @@ export default function QuizQuestion() {
                 </div>
 
                 <div className="flex flex-col lg:flex-row gap-8">
-                    {/* Image Viewer Container */}
                     <div className="w-full lg:w-2/3 bg-black/5 dark:bg-black/40 rounded-[24px] overflow-hidden border border-slate-200 dark:border-white/10 relative group shadow-inner">
                         <div 
                             ref={imageContainerRef}
@@ -383,8 +370,6 @@ export default function QuizQuestion() {
                                     alt="Diagram" 
                                     className="max-w-full h-auto object-contain select-none pointer-events-none shadow-xl rounded-lg" 
                                 />
-                                
-                                {/* Pins */}
                                 {parts.map((part, idx) => {
                                     const hasAnswer = !!currentAnswers[idx];
                                     const isActive = activeLabelIndex === idx;
@@ -411,7 +396,6 @@ export default function QuizQuestion() {
                             </div>
                         </div>
 
-                        {/* Floating Controls */}
                         <div className="absolute bottom-4 right-4 flex gap-2 z-10">
                             <div className="flex bg-white/90 dark:bg-black/80 backdrop-blur-md rounded-full shadow-lg p-1 border border-black/5">
                                 <button onClick={() => handleZoom('out')} className="p-2.5 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-colors text-slate-600 dark:text-slate-300"><MagnifyingGlassMinusIcon className="w-5 h-5" /></button>
@@ -423,7 +407,6 @@ export default function QuizQuestion() {
                         </div>
                     </div>
 
-                    {/* Input List */}
                     <div className="w-full lg:w-1/3 flex flex-col gap-4 h-[400px] sm:h-[500px] overflow-y-auto custom-scrollbar pr-2">
                         {parts.map((part, idx) => (
                             <div 
@@ -468,8 +451,6 @@ export default function QuizQuestion() {
     // 4. MULTIPLE CHOICE / TRUE FALSE / IDENTIFICATION
     return (
         <div className="max-w-3xl mx-auto space-y-8 py-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            
-            {/* Question Card */}
             <div className="bg-white/80 dark:bg-[#1e1e1e]/80 backdrop-blur-xl p-8 rounded-[32px] border border-white/50 dark:border-white/5 shadow-xl relative overflow-hidden group">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500 opacity-70"></div>
                 
@@ -484,7 +465,6 @@ export default function QuizQuestion() {
                 </div>
             </div>
 
-            {/* Options Grid */}
             <div className="grid gap-4">
                 {question.type === 'multiple-choice' && (question.options || []).map((option, idx) => {
                     const isSelected = userAnswers[currentQ] === idx;
@@ -546,7 +526,6 @@ export default function QuizQuestion() {
                     </div>
                 )}
 
-                {/* Identification Input */}
                 {question.type === 'identification' && (
                     <div className="relative">
                          <input

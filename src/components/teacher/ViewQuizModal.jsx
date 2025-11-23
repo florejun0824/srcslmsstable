@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { Dialog, DialogPanel } from '@headlessui/react';
-import { ArrowLeftIcon, ArrowRightIcon, XMarkIcon, DocumentArrowDownIcon, ShieldExclamationIcon, ClockIcon } from '@heroicons/react/24/solid';
-import { db } from '../../services/firebase'; 
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { ArrowLeftIcon, ArrowRightIcon, XMarkIcon, DocumentArrowDownIcon, ShieldExclamationIcon } from '@heroicons/react/24/solid';
 import { useToast } from '../../contexts/ToastContext'; 
 import { handleExportPdf as exportPdfUtil } from './quiz/quizUtils'; 
 import QuizContent from './quiz/QuizContent';
 import QuizWarningModal from '../../components/common/QuizWarningModal'; 
+
+// --- NEW IMPORTS ---
+import QuizNotAvailable from './quiz/QuizNotAvailable';
+import QuizLockedView from './quiz/QuizLockedView';
+import QuizNoAttemptsView from './quiz/QuizNoAttemptsView';
 
 import useQuizState from '../../hooks/useQuizState'; 
 import Watermark from '../quiz/Watermark'; 
@@ -24,13 +27,12 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
         classId,
         isTeacherView,
         onComplete,
-		postId
+        postId
     });
 
     const [showWarningModal, setShowWarningModal] = useState(false);
     const { showToast } = useToast();
 
-    // --- MODIFIED: Show warning modal immediately on infraction ---
     useEffect(() => {
         if (quizState.isInfractionActive && !showWarningModal) {
             setShowWarningModal(true); 
@@ -128,15 +130,35 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
     };
     const quizThemeClass = getQuizThemeClass();
 
+    // --- NEW HELPER: Determine Content to Render ---
+    const renderQuizBody = () => {
+        if (quizState.loading) return <div className="flex h-full items-center justify-center"><div className="spinner-border" /></div>; // Ensure simple spinner if strictly loading
+
+        // 1. Check Availability (Expiry) FIRST to prevent infinite loading
+        if (!isTeacherView && !quizState.isAvailable) {
+            return <QuizNotAvailable />;
+        }
+
+        // 2. Check Lock Status
+        if (quizState.isLocked) {
+            return <QuizLockedView />;
+        }
+        
+        // 3. Check Attempts (if checking before entering, though often handled by score check)
+        // Usually handled inside QuizContent or by score check, but explicit check helps
+        // if (quizState.attemptsTaken >= quizState.maxAttempts && !quizState.score) return <QuizNoAttemptsView />;
+
+        // 4. Default Content
+        return <QuizContent />;
+    };
+
     if (!isOpen) return null;
 
     return (
         <>
             <Dialog open={isOpen} onClose={handleClose} static={true} className="fixed inset-0 z-[100] flex items-center justify-center font-sans">
-                {/* Immersive Backdrop */}
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md transition-opacity" aria-hidden="true" />
                 
-                {/* Main Container: Glass Sheet */}
                 <DialogPanel className={`
                     quiz-container relative flex flex-col w-full max-w-4xl h-[100dvh] md:h-[92vh] 
                     bg-[#F3F4F6] dark:bg-[#0F172A] 
@@ -145,7 +167,6 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                     ${quizThemeClass}
                 `}>
                     
-                    {/* Watermark Layer */}
                     <div className="absolute inset-0 pointer-events-none z-0 opacity-50">
                         <Watermark
                             userProfile={userProfile}
@@ -154,17 +175,12 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                         />
                     </div>
                     
-                    {/* --- HEADER --- */}
                     <header className="relative z-20 flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 transition-colors">
                         <div className="flex justify-between items-center px-4 py-3 sm:px-6 sm:py-4">
-                            
-                            {/* Left: Title & Export */}
                             <div className="flex flex-col min-w-0 pr-4">
                                 <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white truncate tracking-tight leading-tight">
                                     {quiz?.title || "Quiz"}
                                 </h2>
-                                
-                                {/* Teacher Export Button */}
                                 {isTeacherView && (
                                     <button 
                                         onClick={handleExportPdf} 
@@ -176,10 +192,7 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                 )}
                             </div>
 
-                            {/* Right: Timer, Anti-Cheat, Close */}
                             <div className="flex items-center gap-3">
-                                
-                                {/* Warning Indicator (Conditionally Rendered) */}
                                 {!isTeacherView && classId && !quizState.isLocked && quizState.score === null && !quizState.hasSubmitted && (quiz?.settings?.enabled ?? false) && (quiz?.settings?.lockOnLeave ?? false) && quizState.isAvailable && (
                                     <div className="hidden sm:flex items-center gap-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 text-amber-700 dark:text-amber-400 px-3 py-1.5 rounded-full shadow-sm animate-pulse-slow" title="Anti-cheat warnings">
                                         <ShieldExclamationIcon className="w-4 h-4"/>
@@ -187,7 +200,6 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                     </div>
                                 )}
 
-                                {/* Timer Display Wrapper */}
                                 <div className="bg-slate-100 dark:bg-white/5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10">
                                     <TimerDisplay
                                         timeRemaining={quizState.timeRemaining}
@@ -201,7 +213,6 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                     />
                                 </div>
 
-                                {/* Close Button */}
                                 <button 
                                     onClick={handleClose} 
                                     className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400 hover:bg-red-500 hover:text-white dark:hover:bg-red-500 transition-all duration-200 shadow-sm" 
@@ -212,7 +223,6 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                             </div>
                         </div>
 
-                        {/* Teacher Warning Banner */}
                         {isTeacherView && (
                             <div className="w-full bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800/30 py-1.5 px-4 text-center">
                                 <p className="text-[10px] sm:text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wide">
@@ -222,25 +232,20 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                         )}
                     </header>
 
-                    {/* --- CONTENT AREA --- */}
                     <div className="relative z-20 flex-grow overflow-y-auto custom-scrollbar bg-slate-50/50 dark:bg-black/20">
                         <div className="max-w-3xl mx-auto w-full px-4 py-6 sm:px-6 sm:py-8">
-                            {/* White Paper Card Effect */}
                             <div className="bg-white dark:bg-[#1E293B] rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-black/50 border border-white/50 dark:border-white/5 p-1 sm:p-2">
                                 <QuizContext.Provider value={quizState}>
-                                    <QuizContent />
+                                    {renderQuizBody()}
                                 </QuizContext.Provider>
                             </div>
                         </div>
                     </div>
 
-                    {/* --- FOOTER --- */}
                     <footer className="relative z-20 flex-shrink-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-200/60 dark:border-white/5 p-4 sm:px-6">
                         {(!isTeacherView && quizState.isAvailable && !quizState.isLocked && quizState.score === null && !quizState.hasSubmitted && !quizState.questionResult && !quizState.matchingResult) && (
                             (quizState.currentQuestionAttempted || (quizState.shuffledQuestions[quizState.currentQ]?.type === 'essay' && quizState.userAnswers[quizState.currentQ]?.trim())) ? (
                                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4 max-w-5xl mx-auto">
-                                    
-                                    {/* Question Info */}
                                     <div className="flex flex-col items-center sm:items-start">
                                         <div className="flex items-center gap-2">
                                             <span className="text-sm font-bold text-slate-900 dark:text-white">
@@ -255,7 +260,6 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                         </span>
                                     </div>
 
-                                    {/* Navigation Controls */}
                                     <div className="flex items-center gap-3 w-full sm:w-auto">
                                         {!(quiz?.settings?.preventBackNavigation) && quizState.currentQ > 0 && (
                                             <button
@@ -267,7 +271,6 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                                     quizState.setQuestionStartTime(Date.now());
                                                 }}
                                                 className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-200 dark:hover:bg-white/10 transition-all active:scale-95"
-                                                aria-label="Previous Question"
                                             >
                                                 <ArrowLeftIcon className="h-4 w-4"/> Back
                                             </button>
@@ -278,7 +281,6 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                                 onClick={quizState.handleNextQuestion}
                                                 disabled={quizState.shuffledQuestions[quizState.currentQ]?.type === 'essay' && !quizState.userAnswers[quizState.currentQ]?.trim()}
                                                 className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-sm shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
-                                                aria-label="Next Question"
                                             >
                                                 Next <ArrowRightIcon className="h-4 w-4"/>
                                             </button>
@@ -287,7 +289,6 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                                                 onClick={quizState.handleSubmit}
                                                 disabled={quizState.shuffledQuestions[quizState.currentQ]?.type === 'essay' && !quizState.userAnswers[quizState.currentQ]?.trim()}
                                                 className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-sm shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
-                                                aria-label="Submit Quiz"
                                             >
                                                 Submit Quiz
                                             </button>
@@ -297,7 +298,6 @@ export default function ViewQuizModal({ isOpen, onClose, onComplete, quiz, userP
                             ) : null
                         )}
 
-                        {/* Teacher Navigation Controls */}
                         {isTeacherView && quizState.shuffledQuestions.length > 0 && (
                             <div className="flex justify-between items-center max-w-3xl mx-auto">
                                 <button

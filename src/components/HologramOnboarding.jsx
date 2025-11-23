@@ -89,25 +89,33 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
             <div className="relative overflow-hidden rounded-[2rem] border border-white/60 dark:border-white/10 bg-white/70 dark:bg-[#1a1b26]/70 backdrop-blur-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]">
                 
                 {/* Window Header (Traffic Lights) */}
-                <div className="flex items-center gap-2 px-5 py-4 border-b border-black/5 dark:border-white/5 bg-white/30 dark:bg-white/5">
+                <div className="flex-shrink-0 flex items-center gap-2 px-5 py-4 border-b border-black/5 dark:border-white/5 bg-white/30 dark:bg-white/5">
                     <div className="w-3 h-3 rounded-full bg-[#FF5F57] border border-black/10"></div>
                     <div className="w-3 h-3 rounded-full bg-[#FEBC2E] border border-black/10"></div>
                     <div className="w-3 h-3 rounded-full bg-[#28C840] border border-black/10"></div>
                     <div className="ml-auto text-[10px] font-bold tracking-widest text-slate-400 uppercase opacity-60">Term_v2.0</div>
                 </div>
 
-                <div className="p-6 md:p-8 flex flex-col min-h-[320px]">
+                {/* UPDATED CONTAINER: 
+                    - Fixed height on mobile (h-[360px]) to prevent jumping/pushing.
+                    - Min-height on desktop (min-h-[320px]) for flexibility.
+                */}
+                <div className={`p-6 md:p-8 flex flex-col ${isMobile ? 'h-[360px]' : 'min-h-[320px]'}`}>
                     
-                    {/* Code Area */}
-                    <div className="flex-grow font-mono text-[13px] md:text-[14px] leading-relaxed text-slate-600 dark:text-slate-300">
+                    {/* UPDATED CODE AREA:
+                        - overflow-y-auto: Allows text to scroll inside the box.
+                        - custom-scrollbar: Preserves your scrollbar styling.
+                        - min-h-0: Essential for flex child scrolling.
+                    */}
+                    <div className="flex-grow min-h-0 overflow-y-auto custom-scrollbar font-mono text-[13px] md:text-[14px] leading-relaxed text-slate-600 dark:text-slate-300">
                         <span className="text-blue-500 dark:text-blue-400 select-none mr-2">➜</span>
                         <span className="text-purple-500 dark:text-purple-400 select-none mr-2">~</span>
                         <span className="whitespace-pre-wrap">{typedText}</span>
                         <span className="inline-block w-2 h-4 ml-1 align-middle bg-slate-400 animate-pulse"></span>
                     </div>
 
-                    {/* Footer Controls */}
-                    <div className="mt-8 pt-6 border-t border-black/5 dark:border-white/5 flex flex-col gap-5">
+                    {/* Footer Controls (Stays pinned to bottom due to flex-grow above) */}
+                    <div className="mt-6 pt-6 border-t border-black/5 dark:border-white/5 flex flex-col gap-5 flex-shrink-0">
                         
                         {/* Toggle Switch (iOS Style) */}
                         <div className="flex items-center justify-between group cursor-pointer" onClick={() => setDontShowAgain(!dontShowAgain)}>
@@ -135,7 +143,6 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
             </div>
 
             {/* 4. THE GLASS ARROW (SVG for perfect blending) */}
-            {/* Conditional rendering based on mobile to position the arrow correctly */}
             {!isMobile ? (
                  <svg className="absolute top-[120px] -left-5 w-6 h-12 text-white/70 dark:text-[#1a1b26]/70 drop-shadow-[-4px_0_4px_rgba(0,0,0,0.05)]" viewBox="0 0 24 48" fill="currentColor">
                     <path d="M24 0V48L0 24L24 0Z" />
