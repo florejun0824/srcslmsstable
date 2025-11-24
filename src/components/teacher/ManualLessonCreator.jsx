@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../../services/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
-import { Dialog, Tab } from '@headlessui/react';
+import { Tab } from '@headlessui/react';
 import {
     ArrowUturnLeftIcon, PlusCircleIcon, TrashIcon, Bars3Icon,
     CodeBracketIcon, LinkIcon, QueueListIcon, PaintBrushIcon, ChatBubbleLeftRightIcon,
-    DocumentTextIcon, PhotoIcon, VideoCameraIcon, DevicePhoneMobileIcon,
-    ListBulletIcon, CheckIcon, ComputerDesktopIcon, EyeIcon
+    DocumentTextIcon, PhotoIcon, VideoCameraIcon,
+    ListBulletIcon, CheckIcon, ComputerDesktopIcon, EyeIcon,
+    ChevronRightIcon
 } from '@heroicons/react/24/outline';
 import ContentRenderer from './ContentRenderer';
 
@@ -53,16 +54,10 @@ const H2Icon = (props) => (
         <path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1" />
     </svg>
 );
-const H3Icon = (props) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}>
-        <path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1" />
-    </svg>
-);
 
 // --- HELPER: Video URL to Embed ---
 const getEmbedUrl = (url) => {
     if (!url) return '';
-    // Simple Youtube conversion
     const ytMatch = url.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=)?(.+)/);
     if (ytMatch) {
         return `https://www.youtube.com/embed/${ytMatch[1]}`;
@@ -73,38 +68,31 @@ const getEmbedUrl = (url) => {
 // --- SKELETON LOADING STATE ---
 const LessonCreatorSkeleton = () => (
     <div className="flex flex-col h-full w-full animate-pulse bg-[#f5f5f7] dark:bg-[#121212]">
-        {/* Header Skeleton */}
-        <div className="flex-shrink-0 px-6 py-4 border-b border-black/5 dark:border-white/5">
+        <div className="flex-shrink-0 px-8 py-5 border-b border-black/5 dark:border-white/5">
             <div className="flex justify-between items-center">
                 <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-white/10"></div>
+                    <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-white/10"></div>
                     <div className="space-y-2">
-                        <div className="h-4 w-32 bg-slate-200 dark:bg-white/10 rounded-md"></div>
-                        <div className="h-2 w-24 bg-slate-200 dark:bg-white/10 rounded-md"></div>
+                        <div className="h-5 w-48 bg-slate-200 dark:bg-white/10 rounded-md"></div>
+                        <div className="h-3 w-32 bg-slate-200 dark:bg-white/10 rounded-md"></div>
                     </div>
                 </div>
-                <div className="flex gap-3">
-                    <div className="h-10 w-32 bg-slate-200 dark:bg-white/10 rounded-xl"></div>
-                    <div className="h-10 w-32 bg-slate-200 dark:bg-white/10 rounded-xl"></div>
+                <div className="flex gap-4">
+                    <div className="h-12 w-32 bg-slate-200 dark:bg-white/10 rounded-2xl"></div>
+                    <div className="h-12 w-32 bg-slate-200 dark:bg-white/10 rounded-2xl"></div>
                 </div>
             </div>
         </div>
-
-        {/* Main Content Skeleton */}
-        <div className="flex-grow flex gap-6 p-6 overflow-hidden">
-            {/* Sidebar */}
-            <div className="w-[280px] flex-shrink-0 flex flex-col gap-4">
-                <div className="h-8 w-24 bg-slate-200 dark:bg-white/10 rounded-md mb-2"></div>
+        <div className="flex-grow flex gap-6 p-8 overflow-hidden">
+            <div className="w-[320px] flex-shrink-0 flex flex-col gap-4">
+                <div className="h-10 w-32 bg-slate-200 dark:bg-white/10 rounded-lg mb-2"></div>
                 {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="h-14 w-full bg-slate-200 dark:bg-white/10 rounded-2xl"></div>
+                    <div key={i} className="h-16 w-full bg-slate-200 dark:bg-white/10 rounded-3xl"></div>
                 ))}
-                <div className="mt-auto h-14 w-full bg-slate-200 dark:bg-white/10 rounded-2xl"></div>
             </div>
-            
-            {/* Editor Area */}
-            <div className="flex-1 flex flex-col gap-4">
-                <div className="h-16 w-full bg-slate-200 dark:bg-white/10 rounded-2xl"></div>
-                <div className="flex-1 bg-slate-200 dark:bg-white/10 rounded-3xl"></div>
+            <div className="flex-1 flex flex-col gap-6">
+                <div className="h-20 w-full bg-slate-200 dark:bg-white/10 rounded-3xl"></div>
+                <div className="flex-1 bg-slate-200 dark:bg-white/10 rounded-[32px]"></div>
             </div>
         </div>
     </div>
@@ -112,20 +100,31 @@ const LessonCreatorSkeleton = () => (
 
 // --- MOBILE RESTRICTION OVERLAY ---
 const MobileRestricted = ({ onClose }) => (
-    <div className="fixed inset-0 z-[100] bg-[#f5f5f7] dark:bg-[#121212] flex flex-col items-center justify-center p-8 text-center lg:hidden">
-        <div className="w-24 h-24 rounded-[32px] bg-white dark:bg-white/10 shadow-2xl flex items-center justify-center mb-8 ring-1 ring-black/5">
+    <div className="fixed inset-0 z-[300] bg-[#f5f5f7] dark:bg-[#000000] flex flex-col items-center justify-center p-8 text-center md:hidden animate-in fade-in duration-300">
+        <div className="w-24 h-24 rounded-[32px] bg-white dark:bg-[#1c1c1e] shadow-2xl flex items-center justify-center mb-8 border border-black/5 dark:border-white/10">
             <ComputerDesktopIcon className="w-12 h-12 text-slate-400 dark:text-slate-500" />
         </div>
-        <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">Desktop Required</h3>
+        <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">Desktop Experience</h3>
         <p className="text-base text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed font-medium mb-8">
-            This feature is disabled on mobile devices. Kindly use the desktop version for the best content creation experience.
+            This workspace is optimized for tablets and desktop computers. Please switch devices to continue.
         </p>
-        <button 
-            onClick={onClose}
-            className="px-8 py-3 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-sm hover:scale-105 active:scale-95 transition-all"
-        >
-            Go Back
-        </button>
+        
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+            <a 
+                href="https://srcslms.netlify.app"
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-full py-3.5 rounded-[18px] bg-[#007AFF] text-white font-bold text-[15px] shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+                Open Desktop Version
+            </a>
+            <button 
+                onClick={onClose}
+                className="w-full py-3.5 rounded-[18px] bg-white dark:bg-[#1c1c1e] text-slate-900 dark:text-white font-bold text-[15px] shadow-sm border border-black/5 dark:border-white/10 active:scale-95 transition-all"
+            >
+                Close
+            </button>
+        </div>
     </div>
 );
 
@@ -204,6 +203,31 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
         const blockTextContent = selectedText.split('\n').map(line => `> ${line}`).join('\n');
         applyStyle(`\n${blockTextContent}\n`, '', true);
     };
+
+    const applySpoiler = () => {
+        const ta = textareaRef.current;
+        if (!ta) return;
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const text = ta.value;
+        const selectedText = text.substring(start, end);
+        const content = selectedText || "Type hidden text here..."; 
+        const spoilerText = `\n<details>\n  <summary>Click to reveal</summary>\n\n  ${content}\n\n</details>\n`;
+        const newText = `${text.substring(0, start)}${spoilerText}${text.substring(end)}`;
+
+        onValueChange && onValueChange(newText);
+        setTimeout(() => {
+            adjustHeight();
+            ta.focus();
+            if (selectedText) {
+                ta.selectionStart = ta.selectionEnd = start + spoilerText.length;
+            } else {
+                const contentStart = start + spoilerText.indexOf(content);
+                ta.selectionStart = contentStart;
+                ta.selectionEnd = contentStart + content.length;
+            }
+        }, 0);
+    };
     
     const applyMarkdown = (syntax) => {
         const ta = textareaRef.current;
@@ -244,10 +268,6 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
                 newText = `${text.substring(0, start)}## ${selectedText}${text.substring(end)}`;
                 cursorPos = start + 3;
                 break;
-            case 'h3':
-                newText = `${text.substring(0, start)}### ${selectedText}${text.substring(end)}`;
-                cursorPos = start + 4;
-                break;
             default:
                 return;
         }
@@ -260,47 +280,47 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
         }, 0);
     };
 
-    const ToolbarButton = ({ icon: Icon, text, syntax, tooltip, onClick }) => (
+    const ToolbarButton = ({ icon: Icon, syntax, tooltip, onClick }) => (
         <button
             onClick={onClick || (() => applyMarkdown(syntax))}
             title={tooltip}
-            className="p-1.5 rounded-md text-slate-500 hover:text-slate-900 hover:bg-black/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white transition-all active:scale-90"
+            className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-black/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white transition-all active:scale-90"
         >
-            {Icon ? <Icon className="w-5 h-5" /> : <span className="text-xs font-black px-1">{text}</span>}
+            <Icon className="w-5 h-5" />
         </button>
     );
 
     return (
-        <div className="border border-black/5 dark:border-white/10 rounded-[24px] overflow-hidden flex flex-col h-full bg-white/40 dark:bg-[#1e1e1e]/40 shadow-sm backdrop-blur-md min-h-0 ring-1 ring-white/20 dark:ring-white/5">
+        <div className="border border-white/20 dark:border-white/10 rounded-[28px] overflow-hidden flex flex-col h-full bg-white/40 dark:bg-[#1e1e1e]/40 shadow-xl backdrop-blur-xl min-h-0 ring-1 ring-white/20 dark:ring-white/5">
             {/* Floating Toolbar Pilled Design */}
-            <div className="flex items-center justify-center p-3 sticky top-0 z-10">
-                <div className="flex items-center gap-1 px-2 py-1.5 bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-xl rounded-full shadow-lg border border-black/5 dark:border-white/5 ring-1 ring-black/5">
+            <div className="flex items-center justify-center p-4 sticky top-0 z-10">
+                <div className="flex items-center gap-1.5 px-3 py-2 bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-xl rounded-full shadow-lg border border-black/5 dark:border-white/5 ring-1 ring-black/5">
                     <ToolbarButton icon={BoldIcon} syntax="bold" tooltip="Bold" />
                     <ToolbarButton icon={ItalicIcon} syntax="italic" tooltip="Italic" />
                     
-                    <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-1"></div>
+                    <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1.5"></div>
                     
                     <ToolbarButton icon={H1Icon} syntax="h1" tooltip="Heading 1" />
                     <ToolbarButton icon={H2Icon} syntax="h2" tooltip="Heading 2" />
                     
-                    <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-1"></div>
+                    <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1.5"></div>
 
                     <ToolbarButton icon={ListBulletIcon} syntax="list" tooltip="Bulleted List" />
                     <ToolbarButton icon={CodeBracketIcon} syntax="code" tooltip="Code" />
                     <ToolbarButton icon={LinkIcon} syntax="link" tooltip="Link" />
                     
-                    <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-1"></div>
+                    <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1.5"></div>
                     
                     <div className="relative group">
                         <ToolbarButton icon={PaintBrushIcon} tooltip="Text Color" onClick={() => setShowColorPicker(s => !s)} />
                         {showColorPicker && (
-                            <div onMouseLeave={() => setShowColorPicker(false)} className="absolute top-full left-1/2 -translate-x-1/2 mt-3 z-20 bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur-xl p-3 rounded-[14px] shadow-2xl border border-black/5 dark:border-white/10 flex gap-2 animate-in fade-in zoom-in duration-200">
+                            <div onMouseLeave={() => setShowColorPicker(false)} className="absolute top-full left-1/2 -translate-x-1/2 mt-4 z-20 bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur-xl p-3 rounded-[20px] shadow-2xl border border-black/5 dark:border-white/10 flex gap-2 animate-in fade-in zoom-in duration-200">
                                 {TEXT_COLORS.map(color => (
                                     <button 
                                         key={color.name} 
                                         title={color.name} 
                                         onClick={() => applyColor(color.hex)} 
-                                        className="w-6 h-6 rounded-full border border-black/5 shadow-sm hover:scale-110 transition-transform" 
+                                        className="w-8 h-8 rounded-full border border-black/5 shadow-md hover:scale-110 transition-transform" 
                                         style={{ backgroundColor: color.hex }} 
                                     />
                                 ))}
@@ -308,6 +328,7 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
                         )}
                     </div>
                     <ToolbarButton icon={ChatBubbleLeftRightIcon} tooltip="Block Quote" onClick={applyBlockQuote} />
+                    <ToolbarButton icon={ChevronRightIcon} tooltip="Spoiler/Reveal" onClick={applySpoiler} />
                 </div>
             </div>
             
@@ -317,7 +338,7 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
                     ref={textareaRef}
                     value={value}
                     onChange={(e) => onValueChange && onValueChange(e.target.value)}
-                    className="w-full p-0 font-mono text-[15px] leading-loose resize-none border-none focus:outline-none focus:ring-0 bg-transparent text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                    className="w-full p-0 font-mono text-[16px] leading-loose resize-none border-none focus:outline-none focus:ring-0 bg-transparent text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600"
                     placeholder={placeholder}
                     spellCheck="false"
                 />
@@ -339,26 +360,26 @@ function SortablePageItem({ id, page, index, activePageIndex, setActivePageIndex
             ref={setNodeRef}
             style={style}
             onClick={() => setActivePageIndex(index)}
-            className={`group relative flex items-center justify-between p-3.5 rounded-[16px] cursor-pointer transition-all duration-300 ease-out
+            className={`group relative flex items-center justify-between p-4 rounded-[20px] cursor-pointer transition-all duration-300 ease-out border
                        ${isActive 
-                           ? 'bg-white dark:bg-white/10 shadow-lg ring-1 ring-black/5 dark:ring-white/10 scale-[1.02] z-10' 
-                           : 'hover:bg-white/50 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400 hover:shadow-sm'
+                           ? 'bg-white/80 dark:bg-white/10 shadow-lg border-white/40 dark:border-white/10 scale-[1.02] z-10 ring-1 ring-black/5' 
+                           : 'border-transparent hover:bg-white/40 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400'
                        }`}
         >
             {/* Active Indicator */}
             {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-[#007AFF] rounded-r-full shadow-[0_0_10px_rgba(0,122,255,0.5)]" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 h-10 w-1.5 bg-[#007AFF] rounded-r-full shadow-[0_0_12px_rgba(0,122,255,0.6)]" />
             )}
             
-            <div className="flex items-center gap-3 overflow-hidden pl-3">
+            <div className="flex items-center gap-4 overflow-hidden pl-2">
                 <button {...listeners} {...attributes} className="text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400 cursor-grab active:cursor-grabbing touch-none transition-colors">
                     <Bars3Icon className="h-5 w-5 stroke-[2.5]"/>
                 </button>
                 <div className="flex flex-col">
-                    <span className={`font-bold text-[13px] truncate leading-tight ${isActive ? 'text-slate-900 dark:text-white' : ''}`}>
+                    <span className={`font-bold text-[14px] truncate leading-tight ${isActive ? 'text-slate-900 dark:text-white' : ''}`}>
                         {page.title || `Page ${index + 1}`}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-medium tracking-wide uppercase">
+                    <span className="text-[11px] text-slate-400 font-bold tracking-wide uppercase mt-0.5">
                         {page.type === 'diagram-data' ? 'Image' : page.type}
                     </span>
                 </div>
@@ -369,7 +390,7 @@ function SortablePageItem({ id, page, index, activePageIndex, setActivePageIndex
                 title="Remove page"
                 className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all opacity-0 group-hover:opacity-100 disabled:hidden active:scale-90"
             >
-                <TrashIcon className="h-4 w-4 stroke-[2.5]"/>
+                <TrashIcon className="h-5 w-5 stroke-[2.5]"/>
             </button>
         </div>
     );
@@ -395,8 +416,8 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
     
-    // Visual Styles
-    const inputClass = "w-full bg-white/60 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-[14px] px-4 py-2.5 text-[14px] font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-4 focus:ring-[#007AFF]/10 focus:border-[#007AFF]/50 outline-none transition-all shadow-sm backdrop-blur-md";
+    // iPadOS Input Style
+    const inputClass = "w-full bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-[16px] px-4 py-3 text-[15px] font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-4 focus:ring-[#007AFF]/10 focus:border-[#007AFF]/50 outline-none transition-all shadow-inner backdrop-blur-sm";
 
     const handlePageChange = (field, value) => {
         const newPages = [...pages];
@@ -404,16 +425,14 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
 
         if (field === 'type') {
             pageData.type = value;
-            // Initialize correct content structure based on type
             if (value === 'diagram-data') {
                 pageData.content = { labels: [], imageUrls: [] }; 
             } else if (value === 'video') {
-                pageData.content = ''; // URL String
+                pageData.content = ''; 
             } else {
-                pageData.content = ''; // Text Body
+                pageData.content = ''; 
             }
         } else if (pageData.type === 'diagram-data') {
-            // Image Logic
             let newContent = { ...(pageData.content || { labels: [], imageUrls: [] }) };
             if (field === 'diagram_labels') {
                 newContent.labels = value.split(',').map(label => label.trim());
@@ -425,14 +444,12 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
             if (field !== 'caption') pageData.content = newContent;
 
         } else if (pageData.type === 'video') {
-            // Video Logic
             if (field === 'caption') {
                 pageData.caption = value;
             } else if (field !== 'type') {
-                pageData.content = value; // URL is the content
+                pageData.content = value;
             }
         } else {
-            // Text Logic
             pageData[field] = value;
         }
         newPages[activePageIndex] = pageData;
@@ -473,7 +490,6 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
         try {
             const pagesToSave = pages.map(({ id, ...page }) => {
                 const cleanPage = { ...page };
-                
                 if (cleanPage.type === "diagram-data") {
                     cleanPage.content = {
                         labels: (cleanPage.content?.labels || []).filter(Boolean), 
@@ -504,320 +520,327 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
     }
 
     return (
-        <div className="flex flex-col h-full bg-[#f5f5f7] dark:bg-[#121212] font-sans text-slate-900 dark:text-white">
+        <div className="fixed inset-0 z-50 flex flex-col h-full bg-[#f5f5f7]/95 dark:bg-[#121212]/95 backdrop-blur-2xl font-sans text-slate-900 dark:text-white">
             
-<MobileRestricted onClose={onClose} />
+            {/* Mobile Restriction (Visible < md) */}
+            <MobileRestricted onClose={onClose} />
 
-            {/* Header */}
-            <div className="flex-shrink-0 px-6 py-4 border-b border-black/5 dark:border-white/5 bg-white/70 dark:bg-[#1e1e1e]/70 backdrop-blur-xl z-20 sticky top-0">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <button onClick={onClose} className="p-2 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 transition-all active:scale-95">
-                            <ArrowUturnLeftIcon className="w-5 h-5 stroke-[2.5] text-slate-600 dark:text-white" />
-                        </button>
-                        <div>
-                            <h3 className="text-lg font-bold tracking-tight leading-none">Lesson Studio</h3>
-                            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">Manual Content Creator</p>
+            {/* Desktop Content (Visible >= md) */}
+            <div className="hidden md:flex flex-col h-full">
+                
+                {/* Header */}
+                <div className="flex-shrink-0 px-8 py-5 border-b border-black/5 dark:border-white/5 bg-white/40 dark:bg-[#1e1e1e]/40 backdrop-blur-xl z-20 sticky top-0">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                            <button onClick={onClose} className="p-3 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 transition-all active:scale-95">
+                                <ArrowUturnLeftIcon className="w-5 h-5 stroke-[2.5] text-slate-600 dark:text-white" />
+                            </button>
+                            <div>
+                                <h3 className="text-xl font-bold tracking-tight leading-none text-slate-900 dark:text-white">Lesson Studio</h3>
+                                <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mt-1">Manual Content Creator</p>
+                            </div>
                         </div>
-                    </div>
-                    <div className="flex gap-3 w-full sm:w-auto">
-                        <input 
-                            type="text" 
-                            placeholder="Lesson Title (e.g. Intro to Biology)" 
-                            value={title} 
-                            onChange={(e) => setTitle(e.target.value)} 
-                            className={`${inputClass} font-bold`} 
-                        />
-                        <input 
-                            type="text" 
-                            placeholder="Study Guide URL (Optional)" 
-                            value={studyGuideUrl} 
-                            onChange={(e) => setStudyGuideUrl(e.target.value)} 
-                            className={inputClass} 
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {/* Main Editor Area */}
-            <div className="flex-grow flex flex-col lg:flex-row overflow-hidden p-4 gap-4 relative z-0">
-                
-                {/* Left Sidebar: Pages List */}
-                <div className="w-full lg:w-[280px] flex-shrink-0 flex flex-col bg-white/40 dark:bg-[#1c1c1e]/40 backdrop-blur-xl border border-black/5 dark:border-white/5 rounded-[24px] shadow-sm overflow-hidden ring-1 ring-white/20 dark:ring-white/5">
-                    <div className="p-4 border-b border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5">
-                        <h3 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Structure</h3>
-                    </div>
-                    <div className="flex-grow overflow-y-auto p-3 custom-scrollbar">
-                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                            <SortableContext items={pages.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                                <div className="space-y-2">
-                                {pages.map((page, index) => (
-                                    <SortablePageItem
-                                        key={page.id}
-                                        id={page.id}
-                                        page={page}
-                                        index={index}
-                                        activePageIndex={activePageIndex}
-                                        setActivePageIndex={setActivePageIndex}
-                                        removePage={removePage}
-                                        isOnlyPage={pages.length <= 1}
-                                    />
-                                ))}
-                                </div>
-                            </SortableContext>
-                        </DndContext>
-                    </div>
-                    <div className="p-4 border-t border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/20 backdrop-blur-md">
-                         <button onClick={addPage} className="w-full flex justify-center items-center gap-2 px-4 py-3 rounded-[16px] bg-white/80 dark:bg-white/10 hover:bg-[#007AFF]/10 dark:hover:bg-white/20 shadow-sm border border-black/5 dark:border-white/5 text-sm font-bold text-[#007AFF] dark:text-white transition-all active:scale-95 group">
-                            <PlusCircleIcon className="w-5 h-5 stroke-[2.5] transition-transform group-hover:rotate-90"/>
-                            Add New Page
-                        </button>
-                    </div>
-                </div>
-                
-                {/* Center: Editor */}
-                <div className="flex-grow flex flex-col min-h-0 bg-white/40 dark:bg-[#1c1c1e]/40 backdrop-blur-xl border border-black/5 dark:border-white/5 rounded-[24px] shadow-sm overflow-hidden ring-1 ring-white/20 dark:ring-white/5">
-                    
-                    {/* Editor Toolbar */}
-                    <div className="flex items-center justify-between p-4 border-b border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5 backdrop-blur-md">
-                        <div className="flex items-center gap-3 flex-1">
-                            <span className="text-[11px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider">Editing</span>
+                        <div className="flex gap-4 w-full lg:w-auto">
                             <input 
-                                placeholder="Page Title" 
-                                value={activePage.title} 
-                                onChange={(e) => handlePageChange('title', e.target.value)} 
-                                className="bg-transparent border-none p-0 text-lg font-bold text-slate-900 dark:text-white focus:ring-0 placeholder-slate-400 w-full tracking-tight"
+                                type="text" 
+                                placeholder="Lesson Title (e.g. Intro to Biology)" 
+                                value={title} 
+                                onChange={(e) => setTitle(e.target.value)} 
+                                className={`${inputClass} font-bold w-full lg:w-80`} 
+                            />
+                            <input 
+                                type="text" 
+                                placeholder="Study Guide URL (Optional)" 
+                                value={studyGuideUrl} 
+                                onChange={(e) => setStudyGuideUrl(e.target.value)} 
+                                className={`${inputClass} w-full lg:w-80`} 
                             />
                         </div>
-                        
-                        {/* Type Switcher (Segmented Control) */}
-                        <Tab.Group selectedIndex={pageTypeIndex > -1 ? pageTypeIndex : 0} onChange={(index) => handlePageChange('type', ['text', 'diagram-data', 'video'][index])}>
-                            <Tab.List className="flex p-1 bg-slate-200/60 dark:bg-black/40 rounded-xl backdrop-blur-md">
-                                {['Text', 'Image', 'Video'].map((type, idx) => {
-                                    const icons = [DocumentTextIcon, PhotoIcon, VideoCameraIcon];
-                                    const Icon = icons[idx];
-                                    return (
-                                        <Tab key={type} className={({ selected }) =>
-                                            `flex items-center gap-2 rounded-[10px] py-1.5 px-4 text-[13px] font-bold transition-all outline-none duration-200
-                                            ${selected 
-                                                ? 'bg-white dark:bg-[#3A3A3C] text-slate-900 dark:text-white shadow-sm scale-[1.02]' 
-                                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                                            }`
-                                        }>
-                                            <Icon className="w-4 h-4 stroke-[2.5]" />
-                                            <span className="hidden sm:inline">{type}</span>
-                                        </Tab>
-                                    );
-                                })}
-                            </Tab.List>
-                        </Tab.Group>
+                    </div>
+                </div>
+
+                {/* Main Editor Area */}
+                <div className="flex-grow flex flex-col lg:flex-row overflow-hidden p-6 gap-6 relative z-0">
+                    
+                    {/* Left Sidebar: Pages List */}
+                    <div className="w-full lg:w-[320px] flex-shrink-0 flex flex-col bg-white/40 dark:bg-[#1c1c1e]/40 backdrop-blur-2xl border border-white/20 dark:border-white/5 rounded-[28px] shadow-xl overflow-hidden ring-1 ring-black/5 dark:ring-white/5">
+                        <div className="p-5 border-b border-black/5 dark:border-white/5 bg-white/20 dark:bg-white/5">
+                            <h3 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Structure</h3>
+                        </div>
+                        <div className="flex-grow overflow-y-auto p-4 custom-scrollbar">
+                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                <SortableContext items={pages.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                                    <div className="space-y-3">
+                                    {pages.map((page, index) => (
+                                        <SortablePageItem
+                                            key={page.id}
+                                            id={page.id}
+                                            page={page}
+                                            index={index}
+                                            activePageIndex={activePageIndex}
+                                            setActivePageIndex={setActivePageIndex}
+                                            removePage={removePage}
+                                            isOnlyPage={pages.length <= 1}
+                                        />
+                                    ))}
+                                    </div>
+                                </SortableContext>
+                            </DndContext>
+                        </div>
+                        <div className="p-5 border-t border-black/5 dark:border-white/5 bg-white/40 dark:bg-black/20 backdrop-blur-md">
+                             <button onClick={addPage} className="w-full flex justify-center items-center gap-2 px-4 py-4 rounded-[20px] bg-white/60 dark:bg-white/10 hover:bg-[#007AFF]/10 dark:hover:bg-white/20 shadow-sm border border-white/40 dark:border-white/5 text-[15px] font-bold text-[#007AFF] dark:text-white transition-all active:scale-95 group">
+                                <PlusCircleIcon className="w-6 h-6 stroke-[2.5] transition-transform group-hover:rotate-90"/>
+                                Add New Page
+                            </button>
+                        </div>
                     </div>
                     
-                    {/* Content Area */}
-                    <div className="flex-grow overflow-hidden p-4 sm:p-6">
+                    {/* Center: Editor */}
+                    <div className="flex-grow flex flex-col min-h-0 bg-white/40 dark:bg-[#1c1c1e]/40 backdrop-blur-2xl border border-white/20 dark:border-white/5 rounded-[28px] shadow-xl overflow-hidden ring-1 ring-black/5 dark:ring-white/5">
                         
-                        {/* MODE: TEXT */}
-                        {activePage.type === 'text' && (
-                            <div className="h-full flex flex-col lg:flex-row gap-6">
-                                <div className="flex-1 h-full min-h-0 shadow-sm rounded-[24px]">
-                                    <MarkdownEditor
-                                        value={typeof activePage.content === 'string' ? activePage.content : ''}
-                                        onValueChange={(val) => handlePageChange('content', val)}
-                                    />
-                                </div>
-                                <div className="flex-1 h-full min-h-0 hidden lg:block">
-                                    <div className="w-full h-full border border-black/5 dark:border-white/5 rounded-[24px] bg-white/60 dark:bg-black/20 p-8 overflow-y-auto custom-scrollbar prose prose-sm max-w-none prose-slate dark:prose-invert shadow-inner ring-1 ring-black/5">
-                                        <div className="mb-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Preview</div>
-                                        <ContentRenderer text={typeof activePage.content === 'string' ? activePage.content : ''} />
+                        {/* Editor Toolbar */}
+                        <div className="flex items-center justify-between p-5 border-b border-black/5 dark:border-white/5 bg-white/20 dark:bg-white/5 backdrop-blur-md">
+                            <div className="flex items-center gap-4 flex-1">
+                                <span className="text-[11px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-widest">Editing</span>
+                                <input 
+                                    placeholder="Page Title" 
+                                    value={activePage.title} 
+                                    onChange={(e) => handlePageChange('title', e.target.value)} 
+                                    className="bg-transparent border-none p-0 text-xl font-bold text-slate-900 dark:text-white focus:ring-0 placeholder-slate-400 w-full tracking-tight"
+                                />
+                            </div>
+                            
+                            {/* Type Switcher (Segmented Control) */}
+                            <Tab.Group selectedIndex={pageTypeIndex > -1 ? pageTypeIndex : 0} onChange={(index) => handlePageChange('type', ['text', 'diagram-data', 'video'][index])}>
+                                <Tab.List className="flex p-1.5 bg-slate-200/50 dark:bg-black/40 rounded-[18px] backdrop-blur-md">
+                                    {['Text', 'Image', 'Video'].map((type, idx) => {
+                                        const icons = [DocumentTextIcon, PhotoIcon, VideoCameraIcon];
+                                        const Icon = icons[idx];
+                                        return (
+                                            <Tab key={type} className={({ selected }) =>
+                                                `flex items-center gap-2 rounded-[14px] py-2 px-5 text-[13px] font-bold transition-all outline-none duration-300
+                                                ${selected 
+                                                    ? 'bg-white dark:bg-[#3A3A3C] text-slate-900 dark:text-white shadow-md scale-[1.02]' 
+                                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-white/5'
+                                                }`
+                                            }>
+                                                <Icon className="w-4 h-4 stroke-[2.5]" />
+                                                <span className="hidden sm:inline">{type}</span>
+                                            </Tab>
+                                        );
+                                    })}
+                                </Tab.List>
+                            </Tab.Group>
+                        </div>
+                        
+                        {/* Content Area */}
+                        <div className="flex-grow overflow-hidden p-6 sm:p-8">
+                            
+                            {/* MODE: TEXT */}
+                            {activePage.type === 'text' && (
+                                <div className="h-full flex flex-col lg:flex-row gap-8">
+                                    <div className="flex-1 h-full min-h-0">
+                                        <MarkdownEditor
+                                            value={typeof activePage.content === 'string' ? activePage.content : ''}
+                                            onValueChange={(val) => handlePageChange('content', val)}
+                                        />
+                                    </div>
+                                    <div className="flex-1 h-full min-h-0 hidden lg:block">
+                                        <div className="w-full h-full border border-white/20 dark:border-white/5 rounded-[28px] bg-white/40 dark:bg-black/20 p-8 overflow-y-auto custom-scrollbar prose prose-slate dark:prose-invert max-w-none shadow-inner ring-1 ring-black/5">
+                                            <div className="mb-6 text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                <EyeIcon className="w-4 h-4" /> Live Preview
+                                            </div>
+                                            <ContentRenderer text={typeof activePage.content === 'string' ? activePage.content : ''} />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
 
-                        {/* MODE: IMAGE */}
-                        {activePage.type === 'diagram-data' && (
-                            <div className="h-full flex flex-col lg:flex-row gap-6">
-                                {/* Left: Config & Caption Editor */}
-                                <div className="flex-1 flex flex-col gap-4 h-full min-h-0 overflow-y-auto custom-scrollbar p-1">
-                                    {/* Image Config */}
-                                    <div className="w-full p-6 bg-white/60 dark:bg-white/5 rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm">
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <div className="p-2.5 rounded-[12px] bg-blue-100 dark:bg-blue-900/30 text-blue-600 shadow-inner">
-                                                    <PhotoIcon className="w-6 h-6" />
-                                                </div>
-                                                <label className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">Image Configuration</label>
-                                            </div>
-                                            
-                                            {/* URL List */}
-                                            <div className="space-y-2">
-                                                {Array.isArray(activePage.content?.imageUrls) && activePage.content.imageUrls.map((url, idx) => (
-                                                    <div key={idx} className="flex gap-2 items-center group">
-                                                        <input placeholder={`Paste Image URL #${idx + 1}`} value={url} onChange={(e) => { const newUrls = [...activePage.content.imageUrls]; newUrls[idx] = e.target.value; handlePageChange('imageUrls', newUrls); }} className={inputClass}/>
-                                                        <button onClick={() => { const newUrls = activePage.content.imageUrls.filter((_, i) => i !== idx); handlePageChange('imageUrls', newUrls); }} className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors border border-transparent hover:border-red-100">
-                                                            <TrashIcon className="w-5 h-5 stroke-[2]"/>
-                                                        </button>
+                            {/* MODE: IMAGE */}
+                            {activePage.type === 'diagram-data' && (
+                                <div className="h-full flex flex-col lg:flex-row gap-8">
+                                    {/* Left: Config & Caption Editor */}
+                                    <div className="flex-1 flex flex-col gap-6 h-full min-h-0 overflow-y-auto custom-scrollbar p-1">
+                                        {/* Image Config */}
+                                        <div className="w-full p-6 bg-white/40 dark:bg-white/5 rounded-[28px] border border-white/20 dark:border-white/5 shadow-sm">
+                                            <div className="space-y-5">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <div className="p-3 rounded-[16px] bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                                                        <PhotoIcon className="w-7 h-7 stroke-[2]" />
                                                     </div>
-                                                ))}
-                                            </div>
-                                            <button onClick={() => handlePageChange('imageUrls', [...(activePage.content?.imageUrls || []), ''])} className="w-full flex justify-center items-center gap-2 px-4 py-3 bg-gradient-to-r from-[#007AFF] to-[#0051A8] text-white rounded-[14px] font-bold text-sm transition-all hover:shadow-lg shadow-blue-500/20 active:scale-[0.98]">
-                                                <PlusCircleIcon className="w-5 h-5 stroke-[2.5]"/>
-                                                Add Image Source
-                                            </button>
-                                        </div>
-                                        <div className="mt-6 pt-4 border-t border-black/5 dark:border-white/5">
-                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 block ml-1">Interactive Labels (Optional)</label>
-                                            <input placeholder="Comma-separated labels (e.g. Nucleus, Cytoplasm)" value={Array.isArray(activePage.content?.labels) ? activePage.content.labels.join(', ') : ''} onChange={(e) => handlePageChange('diagram_labels', e.target.value)} className={inputClass}/>
-                                        </div>
-                                    </div>
-
-                                    {/* Caption Editor */}
-                                    <div className="flex-1 min-h-[300px] relative rounded-[24px] overflow-hidden shadow-sm border border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5">
-                                        <div className="absolute top-0 left-0 right-0 px-4 py-2 bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-md border-b border-black/5 dark:border-white/5 z-10">
-                                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Description / Caption</span>
-                                        </div>
-                                        <div className="pt-10 h-full">
-                                            <MarkdownEditor
-                                                value={activePage.caption || ''}
-                                                onValueChange={(val) => handlePageChange('caption', val)}
-                                                placeholder="Write a caption, introduction, or detailed explanation for these images..."
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Right: Preview */}
-                                <div className="flex-1 h-full hidden lg:block min-h-0">
-                                    <div className="w-full h-full border border-black/5 dark:border-white/5 rounded-[24px] bg-white/60 dark:bg-black/20 p-6 overflow-y-auto custom-scrollbar shadow-inner ring-1 ring-black/5">
-                                        <div className="mb-4 text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                                            <EyeIcon className="w-4 h-4" /> Live Preview
-                                        </div>
-                                        <div className="space-y-6">
-                                            {/* Image Preview */}
-                                            <div className="grid grid-cols-1 gap-4">
-                                                {Array.isArray(activePage.content?.imageUrls) && activePage.content.imageUrls.map((url, idx) => (
-                                                    url ? (
-                                                        <div key={idx} className="rounded-xl overflow-hidden shadow-sm border border-black/5 dark:border-white/10">
-                                                            <img src={url} alt={`Preview ${idx}`} className="w-full h-auto object-cover" onError={(e) => e.target.style.display = 'none'} />
-                                                        </div>
-                                                    ) : (
-                                                        <div key={idx} className="h-40 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center border border-dashed border-slate-300 dark:border-white/10">
-                                                            <p className="text-sm text-slate-400 font-medium">Image {idx + 1} Placeholder</p>
-                                                        </div>
-                                                    )
-                                                ))}
-                                            </div>
-                                            {/* Rendered Caption */}
-                                            {activePage.caption && (
-                                                <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-4 bg-white/50 dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/5">
-                                                    <ContentRenderer text={activePage.caption} />
+                                                    <label className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">Image Configuration</label>
                                                 </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* MODE: VIDEO */}
-                        {activePage.type === 'video' && (
-                            <div className="h-full flex flex-col lg:flex-row gap-6">
-                                {/* Left: Config & Caption Editor */}
-                                <div className="flex-1 flex flex-col gap-4 h-full min-h-0 overflow-y-auto custom-scrollbar p-1">
-                                    {/* Video Config */}
-                                    <div className="w-full p-8 bg-white/60 dark:bg-white/5 rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm text-center">
-                                        <div className="flex flex-col items-center gap-4 max-w-lg mx-auto">
-                                            <div className="w-16 h-16 mx-auto bg-gradient-to-br from-pink-500 to-rose-600 rounded-[20px] flex items-center justify-center shadow-lg shadow-pink-500/30">
-                                                <VideoCameraIcon className="w-8 h-8 text-white" />
+                                                
+                                                {/* URL List */}
+                                                <div className="space-y-3">
+                                                    {Array.isArray(activePage.content?.imageUrls) && activePage.content.imageUrls.map((url, idx) => (
+                                                        <div key={idx} className="flex gap-2 items-center group">
+                                                            <input placeholder={`Paste Image URL #${idx + 1}`} value={url} onChange={(e) => { const newUrls = [...activePage.content.imageUrls]; newUrls[idx] = e.target.value; handlePageChange('imageUrls', newUrls); }} className={inputClass}/>
+                                                            <button onClick={() => { const newUrls = activePage.content.imageUrls.filter((_, i) => i !== idx); handlePageChange('imageUrls', newUrls); }} className="p-3.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-[16px] transition-colors border border-transparent hover:border-red-100">
+                                                                <TrashIcon className="w-5 h-5 stroke-[2.5]"/>
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <button onClick={() => handlePageChange('imageUrls', [...(activePage.content?.imageUrls || []), ''])} className="w-full flex justify-center items-center gap-2 px-4 py-3.5 bg-gradient-to-r from-[#007AFF] to-[#0051A8] text-white rounded-[18px] font-bold text-[15px] transition-all hover:shadow-lg shadow-blue-500/20 active:scale-[0.98]">
+                                                    <PlusCircleIcon className="w-5 h-5 stroke-[2.5]"/>
+                                                    Add Image Source
+                                                </button>
                                             </div>
-                                            <div className="w-full">
-                                                <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Embed Video</h4>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Paste a YouTube or Vimeo link.</p>
-                                                <input 
-                                                    placeholder="https://youtube.com/watch?v=..." 
-                                                    value={typeof activePage.content === 'string' ? activePage.content : ''} 
-                                                    onChange={(e) => handlePageChange('content', e.target.value)} 
-                                                    className={`${inputClass} text-center font-medium`}
+                                            <div className="mt-6 pt-5 border-t border-black/5 dark:border-white/5">
+                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 block ml-1">Interactive Labels (Optional)</label>
+                                                <input placeholder="Comma-separated labels (e.g. Nucleus, Cytoplasm)" value={Array.isArray(activePage.content?.labels) ? activePage.content.labels.join(', ') : ''} onChange={(e) => handlePageChange('diagram_labels', e.target.value)} className={inputClass}/>
+                                            </div>
+                                        </div>
+
+                                        {/* Caption Editor */}
+                                        <div className="flex-1 min-h-[300px] relative rounded-[28px] overflow-hidden shadow-sm border border-white/20 dark:border-white/5 bg-white/40 dark:bg-white/5 backdrop-blur-md">
+                                            <div className="absolute top-0 left-0 right-0 px-6 py-3 bg-white/60 dark:bg-[#2c2c2e]/60 backdrop-blur-xl border-b border-black/5 dark:border-white/5 z-10">
+                                                <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Description / Caption</span>
+                                            </div>
+                                            <div className="pt-12 h-full">
+                                                <MarkdownEditor
+                                                    value={activePage.caption || ''}
+                                                    onValueChange={(val) => handlePageChange('caption', val)}
+                                                    placeholder="Write a caption, introduction, or detailed explanation for these images..."
                                                 />
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Caption Editor */}
-                                    <div className="flex-1 min-h-[300px] relative rounded-[24px] overflow-hidden shadow-sm border border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5">
-                                        <div className="absolute top-0 left-0 right-0 px-4 py-2 bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-md border-b border-black/5 dark:border-white/5 z-10">
-                                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Description / Caption</span>
-                                        </div>
-                                        <div className="pt-10 h-full">
-                                            <MarkdownEditor
-                                                value={activePage.caption || ''}
-                                                onValueChange={(val) => handlePageChange('caption', val)}
-                                                placeholder="Write a caption, introduction, or explanation for this video..."
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Right: Preview */}
-                                <div className="flex-1 h-full hidden lg:block min-h-0">
-                                    <div className="w-full h-full border border-black/5 dark:border-white/5 rounded-[24px] bg-white/60 dark:bg-black/20 p-6 overflow-y-auto custom-scrollbar shadow-inner ring-1 ring-black/5">
-                                        <div className="mb-4 text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                                            <EyeIcon className="w-4 h-4" /> Live Preview
-                                        </div>
-                                        <div className="space-y-6">
-                                            {/* Video Embed Preview */}
-                                            <div className="aspect-video rounded-xl overflow-hidden bg-black shadow-lg">
-                                                {activePage.content ? (
-                                                    <iframe
-                                                        className="w-full h-full"
-                                                        src={getEmbedUrl(activePage.content)}
-                                                        title="Video Preview"
-                                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                        allowFullScreen
-                                                    ></iframe>
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center">
-                                                        <p className="text-slate-500 text-sm">No Video URL Provided</p>
+                                    {/* Right: Preview */}
+                                    <div className="flex-1 h-full hidden lg:block min-h-0">
+                                        <div className="w-full h-full border border-white/20 dark:border-white/5 rounded-[28px] bg-white/60 dark:bg-black/20 p-8 overflow-y-auto custom-scrollbar shadow-inner ring-1 ring-black/5">
+                                            <div className="mb-6 text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                <EyeIcon className="w-4 h-4" /> Live Preview
+                                            </div>
+                                            <div className="space-y-8">
+                                                {/* Image Preview */}
+                                                <div className="grid grid-cols-1 gap-6">
+                                                    {Array.isArray(activePage.content?.imageUrls) && activePage.content.imageUrls.map((url, idx) => (
+                                                        url ? (
+                                                            <div key={idx} className="rounded-[24px] overflow-hidden shadow-xl border border-black/5 dark:border-white/10">
+                                                                <img src={url} alt={`Preview ${idx}`} className="w-full h-auto object-cover" onError={(e) => e.target.style.display = 'none'} />
+                                                            </div>
+                                                        ) : (
+                                                            <div key={idx} className="h-48 rounded-[24px] bg-slate-100 dark:bg-white/5 flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-white/10">
+                                                                <p className="text-[15px] text-slate-400 font-medium">Image {idx + 1} Placeholder</p>
+                                                            </div>
+                                                        )
+                                                    ))}
+                                                </div>
+                                                {/* Rendered Caption */}
+                                                {activePage.caption && (
+                                                    <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-6 bg-white/50 dark:bg-white/5 rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm">
+                                                        <ContentRenderer text={activePage.caption} />
                                                     </div>
                                                 )}
                                             </div>
-                                            
-                                            {/* Rendered Caption */}
-                                            {activePage.caption && (
-                                                <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-4 bg-white/50 dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/5">
-                                                    <ContentRenderer text={activePage.caption} />
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
+
+                            {/* MODE: VIDEO */}
+                            {activePage.type === 'video' && (
+                                <div className="h-full flex flex-col lg:flex-row gap-8">
+                                    {/* Left: Config & Caption Editor */}
+                                    <div className="flex-1 flex flex-col gap-6 h-full min-h-0 overflow-y-auto custom-scrollbar p-1">
+                                        {/* Video Config */}
+                                        <div className="w-full p-8 bg-white/40 dark:bg-white/5 rounded-[28px] border border-white/20 dark:border-white/5 shadow-sm text-center">
+                                            <div className="flex flex-col items-center gap-5 max-w-lg mx-auto">
+                                                <div className="w-20 h-20 mx-auto bg-gradient-to-br from-pink-500 to-rose-600 rounded-[24px] flex items-center justify-center shadow-lg shadow-pink-500/30">
+                                                    <VideoCameraIcon className="w-10 h-10 text-white stroke-[1.5]" />
+                                                </div>
+                                                <div className="w-full">
+                                                    <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Embed Video</h4>
+                                                    <p className="text-[13px] text-slate-500 dark:text-slate-400 mb-6 font-medium">Paste a YouTube or Vimeo link to embed content.</p>
+                                                    <input 
+                                                        placeholder="https://youtube.com/watch?v=..." 
+                                                        value={typeof activePage.content === 'string' ? activePage.content : ''} 
+                                                        onChange={(e) => handlePageChange('content', e.target.value)} 
+                                                        className={`${inputClass} text-center font-medium shadow-sm`}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Caption Editor */}
+                                        <div className="flex-1 min-h-[300px] relative rounded-[28px] overflow-hidden shadow-sm border border-white/20 dark:border-white/5 bg-white/40 dark:bg-white/5 backdrop-blur-md">
+                                            <div className="absolute top-0 left-0 right-0 px-6 py-3 bg-white/60 dark:bg-[#2c2c2e]/60 backdrop-blur-xl border-b border-black/5 dark:border-white/5 z-10">
+                                                <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Description / Caption</span>
+                                            </div>
+                                            <div className="pt-12 h-full">
+                                                <MarkdownEditor
+                                                    value={activePage.caption || ''}
+                                                    onValueChange={(val) => handlePageChange('caption', val)}
+                                                    placeholder="Write a caption, introduction, or explanation for this video..."
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Right: Preview */}
+                                    <div className="flex-1 h-full hidden lg:block min-h-0">
+                                        <div className="w-full h-full border border-white/20 dark:border-white/5 rounded-[28px] bg-white/60 dark:bg-black/20 p-8 overflow-y-auto custom-scrollbar shadow-inner ring-1 ring-black/5">
+                                            <div className="mb-6 text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                <EyeIcon className="w-4 h-4" /> Live Preview
+                                            </div>
+                                            <div className="space-y-8">
+                                                {/* Video Embed Preview */}
+                                                <div className="aspect-video rounded-[24px] overflow-hidden bg-black shadow-2xl">
+                                                    {activePage.content ? (
+                                                        <iframe
+                                                            className="w-full h-full"
+                                                            src={getEmbedUrl(activePage.content)}
+                                                            title="Video Preview"
+                                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                            allowFullScreen
+                                                        ></iframe>
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center">
+                                                            <p className="text-slate-500 text-[15px] font-medium">No Video URL Provided</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                
+                                                {/* Rendered Caption */}
+                                                {activePage.caption && (
+                                                    <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-6 bg-white/50 dark:bg-white/5 rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm">
+                                                        <ContentRenderer text={activePage.caption} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
-            </div>
-            
-            {/* Footer */}
-            <div className="flex-shrink-0 flex justify-between items-center px-6 py-4 border-t border-black/5 dark:border-white/5 bg-white/70 dark:bg-[#1e1e1e]/70 backdrop-blur-xl z-20">
-                <p className="text-sm font-bold text-red-500 ml-2">{error}</p>
-                <div className="flex gap-3">
-                    <button className="px-6 py-2.5 rounded-[16px] font-bold text-sm text-slate-600 dark:text-slate-300 bg-white/50 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20 border border-black/5 dark:border-white/5 transition-all shadow-sm active:scale-95" onClick={onClose}>
-                        Cancel
-                    </button>
-                    <button 
-                        onClick={handleAddLesson} 
-                        disabled={loading} 
-                        className="px-8 py-2.5 font-bold text-sm bg-gradient-to-r from-[#007AFF] to-[#0051A8] hover:shadow-blue-500/40 text-white shadow-lg shadow-blue-500/30 transition-all rounded-[16px] disabled:bg-slate-400 disabled:shadow-none active:scale-95 flex items-center gap-2"
-                    >
-                        {loading ? (
-                            <>Saving...</>
-                        ) : (
-                            <>
-                                <CheckIcon className="w-5 h-5 stroke-[2.5]" />
-                                Save Lesson
-                            </>
-                        )}
-                    </button>
+                
+                {/* Footer */}
+                <div className="flex-shrink-0 flex justify-between items-center px-8 py-5 border-t border-black/5 dark:border-white/5 bg-white/40 dark:bg-[#1e1e1e]/40 backdrop-blur-xl z-20">
+                    <p className="text-sm font-bold text-red-500 ml-2">{error}</p>
+                    <div className="flex gap-4">
+                        <button className="px-8 py-3 rounded-[18px] font-bold text-[15px] text-slate-600 dark:text-slate-300 bg-white/50 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20 border border-white/20 dark:border-white/10 transition-all shadow-sm active:scale-95" onClick={onClose}>
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={handleAddLesson} 
+                            disabled={loading} 
+                            className="px-10 py-3 font-bold text-[15px] bg-gradient-to-r from-[#007AFF] to-[#0051A8] hover:shadow-blue-500/40 text-white shadow-lg shadow-blue-500/30 transition-all rounded-[18px] disabled:bg-slate-400 disabled:shadow-none active:scale-95 flex items-center gap-2"
+                        >
+                            {loading ? (
+                                <>Saving...</>
+                            ) : (
+                                <>
+                                    <CheckIcon className="w-5 h-5 stroke-[2.5]" />
+                                    Save Lesson
+                                </>
+                            )}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

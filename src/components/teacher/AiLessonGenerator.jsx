@@ -319,6 +319,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 	        ${sourceText.substring(0, 30000)} 
 	        `;
 	    };
+    
     const getComponentPrompt = (sourceText, baseContext, lessonPlan, componentType, extraData = {}) => {
         const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
         let taskInstruction, jsonFormat;
@@ -333,11 +334,15 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         - **Lesson Summary:** ${lessonPlan.summary}
         `;
 
+        // UPDATED: Added instructions for Math/Science symbols
         const styleRules = `
         **STYLE:** Pure Markdown. No HTML.
         - Headings: \`### Heading\`
         - Bold: \`**bold**\`
         - Escape double quotes in JSON.
+        - **MATH & SCIENCE:** Use standard LaTeX formatting for all mathematical equations, formulas, chemical symbols, and degrees. 
+          - Enclose inline math in \`$\` (e.g., $a^2 + b^2 = c^2$, $H_2O$, $90^\\circ$).
+          - Enclose block/display equations in \`$$\` (e.g., $$ x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a} $$).
         `;
 
         switch (componentType) {
@@ -526,12 +531,13 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     }
                 };
 
+                // UPDATED: Added type: 'text' to all page pushes
                 if (isUnitOverview) {
                     const overview = await safeGenerate('UnitOverview_Overview');
-                    if(overview) newLesson.pages.push(overview.page);
+                    if(overview) newLesson.pages.push({ ...overview.page, type: 'text' });
                     
                     const targets = await safeGenerate('UnitOverview_Targets');
-                    if(targets) newLesson.pages.push(targets.page);
+                    if(targets) newLesson.pages.push({ ...targets.page, type: 'text' });
                 } else {
                     const objs = await safeGenerate('objectives');
                     if(objs) newLesson.learningObjectives = objs.objectives;
@@ -540,23 +546,23 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     if(comps) newLesson.assignedCompetencies = comps.competencies;
                     
                     const intro = await safeGenerate('Introduction');
-                    if(intro) newLesson.pages.push(intro.page);
+                    if(intro) newLesson.pages.push({ ...intro.page, type: 'text' });
                     
                     const activity = await safeGenerate('LetsGetStarted');
-                    if(activity) newLesson.pages.push(activity.page);
+                    if(activity) newLesson.pages.push({ ...activity.page, type: 'text' });
 
                     const planner = await safeGenerate('CoreContentPlanner');
                     const contentTitles = planner ? planner.coreContentTitles : [];
                     
                     for (const [cIdx, title] of contentTitles.entries()) {
                         const pageData = await safeGenerate('CoreContentPage', { contentTitle: title, allContentTitles: contentTitles, currentIndex: cIdx });
-                        if (pageData) newLesson.pages.push(pageData.page);
+                        if (pageData) newLesson.pages.push({ ...pageData.page, type: 'text' });
                     }
                     
                     const standardPages = ['CheckForUnderstanding', 'LessonSummary', 'WrapUp', 'EndofLessonAssessment', 'AnswerKey', 'References'];
                     for (const pageType of standardPages) {
                         const pData = await safeGenerate(pageType);
-                        if (pData) newLesson.pages.push(pData.page);
+                        if (pData) newLesson.pages.push({ ...pData.page, type: 'text' });
                     }
                 }
                 

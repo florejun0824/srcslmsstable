@@ -21,21 +21,33 @@ const getEmbedUrl = (url) => {
 };
 
 // --- MOBILE RESTRICTION OVERLAY ---
+// Updated to show only on small screens (< md), allowing Tablets (md) and Desktops (lg)
 const MobileRestricted = ({ onClose }) => (
-    <div className="fixed inset-0 z-[100] bg-[#f5f5f7] dark:bg-[#121212] flex flex-col items-center justify-center p-8 text-center lg:hidden">
-        <div className="w-24 h-24 rounded-[32px] bg-white dark:bg-white/10 shadow-2xl flex items-center justify-center mb-8 ring-1 ring-black/5">
+    <div className="fixed inset-0 z-[300] bg-[#f5f5f7] dark:bg-[#000000] flex flex-col items-center justify-center p-8 text-center md:hidden animate-in fade-in duration-300">
+        <div className="w-24 h-24 rounded-[32px] bg-white dark:bg-[#1c1c1e] shadow-2xl flex items-center justify-center mb-8 border border-black/5 dark:border-white/10">
             <ComputerDesktopIcon className="w-12 h-12 text-slate-400 dark:text-slate-500" />
         </div>
-        <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">Desktop Required</h3>
+        <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">Desktop Experience</h3>
         <p className="text-base text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed font-medium mb-8">
-            This feature is disabled on mobile devices. Kindly use the desktop version for the best content creation experience.
+            This advanced editor is optimized for tablets and desktop computers. Please switch devices to continue.
         </p>
-        <button 
-            onClick={onClose}
-            className="px-8 py-3 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-sm hover:scale-105 active:scale-95 transition-all"
-        >
-            Go Back
-        </button>
+        
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+            <a 
+                href="https://srcslms.netlify.app"
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-full py-3.5 rounded-[18px] bg-[#007AFF] text-white font-bold text-[15px] shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+                Open Desktop Version
+            </a>
+            <button 
+                onClick={onClose}
+                className="w-full py-3.5 rounded-[18px] bg-white dark:bg-[#1c1c1e] text-slate-900 dark:text-white font-bold text-[15px] shadow-sm border border-black/5 dark:border-white/10 active:scale-95 transition-all"
+            >
+                Close
+            </button>
+        </div>
     </div>
 );
 
@@ -63,7 +75,6 @@ const H2Icon = (props) => (
         <path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1" />
     </svg>
 );
-// Fixed H3 Icon Path
 const H3Icon = (props) => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}>
         <path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" />
@@ -239,44 +250,44 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
         <button
             onClick={onClick || (() => applyMarkdown(syntax))}
             title={tooltip}
-            className="p-1.5 rounded-md text-slate-500 hover:text-slate-900 hover:bg-black/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white transition-all active:scale-90"
+            className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-black/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white transition-all active:scale-90"
         >
             <Icon className="w-5 h-5" />
         </button>
     );
 
     return (
-        <div className="border border-black/5 dark:border-white/10 rounded-[24px] overflow-hidden flex flex-col h-full bg-white/40 dark:bg-[#1e1e1e]/40 shadow-sm backdrop-blur-md min-h-0 ring-1 ring-white/20 dark:ring-white/5">
+        <div className="border border-white/20 dark:border-white/10 rounded-[28px] overflow-hidden flex flex-col h-full bg-white/40 dark:bg-[#1e1e1e]/40 shadow-xl backdrop-blur-xl min-h-0 ring-1 ring-white/20 dark:ring-white/5">
             {/* Floating Toolbar Pilled Design */}
-            <div className="flex items-center justify-center p-3 sticky top-0 z-10">
-                <div className="flex items-center gap-1 px-2 py-1.5 bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-xl rounded-full shadow-lg border border-black/5 dark:border-white/5 ring-1 ring-black/5">
+            <div className="flex items-center justify-center p-4 sticky top-0 z-10">
+                <div className="flex items-center gap-1.5 px-3 py-2 bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-xl rounded-full shadow-lg border border-black/5 dark:border-white/5 ring-1 ring-black/5">
                     <ToolbarButton icon={BoldIcon} syntax="bold" tooltip="Bold" />
                     <ToolbarButton icon={ItalicIcon} syntax="italic" tooltip="Italic" />
                     
-                    <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-1"></div>
+                    <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1.5"></div>
                     
                     <ToolbarButton icon={H1Icon} syntax="h1" tooltip="Heading 1" />
                     <ToolbarButton icon={H2Icon} syntax="h2" tooltip="Heading 2" />
                     <ToolbarButton icon={H3Icon} syntax="h3" tooltip="Heading 3" />
                     
-                    <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-1"></div>
+                    <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1.5"></div>
 
                     <ToolbarButton icon={QueueListIcon} syntax="list" tooltip="Bulleted List" />
                     <ToolbarButton icon={CodeBracketIcon} syntax="code" tooltip="Code" />
                     <ToolbarButton icon={LinkIcon} syntax="link" tooltip="Link" />
                     
-                    <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-1"></div>
+                    <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1.5"></div>
                     
                     <div className="relative group">
                         <ToolbarButton icon={PaintBrushIcon} tooltip="Text Color" onClick={() => setShowColorPicker(s => !s)} />
                         {showColorPicker && (
-                            <div onMouseLeave={() => setShowColorPicker(false)} className="absolute top-full left-1/2 -translate-x-1/2 mt-3 z-20 bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur-xl p-3 rounded-[14px] shadow-2xl border border-black/5 dark:border-white/10 flex gap-2 animate-in fade-in zoom-in duration-200">
+                            <div onMouseLeave={() => setShowColorPicker(false)} className="absolute top-full left-1/2 -translate-x-1/2 mt-4 z-20 bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur-xl p-3 rounded-[20px] shadow-2xl border border-black/5 dark:border-white/10 flex gap-2 animate-in fade-in zoom-in duration-200">
                                 {TEXT_COLORS.map(color => (
                                     <button 
                                         key={color.name} 
                                         title={color.name} 
                                         onClick={() => applyColor(color.hex)} 
-                                        className="w-6 h-6 rounded-full border border-black/5 shadow-sm hover:scale-110 transition-transform" 
+                                        className="w-8 h-8 rounded-full border border-black/5 shadow-md hover:scale-110 transition-transform" 
                                         style={{ backgroundColor: color.hex }} 
                                     />
                                 ))}
@@ -293,7 +304,7 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
                     ref={textareaRef}
                     value={value}
                     onChange={(e) => onValueChange && onValueChange(e.target.value)}
-                    className="w-full p-0 font-mono text-[15px] leading-loose resize-none border-none focus:outline-none focus:ring-0 bg-transparent text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                    className="w-full p-0 font-mono text-[16px] leading-loose resize-none border-none focus:outline-none focus:ring-0 bg-transparent text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600"
                     placeholder={placeholder}
                     spellCheck="false"
                 />
@@ -321,8 +332,8 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     
-    // Style constants
-    const inputClass = "w-full bg-white/60 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-[14px] px-4 py-2.5 text-[14px] font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-4 focus:ring-[#007AFF]/10 focus:border-[#007AFF]/50 outline-none transition-all shadow-sm backdrop-blur-md";
+    // iPadOS Input Style
+    const inputClass = "w-full bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-[16px] px-4 py-3 text-[15px] font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-4 focus:ring-[#007AFF]/10 focus:border-[#007AFF]/50 outline-none transition-all shadow-inner backdrop-blur-sm";
 
     useEffect(() => {
         if (lesson) {
@@ -331,14 +342,12 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
             
             const formattedPages = lesson.pages?.map(page => {
                 let normalizedPage = { ...page, id: `page-${Math.random()}` };
-                
-                // Caption Handling: ensure caption exists
+                normalizedPage.type = normalizedPage.type || 'text';
                 normalizedPage.caption = normalizedPage.caption || '';
 
                 if (normalizedPage.type === 'diagram' || normalizedPage.type === 'diagram-data') {
                     normalizedPage.type = 'diagram-data';
                     const content = normalizedPage.content || {};
-                    // Handle legacy data structure if any
                     const imageUrls = Array.isArray(content.imageUrls) ? content.imageUrls : (content.generatedImageUrl ? [content.generatedImageUrl] : []);
                     normalizedPage.content = {
                         labels: content.labels || [],
@@ -365,7 +374,6 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
 
         if (field === 'type') {
             pageData.type = value;
-            // Initialize content structures
             if (value === 'diagram-data') {
                 pageData.content = { labels: [], imageUrls: [] };
             } else if (value === 'video') {
@@ -388,10 +396,9 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
              if (field === 'caption') {
                 pageData.caption = value;
             } else {
-                pageData.content = value; // content is the URL string
+                pageData.content = value; 
             }
         } else {
-            // Text Mode
             pageData[field] = value;
         }
         newPages[activePageIndex] = pageData;
@@ -425,7 +432,6 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
         try {
             const pagesToSave = pages.map(({ id, ...page }) => {
                 const cleanPage = { ...page };
-                // Ensure caption is saved
                 cleanPage.caption = cleanPage.caption || '';
 
                 if (cleanPage.type === "diagram-data") {
@@ -461,52 +467,62 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
     return (
         <Dialog open={isOpen} onClose={onClose} className="relative z-50">
             {/* Backdrop */}
-            <div className="fixed inset-0 bg-black/30 dark:bg-black/60 backdrop-blur-sm" aria-hidden="true" />
+            <div className="fixed inset-0 bg-[#e5e5e5]/40 dark:bg-black/60 backdrop-blur-xl" aria-hidden="true" />
 
             <div className="fixed inset-0 flex items-center justify-center p-4">
-                <Dialog.Panel className="w-full h-[95vh] max-w-7xl transform overflow-hidden bg-[#f5f5f7] dark:bg-[#121212] rounded-[32px] shadow-2xl ring-1 ring-black/5 flex flex-col transition-all">
-                    
-                    {/* --- MOBILE RESTRICTION --- */}
-                    <MobileRestricted onClose={onClose} />
+                {/* Main Container 
+                    - Shows MobileRestricted on < md
+                    - Shows Dialog.Panel on >= md (Tablets and Desktops)
+                */}
+                
+                {/* --- MOBILE RESTRICTION (Visible < md) --- */}
+                <MobileRestricted onClose={onClose} />
 
+                {/* --- MAIN EDITOR (Visible >= md) --- */}
+                <Dialog.Panel className="hidden md:flex w-full h-[95vh] max-w-[1600px] transform overflow-hidden bg-[#f5f5f7]/80 dark:bg-[#000000]/80 backdrop-blur-2xl rounded-[32px] shadow-2xl ring-1 ring-white/20 dark:ring-white/10 flex-col transition-all border border-white/40 dark:border-white/5">
+                    
                     {/* Header */}
-                    <div className="flex-shrink-0 px-6 py-4 border-b border-black/5 dark:border-white/5 bg-white/70 dark:bg-[#1e1e1e]/70 backdrop-blur-xl z-20">
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                            <div className="flex items-center gap-3 w-full md:w-auto">
-                                <button onClick={onClose} className="p-2 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 transition-all active:scale-95">
+                    <div className="flex-shrink-0 px-8 py-5 border-b border-black/5 dark:border-white/5 bg-white/40 dark:bg-[#1e1e1e]/40 backdrop-blur-xl z-20">
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                            <div className="flex items-center gap-4 w-full md:w-auto">
+                                <button onClick={onClose} className="p-3 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-all active:scale-95">
                                     <XMarkIcon className="w-5 h-5 stroke-[2.5] text-slate-600 dark:text-white" />
                                 </button>
-                                <Dialog.Title className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">Edit Lesson</Dialog.Title>
+                                <div>
+                                    <Dialog.Title className="text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">Edit Lesson</Dialog.Title>
+                                    <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mt-1">iPadOS Studio Mode</p>
+                                </div>
                             </div>
-                            <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                            <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
                                 <input 
                                     placeholder="Lesson Title" 
                                     value={title} 
                                     onChange={(e) => setTitle(e.target.value)} 
-                                    className={`${inputClass} font-bold w-full md:w-64`} 
+                                    className={`${inputClass} font-bold w-full md:w-72`} 
                                 />
                                 <input 
                                     placeholder="Study Guide URL" 
                                     value={studyGuideUrl} 
                                     onChange={(e) => setStudyGuideUrl(e.target.value)} 
-                                    className={`${inputClass} w-full md:w-64`} 
+                                    className={`${inputClass} w-full md:w-72`} 
                                 />
                             </div>
                         </div>
                     </div>
 
                     {/* Content Area */}
-                    <div className="flex-grow flex flex-col lg:flex-row overflow-hidden p-4 gap-4 relative z-0">
+                    <div className="flex-grow flex flex-col lg:flex-row overflow-hidden p-6 gap-6 relative z-0">
+                        
                         {/* Sidebar */}
-                        <div className="w-full lg:w-[280px] flex-shrink-0 flex flex-col bg-white/40 dark:bg-[#1c1c1e]/40 backdrop-blur-xl border border-black/5 dark:border-white/5 rounded-[24px] shadow-sm overflow-hidden ring-1 ring-white/20 dark:ring-white/5">
-                            <div className="p-4 border-b border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5">
-                                <h3 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pages</h3>
+                        <div className="w-full lg:w-[320px] flex-shrink-0 flex flex-col bg-white/40 dark:bg-[#1c1c1e]/40 backdrop-blur-2xl border border-white/20 dark:border-white/5 rounded-[28px] shadow-xl overflow-hidden ring-1 ring-black/5 dark:ring-white/5">
+                            <div className="p-5 border-b border-black/5 dark:border-white/5 bg-white/20 dark:bg-white/5">
+                                <h3 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Structure</h3>
                             </div>
-                            <div className="flex-grow overflow-y-auto p-3 custom-scrollbar">
+                            <div className="flex-grow overflow-y-auto p-4 custom-scrollbar">
                                 <DragDropContext onDragEnd={handleOnDragEnd}>
                                     <StrictModeDroppable droppableId="pages">
                                         {(provided) => (
-                                            <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-2">
+                                            <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
                                                 {pages.map((page, index) => (
                                                     <Draggable key={page.id} draggableId={String(page.id)} index={index}>
                                                         {(provided, snapshot) => {
@@ -517,22 +533,22 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                                                     {...provided.draggableProps}
                                                                     {...provided.dragHandleProps}
                                                                     onClick={() => setActivePageIndex(index)}
-                                                                    className={`group relative flex items-center justify-between p-3.5 rounded-[16px] cursor-pointer transition-all duration-300 ease-out
+                                                                    className={`group relative flex items-center justify-between p-4 rounded-[20px] cursor-pointer transition-all duration-300 ease-out border
                                                                         ${isActive 
-                                                                            ? 'bg-white dark:bg-white/10 shadow-lg ring-1 ring-black/5 dark:ring-white/10 scale-[1.02] z-10' 
-                                                                            : 'hover:bg-white/50 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400 hover:shadow-sm'
+                                                                            ? 'bg-white/80 dark:bg-white/10 shadow-lg border-white/40 dark:border-white/10 scale-[1.02] z-10 ring-1 ring-black/5' 
+                                                                            : 'border-transparent hover:bg-white/40 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400'
                                                                         }`}
                                                                 >
                                                                     {isActive && (
-                                                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-[#007AFF] rounded-r-full shadow-[0_0_10px_rgba(0,122,255,0.5)]" />
+                                                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-10 w-1.5 bg-[#007AFF] rounded-r-full shadow-[0_0_12px_rgba(0,122,255,0.6)]" />
                                                                     )}
-                                                                    <div className="flex items-center gap-3 overflow-hidden pl-3">
+                                                                    <div className="flex items-center gap-4 overflow-hidden pl-2">
                                                                         <Bars3Icon className="h-5 w-5 stroke-[2.5] text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400"/>
                                                                         <div className="flex flex-col">
-                                                                            <span className={`font-bold text-[13px] truncate leading-tight ${isActive ? 'text-slate-900 dark:text-white' : ''}`}>
+                                                                            <span className={`font-bold text-[14px] truncate leading-tight ${isActive ? 'text-slate-900 dark:text-white' : ''}`}>
                                                                                 {page.title || `Page ${index + 1}`}
                                                                             </span>
-                                                                            <span className="text-[10px] text-slate-400 font-medium tracking-wide uppercase">
+                                                                            <span className="text-[11px] text-slate-400 font-bold tracking-wide uppercase mt-0.5">
                                                                                 {page.type === 'diagram-data' ? 'Image' : page.type}
                                                                             </span>
                                                                         </div>
@@ -542,7 +558,7 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                                                         disabled={pages.length <= 1}
                                                                         className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all opacity-0 group-hover:opacity-100 disabled:hidden active:scale-90"
                                                                     >
-                                                                        <TrashIcon className="h-4 w-4 stroke-[2.5]"/>
+                                                                        <TrashIcon className="h-5 w-5 stroke-[2.5]"/>
                                                                     </button>
                                                                 </div>
                                                             );
@@ -555,30 +571,30 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                     </StrictModeDroppable>
                                 </DragDropContext>
                             </div>
-                            <div className="p-4 border-t border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/20 backdrop-blur-md">
-                                <button onClick={addPage} className="w-full flex justify-center items-center gap-2 px-4 py-3 rounded-[16px] bg-white/80 dark:bg-white/10 hover:bg-[#007AFF]/10 dark:hover:bg-white/20 shadow-sm border border-black/5 dark:border-white/5 text-sm font-bold text-[#007AFF] dark:text-white transition-all active:scale-95 group">
-                                    <PlusCircleIcon className="w-5 h-5 stroke-[2.5] transition-transform group-hover:rotate-90"/>
+                            <div className="p-5 border-t border-black/5 dark:border-white/5 bg-white/40 dark:bg-black/20 backdrop-blur-md">
+                                <button onClick={addPage} className="w-full flex justify-center items-center gap-2 px-4 py-4 rounded-[20px] bg-white/60 dark:bg-white/10 hover:bg-[#007AFF]/10 dark:hover:bg-white/20 shadow-sm border border-white/40 dark:border-white/5 text-[15px] font-bold text-[#007AFF] dark:text-white transition-all active:scale-95 group">
+                                    <PlusCircleIcon className="w-6 h-6 stroke-[2.5] transition-transform group-hover:rotate-90"/>
                                     Add New Page
                                 </button>
                             </div>
                         </div>
 
                         {/* Editor Area */}
-                        <div className="flex-grow flex flex-col min-h-0 bg-white/40 dark:bg-[#1c1c1e]/40 backdrop-blur-xl border border-black/5 dark:border-white/5 rounded-[24px] shadow-sm overflow-hidden ring-1 ring-white/20 dark:ring-white/5">
+                        <div className="flex-grow flex flex-col min-h-0 bg-white/40 dark:bg-[#1c1c1e]/40 backdrop-blur-2xl border border-white/20 dark:border-white/5 rounded-[28px] shadow-xl overflow-hidden ring-1 ring-black/5 dark:ring-white/5">
                              {/* Editor Toolbar */}
-                            <div className="flex items-center justify-between p-4 border-b border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5 backdrop-blur-md">
-                                <div className="flex items-center gap-3 flex-1">
-                                    <span className="text-[11px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider">Editing</span>
+                            <div className="flex items-center justify-between p-5 border-b border-black/5 dark:border-white/5 bg-white/20 dark:bg-white/5 backdrop-blur-md">
+                                <div className="flex items-center gap-4 flex-1">
+                                    <span className="text-[11px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-widest">Editing</span>
                                     <input 
                                         placeholder="Page Title" 
                                         value={activePage.title} 
                                         onChange={(e) => handlePageChange('title', e.target.value)} 
-                                        className="bg-transparent border-none p-0 text-lg font-bold text-slate-900 dark:text-white focus:ring-0 placeholder-slate-400 w-full tracking-tight"
+                                        className="bg-transparent border-none p-0 text-xl font-bold text-slate-900 dark:text-white focus:ring-0 placeholder-slate-400 w-full tracking-tight"
                                     />
                                 </div>
                                 
                                 {/* Pilled Tabs */}
-                                <div className="flex p-1 bg-slate-200/60 dark:bg-black/40 rounded-xl backdrop-blur-md">
+                                <div className="flex p-1.5 bg-slate-200/50 dark:bg-black/40 rounded-[18px] backdrop-blur-md">
                                     {['Text', 'Image', 'Video'].map((type, idx) => {
                                         const value = ['text', 'diagram-data', 'video'][idx];
                                         const isSelected = activePage.type === value;
@@ -588,10 +604,10 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                             <button 
                                                 key={type} 
                                                 onClick={() => handlePageChange('type', value)}
-                                                className={`flex items-center gap-2 rounded-[10px] py-1.5 px-4 text-[13px] font-bold transition-all duration-200 outline-none
+                                                className={`flex items-center gap-2 rounded-[14px] py-2 px-5 text-[13px] font-bold transition-all duration-300 outline-none
                                                 ${isSelected 
-                                                    ? 'bg-white dark:bg-[#3A3A3C] text-slate-900 dark:text-white shadow-sm scale-[1.02]' 
-                                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                                                    ? 'bg-white dark:bg-[#3A3A3C] text-slate-900 dark:text-white shadow-md scale-[1.02]' 
+                                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-white/5'
                                                 }`}
                                             >
                                                 <Icon className="w-4 h-4 stroke-[2.5]" />
@@ -603,19 +619,19 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                             </div>
 
                             {/* Main Content Render */}
-                            <div className="flex-grow overflow-hidden p-4 sm:p-6">
+                            <div className="flex-grow overflow-hidden p-6 sm:p-8">
                                 {/* MODE: TEXT */}
                                 {activePage.type === 'text' && (
-                                    <div className="h-full flex flex-col lg:flex-row gap-6">
-                                        <div className="flex-1 h-full min-h-0 shadow-sm rounded-[24px]">
+                                    <div className="h-full flex flex-col lg:flex-row gap-8">
+                                        <div className="flex-1 h-full min-h-0">
                                             <MarkdownEditor
                                                 value={typeof activePage.content === 'string' ? activePage.content : ''}
                                                 onValueChange={(val) => handlePageChange('content', val)}
                                             />
                                         </div>
                                         <div className="flex-1 h-full min-h-0 hidden lg:block">
-                                            <div className="w-full h-full border border-black/5 dark:border-white/5 rounded-[24px] bg-white/60 dark:bg-black/20 p-8 overflow-y-auto custom-scrollbar prose prose-sm max-w-none prose-slate dark:prose-invert shadow-inner ring-1 ring-black/5">
-                                                <div className="mb-4 text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                            <div className="w-full h-full border border-white/20 dark:border-white/5 rounded-[28px] bg-white/40 dark:bg-black/20 p-8 overflow-y-auto custom-scrollbar prose prose-slate dark:prose-invert max-w-none shadow-inner ring-1 ring-black/5">
+                                                <div className="mb-6 text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                                     <EyeIcon className="w-4 h-4" /> Live Preview
                                                 </div>
                                                 <ContentRenderer text={typeof activePage.content === 'string' ? activePage.content : ''} />
@@ -624,35 +640,35 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                     </div>
                                 )}
 
-                                {/* MODE: IMAGE (Updated to match ManualLessonCreator) */}
+                                {/* MODE: IMAGE */}
                                 {activePage.type === 'diagram-data' && (
-                                    <div className="h-full flex flex-col lg:flex-row gap-6">
+                                    <div className="h-full flex flex-col lg:flex-row gap-8">
                                         {/* Left: Config & Caption */}
-                                        <div className="flex-1 flex flex-col gap-4 h-full min-h-0 overflow-y-auto custom-scrollbar p-1">
+                                        <div className="flex-1 flex flex-col gap-6 h-full min-h-0 overflow-y-auto custom-scrollbar p-1">
                                             {/* Config */}
-                                            <div className="w-full p-6 bg-white/60 dark:bg-white/5 rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm">
-                                                <div className="space-y-4">
+                                            <div className="w-full p-6 bg-white/40 dark:bg-white/5 rounded-[28px] border border-white/20 dark:border-white/5 shadow-sm">
+                                                <div className="space-y-5">
                                                     <div className="flex items-center gap-3 mb-2">
-                                                        <div className="p-2.5 rounded-[12px] bg-blue-100 dark:bg-blue-900/30 text-blue-600 shadow-inner">
-                                                            <PhotoIcon className="w-6 h-6" />
+                                                        <div className="p-3 rounded-[16px] bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                                                            <PhotoIcon className="w-7 h-7 stroke-[2]" />
                                                         </div>
                                                         <label className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">Image Configuration</label>
                                                     </div>
-                                                    <div className="space-y-2">
+                                                    <div className="space-y-3">
                                                         {Array.isArray(activePage.content?.imageUrls) && activePage.content.imageUrls.map((url, idx) => (
                                                             <div key={idx} className="flex gap-2 items-center">
                                                                 <input placeholder={`Paste Image URL #${idx + 1}`} value={url} onChange={(e) => { const newUrls = [...activePage.content.imageUrls]; newUrls[idx] = e.target.value; handlePageChange('imageUrls', newUrls); }} className={inputClass}/>
-                                                                <button onClick={() => { const newUrls = activePage.content.imageUrls.filter((_, i) => i !== idx); handlePageChange('imageUrls', newUrls); }} className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors border border-transparent hover:border-red-100">
-                                                                    <TrashIcon className="w-5 h-5 stroke-[2]"/>
+                                                                <button onClick={() => { const newUrls = activePage.content.imageUrls.filter((_, i) => i !== idx); handlePageChange('imageUrls', newUrls); }} className="p-3.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-[16px] transition-colors border border-transparent hover:border-red-100">
+                                                                    <TrashIcon className="w-5 h-5 stroke-[2.5]"/>
                                                                 </button>
                                                             </div>
                                                         ))}
                                                     </div>
-                                                    <button onClick={() => handlePageChange('imageUrls', [...(activePage.content?.imageUrls || []), ''])} className="w-full flex justify-center items-center gap-2 px-4 py-3 bg-gradient-to-r from-[#007AFF] to-[#0051A8] text-white rounded-[14px] font-bold text-sm transition-all hover:shadow-lg shadow-blue-500/20 active:scale-[0.98]">
+                                                    <button onClick={() => handlePageChange('imageUrls', [...(activePage.content?.imageUrls || []), ''])} className="w-full flex justify-center items-center gap-2 px-4 py-3.5 bg-gradient-to-r from-[#007AFF] to-[#0051A8] text-white rounded-[18px] font-bold text-[15px] transition-all hover:shadow-lg shadow-blue-500/20 active:scale-[0.98]">
                                                         <PlusCircleIcon className="w-5 h-5 stroke-[2.5]"/>
                                                         Add Image Source
                                                     </button>
-                                                    <div className="mt-4 pt-4 border-t border-black/5 dark:border-white/5">
+                                                    <div className="mt-4 pt-5 border-t border-black/5 dark:border-white/5">
                                                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 block ml-1">Labels (Optional)</label>
                                                         <input placeholder="Comma-separated labels" value={Array.isArray(activePage.content?.labels) ? activePage.content.labels.join(', ') : ''} onChange={(e) => handlePageChange('diagram_labels', e.target.value)} className={inputClass}/>
                                                     </div>
@@ -660,11 +676,11 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                             </div>
 
                                             {/* Caption Editor */}
-                                            <div className="flex-1 min-h-[300px] relative rounded-[24px] overflow-hidden shadow-sm border border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5">
-                                                <div className="absolute top-0 left-0 right-0 px-4 py-2 bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-md border-b border-black/5 dark:border-white/5 z-10">
-                                                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Description / Caption</span>
+                                            <div className="flex-1 min-h-[300px] relative rounded-[28px] overflow-hidden shadow-sm border border-white/20 dark:border-white/5 bg-white/40 dark:bg-white/5 backdrop-blur-md">
+                                                <div className="absolute top-0 left-0 right-0 px-6 py-3 bg-white/60 dark:bg-[#2c2c2e]/60 backdrop-blur-xl border-b border-black/5 dark:border-white/5 z-10">
+                                                    <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Description / Caption</span>
                                                 </div>
-                                                <div className="pt-10 h-full">
+                                                <div className="pt-12 h-full">
                                                     <MarkdownEditor
                                                         value={activePage.caption || ''}
                                                         onValueChange={(val) => handlePageChange('caption', val)}
@@ -676,26 +692,26 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                         
                                         {/* Right: Live Preview */}
                                         <div className="flex-1 h-full hidden lg:block min-h-0">
-                                            <div className="w-full h-full border border-black/5 dark:border-white/5 rounded-[24px] bg-white/60 dark:bg-black/20 p-6 overflow-y-auto custom-scrollbar shadow-inner ring-1 ring-black/5">
-                                                <div className="mb-4 text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                            <div className="w-full h-full border border-white/20 dark:border-white/5 rounded-[28px] bg-white/60 dark:bg-black/20 p-8 overflow-y-auto custom-scrollbar shadow-inner ring-1 ring-black/5">
+                                                <div className="mb-6 text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                                     <EyeIcon className="w-4 h-4" /> Live Preview
                                                 </div>
-                                                <div className="space-y-6">
-                                                    <div className="grid grid-cols-1 gap-4">
+                                                <div className="space-y-8">
+                                                    <div className="grid grid-cols-1 gap-6">
                                                         {Array.isArray(activePage.content?.imageUrls) && activePage.content.imageUrls.map((url, idx) => (
                                                             url ? (
-                                                                <div key={idx} className="rounded-xl overflow-hidden shadow-sm border border-black/5 dark:border-white/10">
+                                                                <div key={idx} className="rounded-[24px] overflow-hidden shadow-xl border border-black/5 dark:border-white/10">
                                                                     <img src={url} alt={`Preview ${idx}`} className="w-full h-auto object-cover" onError={(e) => e.target.style.display = 'none'} />
                                                                 </div>
                                                             ) : (
-                                                                <div key={idx} className="h-40 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center border border-dashed border-slate-300 dark:border-white/10">
-                                                                    <p className="text-sm text-slate-400 font-medium">Image {idx + 1} Placeholder</p>
+                                                                <div key={idx} className="h-48 rounded-[24px] bg-slate-100 dark:bg-white/5 flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-white/10">
+                                                                    <p className="text-[15px] text-slate-400 font-medium">Image {idx + 1} Placeholder</p>
                                                                 </div>
                                                             )
                                                         ))}
                                                     </div>
                                                     {activePage.caption && (
-                                                        <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-4 bg-white/50 dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/5">
+                                                        <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-6 bg-white/50 dark:bg-white/5 rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm">
                                                             <ContentRenderer text={activePage.caption} />
                                                         </div>
                                                     )}
@@ -705,35 +721,35 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                     </div>
                                 )}
 
-                                {/* MODE: VIDEO (Updated to match ManualLessonCreator) */}
+                                {/* MODE: VIDEO */}
                                 {activePage.type === 'video' && (
-                                    <div className="h-full flex flex-col lg:flex-row gap-6">
+                                    <div className="h-full flex flex-col lg:flex-row gap-8">
                                         {/* Left: Config & Caption */}
-                                        <div className="flex-1 flex flex-col gap-4 h-full min-h-0 overflow-y-auto custom-scrollbar p-1">
-                                            <div className="w-full p-8 bg-white/60 dark:bg-white/5 rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm text-center">
-                                                <div className="flex flex-col items-center gap-4 max-w-lg mx-auto">
-                                                    <div className="w-16 h-16 mx-auto bg-gradient-to-br from-pink-500 to-rose-600 rounded-[20px] flex items-center justify-center shadow-lg shadow-pink-500/30">
-                                                        <VideoCameraIcon className="w-8 h-8 text-white" />
+                                        <div className="flex-1 flex flex-col gap-6 h-full min-h-0 overflow-y-auto custom-scrollbar p-1">
+                                            <div className="w-full p-8 bg-white/40 dark:bg-white/5 rounded-[28px] border border-white/20 dark:border-white/5 shadow-sm text-center">
+                                                <div className="flex flex-col items-center gap-5 max-w-lg mx-auto">
+                                                    <div className="w-20 h-20 mx-auto bg-gradient-to-br from-pink-500 to-rose-600 rounded-[24px] flex items-center justify-center shadow-lg shadow-pink-500/30">
+                                                        <VideoCameraIcon className="w-10 h-10 text-white stroke-[1.5]" />
                                                     </div>
                                                     <div className="w-full">
-                                                        <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Embed Video</h4>
-                                                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Paste a YouTube or Vimeo link.</p>
+                                                        <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Embed Video</h4>
+                                                        <p className="text-[13px] text-slate-500 dark:text-slate-400 mb-6 font-medium">Paste a YouTube or Vimeo link to embed content.</p>
                                                         <input 
                                                             placeholder="https://youtube.com/watch?v=..." 
                                                             value={typeof activePage.content === 'string' ? activePage.content : ''} 
                                                             onChange={(e) => handlePageChange('content', e.target.value)} 
-                                                            className={`${inputClass} text-center font-medium`}
+                                                            className={`${inputClass} text-center font-medium shadow-sm`}
                                                         />
                                                     </div>
                                                 </div>
                                             </div>
 
                                             {/* Caption Editor */}
-                                            <div className="flex-1 min-h-[300px] relative rounded-[24px] overflow-hidden shadow-sm border border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5">
-                                                <div className="absolute top-0 left-0 right-0 px-4 py-2 bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-md border-b border-black/5 dark:border-white/5 z-10">
-                                                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Description / Caption</span>
+                                            <div className="flex-1 min-h-[300px] relative rounded-[28px] overflow-hidden shadow-sm border border-white/20 dark:border-white/5 bg-white/40 dark:bg-white/5 backdrop-blur-md">
+                                                <div className="absolute top-0 left-0 right-0 px-6 py-3 bg-white/60 dark:bg-[#2c2c2e]/60 backdrop-blur-xl border-b border-black/5 dark:border-white/5 z-10">
+                                                    <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Description / Caption</span>
                                                 </div>
-                                                <div className="pt-10 h-full">
+                                                <div className="pt-12 h-full">
                                                     <MarkdownEditor
                                                         value={activePage.caption || ''}
                                                         onValueChange={(val) => handlePageChange('caption', val)}
@@ -745,12 +761,12 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
 
                                         {/* Right: Live Preview */}
                                         <div className="flex-1 h-full hidden lg:block min-h-0">
-                                            <div className="w-full h-full border border-black/5 dark:border-white/5 rounded-[24px] bg-white/60 dark:bg-black/20 p-6 overflow-y-auto custom-scrollbar shadow-inner ring-1 ring-black/5">
-                                                <div className="mb-4 text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                            <div className="w-full h-full border border-white/20 dark:border-white/5 rounded-[28px] bg-white/60 dark:bg-black/20 p-8 overflow-y-auto custom-scrollbar shadow-inner ring-1 ring-black/5">
+                                                <div className="mb-6 text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                                     <EyeIcon className="w-4 h-4" /> Live Preview
                                                 </div>
-                                                <div className="space-y-6">
-                                                    <div className="aspect-video rounded-xl overflow-hidden bg-black shadow-lg">
+                                                <div className="space-y-8">
+                                                    <div className="aspect-video rounded-[24px] overflow-hidden bg-black shadow-2xl">
                                                         {activePage.content ? (
                                                             <iframe
                                                                 className="w-full h-full"
@@ -761,12 +777,12 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                                             ></iframe>
                                                         ) : (
                                                             <div className="w-full h-full flex items-center justify-center">
-                                                                <p className="text-slate-500 text-sm">No Video URL Provided</p>
+                                                                <p className="text-slate-500 text-[15px] font-medium">No Video URL Provided</p>
                                                             </div>
                                                         )}
                                                     </div>
                                                     {activePage.caption && (
-                                                        <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-4 bg-white/50 dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/5">
+                                                        <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-6 bg-white/50 dark:bg-white/5 rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm">
                                                             <ContentRenderer text={activePage.caption} />
                                                         </div>
                                                     )}
@@ -780,16 +796,16 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                     </div>
 
                     {/* Footer */}
-                    <div className="flex-shrink-0 flex justify-between items-center px-6 py-4 border-t border-black/5 dark:border-white/5 bg-white/70 dark:bg-[#1e1e1e]/70 backdrop-blur-xl z-20">
+                    <div className="flex-shrink-0 flex justify-between items-center px-8 py-5 border-t border-black/5 dark:border-white/5 bg-white/40 dark:bg-[#1e1e1e]/40 backdrop-blur-xl z-20">
                          <p className="text-sm font-bold text-red-500 ml-2">{error}</p>
-                        <div className="flex gap-3 ml-auto">
-                            <button className="px-6 py-2.5 rounded-[16px] font-bold text-sm text-slate-600 dark:text-slate-300 bg-white/50 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20 border border-black/5 dark:border-white/5 transition-all shadow-sm active:scale-95" onClick={onClose}>
+                        <div className="flex gap-4 ml-auto">
+                            <button className="px-8 py-3 rounded-[18px] font-bold text-[15px] text-slate-600 dark:text-slate-300 bg-white/50 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20 border border-white/20 dark:border-white/10 transition-all shadow-sm active:scale-95" onClick={onClose}>
                                 Cancel
                             </button>
                             <button 
                                 onClick={handleUpdateLesson} 
                                 disabled={loading} 
-                                className="px-8 py-2.5 font-bold text-sm bg-gradient-to-r from-[#007AFF] to-[#0051A8] hover:shadow-blue-500/40 text-white shadow-lg shadow-blue-500/30 transition-all rounded-[16px] disabled:bg-slate-400 disabled:shadow-none active:scale-95 flex items-center gap-2"
+                                className="px-10 py-3 font-bold text-[15px] bg-gradient-to-r from-[#007AFF] to-[#0051A8] hover:shadow-blue-500/40 text-white shadow-lg shadow-blue-500/30 transition-all rounded-[18px] disabled:bg-slate-400 disabled:shadow-none active:scale-95 flex items-center gap-2"
                             >
                                 {loading ? 'Saving...' : (
                                     <>
