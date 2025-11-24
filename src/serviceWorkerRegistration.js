@@ -9,14 +9,20 @@ const isLocalhost = Boolean(
 );
 
 export function register(config) {
+  // Check if we are in production and Service Worker support exists
   if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
-    const publicUrl = new URL(process.env.PUBLIC_URL, window.location.href);
+    
+    // FIX: Directly define the public URL as the root path (/) 
+    const PUBLIC_URL_FIXED = '/'; 
+
+    const publicUrl = new URL(PUBLIC_URL_FIXED, window.location.href);
     if (publicUrl.origin !== window.location.origin) {
       return;
     }
 
     window.addEventListener('load', () => {
-      const swUrl = `${process.env.PUBLIC_URL}/service-worker.js`;
+      // FIX: Use the stable root path for swUrl
+      const swUrl = `${PUBLIC_URL_FIXED}service-worker.js`;
 
       if (isLocalhost) {
         checkValidServiceWorker(swUrl, config);
