@@ -77,7 +77,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const isMounted = useRef(false);
 
     // --- 1. ALPHANUMERIC SORTING ---
-    // Sorts subjects safely (e.g., "Math 9" comes before "Math 10")
     const sortedSubjects = useMemo(() => {
         return [...subjects].sort((a, b) => 
             (a.title || '').localeCompare((b.title || ''), undefined, { numeric: true, sensitivity: 'base' })
@@ -614,12 +613,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const gradeLevels = ["Kindergarten", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
 
     // --- UI CONSTANTS (macOS 26) ---
-    // Optimized for mobile touch targets and cleaner visuals
     const panelClass = "bg-white/60 dark:bg-[#1e1e1e]/60 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-[24px] shadow-2xl shadow-black/5";
-    
-    // Inputs with better touch targets and visual feedback
     const inputClass = "w-full bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-[14px] px-4 py-3 text-[15px] text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-[#007AFF]/50 outline-none transition-all shadow-inner appearance-none";
-    
     const labelClass = "text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-2 block tracking-wide uppercase ml-1";
 
     return (
@@ -641,12 +636,11 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 </button>
             </div>
 
-            {/* Content Area - Mobile: Single Scroll View, Desktop: Split View */}
+            {/* Content Area */}
             <div className="flex-grow overflow-y-auto lg:overflow-hidden">
                 <div className="flex flex-col lg:flex-row lg:h-full p-3 sm:p-4 gap-4 max-w-[1920px] mx-auto">
                     
                     {/* Left Panel: Inputs */}
-                    {/* On mobile, this just stacks. On desktop, it has fixed width and internal scroll. */}
                     <div className={`w-full lg:w-[380px] flex flex-col flex-shrink-0 ${panelClass} lg:h-full lg:overflow-hidden`}>
                         <div className="flex-grow lg:overflow-y-auto custom-scrollbar p-5 space-y-6">
                             
@@ -766,7 +760,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                                                     <ChevronRightIcon className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} strokeWidth={3} />
                                                                 </div>
                                                                 
-                                                                {/* Premium iOS-style Checkbox */}
+                                                                {/* Checkbox */}
                                                                 <div 
                                                                     onClick={(e) => { e.stopPropagation(); handleUnitCheckboxChange(lessonsInUnit); }}
                                                                     className={`w-5 h-5 mx-2 rounded-[6px] flex items-center justify-center transition-all duration-300 shadow-sm border ${
@@ -840,7 +834,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
                     {/* Right Panel: Preview - Stacked below on Mobile, Side by Side on Desktop */}
                     <div className={`flex-grow flex flex-col relative overflow-hidden rounded-[24px] min-h-[500px] lg:min-h-0 lg:h-full ${panelClass}`}>
-                        {previewLessons.length === 0 ? (
+                        {isProcessing || previewLessons.length === 0 ? (
                             <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
                                 {isProcessing ? (
                                     <div className="flex flex-col items-center animate-in fade-in zoom-in duration-500">
@@ -900,7 +894,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4 tracking-tight leading-tight">{selectedLesson.lessonTitle}</h2>
                                                 
                                                 {objectivesAsMarkdown && (
-                                                    <div className="p-4 rounded-[18px] bg-blue-50/60 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 mb-6">
+                                                    // FIX APPLIED HERE: Added max-h and overflow to prevent header from expanding infinitely
+                                                    <div className="p-4 rounded-[18px] bg-blue-50/60 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 mb-6 max-h-[150px] overflow-y-auto custom-scrollbar">
                                                         <h5 className="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-1.5">
                                                             <ListBulletIcon className="w-4 h-4" /> Objectives
                                                         </h5>
@@ -929,7 +924,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                             </div>
 
                                             {/* Content Body */}
-                                            <div className="flex-grow overflow-y-auto custom-scrollbar p-8 bg-white/40 dark:bg-[#1c1c1e]/40">
+                                            {/* FIX APPLIED HERE: Added 'min-h-0' to ensure flex-grow works correctly with overflow-y-auto */}
+                                            <div className="flex-grow min-h-0 overflow-y-auto custom-scrollbar p-6 md:p-8 bg-white/40 dark:bg-[#1c1c1e]/40">
                                                 <div className="max-w-3xl mx-auto min-h-[300px]">
                                                     {selectedPage ? (
                                                         <div className="prose prose-slate prose-lg dark:prose-invert max-w-none leading-7">

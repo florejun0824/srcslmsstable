@@ -524,7 +524,7 @@ function SortableUnitCard(props) {
         <div ref={setNodeRef} style={style} {...attributes} className="touch-none h-full">
             <div 
                 onClick={() => onSelect(unit)} 
-                className={`group relative p-6 rounded-[2rem] transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between h-full border border-white/20 shadow-lg hover:shadow-2xl hover:-translate-y-1 bg-gradient-to-br ${gradient}`}
+                className={`group relative p-6 rounded-[2rem] transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between h-full border border-white/20 shadow-lg hover:shadow-2xl hover:-translate-y-1 bg-gradient-to-br ${gradient} transform translate-z-0`}
             >
                 <button {...listeners} className="absolute top-4 left-4 p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 cursor-grab opacity-0 group-hover:opacity-100 transition-all duration-300 bg-white/40 dark:bg-black/20 rounded-full backdrop-blur-sm" title="Drag to reorder"><ArrowsUpDownIcon className="h-4 w-4" /></button>
                 
