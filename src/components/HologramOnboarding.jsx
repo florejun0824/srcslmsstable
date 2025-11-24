@@ -47,7 +47,7 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
       setTypedText(currentMessage.slice(0, i));
       i++;
       if (i > currentMessage.length) clearInterval(interval);
-    }, 15); // Slightly faster typing for modern feel
+    }, 15); 
     return () => clearInterval(interval);
   }, [currentMessage]);
 
@@ -67,12 +67,12 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
   return (
     <div className="fixed inset-0 z-[13000] flex items-center justify-center p-4 transition-opacity duration-500 ease-out">
       
-      {/* 1. BACKDROP: Deep blur with a subtle gradient wash */}
+      {/* 1. BACKDROP */}
       <div className="absolute inset-0 bg-slate-100/40 dark:bg-black/40 backdrop-blur-[20px]" />
       
       <div className={`relative z-10 flex items-center gap-8 max-w-6xl w-full ${isMobile ? 'flex-col justify-center mt-10' : 'flex-row justify-center items-end'}`}>
         
-        {/* 2. CHARACTER: Added a 'breathing' glow effect behind */}
+        {/* 2. CHARACTER */}
         <div className="relative group">
             <div className="absolute inset-0 bg-blue-500/30 rounded-full blur-[60px] animate-pulse pointer-events-none" />
             <img 
@@ -85,10 +85,10 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
         {/* 3. THE "GLASS" WINDOW */}
         <div className="relative w-full max-w-lg animate-in fade-in slide-in-from-bottom-8 duration-700">
             
-            {/* The Glass Container */}
+            {/* Glass Container */}
             <div className="relative overflow-hidden rounded-[2rem] border border-white/60 dark:border-white/10 bg-white/70 dark:bg-[#1a1b26]/70 backdrop-blur-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]">
                 
-                {/* Window Header (Traffic Lights) */}
+                {/* Header */}
                 <div className="flex-shrink-0 flex items-center gap-2 px-5 py-4 border-b border-black/5 dark:border-white/5 bg-white/30 dark:bg-white/5">
                     <div className="w-3 h-3 rounded-full bg-[#FF5F57] border border-black/10"></div>
                     <div className="w-3 h-3 rounded-full bg-[#FEBC2E] border border-black/10"></div>
@@ -96,28 +96,29 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
                     <div className="ml-auto text-[10px] font-bold tracking-widest text-slate-400 uppercase opacity-60">Term_v2.0</div>
                 </div>
 
-                {/* UPDATED CONTAINER: 
-                    - Changed from `min-h-[320px]` to fixed height `md:h-[480px]`.
-                    - This constraint forces the flex child (text area) to scroll when content overflows.
+                {/* FIX APPLIED HERE:
+                    1. Replaced dynamic height/min-height with a FIXED height for desktop (md:h-[500px]).
+                    2. Added max-h-[80vh] to ensure it never exceeds the viewport on smaller laptops.
+                    3. 'flex flex-col' ensures the footer stays at the bottom and the text area fills the remaining space.
                 */}
-                <div className="p-6 md:p-8 flex flex-col h-[360px] md:h-[480px]">
+                <div className="p-6 md:p-8 flex flex-col h-[360px] md:h-[500px] max-h-[80vh]">
                     
-                    {/* UPDATED CODE AREA:
-                        - overflow-y-auto: Allows text to scroll inside the box.
-                        - custom-scrollbar: Preserves your scrollbar styling.
-                        - min-h-0: Essential for flex child scrolling.
+                    {/* FIX APPLIED HERE:
+                        1. 'flex-grow': Fills available space defined by the parent height.
+                        2. 'min-h-0': CRITICAL. Allows a flex child to shrink smaller than its content (enabling scroll).
+                        3. 'overflow-y-auto': Enables the scrollbar.
                     */}
-                    <div className="flex-grow min-h-0 overflow-y-auto custom-scrollbar font-mono text-[13px] md:text-[14px] leading-relaxed text-slate-600 dark:text-slate-300">
+                    <div className="flex-grow min-h-0 overflow-y-auto custom-scrollbar font-mono text-[13px] md:text-[14px] leading-relaxed text-slate-600 dark:text-slate-300 pr-2">
                         <span className="text-blue-500 dark:text-blue-400 select-none mr-2">➜</span>
                         <span className="text-purple-500 dark:text-purple-400 select-none mr-2">~</span>
                         <span className="whitespace-pre-wrap">{typedText}</span>
                         <span className="inline-block w-2 h-4 ml-1 align-middle bg-slate-400 animate-pulse"></span>
                     </div>
 
-                    {/* Footer Controls (Stays pinned to bottom due to flex-grow above) */}
+                    {/* Footer Controls */}
                     <div className="mt-6 pt-6 border-t border-black/5 dark:border-white/5 flex flex-col gap-5 flex-shrink-0">
                         
-                        {/* Toggle Switch (iOS Style) */}
+                        {/* Toggle Switch */}
                         <div className="flex items-center justify-between group cursor-pointer" onClick={() => setDontShowAgain(!dontShowAgain)}>
                             <span className="text-sm font-medium text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">
                                 Don't show this again
@@ -127,7 +128,7 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
                             </div>
                         </div>
 
-                        {/* Action Button (Glass/Gradient Pill) */}
+                        {/* Action Button */}
                         <button
                             onClick={handleNextOrClose}
                             className="w-full py-3.5 rounded-2xl font-semibold text-white shadow-lg 
@@ -142,7 +143,7 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
                 </div>
             </div>
 
-            {/* 4. THE GLASS ARROW (SVG for perfect blending) */}
+            {/* 4. THE GLASS ARROW */}
             {!isMobile ? (
                  <svg className="absolute top-[120px] -left-5 w-6 h-12 text-white/70 dark:text-[#1a1b26]/70 drop-shadow-[-4px_0_4px_rgba(0,0,0,0.05)]" viewBox="0 0 24 48" fill="currentColor">
                     <path d="M24 0V48L0 24L24 0Z" />

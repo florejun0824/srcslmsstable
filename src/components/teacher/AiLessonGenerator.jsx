@@ -276,43 +276,50 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         };
     };
 
-    const getPlannerPrompt = (sourceText, baseContext) => {
-        const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
+	const getPlannerPrompt = (sourceText, baseContext) => {
+	        const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
         
-        return `
-        You are an expert curriculum planner. Your *only* task is to read the provided source text and curriculum context, and then generate a *plan* (a JSON array of lessons).
+	        return `
+	        You are an expert curriculum planner. Your *only* task is to read the provided source text and curriculum context, and then generate a *plan* (a JSON array of lessons).
         
-        ${languageAndGradeInstruction}
-        ${perspectiveInstruction}
-        ${standardsInstruction}
-        ${scaffoldingInstruction}
+	        ${languageAndGradeInstruction}
+	        ${perspectiveInstruction}
+	        ${standardsInstruction}
+	        ${scaffoldingInstruction}
 
-        **CRITICAL TASK: ANALYZE THE SOURCE TEXT'S STRUCTURE**
+	        **CRITICAL TASK: ANALYZE DOCUMENT SCOPE**
         
-        **SCENARIO 1: Single Lesson**
-        - If the text is short or has a specific "Lesson X" title, create ONE lesson object. Do NOT create a Unit Overview.
+	        **Step 1: Identify Structure**
+	        Scan the text for lesson headers (e.g., "Lesson 1", "1.1", "Lesson A").
+        
+	        **Step 2: Apply Strict Rules**
+        
+	        **RULE A: SINGLE LESSON (Most Likely)**
+	        - If the document focuses on **ONE** specific lesson title (e.g., "Lesson 1: Comparison Texts") or one main topic, create **EXACTLY ONE** lesson object.
+	        - **DO NOT** split sub-topics (like "Introduction", "Activity", "Analysis", "Writing") into separate lessons. These are merely *pages* within the single lesson.
+	        - **Example:** If the text is "Unit 15, Lesson 1", generate ONLY "Lesson 1".
 
-        **SCENARIO 2: Large Document (Unit)**
-        - If the text is a chapter or book, create:
-          1. A "Unit Overview" lesson.
-          2. A logical sequence of 2-7 lessons based on the text.
+	        **RULE B: MULTIPLE LESSONS (Only if explicit)**
+	        - ONLY generate multiple lessons if the source text explicitly contains distinct headers for multiple lessons (e.g., It contains text for "Lesson 1" AND text for "Lesson 2").
+        
+	        **RULE C: UNIT OVERVIEW**
+	        - Only create a "Unit Overview" lesson if the uploaded file is a Table of Contents or a Syllabus covering an entire Quarter/Unit.
 
-        **JSON OUTPUT FORMAT:**
-        {
-          "lessons": [
-            {
-              "lessonTitle": "Lesson ${existingLessonCount + 1}: [Title]",
-              "summary": "1-2 sentence summary."
-            }
-            // ... more lessons
-          ]
-        }
+	        **JSON OUTPUT FORMAT:**
+	        {
+	          "lessons": [
+	            {
+	              "lessonTitle": "Lesson ${existingLessonCount + 1}: [Title]",
+	              "summary": "1-2 sentence summary."
+	            }
+	            // Only add more objects if the text explicitly covers Lesson 2, Lesson 3, etc.
+	          ]
+	        }
 
-        **SOURCE TEXT:**
-        ${sourceText.substring(0, 30000)} 
-        `;
-    };
-
+	        **SOURCE TEXT:**
+	        ${sourceText.substring(0, 30000)} 
+	        `;
+	    };
     const getComponentPrompt = (sourceText, baseContext, lessonPlan, componentType, extraData = {}) => {
         const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
         let taskInstruction, jsonFormat;
