@@ -1,6 +1,5 @@
-// FloatingShapesBackground.jsx
-
-import React from 'react';
+// src/components/teacher/ParticleBackground.jsx
+import React, { memo } from 'react';
 
 const FloatingShapesBackground = ({ className }) => {
   return (
@@ -18,33 +17,37 @@ const FloatingShapesBackground = ({ className }) => {
           }
         }
 
-        /* --- THREE DISTINCT FLOW PATHS FOR RANDOM DRIFTING --- */
+        /* --- OPTIMIZED FLOW: Use translate3d for GPU Acceleration --- */
         @keyframes flow-1 {
-          0%   { transform: translate(0, 0); }
-          50%  { transform: translate(15px, -20px); }
-          100% { transform: translate(0, 0); }
+          0%   { transform: translate3d(0, 0, 0); }
+          50%  { transform: translate3d(15px, -20px, 0); }
+          100% { transform: translate3d(0, 0, 0); }
         }
 
         @keyframes flow-2 {
-          0%   { transform: translate(0, 0); }
-          50%  { transform: translate(-15px, 10px); }
-          100% { transform: translate(0, 0); }
+          0%   { transform: translate3d(0, 0, 0); }
+          50%  { transform: translate3d(-15px, 10px, 0); }
+          100% { transform: translate3d(0, 0, 0); }
         }
 
         @keyframes flow-3 {
-          0%   { transform: translate(0, 0); }
-          50%  { transform: translate(10px, 15px); }
-          100% { transform: translate(0, 0); }
+          0%   { transform: translate3d(0, 0, 0); }
+          50%  { transform: translate3d(10px, 15px, 0); }
+          100% { transform: translate3d(0, 0, 0); }
         }
 
         .shape {
           position: absolute;
           display: block;
           border-radius: 50%;
+          /* CRITICAL PERFORMANCE FIX: Promote to GPU layer */
+          will-change: transform, opacity;
+          /* Remove blur shadow calculation cost if resizing/scrolling is still laggy */
+          /* box-shadow: none !important; */ 
         }
 
-        /* --- Individual "Dust Mote" Styles with a Colorful Palette --- */
-        /* Each particle has a 'flow' animation for movement and a 'twinkle' animation for sparkle. */
+        /* --- Individual "Dust Mote" Styles --- */
+        /* Kept colors but ensure animations utilize the GPU-optimized keyframes */
 
         .shape-1 { left: 15%; top: 20%; width: 2px; height: 2px; background-color: #c084fc; box-shadow: 0 0 6px 2px #c084fc; animation: flow-1 25s linear infinite, twinkle 2s ease-in-out infinite; animation-delay: 0s, 0.2s; }
         .shape-2 { left: 25%; top: 80%; width: 1px; height: 1px; background-color: #67e8f9; box-shadow: 0 0 5px 1px #67e8f9; animation: flow-2 30s linear infinite, twinkle 3s ease-in-out infinite; animation-delay: 1.5s, 0.5s; }
@@ -68,7 +71,12 @@ const FloatingShapesBackground = ({ className }) => {
         .shape-20 { left: 10%; top: 45%; width: 2px; height: 2px; background-color: #818cf8; box-shadow: 0 0 7px 3px #818cf8; animation: flow-2 27s linear infinite, twinkle 2.5s ease-in-out infinite; animation-delay: 13s, 0.7s; }
 
       `}</style>
-      <div className={`absolute inset-0 overflow-hidden -z-10 ${className}`}>
+      
+      {/* OPTIMIZATION: Use 'fixed' instead of 'absolute' to decouple from scroll. 
+         Added 'pointer-events-none' to ensure it doesn't block interaction.
+         Added 'transform-gpu' to force hardware acceleration on the container.
+      */}
+      <div className={`fixed inset-0 overflow-hidden pointer-events-none -z-10 transform-gpu ${className}`}>
           <div className="relative w-full h-full">
               {[...Array(20)].map((_, i) => (
                 <span key={i} className={`shape shape-${i + 1}`}></span>
@@ -79,4 +87,4 @@ const FloatingShapesBackground = ({ className }) => {
   );
 };
 
-export default FloatingShapesBackground;
+export default memo(FloatingShapesBackground);

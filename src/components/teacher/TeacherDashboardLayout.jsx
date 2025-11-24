@@ -1,6 +1,6 @@
 // src/components/teacher/TeacherDashboardLayout.jsx
-import React, { useState, Suspense, lazy, Fragment, useEffect, useRef } from 'react';
-import { CSSTransition, SwitchTransition } from 'react-transition-group';
+import React, { useState, Suspense, lazy, Fragment, useEffect, useRef, useLayoutEffect } from 'react';
+import { CSSTransition } from 'react-transition-group'; 
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { SunIcon, MoonIcon } from '@heroicons/react/24/solid';
 import { Menu, Transition } from '@headlessui/react';
@@ -13,7 +13,7 @@ import {
     IconUserCircle,
     IconShieldCog,
     IconPower,
-	IconChartBar,
+    IconChartBar,
     IconRocket,
     IconMenu2,
     IconX,
@@ -69,7 +69,8 @@ const EditSubjectModal = lazy(() => import('./EditSubjectModal'));
 const DeleteSubjectModal = lazy(() => import('./DeleteSubjectModal'));
 
 
-// --- CUSTOM CSS: MAC OS 26 STYLES ---
+// --- CUSTOM CSS: OPTIMIZED FOR PERFORMANCE ---
+// Changes: Reduced blur, added translate3d for GPU, removed expensive styles
 const macOsStyles = `
   /* Global Scrollbar Styling */
   ::-webkit-scrollbar { width: 0px; height: 0px; }
@@ -78,19 +79,20 @@ const macOsStyles = `
   .mac-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(0, 0, 0, 0.1); border-radius: 100px; }
   .dark .mac-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.1); }
 
-  /* Glass Morphism Utilities */
+  /* Glass Morphism Utilities - PERFORMANCE OPTIMIZED */
   .glass-panel {
-    background: rgba(255, 255, 255, 0.65);
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    background: rgba(255, 255, 255, 0.90); /* Increased opacity slightly to reduce blur dependency */
+    backdrop-filter: blur(10px) saturate(120%); /* Reduced blur from 12px/50px */
+    -webkit-backdrop-filter: blur(10px) saturate(120%);
     border: 1px solid rgba(255, 255, 255, 0.5);
     box-shadow: 
         0 4px 6px -1px rgba(0, 0, 0, 0.02),
         0 10px 15px -3px rgba(0, 0, 0, 0.05),
         inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+    transform: translate3d(0,0,0); /* Force Hardware Acceleration */
   }
   .dark .glass-panel {
-    background: rgba(20, 25, 35, 0.65);
+    background: rgba(20, 25, 35, 0.90);
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 
         0 4px 6px -1px rgba(0, 0, 0, 0.2),
@@ -98,31 +100,36 @@ const macOsStyles = `
         inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   }
   
-  /* macOS 26 Dock */
+  /* macOS 26 Dock - OPTIMIZED */
   .macos-dock {
-    background: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(50px) saturate(200%);
-    -webkit-backdrop-filter: blur(50px) saturate(200%);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(15px) saturate(150%); /* Reduced from 50px to 15px */
+    -webkit-backdrop-filter: blur(15px) saturate(150%);
     border: 1px solid rgba(255, 255, 255, 0.4);
     border-top: 1px solid rgba(255, 255, 255, 0.6);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
     transition: width 0.3s ease;
+    transform: translate3d(0,0,0); /* Force Hardware Acceleration */
   }
   .dark .macos-dock {
-    background: rgba(15, 23, 42, 0.75);
+    background: rgba(15, 23, 42, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-top: 1px solid rgba(255, 255, 255, 0.15);
     box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   }
 
-  /* Aurora Animations */
+  /* Aurora Animations - OPTIMIZED: Removed mix-blend-mode */
   @keyframes aurora-move {
-    0% { transform: translate(0px, 0px) scale(1); }
-    33% { transform: translate(30px, -50px) scale(1.1); }
-    66% { transform: translate(-20px, 20px) scale(0.9); }
-    100% { transform: translate(0px, 0px) scale(1); }
+    0% { transform: translate3d(0px, 0px, 0px) scale(1); }
+    33% { transform: translate3d(30px, -50px, 0px) scale(1.1); }
+    66% { transform: translate3d(-20px, 20px, 0px) scale(0.9); }
+    100% { transform: translate3d(0px, 0px, 0px) scale(1); }
   }
-  .animate-aurora { animation: aurora-move 12s infinite ease-in-out; }
+  .animate-aurora { 
+      animation: aurora-move 12s infinite ease-in-out; 
+      will-change: transform;
+      transform: translate3d(0,0,0); /* Force GPU */
+  }
   .animation-delay-2000 { animation-delay: 2s; }
   .animation-delay-4000 { animation-delay: 4s; }
 
@@ -250,7 +257,7 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
         { view: 'studentManagement', text: 'Students', icon: IconUsers },
         { view: 'classes', text: 'Classes', icon: IconSchool },
         { view: 'courses', text: 'Subjects', icon: IconCategory },
-		{ view: 'analytics', icon: IconChartBar, text: 'Analytics' },
+        { view: 'analytics', icon: IconChartBar, text: 'Analytics' },
         { view: 'profile', text: 'Profile', icon: IconUserCircle },
     ];
     if (userProfile?.role === 'admin') {
@@ -262,7 +269,7 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
-            className="glass-panel mx-auto max-w-[1920px] rounded-[2rem] px-6 py-3 shadow-xl flex items-center justify-between relative w-full z-50"
+            className="glass-panel mx-auto max-w-[1920px] rounded-[2rem] px-6 py-3 shadow-xl flex items-center justify-between relative w-full z-50 transform-gpu"
         >
             {/* Left side: Logo + Brand */}
             <div className="flex items-center gap-4 flex-shrink-0 z-20 group cursor-default">
@@ -371,8 +378,8 @@ const TeacherDashboardLayout = (props) => {
         handleInitiateDelete,
         handleCreateUnit,
         courses,
-		activeClasses,
-		handleUpdateClass,
+        activeClasses,
+        handleUpdateClass,
         isLoungeLoading,
         loungePosts,
         loungeUsersMap,
@@ -386,13 +393,23 @@ const TeacherDashboardLayout = (props) => {
     const { showToast } = useToast();
     const [preselectedCategoryForCourseModal, setPreselectedCategoryForCourseModal] = useState(null);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-	const [isChangePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
+    const [isChangePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     // FIX: Using useRef for CSSTransition nodeRefs
-    const nodeRef = useRef(null);      // For the main content switch
     const robotRef = useRef(null);     // For the Animated Robot switch
     
+    // PERF: Inject Styles once
+    useLayoutEffect(() => {
+        const styleId = 'teacher-dashboard-styles';
+        if (!document.getElementById(styleId)) {
+            const style = document.createElement('style');
+            style.id = styleId;
+            style.innerHTML = macOsStyles;
+            document.head.appendChild(style);
+        }
+    }, []);
+
     // Theme Logic
     const [theme, setTheme] = useState(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
     const toggleTheme = () => {
@@ -462,38 +479,38 @@ const TeacherDashboardLayout = (props) => {
     ];
 
     // Online Class Handlers
-	const handleStartOnlineClass = async (classId, meetingCode, meetLink) => {
-		    try {
-		        const classRef = doc(db, 'classes', classId);
-		        await updateDoc(classRef, {
-		            videoConference: {
-		                isLive: true,
-		                meetingCode: meetingCode,
-		                platform: 'GOOGLE_MEET',
-		                startTime: new Date().toISOString(),
-		            },
-		        });
-		        showToast(`Class ${meetingCode} is now live! Opening Google Meet...`, 'success');
-		        window.open(meetLink, '_blank');
-		    } catch (error) {
-		        console.error("Error starting online class:", error);
-		        showToast('Failed to start the online class due to a system error.', 'error');
-		    }
-		};
-	const handleEndOnlineClass = async (classId) => {
-		    try {
-		        const classRef = doc(db, 'classes', classId);
-		        await updateDoc(classRef, {
-		            'videoConference.isLive': false,
-		            'videoConference.meetingCode': null,
-		            'videoConference.startTime': null,
-		        });
-		        showToast('Online class successfully ended.', 'info');
-		    } catch (error) {
-		        console.error("Error ending online class:", error);
-		        showToast('Failed to end the online class.', 'error');
-		    }
-		};
+    const handleStartOnlineClass = async (classId, meetingCode, meetLink) => {
+            try {
+                const classRef = doc(db, 'classes', classId);
+                await updateDoc(classRef, {
+                    videoConference: {
+                        isLive: true,
+                        meetingCode: meetingCode,
+                        platform: 'GOOGLE_MEET',
+                        startTime: new Date().toISOString(),
+                    },
+                });
+                showToast(`Class ${meetingCode} is now live! Opening Google Meet...`, 'success');
+                window.open(meetLink, '_blank');
+            } catch (error) {
+                console.error("Error starting online class:", error);
+                showToast('Failed to start the online class due to a system error.', 'error');
+            }
+        };
+    const handleEndOnlineClass = async (classId) => {
+            try {
+                const classRef = doc(db, 'classes', classId);
+                await updateDoc(classRef, {
+                    'videoConference.isLive': false,
+                    'videoConference.meetingCode': null,
+                    'videoConference.startTime': null,
+                });
+                showToast('Online class successfully ended.', 'info');
+            } catch (error) {
+                console.error("Error ending online class:", error);
+                showToast('Failed to end the online class.', 'error');
+            }
+        };
 
     // --- RENDER MAIN CONTENT ---
     const renderMainContent = () => {
@@ -515,90 +532,80 @@ const TeacherDashboardLayout = (props) => {
         switch (activeView) {
             case 'home': return <HomeView key={`${reloadKey}-home`} userProfile={userProfile} activeClasses={activeClasses} handleViewChange={handleViewChange} {...rest} />;
             case 'lounge': return <LoungeView key={`${reloadKey}-lounge`} isPostsLoading={isLoungeLoading} publicPosts={loungePosts} usersMap={loungeUsersMap} fetchPublicPosts={fetchLoungePosts} {...loungePostUtils} />;
-			case 'classes': return <ClassesView key={`${reloadKey}-classes`} activeClasses={activeClasses} handleArchiveClass={props.handleArchiveClass} handleDeleteClass={props.handleDeleteClass} handleStartOnlineClass={handleStartOnlineClass} handleEndOnlineClass={handleEndOnlineClass} {...rest} />;
+            case 'classes': return <ClassesView key={`${reloadKey}-classes`} activeClasses={activeClasses} handleArchiveClass={props.handleArchiveClass} handleDeleteClass={props.handleDeleteClass} handleStartOnlineClass={handleStartOnlineClass} handleEndOnlineClass={handleEndOnlineClass} {...rest} />;
             case 'courses': return <CoursesView key={`${reloadKey}-courses`} {...rest} userProfile={userProfile} activeSubject={activeSubject} isAiGenerating={isAiGenerating} setIsAiGenerating={setIsAiGenerating} setIsAiHubOpen={setIsAiHubOpen} activeUnit={activeUnit} onSetActiveUnit={onSetActiveUnit} courses={courses} courseCategories={courseCategories} handleEditCategory={handleEditCategory} onAddSubjectClick={handleAddSubjectWithCategory} handleInitiateDelete={handleInitiateDelete} activeClasses={activeClasses} />;
-			case 'studentManagement': return <StudentManagementView key={`${reloadKey}-sm`} courses={courses} activeClasses={activeClasses} {...rest} />;
+            case 'studentManagement': return <StudentManagementView key={`${reloadKey}-sm`} courses={courses} activeClasses={activeClasses} {...rest} />;
             case 'profile': return <ProfileView key={`${reloadKey}-profile`} user={user} userProfile={userProfile} logout={logout} {...rest} />;
-			case 'analytics': return <AnalyticsView key={`${reloadKey}-analytics`} activeClasses={activeClasses} courses={courses} />;
+            case 'analytics': return <AnalyticsView key={`${reloadKey}-analytics`} activeClasses={activeClasses} courses={courses} />;
             case 'admin': return <div key={`${reloadKey}-admin`} className="p-4 sm:p-6 text-slate-900 dark:text-slate-100"><AdminDashboard /></div>;
             default: return <HomeView key={`${reloadKey}-default`} userProfile={userProfile} handleViewChange={handleViewChange} {...rest} />;
         }
     };
 
     return (
-        <>
-            <style>{macOsStyles}</style>
+        <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 font-sans antialiased text-slate-900 dark:text-slate-100 pb-24 lg:pb-0 relative overflow-hidden">
             
-            <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 font-sans antialiased text-slate-900 dark:text-slate-100 pb-24 lg:pb-0 relative overflow-hidden">
-                
-                {/* --- GLOBAL AURORA BACKGROUND (Blue/Cyan Dominant) --- */}
-                <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 transform translate-z-0">
-                    <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-indigo-300/40 dark:bg-indigo-600/20 rounded-full blur-[120px] mix-blend-multiply dark:mix-blend-screen animate-aurora" />
-                    <div className="absolute top-[-10%] right-[-10%] w-[60vw] h-[60vw] bg-blue-500/40 dark:bg-blue-600/20 rounded-full blur-[120px] mix-blend-multiply dark:mix-blend-screen animate-aurora animation-delay-2000" />
-                    <div className="absolute bottom-[-20%] left-[10%] w-[60vw] h-[60vw] bg-sky-300/40 dark:bg-cyan-600/20 rounded-full blur-[120px] mix-blend-multiply dark:mix-blend-screen animate-aurora animation-delay-4000" />
-                </div>
-                
-                {/* --- MOBILE HEADER (FIXED TOP) --- */}
-                <div className="fixed top-0 left-0 right-0 z-40 px-4 pt-2 pb-2 lg:hidden">
-                    <motion.div 
-                        initial={{ y: -50, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                        className="glass-panel relative flex items-center justify-between px-5 py-3 rounded-[1.5rem] shadow-lg"
-                    >
-                        <div className="flex items-center flex-shrink-0 z-20">
-                             <div className="w-10 h-10 rounded-[1rem] bg-gradient-to-tr from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 shadow-sm flex items-center justify-center border border-white/50 dark:border-white/10">
-                                <img src="/logo.png" alt="SRCS" className="w-6 h-6 object-contain" />
-                             </div>
-                        </div>
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-                            <span className="font-black text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600 dark:from-blue-400 dark:via-indigo-400 dark:to-purple-400">
-                                SRCS
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-3 flex-shrink-0 z-20">
-                             <button onClick={toggleTheme} className="w-9 h-9 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-md hover:scale-105 active:scale-95 flex items-center justify-center transition-all duration-300 border border-white/50 dark:border-white/10 shadow-sm">
-                                {theme === 'dark' ? <MoonIcon className="h-5 w-5 text-blue-400" /> : <SunIcon className="h-5 w-5 text-orange-500" />}
-                            </button>
-                            <ProfileDropdown userProfile={userProfile} onLogout={() => setIsLogoutModalOpen(true)} size="mobile" />
-                        </div>
-                    </motion.div>
-                </div>
-
-                {/* --- DESKTOP HEADER (FIXED TOP, NO GAP) --- */}
-                <div className="hidden lg:block fixed top-0 left-0 right-0 z-[50] px-4 md:px-6 lg:px-8 pt-1 pb-2 w-full max-w-[1920px] mx-auto transition-all duration-300">
-                    <DesktopHeader userProfile={userProfile} setIsLogoutModalOpen={setIsLogoutModalOpen} />
-                </div>
-
-                {/* --- MAIN CONTENT (ADDED PADDING FOR FIXED HEADERS) --- */}
-                <main className="flex-1 w-full max-w-[1920px] mx-auto px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-24 lg:pt-24 relative z-10">
-                    <SwitchTransition mode="out-in">
-                        <CSSTransition 
-                            key={activeView} 
-                            nodeRef={nodeRef}
-                            timeout={500} 
-                            classNames="view-fade"
-                            unmountOnExit
-                        >
-                            <div ref={nodeRef} className="w-full h-full">
-                                <Suspense fallback={<DashboardSkeleton />}>
-                                    {renderMainContent()}
-                                </Suspense>
-                            </div>
-                        </CSSTransition>
-                    </SwitchTransition>
-                </main>
+            {/* --- GLOBAL AURORA BACKGROUND (OPTIMIZED) --- */}
+            {/* Added transform-gpu, removed mix-blend-mode for smoother scrolling */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 transform-gpu translate-z-0">
+                <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-indigo-300/30 dark:bg-indigo-600/10 rounded-full blur-[80px] animate-aurora" />
+                <div className="absolute top-[-10%] right-[-10%] w-[60vw] h-[60vw] bg-blue-500/30 dark:bg-blue-600/10 rounded-full blur-[80px] animate-aurora animation-delay-2000" />
+                <div className="absolute bottom-[-20%] left-[10%] w-[60vw] h-[60vw] bg-sky-300/30 dark:bg-cyan-600/10 rounded-full blur-[80px] animate-aurora animation-delay-4000" />
             </div>
+            
+            {/* --- MOBILE HEADER (FIXED TOP) --- */}
+            <div className="fixed top-0 left-0 right-0 z-40 px-4 pt-2 pb-2 lg:hidden">
+                <motion.div 
+                    initial={{ y: -50, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    className="glass-panel relative flex items-center justify-between px-5 py-3 rounded-[1.5rem] shadow-lg transform-gpu"
+                >
+                    <div className="flex items-center flex-shrink-0 z-20">
+                            <div className="w-10 h-10 rounded-[1rem] bg-gradient-to-tr from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 shadow-sm flex items-center justify-center border border-white/50 dark:border-white/10">
+                            <img src="/logo.png" alt="SRCS" className="w-6 h-6 object-contain" />
+                            </div>
+                    </div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                        <span className="font-black text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600 dark:from-blue-400 dark:via-indigo-400 dark:to-purple-400">
+                            SRCS
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0 z-20">
+                            <button onClick={toggleTheme} className="w-9 h-9 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-md hover:scale-105 active:scale-95 flex items-center justify-center transition-all duration-300 border border-white/50 dark:border-white/10 shadow-sm">
+                            {theme === 'dark' ? <MoonIcon className="h-5 w-5 text-blue-400" /> : <SunIcon className="h-5 w-5 text-orange-500" />}
+                        </button>
+                        <ProfileDropdown userProfile={userProfile} onLogout={() => setIsLogoutModalOpen(true)} size="mobile" />
+                    </div>
+                </motion.div>
+            </div>
+
+            {/* --- DESKTOP HEADER (FIXED TOP, NO GAP) --- */}
+            <div className="hidden lg:block fixed top-0 left-0 right-0 z-[50] px-4 md:px-6 lg:px-8 pt-0 pb-2 w-full max-w-[1920px] mx-auto transition-all duration-300">
+                <DesktopHeader userProfile={userProfile} setIsLogoutModalOpen={setIsLogoutModalOpen} />
+            </div>
+
+            {/* --- MAIN CONTENT (OPTIMIZED: REMOVED TRANSITION) --- */}
+            <main className="flex-1 w-full max-w-[1920px] mx-auto px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-24 lg:pt-24 relative z-10">
+                {/* REMOVED SwitchTransition/CSSTransition here to prevent 
+                    heavy re-renders and visual stutter when changing tabs.
+                */}
+                <div className="w-full h-full">
+                    <Suspense fallback={<DashboardSkeleton />}>
+                        {renderMainContent()}
+                    </Suspense>
+                </div>
+            </main>
 
             {/* --- MOBILE DOCK (FIXED REAL BOTTOM) --- */}
             <div className="fixed bottom-1 left-0 right-0 flex justify-center z-[49] lg:hidden pointer-events-none">
                 <motion.div 
                     initial={{ y: 100 }} animate={{ y: 0 }} transition={{ type: "spring", stiffness: 250, damping: 25, delay: 0.2 }} layout
-                    className="macos-dock pointer-events-auto px-2 py-2 rounded-[2.5rem] flex items-center justify-between w-auto min-w-[90%] max-w-md sm:gap-2 shadow-2xl"
+                    className="macos-dock pointer-events-auto px-2 py-2 rounded-[2.5rem] flex items-center justify-between w-auto min-w-[90%] max-w-md sm:gap-2 shadow-2xl transform-gpu"
                 >
                     {bottomNavItems.map(item => { 
-                         const isActive = activeView === item.view;
-                         return (
+                            const isActive = activeView === item.view;
+                            return (
                             <motion.button key={item.view} onClick={() => { handleViewChange(item.view); setIsMobileMenuOpen(false); }} layout
                                 className={`relative group flex items-center justify-center gap-2 p-2.5 rounded-full transition-colors outline-none flex-1 ${isActive ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-lg' : 'text-slate-500 dark:text-slate-400 hover:bg-white/40 dark:hover:bg-white/10'}`}
                             >
@@ -616,7 +623,7 @@ const TeacherDashboardLayout = (props) => {
                     <div className="w-[1px] h-6 bg-slate-300 dark:bg-white/20 mx-1 flex-shrink-0"></div>
                     <motion.button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} layout className={`relative group flex items-center justify-center gap-2 p-2.5 rounded-full transition-all outline-none flex-shrink-0 ${isMobileMenuOpen ? 'bg-slate-800 dark:bg-white text-white dark:text-slate-900 shadow-lg' : 'text-slate-500 dark:text-slate-400 hover:bg-white/40 dark:hover:bg-white/10'}`}>
                         <motion.div className="relative" whileHover={{ scale: 1.1 }} transition={{ type: "spring", stiffness: 300 }}>
-                           {isMobileMenuOpen ? <IconX stroke={2.5} className="h-6 w-6" /> : <IconGridDots stroke={2} className="h-6 w-6" />}
+                            {isMobileMenuOpen ? <IconX stroke={2.5} className="h-6 w-6" /> : <IconGridDots stroke={2} className="h-6 w-6" />}
                         </motion.div>
                     </motion.button>
                 </motion.div>
@@ -630,7 +637,7 @@ const TeacherDashboardLayout = (props) => {
                         animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
                         exit={{ opacity: 0, scale: 0.85, y: 40, filter: "blur(10px)" }}
                         transition={{ type: "spring", stiffness: 350, damping: 28 }}
-                        className="fixed bottom-24 left-0 right-0 mx-auto w-[90%] max-w-xs z-[48] glass-panel rounded-[2.5rem] p-6 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-white/40 dark:border-white/10 lg:hidden"
+                        className="fixed bottom-24 left-0 right-0 mx-auto w-[90%] max-w-xs z-[48] glass-panel rounded-[2.5rem] p-6 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-white/40 dark:border-white/10 lg:hidden transform-gpu"
                     >
                         <div className="grid grid-cols-3 gap-5">
                             {actionMenuItems.map((item, idx) => {
@@ -656,7 +663,7 @@ const TeacherDashboardLayout = (props) => {
                 )}
             </AnimatePresence>
 
-			{/* ROBOT & MODALS */}
+            {/* ROBOT & MODALS */}
             <Suspense fallback={null}>
                 {/* FIX: Add nodeRef to Robot CSSTransition */}
                 <CSSTransition 
@@ -710,8 +717,8 @@ const TeacherDashboardLayout = (props) => {
                     </div>
                 </div>
             </CSSTransition>
-        </>
+        </div>
     );
 };
 
-export default TeacherDashboardLayout;
+export default React.memo(TeacherDashboardLayout);

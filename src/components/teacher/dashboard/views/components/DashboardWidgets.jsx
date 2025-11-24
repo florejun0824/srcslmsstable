@@ -1,5 +1,5 @@
 // src/components/teacher/dashboard/components/DashboardWidgets.jsx
-import React, { useState, Fragment } from 'react';
+import React, { useState, Fragment, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dialog, Transition } from '@headlessui/react';
 import { 
@@ -26,7 +26,7 @@ const IconLink = ({ icon: Icon, text, onClick, delay }) => (
         whileTap={{ scale: 0.95 }}
         className="flex flex-col items-center justify-center p-2 cursor-pointer group"
     >
-        <div className="flex items-center justify-center w-14 h-14 bg-white/40 dark:bg-white/10 rounded-2xl backdrop-blur-md border border-white/40 dark:border-white/5 shadow-lg group-active:scale-95 transition-all duration-300 group-hover:bg-white/60 dark:group-hover:bg-white/20">
+        <div className="flex items-center justify-center w-14 h-14 bg-white/40 dark:bg-white/10 rounded-2xl backdrop-blur-sm border border-white/40 dark:border-white/5 shadow-lg group-active:scale-95 transition-all duration-300 group-hover:bg-white/60 dark:group-hover:bg-white/20">
             <Icon size={24} className="text-slate-700 dark:text-slate-200 opacity-90 group-hover:opacity-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
         </div>
         <span className="mt-2 text-[10px] font-bold text-slate-600 dark:text-slate-400 text-center leading-tight group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
@@ -136,13 +136,13 @@ const DashboardWidgets = ({
             {/* --- MODIFIED: Desktop Grid (Glass Tiles) --- */}
             <div className="hidden sm:grid sm:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-6">
                 <motion.div {...fadeProps(0.1)} className="h-full">
-                    <div className="h-full glass-panel rounded-[2rem] shadow-lg overflow-hidden hover:scale-[1.02] transition-transform duration-300 border border-white/40 dark:border-white/10">
+                    <div className="h-full bg-white/60 dark:bg-white/5 rounded-[2rem] shadow-lg overflow-hidden hover:scale-[1.02] transition-transform duration-300 border border-white/40 dark:border-white/10">
                         <ClockWidget className="h-full w-full bg-transparent" />
                     </div>
                 </motion.div>
 
                 <motion.div {...fadeProps(0.2)} className="h-full">
-                    <div className="h-full glass-panel rounded-[2rem] shadow-lg overflow-hidden hover:scale-[1.02] transition-transform duration-300 border border-white/40 dark:border-white/10">
+                    <div className="h-full bg-white/60 dark:bg-white/5 rounded-[2rem] shadow-lg overflow-hidden hover:scale-[1.02] transition-transform duration-300 border border-white/40 dark:border-white/10">
                         <InspirationCard className="h-full w-full bg-transparent" />
                     </div>
                 </motion.div>
@@ -252,4 +252,4 @@ const DashboardWidgets = ({
     );
 };
 
-export default DashboardWidgets;
+export default memo(DashboardWidgets);

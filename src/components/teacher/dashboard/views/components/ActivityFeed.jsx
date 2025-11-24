@@ -1,5 +1,5 @@
 // src/components/teacher/dashboard/views/components/ActivityFeed.jsx
-import React, { useState, lazy, Suspense } from 'react';
+import React, { useState, lazy, Suspense, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Megaphone, Activity } from 'lucide-react';
 import AnnouncementCard from './AnnouncementCard';
@@ -158,4 +158,4 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
     );
 };
 
-export default ActivityFeed;
+export default memo(ActivityFeed);

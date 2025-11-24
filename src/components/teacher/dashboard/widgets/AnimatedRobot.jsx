@@ -1,13 +1,11 @@
-// src/components/teacher/AnimatedRobot.jsx
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import Lottie from 'lottie-react'; // Import Lottie
-// CHANGE THIS PATH to point to your actual Lottie JSON file
+// src/components/teacher/dashboard/widgets/AnimatedRobot.jsx
+import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
+import Lottie from 'lottie-react'; 
 import robotAnimation from '../../../../assets/robot.json'; 
 import './AnimatedRobot.css';
 
 const AnimatedRobot = ({ onClick }) => {
     const isMobile = window.innerWidth <= 768;
-    // Kept size large since we removed the padding/background
     const size = isMobile ? 65 : 75; 
     
     const sideMargin = 30; 
@@ -26,7 +24,9 @@ const AnimatedRobot = ({ onClick }) => {
 
     const handleDragStart = useCallback(
         (e) => {
-            e.preventDefault();
+            // Only prevent default if it's not a touch event to avoid blocking scroll initiation issues
+            if (e.type === 'mousedown') e.preventDefault();
+            
             const clientX = e.type === 'mousedown' ? e.clientX : e.touches[0].clientX;
             const clientY = e.type === 'mousedown' ? e.clientY : e.touches[0].clientY;
 
@@ -94,13 +94,18 @@ const AnimatedRobot = ({ onClick }) => {
         height: `${size}px`,
         left: `${position.x}px`,
         top: `${position.y}px`,
-        transition: isDragging ? 'none' : 'transform 0.2s ease',
+        // Force GPU layer for smoother rendering over scrolling content
+        transform: `translate3d(0, 0, 0)`, 
+        // Separate dragging visual logic from hardware acceleration
+        transition: isDragging ? 'none' : 'transform 0.2s ease, top 0.1s, left 0.1s', 
         zIndex: 999, 
         cursor: isDragging ? 'grabbing' : 'grab',
         background: 'transparent',
         border: 'none',
         padding: 0,
-        outline: 'none'
+        outline: 'none',
+        // Hint to browser to optimize this element
+        willChange: 'top, left'
     };
 
     return (
@@ -113,7 +118,6 @@ const AnimatedRobot = ({ onClick }) => {
             aria-label="Open AI Chat"
         >
             <div className="button-content">
-                {/* UPDATED: Lottie Component */}
                 <Lottie 
                     animationData={robotAnimation} 
                     loop={true} 
@@ -124,4 +128,4 @@ const AnimatedRobot = ({ onClick }) => {
     );
 };
 
-export default AnimatedRobot;
+export default memo(AnimatedRobot);

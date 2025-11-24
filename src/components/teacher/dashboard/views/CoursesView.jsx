@@ -1,5 +1,5 @@
 // src/components/teacher/dashboard/views/CoursesView.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import { Routes, Route, useParams, useNavigate, Link } from 'react-router-dom';
 import { db } from '../../../../services/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -14,21 +14,23 @@ import {
     PresentationChartBarIcon,
     ShareIcon,
     ArrowPathIcon,
-    Squares2X2Icon
+    Squares2X2Icon,
+    CheckCircleIcon
 } from '@heroicons/react/24/solid';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
-// --- VISUAL ASSETS: AURORA ANIMATION & STYLES ---
-
+// --- VISUAL ASSETS: AURORA ANIMATION & STYLES (OPTIMIZED) ---
 const auroraStyles = `
+  /* OPTIMIZED: Use translate3d for GPU acceleration */
   @keyframes aurora-move {
-    0% { transform: translate(0px, 0px) scale(1); }
-    33% { transform: translate(30px, -50px) scale(1.1); }
-    66% { transform: translate(-20px, 20px) scale(0.9); }
-    100% { transform: translate(0px, 0px) scale(1); }
+    0% { transform: translate3d(0px, 0px, 0px) scale(1); }
+    33% { transform: translate3d(30px, -50px, 0px) scale(1.1); }
+    66% { transform: translate3d(-20px, 20px, 0px) scale(0.9); }
+    100% { transform: translate3d(0px, 0px, 0px) scale(1); }
   }
   .animate-aurora {
     animation: aurora-move 12s infinite ease-in-out;
+    will-change: transform;
   }
   .animation-delay-2000 {
     animation-delay: 2s;
@@ -38,33 +40,63 @@ const auroraStyles = `
   }
 `;
 
-// Helper Component for the Background
-const AuroraBackground = () => (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 transform translate-z-0">
+// Helper Component for the Background (Memoized)
+const AuroraBackground = memo(() => (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 transform-gpu translate-z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-indigo-300/30 dark:bg-indigo-600/20 rounded-full blur-[80px] sm:blur-[120px] mix-blend-multiply dark:mix-blend-screen animate-aurora" />
         <div className="absolute top-[-10%] right-[-10%] w-[60vw] h-[60vw] bg-blue-500/30 dark:bg-blue-600/20 rounded-full blur-[80px] sm:blur-[120px] mix-blend-multiply dark:mix-blend-screen animate-aurora animation-delay-2000" />
         <div className="absolute bottom-[-20%] left-[10%] w-[60vw] h-[60vw] bg-sky-300/30 dark:bg-cyan-600/20 rounded-full blur-[80px] sm:blur-[120px] mix-blend-multiply dark:mix-blend-screen animate-aurora animation-delay-4000" />
     </div>
-);
+));
 
-// --- MACOS 26 DESIGN SYSTEM (TIGHT & FIXED) ---
-
-// Layout
+// --- MACOS 26 DESIGN SYSTEM (OPTIMIZED) ---
 const commonContainerClasses = "relative h-[calc(100vh-7rem)] lg:h-[calc(100vh-8rem)] w-full p-2 sm:p-4 overflow-hidden font-sans selection:bg-blue-500/30";
+const windowContainerClasses = "relative z-10 h-full flex flex-col bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-xl rounded-3xl sm:rounded-[2rem] shadow-2xl shadow-slate-300/50 dark:shadow-black/60 border border-white/80 dark:border-white/5 w-full max-w-7xl mx-auto ring-1 ring-slate-900/5 dark:ring-white/10 overflow-hidden";
 
-// Window
-const windowContainerClasses = "relative z-10 h-full flex flex-col bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-3xl rounded-3xl sm:rounded-[2rem] shadow-2xl shadow-slate-300/50 dark:shadow-black/60 border border-white/80 dark:border-white/5 w-full max-w-7xl mx-auto transition-all duration-500 ring-1 ring-slate-900/5 dark:ring-white/10 overflow-hidden";
-
-// Buttons & Inputs
 const baseButtonStyles = `font-semibold rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-95 tracking-wide shrink-0`;
-const primaryButton = `${baseButtonStyles} px-4 py-2 sm:px-6 sm:py-2.5 text-sm text-white bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 border border-transparent`;
+const primaryButton = `${baseButtonStyles} px-4 py-2 sm:px-6 sm:py-2.5 text-sm text-white bg-blue-600 hover:bg-blue-50 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 border border-transparent`;
 const secondaryButton = `${baseButtonStyles} px-4 py-2 sm:px-5 sm:py-2.5 text-sm text-slate-700 dark:text-slate-300 bg-white/60 dark:bg-white/10 hover:bg-white/90 dark:hover:bg-white/20 border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md`;
 const iconButton = `${baseButtonStyles} p-2 sm:p-2.5 text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-white/5 hover:bg-white/90 dark:hover:bg-white/10 hover:text-slate-700 dark:hover:text-slate-200 rounded-full border border-slate-200 dark:border-white/5 shadow-sm`;
 const destructiveIconButton = `${baseButtonStyles} p-2 sm:p-2.5 text-red-500 hover:text-red-600 bg-white/60 dark:bg-white/5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full border border-red-100 dark:border-white/5 shadow-sm`;
 const searchInputStyles = "w-full sm:max-w-md p-2.5 pl-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-black/20 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 transition-all shadow-sm backdrop-blur-sm";
 
-// --- END DESIGN SYSTEM ---
+// --- SKELETON COMPONENTS (NEW) ---
 
+// 1. Grid Skeleton (For Categories and Subjects)
+const SkeletonGrid = memo(() => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="h-64 rounded-[2.5rem] bg-white/40 dark:bg-white/5 relative p-8 border border-white/20 dark:border-white/5 shadow-sm overflow-hidden">
+                {/* Icon Placeholder */}
+                <div className="w-14 h-14 rounded-2xl bg-slate-200/50 dark:bg-white/10 mb-6"></div>
+                {/* Title Placeholder */}
+                <div className="h-8 bg-slate-200/50 dark:bg-white/10 rounded-lg w-3/4 mb-3 absolute bottom-16"></div>
+                {/* Subtitle Placeholder */}
+                <div className="h-4 bg-slate-200/50 dark:bg-white/10 rounded-lg w-1/2 absolute bottom-8"></div>
+            </div>
+        ))}
+    </div>
+));
+
+// 2. List Skeleton (For Units/Lessons)
+const SkeletonList = memo(() => (
+    <div className="space-y-4 animate-pulse p-2">
+        <div className="h-12 bg-slate-200/50 dark:bg-white/10 rounded-xl w-1/3 mb-8 mx-2"></div>
+        {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="w-full flex items-center p-4 bg-white/40 dark:bg-white/5 rounded-2xl border border-white/20 dark:border-white/5">
+                {/* Icon */}
+                <div className="h-10 w-10 flex-shrink-0 rounded-xl bg-slate-200/50 dark:bg-white/10 mx-3"></div>
+                {/* Text */}
+                <div className="flex-grow min-w-0 space-y-2">
+                    <div className="h-4 w-1/3 bg-slate-200/50 dark:bg-white/10 rounded-full"></div>
+                    <div className="h-3 w-1/4 bg-slate-200/30 dark:bg-white/5 rounded-full"></div>
+                </div>
+            </div>
+        ))}
+    </div>
+));
+
+// --- SUBJECT STYLING HELPER ---
 const getSubjectStyling = (subjectTitle) => {
     const lowerCaseTitle = subjectTitle.toLowerCase();
     let IconComponent = BookOpenIcon;
@@ -103,8 +135,8 @@ const getSubjectStyling = (subjectTitle) => {
     return { icon: IconComponent, iconColor, gradient };
 };
 
-// --- LEVEL 3: SUBJECT DETAIL VIEW ---
-const SubjectDetail = (props) => {
+// --- LEVEL 3: SUBJECT DETAIL VIEW (MEMOIZED) ---
+const SubjectDetail = memo((props) => {
     const {
         courses, handleOpenEditSubject, handleOpenDeleteSubject, setShareContentModalOpen,
         setAddUnitModalOpen, setIsAiHubOpen, handleInitiateDelete, userProfile,
@@ -118,8 +150,9 @@ const SubjectDetail = (props) => {
 
     const [units, setUnits] = useState([]);
     const [allLessonsForSubject, setAllLessonsForSubject] = useState([]);
-    const [isLoadingUnitsAndLessons, setIsLoadingUnitsAndLessons] = useState(false);
+    const [isLoadingUnitsAndLessons, setIsLoadingUnitsAndLessons] = useState(true); // Default to true
     
+    // Optimization: Memoize activeSubject
     const activeSubject = useMemo(() => courses.find(c => c.id === subjectId), [courses, subjectId]);
     
     const [selectedLessons, setSelectedLessons] = useState(new Set());
@@ -168,8 +201,11 @@ const SubjectDetail = (props) => {
         } else {
             setUnits([]);
             setAllLessonsForSubject([]);
+            // Keep loading true if we expect a subject but haven't found it yet in props
+            if (subjectId && !activeSubject) setIsLoadingUnitsAndLessons(true); 
+            else setIsLoadingUnitsAndLessons(false);
         }
-    }, [activeSubject]);
+    }, [activeSubject, subjectId]);
     
     const handleLessonSelect = (lessonId) => {
         setSelectedLessons(prev => {
@@ -186,16 +222,22 @@ const SubjectDetail = (props) => {
         }
     };
 
-    // --- DYNAMIC BACK NAVIGATION ---
     const handleBackNavigation = () => {
         if (activeUnit) {
-            // Context: Inside a Unit -> Go back to Unit List
             onSetActiveUnit(null);
         } else {
-            // Context: Inside Unit List -> Go back to Subject List
             navigate(`/dashboard/courses/${contentGroup}/${categoryName}`);
         }
     };
+
+    // If fetching the parent subject list failed or hasn't happened yet
+    if (subjectId && !activeSubject && isLoadingUnitsAndLessons) return (
+        <div className={commonContainerClasses}>
+            <div className={windowContainerClasses}>
+                <SkeletonList />
+            </div>
+        </div>
+    );
 
     if (!activeSubject) return <Spinner />;
 
@@ -206,20 +248,12 @@ const SubjectDetail = (props) => {
 
             <div className={windowContainerClasses}>
                 
-                {/* HEADER - Fixed at top of the Flex Container */}
-                <div className="flex-none flex flex-col md:flex-row justify-between items-start md:items-center py-2 px-4 sm:p-6 gap-4 border-b border-slate-200/60 dark:border-slate-700/50 bg-white/50 dark:bg-[#1A1D24]/50 backdrop-blur-md z-20">
-                    {/* Title & Navigation */}
+                {/* HEADER */}
+                <div className="flex-none flex flex-col md:flex-row justify-between items-start md:items-center py-2 px-4 sm:p-6 gap-4 border-b border-slate-200/60 dark:border-white/5 bg-white/50 dark:bg-[#1A1D24]/50 backdrop-blur-md z-20">
                     <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full md:w-auto">
                         <button onClick={handleBackNavigation} className={secondaryButton}>
-                            {activeUnit ? (
-                                <Squares2X2Icon className="w-4 h-4" />
-                            ) : (
-                                <ArrowUturnLeftIcon className="w-4 h-4" />
-                            )}
-                            {/* Dynamic Button Text */}
-                            <span className="hidden sm:inline font-bold">
-                                {activeUnit ? 'All Units' : 'Back'}
-                            </span>
+                            {activeUnit ? <Squares2X2Icon className="w-4 h-4" /> : <ArrowUturnLeftIcon className="w-4 h-4" />}
+                            <span className="hidden sm:inline font-bold">{activeUnit ? 'All Units' : 'Back'}</span>
                         </button>
                         <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block"></div>
                         <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight truncate max-w-[180px] sm:max-w-sm">
@@ -231,7 +265,6 @@ const SubjectDetail = (props) => {
                         </div>
                     </div>
 
-                    {/* Actions Toolbar */}
                     <div className="flex gap-2 sm:gap-3 flex-wrap w-full md:w-auto">
                         <button onClick={() => setShareContentModalOpen(true)} className={`${secondaryButton} flex-1 sm:flex-none justify-center`}>
                             <ShareIcon className="w-4 h-4 text-blue-500" />
@@ -247,13 +280,10 @@ const SubjectDetail = (props) => {
                     </div>
                 </div>
 
-                {/* CONTENT AREA - Scrolls independently */}
-                <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-2 sm:p-4">
+                {/* CONTENT AREA */}
+                <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-2 sm:p-4 overscroll-contain">
                     {isLoadingUnitsAndLessons ? (
-                        <div className="space-y-4 p-4 animate-pulse">
-                             <div className="h-12 bg-slate-200 dark:bg-white/5 rounded-xl w-1/3 mb-8"></div>
-                             {[1,2,3].map(i => <div key={i} className="h-24 bg-slate-200 dark:bg-white/5 rounded-2xl w-full"></div>)}
-                        </div>
+                        <SkeletonList />
                     ) : (
                         <UnitAccordion
                             subject={activeSubject}
@@ -289,22 +319,28 @@ const SubjectDetail = (props) => {
               .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.2); }
             `}</style>
 
-            {/* Lesson Picker Modal */}
+            {/* --- LESSON PICKER MODAL --- */}
             {showLessonPicker && activeUnitForPicker && (
-                <div className="fixed inset-0 flex items-center justify-center bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm z-[5000] p-4 transition-all duration-300">
-                    <div className="bg-white/95 dark:bg-[#1E212B]/95 rounded-[2rem] shadow-2xl dark:shadow-black/80 w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col border border-white/20 dark:border-white/5 animate-in fade-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm z-[5000] p-4 transition-all duration-300">
+                    <div className="relative w-full max-w-lg max-h-[85vh] flex flex-col rounded-[2.5rem] bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-2xl border border-white/40 dark:border-white/10 shadow-2xl shadow-black/20 overflow-hidden animate-in fade-in zoom-in-95 duration-300 ring-1 ring-black/5">
                         
-                        <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white dark:from-white/5 dark:to-transparent">
+                        <div className="px-8 py-6 border-b border-slate-200/50 dark:border-white/5 flex justify-between items-start">
                             <div>
-                                <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">Select Lessons</h2>
-                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                                    <span className="opacity-70">Unit:</span> <span className="font-medium text-slate-700 dark:text-slate-300">{activeUnitForPicker.title}</span>
+                                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-1">
+                                    <SparklesIcon className="w-4 h-4" />
+                                    <span className="text-xs font-bold uppercase tracking-wider">AI Generator</span>
+                                </div>
+                                <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">Select Content</h2>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                                    Choose lessons from <span className="text-slate-700 dark:text-slate-200 font-bold">"{activeUnitForPicker.title}"</span>
                                 </p>
                             </div>
-                            <button onClick={() => setShowLessonPicker(false)} className={iconButton}><XMarkIcon className="w-5 h-5" /></button>
+                            <button onClick={() => setShowLessonPicker(false)} className={`${iconButton} !bg-slate-100 dark:!bg-white/10`}>
+                                <XMarkIcon className="w-5 h-5" />
+                            </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2 custom-scrollbar">
+                        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-3 custom-scrollbar">
                             {(() => {
                                 const lessonsInUnit = allLessonsForSubject
                                     .filter((lesson) => lesson.unitId === activeUnitForPicker.id)
@@ -312,49 +348,80 @@ const SubjectDetail = (props) => {
                                 
                                 if (lessonsInUnit.length === 0) {
                                     return (
-                                        <div className="flex flex-col items-center justify-center py-12 text-center">
-                                            <BookOpenIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-3" />
-                                            <p className="text-slate-500 dark:text-slate-400">No lessons available.</p>
+                                        <div className="flex flex-col items-center justify-center py-16 text-center opacity-60">
+                                            <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-4">
+                                                <BookOpenIcon className="w-8 h-8 text-slate-400" />
+                                            </div>
+                                            <p className="text-slate-500 dark:text-slate-400 font-medium">No lessons found in this unit.</p>
                                         </div>
                                     );
                                 }
 
-                                return lessonsInUnit.map((lesson) => (
-                                    <label key={lesson.id} className={`flex items-center justify-between p-4 rounded-xl cursor-pointer border ${selectedLessons.has(lesson.id) ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700/50' : 'bg-slate-50 dark:bg-white/5 border-transparent hover:bg-slate-100 dark:hover:bg-white/10 shadow-sm'}`}>
-                                        <div className="min-w-0 pr-4">
-                                            <div className={`font-medium truncate transition-colors ${selectedLessons.has(lesson.id) ? 'text-blue-700 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'}`}>{lesson.title}</div>
-                                            {lesson.subtitle && <div className="text-xs text-slate-400 dark:text-slate-500 mt-1 truncate">{lesson.subtitle}</div>}
-                                        </div>
-                                        <div className="relative flex items-center">
-                                            <input type="checkbox" checked={selectedLessons.has(lesson.id)} onChange={() => handleLessonSelect(lesson.id)} className="peer w-6 h-6 rounded-lg border-2 border-slate-300 dark:border-slate-600 checked:bg-blue-500 checked:border-blue-500 transition-all appearance-none cursor-pointer bg-white dark:bg-slate-700" />
-                                            <svg className="absolute w-4 h-4 text-white pointer-events-none opacity-0 peer-checked:opacity-100 left-1 transition-opacity" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 011.04-.207z" clipRule="evenodd" /></svg>
-                                        </div>
-                                    </label>
-                                ));
+                                return lessonsInUnit.map((lesson) => {
+                                    const isSelected = selectedLessons.has(lesson.id);
+                                    return (
+                                        <label 
+                                            key={lesson.id} 
+                                            className={`group flex items-center justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-200 relative overflow-hidden ${
+                                                isSelected 
+                                                ? 'bg-blue-50/80 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700/50 shadow-inner' 
+                                                : 'bg-white/40 dark:bg-white/5 border-transparent hover:bg-white/80 dark:hover:bg-white/10 hover:shadow-sm'
+                                            }`}
+                                        >
+                                            <div className="min-w-0 pr-4 relative z-10">
+                                                <div className={`font-bold text-sm transition-colors ${isSelected ? 'text-blue-700 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'}`}>
+                                                    {lesson.title}
+                                                </div>
+                                                {lesson.subtitle && (
+                                                    <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate font-medium">
+                                                        {lesson.subtitle}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            
+                                            <div className="relative flex items-center justify-center w-6 h-6 z-10">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={isSelected} 
+                                                    onChange={() => handleLessonSelect(lesson.id)} 
+                                                    className="peer appearance-none w-6 h-6 rounded-full border-2 border-slate-300 dark:border-slate-600 checked:bg-blue-500 checked:border-blue-500 transition-all cursor-pointer" 
+                                                />
+                                                <CheckCircleIcon className="absolute w-6 h-6 text-blue-500 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100" />
+                                            </div>
+                                        </label>
+                                    );
+                                });
                             })()}
                         </div>
 
-                        <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 flex justify-end gap-3 bg-slate-50 dark:bg-black/20">
-                            <button onClick={() => setShowLessonPicker(false)} className={secondaryButton}>Cancel</button>
-                            <button 
-                                onClick={() => { setShowLessonPicker(false); handleGeneratePresentationClick(); }} 
-                                className={primaryButton}
-                                disabled={selectedLessons.size === 0 || isAiGenerating}
-                            >
-                                {isAiGenerating ? <ArrowPathIcon className="w-5 h-5 animate-spin" /> : <PresentationChartBarIcon className="w-5 h-5" />}
-                                <span>{isAiGenerating ? 'Processing...' : 'Generate Deck'}</span>
-                            </button>
+                        <div className="px-8 py-5 border-t border-slate-200/50 dark:border-white/5 flex justify-between items-center bg-slate-50/50 dark:bg-black/20 backdrop-blur-sm">
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">
+                                {selectedLessons.size} Selected
+                            </span>
+                            <div className="flex gap-3">
+                                <button onClick={() => setShowLessonPicker(false)} className={secondaryButton}>
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={() => { setShowLessonPicker(false); handleGeneratePresentationClick(); }} 
+                                    className={`${primaryButton} shadow-xl shadow-blue-500/20`}
+                                    disabled={selectedLessons.size === 0 || isAiGenerating}
+                                >
+                                    {isAiGenerating ? <ArrowPathIcon className="w-5 h-5 animate-spin" /> : <PresentationChartBarIcon className="w-5 h-5" />}
+                                    <span>{isAiGenerating ? 'Processing...' : 'Generate Deck'}</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
         </div>
     );
-};
+});
 
-// --- LEVEL 2: SUBJECT LIST VIEW ---
-const SubjectList = (props) => {
-    const { courses, handleInitiateDelete, onAddSubjectClick, setActiveSubject, handleCategoryClick } = props;
+// --- LEVEL 2: SUBJECT LIST VIEW (MEMOIZED) ---
+const SubjectList = memo((props) => {
+    const { courses, handleInitiateDelete, onAddSubjectClick, setActiveSubject, handleCategoryClick, loading } = props;
     const { contentGroup, categoryName } = useParams();
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
@@ -366,9 +433,12 @@ const SubjectList = (props) => {
         return () => handleCategoryClick(null);
     }, [decodedCategoryName, handleCategoryClick, setActiveSubject]);
 
-    const categoryCourses = courses.filter(c => c.category === decodedCategoryName);
-    categoryCourses.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
-    const filteredCourses = categoryCourses.filter(course => course.title.toLowerCase().includes(searchTerm.toLowerCase()));
+    const filteredCourses = useMemo(() => {
+        if (!courses) return [];
+        const categoryCourses = courses.filter(c => c.category === decodedCategoryName);
+        categoryCourses.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
+        return categoryCourses.filter(course => course.title.toLowerCase().includes(searchTerm.toLowerCase()));
+    }, [courses, decodedCategoryName, searchTerm]);
 
     return (
         <div className={commonContainerClasses}>
@@ -396,39 +466,43 @@ const SubjectList = (props) => {
                 </div>
 
                 {/* Scrollable List */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar">
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-                        {filteredCourses.map((course) => {
-                            const { icon: Icon, iconColor, gradient } = getSubjectStyling(course.title);
-                            const unitCount = course.unitCount || 0;
-                            return (
-                                <Link key={course.id} to={course.id} className={`group relative rounded-[2rem] p-6 transition-all duration-300 cursor-pointer overflow-hidden ring-1 ring-slate-900/5 dark:ring-white/10 hover:-translate-y-1 shadow-lg shadow-slate-200/50 hover:shadow-xl hover:shadow-slate-300/50 dark:shadow-black/50 bg-gradient-to-br ${gradient}`}>
-                                    <div className="relative z-10 flex flex-col h-full justify-between">
-                                        <div className="flex justify-between items-start">
-                                            <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/60 dark:bg-black/20 shadow-sm backdrop-blur-sm ring-1 ring-white/50 dark:ring-white/10"><Icon className={`w-6 h-6 ${iconColor}`} /></div>
-                                            <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 sm:translate-x-2 sm:group-hover:translate-x-0">
-                                                <button onClick={(e) => {e.preventDefault(); props.handleOpenEditSubject(course)}} className={iconButton} title="Edit"><PencilSquareIcon className="w-4 h-4"/></button> 
-                                                <button onClick={(e)=>{e.preventDefault(); handleInitiateDelete('subject', course.id, course.title)}} className={destructiveIconButton} title="Delete"><TrashIcon className="w-4 h-4"/></button>
+                <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar overscroll-contain">
+                    {loading || (!courses && filteredCourses.length === 0) ? (
+                        <SkeletonGrid />
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+                            {filteredCourses.map((course) => {
+                                const { icon: Icon, iconColor, gradient } = getSubjectStyling(course.title);
+                                const unitCount = course.unitCount || 0;
+                                return (
+                                    <Link key={course.id} to={course.id} className={`group relative rounded-[2rem] p-6 transition-all duration-300 cursor-pointer overflow-hidden ring-1 ring-slate-900/5 dark:ring-white/10 hover:-translate-y-1 shadow-lg shadow-slate-200/50 hover:shadow-xl hover:shadow-slate-300/50 dark:shadow-black/50 bg-gradient-to-br ${gradient}`}>
+                                        <div className="relative z-10 flex flex-col h-full justify-between">
+                                            <div className="flex justify-between items-start">
+                                                <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/60 dark:bg-black/20 shadow-sm backdrop-blur-sm ring-1 ring-white/50 dark:ring-white/10"><Icon className={`w-6 h-6 ${iconColor}`} /></div>
+                                                <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 sm:translate-x-2 sm:group-hover:translate-x-0">
+                                                    <button onClick={(e) => {e.preventDefault(); props.handleOpenEditSubject(course)}} className={iconButton} title="Edit"><PencilSquareIcon className="w-4 h-4"/></button> 
+                                                    <button onClick={(e)=>{e.preventDefault(); handleInitiateDelete('subject', course.id, course.title)}} className={destructiveIconButton} title="Delete"><TrashIcon className="w-4 h-4"/></button>
+                                                </div>
+                                            </div>
+                                            <div className="mt-6">
+                                                <h2 className="text-lg font-bold text-slate-800 dark:text-white mb-2 leading-tight">{course.title}</h2>
+                                                <span className="px-3 py-1 rounded-full bg-white/40 dark:bg-black/20 text-xs font-bold text-slate-600 dark:text-slate-300 border border-white/40 dark:border-white/10">{unitCount} {unitCount === 1 ? 'Unit' : 'Units'}</span>
                                             </div>
                                         </div>
-                                        <div className="mt-6">
-                                            <h2 className="text-lg font-bold text-slate-800 dark:text-white mb-2 leading-tight">{course.title}</h2>
-                                            <span className="px-3 py-1 rounded-full bg-white/40 dark:bg-black/20 text-xs font-bold text-slate-600 dark:text-slate-300 border border-white/40 dark:border-white/10">{unitCount} {unitCount === 1 ? 'Unit' : 'Units'}</span>
-                                        </div>
-                                    </div>
-                                </Link>
-                            );
-                        })}
-                    </div>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
     );
-};
+});
 
-// --- LEVEL 1: CATEGORY LIST VIEW ---
-const CategoryList = (props) => {
-    const { courseCategories, courses, setCreateCategoryModalOpen, handleEditCategory, handleInitiateDelete, handleCategoryClick, setActiveSubject } = props;
+// --- LEVEL 1: CATEGORY LIST VIEW (MEMOIZED) ---
+const CategoryList = memo((props) => {
+    const { courseCategories, courses, setCreateCategoryModalOpen, handleEditCategory, handleInitiateDelete, handleCategoryClick, setActiveSubject, loading } = props;
     const { contentGroup } = useParams();
     const navigate = useNavigate();
 
@@ -441,16 +515,14 @@ const CategoryList = (props) => {
     const title = isLearner ? "Learner's Space" : "Teacher's Space";
     const subtitle = isLearner ? "Access your curated learning materials" : "Manage your curriculum and resources";
     
-    const categoriesToShow = courseCategories.filter(cat => {
-        const lowerName = cat.name.toLowerCase();
-        if (isLearner) {
-            return !lowerName.includes("(teacher's content)");
-        } else {
-            return lowerName.includes("teacher's content");
-        }
-    });
-    
-    categoriesToShow.sort((a, b) => a.name.localeCompare(b.name));
+    const categoriesToShow = useMemo(() => {
+        if (!courseCategories) return [];
+        const filtered = courseCategories.filter(cat => {
+            const lowerName = cat.name.toLowerCase();
+            return isLearner ? !lowerName.includes("(teacher's content)") : lowerName.includes("teacher's content");
+        });
+        return filtered.sort((a, b) => a.name.localeCompare(b.name));
+    }, [courseCategories, isLearner]);
 
     return (
         <div className={commonContainerClasses}>
@@ -466,45 +538,47 @@ const CategoryList = (props) => {
                     <button onClick={() => setCreateCategoryModalOpen(true)} className={`${primaryButton} w-full sm:w-auto`}><PlusCircleIcon className="w-5 h-5" />New Category</button>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-6 sm:p-10 custom-scrollbar">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {categoriesToShow.map((cat) => {
-                            // 👇 FIX APPLIED HERE: Calculate courseCount for the current category
-                            const courseCount = courses.filter(c => c.category === cat.name).length; 
-                            
-                            const { icon: Icon, iconColor, gradient } = getSubjectStyling(cat.name);
-                            const cleanName = cat.name.replace(/\s\((Teacher|Learner)'s Content\)/i, '');
-                            
-                            return (
-                                <Link key={cat.id} to={encodeURIComponent(cat.name)} className={`group relative p-8 rounded-[2.5rem] cursor-pointer bg-gradient-to-br ${gradient} ring-1 ring-slate-900/5 dark:ring-white/10 hover:shadow-2xl hover:shadow-slate-300/50 dark:hover:shadow-black/50 hover:-translate-y-1 transition-all overflow-hidden`}>
-                                    <div className="relative z-10 flex flex-col h-full">
-                                        <div className="flex justify-between items-start mb-6">
-                                            <div className="p-4 bg-white/70 dark:bg-black/20 rounded-2xl shadow-sm backdrop-blur-md ring-1 ring-white/50 dark:ring-white/10"><Icon className={`w-8 h-8 ${iconColor}`} /></div>
-                                            <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 sm:scale-90 sm:group-hover:scale-100">
-                                                <button onClick={(e) => {e.preventDefault(); handleEditCategory(cat)}} className={iconButton}><PencilSquareIcon className="w-4 h-4"/></button> 
-                                                <button onClick={(e)=>{e.preventDefault(); handleInitiateDelete('category', cat.id, cat.name)}} className={destructiveIconButton}><TrashIcon className="w-4 h-4"/></button>
+                <div className="flex-1 overflow-y-auto p-6 sm:p-10 custom-scrollbar overscroll-contain">
+                    {loading || (!courseCategories && categoriesToShow.length === 0) ? (
+                        <SkeletonGrid />
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {categoriesToShow.map((cat) => {
+                                const courseCount = courses ? courses.filter(c => c.category === cat.name).length : 0; 
+                                const { icon: Icon, iconColor, gradient } = getSubjectStyling(cat.name);
+                                const cleanName = cat.name.replace(/\s\((Teacher|Learner)'s Content\)/i, '');
+                                
+                                return (
+                                    <Link key={cat.id} to={encodeURIComponent(cat.name)} className={`group relative p-8 rounded-[2.5rem] cursor-pointer bg-gradient-to-br ${gradient} ring-1 ring-slate-900/5 dark:ring-white/10 hover:shadow-2xl hover:shadow-slate-300/50 dark:hover:shadow-black/50 hover:-translate-y-1 transition-all overflow-hidden`}>
+                                        <div className="relative z-10 flex flex-col h-full">
+                                            <div className="flex justify-between items-start mb-6">
+                                                <div className="p-4 bg-white/70 dark:bg-black/20 rounded-2xl shadow-sm backdrop-blur-md ring-1 ring-white/50 dark:ring-white/10"><Icon className={`w-8 h-8 ${iconColor}`} /></div>
+                                                <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 sm:scale-90 sm:group-hover:scale-100">
+                                                    <button onClick={(e) => {e.preventDefault(); handleEditCategory(cat)}} className={iconButton}><PencilSquareIcon className="w-4 h-4"/></button> 
+                                                    <button onClick={(e)=>{e.preventDefault(); handleInitiateDelete('category', cat.id, cat.name)}} className={destructiveIconButton}><TrashIcon className="w-4 h-4"/></button>
+                                                </div>
+                                            </div>
+                                            <div className="mt-auto">
+                                                <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 tracking-tight">{cleanName}</h2>
+                                                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 font-medium">
+                                                    <span className="w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-500"></span>
+                                                    {courseCount} {courseCount === 1 ? 'Subject' : 'Subjects'}
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="mt-auto">
-                                            <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 tracking-tight">{cleanName}</h2>
-                                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 font-medium">
-                                                <span className="w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-500"></span>
-                                                {courseCount} {courseCount === 1 ? 'Subject' : 'Subjects'}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </Link>
-                            );
-                        })}
-                    </div>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
     );
-};
+});
 
-// --- LEVEL 0: CONTENT GROUP SELECTOR ---
-const ContentGroupSelector = (props) => {
+// --- LEVEL 0: CONTENT GROUP SELECTOR (MEMOIZED) ---
+const ContentGroupSelector = memo((props) => {
     useEffect(() => {
         props.setActiveSubject(null);
         props.handleBackToCategoryList();
@@ -561,11 +635,10 @@ const ContentGroupSelector = (props) => {
             </div>
         </div>
     );
-};
+});
 
-
-// --- MAIN COURSES VIEW COMPONENT ---
-const CoursesView = (props) => {
+// --- MAIN COURSES VIEW COMPONENT (MEMOIZED) ---
+const CoursesView = memo((props) => {
     return (
         <Routes>
             <Route path="courses"> 
@@ -576,6 +649,6 @@ const CoursesView = (props) => {
             </Route>
         </Routes>
     );
-};
+});
 
 export default CoursesView;

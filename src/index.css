@@ -13,13 +13,14 @@
 :root {
   --spinner-size: 80px;
   --spinner-thickness: 10px;
-  --spinner-blur-intensity: 32px; /* Increased for depth */
-  --spinner-pulsate-duration: 3s; /* Slower, breathing rhythm */
+  /* OPTIMIZED: Reduced from 32px to 12px for GPU performance */
+  --spinner-blur-intensity: 12px; 
+  --spinner-pulsate-duration: 3s; 
   --spinner-rotation-duration: 4s;
   --spinner-gradient-start: #6366F1; /* Indigo-500 */
   --spinner-gradient-mid: #EC4899;   /* Pink-500 */
   --spinner-gradient-end: #8B5CF6;   /* Purple-500 */
-  --spinner-overlay-bg: rgba(5, 5, 10, 0.4); /* Darker, cleaner overlay */
+  --spinner-overlay-bg: rgba(5, 5, 10, 0.65); /* Darker to compensate for less blur */
 }
 
 .spinner-overlay {
@@ -32,11 +33,17 @@
   justify-content: center;
   align-items: center;
   background-color: var(--spinner-overlay-bg);
-  /* The "VisionOS" Ultra Blur */
-  backdrop-filter: blur(24px) saturate(180%); 
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  /* OPTIMIZED: Reduced blur radius */
+  backdrop-filter: blur(var(--spinner-blur-intensity)) saturate(180%); 
+  -webkit-backdrop-filter: blur(var(--spinner-blur-intensity)) saturate(180%);
+  
+  /* OPTIMIZED: Force GPU Layer */
+  transform: translateZ(0);
+  will-change: opacity, backdrop-filter;
+  
   z-index: 9999;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  transition: opacity 0.3s ease, backdrop-filter 0.3s ease;
 }
 
 .spinner-container {
@@ -49,20 +56,21 @@
   
   /* macOS 16 Ceramic Glass Effect */
   background: rgba(255, 255, 255, 0.7);
-  border-radius: 32px; /* Smoother curvature */
+  border-radius: 32px; 
   
-  /* Optical Border (Inner white highlight + outer subtle rim) */
+  /* Optical Border */
   box-shadow: 
     inset 0 0 0 1px rgba(255, 255, 255, 0.5),
     0 20px 50px -12px rgba(0, 0, 0, 0.3),
     0 0 0 1px rgba(255, 255, 255, 0.2);
     
   border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
+  /* OPTIMIZED: Reduced blur */
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
-/* Dark Mode support for Spinner (Implicit) */
+/* Dark Mode support for Spinner */
 @media (prefers-color-scheme: dark) {
   .spinner-container {
     background: rgba(30, 32, 40, 0.6);
@@ -86,7 +94,7 @@
   position: absolute;
   width: calc(var(--spinner-size) / 1.3);
   height: calc(var(--spinner-size) / 1.3);
-  border-radius: 16px; /* Match container curvature style */
+  border-radius: 16px; 
   overflow: hidden;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   background-color: transparent;
@@ -111,7 +119,7 @@
   );
   animation: spin-gradient var(--spinner-rotation-duration) linear infinite;
   filter: blur(var(--spinner-blur-intensity));
-  opacity: 0.9; /* Higher opacity for vibrancy */
+  opacity: 0.9;
 }
 
 .spinner-pulsar {
@@ -125,7 +133,7 @@
 }
 
 .branding-text {
-  color: rgb(30, 41, 59); /* Slate-800 for better contrast on glass */
+  color: rgb(30, 41, 59); 
   font-weight: 700;
   font-size: 1.25rem;
   letter-spacing: 0.05em;
@@ -136,7 +144,7 @@
 }
 
 .spinner-text-container {
-  color: rgb(71, 85, 105); /* Slate-600 */
+  color: rgb(71, 85, 105); 
   font-size: 1.1em;
   font-weight: 500;
   height: 1.5em;
@@ -195,7 +203,7 @@
 .animate-slide-in-right { animation: slide-in-right 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
 /* ================================================================
-   Border Animations (Refined for Glass Look)
+   Border Animations
    ================================================================ */
 
 @keyframes spin-slow {
@@ -241,24 +249,22 @@
 
 
 /* ==========================================================================
-   Custom Reusable Component Layer (macOS 16 Glass System)
+   Component Layer
    ========================================================================== */
 
 @layer components {
-  /* --- Unified Button System --- */
   .btn {
     @apply flex items-center justify-center gap-2 font-medium rounded-full transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:cursor-not-allowed;
     -webkit-font-smoothing: antialiased;
   }
 
-  /* PRIMARY: Vibrant Gradient + Inner Glass Cap */
   .btn-primary {
     @apply btn px-5 py-2.5 text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5;
     background-image: linear-gradient(135deg, #6366F1 0%, #3B82F6 100%);
     box-shadow: 
-      inset 0 1px 0 rgba(255, 255, 255, 0.3), /* Top glass edge */
-      0 4px 12px rgba(66, 133, 244, 0.3),     /* Glow */
-      0 0 0 1px rgba(255,255,255,0.1);        /* Outer ring */
+      inset 0 1px 0 rgba(255, 255, 255, 0.3), 
+      0 4px 12px rgba(66, 133, 244, 0.3),     
+      0 0 0 1px rgba(255,255,255,0.1);        
   }
   .btn-primary:hover {
     background-image: linear-gradient(135deg, #5558E3 0%, #2563EB 100%);
@@ -268,7 +274,6 @@
       0 0 0 1px rgba(255,255,255,0.2);
   }
 
-  /* SECONDARY: Frosted Glass Pane */
   .btn-secondary {
     @apply btn px-4 py-2 text-slate-700 backdrop-blur-md;
     background: rgba(255, 255, 255, 0.5);
@@ -280,7 +285,6 @@
     border-color: rgba(0, 0, 0, 0.1);
   }
 
-  /* DESTRUCTIVE: Red Glass */
   .btn-destructive {
      @apply btn p-2.5 text-red-600 backdrop-blur-sm;
      background: rgba(239, 68, 68, 0.1);
@@ -291,7 +295,6 @@
      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
   }
 
-  /* ICON: Subtle Glass */
   .btn-icon {
      @apply btn p-2.5 text-slate-600 backdrop-blur-sm;
      background: rgba(255, 255, 255, 0.4);
@@ -301,7 +304,6 @@
      background: rgba(255, 255, 255, 0.6);
   }
 
-  /* INPUTS: Deep Inset Glass */
   .input-field {
     @apply w-full p-2.5 text-sm rounded-xl transition-all duration-200;
     background: rgba(255, 255, 255, 0.5);
@@ -317,10 +319,9 @@
     outline: none;
   }
 
-  /* --- DARK MODE ADAPTATIONS --- */
     .dark .btn-secondary {
       background: rgba(255, 255, 255, 0.1);
-      @apply text-slate-300; /* FIXED: Added @apply */
+      @apply text-slate-300; 
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
     .dark .btn-secondary:hover {
@@ -329,13 +330,13 @@
 
     .dark .btn-destructive {
       background: rgba(239, 68, 68, 0.15);
-      @apply text-red-400; /* FIXED: Added @apply */
+      @apply text-red-400; 
       border-color: rgba(239, 68, 68, 0.3);
     }
 
     .dark .btn-icon {
       background: rgba(255, 255, 255, 0.05);
-      @apply text-slate-400; /* FIXED: Added @apply */
+      @apply text-slate-400; 
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
   
@@ -352,7 +353,7 @@
 }
 
 /* ==========================================================================
-   Third-Party Library Overrides (DatePicker - FROST EFFECT)
+   Third-Party Library Overrides
    ========================================================================== */
 .content-renderer svg {
   width: 100%;
@@ -368,11 +369,12 @@
 
 /* --- LIGHT MODE DatePicker (Frosted) --- */
 .react-datepicker {
-  background-color: rgba(255, 255, 255, 0.75) !important; /* Semi-transparent */
-  backdrop-filter: blur(16px) saturate(180%) !important; /* The Frost */
-  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  background-color: rgba(255, 255, 255, 0.75) !important; 
+  /* OPTIMIZED: Reduced blur */
+  backdrop-filter: blur(12px) saturate(180%) !important; 
+  -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-  border-radius: 1.25rem !important; /* 20px */
+  border-radius: 1.25rem !important; 
   border: 1px solid rgba(255, 255, 255, 0.5) !important;
   box-shadow: 
     0 10px 40px -10px rgba(0, 0, 0, 0.15),
@@ -380,7 +382,7 @@
 }
 
 .react-datepicker__header {
-  background-color: rgba(249, 250, 251, 0.5) !important; /* See-through header */
+  background-color: rgba(249, 250, 251, 0.5) !important; 
   border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
 }
 
@@ -392,7 +394,7 @@
 
 .react-datepicker__day {
   color: #374151 !important;
-  border-radius: 8px !important; /* Squircle days */
+  border-radius: 8px !important; 
 }
 
 .react-datepicker__day--selected,
@@ -409,14 +411,13 @@
 
 .react-datepicker__navigation { top: 1rem !important; }
 
-/* Fix for Tremor within dialogs */
 .tremor-dialog-panel .react-datepicker {
  background-color: rgba(255, 255, 255, 0.9) !important;
 }
 
 /* --- DARK MODE DatePicker (Frosted) --- */
 .dark .react-datepicker {
-  background-color: rgba(30, 41, 59, 0.75) !important; /* Dark slate glass */
+  background-color: rgba(30, 41, 59, 0.75) !important; 
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   box-shadow: 
     0 10px 40px -10px rgba(0, 0, 0, 0.5),
@@ -450,7 +451,7 @@
 
 
 /* ==========================================================================
-   Utility Layer Additions (Animations, Gradients)
+   Utility Layer Additions
    ========================================================================== */
 @layer utilities {
     .animate-spin-slow { animation: spin-slow 4s linear infinite; }
@@ -506,10 +507,11 @@
 .profile-bg-legendary {
   position: relative;
   overflow: hidden;
-  /* ENHANCED BLUR for better foreground readability */
-  backdrop-filter: blur(24px) saturate(140%); 
-  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  /* OPTIMIZED: Reduced blur from 24px to 12px */
+  backdrop-filter: blur(12px) saturate(140%); 
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
   border-radius: 1.5rem;
+  will-change: transform; /* Hint to browser */
 }
 .profile-bg-pattern-1::after,
 .profile-bg-pattern-2::after,
@@ -518,7 +520,6 @@
   content: '';
   position: absolute;
   inset: 0;
-  /* Subtle glass grain */
   background: linear-gradient(145deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 60%);
   mix-blend-mode: overlay;
   pointer-events: none;
@@ -676,7 +677,6 @@
     position: absolute;
     inset: -2px;
     border-radius: inherit;
-    /* Refined for sharp light effect */
     padding: 2px; 
     z-index: 0;
     pointer-events: none;
@@ -686,7 +686,7 @@
             mask-composite: exclude;
     transition: all 0.3s ease-in-out;
     background-color: transparent;
-    filter: blur(0.5px); /* Slight bleed for neon effect */
+    filter: blur(0.5px); 
 }
 
 .theme-border-basic::before {
@@ -698,7 +698,7 @@
     background-size: 400% 400%;
 }
 .theme-border-advanced::before {
-    @apply border-t-transparent border-solid border-green-500 animate-spin-slow border-2; /* Thinner border */
+    @apply border-t-transparent border-solid border-green-500 animate-spin-slow border-2; 
     background-color: transparent !important;
     inset: -2px;
     padding: 0;
@@ -724,7 +724,7 @@
   color: #111827;
   margin-top: 1.5rem;
   margin-bottom: 0.75rem;
-  letter-spacing: -0.02em; /* Tighter headings */
+  letter-spacing: -0.02em; 
 }
 
 .content-renderer p { margin-bottom: 1rem; }
@@ -747,7 +747,7 @@
   padding: 1rem;
   margin: 1.25rem 0;
   border-radius: 0.75rem;
-  background: rgba(239, 246, 255, 0.6); /* Transparent Blue */
+  background: rgba(239, 246, 255, 0.6); 
   backdrop-filter: blur(4px);
   color: #1e40af;
 }
@@ -756,7 +756,7 @@
   padding: 1rem;
   margin: 1.25rem 0;
   border-radius: 0.75rem;
-  background: rgba(254, 252, 232, 0.6); /* Transparent Yellow */
+  background: rgba(254, 252, 232, 0.6); 
   backdrop-filter: blur(4px);
   color: #78350f;
 }
@@ -765,7 +765,7 @@
   padding: 1rem;
   margin: 1.25rem 0;
   border-radius: 0.75rem;
-  background: rgba(236, 253, 245, 0.6); /* Transparent Green */
+  background: rgba(236, 253, 245, 0.6); 
   backdrop-filter: blur(4px);
   color: #065f46;
 }
@@ -821,7 +821,10 @@
   50% { background-color: #facc15; }
   100% { background-color: #3b82f6; }
 }
-.xp-pulse { animation: xpPulse 1.2s ease-in-out; }
+.xp-pulse { 
+    animation: xpPulse 1.2s ease-in-out;
+    will-change: background-color; 
+}
 
 /* ==========================================================================
    ReactQuill Dark Mode Theme Override
@@ -865,4 +868,33 @@
   margin: 4px 0;
   display: inline-block; 
   object-fit: contain;
+}
+
+.bio-content-enter {
+  opacity: 0;
+  transform: scale(0.98);
+}
+.bio-content-enter-active {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 300ms ease-out, transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: opacity, transform;
+}
+.bio-content-exit {
+  opacity: 1;
+  transform: scale(1);
+}
+.bio-content-exit-active {
+  opacity: 0;
+  transform: scale(0.98);
+  transition: opacity 200ms ease-in, transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: opacity, transform;
+}
+
+/* ==========================================================================
+   Global Scrollbar Improvements
+   ========================================================================== */
+* {
+    /* Enables hardware acceleration for scrolling on iOS */
+    -webkit-overflow-scrolling: touch; 
 }

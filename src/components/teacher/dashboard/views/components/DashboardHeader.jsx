@@ -1,5 +1,5 @@
 // src/components/teacher/dashboard/components/DashboardHeader.jsx
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CalendarDays, Clock, ChevronRight } from 'lucide-react';
 
@@ -36,12 +36,12 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
         <>
             <motion.header
                 {...fadeProps}
-                className="relative p-6 md:p-8 glass-panel rounded-[3rem] shadow-[0_20px_40px_-12px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.5)] overflow-hidden font-sans border border-white/60 dark:border-white/10"
+                className="relative p-6 md:p-8 glass-panel rounded-[3rem] shadow-[0_20px_40px_-12px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.5)] overflow-hidden font-sans border border-white/60 dark:border-white/10 transform-gpu"
             >
-                {/* --- macOS 26 "Aurora" Ambient Background --- */}
-                {/* These soft blobs replace the icon for a cleaner, premium feel */}
-                <div className="absolute -top-24 -right-24 w-96 h-96 bg-blue-400/20 dark:bg-blue-500/10 rounded-full blur-[80px] pointer-events-none mix-blend-multiply dark:mix-blend-soft-light" />
-                <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-purple-400/20 dark:bg-purple-500/10 rounded-full blur-[80px] pointer-events-none mix-blend-multiply dark:mix-blend-soft-light" />
+                {/* --- OPTIMIZED: macOS 26 "Aurora" Ambient Background --- */}
+                {/* Reduced blur from 80px to 60px/40px and added transform-gpu to prevent repaint cycles */}
+                <div className="absolute -top-24 -right-24 w-96 h-96 bg-blue-400/20 dark:bg-blue-500/10 rounded-full blur-[60px] pointer-events-none mix-blend-multiply dark:mix-blend-soft-light will-change-transform transform-gpu" />
+                <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-purple-400/20 dark:bg-purple-500/10 rounded-full blur-[60px] pointer-events-none mix-blend-multiply dark:mix-blend-soft-light will-change-transform transform-gpu" />
                 
                 {/* Inner Shine for Glass Effect */}
                 <div className="absolute inset-0 rounded-[3rem] shadow-[inset_0_0_40px_rgba(255,255,255,0.3)] dark:shadow-none pointer-events-none" />
@@ -51,7 +51,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
                         
                         {/* 1. Welcome Text */}
                         <div className="col-span-1 text-center md:text-left space-y-3">
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/40 dark:bg-white/10 border border-white/50 dark:border-white/10 backdrop-blur-md shadow-sm">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/40 dark:bg-white/10 border border-white/50 dark:border-white/10 backdrop-blur-sm shadow-sm">
                                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">
                                     Dashboard
@@ -78,8 +78,8 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
                                 whileHover={userProfile?.role === 'admin' ? { scale: 1.03 } : {}}
                                 className="relative group w-full max-w-xs aspect-[3/2]"
                             >
-                                <div className="absolute inset-0 bg-white/30 dark:bg-white/5 backdrop-blur-xl border border-white/40 dark:border-white/10 rounded-[2.5rem] shadow-lg transform rotate-3 transition-transform group-hover:rotate-6 duration-500" />
-                                <motion.div className="absolute inset-0 bg-white/60 dark:bg-slate-800/60 backdrop-blur-md border border-white/60 dark:border-white/10 rounded-[2.5rem] p-2 shadow-xl overflow-hidden">
+                                <div className="absolute inset-0 bg-white/30 dark:bg-white/5 backdrop-blur-md border border-white/40 dark:border-white/10 rounded-[2.5rem] shadow-lg transform rotate-3 transition-transform group-hover:rotate-6 duration-500" />
+                                <motion.div className="absolute inset-0 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-white/60 dark:border-white/10 rounded-[2.5rem] p-2 shadow-xl overflow-hidden">
                                     <motion.img
                                         src={bannerSettings.imageUrl}
                                         alt="Promotional Banner"
@@ -101,7 +101,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
                             <motion.div 
                                 whileHover={{ y: -5, scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
-                                className="relative overflow-hidden bg-gradient-to-br from-white/60 to-white/20 dark:from-slate-800/60 dark:to-slate-800/20 backdrop-blur-xl text-slate-800 dark:text-slate-100 rounded-[2.5rem] border border-white/50 dark:border-white/10 shadow-xl w-full h-full min-h-[180px] p-6 flex flex-col justify-between cursor-pointer group"
+                                className="relative overflow-hidden bg-gradient-to-br from-white/60 to-white/20 dark:from-slate-800/60 dark:to-slate-800/20 backdrop-blur-lg text-slate-800 dark:text-slate-100 rounded-[2.5rem] border border-white/50 dark:border-white/10 shadow-xl w-full h-full min-h-[180px] p-6 flex flex-col justify-between cursor-pointer group"
                             >
                                 {/* Widget Header */}
                                 <div className="flex items-center justify-between">
@@ -154,7 +154,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
                     // Standard Layout (No Banner)
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between h-full w-full py-2 relative z-10">
                         <div className="flex-1 text-center md:text-left">
-                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/40 dark:bg-white/10 border border-white/50 dark:border-white/10 backdrop-blur-md shadow-sm mb-4">
+                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/40 dark:bg-white/10 border border-white/50 dark:border-white/10 backdrop-blur-sm shadow-sm mb-4">
                                 <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">
                                     Instructor Portal
@@ -170,7 +170,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
 
                         {/* Schedule Widget (Standard Layout) */}
                         <div 
-                            className="hidden md:flex mt-6 md:mt-0 md:ml-8 relative overflow-hidden bg-gradient-to-br from-white/60 to-white/20 dark:from-slate-800/60 dark:to-slate-800/20 backdrop-blur-xl text-slate-800 dark:text-slate-100 rounded-[2.5rem] border border-white/50 dark:border-white/10 shadow-xl w-full max-w-sm flex-shrink-0 flex-col justify-between cursor-pointer transition-transform duration-300 hover:scale-[1.02]"
+                            className="hidden md:flex mt-6 md:mt-0 md:ml-8 relative overflow-hidden bg-gradient-to-br from-white/60 to-white/20 dark:from-slate-800/60 dark:to-slate-800/20 backdrop-blur-lg text-slate-800 dark:text-slate-100 rounded-[2.5rem] border border-white/50 dark:border-white/10 shadow-xl w-full max-w-sm flex-shrink-0 flex-col justify-between cursor-pointer transition-transform duration-300 hover:scale-[1.02]"
                             onClick={onOpenScheduleModal}
                         >
                             <div className="p-6 flex items-center gap-4 border-b border-slate-100/50 dark:border-white/5">
@@ -234,4 +234,4 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
     );
 };
 
-export default DashboardHeader;
+export default memo(DashboardHeader);
