@@ -1,5 +1,5 @@
 // src/components/teacher/TeacherDashboardLayout.jsx
-import React, { useState, Suspense, lazy, Fragment, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, Suspense, lazy, Fragment, useEffect, useRef, useLayoutEffect, memo } from 'react';
 import { CSSTransition } from 'react-transition-group'; 
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { SunIcon, MoonIcon } from '@heroicons/react/24/solid';
@@ -69,8 +69,7 @@ const EditSubjectModal = lazy(() => import('./EditSubjectModal'));
 const DeleteSubjectModal = lazy(() => import('./DeleteSubjectModal'));
 
 
-// --- CUSTOM CSS: OPTIMIZED FOR PERFORMANCE ---
-// Changes: Reduced blur, added translate3d for GPU, removed expensive styles
+// --- CUSTOM CSS: OPTIMIZED FOR PERFORMANCE (NO BLUR) ---
 const macOsStyles = `
   /* Global Scrollbar Styling */
   ::-webkit-scrollbar { width: 0px; height: 0px; }
@@ -79,90 +78,84 @@ const macOsStyles = `
   .mac-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(0, 0, 0, 0.1); border-radius: 100px; }
   .dark .mac-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.1); }
 
-  /* Glass Morphism Utilities - PERFORMANCE OPTIMIZED */
+  /* Glass Morphism Utilities - REPLACED WITH SOLID/HIGH OPACITY */
   .glass-panel {
-    background: rgba(255, 255, 255, 0.90); /* Increased opacity slightly to reduce blur dependency */
-    backdrop-filter: blur(10px) saturate(120%); /* Reduced blur from 12px/50px */
-    -webkit-backdrop-filter: blur(10px) saturate(120%);
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    background: #ffffff; /* Solid white for max performance */
+    border: 1px solid rgba(226, 232, 240, 0.8);
     box-shadow: 
         0 4px 6px -1px rgba(0, 0, 0, 0.02),
-        0 10px 15px -3px rgba(0, 0, 0, 0.05),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.3);
-    transform: translate3d(0,0,0); /* Force Hardware Acceleration */
+        0 10px 15px -3px rgba(0, 0, 0, 0.05);
   }
   .dark .glass-panel {
-    background: rgba(20, 25, 35, 0.90);
+    background: #1A1D24; /* Solid dark */
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 
         0 4px 6px -1px rgba(0, 0, 0, 0.2),
-        0 10px 15px -3px rgba(0, 0, 0, 0.3),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+        0 10px 15px -3px rgba(0, 0, 0, 0.3);
   }
   
   /* macOS 26 Dock - OPTIMIZED */
   .macos-dock {
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(15px) saturate(150%); /* Reduced from 50px to 15px */
-    -webkit-backdrop-filter: blur(15px) saturate(150%);
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    border-top: 1px solid rgba(255, 255, 255, 0.6);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
     transition: width 0.3s ease;
-    transform: translate3d(0,0,0); /* Force Hardware Acceleration */
   }
   .dark .macos-dock {
-    background: rgba(15, 23, 42, 0.85);
+    background: #1A1D24;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
-    box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6);
   }
-
-  /* Aurora Animations - OPTIMIZED: Removed mix-blend-mode */
-  @keyframes aurora-move {
-    0% { transform: translate3d(0px, 0px, 0px) scale(1); }
-    33% { transform: translate3d(30px, -50px, 0px) scale(1.1); }
-    66% { transform: translate3d(-20px, 20px, 0px) scale(0.9); }
-    100% { transform: translate3d(0px, 0px, 0px) scale(1); }
-  }
-  .animate-aurora { 
-      animation: aurora-move 12s infinite ease-in-out; 
-      will-change: transform;
-      transform: translate3d(0,0,0); /* Force GPU */
-  }
-  .animation-delay-2000 { animation-delay: 2s; }
-  .animation-delay-4000 { animation-delay: 4s; }
 
   /* Page Transitions */
-  .view-fade-enter { opacity: 0; transform: scale(0.98) translateY(10px); filter: blur(4px); }
-  .view-fade-enter-active { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); transition: all 500ms cubic-bezier(0.2, 0.8, 0.2, 1); }
-  .view-fade-exit { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
-  .view-fade-exit-active { opacity: 0; transform: scale(1.02) translateY(-5px); filter: blur(4px); transition: all 400ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .view-fade-enter { opacity: 0; transform: scale(0.98) translateY(10px); }
+  .view-fade-enter-active { opacity: 1; transform: scale(1) translateY(0); transition: all 300ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .view-fade-exit { opacity: 1; transform: scale(1) translateY(0); }
+  .view-fade-exit-active { opacity: 0; transform: scale(1.02) translateY(-5px); transition: all 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
   
-  .logout-modal-enter { opacity: 0; transform: scale(0.95); filter: blur(10px); }
-  .logout-modal-enter-active { opacity: 1; transform: scale(1); filter: blur(0px); transition: all 400ms cubic-bezier(0.2, 0.8, 0.2, 1); }
-  .logout-modal-exit { opacity: 1; transform: scale(1); filter: blur(0px); }
-  .logout-modal-exit-active { opacity: 0; transform: scale(0.95); filter: blur(10px); transition: all 300ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .logout-modal-enter { opacity: 0; transform: scale(0.95); }
+  .logout-modal-enter-active { opacity: 1; transform: scale(1); transition: all 300ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .logout-modal-exit { opacity: 1; transform: scale(1); }
+  .logout-modal-exit-active { opacity: 0; transform: scale(0.95); transition: all 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 `;
 
-// --- SKELETAL LOADING STATE (macOS Style) ---
+// --- OPTIMIZED BACKGROUND (STATIC & VIBRANT) ---
+const AuroraBackground = memo(() => (
+    <div className="fixed inset-0 pointer-events-none z-0 bg-slate-50 dark:bg-[#0f1115]">
+        {/* Static Gradient Mesh - Mimics Aurora Colors with high visibility */}
+        <div className="absolute inset-0 opacity-80 dark:opacity-40"
+             style={{
+                 backgroundImage: `
+                    radial-gradient(at 0% 0%, rgba(165, 180, 252, 0.7) 0px, transparent 55%),
+                    radial-gradient(at 100% 0%, rgba(103, 232, 249, 0.6) 0px, transparent 55%),
+                    radial-gradient(at 100% 100%, rgba(147, 197, 253, 0.6) 0px, transparent 55%),
+                    radial-gradient(at 0% 100%, rgba(216, 180, 254, 0.6) 0px, transparent 55%)
+                 `
+             }}
+        />
+        {/* Dark mode specific overlay for better text contrast */}
+        <div className="hidden dark:block absolute inset-0 bg-[#0f1115]/70" />
+    </div>
+));
+
+// --- SKELETAL LOADING STATE (Optimized) ---
 const DashboardSkeleton = () => (
     <div className="w-full h-full p-6 space-y-8 animate-pulse">
         {/* Header Skeleton */}
-        <div className="w-full h-48 bg-slate-200/50 dark:bg-white/5 rounded-[2.5rem] backdrop-blur-md"></div>
+        <div className="w-full h-48 bg-slate-200 dark:bg-slate-800 rounded-[2.5rem]"></div>
         
         {/* Widgets Grid Skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-40 bg-slate-200/50 dark:bg-white/5 rounded-[2rem] backdrop-blur-md"></div>
+                <div key={i} className="h-40 bg-slate-200 dark:bg-slate-800 rounded-[2rem]"></div>
             ))}
         </div>
         
         {/* Feed Skeleton */}
         <div className="space-y-4">
-            <div className="w-48 h-8 bg-slate-200/50 dark:bg-white/5 rounded-full"></div>
+            <div className="w-48 h-8 bg-slate-200 dark:bg-slate-800 rounded-full"></div>
             {[1, 2, 3].map((i) => (
-                <div key={i} className="w-full h-32 bg-slate-200/50 dark:bg-white/5 rounded-[2rem] backdrop-blur-md"></div>
+                <div key={i} className="w-full h-32 bg-slate-200 dark:bg-slate-800 rounded-[2rem]"></div>
             ))}
         </div>
     </div>
@@ -176,7 +169,7 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
   return (
     <Menu as="div" className="relative z-50 flex-shrink-0">
       <Menu.Button 
-        className={`flex items-center justify-center ${buttonSize} rounded-full bg-gradient-to-b from-white/60 to-white/30 dark:from-white/10 dark:to-white/5 shadow-sm border border-white/50 dark:border-white/10 overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-md active:scale-95 focus:outline-none`}
+        className={`flex items-center justify-center ${buttonSize} rounded-full bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-md active:scale-95 focus:outline-none`}
       >
         {userProfile?.photoURL ? (
           <img
@@ -197,14 +190,14 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
       <Transition
         as={Fragment}
         enter="transition ease-out duration-300"
-        enterFrom="transform opacity-0 scale-90 translate-y-2 blur-sm"
-        enterTo="transform opacity-100 scale-100 translate-y-0 blur-0"
+        enterFrom="transform opacity-0 scale-90 translate-y-2"
+        enterTo="transform opacity-100 scale-100 translate-y-0"
         leave="transition ease-in duration-200"
-        leaveFrom="transform opacity-100 scale-100 translate-y-0 blur-0"
-        leaveTo="transform opacity-0 scale-95 translate-y-2 blur-sm"
+        leaveFrom="transform opacity-100 scale-100 translate-y-0"
+        leaveTo="transform opacity-0 scale-95 translate-y-2"
       >
-        <Menu.Items className="absolute right-0 mt-3 w-64 origin-top-right rounded-[1.5rem] glass-panel shadow-2xl ring-1 ring-black/5 focus:outline-none divide-y divide-gray-100/50 dark:divide-gray-700/50 overflow-hidden z-[60]">
-          <div className="px-5 py-4 bg-gradient-to-b from-white/40 to-transparent dark:from-white/5">
+        <Menu.Items className="absolute right-0 mt-3 w-64 origin-top-right rounded-[1.5rem] bg-white dark:bg-[#1A1D24] shadow-2xl ring-1 ring-black/5 border border-slate-200 dark:border-slate-700 focus:outline-none divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden z-[60]">
+          <div className="px-5 py-4 bg-slate-50 dark:bg-black/20">
             <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
               {userProfile?.firstName} {userProfile?.lastName}
             </p>
@@ -218,7 +211,7 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
                 <NavLink
                   to="/dashboard/profile"
                   className={`${
-                    active ? 'bg-white/50 dark:bg-white/10 shadow-sm' : 'hover:bg-transparent'
+                    active ? 'bg-slate-100 dark:bg-slate-800 shadow-sm' : 'hover:bg-transparent'
                   } group flex w-full items-center rounded-xl p-3 text-xs font-bold text-slate-700 dark:text-slate-200 transition-all duration-200`}
                 >
                   <IconUserCircle stroke={2} className="mr-3 h-5 w-5 text-blue-500 dark:text-blue-400" />
@@ -233,7 +226,7 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
                 <button
                   onClick={onLogout}
                   className={`${
-                    active ? 'bg-red-50/80 dark:bg-red-900/20 shadow-sm' : 'hover:bg-transparent'
+                    active ? 'bg-red-50 dark:bg-red-900/20 shadow-sm' : 'hover:bg-transparent'
                   } group flex w-full items-center rounded-xl p-3 text-xs font-bold text-red-600 dark:text-red-400 transition-all duration-200`}
                 >
                   <IconPower stroke={2} className="mr-3 h-5 w-5" />
@@ -273,7 +266,7 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
         >
             {/* Left side: Logo + Brand */}
             <div className="flex items-center gap-4 flex-shrink-0 z-20 group cursor-default">
-                <div className="w-11 h-11 rounded-[1rem] bg-gradient-to-br from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-black/30 flex items-center justify-center flex-shrink-0 border border-white/40 dark:border-white/5 transition-transform duration-500 group-hover:rotate-6">
+                <div className="w-11 h-11 rounded-[1rem] bg-gradient-to-br from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-black/30 flex items-center justify-center flex-shrink-0 border border-slate-200 dark:border-slate-700 transition-transform duration-500 group-hover:rotate-6">
                     <img src="/logo.png" alt="Logo" className="w-7 h-7 object-contain drop-shadow-sm" />
                 </div>
                 <div className="hidden xl:block">
@@ -288,7 +281,7 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
 
             {/* Center: Navigation (Fluid Pills) */}
             <nav className="hidden lg:flex items-center justify-center absolute left-1/2 -translate-x-1/2 z-10">
-                <div className="flex items-center gap-1 p-1.5 bg-slate-100/80 dark:bg-black/30 backdrop-blur-2xl rounded-full border border-white/40 dark:border-white/5 shadow-inner ring-1 ring-black/5 dark:ring-white/5">
+                <div className="flex items-center gap-1 p-1.5 bg-slate-100 dark:bg-black/30 rounded-full border border-slate-200 dark:border-slate-700 shadow-inner">
                     {navItems.map((item) => {
                         return (
                             <NavLink
@@ -333,7 +326,7 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
             {/* Right side: Actions & Profile */}
             <div className="flex items-center gap-4 flex-shrink-0 z-20">
                 <ThemeToggle />
-                <div className="h-6 w-[1px] bg-slate-200 dark:bg-white/10 mx-1"></div>
+                <div className="h-6 w-[1px] bg-slate-200 dark:bg-slate-700 mx-1"></div>
                 <ProfileDropdown 
                     userProfile={userProfile}
                     onLogout={() => setIsLogoutModalOpen(true)}
@@ -546,12 +539,7 @@ const TeacherDashboardLayout = (props) => {
         <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 font-sans antialiased text-slate-900 dark:text-slate-100 pb-24 lg:pb-0 relative overflow-hidden">
             
             {/* --- GLOBAL AURORA BACKGROUND (OPTIMIZED) --- */}
-            {/* Added transform-gpu, removed mix-blend-mode for smoother scrolling */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 transform-gpu translate-z-0">
-                <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-indigo-300/30 dark:bg-indigo-600/10 rounded-full blur-[80px] animate-aurora" />
-                <div className="absolute top-[-10%] right-[-10%] w-[60vw] h-[60vw] bg-blue-500/30 dark:bg-blue-600/10 rounded-full blur-[80px] animate-aurora animation-delay-2000" />
-                <div className="absolute bottom-[-20%] left-[10%] w-[60vw] h-[60vw] bg-sky-300/30 dark:bg-cyan-600/10 rounded-full blur-[80px] animate-aurora animation-delay-4000" />
-            </div>
+            <AuroraBackground />
             
             {/* --- MOBILE HEADER (FIXED TOP) --- */}
             <div className="fixed top-0 left-0 right-0 z-40 px-4 pt-2 pb-2 lg:hidden">
@@ -562,7 +550,7 @@ const TeacherDashboardLayout = (props) => {
                     className="glass-panel relative flex items-center justify-between px-5 py-3 rounded-[1.5rem] shadow-lg transform-gpu"
                 >
                     <div className="flex items-center flex-shrink-0 z-20">
-                            <div className="w-10 h-10 rounded-[1rem] bg-gradient-to-tr from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 shadow-sm flex items-center justify-center border border-white/50 dark:border-white/10">
+                            <div className="w-10 h-10 rounded-[1rem] bg-gradient-to-tr from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 shadow-sm flex items-center justify-center border border-slate-200 dark:border-slate-700">
                             <img src="/logo.png" alt="SRCS" className="w-6 h-6 object-contain" />
                             </div>
                     </div>
@@ -572,7 +560,7 @@ const TeacherDashboardLayout = (props) => {
                         </span>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 z-20">
-                            <button onClick={toggleTheme} className="w-9 h-9 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-md hover:scale-105 active:scale-95 flex items-center justify-center transition-all duration-300 border border-white/50 dark:border-white/10 shadow-sm">
+                            <button onClick={toggleTheme} className="w-9 h-9 rounded-full bg-white dark:bg-slate-800 hover:scale-105 active:scale-95 flex items-center justify-center transition-all duration-300 border border-slate-200 dark:border-slate-700 shadow-sm">
                             {theme === 'dark' ? <MoonIcon className="h-5 w-5 text-blue-400" /> : <SunIcon className="h-5 w-5 text-orange-500" />}
                         </button>
                         <ProfileDropdown userProfile={userProfile} onLogout={() => setIsLogoutModalOpen(true)} size="mobile" />
@@ -585,11 +573,8 @@ const TeacherDashboardLayout = (props) => {
                 <DesktopHeader userProfile={userProfile} setIsLogoutModalOpen={setIsLogoutModalOpen} />
             </div>
 
-            {/* --- MAIN CONTENT (OPTIMIZED: REMOVED TRANSITION) --- */}
+            {/* --- MAIN CONTENT --- */}
             <main className="flex-1 w-full max-w-[1920px] mx-auto px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-24 lg:pt-24 relative z-10">
-                {/* REMOVED SwitchTransition/CSSTransition here to prevent 
-                    heavy re-renders and visual stutter when changing tabs.
-                */}
                 <div className="w-full h-full">
                     <Suspense fallback={<DashboardSkeleton />}>
                         {renderMainContent()}
@@ -620,7 +605,7 @@ const TeacherDashboardLayout = (props) => {
                             </motion.button>
                         )
                     })}
-                    <div className="w-[1px] h-6 bg-slate-300 dark:bg-white/20 mx-1 flex-shrink-0"></div>
+                    <div className="w-[1px] h-6 bg-slate-300 dark:bg-slate-700 mx-1 flex-shrink-0"></div>
                     <motion.button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} layout className={`relative group flex items-center justify-center gap-2 p-2.5 rounded-full transition-all outline-none flex-shrink-0 ${isMobileMenuOpen ? 'bg-slate-800 dark:bg-white text-white dark:text-slate-900 shadow-lg' : 'text-slate-500 dark:text-slate-400 hover:bg-white/40 dark:hover:bg-white/10'}`}>
                         <motion.div className="relative" whileHover={{ scale: 1.1 }} transition={{ type: "spring", stiffness: 300 }}>
                             {isMobileMenuOpen ? <IconX stroke={2.5} className="h-6 w-6" /> : <IconGridDots stroke={2} className="h-6 w-6" />}
@@ -633,11 +618,11 @@ const TeacherDashboardLayout = (props) => {
             <AnimatePresence>
                 {isMobileMenuOpen && (
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.85, y: 40, filter: "blur(10px)" }}
-                        animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
-                        exit={{ opacity: 0, scale: 0.85, y: 40, filter: "blur(10px)" }}
+                        initial={{ opacity: 0, scale: 0.85, y: 40 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.85, y: 40 }}
                         transition={{ type: "spring", stiffness: 350, damping: 28 }}
-                        className="fixed bottom-24 left-0 right-0 mx-auto w-[90%] max-w-xs z-[48] glass-panel rounded-[2.5rem] p-6 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-white/40 dark:border-white/10 lg:hidden transform-gpu"
+                        className="fixed bottom-24 left-0 right-0 mx-auto w-[90%] max-w-xs z-[48] glass-panel rounded-[2.5rem] p-6 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] transform-gpu"
                     >
                         <div className="grid grid-cols-3 gap-5">
                             {actionMenuItems.map((item, idx) => {
@@ -703,16 +688,16 @@ const TeacherDashboardLayout = (props) => {
 
             {/* Logout Modal */}
             <CSSTransition in={isLogoutModalOpen} timeout={400} classNames="logout-modal" unmountOnExit>
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4">
-                    <div className="glass-panel rounded-[2.5rem] shadow-2xl p-8 w-full max-w-sm text-center transform transition-all border border-white/50 dark:border-white/10">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-900/50 text-red-500 mx-auto mb-5 flex items-center justify-center shadow-inner ring-4 ring-white/50 dark:ring-white/5">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+                    <div className="glass-panel rounded-[2.5rem] shadow-2xl p-8 w-full max-w-sm text-center transform transition-all bg-white dark:bg-[#1A1D24]">
+                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-900/50 text-red-500 mx-auto mb-5 flex items-center justify-center shadow-inner ring-4 ring-slate-100 dark:ring-white/5">
                             <IconPower size={28} stroke={2} />
                         </div>
                         <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">Sign Out?</h2>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed font-medium">You are about to end your session. <br/> Are you sure you want to continue?</p>
                         <div className="flex flex-col gap-3">
                             <button onClick={() => { setIsLogoutModalOpen(false); logout(); }} className="w-full py-3.5 rounded-2xl font-bold text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-lg shadow-red-500/30 transition-all active:scale-95 text-sm tracking-wide">Yes, Log Out</button>
-                            <button onClick={() => setIsLogoutModalOpen(false)} className="w-full py-3.5 rounded-2xl font-bold text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-white/5 transition-all text-sm tracking-wide">Cancel</button>
+                            <button onClick={() => setIsLogoutModalOpen(false)} className="w-full py-3.5 rounded-2xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all text-sm tracking-wide">Cancel</button>
                         </div>
                     </div>
                 </div>

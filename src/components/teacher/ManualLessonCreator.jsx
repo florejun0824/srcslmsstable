@@ -7,8 +7,8 @@ import {
     ArrowUturnLeftIcon, PlusCircleIcon, TrashIcon, Bars3Icon,
     CodeBracketIcon, LinkIcon, QueueListIcon, PaintBrushIcon, ChatBubbleLeftRightIcon,
     DocumentTextIcon, PhotoIcon, VideoCameraIcon,
-    ListBulletIcon, CheckIcon, ComputerDesktopIcon, EyeIcon,
-    ChevronRightIcon
+    CheckIcon, ComputerDesktopIcon, EyeIcon,
+    CalculatorIcon // Added
 } from '@heroicons/react/24/outline';
 import ContentRenderer from './ContentRenderer';
 
@@ -29,31 +29,20 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import 'katex/dist/katex.min.css';
+
+const MATH_SYMBOLS = [
+    'π', '∑', '√', '∞', '≈', '≠', '≤', '≥', '±', '×', '÷', '°', 'θ', 'Δ', 'Ω', 'μ', 'α', 'β', '→', '⇌', '↑', '↓'
+];
 
 // --- CUSTOM ICONS ---
-const BoldIcon = (props) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}>
-        <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
-        <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
-    </svg>
-);
-const ItalicIcon = (props) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}>
-        <line x1="19" y1="4" x2="10" y2="4" />
-        <line x1="14" y1="20" x2="5" y2="20" />
-        <line x1="15" y1="4" x2="9" y2="20" />
-    </svg>
-);
-const H1Icon = (props) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}>
-        <path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M17 18V6l-4 2" />
-    </svg>
-);
-const H2Icon = (props) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}>
-        <path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1" />
-    </svg>
-);
+const BoldIcon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" /><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" /></svg>);
+const ItalicIcon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="19" y1="4" x2="10" y2="4" /><line x1="14" y1="20" x2="5" y2="20" /><line x1="15" y1="4" x2="9" y2="20" /></svg>);
+const UnderlineIcon = (props) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3" /><line x1="4" y1="21" x2="20" y2="21" /></svg>);
+const StrikethroughIcon = (props) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M5 12h14" /><path d="M16 6a4 4 0 0 0-8 0 4 4 0 0 0 4 4" /><path d="M16 18a4 4 0 0 1-8 0 4 4 0 0 1 4-4" /></svg>);
+const H1Icon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M17 18V6l-4 2" /></svg>);
+const H2Icon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1" /></svg>);
+const H3Icon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M17 16h2c1.5 0 2-1 2-2s-1-2-2-2h-1" /><path d="M17 12h2c1.5 0 2-1 2-2s-1-2-2-2h-2" /></svg>);
 
 // --- HELPER: Video URL to Embed ---
 const getEmbedUrl = (url) => {
@@ -128,25 +117,52 @@ const MobileRestricted = ({ onClose }) => (
     </div>
 );
 
-// --- MARKDOWN EDITOR ---
-const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here..." }) => {
+// --- MARKDOWN EDITOR (With Sync & Advanced Toolbar) ---
+const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here...", previewRef }) => {
     const textareaRef = useRef(null);
+    const containerRef = useRef(null);
     const [showColorPicker, setShowColorPicker] = useState(false);
+    const [showSymbolPicker, setShowSymbolPicker] = useState(false);
 
     const TEXT_COLORS = [
-        { name: 'Blue', hex: '#007AFF' },
-        { name: 'Green', hex: '#34C759' },
-        { name: 'Orange', hex: '#FF9500' },
-        { name: 'Red', hex: '#FF3B30' },
-        { name: 'Purple', hex: '#AF52DE' },
-        { name: 'Black', hex: '#1d1d1f' },
+        { name: 'Blue', hex: '#007AFF' }, { name: 'Green', hex: '#34C759' },
+        { name: 'Orange', hex: '#FF9500' }, { name: 'Red', hex: '#FF3B30' },
+        { name: 'Purple', hex: '#AF52DE' }, { name: 'Black', hex: '#1d1d1f' },
     ];
+
+    // --- SCROLL SYNC LOGIC ---
+    const performSync = () => {
+        if (!containerRef.current || !previewRef?.current) return;
+
+        const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+        const maxScroll = scrollHeight - clientHeight;
+        
+        const scrollRatio = maxScroll > 0 ? scrollTop / maxScroll : 0;
+        
+        const preview = previewRef.current;
+        const previewMaxScroll = preview.scrollHeight - preview.clientHeight;
+        
+        preview.scrollTop = scrollRatio * previewMaxScroll;
+    };
 
     const adjustHeight = () => {
         const ta = textareaRef.current;
+        const container = containerRef.current;
         if (!ta) return;
+        
+        const currentScroll = container ? container.scrollTop : 0;
+        const wasAtBottom = container ? (container.scrollHeight - container.scrollTop <= container.clientHeight + 10) : false;
+
         ta.style.height = 'auto';
         ta.style.height = `${ta.scrollHeight}px`;
+        
+        if (container) {
+            if (wasAtBottom) {
+                container.scrollTop = container.scrollHeight;
+            } else {
+                container.scrollTop = currentScroll;
+            }
+        }
     };
 
     useEffect(() => {
@@ -157,7 +173,28 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
 
     useEffect(() => {
         adjustHeight();
+        requestAnimationFrame(performSync);
     }, [value]);
+
+    // --- INSERTION & FORMATTING ---
+    const insertText = (textToInsert, cursorOffset = 0) => {
+        const ta = textareaRef.current;
+        if (!ta) return;
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const text = ta.value;
+        const newText = text.substring(0, start) + textToInsert + text.substring(end);
+        
+        onValueChange && onValueChange(newText);
+        
+        setTimeout(() => {
+            adjustHeight();
+            ta.focus({ preventScroll: true });
+            ta.selectionStart = ta.selectionEnd = start + textToInsert.length + cursorOffset;
+            requestAnimationFrame(performSync);
+        }, 0);
+        setShowSymbolPicker(false);
+    };
 
     const applyStyle = (startTag, endTag = '', isBlock = false) => {
         const ta = textareaRef.current;
@@ -180,13 +217,14 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
         onValueChange && onValueChange(newText);
         setTimeout(() => {
             adjustHeight();
-            ta.focus();
+            ta.focus({ preventScroll: true });
             if (isBlock && !selectedText) {
                 ta.selectionStart = start + startTag.length;
                 ta.selectionEnd = cursorPos;
             } else {
                 ta.selectionStart = ta.selectionEnd = cursorPos;
             }
+            requestAnimationFrame(performSync);
         }, 0);
     };
 
@@ -203,31 +241,6 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
         const blockTextContent = selectedText.split('\n').map(line => `> ${line}`).join('\n');
         applyStyle(`\n${blockTextContent}\n`, '', true);
     };
-
-    const applySpoiler = () => {
-        const ta = textareaRef.current;
-        if (!ta) return;
-        const start = ta.selectionStart;
-        const end = ta.selectionEnd;
-        const text = ta.value;
-        const selectedText = text.substring(start, end);
-        const content = selectedText || "Type hidden text here..."; 
-        const spoilerText = `\n<details>\n  <summary>Click to reveal</summary>\n\n  ${content}\n\n</details>\n`;
-        const newText = `${text.substring(0, start)}${spoilerText}${text.substring(end)}`;
-
-        onValueChange && onValueChange(newText);
-        setTimeout(() => {
-            adjustHeight();
-            ta.focus();
-            if (selectedText) {
-                ta.selectionStart = ta.selectionEnd = start + spoilerText.length;
-            } else {
-                const contentStart = start + spoilerText.indexOf(content);
-                ta.selectionStart = contentStart;
-                ta.selectionEnd = contentStart + content.length;
-            }
-        }, 0);
-    };
     
     const applyMarkdown = (syntax) => {
         const ta = textareaRef.current;
@@ -239,82 +252,90 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
         let newText, cursorPos;
 
         switch (syntax) {
-            case 'bold':
-                newText = `${text.substring(0, start)}**${selectedText}**${text.substring(end)}`;
-                cursorPos = start + 2;
-                break;
-            case 'italic':
-                newText = `${text.substring(0, start)}*${selectedText}*${text.substring(end)}`;
-                cursorPos = start + 1;
-                break;
-            case 'list':
+            case 'bold': newText = `${text.substring(0, start)}**${selectedText}**${text.substring(end)}`; cursorPos = start + 2; break;
+            case 'italic': newText = `${text.substring(0, start)}*${selectedText}*${text.substring(end)}`; cursorPos = start + 1; break;
+            case 'underline': newText = `${text.substring(0, start)}<u>${selectedText}</u>${text.substring(end)}`; cursorPos = start + 3; break;
+            case 'strikethrough': newText = `${text.substring(0, start)}~~${selectedText}~~${text.substring(end)}`; cursorPos = start + 2; break;
+            case 'list': 
                 const lines = selectedText ? selectedText.split('\n').map(l => `- ${l}`) : ['- '];
                 newText = `${text.substring(0, start)}${lines.join('\n')}${text.substring(end)}`;
                 cursorPos = start + lines.join('\n').length;
                 break;
-            case 'code':
-                newText = `${text.substring(0, start)}\`${selectedText}\`${text.substring(end)}`;
-                cursorPos = start + 1;
-                break;
-            case 'link':
-                newText = `${text.substring(0, start)}[${selectedText}](url)${text.substring(end)}`;
-                cursorPos = start + 1 + selectedText.length + 3;
-                break;
-            case 'h1':
-                newText = `${text.substring(0, start)}# ${selectedText}${text.substring(end)}`;
-                cursorPos = start + 2;
-                break;
-            case 'h2':
-                newText = `${text.substring(0, start)}## ${selectedText}${text.substring(end)}`;
-                cursorPos = start + 3;
-                break;
-            default:
-                return;
+            case 'code': newText = `${text.substring(0, start)}\`${selectedText}\`${text.substring(end)}`; cursorPos = start + 1; break;
+            case 'link': newText = `${text.substring(0, start)}[${selectedText}](url)${text.substring(end)}`; cursorPos = start + 1 + selectedText.length + 3; break;
+            case 'h1': newText = `${text.substring(0, start)}# ${selectedText}${text.substring(end)}`; cursorPos = start + 2; break;
+            case 'h2': newText = `${text.substring(0, start)}## ${selectedText}${text.substring(end)}`; cursorPos = start + 3; break;
+            case 'h3': newText = `${text.substring(0, start)}### ${selectedText}${text.substring(end)}`; cursorPos = start + 4; break;
+            default: return;
         }
 
         onValueChange && onValueChange(newText);
         setTimeout(() => {
             adjustHeight();
-            ta.focus();
+            ta.focus({ preventScroll: true });
             ta.selectionStart = ta.selectionEnd = cursorPos + selectedText.length;
+            requestAnimationFrame(performSync);
         }, 0);
     };
 
-    const ToolbarButton = ({ icon: Icon, syntax, tooltip, onClick }) => (
+    const ToolbarButton = ({ icon: Icon, text, syntax, tooltip, onClick }) => (
         <button
             onClick={onClick || (() => applyMarkdown(syntax))}
             title={tooltip}
-            className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-black/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white transition-all active:scale-90"
+            onMouseDown={(e) => e.preventDefault()}
+            className="p-1.5 min-w-[32px] rounded-lg text-slate-500 hover:text-slate-900 hover:bg-black/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white transition-all active:scale-90 flex items-center justify-center"
         >
-            <Icon className="w-5 h-5" />
+            {Icon ? <Icon className="w-5 h-5 stroke-[2]" /> : <span className="text-xs font-bold px-1">{text}</span>}
         </button>
     );
 
     return (
-        <div className="border border-white/20 dark:border-white/10 rounded-[28px] overflow-hidden flex flex-col h-full bg-white/40 dark:bg-[#1e1e1e]/40 shadow-xl backdrop-blur-xl min-h-0 ring-1 ring-white/20 dark:ring-white/5">
-            {/* Floating Toolbar Pilled Design */}
-            <div className="flex items-center justify-center p-4 sticky top-0 z-10">
-                <div className="flex items-center gap-1.5 px-3 py-2 bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-xl rounded-full shadow-lg border border-black/5 dark:border-white/5 ring-1 ring-black/5">
+        <div className="border border-black/5 dark:border-white/10 rounded-[28px] overflow-hidden flex flex-col h-full bg-white dark:bg-[#1e1e1e] shadow-sm flex-shrink-0">
+            {/* Toolbar */}
+            <div className="flex items-center justify-center p-3 sticky top-0 z-10 bg-[#F9F9FA] dark:bg-[#252525] border-b border-black/5 dark:border-white/5">
+                <div className="flex flex-wrap items-center justify-center gap-1">
                     <ToolbarButton icon={BoldIcon} syntax="bold" tooltip="Bold" />
                     <ToolbarButton icon={ItalicIcon} syntax="italic" tooltip="Italic" />
+                    <ToolbarButton icon={UnderlineIcon} syntax="underline" tooltip="Underline" />
+                    <ToolbarButton icon={StrikethroughIcon} syntax="strikethrough" tooltip="Strikethrough" />
                     
-                    <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1.5"></div>
+                    <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1"></div>
                     
                     <ToolbarButton icon={H1Icon} syntax="h1" tooltip="Heading 1" />
                     <ToolbarButton icon={H2Icon} syntax="h2" tooltip="Heading 2" />
+                    <ToolbarButton icon={H3Icon} syntax="h3" tooltip="Heading 3" />
                     
-                    <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1.5"></div>
+                    <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1"></div>
 
-                    <ToolbarButton icon={ListBulletIcon} syntax="list" tooltip="Bulleted List" />
+                     {/* Math & Science Tools */}
+                    <ToolbarButton text="½" tooltip="Fraction" onClick={() => insertText('$\\frac{a}{b}$', -1)} />
+                    <ToolbarButton text="x²" tooltip="Superscript/Exponent" onClick={() => insertText('$x^{2}$', -1)} />
+                    <ToolbarButton text="x₂" tooltip="Subscript (Chemical)" onClick={() => insertText('$x_{2}$', -1)} />
+                    <ToolbarButton text="°" tooltip="Degree" onClick={() => insertText('$\\degree$')} />
+
+                    <div className="relative">
+                        <ToolbarButton icon={CalculatorIcon} tooltip="Symbols" onClick={() => setShowSymbolPicker(s => !s)} />
+                        {showSymbolPicker && (
+                            <div onMouseLeave={() => setShowSymbolPicker(false)} className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 bg-white dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 p-2 rounded-[12px] shadow-xl grid grid-cols-6 gap-1 w-64 animate-in fade-in zoom-in duration-200">
+                                {MATH_SYMBOLS.map(sym => (
+                                    <button key={sym} onClick={() => insertText(sym)} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded text-sm font-mono text-slate-700 dark:text-slate-200">{sym}</button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1"></div>
+
+                    <ToolbarButton icon={QueueListIcon} syntax="list" tooltip="Bulleted List" />
                     <ToolbarButton icon={CodeBracketIcon} syntax="code" tooltip="Code" />
                     <ToolbarButton icon={LinkIcon} syntax="link" tooltip="Link" />
                     
-                    <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1.5"></div>
+                    <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1"></div>
                     
                     <div className="relative group">
                         <ToolbarButton icon={PaintBrushIcon} tooltip="Text Color" onClick={() => setShowColorPicker(s => !s)} />
                         {showColorPicker && (
-                            <div onMouseLeave={() => setShowColorPicker(false)} className="absolute top-full left-1/2 -translate-x-1/2 mt-4 z-20 bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur-xl p-3 rounded-[20px] shadow-2xl border border-black/5 dark:border-white/10 flex gap-2 animate-in fade-in zoom-in duration-200">
+                            <div onMouseLeave={() => setShowColorPicker(false)} className="absolute top-full right-0 mt-4 z-20 bg-white dark:bg-[#2C2C2E] p-3 rounded-[20px] shadow-2xl border border-black/5 dark:border-white/10 flex gap-2 animate-in fade-in zoom-in duration-200">
                                 {TEXT_COLORS.map(color => (
                                     <button 
                                         key={color.name} 
@@ -328,17 +349,20 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
                         )}
                     </div>
                     <ToolbarButton icon={ChatBubbleLeftRightIcon} tooltip="Block Quote" onClick={applyBlockQuote} />
-                    <ToolbarButton icon={ChevronRightIcon} tooltip="Spoiler/Reveal" onClick={applySpoiler} />
                 </div>
             </div>
             
             {/* Editor Area */}
-            <div className="flex-grow p-6 overflow-y-auto custom-scrollbar bg-transparent">
+            <div 
+                ref={containerRef}
+                onScroll={performSync}
+                className="flex-grow p-6 overflow-y-auto custom-scrollbar bg-white dark:bg-[#1e1e1e]"
+            >
                 <textarea
                     ref={textareaRef}
                     value={value}
                     onChange={(e) => onValueChange && onValueChange(e.target.value)}
-                    className="w-full p-0 font-mono text-[16px] leading-loose resize-none border-none focus:outline-none focus:ring-0 bg-transparent text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                    className="w-full h-full p-0 font-mono text-[16px] leading-relaxed resize-none border-none focus:outline-none focus:ring-0 bg-transparent text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600"
                     placeholder={placeholder}
                     spellCheck="false"
                 />
@@ -360,26 +384,26 @@ function SortablePageItem({ id, page, index, activePageIndex, setActivePageIndex
             ref={setNodeRef}
             style={style}
             onClick={() => setActivePageIndex(index)}
-            className={`group relative flex items-center justify-between p-4 rounded-[20px] cursor-pointer transition-all duration-300 ease-out border
+            className={`group relative flex items-center justify-between p-3.5 rounded-[14px] cursor-pointer transition-all duration-200 border
                        ${isActive 
-                           ? 'bg-white/80 dark:bg-white/10 shadow-lg border-white/40 dark:border-white/10 scale-[1.02] z-10 ring-1 ring-black/5' 
-                           : 'border-transparent hover:bg-white/40 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400'
+                           ? 'bg-[#007AFF]/10 dark:bg-[#007AFF]/20 border-[#007AFF]/20' 
+                           : 'bg-white dark:bg-[#2c2c2e] border-transparent hover:bg-slate-50 dark:hover:bg-[#3a3a3c] text-slate-600 dark:text-slate-400'
                        }`}
         >
             {/* Active Indicator */}
             {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 h-10 w-1.5 bg-[#007AFF] rounded-r-full shadow-[0_0_12px_rgba(0,122,255,0.6)]" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-[#007AFF] rounded-r-full" />
             )}
             
-            <div className="flex items-center gap-4 overflow-hidden pl-2">
+            <div className="flex items-center gap-3 overflow-hidden pl-2">
                 <button {...listeners} {...attributes} className="text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400 cursor-grab active:cursor-grabbing touch-none transition-colors">
-                    <Bars3Icon className="h-5 w-5 stroke-[2.5]"/>
+                    <Bars3Icon className="h-5 w-5 stroke-[2]"/>
                 </button>
                 <div className="flex flex-col">
-                    <span className={`font-bold text-[14px] truncate leading-tight ${isActive ? 'text-slate-900 dark:text-white' : ''}`}>
+                    <span className={`font-bold text-[14px] truncate leading-tight ${isActive ? 'text-[#007AFF] dark:text-[#5faaff]' : 'text-slate-700 dark:text-slate-200'}`}>
                         {page.title || `Page ${index + 1}`}
                     </span>
-                    <span className="text-[11px] text-slate-400 font-bold tracking-wide uppercase mt-0.5">
+                    <span className="text-[10px] text-slate-400 font-bold tracking-wide uppercase mt-0.5">
                         {page.type === 'diagram-data' ? 'Image' : page.type}
                     </span>
                 </div>
@@ -388,9 +412,9 @@ function SortablePageItem({ id, page, index, activePageIndex, setActivePageIndex
                 onClick={(e) => { e.stopPropagation(); removePage(index); }}
                 disabled={isOnlyPage}
                 title="Remove page"
-                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all opacity-0 group-hover:opacity-100 disabled:hidden active:scale-90"
+                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100 disabled:hidden active:scale-90"
             >
-                <TrashIcon className="h-5 w-5 stroke-[2.5]"/>
+                <TrashIcon className="h-4 w-4 stroke-[2.5]"/>
             </button>
         </div>
     );
@@ -411,13 +435,16 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
+    // NEW: Reference to preview container for syncing
+    const previewRef = useRef(null);
+
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
     
-    // iPadOS Input Style
-    const inputClass = "w-full bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-[16px] px-4 py-3 text-[15px] font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-4 focus:ring-[#007AFF]/10 focus:border-[#007AFF]/50 outline-none transition-all shadow-inner backdrop-blur-sm";
+    // Updated Input Style (less blur, solid bg)
+    const inputClass = "w-full bg-slate-50 dark:bg-[#2c2c2e] border border-black/5 dark:border-white/10 rounded-[14px] px-4 py-2.5 text-[15px] font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-[#007AFF]/20 focus:border-[#007AFF] outline-none transition-all shadow-sm";
 
     const handlePageChange = (field, value) => {
         const newPages = [...pages];
@@ -520,7 +547,7 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex flex-col h-full bg-[#f5f5f7]/95 dark:bg-[#121212]/95 backdrop-blur-2xl font-sans text-slate-900 dark:text-white">
+        <div className="fixed inset-0 z-50 flex flex-col h-full bg-[#F2F2F7] dark:bg-[#000000] font-sans text-slate-900 dark:text-white">
             
             {/* Mobile Restriction (Visible < md) */}
             <MobileRestricted onClose={onClose} />
@@ -529,10 +556,10 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
             <div className="hidden md:flex flex-col h-full">
                 
                 {/* Header */}
-                <div className="flex-shrink-0 px-8 py-5 border-b border-black/5 dark:border-white/5 bg-white/40 dark:bg-[#1e1e1e]/40 backdrop-blur-xl z-20 sticky top-0">
+                <div className="flex-shrink-0 px-8 py-5 border-b border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e] z-20 sticky top-0">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                         <div className="flex items-center gap-4">
-                            <button onClick={onClose} className="p-3 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 transition-all active:scale-95">
+                            <button onClick={onClose} className="p-2.5 rounded-full bg-slate-100 dark:bg-[#2c2c2e] hover:bg-slate-200 dark:hover:bg-[#3a3a3c] transition-all active:scale-95">
                                 <ArrowUturnLeftIcon className="w-5 h-5 stroke-[2.5] text-slate-600 dark:text-white" />
                             </button>
                             <div>
@@ -563,8 +590,8 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                 <div className="flex-grow flex flex-col lg:flex-row overflow-hidden p-6 gap-6 relative z-0">
                     
                     {/* Left Sidebar: Pages List */}
-                    <div className="w-full lg:w-[320px] flex-shrink-0 flex flex-col bg-white/40 dark:bg-[#1c1c1e]/40 backdrop-blur-2xl border border-white/20 dark:border-white/5 rounded-[28px] shadow-xl overflow-hidden ring-1 ring-black/5 dark:ring-white/5">
-                        <div className="p-5 border-b border-black/5 dark:border-white/5 bg-white/20 dark:bg-white/5">
+                    <div className="w-full lg:w-[320px] flex-shrink-0 flex flex-col bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 rounded-[20px] shadow-sm overflow-hidden">
+                        <div className="p-4 border-b border-black/5 dark:border-white/5 bg-slate-50/50 dark:bg-[#2c2c2e]/50">
                             <h3 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Structure</h3>
                         </div>
                         <div className="flex-grow overflow-y-auto p-4 custom-scrollbar">
@@ -587,19 +614,19 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                 </SortableContext>
                             </DndContext>
                         </div>
-                        <div className="p-5 border-t border-black/5 dark:border-white/5 bg-white/40 dark:bg-black/20 backdrop-blur-md">
-                             <button onClick={addPage} className="w-full flex justify-center items-center gap-2 px-4 py-4 rounded-[20px] bg-white/60 dark:bg-white/10 hover:bg-[#007AFF]/10 dark:hover:bg-white/20 shadow-sm border border-white/40 dark:border-white/5 text-[15px] font-bold text-[#007AFF] dark:text-white transition-all active:scale-95 group">
-                                <PlusCircleIcon className="w-6 h-6 stroke-[2.5] transition-transform group-hover:rotate-90"/>
+                        <div className="p-4 border-t border-black/5 dark:border-white/5 bg-slate-50 dark:bg-[#2c2c2e]">
+                             <button onClick={addPage} className="w-full flex justify-center items-center gap-2 px-4 py-3 rounded-[14px] bg-white dark:bg-[#3a3a3c] hover:bg-slate-50 dark:hover:bg-[#48484a] shadow-sm border border-black/5 dark:border-white/5 text-[14px] font-bold text-[#007AFF] dark:text-blue-400 transition-all active:scale-95 group">
+                                <PlusCircleIcon className="w-5 h-5 stroke-[2.5] transition-transform group-hover:rotate-90"/>
                                 Add New Page
                             </button>
                         </div>
                     </div>
                     
                     {/* Center: Editor */}
-                    <div className="flex-grow flex flex-col min-h-0 bg-white/40 dark:bg-[#1c1c1e]/40 backdrop-blur-2xl border border-white/20 dark:border-white/5 rounded-[28px] shadow-xl overflow-hidden ring-1 ring-black/5 dark:ring-white/5">
+                    <div className="flex-grow flex flex-col min-h-0 bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 rounded-[20px] shadow-sm overflow-hidden">
                         
                         {/* Editor Toolbar */}
-                        <div className="flex items-center justify-between p-5 border-b border-black/5 dark:border-white/5 bg-white/20 dark:bg-white/5 backdrop-blur-md">
+                        <div className="flex items-center justify-between p-5 border-b border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e]">
                             <div className="flex items-center gap-4 flex-1">
                                 <span className="text-[11px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-widest">Editing</span>
                                 <input 
@@ -612,16 +639,16 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                             
                             {/* Type Switcher (Segmented Control) */}
                             <Tab.Group selectedIndex={pageTypeIndex > -1 ? pageTypeIndex : 0} onChange={(index) => handlePageChange('type', ['text', 'diagram-data', 'video'][index])}>
-                                <Tab.List className="flex p-1.5 bg-slate-200/50 dark:bg-black/40 rounded-[18px] backdrop-blur-md">
+                                <Tab.List className="flex p-1 bg-slate-100 dark:bg-[#2c2c2e] rounded-[14px]">
                                     {['Text', 'Image', 'Video'].map((type, idx) => {
                                         const icons = [DocumentTextIcon, PhotoIcon, VideoCameraIcon];
                                         const Icon = icons[idx];
                                         return (
                                             <Tab key={type} className={({ selected }) =>
-                                                `flex items-center gap-2 rounded-[14px] py-2 px-5 text-[13px] font-bold transition-all outline-none duration-300
+                                                `flex items-center gap-2 rounded-[10px] py-2 px-4 text-[13px] font-bold transition-all outline-none duration-200
                                                 ${selected 
-                                                    ? 'bg-white dark:bg-[#3A3A3C] text-slate-900 dark:text-white shadow-md scale-[1.02]' 
-                                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-white/5'
+                                                    ? 'bg-white dark:bg-[#3A3A3C] text-slate-900 dark:text-white shadow-sm' 
+                                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5'
                                                 }`
                                             }>
                                                 <Icon className="w-4 h-4 stroke-[2.5]" />
@@ -634,7 +661,7 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                         </div>
                         
                         {/* Content Area */}
-                        <div className="flex-grow overflow-hidden p-6 sm:p-8">
+                        <div className="flex-grow overflow-hidden p-6 sm:p-8 bg-[#FAFAFA] dark:bg-[#151515]">
                             
                             {/* MODE: TEXT */}
                             {activePage.type === 'text' && (
@@ -643,10 +670,14 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                         <MarkdownEditor
                                             value={typeof activePage.content === 'string' ? activePage.content : ''}
                                             onValueChange={(val) => handlePageChange('content', val)}
+                                            previewRef={previewRef}
                                         />
                                     </div>
                                     <div className="flex-1 h-full min-h-0 hidden lg:block">
-                                        <div className="w-full h-full border border-white/20 dark:border-white/5 rounded-[28px] bg-white/40 dark:bg-black/20 p-8 overflow-y-auto custom-scrollbar prose prose-slate dark:prose-invert max-w-none shadow-inner ring-1 ring-black/5">
+                                        <div 
+                                            ref={previewRef}
+                                            className="w-full h-full border border-black/5 dark:border-white/5 rounded-[24px] bg-white dark:bg-[#1c1c1e] p-8 overflow-y-auto custom-scrollbar prose prose-slate dark:prose-invert max-w-none shadow-sm"
+                                        >
                                             <div className="mb-6 text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                                 <EyeIcon className="w-4 h-4" /> Live Preview
                                             </div>
@@ -662,11 +693,11 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                     {/* Left: Config & Caption Editor */}
                                     <div className="flex-1 flex flex-col gap-6 h-full min-h-0 overflow-y-auto custom-scrollbar p-1">
                                         {/* Image Config */}
-                                        <div className="w-full p-6 bg-white/40 dark:bg-white/5 rounded-[28px] border border-white/20 dark:border-white/5 shadow-sm">
+                                        <div className="w-full p-6 bg-white dark:bg-[#1c1c1e] rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm">
                                             <div className="space-y-5">
                                                 <div className="flex items-center gap-3 mb-2">
-                                                    <div className="p-3 rounded-[16px] bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
-                                                        <PhotoIcon className="w-7 h-7 stroke-[2]" />
+                                                    <div className="p-3 rounded-[14px] bg-blue-50 dark:bg-blue-900/20 text-[#007AFF] dark:text-blue-400">
+                                                        <PhotoIcon className="w-6 h-6 stroke-[2]" />
                                                     </div>
                                                     <label className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">Image Configuration</label>
                                                 </div>
@@ -676,13 +707,13 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                                     {Array.isArray(activePage.content?.imageUrls) && activePage.content.imageUrls.map((url, idx) => (
                                                         <div key={idx} className="flex gap-2 items-center group">
                                                             <input placeholder={`Paste Image URL #${idx + 1}`} value={url} onChange={(e) => { const newUrls = [...activePage.content.imageUrls]; newUrls[idx] = e.target.value; handlePageChange('imageUrls', newUrls); }} className={inputClass}/>
-                                                            <button onClick={() => { const newUrls = activePage.content.imageUrls.filter((_, i) => i !== idx); handlePageChange('imageUrls', newUrls); }} className="p-3.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-[16px] transition-colors border border-transparent hover:border-red-100">
+                                                            <button onClick={() => { const newUrls = activePage.content.imageUrls.filter((_, i) => i !== idx); handlePageChange('imageUrls', newUrls); }} className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-[12px] transition-colors border border-transparent hover:border-red-100">
                                                                 <TrashIcon className="w-5 h-5 stroke-[2.5]"/>
                                                             </button>
                                                         </div>
                                                     ))}
                                                 </div>
-                                                <button onClick={() => handlePageChange('imageUrls', [...(activePage.content?.imageUrls || []), ''])} className="w-full flex justify-center items-center gap-2 px-4 py-3.5 bg-gradient-to-r from-[#007AFF] to-[#0051A8] text-white rounded-[18px] font-bold text-[15px] transition-all hover:shadow-lg shadow-blue-500/20 active:scale-[0.98]">
+                                                <button onClick={() => handlePageChange('imageUrls', [...(activePage.content?.imageUrls || []), ''])} className="w-full flex justify-center items-center gap-2 px-4 py-3 bg-gradient-to-r from-[#007AFF] to-[#0051A8] text-white rounded-[14px] font-bold text-[14px] transition-all hover:shadow-lg shadow-blue-500/20 active:scale-[0.98]">
                                                     <PlusCircleIcon className="w-5 h-5 stroke-[2.5]"/>
                                                     Add Image Source
                                                 </button>
@@ -694,8 +725,8 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                         </div>
 
                                         {/* Caption Editor */}
-                                        <div className="flex-1 min-h-[300px] relative rounded-[28px] overflow-hidden shadow-sm border border-white/20 dark:border-white/5 bg-white/40 dark:bg-white/5 backdrop-blur-md">
-                                            <div className="absolute top-0 left-0 right-0 px-6 py-3 bg-white/60 dark:bg-[#2c2c2e]/60 backdrop-blur-xl border-b border-black/5 dark:border-white/5 z-10">
+                                        <div className="flex-1 min-h-[300px] relative rounded-[24px] overflow-hidden shadow-sm border border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e]">
+                                            <div className="absolute top-0 left-0 right-0 px-6 py-3 bg-slate-50/80 dark:bg-[#252525]/80 backdrop-blur-md border-b border-black/5 dark:border-white/5 z-10">
                                                 <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Description / Caption</span>
                                             </div>
                                             <div className="pt-12 h-full">
@@ -703,6 +734,7 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                                     value={activePage.caption || ''}
                                                     onValueChange={(val) => handlePageChange('caption', val)}
                                                     placeholder="Write a caption, introduction, or detailed explanation for these images..."
+                                                    previewRef={previewRef}
                                                 />
                                             </div>
                                         </div>
@@ -710,7 +742,10 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
 
                                     {/* Right: Preview */}
                                     <div className="flex-1 h-full hidden lg:block min-h-0">
-                                        <div className="w-full h-full border border-white/20 dark:border-white/5 rounded-[28px] bg-white/60 dark:bg-black/20 p-8 overflow-y-auto custom-scrollbar shadow-inner ring-1 ring-black/5">
+                                        <div 
+                                            ref={previewRef}
+                                            className="w-full h-full border border-black/5 dark:border-white/5 rounded-[24px] bg-white dark:bg-[#1c1c1e] p-8 overflow-y-auto custom-scrollbar shadow-sm"
+                                        >
                                             <div className="mb-6 text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                                 <EyeIcon className="w-4 h-4" /> Live Preview
                                             </div>
@@ -719,19 +754,19 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                                 <div className="grid grid-cols-1 gap-6">
                                                     {Array.isArray(activePage.content?.imageUrls) && activePage.content.imageUrls.map((url, idx) => (
                                                         url ? (
-                                                            <div key={idx} className="rounded-[24px] overflow-hidden shadow-xl border border-black/5 dark:border-white/10">
+                                                            <div key={idx} className="rounded-[16px] overflow-hidden shadow-md border border-black/5 dark:border-white/10">
                                                                 <img src={url} alt={`Preview ${idx}`} className="w-full h-auto object-cover" onError={(e) => e.target.style.display = 'none'} />
                                                             </div>
                                                         ) : (
-                                                            <div key={idx} className="h-48 rounded-[24px] bg-slate-100 dark:bg-white/5 flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-white/10">
-                                                                <p className="text-[15px] text-slate-400 font-medium">Image {idx + 1} Placeholder</p>
+                                                            <div key={idx} className="h-48 rounded-[16px] bg-slate-50 dark:bg-[#2c2c2e] flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-600">
+                                                                <p className="text-[14px] text-slate-400 font-medium">Image {idx + 1} Placeholder</p>
                                                             </div>
                                                         )
                                                     ))}
                                                 </div>
                                                 {/* Rendered Caption */}
                                                 {activePage.caption && (
-                                                    <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-6 bg-white/50 dark:bg-white/5 rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm">
+                                                    <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-6 bg-slate-50 dark:bg-[#2c2c2e] rounded-[16px] border border-black/5 dark:border-white/5">
                                                         <ContentRenderer text={activePage.caption} />
                                                     </div>
                                                 )}
@@ -747,7 +782,7 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                     {/* Left: Config & Caption Editor */}
                                     <div className="flex-1 flex flex-col gap-6 h-full min-h-0 overflow-y-auto custom-scrollbar p-1">
                                         {/* Video Config */}
-                                        <div className="w-full p-8 bg-white/40 dark:bg-white/5 rounded-[28px] border border-white/20 dark:border-white/5 shadow-sm text-center">
+                                        <div className="w-full p-8 bg-white dark:bg-[#1c1c1e] rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm text-center">
                                             <div className="flex flex-col items-center gap-5 max-w-lg mx-auto">
                                                 <div className="w-20 h-20 mx-auto bg-gradient-to-br from-pink-500 to-rose-600 rounded-[24px] flex items-center justify-center shadow-lg shadow-pink-500/30">
                                                     <VideoCameraIcon className="w-10 h-10 text-white stroke-[1.5]" />
@@ -766,8 +801,8 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                         </div>
 
                                         {/* Caption Editor */}
-                                        <div className="flex-1 min-h-[300px] relative rounded-[28px] overflow-hidden shadow-sm border border-white/20 dark:border-white/5 bg-white/40 dark:bg-white/5 backdrop-blur-md">
-                                            <div className="absolute top-0 left-0 right-0 px-6 py-3 bg-white/60 dark:bg-[#2c2c2e]/60 backdrop-blur-xl border-b border-black/5 dark:border-white/5 z-10">
+                                        <div className="flex-1 min-h-[300px] relative rounded-[24px] overflow-hidden shadow-sm border border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e]">
+                                            <div className="absolute top-0 left-0 right-0 px-6 py-3 bg-slate-50/80 dark:bg-[#252525]/80 backdrop-blur-md border-b border-black/5 dark:border-white/5 z-10">
                                                 <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Description / Caption</span>
                                             </div>
                                             <div className="pt-12 h-full">
@@ -775,6 +810,7 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                                     value={activePage.caption || ''}
                                                     onValueChange={(val) => handlePageChange('caption', val)}
                                                     placeholder="Write a caption, introduction, or explanation for this video..."
+                                                    previewRef={previewRef}
                                                 />
                                             </div>
                                         </div>
@@ -782,13 +818,16 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
 
                                     {/* Right: Preview */}
                                     <div className="flex-1 h-full hidden lg:block min-h-0">
-                                        <div className="w-full h-full border border-white/20 dark:border-white/5 rounded-[28px] bg-white/60 dark:bg-black/20 p-8 overflow-y-auto custom-scrollbar shadow-inner ring-1 ring-black/5">
+                                        <div 
+                                            ref={previewRef}
+                                            className="w-full h-full border border-black/5 dark:border-white/5 rounded-[24px] bg-white dark:bg-[#1c1c1e] p-8 overflow-y-auto custom-scrollbar shadow-sm"
+                                        >
                                             <div className="mb-6 text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                                 <EyeIcon className="w-4 h-4" /> Live Preview
                                             </div>
                                             <div className="space-y-8">
                                                 {/* Video Embed Preview */}
-                                                <div className="aspect-video rounded-[24px] overflow-hidden bg-black shadow-2xl">
+                                                <div className="aspect-video rounded-[24px] overflow-hidden bg-black shadow-lg">
                                                     {activePage.content ? (
                                                         <iframe
                                                             className="w-full h-full"
@@ -806,7 +845,7 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                                 
                                                 {/* Rendered Caption */}
                                                 {activePage.caption && (
-                                                    <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-6 bg-white/50 dark:bg-white/5 rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm">
+                                                    <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-6 bg-slate-50 dark:bg-[#2c2c2e] rounded-[16px] border border-black/5 dark:border-white/5">
                                                         <ContentRenderer text={activePage.caption} />
                                                     </div>
                                                 )}
@@ -820,16 +859,16 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                 </div>
                 
                 {/* Footer */}
-                <div className="flex-shrink-0 flex justify-between items-center px-8 py-5 border-t border-black/5 dark:border-white/5 bg-white/40 dark:bg-[#1e1e1e]/40 backdrop-blur-xl z-20">
+                <div className="flex-shrink-0 flex justify-between items-center px-8 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e] z-20">
                     <p className="text-sm font-bold text-red-500 ml-2">{error}</p>
                     <div className="flex gap-4">
-                        <button className="px-8 py-3 rounded-[18px] font-bold text-[15px] text-slate-600 dark:text-slate-300 bg-white/50 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20 border border-white/20 dark:border-white/10 transition-all shadow-sm active:scale-95" onClick={onClose}>
+                        <button className="px-8 py-3 rounded-[16px] font-bold text-[14px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-[#2c2c2e] hover:bg-slate-200 dark:hover:bg-[#3a3a3c] transition-all shadow-sm active:scale-95" onClick={onClose}>
                             Cancel
                         </button>
                         <button 
                             onClick={handleAddLesson} 
                             disabled={loading} 
-                            className="px-10 py-3 font-bold text-[15px] bg-gradient-to-r from-[#007AFF] to-[#0051A8] hover:shadow-blue-500/40 text-white shadow-lg shadow-blue-500/30 transition-all rounded-[18px] disabled:bg-slate-400 disabled:shadow-none active:scale-95 flex items-center gap-2"
+                            className="px-10 py-3 font-bold text-[14px] bg-gradient-to-r from-[#007AFF] to-[#0051A8] hover:shadow-blue-500/40 text-white shadow-lg shadow-blue-500/30 transition-all rounded-[16px] disabled:bg-slate-400 disabled:shadow-none active:scale-95 flex items-center gap-2"
                         >
                             {loading ? (
                                 <>Saving...</>

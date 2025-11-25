@@ -26,7 +26,7 @@ import {
   IconCheck,
 } from "@tabler/icons-react";
 
-import Spinner from "../../../common/Spinner"; // Kept only for AI processing state
+import Spinner from "../../../common/Spinner"; 
 import AnalysisReportModal from "../modals/AnalysisReportModal";
 import RemediationPreviewModal from "../modals/RemediationPreviewModal";
 import ViewRecommendationModal from "../modals/ViewRecommendationModal";
@@ -40,89 +40,95 @@ import "pdfmake/build/vfs_fonts";
 import htmlToPdfmake from "html-to-pdfmake";
 import { marked } from "marked";
 
-// --- START: MACOS 26 DESIGN SYSTEM CONSTANTS ---
+// --- START: OPTIMIZED DESIGN SYSTEM ---
 
 // 1. Layout & Backgrounds
-const commonContainerClasses = "relative h-full w-full p-4 sm:p-6 font-sans overflow-hidden bg-[#F5F7FA] dark:bg-[#050505]";
-const windowContainerClasses = "relative z-10 h-full flex flex-col bg-white/60 dark:bg-[#121212]/60 backdrop-blur-[50px] rounded-[2.5rem] shadow-2xl shadow-slate-400/20 dark:shadow-black/80 ring-1 ring-white/40 dark:ring-white/5 overflow-hidden transition-all duration-500";
+const commonContainerClasses = "relative h-full w-full p-4 sm:p-6 font-sans overflow-hidden bg-slate-50 dark:bg-[#0f1115]";
+// Replaced blur with solid colors and subtle borders for performance
+const windowContainerClasses = "relative z-10 h-full flex flex-col bg-white dark:bg-[#1A1D24] rounded-[2rem] shadow-2xl ring-1 ring-black/5 dark:ring-white/5 overflow-hidden transition-all duration-300";
 
 // 2. Typography
-const headingStyle = "font-display font-bold tracking-tight text-slate-800 dark:text-white";
-const subHeadingStyle = "font-medium tracking-wide text-slate-500 dark:text-slate-400 uppercase text-[0.65rem] letter-spacing-2";
+const headingStyle = "font-display font-bold tracking-tight text-slate-900 dark:text-white";
+const subHeadingStyle = "font-bold tracking-wide text-slate-400 dark:text-slate-500 uppercase text-[0.65rem] letter-spacing-1";
 
-// 3. Buttons (Neumorphic / Glass)
+// 3. Buttons (Solid colors instead of glass)
 const baseButtonStyles = `
-    relative font-semibold rounded-full transition-all duration-300 
+    relative font-semibold rounded-full transition-all duration-200 
     flex items-center justify-center gap-2 active:scale-95 tracking-wide shrink-0 select-none
     focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed
 `;
 
 const primaryButton = `
     ${baseButtonStyles} px-5 py-2.5 text-sm text-white 
-    bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500
-    shadow-[0_4px_12px_rgba(37,99,235,0.3)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.4)]
-    border border-blue-400/20
+    bg-[#007AFF] hover:bg-[#0062cc] shadow-sm hover:shadow-md
 `;
 
 const secondaryButton = `
-    ${baseButtonStyles} px-5 py-2.5 text-sm text-slate-700 dark:text-slate-200 
-    bg-white/40 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 
-    backdrop-blur-md border border-white/20 shadow-sm hover:shadow-md
+    ${baseButtonStyles} px-5 py-2.5 text-sm text-slate-700 dark:text-slate-300 
+    bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 
+    border border-slate-200 dark:border-slate-700
 `;
 
 const iconButton = `
     ${baseButtonStyles} p-2.5 text-slate-500 dark:text-slate-400 
-    bg-white/40 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/15 
+    bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 
     hover:text-blue-600 dark:hover:text-blue-400
-    backdrop-blur-md rounded-full border border-white/20 shadow-sm
+    rounded-full border border-slate-200 dark:border-slate-700
 `;
 
 const destructiveIconButton = `
-    ${baseButtonStyles} p-2.5 text-red-500/80 hover:text-red-600 
-    bg-red-50/50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/30
-    rounded-full border border-red-200/50 dark:border-red-500/20 shadow-sm
+    ${baseButtonStyles} p-2.5 text-red-500 hover:text-red-600 
+    bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20
+    rounded-full border border-red-100 dark:border-red-900/30
 `;
 
 // 4. Side Panel / Tabs
 const panelButton = `
-    w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200 font-medium text-sm group relative overflow-hidden
+    w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm group relative overflow-hidden
 `;
-const activePanelButton = 'text-white bg-blue-600 shadow-lg shadow-blue-500/25';
-const inactivePanelButton = 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-slate-100'; 
+const activePanelButton = 'text-white bg-[#007AFF] shadow-md';
+const inactivePanelButton = 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-slate-200'; 
 
 // 5. Cards & Surfaces
-const cardSurface = "bg-white/40 dark:bg-[#1F2229]/40 backdrop-blur-xl rounded-[1.5rem] border border-white/20 dark:border-white/5 shadow-sm hover:shadow-md transition-all duration-300";
+const cardSurface = "bg-white dark:bg-[#1C1C1E] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm";
 
 // 6. Dropdowns
 const dropdownContainer = "relative z-[60]"; 
 const dropdownButton = `
-    w-full flex justify-between items-center px-4 py-3 rounded-2xl
-    bg-white/50 dark:bg-white/5 border border-white/20 dark:border-white/5
-    backdrop-blur-md shadow-sm hover:bg-white/70 dark:hover:bg-white/10 transition-all
+    w-full flex justify-between items-center px-4 py-3 rounded-xl
+    bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-700
+    shadow-sm hover:bg-slate-100 dark:hover:bg-white/10 transition-all
     text-slate-700 dark:text-slate-200 font-medium text-sm
 `;
 const dropdownList = `
     absolute top-full left-0 mt-2 w-full 
-    bg-white/90 dark:bg-[#1A1D24]/95 backdrop-blur-[40px] 
-    rounded-2xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 z-[70] overflow-hidden p-1.5 max-h-60 overflow-y-auto custom-scrollbar
+    bg-white dark:bg-[#252525]
+    rounded-xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 z-[70] overflow-hidden p-1 max-h-60 overflow-y-auto custom-scrollbar
 `;
-const dropdownItem = "block w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors duration-200";
-const activeDropdownItem = 'bg-blue-500 text-white shadow-md shadow-blue-500/20';
-const inactiveDropdownItem = 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10';
+const dropdownItem = "block w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors duration-200";
+const activeDropdownItem = 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-semibold';
+const inactiveDropdownItem = 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5';
 
-// Aurora Background
+// OPTIMIZED AURORA BACKGROUND (Static CSS Gradient)
 const AuroraBackground = () => (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-20%] left-[-10%] w-[50vw] h-[50vw] bg-blue-400/20 dark:bg-blue-600/10 rounded-full blur-[100px] animate-blob" />
-        <div className="absolute top-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-indigo-400/20 dark:bg-indigo-500/10 rounded-full blur-[100px] animate-blob animation-delay-2000" />
-        <div className="absolute bottom-[-20%] left-[20%] w-[60vw] h-[60vw] bg-purple-300/20 dark:bg-purple-500/10 rounded-full blur-[100px] animate-blob animation-delay-4000" />
+    <div className="absolute inset-0 pointer-events-none z-0">
+        <div className="absolute inset-0 opacity-60 dark:opacity-40"
+             style={{
+                 backgroundImage: `
+                    radial-gradient(at 0% 0%, rgba(165, 180, 252, 0.4) 0px, transparent 50%),
+                    radial-gradient(at 100% 0%, rgba(103, 232, 249, 0.4) 0px, transparent 50%),
+                    radial-gradient(at 100% 100%, rgba(147, 197, 253, 0.4) 0px, transparent 50%),
+                    radial-gradient(at 0% 100%, rgba(196, 181, 253, 0.4) 0px, transparent 50%)
+                 `
+             }}
+        />
     </div>
 );
 
 // --- SKELETAL COMPONENTS ---
 
 const SkeletonPulse = ({ className }) => (
-    <div className={`animate-pulse bg-slate-200/60 dark:bg-white/5 rounded-lg ${className}`} />
+    <div className={`animate-pulse bg-slate-200 dark:bg-slate-800 rounded-lg ${className}`} />
 );
 
 const StudentsSkeleton = () => (
@@ -144,7 +150,7 @@ const StudentsSkeleton = () => (
 
 const TableSkeleton = () => (
     <div className={`${cardSurface} overflow-hidden`}>
-        <div className="px-6 py-4 border-b border-white/10 flex gap-4">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex gap-4">
              <SkeletonPulse className="h-4 w-32" />
              <SkeletonPulse className="h-4 w-20" />
         </div>
@@ -485,22 +491,12 @@ const AnalyticsView = ({ activeClasses }) => {
     }
   };
   
-  // In AnalyticsView.jsx
-
   const generateRemediationPlan = async () => {
-      // 1. Debugging: Check what data we actually have
-      console.log("Generating Remediation with:", { 
-          action: analysisResult?.recommendation_action, 
-          lessonData: lessonData 
-      });
-
-      // 2. validation with user feedback instead of silent return
       if (!analysisResult?.recommendation_action) {
           alert("Error: No analysis result found.");
           return;
       }
 
-      // THIS IS LIKELY THE CAUSE:
       if (!lessonData) {
           alert("Cannot generate remediation plan because this Quiz is not linked to a Lesson content in the database. Please ensure the Quiz has a valid 'lessonId'.");
           return;
@@ -512,28 +508,20 @@ const AnalyticsView = ({ activeClasses }) => {
           return; 
       }
 
-      // 3. Check for weak items
       const weakItems = itemAnalysisData.filter((i) => {
-          // Calculate percentage for the specific item
           const percent = i.total > 0 ? (i.correct / i.total) * 100 : 0;
-          // Include items below 75%
           return percent < 75;
       });
 
       if (weakItems.length === 0) {
-          // Fallback: If AI says "Partial Reteach" but strict math shows >75%, 
-          // we should still allow generation based on the lowest scoring items
-          // OR alert the user. Let's try to grab the bottom 3 items if none are strictly "weak".
           const sortedItems = [...itemAnalysisData].sort((a, b) => {
               const perA = a.total > 0 ? (a.correct / a.total) : 0;
               const perB = b.total > 0 ? (b.correct / b.total) : 0;
               return perA - perB;
           });
         
-          // Use the bottom 3 items if no strict failures found
           if(sortedItems.length > 0) {
                console.warn("No items < 75%, utilizing lowest scoring items for remediation context.");
-               // Pushing to weakItems array manually if empty
                weakItems.push(...sortedItems.slice(0, 3));
           } else {
                alert("No item analysis data available to base remediation on."); 
@@ -545,8 +533,6 @@ const AnalyticsView = ({ activeClasses }) => {
     
       try {
           const lessonLanguage = lessonData?.language || "original language";
-        
-          // Safety check for pages
           const pages = lessonData?.pages || [];
           const lessonText = pages.length > 0 
               ? pages.map((p) => `${p.title ? p.title + "\n" : ""}${p.content || ""}`).join("\n\n")
@@ -570,8 +556,6 @@ const AnalyticsView = ({ activeClasses }) => {
           `;
 
           const rawAiResponse = await callGeminiWithLimitCheck(prompt);
-        
-          // JSON Parsing safety
           const firstBracket = rawAiResponse.indexOf("{");
           const lastBracket = rawAiResponse.lastIndexOf("}");
         
@@ -731,7 +715,7 @@ const AnalyticsView = ({ activeClasses }) => {
       
       <div className={windowContainerClasses}>
         {/* Header Bar */}
-        <div className="flex items-center justify-between p-6 sm:px-8 border-b border-white/10 bg-white/20 dark:bg-white/5 backdrop-blur-lg z-20">
+        <div className="flex items-center justify-between p-6 sm:px-8 border-b border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-[#1A1D24]/95 z-20 sticky top-0">
             <div className="flex flex-col">
                 <h1 className={`${headingStyle} text-2xl sm:text-3xl`}>Analytics Center</h1>
                 <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium tracking-wide">Real-time Performance & Insights</span>
@@ -741,7 +725,7 @@ const AnalyticsView = ({ activeClasses }) => {
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
             
             {/* --- SIDEBAR --- */}
-            <div className="w-full md:w-72 lg:w-80 flex flex-col border-r border-white/20 dark:border-white/5 bg-white/30 dark:bg-black/20 backdrop-blur-xl p-4 sm:p-6 gap-6 overflow-y-auto z-20 custom-scrollbar">
+            <div className="w-full md:w-72 lg:w-80 flex flex-col border-r border-slate-100 dark:border-slate-800 bg-white dark:bg-[#1A1D24] p-4 sm:p-6 gap-6 overflow-y-auto z-20 custom-scrollbar">
                 
                 {/* Class Selector */}
                 <div className={dropdownContainer}>
@@ -776,7 +760,6 @@ const AnalyticsView = ({ activeClasses }) => {
                     <button onClick={() => setAnalysisType("students")} className={`${panelButton} ${analysisType === "students" ? activePanelButton : inactivePanelButton}`}>
                         <IconAlertTriangle size={20} className={analysisType === "students" ? "text-white" : "text-amber-500"} />
                         <span>At-Risk Students</span>
-                        {analysisType === "students" && <motion.div layoutId="active-pill" className="absolute inset-0 bg-white/10 rounded-2xl" />}
                     </button>
                     <button onClick={() => setAnalysisType("quizzes")} className={`${panelButton} ${analysisType === "quizzes" ? activePanelButton : inactivePanelButton}`}>
                         <IconChartBar size={20} className={analysisType === "quizzes" ? "text-white" : "text-purple-500"} />
@@ -788,50 +771,28 @@ const AnalyticsView = ({ activeClasses }) => {
                     </button>
                 </div>
 
-                {/* Contextual Sidebar Content (Filters/Lists) */}
-                {/* Removed 'overflow-y-auto' and 'min-h-0' so the popup isn't clipped */}
-<div className="flex-1 space-y-4 pr-2">
-				{analysisType === "students" && selectedClassId && (
-				    <div className={dropdownContainer}>
-				         <div className={subHeadingStyle + " mb-2 ml-1"}>Quarter Filter</div>
-				         <button 
-				            onClick={() => setIsQuarterDropdownOpen(!isQuarterDropdownOpen)} 
-				            className={dropdownButton}
-				         >
-				            <span>{(quarterOptions.find(q => q.value === selectedQuarter) || quarterOptions[0]).label}</span>
-				            {/* Rotate chevron to point up when open */}
-				            <IconChevronDown className={`w-4 h-4 opacity-50 transition-transform ${isQuarterDropdownOpen ? 'rotate-180' : ''}`} />
-				         </button>
-         
-				         <AnimatePresence>
-				            {isQuarterDropdownOpen && (
-				                <motion.div
-				                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-				                    animate={{ opacity: 1, y: 0, scale: 1 }}
-				                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-				                    transition={{ duration: 0.2 }}
-				                    // 'bottom-full' pushes it UP. 'mb-2' adds space between button and popup.
-				                    className={`
-				                        absolute bottom-full left-0 mb-2 w-full 
-				                        bg-white/90 dark:bg-[#1A1D24]/95 backdrop-blur-[40px] 
-				                        rounded-2xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 
-				                        z-[100] overflow-hidden p-1.5 max-h-60 overflow-y-auto custom-scrollbar
-				                    `}
-				                >
-				                    {quarterOptions.map((opt) => (
-				                        <button 
-				                            key={opt.value} 
-				                            onClick={() => { setSelectedQuarter(opt.value); setIsQuarterDropdownOpen(false); }} 
-				                            className={`${dropdownItem} ${selectedQuarter === opt.value ? activeDropdownItem : inactiveDropdownItem}`}
-				                        >
-				                            {opt.label}
-				                        </button>
-				                    ))}
-				                </motion.div>
-				            )}
-				         </AnimatePresence>
-				    </div>
-				)}
+                {/* Contextual Sidebar Content */}
+                <div className="flex-1 space-y-4 pr-2">
+                    {analysisType === "students" && selectedClassId && (
+                        <div className={dropdownContainer}>
+                             <div className={subHeadingStyle + " mb-2 ml-1"}>Quarter Filter</div>
+                             <button onClick={() => setIsQuarterDropdownOpen(!isQuarterDropdownOpen)} className={dropdownButton}>
+                                <span>{(quarterOptions.find(q => q.value === selectedQuarter) || quarterOptions[0]).label}</span>
+                                <IconChevronDown className={`w-4 h-4 opacity-50 transition-transform ${isQuarterDropdownOpen ? 'rotate-180' : ''}`} />
+                             </button>
+                             <AnimatePresence>
+                                {isQuarterDropdownOpen && (
+                                    <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} transition={{ duration: 0.2 }} className={`absolute bottom-full left-0 mb-2 w-full bg-white dark:bg-[#252525] rounded-xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 z-[100] overflow-hidden p-1 max-h-60 overflow-y-auto custom-scrollbar`}>
+                                        {quarterOptions.map((opt) => (
+                                            <button key={opt.value} onClick={() => { setSelectedQuarter(opt.value); setIsQuarterDropdownOpen(false); }} className={`${dropdownItem} ${selectedQuarter === opt.value ? activeDropdownItem : inactiveDropdownItem}`}>
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </motion.div>
+                                )}
+                             </AnimatePresence>
+                        </div>
+                    )}
 
                     {analysisType === "quizzes" && selectedClassId && (
                         <div className="space-y-1">
@@ -849,9 +810,9 @@ const AnalyticsView = ({ activeClasses }) => {
                                     </button>
                                     <AnimatePresence>
                                         {openUnit === unitName && (
-                                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden ml-2 space-y-1 border-l border-slate-200 dark:border-white/10 pl-2">
+                                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden ml-2 space-y-1 border-l border-slate-200 dark:border-slate-700 pl-2">
                                                 {quizzesInClass.filter((q) => (q.unitDisplayName || "Uncategorized") === unitName).sort((a, b) => a.title.localeCompare(b.title)).map((q) => (
-                                                    <button key={q.id} onClick={() => setSelectedQuizId(q.id)} className={`text-sm w-full text-left px-3 py-2 rounded-lg transition-all ${selectedQuizId === q.id ? 'bg-blue-50 text-blue-600 font-semibold dark:bg-blue-900/30 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5'}`}>
+                                                    <button key={q.id} onClick={() => setSelectedQuizId(q.id)} className={`text-sm w-full text-left px-3 py-2 rounded-lg transition-all ${selectedQuizId === q.id ? 'bg-blue-50 text-blue-600 font-semibold dark:bg-blue-900/20 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5'}`}>
                                                         {q.title}
                                                     </button>
                                                 ))}
@@ -869,11 +830,10 @@ const AnalyticsView = ({ activeClasses }) => {
             <motion.div 
                 key={analysisType}
                 initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}
-                className="flex-1 p-6 sm:p-10 overflow-y-auto custom-scrollbar bg-gradient-to-br from-white/40 via-white/20 to-transparent dark:from-white/5 dark:to-transparent relative"
+                className="flex-1 p-6 sm:p-10 overflow-y-auto custom-scrollbar relative"
             >
-                {/* AI Processing Overlay (Still useful for generation blocking) */}
                 {(isAnalyzing || isGeneratingRemediation) && (
-                    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 dark:bg-black/60 backdrop-blur-md rounded-[2.5rem]">
+                    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/80 dark:bg-[#1A1D24]/80 backdrop-blur-sm rounded-[2rem]">
                         <Spinner size="xl" />
                         <span className="mt-4 font-medium text-slate-600 dark:text-slate-300 animate-pulse">
                             {isGeneratingRemediation ? "Designing Personalized Remediation..." : "Analyzing..."}
@@ -881,10 +841,9 @@ const AnalyticsView = ({ activeClasses }) => {
                     </div>
                 )}
 
-                {/* Empty State */}
                 {!selectedClassId && (
                     <div className="h-full flex flex-col items-center justify-center text-center opacity-60">
-                         <div className="w-24 h-24 rounded-3xl bg-slate-100 dark:bg-white/10 flex items-center justify-center mb-6 shadow-inner">
+                         <div className="w-24 h-24 rounded-3xl bg-slate-100 dark:bg-white/5 flex items-center justify-center mb-6">
                             <IconAnalyze size={48} className="text-slate-400" />
                          </div>
                          <h2 className="text-xl font-bold text-slate-700 dark:text-slate-200">No Class Selected</h2>
@@ -892,7 +851,6 @@ const AnalyticsView = ({ activeClasses }) => {
                     </div>
                 )}
 
-                {/* CONTENT: At Risk */}
                 {selectedClassId && analysisType === "students" && (
                     <div className="space-y-8">
                         <div className="flex items-baseline justify-between">
@@ -906,16 +864,16 @@ const AnalyticsView = ({ activeClasses }) => {
                             atRiskByQuarter[selectedQuarter]?.length > 0 ? (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                                     {atRiskByQuarter[selectedQuarter].map((st) => (
-                                        <motion.div whileHover={{ y: -5 }} key={st.id} className={`${cardSurface} p-5 border-l-4 border-l-red-500`}>
+                                        <motion.div whileHover={{ y: -2 }} key={st.id} className={`${cardSurface} p-5 border-l-4 border-l-red-500 hover:shadow-md transition-all`}>
                                             <div className="flex items-start gap-4">
-                                                <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
+                                                <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
                                                     <IconAlertTriangle size={20} />
                                                 </div>
                                                 <div>
                                                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base">{st.name}</h3>
                                                     <div className="mt-2 space-y-1">
                                                         {st.reasons.map((r, i) => (
-                                                            <span key={i} className="inline-block px-2 py-1 rounded-md bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-xs font-medium">
+                                                            <span key={i} className="inline-block px-2 py-1 rounded-md bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-300 text-xs font-medium">
                                                                 {r}
                                                             </span>
                                                         ))}
@@ -927,7 +885,7 @@ const AnalyticsView = ({ activeClasses }) => {
                                 </div>
                             ) : (
                                 <div className={`${cardSurface} p-12 flex flex-col items-center justify-center text-center`}>
-                                    <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/20 flex items-center justify-center mb-4">
+                                    <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mb-4">
                                         <IconCheck size={32} className="text-emerald-600 dark:text-emerald-400" />
                                     </div>
                                     <h3 className="text-lg font-bold text-slate-800 dark:text-white">All Clear!</h3>
@@ -935,12 +893,11 @@ const AnalyticsView = ({ activeClasses }) => {
                                 </div>
                             )
                         ) : (
-                            <div className={`${cardSurface} p-8 text-center opacity-70`}>Please select a quarter to view analysis.</div>
+                            <div className={`${cardSurface} p-8 text-center opacity-70 text-slate-500 dark:text-slate-400`}>Please select a quarter to view analysis.</div>
                         )}
                     </div>
                 )}
 
-                {/* CONTENT: Quiz Analysis */}
                 {selectedClassId && analysisType === "quizzes" && (
                     <div className="space-y-6">
                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -960,7 +917,7 @@ const AnalyticsView = ({ activeClasses }) => {
                          ) : selectedQuizId && itemAnalysisData && itemAnalysisData.length > 0 ? (
                              <div className={`${cardSurface} overflow-hidden`}>
                                  <table className="w-full text-sm text-left">
-                                     <thead className="text-xs font-bold text-slate-500 uppercase bg-slate-50/50 dark:bg-white/5 border-b border-white/10">
+                                     <thead className="text-xs font-bold text-slate-500 uppercase bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-slate-700">
                                          <tr>
                                              <th className="px-6 py-4">Question</th>
                                              <th className="px-6 py-4 text-center">Performance</th>
@@ -973,7 +930,7 @@ const AnalyticsView = ({ activeClasses }) => {
                                              const isMastered = percent >= 75;
                                              return (
                                                  <React.Fragment key={i}>
-                                                     <tr className="hover:bg-white/30 dark:hover:bg-white/5 transition-colors">
+                                                     <tr className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                                                          <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-200 max-w-md">
                                                              <div className="line-clamp-2">{item.type === "matching-type" ? "Matching Question" : item.question}</div>
                                                              {item.type === "matching-type" && (
@@ -998,7 +955,7 @@ const AnalyticsView = ({ activeClasses }) => {
                                                              <td colSpan={3} className="px-6 py-4">
                                                                  <div className="grid gap-2">
                                                                      {item.breakdown.map((p, idx) => (
-                                                                         <div key={idx} className="flex items-center justify-between text-xs p-2 rounded bg-white/40 dark:bg-white/5 border border-white/10">
+                                                                         <div key={idx} className="flex items-center justify-between text-xs p-2 rounded bg-white dark:bg-white/5 border border-slate-200 dark:border-slate-700">
                                                                              <span className="text-slate-600 dark:text-slate-400">{p.promptText}</span>
                                                                              <div className="flex items-center gap-2">
                                                                                 <span className={p.isCorrect ? "text-emerald-600" : "text-red-500"}>{p.studentChoice || "No Answer"}</span>
@@ -1018,12 +975,11 @@ const AnalyticsView = ({ activeClasses }) => {
                                  </table>
                              </div>
                          ) : (
-                             <div className={`${cardSurface} p-12 text-center opacity-60`}>Select a quiz to analyze items.</div>
+                             <div className={`${cardSurface} p-12 text-center opacity-60 text-slate-500 dark:text-slate-400`}>Select a quiz to analyze items.</div>
                          )}
                     </div>
                 )}
 
-                {/* CONTENT: Recommendations */}
                 {selectedClassId && analysisType === "recommendations" && (
                     <div className="space-y-6">
                         <h2 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Saved Recommendations</h2>
@@ -1038,7 +994,7 @@ const AnalyticsView = ({ activeClasses }) => {
                             <div className="space-y-4">
                                 {Object.keys(groupedSavedRecs).sort(customUnitSort).map((unitTitle) => (
                                     <div key={unitTitle} className={`${cardSurface} overflow-hidden`}>
-                                        <button onClick={() => setOpenRecsUnit(openRecsUnit === unitTitle ? null : unitTitle)} className="w-full flex justify-between items-center px-6 py-4 bg-slate-50/30 dark:bg-white/5 border-b border-white/10 hover:bg-slate-50/80 transition-colors">
+                                        <button onClick={() => setOpenRecsUnit(openRecsUnit === unitTitle ? null : unitTitle)} className="w-full flex justify-between items-center px-6 py-4 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
                                             <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">{unitTitle}</span>
                                             <IconChevronDown className={`transition-transform ${openRecsUnit === unitTitle ? "rotate-180" : ""}`} size={16} />
                                         </button>
@@ -1047,7 +1003,7 @@ const AnalyticsView = ({ activeClasses }) => {
                                                 <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
                                                     <div className="p-2 space-y-2">
                                                         {groupedSavedRecs[unitTitle].map((recDoc) => (
-                                                            <div key={recDoc.id} className="group flex items-center justify-between p-3 rounded-xl hover:bg-white/60 dark:hover:bg-white/10 transition-all border border-transparent hover:border-white/20">
+                                                            <div key={recDoc.id} className="group flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
                                                                 <div onClick={() => openViewModal(recDoc)} className="flex-1 cursor-pointer">
                                                                     <h4 className="font-bold text-slate-800 dark:text-white text-sm">{recDoc.lessonTitle || "Remediation Plan"}</h4>
                                                                     <span className="text-xs text-slate-500 dark:text-slate-400">{recDoc.createdAt?.toDate().toLocaleDateString()}</span>
@@ -1075,21 +1031,12 @@ const AnalyticsView = ({ activeClasses }) => {
         </div>
       </div>
 
-      {/* Global Styles for Animation & Scroll */}
+      {/* Global Styles for Scroll */}
       <style>{`
         .font-display { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.5); border-radius: 10px; }
-        .animate-blob { animation: blob 10s infinite; }
-        @keyframes blob {
-            0% { transform: translate(0px, 0px) scale(1); }
-            33% { transform: translate(30px, -50px) scale(1.1); }
-            66% { transform: translate(-20px, 20px) scale(0.9); }
-            100% { transform: translate(0px, 0px) scale(1); }
-        }
-        .animation-delay-2000 { animation-delay: 2s; }
-        .animation-delay-4000 { animation-delay: 4s; }
       `}</style>
 
       {/* Modals */}

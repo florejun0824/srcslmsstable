@@ -3,19 +3,21 @@ import { collection, query, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 
 /**
- * A selector component for lessons, filtered by a subjectId and supporting multiple selections.
- * Lessons are now grouped by their unitId, with the unit name displayed for better organization.
- *
- * @param {object} props - The component props.
- * @param {string} props.subjectId - The ID of the selected subject to filter lessons by.
- * @param {function} props.onLessonsSelect - Callback function to be called with an array of selected lessons.
+ * A selector component for lessons with "Clean Sheet" UI and Alphanumeric sorting.
  */
-export default function LessonSelector({ subjectId, onLessonsSelect }) {
+export default function LessonSelector({ subjectId, onLessonsSelect, preselectedIds = [] }) {
     const [allLessons, setAllLessons] = useState([]);
-    const [units, setUnits] = useState({}); // New state for storing unit names
+    const [units, setUnits] = useState({});
     const [selectedLessonIds, setSelectedLessonIds] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    // Sync preselectedIds (e.g. for edit mode)
+    useEffect(() => {
+        if(preselectedIds.length > 0) {
+            setSelectedLessonIds(preselectedIds);
+        }
+    }, [preselectedIds]);
 
     useEffect(() => {
         if (!subjectId) {
@@ -27,148 +29,160 @@ export default function LessonSelector({ subjectId, onLessonsSelect }) {
             return;
         }
 
+        setIsLoading(true);
         const lessonsQuery = query(collection(db, 'lessons'), where('subjectId', '==', subjectId));
         const unitsQuery = query(collection(db, 'units'), where('subjectId', '==', subjectId));
 
-        // Start a real-time listener for units
-        const unsubscribeUnits = onSnapshot(
-            unitsQuery,
-            (snapshot) => {
-                const unitsData = {};
-                snapshot.docs.forEach(doc => {
-                    unitsData[doc.id] = doc.data().title; // Map unitId to its title
-                });
-                setUnits(unitsData);
-            },
-            (err) => {
-                console.error("Failed to fetch units:", err);
-                setError("Failed to load unit names. Please try again later.");
-                setIsLoading(false);
-            }
-        );
+        const unsubscribeUnits = onSnapshot(unitsQuery, (snapshot) => {
+            const unitsData = {};
+            snapshot.docs.forEach(doc => {
+                unitsData[doc.id] = doc.data().title;
+            });
+            setUnits(unitsData);
+        }, (err) => setError("Failed to load units."));
 
-        // Start a real-time listener for lessons
-        const unsubscribeLessons = onSnapshot(
-            lessonsQuery,
-            (snapshot) => {
-                const lessonsData = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-                // Sort lessons by order number to ensure correct display within units
-                lessonsData.sort((a, b) => (a.order || 0) - (b.order || 0));
+        const unsubscribeLessons = onSnapshot(lessonsQuery, (snapshot) => {
+            const lessonsData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            
+            // Sort lessons alphanumerically by title (Lesson 1, Lesson 2, Lesson 10)
+            lessonsData.sort((a, b) => 
+                (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' })
+            );
 
-                setAllLessons(lessonsData);
-                setIsLoading(false);
+            setAllLessons(lessonsData);
+            setIsLoading(false);
+        }, (err) => {
+            setError("Failed to load lessons.");
+            setIsLoading(false);
+        });
 
-                // Reset selected lessons when a new subject is chosen
-                setSelectedLessonIds([]);
-                if (onLessonsSelect) onLessonsSelect([]);
-            },
-            (err) => {
-                console.error("Failed to fetch lessons:", err);
-                setError("Failed to load lessons. Please try again later.");
-                setIsLoading(false);
-            }
-        );
-
-        // Unsubscribe from both listeners when the component unmounts
         return () => {
             unsubscribeUnits();
             unsubscribeLessons();
         };
-    }, [subjectId, onLessonsSelect]);
+    }, [subjectId]);
 
-    const handleCheckboxChange = (e) => {
-        const { value, checked } = e.target;
-        let newSelectedIds;
-        if (checked) {
-            newSelectedIds = [...selectedLessonIds, value];
-        } else {
-            newSelectedIds = selectedLessonIds.filter(id => id !== value);
+    // Notify parent whenever selection changes
+    useEffect(() => {
+        if (!isLoading && onLessonsSelect) {
+            const selectedObjects = allLessons.filter(l => selectedLessonIds.includes(l.id));
+            onLessonsSelect(selectedObjects);
         }
-        setSelectedLessonIds(newSelectedIds);
+    }, [selectedLessonIds, allLessons, isLoading]);
 
-        const selectedLessons = allLessons.filter(lesson => newSelectedIds.includes(lesson.id));
-        if (onLessonsSelect) {
-            onLessonsSelect(selectedLessons);
+    const toggleLesson = (lessonId) => {
+        setSelectedLessonIds(prev => {
+            if (prev.includes(lessonId)) {
+                return prev.filter(id => id !== lessonId);
+            } else {
+                return [...prev, lessonId];
+            }
+        });
+    };
+
+    const toggleUnit = (unitId, lessonIdsInUnit) => {
+        const allSelected = lessonIdsInUnit.every(id => selectedLessonIds.includes(id));
+        
+        if (allSelected) {
+            // Deselect all in unit
+            setSelectedLessonIds(prev => prev.filter(id => !lessonIdsInUnit.includes(id)));
+        } else {
+            // Select all in unit
+            const newIds = new Set([...selectedLessonIds, ...lessonIdsInUnit]);
+            setSelectedLessonIds(Array.from(newIds));
         }
     };
 
-    // Group lessons by unitId for display
+    // Group lessons
     const groupedLessons = allLessons.reduce((groups, lesson) => {
-        const unitId = lesson.unitId || 'no_unit'; // Use 'no_unit' for lessons without a unitId
-        if (!groups[unitId]) {
-            groups[unitId] = [];
-        }
+        const unitId = lesson.unitId || 'no_unit';
+        if (!groups[unitId]) groups[unitId] = [];
         groups[unitId].push(lesson);
         return groups;
     }, {});
     
-    // Sort the units based on the numerical part of the title
+    // Sort Unit IDs Alphanumerically based on Unit Title
     const sortedUnitIds = Object.keys(groupedLessons).sort((a, b) => {
-        const titleA = units[a] || '';
-        const titleB = units[b] || '';
-
-        // Extract the first number found in the title
-        const numA = parseInt(titleA.match(/\d+/)?.[0] || '0', 10);
-        const numB = parseInt(titleB.match(/\d+/)?.[0] || '0', 10);
-
-        // If both titles have numbers, sort numerically
-        if (numA !== 0 && numB !== 0) {
-            return numA - numB;
-        }
-
-        // Fallback: if one or neither has a number, sort alphabetically by title
-        return titleA.localeCompare(titleB);
+        const titleA = units[a] || 'Untitled';
+        const titleB = units[b] || 'Untitled';
+        return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
     });
 
-    if (isLoading) {
-        // --- MODIFIED: Added dark theme text ---
-        return <div className="text-center p-4 text-slate-500 dark:text-slate-400">Loading lessons...</div>;
-    }
-
-    if (error) {
-        // --- MODIFIED: Added dark theme text ---
-        return <div className="text-center p-4 text-red-600 dark:text-red-400">{error}</div>;
-    }
+    if (isLoading) return <div className="animate-pulse h-32 bg-gray-200 dark:bg-white/5 rounded-xl w-full"></div>;
+    if (error) return <div className="text-sm text-red-500 text-center py-4">{error}</div>;
 
     return (
-        // --- MODIFIED: Added dark theme styles ---
-        <div className="p-4 bg-slate-200 dark:bg-neumorphic-base-dark rounded-xl shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] dark:shadow-lg w-full">
-            {/* --- MODIFIED: Added dark theme text & border --- */}
-            <h2 className="text-base font-bold text-slate-700 dark:text-slate-100 mb-4 border-b pb-2 border-slate-300/70 dark:border-slate-700">Select Lessons</h2>
+        <div className="w-full flex flex-col h-full max-h-[400px]">
+            <div className="flex items-center justify-between mb-2 px-1">
+                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Select Lessons
+                </label>
+                <span className="text-xs font-medium text-[#007AFF]">
+                    {selectedLessonIds.length} selected
+                </span>
+            </div>
+
             {allLessons.length > 0 ? (
-                <div className="space-y-4">
-                    {sortedUnitIds.map((unitId) => (
-                        // --- MODIFIED: Added dark theme styles ---
-                        <div key={unitId} className="bg-slate-200 dark:bg-neumorphic-base-dark/60 rounded-lg p-3 shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:shadow-neumorphic-inset-dark">
-                            {/* --- MODIFIED: Added dark theme text --- */}
-                            <h3 className="font-semibold text-sm text-indigo-700 dark:text-indigo-400 mb-2">
-                                {units[unitId] ? `Unit: ${units[unitId]}` : `Unit ID: ${unitId}`}
-                            </h3>
-                            <div className="space-y-2">
-                                {groupedLessons[unitId].map((lesson) => (
-                                    // --- MODIFIED: Added dark theme styles ---
-                                    <label key={lesson.id} className="flex items-center space-x-3 text-sm text-slate-700 dark:text-slate-300 p-2 rounded-md hover:bg-slate-100 dark:hover:bg-neumorphic-base-dark cursor-pointer transition-colors">
-                                        <input
-                                            type="checkbox"
-                                            value={lesson.id}
-                                            checked={selectedLessonIds.includes(lesson.id)}
-                                            onChange={handleCheckboxChange}
-                                            // --- MODIFIED: Added dark theme styles ---
-                                            className="form-checkbox h-4 w-4 text-indigo-600 rounded focus:ring-indigo-500 dark:bg-slate-800 dark:border-slate-600"
-                                        />
-                                        <span>{lesson.title}</span>
-                                    </label>
-                                ))}
+                <div className="flex-1 overflow-y-auto custom-scrollbar bg-gray-50 dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-xl p-4 space-y-6">
+                    {sortedUnitIds.map((unitId) => {
+                        const lessonsInUnit = groupedLessons[unitId];
+                        const unitLessonIds = lessonsInUnit.map(l => l.id);
+                        const isUnitAllSelected = unitLessonIds.every(id => selectedLessonIds.includes(id));
+                        const isUnitIndeterminate = !isUnitAllSelected && unitLessonIds.some(id => selectedLessonIds.includes(id));
+
+                        return (
+                            <div key={unitId} className="space-y-2">
+                                {/* Unit Header */}
+                                <div className="flex items-center justify-between group cursor-pointer" onClick={() => toggleUnit(unitId, unitLessonIds)}>
+                                    <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                                        {units[unitId] ? units[unitId] : 'Unassigned Lessons'}
+                                    </h3>
+                                    <div className={`text-xs font-medium px-2 py-0.5 rounded transition-colors ${isUnitAllSelected ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}>
+                                        {isUnitAllSelected ? 'All Selected' : 'Select All'}
+                                    </div>
+                                </div>
+
+                                {/* Lesson Rows */}
+                                <div className="space-y-1">
+                                    {lessonsInUnit.map((lesson) => {
+                                        const isSelected = selectedLessonIds.includes(lesson.id);
+                                        return (
+                                            <div 
+                                                key={lesson.id} 
+                                                onClick={() => toggleLesson(lesson.id)}
+                                                className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                                                    isSelected 
+                                                    ? 'bg-white dark:bg-[#2C2C2E] border-[#007AFF] dark:border-[#007AFF] shadow-sm ring-1 ring-[#007AFF]/20' 
+                                                    : 'bg-white dark:bg-white/5 border-transparent hover:bg-gray-100 dark:hover:bg-white/10'
+                                                }`}
+                                            >
+                                                <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
+                                                    isSelected 
+                                                    ? 'bg-[#007AFF] border-[#007AFF]' 
+                                                    : 'border-gray-300 dark:border-gray-600'
+                                                }`}>
+                                                    {isSelected && (
+                                                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
+                                                    )}
+                                                </div>
+                                                <span className={`text-sm font-medium ${isSelected ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
+                                                    {lesson.title}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             ) : (
-                // --- MODIFIED: Added dark theme text ---
-                <p className="text-sm text-slate-500 dark:text-slate-400">No lessons are currently available for this subject.</p>
+                <div className="p-8 rounded-xl border border-dashed border-gray-300 dark:border-white/20 text-center flex flex-col items-center justify-center bg-gray-50 dark:bg-white/5">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No lessons available.</p>
+                </div>
             )}
         </div>
     );

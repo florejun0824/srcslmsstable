@@ -35,9 +35,10 @@ const ModeSelection = ({ onSelect }) => (
             {/* AI Option */}
             <button
                 onClick={() => onSelect('ai')}
+                // [MODIFIED] Solid bg, sharp border, no blur
                 className="group relative flex flex-col items-start text-left p-6 h-auto
-                           bg-white/60 dark:bg-[#2c2c2e]/60 backdrop-blur-xl 
-                           border border-white/20 dark:border-white/10
+                           bg-white dark:bg-[#2c2c2e] 
+                           border border-slate-200 dark:border-slate-700
                            rounded-[24px] shadow-sm hover:shadow-xl transition-all duration-300 
                            hover:scale-[1.02] active:scale-[0.98] overflow-hidden"
             >
@@ -62,9 +63,10 @@ const ModeSelection = ({ onSelect }) => (
             {/* Manual Option */}
             <button
                 onClick={() => onSelect('manual')}
+                // [MODIFIED] Solid bg, sharp border, no blur
                 className="group relative flex flex-col items-start text-left p-6 h-auto
-                           bg-white/60 dark:bg-[#2c2c2e]/60 backdrop-blur-xl 
-                           border border-white/20 dark:border-white/10
+                           bg-white dark:bg-[#2c2c2e] 
+                           border border-slate-200 dark:border-slate-700
                            rounded-[24px] shadow-sm hover:shadow-xl transition-all duration-300 
                            hover:scale-[1.02] active:scale-[0.98] overflow-hidden"
             >
@@ -100,15 +102,16 @@ export default function AddLessonModal({ isOpen, onClose, unitId, subjectId, set
     }, [onClose]);
 
     const getPanelClassName = () => {
-        const baseClasses = "relative flex flex-col transition-all duration-300 ease-out overflow-hidden border border-white/20 dark:border-white/10 shadow-2xl shadow-black/20 ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-2xl";
+        // [MODIFIED] Removed backdrop-blur-2xl, added solid bg, sharpened borders
+        const baseClasses = "relative flex flex-col transition-all duration-300 ease-out overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl shadow-black/20 ring-1 ring-black/5 dark:ring-white/5";
         
         switch (creationMode) {
             case 'ai':
-                return `${baseClasses} w-full h-[100dvh] sm:h-[90vh] sm:max-w-6xl sm:rounded-[32px] bg-[#f5f5f7]/95 dark:bg-[#1c1c1e]/95`;
+                return `${baseClasses} w-full h-[100dvh] sm:h-[90vh] sm:max-w-6xl sm:rounded-[32px] bg-[#f5f5f7] dark:bg-[#1c1c1e]`;
             case 'manual':
                 return `${baseClasses} w-screen h-screen max-w-full max-h-screen rounded-none bg-[#f5f5f7] dark:bg-[#1c1c1e]`;
             default:
-                return `${baseClasses} w-full max-w-3xl rounded-[32px] bg-white/80 dark:bg-[#1c1c1e]/80`;
+                return `${baseClasses} w-full max-w-3xl rounded-[32px] bg-white dark:bg-[#1c1c1e]`;
         }
     };
 
@@ -125,17 +128,17 @@ export default function AddLessonModal({ isOpen, onClose, unitId, subjectId, set
 
     return (
         <Dialog open={isOpen} onClose={handleClose} className="relative z-50">
-            {/* Ultra-smooth backdrop blur */}
-            <div className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-md transition-opacity duration-300" aria-hidden="true" />
+            {/* Reduced backdrop blur */}
+            <div className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm transition-opacity duration-300" aria-hidden="true" />
             
             <div className="fixed inset-0 flex w-screen items-center justify-center p-0 sm:p-4">
                 <Dialog.Panel className={getPanelClassName()}>
                     
-                    {/* Floating Close Button (Only show on initial selection to keep UI clean, let sub-components handle their own back/close nav if needed, or keep it global) */}
+                    {/* Floating Close Button */}
                     {!creationMode && (
                         <button
                             onClick={handleClose}
-                            className="absolute top-6 right-6 p-2.5 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-all duration-200 text-slate-500 dark:text-slate-400 backdrop-blur-md z-20"
+                            className="absolute top-6 right-6 p-2.5 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-all duration-200 text-slate-500 dark:text-slate-400 z-20"
                             aria-label="Close"
                         >
                             <XMarkIcon className="w-5 h-5 stroke-[2.5]" />

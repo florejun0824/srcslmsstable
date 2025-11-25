@@ -32,9 +32,10 @@ const ModeSelection = ({ onSelect }) => (
             {/* AI Option */}
             <button
                 onClick={() => onSelect('ai')}
+                // [MODIFIED] Solid bg, sharp border, no blur
                 className="group relative flex flex-col items-start text-left p-6 h-auto
-                           bg-white/60 dark:bg-[#2c2c2e]/60 backdrop-blur-xl 
-                           border border-white/20 dark:border-white/10
+                           bg-white dark:bg-[#2c2c2e] 
+                           border border-slate-200 dark:border-slate-700
                            rounded-[32px] shadow-sm hover:shadow-2xl hover:shadow-blue-500/10 
                            transition-all duration-300 
                            hover:scale-[1.02] active:scale-[0.98] overflow-hidden"
@@ -60,9 +61,10 @@ const ModeSelection = ({ onSelect }) => (
             {/* Manual Option */}
             <button
                 onClick={() => onSelect('manual')}
+                // [MODIFIED] Solid bg, sharp border, no blur
                 className="group relative flex flex-col items-start text-left p-6 h-auto
-                           bg-white/60 dark:bg-[#2c2c2e]/60 backdrop-blur-xl 
-                           border border-white/20 dark:border-white/10
+                           bg-white dark:bg-[#2c2c2e] 
+                           border border-slate-200 dark:border-slate-700
                            rounded-[32px] shadow-sm hover:shadow-2xl hover:shadow-green-500/10 
                            transition-all duration-300 
                            hover:scale-[1.02] active:scale-[0.98] overflow-hidden"
@@ -111,15 +113,16 @@ export default function AddQuizModal({ isOpen, onClose, unitId, subjectId }) {
     };
 
     const getPanelClassName = () => {
-        const baseClasses = "relative flex flex-col transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden border border-white/20 dark:border-white/10 shadow-2xl shadow-black/20 ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-2xl";
+        // [MODIFIED] Removed backdrop-blur-2xl, added solid background colors and sharper borders
+        const baseClasses = "relative flex flex-col transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl shadow-black/20 ring-1 ring-black/5 dark:ring-white/5";
         
         switch (creationMode) {
             case 'ai':
-                return `${baseClasses} w-full max-w-5xl rounded-[32px] bg-[#f5f5f7]/90 dark:bg-[#1c1c1e]/90 min-h-[600px]`;
+                return `${baseClasses} w-full max-w-5xl rounded-[32px] bg-[#f5f5f7] dark:bg-[#1c1c1e] min-h-[600px]`;
             case 'manual':
                 return `${baseClasses} w-screen h-screen max-w-full max-h-screen rounded-none bg-[#f5f5f7] dark:bg-[#1c1c1e]`;
             default:
-                return `${baseClasses} w-full max-w-3xl rounded-[36px] bg-white/80 dark:bg-[#1c1c1e]/80`;
+                return `${baseClasses} w-full max-w-3xl rounded-[36px] bg-white dark:bg-[#1c1c1e]`;
         }
     };
 
@@ -145,8 +148,8 @@ export default function AddQuizModal({ isOpen, onClose, unitId, subjectId }) {
 
     return (
         <Dialog open={isOpen} onClose={handleClose} className="relative z-50">
-            {/* Ultra-smooth backdrop blur */}
-            <div className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-md transition-opacity duration-300" aria-hidden="true" />
+            {/* Reduced backdrop blur for performance, kept slight for depth */}
+            <div className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm transition-opacity duration-300" aria-hidden="true" />
             
             <div className="fixed inset-0 flex w-screen items-center justify-center p-0 sm:p-4">
                 <DialogPanel className={getPanelClassName()}>
@@ -154,10 +157,10 @@ export default function AddQuizModal({ isOpen, onClose, unitId, subjectId }) {
                     {/* Floating Close Button */}
                     <button
                         onClick={handleClose}
-                        className={`absolute top-6 right-6 z-20 p-2.5 rounded-full transition-all duration-200 backdrop-blur-md group
+                        className={`absolute top-6 right-6 z-20 p-2.5 rounded-full transition-all duration-200 group
                             ${creationMode === 'manual' 
-                                ? 'bg-white/80 dark:bg-black/50 text-slate-500 hover:text-red-500 hover:bg-white shadow-sm border border-black/5 dark:border-white/10' 
-                                : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-slate-500 dark:text-slate-400'
+                                ? 'bg-white text-slate-500 hover:text-red-500 hover:bg-red-50 shadow-sm border border-slate-200' 
+                                : 'bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-500 dark:text-slate-400'
                             }`}
                         aria-label="Close"
                     >

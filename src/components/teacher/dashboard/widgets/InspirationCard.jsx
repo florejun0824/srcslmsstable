@@ -1,3 +1,4 @@
+// src/components/teacher/dashboard/widgets/InspirationCard.jsx
 import React, { useState, useEffect } from 'react';
 import { LightBulbIcon } from '@heroicons/react/24/outline';
 
@@ -21,31 +22,62 @@ const InspirationCard = ({ className }) => {
         setQuote(dailyQuote);
     }, []);
 
-    // --- MODIFIED: Added dark mode text colors to all styles ---
+    // --- MD3 Tonal Color Styles ---
     const colorStyles = {
-        blue: { text: 'text-blue-500 dark:text-blue-400' },
-        green: { text: 'text-green-500 dark:text-green-400' },
-        purple: { text: 'text-purple-500 dark:text-purple-400' },
-        red: { text: 'text-red-500 dark:text-red-400' },
-        indigo: { text: 'text-indigo-500 dark:text-indigo-400' },
-        pink: { text: 'text-pink-500 dark:text-pink-400' },
-        gray: { text: 'text-gray-500 dark:text-gray-400' },
+        blue: { 
+            bg: 'bg-blue-100 dark:bg-blue-900/30', 
+            text: 'text-blue-600 dark:text-blue-400' 
+        },
+        green: { 
+            bg: 'bg-green-100 dark:bg-green-900/30', 
+            text: 'text-green-600 dark:text-green-400' 
+        },
+        purple: { 
+            bg: 'bg-purple-100 dark:bg-purple-900/30', 
+            text: 'text-purple-600 dark:text-purple-400' 
+        },
+        red: { 
+            bg: 'bg-red-100 dark:bg-red-900/30', 
+            text: 'text-red-600 dark:text-red-400' 
+        },
+        indigo: { 
+            bg: 'bg-indigo-100 dark:bg-indigo-900/30', 
+            text: 'text-indigo-600 dark:text-indigo-400' 
+        },
+        pink: { 
+            bg: 'bg-pink-100 dark:bg-pink-900/30', 
+            text: 'text-pink-600 dark:text-pink-400' 
+        },
+        gray: { 
+            bg: 'bg-slate-100 dark:bg-slate-700/50', 
+            text: 'text-slate-600 dark:text-slate-400' 
+        },
     };
+    
     const currentColors = colorStyles[quote.color] || colorStyles.gray;
 
     return (
         <div className={`p-6 h-full flex flex-col justify-center ${className}`}>
             <div className="flex items-start gap-4">
-                {/* --- MODIFIED: Added dark mode classes for icon container --- */}
-                <div className="p-3 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
-                    <LightBulbIcon className={`w-7 h-7 ${currentColors.text}`} />
+                {/* --- Icon Container (Tonal Surface) --- */}
+                <div className={`p-3.5 rounded-2xl shrink-0 ${currentColors.bg} transition-colors duration-300`}>
+                    <LightBulbIcon className={`w-6 h-6 ${currentColors.text}`} strokeWidth={2} />
                 </div>
-                <div>
-                    {/* --- MODIFIED: Added dark mode text colors --- */}
-                    <p className="font-bold text-slate-800 dark:text-slate-100">Inspiration for the Day</p>
-                    <blockquote className="mt-1">
-                        <p className="text-slate-600 dark:text-slate-300 text-sm">"{quote.text}"</p>
-                        <cite className="block text-right not-italic text-xs text-slate-500 dark:text-slate-400 mt-2">- {quote.author}</cite>
+                
+                <div className="flex-1 min-w-0">
+                    <p className="font-bold text-slate-900 dark:text-white text-base leading-none mb-2">
+                        Daily Inspiration
+                    </p>
+                    <blockquote className="relative">
+                        <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed italic">
+                            "{quote.text}"
+                        </p>
+                        <footer className="mt-2 flex items-center gap-2">
+                            <div className={`h-px w-4 ${currentColors.bg.replace('bg-', 'bg-').replace('/30', '')} opacity-50`}></div>
+                            <cite className="not-italic text-xs font-bold text-slate-500 dark:text-slate-400">
+                                {quote.author}
+                            </cite>
+                        </footer>
                     </blockquote>
                 </div>
             </div>

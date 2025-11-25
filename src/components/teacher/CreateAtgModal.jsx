@@ -1,19 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog } from '@headlessui/react';
 import { useToast } from '../../contexts/ToastContext';
 import { useCourseData } from '../../hooks/useCourseData';
 import SourceContentSelector from '../../hooks/SourceContentSelector';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import Spinner from '../common/Spinner';
-import { XMarkIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, DocumentTextIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import LessonPage from './LessonPage';
 
 // Import Firebase Firestore functions for saving
 import { writeBatch, doc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 
-
-// Helper functions (extractJson, tryParseJson)
+// Helper functions
 const extractJson = (text) => {
     let match = text.match(/```json\s*([\s\S]*?)\s*```/);
     if (!match) match = text.match(/```([\s\S]*?)```/);
@@ -21,27 +20,25 @@ const extractJson = (text) => {
     const firstBrace = text.indexOf('{');
     const lastBrace = text.lastIndexOf('}');
     if (firstBrace > -1 && lastBrace > firstBrace) return text.substring(firstBrace, lastBrace + 1);
-    throw new Error("AI response did not contain a valid JSON object.");
-};
-
-const tryParseJson = (jsonString) => {
-    try {
-        return JSON.parse(jsonString);
-    } catch (error) {
-        let sanitizedString = jsonString.replace(/,\s*([}\]])/g, '$1');
-        try {
-            return JSON.parse(sanitizedString);
-        } catch (finalError) {
-            throw finalError;
-        }
-    }
+    return null;
 };
 
 export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
     const { showToast } = useToast();
+    
+    // --- iPadOS 26 Styles ---
+    const iosInput = "w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl py-3 px-4 text-sm font-medium text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#007AFF]/50 focus:border-[#007AFF] transition-all resize-none";
+    const iosCard = "bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-2xl p-5 shadow-sm flex flex-col h-full";
+    const iosBtnPrimary = "px-6 py-3 bg-[#007AFF] hover:bg-[#0062cc] text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-2 justify-center";
+    const iosBtnSecondary = "px-6 py-3 bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-white font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-white/20 transition-all active:scale-95";
+    const iosLabel = "block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 ml-1";
+
+    // --- State ---
     const [isGenerating, setIsGenerating] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [previewData, setPreviewData] = useState(null);
+    const [progress, setProgress] = useState(0);
+    const [progressLabel, setProgressLabel] = useState('');
 
     const [contentStandard, setContentStandard] = useState('');
     const [performanceStandard, setPerformanceStandard] = useState('');
@@ -54,22 +51,43 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
 
     const { allSubjects, unitsForSubject, lessonsForUnit, loading } = useCourseData(currentSelectedSubjectId);
 
-    // --- MODIFIED: Neumorphic style constants (Tailwind) ---
-    const neuInput = "w-full bg-slate-200 dark:bg-neumorphic-base-dark rounded-lg py-2.5 px-4 text-slate-700 dark:text-slate-100 shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff] dark:shadow-neumorphic-inset-dark focus:outline-none focus:ring-2 focus:ring-sky-500 transition border-2 border-slate-200 dark:border-neumorphic-base-dark focus:border-slate-300 dark:focus:border-slate-700 placeholder:text-slate-400 dark:placeholder:text-slate-500";
-    const neuCard = "bg-slate-200 dark:bg-neumorphic-base-dark p-4 sm:p-6 rounded-xl shadow-[6px_6px_12px_#bdc1c6,-6px_-6px_12px_#ffffff] dark:shadow-lg";
-    const neuButton = "px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-neumorphic-base-dark shadow-[5px_5px_10px_#bdc1c6,-5px_-5px_10px_#ffffff] dark:shadow-lg hover:shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:hover:shadow-neumorphic-inset-dark active:shadow-[inset_5px_5px_10px_#bdc1c6,inset_-5px_-5px_10px_#ffffff] dark:active:shadow-neumorphic-inset-dark disabled:text-slate-400 dark:disabled:text-slate-600 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] dark:disabled:shadow-neumorphic-inset-dark transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-200 dark:focus:ring-offset-neumorphic-base-dark";
-    const neuButtonPrimary = "px-8 py-3 bg-gradient-to-br from-teal-400 to-cyan-500 font-semibold text-white rounded-xl shadow-[5px_5px_10px_#bdc1c6,-5px_-5px_10px_#ffffff] dark:from-teal-600 dark:to-cyan-700 dark:shadow-lg hover:shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:hover:shadow-neumorphic-inset-dark active:shadow-[inset_5px_5px_10px_#bdc1c6,inset_-5px_-5px_10px_#ffffff] dark:active:shadow-neumorphic-inset-dark disabled:text-slate-400 dark:disabled:text-slate-600 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] dark:disabled:shadow-neumorphic-inset-dark transition-shadow duration-200";
-    const neuHeaderIcon = "p-2 sm:p-3 rounded-xl text-white shadow-lg flex-shrink-0 bg-gradient-to-br from-teal-500 to-cyan-600";
-    // ----------------------------------------------------
-    
+    // --- Generation Logic ---
+
+    const generateAtgChunk = async (stepName, specificInstructions, sourceContent, previousContext) => {
+        const prompt = `
+        You are an expert PEAC / DepEd Curriculum Developer.
+        Your task is to write specific sections of an Adaptive Teaching Guide (ATG).
+        
+        **CONTEXT (What you have written so far):**
+        ${previousContext ? `...${previousContext.slice(-3000)}` : "No previous sections written yet."}
+
+        **SOURCE LESSON CONTENT:**
+        ---
+        ${sourceContent.slice(0, 15000)}
+        ---
+
+        **YOUR CURRENT TASK:**
+        Write the content for the following sections only. Do not write the whole document, just these specific parts. Follow the detailed instructions below strictly.
+        
+        ${specificInstructions}
+
+        **OUTPUT:**
+        Return only the formatted text content for these sections. Use clear Markdown headings (e.g., **1. Prerequisite...**).
+        `;
+
+        const result = await callGeminiWithLimitCheck(prompt, { maxOutputTokens: 4096 });
+        return result;
+    };
+
     const handleGenerate = async () => {
         setIsGenerating(true);
         setPreviewData(null);
-        try {
-            if (!learningCompetencies) {
-                throw new Error("Please fill in the learning competencies field.");
-            }
+        setProgress(0);
 
+        try {
+            if (!learningCompetencies) throw new Error("Please fill in the learning competencies field.");
+
+            // 1. Prepare Source Content
             let sourceContent = '';
             let sourceTitle = '';
             let generatedFromUnitId = null; 
@@ -78,18 +96,16 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
             if (scope === 'byUnit') {
                 if (currentSelectedUnitIds.size === 0) throw new Error("Please select at least one unit.");
                 const unitDetails = Array.from(currentSelectedUnitIds).map(id => unitsForSubject.find(u => u.id === id)).filter(Boolean);
-                
                 sourceTitle = unitDetails.map(u => u.title).join(' & ');
                 generatedFromUnitId = unitDetails[0]?.id || null;
                 generatedFromSubjectId = currentSelectedSubjectId;
-                
                 const allLessonContents = [];
                 for (const unit of unitDetails) {
                     const lessonsInUnit = lessonsForUnit.filter(l => l.unitId === unit.id);
                     lessonsInUnit.forEach(l => { allLessonContents.push(l.pages.map(p => p.content).join('\n')); });
                 }
                 sourceContent = allLessonContents.join('\n\n---\n\n');
-            } else { // scope === 'byLesson'
+            } else {
                 if (!currentSelectedLessonId) throw new Error("Please select a lesson.");
                 const lesson = lessonsForUnit.find(l => l.id === currentSelectedLessonId);
                 if (!lesson) throw new Error("Selected lesson could not be found.");
@@ -98,21 +114,14 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
                 generatedFromUnitId = lesson.unitId;
                 generatedFromSubjectId = lesson.subjectId;
             }
-            if (!sourceContent) {
-                throw new Error("No source content found for the selected scope. Please ensure the selected units/lessons have content.");
-            }
+            if (!sourceContent) throw new Error("No source content found.");
 
-            showToast("Step 1/2: Generating PEAC ATG content...", "info");
+            // 2. Sequential Generation Steps (Context Aware)
+            let accumulatedAtgText = "";
 
-            const atgAnalysisPrompt = `Your task is to generate a complete and detailed ATG based on the provided source lesson or topic. The ATG must be student-centered, assessment-driven, and adaptable for different learning modalities (in-person, online, and hybrid). Adhere strictly to the 10-section structure and detailed instructions below.
-
-                **Source Lesson Content:**
-                ---
-                ${sourceContent}
-                ---
-
-                **GUIDE SECTIONS (Generate detailed and specific content for each of the following 10 sections):**
-                
+            // Step 1: Planning
+            setProgress(10); setProgressLabel("Step 1/5: Planning Prerequisites...");
+            const step1 = await generateAtgChunk("Planning", `
                 **Part 1: PLANNING**
 
                 **1. Prerequisite Content-Knowledge and Skills:**
@@ -130,108 +139,132 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
                 Create a targeted remediation plan for students who do not pass the Prerequisite Assessment. This plan must directly address the gaps identified in Section 2.
                 - **For Online/Asynchronous Modality:** Provide a specific, high-quality online resource (e.g., a link to a specific Khan Academy video, a PhET simulation, or a practice quiz) that targets a key prerequisite skill. Describe the resource and what students should do with it.
                 - **For In-person/Synchronous Modality:** Describe a concise, teacher-facilitated activity (e.g., a 10-minute mini-lesson using a whiteboard, a quick think-pair-share activity with guided questions, or a focused worksheet).
+            `, sourceContent, accumulatedAtgText);
+            accumulatedAtgText += step1 + "\n\n";
 
-                **Part 2: INSTRUCTION AND ASSESSMENT**
+            // Step 2: Introduction
+            setProgress(30); setProgressLabel("Step 2/5: Crafting Introduction...");
+            const step2 = await generateAtgChunk("Introduction", `
+                **Part 2: INSTRUCTION AND ASSESSMENT (Beginning)**
 
                 **4. Introduction:**
                 Craft a compelling introduction to motivate students and set clear expectations.
                 - **Hook (Mental Primer):** Start with an engaging hook: a provocative question, a surprising statistic, a short, relevant anecdote, or a brief, interesting video clip.
-                - **Connecting to the Performance Task:** Briefly state how the upcoming lesson will equip students with the skills needed for the final performance task (mentioned in Section 10).
-                - **Learning Targets:** Clearly articulate the lesson's goals as specific, student-centered "I can..." statements. These should be unpacked from the curriculum standards. (e.g., "I can identify the three main causes of the water cycle.").
+                - **Connecting to the Performance Task:** Briefly state how the upcoming lesson will equip students with the skills needed for the final performance task.
+                - **Learning Targets:** Clearly articulate the lesson's goals as specific, student-centered "I can..." statements. These should be unpacked from these competencies: ${learningCompetencies}.
+            `, sourceContent, accumulatedAtgText);
+            accumulatedAtgText += step2 + "\n\n";
 
+            // Step 3: Lesson Proper
+            setProgress(50); setProgressLabel("Step 3/5: Developing Lesson Proper...");
+            const step3 = await generateAtgChunk("Lesson Proper", `
                 **5. Student's Experiential Learning (The Lesson Proper):**
                 This is the core of the lesson. Based on the source content, break down the lesson into **2-3 logical "Content Chunks."** For **EACH CHUNK**, you must provide the following structured sequence:
                 - **A. Teacher Input / Student Activity:** Detail the learning experience. What will the teacher present, or what will the students *do*? (e.g., "Students will watch a 3-minute video on...", "Teacher will conduct a brief demonstration of..."). Specify materials needed.
                 - **B. Formative Question(s):** Immediately following the activity, pose 1-2 specific questions to check for understanding of **that specific chunk**.
                 - **C. Expected Student Response:** Provide and include the ideal answer(s) to the formative questions. This helps the teacher know what to listen for.
                 - **D. Discussion:** Provide in-depth elaboration and explanation of the key concepts of the lessons or topics to strengthen student experiential learning.
+            `, sourceContent, accumulatedAtgText);
+            accumulatedAtgText += step3 + "\n\n";
 
+            // Step 4: Synthesis & Post-Assessment
+            setProgress(70); setProgressLabel("Step 4/5: Creating Assessments...");
+            const step4 = await generateAtgChunk("Post-Lesson", `
                 **6. Synthesis:**
-                Design a powerful concluding activity that requires students to consolidate the learning from all the "chunks" in Section 5.
+                Design a powerful concluding activity that requires students to consolidate the learning from all the "chunks".
                 - **Synthesis Question/Prompt:** Write a single, higher-order thinking question that forces students to connect the concepts from all chunks.
-                - **Reinforcement Activity:** Design a tangible activity where students answer the synthesis question. Examples: creating a concept map, completing a graphic organizer, or writing an "exit ticket" summary. Describe the activity and the expected output.
+                - **Reinforcement Activity:** Design a tangible activity where students answer the synthesis question (e.g., concept map, exit ticket). Describe the activity and expected output.
 
                 **7. Assessment of Student's Learning (Post-Lesson Assessment):**
-                Create a formative assessment to measure how well students met the Learning Targets from Section 4.
+                Create a formative assessment to measure how well students met the Learning Targets.
                 - Design a 5-10 item quiz that is directly aligned with the learning targets and the content chunks.
                 - Use a variety of question types (e.g., multiple choice, short answer, problem-solving).
                 - Provide a detailed **Answer Key with explanations** for each item. Format this in a clear table.
 
                 **8. Post-Lesson Remediation Activity:**
-                Design a specific plan for students who scored poorly on the assessment in Section 7.
-                - This activity must be targeted, addressing the most common errors or misconceptions revealed by the assessment data.
-                - Describe a specific, focused activity (e.g., a targeted worksheet, re-watching a specific part of a video, a one-on-one conference) that directly reinforces the weak areas. Provide both an online and an in-person option.
+                Design a specific plan for students who scored poorly on the assessment.
+                - Address the most common errors or misconceptions revealed by the assessment.
+                - Describe a specific, focused activity (e.g., targeted worksheet, re-watching a specific part of a video) for both online and in-person contexts.
 
                 **9. Post-Lesson Enrichment Activity:**
-                For students who have mastered the content, design a challenging and engaging activity that extends their learning. This should not be "more of the same work."
-                - The activity must encourage higher-level thinking (e.g., application, analysis, evaluation, creation).
-                - **Examples:** Propose a solution to a more complex problem, research a related topic of interest, or design a creative project.
+                For students who have mastered the content, design a challenging and engaging activity that extends their learning (higher-level thinking, application, analysis).
+            `, sourceContent, accumulatedAtgText);
+            accumulatedAtgText += step4 + "\n\n";
 
+            // Step 5: Summative Task
+            setProgress(85); setProgressLabel("Step 5/5: Designing Performance Task...");
+            const step5 = await generateAtgChunk("Summative", `
                 **Part 3: SUMMATIVE ASSESSMENT**
 
                 **10. Final Unit Performance Task (GRASPS Format):**
-                Design a meaningful, authentic summative performance task using the GRASPS model. This task should allow students to apply the knowledge and skills from this lesson in a real-world context.
+                Design a meaningful, authentic summative performance task using the GRASPS model.
                 - **Goal:** What is the main objective of the task?
                 - **Role:** What role does the student assume?
                 - **Audience:** Who is the target audience for their work?
                 - **Situation:** What is the real-world context or scenario?
                 - **Product:** What will the student create?
                 - **Standards:** How will the product be judged?
-                - **Scoring Rubric:** Following the GRASPS, create a detailed scoring rubric for the performance task. The rubric must have at least **three criteria** for success and at least **three proficiency levels** (e.g., Beginning, Developing, Accomplished) with clear descriptors for each level.`;
+                - **Scoring Rubric:** Create a detailed scoring rubric for the performance task. The rubric must have at least **three criteria** for success and at least **three proficiency levels** (e.g., Beginning, Developing, Accomplished) with clear descriptors for each level.
+            `, sourceContent, accumulatedAtgText);
+            accumulatedAtgText += step5 + "\n\n";
 
-            const analysisText = await callGeminiWithLimitCheck(atgAnalysisPrompt, { maxOutputTokens: 8192 });
-            if (analysisText.toLowerCase().includes("i cannot")) throw new Error("AI failed during ATG content generation.");
-            
-            showToast("Step 2/2: Formatting ATG...", "info");
-            const finalPrompt = `Your primary task is to return a single, valid JSON object by formatting the provided ATG content into a comprehensive HTML table.
-                **CRITICAL JSON FORMATTING RULES:** Your entire response MUST be a single, valid JSON object. Escape all quotes inside string values.
-                **Pre-Generated ATG Content:**
-                ---
-                ${analysisText}
-                ---
-                **CRITICAL HTML TABLE INSTRUCTIONS:**
-                1.  Create a two-column HTML table ("ATG Component", "Details").
-                2.  Create one row (\`<tr>\`) for each of the 10 ATG sections.
-                3.  Convert bullet points to HTML lists (\`<ul>\`).
+            // 3. Final Formatting (HTML Table)
+            setProgress(95); setProgressLabel("Finalizing Document...");
+            const finalPrompt = `
+                Your task is to format the provided ATG content into a single JSON object containing an HTML table.
                 
-                **FINAL JSON OUTPUT STRUCTURE:**
-                {"generated_lessons": [{"lessonTitle": "Adaptive Teaching Guide: ${sourceTitle}", "pages": [{"title": "PEAC Adaptive Teaching Guide", "content": "<table...>...</table>"}]}]}`;
+                **CRITICAL JSON FORMATTING RULES:** - Response MUST be valid JSON. 
+                - Escape all quotes inside string values.
+                
+                **CONTENT TO FORMAT:**
+                ---
+                ${accumulatedAtgText}
+                ---
 
-            const aiText = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 8192 });
-            const jsonText = extractJson(aiText);
-            const parsedResponse = JSON.parse(jsonText);
+                **HTML INSTRUCTIONS:**
+                1. Create a two-column HTML table ("ATG Component", "Details").
+                2. Create one row (\`<tr>\`) for each of the 10 sections defined in the text.
+                3. Use bold headers inside the cells.
+                4. Convert bullet lists to \`<ul>\` and \`<li>\`.
+
+                **FINAL JSON OUTPUT STRUCTURE:**
+                {"generated_lessons": [{"lessonTitle": "Adaptive Teaching Guide: ${sourceTitle}", "pages": [{"title": "PEAC Adaptive Teaching Guide", "content": "<table...>...</table>"}]}]}
+            `;
+
+            const formattedText = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 8192 });
+            const jsonText = extractJson(formattedText);
             
+            if (!jsonText) throw new Error("Failed to format final output.");
+            
+            const parsedResponse = JSON.parse(jsonText);
+
             setPreviewData({
                 ...parsedResponse,
                 sourceSubjectId: generatedFromSubjectId, 
                 sourceUnitId: generatedFromUnitId, 
-                contentStandard: contentStandard,
-                performanceStandard: performanceStandard,
-                learningCompetencies: learningCompetencies,
-                sourceTitle: sourceTitle,
+                contentStandard,
+                performanceStandard,
+                learningCompetencies,
+                sourceTitle,
             });
+            
+            setProgress(100);
 
         } catch (err) {
             console.error("Error generating ATG:", err);
             showToast(err.message, "error");
         } finally {
             setIsGenerating(false);
+            setProgress(0);
         }
     };
     
     const handleSave = async () => {
-        if (!previewData || !Array.isArray(previewData.generated_lessons) || previewData.generated_lessons.length === 0) {
-            showToast("Cannot save: No ATG content to save.", "error");
+        if (!previewData?.generated_lessons?.length) {
+            showToast("No content to save.", "error");
             return;
         }
-        if (!subjectId || !unitId) { 
-            showToast("Could not save: Destination unit or subject is missing from modal props.", "error");
-            return;
-        }
-        
         setIsSaving(true);
-        showToast("Saving Adaptive Teaching Guide...", "info");
-
         try {
             const batch = writeBatch(db);
             const atgLesson = previewData.generated_lessons[0]; 
@@ -243,126 +276,131 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
                 unitId: unitId,
                 subjectId: subjectId,
                 contentType: "teacherAtg",
-                contentStandard: previewData.contentStandard || '',
-                performanceStandard: previewData.performanceStandard || '',
-                learningCompetencies: previewData.learningCompetencies || '',
-                sourceSubjectId: previewData.sourceSubjectId || '',
-                sourceUnitId: previewData.sourceUnitId || '',
-                sourceOfAtgTitle: previewData.sourceTitle || '',
+                contentStandard,
+                performanceStandard,
+                learningCompetencies,
+                sourceSubjectId: previewData.sourceSubjectId,
+                sourceUnitId: previewData.sourceUnitId,
+                sourceOfAtgTitle: previewData.sourceTitle,
                 createdAt: serverTimestamp(),
             });
             
             await batch.commit();
-            showToast("Adaptive Teaching Guide saved successfully!", "success");
+            showToast("ATG saved successfully!", "success");
             onClose();
-
         } catch (err) {
             console.error("Error saving ATG:", err);
-            showToast("Failed to save Adaptive Teaching Guide.", "error");
+            showToast("Failed to save ATG.", "error");
         } finally {
             setIsSaving(false);
         }
     };
 
     return (
-        <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4">
-            {/* --- MODIFIED: Dark theme backdrop --- */}
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm dark:bg-black/80" />
-            {/* --- MODIFIED: Dark theme panel --- */}
-            <Dialog.Panel className="relative bg-slate-200 dark:bg-neumorphic-base-dark p-4 sm:p-6 rounded-2xl shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff] dark:shadow-lg w-full max-w-md lg:max-w-5xl max-h-[90vh] flex flex-col">
-                {(isGenerating || isSaving) && (
-                    // --- MODIFIED: Dark theme loading overlay ---
-                    <div className="absolute inset-0 bg-white/80 dark:bg-neumorphic-base-dark/80 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl">
-                        <Spinner />
-                        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{isGenerating ? 'AI is generating ATG...' : 'Saving ATG...'}</p>
-                    </div>
-                )}
-                
-                {/* --- MODIFIED: Dark theme header --- */}
-                <div className="flex justify-between items-start mb-4 sm:mb-6">
-                    <div className="flex items-center gap-3 sm:gap-4">
-                        <div className={neuHeaderIcon}>
-                            <DocumentTextIcon className="h-6 w-6 sm:h-8 sm:h-8" />
+        <Dialog open={isOpen} onClose={onClose} className="relative z-[110]">
+            {/* Backdrop */}
+            <div className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm transition-opacity" aria-hidden="true" />
+            
+            <div className="fixed inset-0 flex w-screen items-center justify-center p-4 sm:p-6">
+                <Dialog.Panel className="relative flex flex-col w-full max-w-6xl max-h-[90vh] rounded-[2rem] bg-white dark:bg-[#1C1C1E] shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden transition-all transform">
+                    
+                    {/* Loading Overlay */}
+                    {(isGenerating || isSaving) && (
+                        <div className="absolute inset-0 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-sm flex flex-col justify-center items-center z-50 space-y-4">
+                            {isGenerating ? <ProgressIndicator progress={progress} /> : <Spinner />}
+                            <p className="text-gray-600 dark:text-gray-300 font-medium">{isGenerating ? progressLabel : 'Saving ATG...'}</p>
                         </div>
-                        <div>
-                            <Dialog.Title className="text-base sm:text-2xl font-bold text-slate-800 dark:text-slate-100">AI ATG Generator</Dialog.Title>
-                            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Create a PEAC Adaptive Teaching Guide from source content.</p>
-                        </div>
-                    </div>
-                    {/* --- MODIFIED: Dark theme close button --- */}
-                    <button onClick={onClose} className={`${neuButton} !p-2 !rounded-full`}><XMarkIcon className="h-6 w-6" /></button>
-                </div>
+                    )}
 
-                {/* --- MODIFIED: Dark theme scrollbar --- */}
-                <div className="flex-1 overflow-y-auto -mr-2 pr-2 sm:-mr-4 sm:pr-4">
-                    {!previewData ? (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                            {/* --- MODIFIED: Dark theme card --- */}
-                            <div className={neuCard}>
-                                <h3 className="font-bold text-base sm:text-lg text-slate-700 dark:text-slate-100 border-b dark:border-slate-700 pb-2 mb-4">Authoritative Inputs</h3>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Content Standard</label>
-                                        <textarea value={contentStandard} onChange={(e) => setContentStandard(e.target.value)} className={neuInput} rows={3} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Performance Standard</label>
-                                        <textarea value={performanceStandard} onChange={(e) => setPerformanceStandard(e.target.value)} className={neuInput} rows={3} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Learning Competencies</label>
-                                        <textarea placeholder="One competency per line..." value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className={neuInput} rows={4} />
-                                    </div>
-                                </div>
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-8 py-6 border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#1C1C1E] sticky top-0 z-20">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-2xl text-[#007AFF]">
+                                <DocumentTextIcon className="h-8 w-8" />
                             </div>
-                            {/* --- MODIFIED: Dark theme card --- */}
-                            <div className={neuCard}>
-                                <h3 className="font-bold text-base sm:text-lg text-slate-700 dark:text-slate-100 border-b dark:border-slate-700 pb-2 mb-4">Source Content</h3>
-                                <SourceContentSelector
-                                    scope={scope} handleScopeChange={(e) => setScope(e.target.value)}
-                                    selectedSubjectId={currentSelectedSubjectId} handleSubjectChange={(e) => { setCurrentSelectedSubjectId(e.target.value); setCurrentSelectedUnitIds(new Set()); setCurrentSelectedLessonId(''); }}
-                                    allSubjects={allSubjects} selectedUnitIds={currentSelectedUnitIds}
-                                    handleUnitSelectionChange={(id) => {
-                                        const newSet = new Set(currentSelectedUnitIds);
-                                        if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
-                                        setCurrentSelectedUnitIds(newSet);
-                                    }}
-                                    unitsForSubject={unitsForSubject} selectedLessonId={currentSelectedLessonId}
-                                    handleLessonChange={(e) => setCurrentSelectedLessonId(e.target.value)}
-                                    lessonsForUnit={lessonsForUnit} loading={loading}
-                                />
+                            <div>
+                                <Dialog.Title className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">AI ATG Generator</Dialog.Title>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-0.5">PEAC Adaptive Teaching Guide</p>
                             </div>
                         </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {/* --- MODIFIED: Dark theme text --- */}
-                            <h2 className="text-lg sm:text-xl font-bold text-slate-700 dark:text-slate-100">Preview ATG</h2>
-                            {/* --- MODIFIED: Dark theme preview container --- */}
-                            <div className="max-h-[60vh] overflow-y-auto rounded-lg p-2 sm:p-4 bg-slate-100 dark:bg-slate-900/50 shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:shadow-neumorphic-inset-dark">
-                                {/* --- MODIFIED: Added dark theme prose --- */}
-                                <div className="prose prose-slate dark:prose-invert max-w-none">
-                                    {previewData?.generated_lessons?.[0] ? <LessonPage page={previewData.generated_lessons[0].pages[0]} /> : <p>Could not load preview.</p>}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-                 {/* --- MODIFIED: Dark theme footer --- */}
-                <div className="pt-4 sm:pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-slate-200 dark:border-slate-700/50 mt-4 sm:mt-6">
-                    {previewData ? (
-                        <>
-                            <button onClick={() => setPreviewData(null)} disabled={isSaving || isGenerating} className={`${neuButton} w-full sm:w-auto`}>Back to Edit</button>
-                            <button onClick={handleSave} className={`${neuButtonPrimary} w-full sm:w-auto !py-2.5 !px-5`} disabled={isSaving}>
-                                {isSaving ? 'Saving...' : 'Accept & Save'}
-                            </button>
-                        </>
-                    ) : (
-                        <button onClick={handleGenerate} disabled={isGenerating || loading} className={`${neuButtonPrimary} ml-auto w-full sm:w-auto !py-2.5 !px-5`}>
-                            {isGenerating ? 'Generating...' : 'Generate ATG'}
+                        <button onClick={onClose} disabled={isSaving || isGenerating} className="p-2 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/20 transition-colors">
+                            <XMarkIcon className="h-6 w-6" />
                         </button>
-                    )}
-                </div>
-            </Dialog.Panel>
+                    </div>
+
+                    {/* Content Body */}
+                    <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-white dark:bg-[#1C1C1E]">
+                        {!previewData ? (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
+                                {/* Left: Inputs */}
+                                <div className="space-y-8 overflow-y-auto pr-2 custom-scrollbar">
+                                    <section>
+                                        <h3 className="text-sm font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10 pb-3 mb-5 flex items-center gap-2">1. Authoritative Inputs</h3>
+                                        <div className="space-y-5">
+                                            <div><label className={iosLabel}>Content Standard</label><textarea value={contentStandard} onChange={(e) => setContentStandard(e.target.value)} className={iosInput} rows={3} /></div>
+                                            <div><label className={iosLabel}>Performance Standard</label><textarea value={performanceStandard} onChange={(e) => setPerformanceStandard(e.target.value)} className={iosInput} rows={3} /></div>
+                                            <div><label className={iosLabel}>Learning Competencies</label><textarea value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className={iosInput} rows={4} /></div>
+                                        </div>
+                                    </section>
+                                </div>
+
+                                {/* Right: Source Content */}
+                                <div className="flex flex-col h-full overflow-hidden">
+                                    <h3 className="text-sm font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10 pb-3 mb-5 flex items-center gap-2">2. Source Content</h3>
+                                    <div className={`${iosCard} flex-1`}>
+                                        <SourceContentSelector
+                                            scope={scope} handleScopeChange={(e) => setScope(e.target.value)}
+                                            selectedSubjectId={currentSelectedSubjectId} 
+                                            handleSubjectChange={(e) => { setCurrentSelectedSubjectId(e.target.value); setCurrentSelectedUnitIds(new Set()); setCurrentSelectedLessonId(''); }}
+                                            allSubjects={allSubjects} 
+                                            selectedUnitIds={currentSelectedUnitIds}
+                                            handleUnitSelectionChange={(id) => {
+                                                const newSet = new Set(currentSelectedUnitIds);
+                                                if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
+                                                setCurrentSelectedUnitIds(newSet);
+                                            }}
+                                            unitsForSubject={unitsForSubject} 
+                                            selectedLessonId={currentSelectedLessonId}
+                                            handleLessonChange={(e) => setCurrentSelectedLessonId(e.target.value)}
+                                            lessonsForUnit={lessonsForUnit} 
+                                            loading={loading}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="h-full overflow-y-auto custom-scrollbar">
+                                <div className="max-w-4xl mx-auto space-y-6">
+                                    <div className="text-center mb-8">
+                                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Adaptive Teaching Guide</h2>
+                                        <p className="text-gray-500 dark:text-gray-400 mt-2">{previewData.sourceTitle}</p>
+                                    </div>
+                                    <div className="bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-2xl p-8 shadow-sm overflow-x-auto">
+                                        <div className="prose prose-slate dark:prose-invert max-w-none">
+                                            {previewData?.generated_lessons?.[0] ? <LessonPage page={previewData.generated_lessons[0].pages[0]} /> : <p>Could not load preview.</p>}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex-shrink-0 px-8 py-6 border-t border-gray-200 dark:border-white/10 bg-white dark:bg-[#1C1C1E] flex justify-end gap-3 z-20">
+                        {previewData ? (
+                            <>
+                                <button onClick={() => setPreviewData(null)} disabled={isSaving || isGenerating} className={iosBtnSecondary}>Back to Edit</button>
+                                <button onClick={handleSave} disabled={isSaving} className={iosBtnPrimary}>Accept & Save</button>
+                            </>
+                        ) : (
+                            <button onClick={handleGenerate} disabled={isGenerating || loading} className={iosBtnPrimary}>
+                                <SparklesIcon className="w-5 h-5" />
+                                {isGenerating ? 'Generating...' : 'Generate ATG'}
+                            </button>
+                        )}
+                    </div>
+                </Dialog.Panel>
+            </div>
         </Dialog>
     );
 }

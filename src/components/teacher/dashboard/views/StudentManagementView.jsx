@@ -21,34 +21,34 @@ import EditUserModal from '../../../admin/EditUserModal';
 import ImportToClassModal from './ImportToClassModal'; 
 import UserInitialsAvatar from '../../../common/UserInitialsAvatar';
 
-// --- SKELETAL LOADING COMPONENT ---
+// --- SKELETAL LOADING COMPONENT (Optimized: Solid BG) ---
 const StudentTableSkeleton = () => (
-  <div className="flex-1 glass-panel rounded-[2rem] border border-white/40 dark:border-white/10 shadow-xl overflow-hidden flex flex-col p-4 animate-pulse">
-    <div className="hidden md:flex items-center gap-4 mb-4 px-4 py-3 bg-slate-100/50 dark:bg-white/5 rounded-xl border border-white/20 dark:border-white/5">
-      <div className="w-6 h-6 rounded-md bg-slate-300/50 dark:bg-white/10"></div>
-      <div className="h-4 w-32 bg-slate-300/50 dark:bg-white/10 rounded-full"></div>
-      <div className="h-4 w-24 bg-slate-300/50 dark:bg-white/10 rounded-full"></div>
+  <div className="flex-1 bg-white dark:bg-[#1A1D24] rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden flex flex-col p-4 animate-pulse">
+    <div className="hidden md:flex items-center gap-4 mb-4 px-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div className="w-6 h-6 rounded-md bg-slate-200 dark:bg-slate-700"></div>
+      <div className="h-4 w-32 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+      <div className="h-4 w-24 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
       <div className="flex-1"></div>
-      <div className="h-4 w-16 bg-slate-300/50 dark:bg-white/10 rounded-full"></div>
+      <div className="h-4 w-16 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
     </div>
     <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1">
       {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-        <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50/50 dark:bg-white/5 border border-white/20 dark:border-white/5">
-           <div className="w-5 h-5 rounded-md bg-slate-200/50 dark:bg-white/10 flex-shrink-0"></div>
+        <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700">
+           <div className="w-5 h-5 rounded-md bg-slate-200 dark:bg-slate-700 flex-shrink-0"></div>
            <div className="flex-1 space-y-2">
-              <div className="h-4 w-48 bg-slate-300/50 dark:bg-white/10 rounded-full"></div>
-              <div className="md:hidden h-3 w-24 bg-slate-200/50 dark:bg-white/5 rounded-full"></div>
+              <div className="h-4 w-48 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+              <div className="md:hidden h-3 w-24 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
            </div>
-           <div className="hidden md:block w-32 h-6 bg-slate-200/50 dark:bg-white/10 rounded-full"></div>
-           <div className="hidden md:block w-48 h-6 bg-slate-200/50 dark:bg-white/10 rounded-full"></div>
-           <div className="w-8 h-8 rounded-full bg-slate-200/50 dark:bg-white/10 flex-shrink-0"></div>
+           <div className="hidden md:block w-32 h-6 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+           <div className="hidden md:block w-48 h-6 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+           <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0"></div>
         </div>
       ))}
     </div>
   </div>
 );
 
-// --- STUDENT ROW (Fixed Avatar Glitch) ---
+// --- STUDENT ROW (Visuals Updated) ---
 const StudentRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => {
   return (
     <>
@@ -59,8 +59,8 @@ const StudentRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => 
         animate={{ opacity: 1, y: 0 }}
         className={`block md:hidden relative p-4 mb-3 rounded-[2rem] border shadow-sm overflow-hidden transition-all duration-300
             ${isSelected 
-                ? 'bg-indigo-50/80 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-500/30 ring-1 ring-indigo-500/20' 
-                : 'glass-panel border-white/40 dark:border-white/5'}`}
+                ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700 ring-1 ring-indigo-500/20' 
+                : 'bg-white dark:bg-[#1A1D24] border-slate-200 dark:border-slate-700'}`}
       >
         {/* Card Header */}
         <div className="flex items-start gap-3.5">
@@ -69,13 +69,13 @@ const StudentRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => 
                     type="checkbox"
                     checked={isSelected}
                     onChange={onSelect}
-                    className="h-5 w-5 rounded-lg border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-offset-0 focus:ring-indigo-500 dark:bg-white/10 cursor-pointer"
+                    className="h-5 w-5 rounded-lg border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-offset-0 focus:ring-indigo-500 dark:bg-slate-800 cursor-pointer"
                 />
             </div>
 
             <div className="flex-1 flex gap-3">
                 {/* FIX: Wrapped Avatar in a ringed, overflow-hidden container to prevent bleed/glitch */}
-                <div className="flex-shrink-0 w-12 h-12 rounded-full shadow-sm ring-2 ring-white dark:ring-white/10 overflow-hidden bg-slate-100 dark:bg-white/5">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full shadow-sm ring-2 ring-white dark:ring-slate-800 overflow-hidden bg-slate-100 dark:bg-slate-800">
                     <UserInitialsAvatar 
                         user={user} 
                         size="full" 
@@ -90,7 +90,7 @@ const StudentRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => 
                                 {user.firstName} {user.lastName}
                             </h3>
                             <div className="flex items-center gap-2 mt-1">
-                                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/10 text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wide border border-slate-200/50 dark:border-white/5">
+                                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wide border border-slate-200 dark:border-slate-700">
                                     {user.gradeLevel || 'N/A'}
                                 </span>
                             </div>
@@ -98,7 +98,7 @@ const StudentRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => 
                         
                         <button
                             onClick={onEdit}
-                            className="p-2 rounded-xl bg-white/50 dark:bg-white/5 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-white/10 transition-all shadow-sm border border-white/20"
+                            className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-700 transition-all shadow-sm border border-slate-200 dark:border-slate-700"
                         >
                             <Cog size={18} />
                         </button>
@@ -113,7 +113,7 @@ const StudentRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => 
                     enrolledClasses.map(className => (
                     <span 
                         key={className} 
-                        className="flex-shrink-0 px-2.5 py-1 rounded-lg bg-blue-50/50 dark:bg-blue-900/20 text-xs font-bold text-blue-600 dark:text-blue-300 border border-blue-100 dark:border-blue-500/20 whitespace-nowrap"
+                        className="flex-shrink-0 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs font-bold text-blue-600 dark:text-blue-300 border border-blue-100 dark:border-blue-800/30 whitespace-nowrap"
                     >
                         {className}
                     </span>
@@ -129,27 +129,27 @@ const StudentRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => 
       <motion.tr 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className={`hidden md:table-row transition-colors border-b border-slate-100/50 dark:border-white/5 last:border-none group ${isSelected ? 'bg-indigo-50/60 dark:bg-indigo-900/20' : 'hover:bg-slate-50/50 dark:hover:bg-white/5'}`}
+        className={`hidden md:table-row transition-colors border-b border-slate-100 dark:border-slate-800 last:border-none group ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
       >
         <td className="px-6 py-4 text-center w-16">
           <input
               type="checkbox"
               checked={isSelected}
               onChange={onSelect}
-              className="h-5 w-5 rounded-md border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-black/20 cursor-pointer"
+              className="h-5 w-5 rounded-md border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-slate-800 cursor-pointer"
             />
         </td>
         <td className="px-6 py-4 whitespace-nowrap">
             <div className="flex items-center gap-3">
                 {/* FIX: Wrapped Avatar in a ringed, overflow-hidden container */}
-                <div className="flex-shrink-0 w-9 h-9 rounded-full shadow-sm ring-2 ring-white dark:ring-white/10 overflow-hidden bg-slate-100 dark:bg-white/5">
+                <div className="flex-shrink-0 w-9 h-9 rounded-full shadow-sm ring-2 ring-white dark:ring-slate-800 overflow-hidden bg-slate-100 dark:bg-slate-800">
                     <UserInitialsAvatar user={user} size="full" className="w-full h-full text-xs font-bold" />
                 </div>
                 <span className="font-bold text-slate-800 dark:text-white">{user.firstName} {user.lastName}</span>
             </div>
         </td>
         <td className="px-6 py-4 whitespace-nowrap">
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 capitalize">
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 capitalize">
                 {user.gradeLevel || 'N/A'}
             </span>
         </td>
@@ -157,7 +157,7 @@ const StudentRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => 
           {enrolledClasses.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
                 {enrolledClasses.slice(0, 3).map(className => (
-                    <span key={className} className="text-xs font-medium text-slate-600 dark:text-slate-300 bg-white/50 dark:bg-black/20 px-2 py-0.5 rounded border border-slate-200 dark:border-white/10">
+                    <span key={className} className="text-xs font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
                         {className}
                     </span>
                 ))}
@@ -204,7 +204,7 @@ const CustomSelect = ({ value, onChange, options }) => {
             <button
                 type="button"
                 onClick={() => setIsOpen(prev => !prev)}
-                className="w-full bg-slate-100/50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 px-4 py-2.5 rounded-xl flex justify-between items-center text-left text-sm font-medium hover:bg-white dark:hover:bg-white/5 transition-colors"
+                className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 px-4 py-2.5 rounded-xl flex justify-between items-center text-left text-sm font-medium hover:bg-white dark:hover:bg-slate-700 transition-colors"
             >
                 <span>{selectedLabel}</span>
                 <ChevronsUpDown className="w-4 h-4 text-slate-400" />
@@ -217,7 +217,7 @@ const CustomSelect = ({ value, onChange, options }) => {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className="absolute z-50 top-full mt-1 w-full max-h-48 overflow-y-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-xl shadow-xl border border-slate-200/50 dark:border-white/10 p-1"
+                        className="absolute z-50 top-full mt-1 w-full max-h-48 overflow-y-auto bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 p-1"
                     >
                         {options.map(option => (
                             <li
@@ -242,7 +242,7 @@ const CustomSelect = ({ value, onChange, options }) => {
 };
 
 
-// --- FILTER POPUP (High Opacity) ---
+// --- FILTER POPUP (Solid Background) ---
 const FilterPopup = ({
   allClasses,
   filters,
@@ -280,15 +280,15 @@ const FilterPopup = ({
   return (
     <>
         {/* Mobile Backdrop */}
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden" onClick={onClose} />
+        <div className="fixed inset-0 bg-black/30 z-40 md:hidden" onClick={onClose} />
 
         <motion.div 
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className="fixed top-24 left-4 right-4 z-50 md:absolute md:top-14 md:left-0 md:right-auto md:w-80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-[2rem] shadow-2xl border border-white/40 dark:border-white/10"
+            className="fixed top-24 left-4 right-4 z-50 md:absolute md:top-14 md:left-0 md:right-auto md:w-80 bg-white dark:bg-[#1A1D24] rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-700"
         >
-            <div className="p-4 border-b border-slate-200/50 dark:border-white/10 flex justify-between items-center">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
                 <h3 className="font-bold text-base text-slate-900 dark:text-white">Filters</h3>
                 <button 
                     onClick={onClear}
@@ -329,20 +329,20 @@ const FilterPopup = ({
                                 setIsClassSearchOpen(true); 
                             }}
                             disabled={!!filters.class}
-                            className="w-full bg-slate-100/50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 px-4 py-2.5 pl-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm transition-all disabled:opacity-60"
+                            className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 px-4 py-2.5 pl-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm transition-all disabled:opacity-60"
                         />
                         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         {filters.class && (
                             <button 
                                 onClick={() => onFilterChange('class', null)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full bg-slate-200 dark:bg-white/10 text-slate-500 hover:text-red-500 transition-colors"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 hover:text-red-500 transition-colors"
                             >
                                 <X size={14} />
                             </button>
                         )}
                         
                         {isClassSearchOpen && !filters.class && (
-                            <div className="absolute z-10 w-full mt-1 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-xl shadow-xl max-h-40 overflow-auto custom-scrollbar border border-slate-200/50 dark:border-white/10 p-1">
+                            <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 rounded-xl shadow-xl max-h-40 overflow-auto custom-scrollbar border border-slate-200 dark:border-slate-700 p-1">
                                 {availableClasses.length > 0 ? (
                                     availableClasses.map(cls => (
                                         <div 
@@ -366,7 +366,7 @@ const FilterPopup = ({
                 </div>
             </div>
             
-            <div className="p-3 bg-slate-50/50 dark:bg-white/5 border-t border-slate-200/50 dark:border-white/10">
+            <div className="p-3 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700">
                 <button
                     onClick={onClose}
                     className="w-full px-4 py-2.5 font-bold text-sm text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl shadow-lg shadow-indigo-500/30 hover:scale-[1.02] transition-all"
@@ -565,12 +565,12 @@ const StudentManagementView = () => {
             </div>
         </motion.header>
 
-        {/* Toolbar (Control Center Style) */}
+        {/* Toolbar (Control Center Style - Solid) */}
         <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="glass-panel p-2 rounded-[1.25rem] border border-white/40 dark:border-white/10 shadow-lg flex flex-col md:flex-row gap-2 items-center justify-between relative z-50"
+            className="bg-white dark:bg-[#1A1D24] p-2 rounded-[1.25rem] border border-slate-200 dark:border-slate-700 shadow-lg flex flex-col md:flex-row gap-2 items-center justify-between relative z-50"
         >
             {/* Integrated Search & Filter Group */}
             <div className="flex flex-1 w-full gap-2">
@@ -582,7 +582,7 @@ const StudentManagementView = () => {
                         placeholder="Search students by name..."
                         value={filters.name}
                         onChange={(e) => handleFilterChange('name', e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-200/50 dark:border-white/5 text-sm font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 outline-none transition-all shadow-inner"
+                        className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 outline-none transition-all shadow-inner"
                     />
                 </div>
 
@@ -593,8 +593,8 @@ const StudentManagementView = () => {
                         onClick={() => setIsFilterOpen(prev => !prev)}
                         className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all h-full font-bold text-xs
                             ${isFilterOpen || activeFilterCount > 0 
-                                ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-300' 
-                                : 'bg-white dark:bg-white/5 border-slate-200/50 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/10'
+                                ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-700 text-indigo-600 dark:text-indigo-300' 
+                                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                             }`}
                     >
                         <ListFilter className="w-4 h-4" />
@@ -633,16 +633,16 @@ const StudentManagementView = () => {
             </button>
         </motion.div>
         
-        {/* Table / Content Area */}
+        {/* Table / Content Area (Solid Background) */}
 		<div className="flex-1 overflow-hidden flex flex-col min-h-0 relative z-0">
             {loading ? (
                 <StudentTableSkeleton />
             ) : (
-            <div className="flex-1 glass-panel rounded-[2rem] border border-white/40 dark:border-white/10 shadow-xl overflow-hidden flex flex-col">
+            <div className="flex-1 bg-white dark:bg-[#1A1D24] rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden flex flex-col">
                 {/* Desktop Table */}
                 <div className="hidden md:block overflow-x-auto custom-scrollbar flex-1">
                 <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50/80 dark:bg-white/5 backdrop-blur-md sticky top-0 z-10">
+                    <thead className="bg-slate-50 dark:bg-slate-800 sticky top-0 z-10">
                     <tr>
                         <th className="px-6 py-4 text-center w-16">
                         <input
@@ -650,7 +650,7 @@ const StudentManagementView = () => {
                             checked={allVisibleSelected}
                             onChange={handleSelectAll}
                             disabled={filteredStudents.length === 0}
-                            className="h-5 w-5 rounded-md border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-black/20 cursor-pointer"
+                            className="h-5 w-5 rounded-md border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-slate-800 cursor-pointer"
                         />
                         </th>
                         <th className="px-6 py-4 text-left font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">Name</th>
@@ -659,7 +659,7 @@ const StudentManagementView = () => {
                         <th className="px-6 py-4 text-right font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">Edit</th>
                     </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-white/5 bg-white/40 dark:bg-transparent">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-transparent">
                     {filteredStudents.length > 0 ? (
                         filteredStudents.map(user => (
                         <StudentRow 
@@ -685,7 +685,7 @@ const StudentManagementView = () => {
                 {/* Mobile List */}
                 <div className="block md:hidden flex-1 overflow-y-auto p-4 custom-scrollbar">
                 {filteredStudents.length > 0 && (
-                    <div className="flex items-center gap-3 px-4 py-3 bg-white/50 dark:bg-white/5 rounded-xl mb-4 border border-slate-200/50 dark:border-white/5">
+                    <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl mb-4 border border-slate-200 dark:border-slate-700">
                     <input
                         type="checkbox"
                         checked={allVisibleSelected}

@@ -619,15 +619,17 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const gradeLevels = ["Kindergarten", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
 
     // --- UI CONSTANTS (macOS 26) ---
-    const panelClass = "bg-white/60 dark:bg-[#1e1e1e]/60 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-[24px] shadow-2xl shadow-black/5";
-    const inputClass = "w-full bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-[14px] px-4 py-3 text-[15px] text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-[#007AFF]/50 outline-none transition-all shadow-inner appearance-none";
+    // [MODIFIED] Removed backdrop-blur-xl, made background solid white/dark
+    const panelClass = "bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-white/10 rounded-[24px] shadow-2xl shadow-black/5";
+    const inputClass = "w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-[14px] px-4 py-3 text-[15px] text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-[#007AFF]/50 outline-none transition-all shadow-inner appearance-none";
     const labelClass = "text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-2 block tracking-wide uppercase ml-1";
 
     return (
         <div className="flex flex-col h-[100dvh] bg-[#f5f5f7] dark:bg-[#121212] font-sans text-slate-900 dark:text-white overflow-hidden">
             
             {/* Header */}
-            <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between bg-white/70 dark:bg-[#1e1e1e]/70 backdrop-blur-xl border-b border-black/5 dark:border-white/5 z-20 sticky top-0">
+            {/* [MODIFIED] Removed backdrop-blur-xl, made background solid, sharper border */}
+            <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between bg-white dark:bg-[#1e1e1e] border-b border-slate-200 dark:border-white/5 z-20 sticky top-0">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
                         <SparklesIcon className="w-5 h-5 text-white stroke-[2]" />
@@ -637,7 +639,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                         <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400 hidden sm:block">Upload material to create structured lessons</p>
                     </div>
                 </div>
-                <button onClick={onBack} className="px-4 py-2 rounded-[20px] bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-[13px] font-semibold transition-all flex items-center gap-2 backdrop-blur-md active:scale-95">
+                {/* [MODIFIED] Removed backdrop-blur-md */}
+                <button onClick={onBack} className="px-4 py-2 rounded-[20px] bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-[13px] font-semibold transition-all flex items-center gap-2 active:scale-95">
                     <ArrowUturnLeftIcon className="w-4 h-4 stroke-[2.5]" /> Back
                 </button>
             </div>
@@ -667,14 +670,14 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                     <div>
                                         <label className={labelClass}>Source Material</label>
                                         {!file ? (
-                                            <label className="group flex flex-col items-center justify-center w-full h-40 rounded-[20px] border-[1.5px] border-dashed border-slate-300 dark:border-slate-700 bg-white/40 dark:bg-white/5 hover:bg-blue-50/50 dark:hover:bg-white/10 hover:border-[#007AFF] transition-all cursor-pointer relative overflow-hidden active:scale-[0.99]">
+                                            <label className="group flex flex-col items-center justify-center w-full h-40 rounded-[20px] border-[1.5px] border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-white/5 hover:bg-blue-50/50 dark:hover:bg-white/10 hover:border-[#007AFF] transition-all cursor-pointer relative overflow-hidden active:scale-[0.99]">
                                                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"/>
                                                 <DocumentArrowUpIcon className="w-8 h-8 text-slate-400 dark:text-slate-500 mb-2 group-hover:scale-110 transition-transform duration-300 stroke-[1.5]" />
                                                 <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">Upload PDF, DOCX, or TXT</span>
                                                 <input type="file" className="hidden" accept=".pdf,.docx,.txt" onChange={handleFileChange} />
                                             </label>
                                         ) : (
-                                            <div className="relative flex items-center p-3.5 bg-white/60 dark:bg-white/10 rounded-[18px] border border-black/5 dark:border-white/10 shadow-sm group">
+                                            <div className="relative flex items-center p-3.5 bg-slate-50 dark:bg-white/10 rounded-[18px] border border-slate-200 dark:border-white/10 shadow-sm group">
                                                 <div className="w-10 h-10 rounded-[12px] bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center mr-3 text-blue-600 dark:text-blue-400">
                                                     <DocumentTextIcon className="w-6 h-6" />
                                                 </div>
@@ -689,7 +692,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                         )}
                                     </div>
 
-                                    <div className="h-px bg-gradient-to-r from-transparent via-black/5 dark:via-white/5 to-transparent" />
+                                    <div className="h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-white/5 to-transparent" />
 
                                     {/* Filters */}
                                     <div className="grid grid-cols-2 gap-3">
@@ -746,7 +749,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                     {/* Scaffolding */}
                                     <div>
                                         <label className={labelClass}>Prerequisites (Scaffolding)</label>
-                                        <div className="bg-white/40 dark:bg-black/20 border border-black/5 dark:border-white/5 rounded-[18px] p-2 max-h-[220px] overflow-y-auto custom-scrollbar">
+                                        <div className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-[18px] p-2 max-h-[220px] overflow-y-auto custom-scrollbar">
                                             {subjectContext && subjectContext.units.length > 0 ? (
                                                 subjectContext.units.slice().sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true })).map(unit => {
                                                     const lessonsInUnit = subjectContext.lessons.filter(l => l.unitId === unit.id);
@@ -823,7 +826,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                         </div>
 
                         {/* Action Button */}
-                        <div className="p-4 border-t border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/20 backdrop-blur-md sticky bottom-0 z-10 rounded-b-[24px]">
+                        {/* [MODIFIED] Removed backdrop-blur-md, made solid */}
+                        <div className="p-4 border-t border-slate-200 dark:border-white/5 bg-white dark:bg-[#1e1e1e] sticky bottom-0 z-10 rounded-b-[24px]">
                             <button 
                                 onClick={handleGenerateLesson} 
                                 disabled={!file || isProcessing}
@@ -853,7 +857,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                     </div>
                                 ) : (
                                     <>
-                                        <div className="w-24 h-24 rounded-[28px] bg-slate-100 dark:bg-white/5 flex items-center justify-center mb-6 shadow-inner border border-black/5 dark:border-white/5">
+                                        <div className="w-24 h-24 rounded-[28px] bg-slate-50 dark:bg-white/5 flex items-center justify-center mb-6 shadow-inner border border-slate-200 dark:border-white/5">
                                             <SparklesIcon className="w-10 h-10 text-slate-300 dark:text-slate-600" />
                                         </div>
                                         <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">Ready to Create</h3>
@@ -866,7 +870,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                         ) : (
                             <div className="flex flex-col lg:flex-row h-full gap-4">
                                 {/* Navigation Sidebar */}
-                                <div className="w-full lg:w-[280px] flex-shrink-0 border-b lg:border-b-0 lg:border-r border-black/5 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 flex flex-col">
+                                <div className="w-full lg:w-[280px] flex-shrink-0 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex flex-col">
                                     <div className="p-4">
                                         <h4 className={labelClass}>GENERATED LESSONS</h4>
                                     </div>
@@ -877,7 +881,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                                 onClick={() => { setSelectedLessonIndex(idx); setSelectedPageIndex(0); }}
                                                 className={`w-full text-left px-4 py-3 rounded-[14px] transition-all flex items-start gap-3 group border ${
                                                     selectedLessonIndex === idx 
-                                                    ? 'bg-white dark:bg-white/10 shadow-md border-black/5 dark:border-white/5 ring-1 ring-black/5 dark:ring-white/5' 
+                                                    ? 'bg-white dark:bg-white/10 shadow-md border-slate-200 dark:border-white/5 ring-1 ring-slate-200 dark:ring-white/5' 
                                                     : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400'
                                                 }`}
                                             >
@@ -896,11 +900,11 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                     {selectedLesson && (
                                         <>
                                             {/* Content Header */}
-                                            <div className="flex-shrink-0 p-6 border-b border-black/5 dark:border-white/5 bg-white/50 dark:bg-white/5 backdrop-blur-md z-10">
+                                            {/* [MODIFIED] Removed backdrop-blur-md, made solid */}
+                                            <div className="flex-shrink-0 p-6 border-b border-slate-200 dark:border-white/5 bg-white dark:bg-[#1e1e1e] z-10">
                                                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4 tracking-tight leading-tight">{selectedLesson.lessonTitle}</h2>
                                                 
                                                 {objectivesAsMarkdown && (
-                                                    // FIX APPLIED HERE: Added max-h and overflow to prevent header from expanding infinitely
                                                     <div className="p-4 rounded-[18px] bg-blue-50/60 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 mb-6 max-h-[150px] overflow-y-auto custom-scrollbar">
                                                         <h5 className="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-1.5">
                                                             <ListBulletIcon className="w-4 h-4" /> Objectives
@@ -920,7 +924,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                                             className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[12px] font-bold transition-all whitespace-nowrap border ${
                                                                 selectedPageIndex === idx 
                                                                 ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-black dark:border-white shadow-md' 
-                                                                : 'bg-white/60 dark:bg-white/5 border-black/5 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10'
+                                                                : 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
                                                             }`}
                                                         >
                                                             {page.title}
@@ -930,8 +934,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                             </div>
 
                                             {/* Content Body */}
-                                            {/* FIX APPLIED HERE: Added 'min-h-0' to ensure flex-grow works correctly with overflow-y-auto */}
-                                            <div className="flex-grow min-h-0 overflow-y-auto custom-scrollbar p-6 md:p-8 bg-white/40 dark:bg-[#1c1c1e]/40">
+                                            {/* [MODIFIED] Changed to bg-slate-50 for better contrast against solid white header */}
+                                            <div className="flex-grow min-h-0 overflow-y-auto custom-scrollbar p-6 md:p-8 bg-slate-50 dark:bg-[#1c1c1e]/40">
                                                 <div className="max-w-3xl mx-auto min-h-[300px]">
                                                     {selectedPage ? (
                                                         <div className="prose prose-slate prose-lg dark:prose-invert max-w-none leading-7">
@@ -955,7 +959,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             </div>
 
             {/* Footer */}
-            <div className="flex-shrink-0 px-4 sm:px-6 py-4 bg-white/70 dark:bg-[#1e1e1e]/70 backdrop-blur-xl border-t border-black/5 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 z-20">
+            {/* [MODIFIED] Removed backdrop-blur-xl, made solid */}
+            <div className="flex-shrink-0 px-4 sm:px-6 py-4 bg-white dark:bg-[#1e1e1e] border-t border-slate-200 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 z-20">
                 <div className="flex items-center gap-3 order-2 sm:order-1 w-full sm:w-auto justify-center sm:justify-start">
                     {error && (
                         <div className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-full border border-red-100 dark:border-red-900/30">
@@ -965,7 +970,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     )}
                 </div>
                 <div className="flex items-center gap-3 order-1 sm:order-2 w-full sm:w-auto">
-                    <button onClick={onClose} className="flex-1 sm:flex-none px-6 py-2.5 rounded-[14px] font-bold text-sm text-slate-600 dark:text-slate-300 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors active:scale-95">
+                    <button onClick={onClose} className="flex-1 sm:flex-none px-6 py-2.5 rounded-[14px] font-bold text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors active:scale-95">
                         Cancel
                     </button>
                     <button 

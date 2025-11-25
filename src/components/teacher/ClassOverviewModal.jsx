@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo, useMemo } from 'react';
 import Modal from '../common/Modal';
 import AnnouncementViewModal from '../common/AnnouncementViewModal';
 import QuizScoresModal from './QuizScoresModal';
@@ -20,19 +20,20 @@ import {
     writeBatch
 } from 'firebase/firestore';
 import {
-    PencilSquareIcon,
     TrashIcon,
     CalendarDaysIcon,
-    BookOpenIcon,
-    AcademicCapIcon,
-    UsersIcon,
-    MegaphoneIcon,
+    UsersIcon, 
     PlusCircleIcon,
-    ChartBarIcon,
     ChevronDownIcon,
     XMarkIcon,
     ClockIcon,
-    DocumentChartBarIcon
+    DocumentChartBarIcon,
+    ChatBubbleBottomCenterTextIcon,
+    PlayCircleIcon,
+    ClipboardDocumentListIcon,
+    PresentationChartLineIcon,
+    UserGroupIcon,
+    Cog6ToothIcon
 } from '@heroicons/react/24/solid';
 import CreateClassAnnouncementForm from './CreateClassAnnouncementForm';
 import { useAuth } from '../../contexts/AuthContext';
@@ -42,13 +43,74 @@ import ViewQuizModal from './ViewQuizModal';
 import GenerateReportModal from './GenerateReportModal';
 import EditAvailabilityModal from './EditAvailabilityModal';
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
-import Spinner from '../common/Spinner';
+// Spinner import removed (replaced by skeletons)
+import { motion, AnimatePresence } from 'framer-motion';
 
-// --- HELPER: AURORA BACKGROUND ---
-const AuroraBackground = () => (
-    <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-blue-400/20 dark:bg-blue-500/10 blur-[120px] animate-pulse"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-purple-400/20 dark:bg-purple-500/10 blur-[100px] animate-pulse delay-1000"></div>
+// --- HELPER: OPTIMIZED STATIC AURORA BACKGROUND ---
+const AuroraBackground = memo(() => (
+    <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none bg-slate-50 dark:bg-[#0f1115]">
+        <div className="absolute inset-0 opacity-60 dark:opacity-30"
+             style={{
+                 backgroundImage: `
+                    radial-gradient(at 0% 0%, rgba(147, 197, 253, 0.4) 0px, transparent 50%),
+                    radial-gradient(at 100% 100%, rgba(192, 132, 252, 0.3) 0px, transparent 50%)
+                 `
+             }}
+        />
+    </div>
+));
+
+// --- HELPER: SKELETON LOADERS ---
+const SkeletonAnnouncement = () => (
+    <div className="bg-white/60 dark:bg-[#1A1D24]/60 backdrop-blur-sm p-6 rounded-[24px] border border-white/20 dark:border-white/5 shadow-sm animate-pulse">
+        <div className="flex justify-between items-start gap-4">
+            <div className="space-y-3 w-full">
+                <div className="h-4 bg-slate-200 dark:bg-slate-700/50 rounded-full w-3/4"></div>
+                <div className="h-4 bg-slate-200 dark:bg-slate-700/50 rounded-full w-1/2"></div>
+                <div className="flex gap-2 mt-2">
+                    <div className="h-3 w-16 bg-slate-200 dark:bg-slate-700/50 rounded-full"></div>
+                    <div className="h-3 w-24 bg-slate-200 dark:bg-slate-700/50 rounded-full"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+const SkeletonPostGroup = () => (
+    <div className="bg-white/60 dark:bg-[#1A1D24]/60 backdrop-blur-sm rounded-[24px] border border-white/20 dark:border-white/5 shadow-sm overflow-hidden mb-6 animate-pulse">
+        <div className="p-5 border-b border-white/10">
+            <div className="h-6 bg-slate-200 dark:bg-slate-700/50 rounded-full w-1/3 mb-2"></div>
+            <div className="flex gap-3">
+                <div className="h-3 w-20 bg-slate-200 dark:bg-slate-700/50 rounded-full"></div>
+                <div className="h-3 w-20 bg-slate-200 dark:bg-slate-700/50 rounded-full"></div>
+            </div>
+        </div>
+        <div className="p-4 space-y-3">
+            <div className="h-12 bg-slate-200/50 dark:bg-slate-700/30 rounded-xl w-full"></div>
+            <div className="h-12 bg-slate-200/50 dark:bg-slate-700/30 rounded-xl w-full"></div>
+        </div>
+    </div>
+);
+
+const SkeletonStudentRow = () => (
+    <div className="flex items-center justify-between p-4 animate-pulse border-b border-slate-100 dark:border-slate-800/50">
+        <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700/50"></div>
+            <div className="space-y-2">
+                <div className="h-4 w-32 bg-slate-200 dark:bg-slate-700/50 rounded-full"></div>
+                <div className="h-3 w-20 bg-slate-200 dark:bg-slate-700/50 rounded-full"></div>
+            </div>
+        </div>
+        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700/50"></div>
+    </div>
+);
+
+const SkeletonScores = () => (
+    <div className="space-y-4 animate-pulse">
+        <div className="h-10 bg-slate-200 dark:bg-slate-700/50 rounded-xl w-full mb-6"></div>
+        {[1,2,3,4].map(i => (
+             <div key={i} className="bg-white/40 dark:bg-slate-800/40 rounded-xl p-4 h-16 w-full"></div>
+        ))}
     </div>
 );
 
@@ -72,7 +134,12 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const [quizScores, setQuizScores] = useState([]);
     const [announcements, setAnnouncements] = useState([]);
     const [sharedContentPosts, setSharedContentPosts] = useState([]);
-    const [loading, setLoading] = useState(true);
+    
+    // Loading States
+    const [loadingScores, setLoadingScores] = useState(true); // Renamed from loading
+    const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
+    const [loadingPosts, setLoadingPosts] = useState(true);
+    
     const [showAddForm, setShowAddForm] = useState(false);
     const [viewLessonData, setViewLessonData] = useState(null);
     const [viewQuizData, setViewQuizData] = useState(null);
@@ -103,7 +170,6 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         confirmColor: 'red',
     });
 
-
     useEffect(() => {
         if (isOpen && classData?.id) {
             setActiveTab('announcements');
@@ -121,12 +187,22 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             setSelectedQuizzes(new Set());
             setFreshStudentData([]);
             setLoadingStudents(false);
+            setLoadingAnnouncements(true);
+            setLoadingPosts(true);
+            setLoadingScores(true);
         }
     }, [isOpen, classData?.id]);
 
+    const studentIdsHash = useMemo(() => {
+        if (!classData?.students) return '';
+        return classData.students.map(s => s.id).sort().join(',');
+    }, [classData?.students]);
+
     useEffect(() => {
         const fetchFreshStudentData = async () => {
-            if (activeTab !== 'students' || !classData?.students || classData.students.length === 0) {
+            if (activeTab !== 'students') return;
+            
+            if (!classData?.students || classData.students.length === 0) {
                 setFreshStudentData([]); 
                 return;
             }
@@ -134,12 +210,15 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             setLoadingStudents(true);
             try {
                 const studentIds = classData.students.map(s => s.id);
-                const students = await fetchDocsInBatches('users', studentIds);
-                const sortedStudents = students.sort((a, b) => 
-                    (a.lastName || '').localeCompare(b.lastName || '')
-                );
-                setFreshStudentData(sortedStudents);
-
+                if (studentIds.length > 0) {
+                    const students = await fetchDocsInBatches('users', studentIds);
+                    const sortedStudents = students.sort((a, b) => 
+                        (a.lastName || '').localeCompare(b.lastName || '')
+                    );
+                    setFreshStudentData(sortedStudents);
+                } else {
+                    setFreshStudentData([]);
+                }
             } catch (err) {
                 console.error("Error fetching fresh student data:", err);
                 showToast("Could not load updated student list.", "error");
@@ -150,23 +229,30 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         };
 
         fetchFreshStudentData();
-    }, [activeTab, classData?.students, showToast]);
-
+    }, [activeTab, studentIdsHash, showToast]); 
 
     useEffect(() => {
         if (!isOpen || !classData?.id) return;
+        
+        setLoadingAnnouncements(true);
         let active = true;
         const annQuery = query(collection(db, "studentAnnouncements"), where("classId", "==", classData.id), orderBy("createdAt", "desc"));
         const unsub = onSnapshot(annQuery, (snapshot) => {
             if (!active) return;
             setAnnouncements(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        }, (error) => console.error("Error listening to announcements:", error));
+            setLoadingAnnouncements(false);
+        }, (error) => {
+            console.error("Error listening to announcements:", error);
+            if(active) setLoadingAnnouncements(false);
+        });
 
         return () => { active = false; unsub(); };
     }, [isOpen, classData?.id]);
 
     useEffect(() => {
         if (!isOpen || !classData?.id) return;
+        
+        setLoadingPosts(true);
         let active = true;
         const postsQuery = query(collection(db, `classes/${classData.id}/posts`), orderBy('createdAt', 'asc'));
         const unsub = onSnapshot(postsQuery, async (snapshot) => {
@@ -186,24 +272,29 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
             const quizIds = Array.from(new Set(allPosts.flatMap(p => (p.quizzes || []).map(q => q.id))));
             if (active) setClassQuizIds(quizIds);
+            
+            setLoadingPosts(false);
 
-        }, (error) => console.error("Error listening to posts:", error));
+        }, (error) => {
+            console.error("Error listening to posts:", error);
+            if(active) setLoadingPosts(false);
+        });
 
         return () => { active = false; unsub(); };
     }, [isOpen, classData?.id]);
 
     useEffect(() => {
         if (!isOpen || !classData?.id) return;
-        setLoading(true);
+        setLoadingScores(true);
         let active = true;
         const scoresQuery = query(collection(db, 'quizSubmissions'), where("classId", "==", classData.id));
         const unsub = onSnapshot(scoresQuery, (snapshot) => {
             if (!active) return;
             setQuizScores(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-            setLoading(false);
+            setLoadingScores(false);
         }, (error) => {
             console.error("Error listening to quiz scores:", error);
-            if (active) setLoading(false);
+            if (active) setLoadingScores(false);
         });
 
         return () => { active = false; unsub(); };
@@ -642,22 +733,17 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 
     
     const renderContent = () => {
-        if ((loading && activeTab !== 'announcements') || (loadingStudents && activeTab === 'students')) {
-            return (
-                <div className="flex justify-center items-center h-full min-h-[200px]">
-                    <Spinner size="lg" />
-                </div>
-            );
-        }
-
         const EmptyState = ({ icon: Icon, text, subtext }) => (
-            <div className="text-center p-8 sm:p-14 bg-white/50 dark:bg-white/5 backdrop-blur-md rounded-2xl sm:rounded-3xl border border-white/20 dark:border-white/5 mt-4 sm:mt-6 flex flex-col items-center justify-center">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center mb-4 sm:mb-5">
+            <motion.div 
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+                className="text-center p-8 sm:p-14 bg-white/60 dark:bg-[#1A1D24]/60 backdrop-blur-md rounded-2xl sm:rounded-3xl border border-white/20 dark:border-white/5 mt-4 sm:mt-6 flex flex-col items-center justify-center shadow-lg"
+            >
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4 sm:mb-5 shadow-inner">
                     <Icon className="h-8 w-8 sm:h-10 sm:w-10 text-slate-400 dark:text-slate-500" />
                 </div>
                 <p className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">{text}</p>
                 <p className="mt-1 sm:mt-2 text-sm sm:text-base text-slate-500 dark:text-slate-400 max-w-xs mx-auto">{subtext}</p>
-            </div>
+            </motion.div>
         );
         const customUnitSort = (a, b) => {
             if (a === 'Uncategorized') return 1;
@@ -670,18 +756,29 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             return a.localeCompare(b);
         };
         const ListItem = ({ children, isChecked }) => (
-            <div className={`flex items-center justify-between gap-2 sm:gap-3 py-2.5 sm:py-3 px-3 sm:px-4 transition-colors border-b border-slate-100 dark:border-white/5 last:border-0 ${isChecked ? 'bg-blue-50/60 dark:bg-blue-900/20' : 'hover:bg-slate-50/80 dark:hover:bg-white/5'}`}>
+            <div className={`flex items-center justify-between gap-2 sm:gap-3 py-2.5 sm:py-3 px-3 sm:px-4 transition-colors border-b border-slate-100 dark:border-slate-700 last:border-0 ${isChecked ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                 {children}
             </div>
         );
         
         const PostGroup = ({ children }) => (
-            <div className="bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/20 dark:border-white/5 shadow-sm overflow-hidden mb-4 sm:mb-6">
+            <motion.div 
+                initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}
+                className="bg-white/80 dark:bg-[#1A1D24]/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl border border-white/40 dark:border-white/5 shadow-sm overflow-hidden mb-4 sm:mb-6"
+            >
                 {children}
-            </div>
+            </motion.div>
         );
 
         if (activeTab === 'lessons') {
+            if (loadingPosts) {
+                return (
+                    <div className="space-y-6 pb-8">
+                        <SkeletonPostGroup />
+                        <SkeletonPostGroup />
+                    </div>
+                );
+            }
             const lessonsByPostAndUnit = sharedContentPosts.reduce((acc, post) => {
                 const postLessons = (post.lessons || []);
                 if (postLessons.length === 0) return acc;
@@ -705,7 +802,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             const selectedSet = selectedLessons;
 
             return (
-                <div className="space-y-4 sm:space-y-6 pb-6 sm:pb-8">
+                <div className="space-y-4 sm:space-y-6 pb-28 sm:pb-8">
                     {postEntries.length > 0 ? postEntries.map(({ post, units: unitsInPost }) => {
                         
                         const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
@@ -734,11 +831,12 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); handleEditDatesClick(post); }} 
                                                 title="Edit Availability" 
-                                                className="flex items-center gap-1 text-xs sm:text-sm font-semibold text-[#007AFF] hover:text-[#0051A8] px-1.5 py-1 sm:px-2 sm:py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                                className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all active:scale-95"
                                             >
-                                                <PencilSquareIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Manage</span>
+                                                <Cog6ToothIcon className="w-5 h-5" />
                                             </button>
-                                            <div className={`p-1 rounded-full bg-slate-100 dark:bg-white/10 transition-transform duration-300 ${isPostCollapsed ? '' : 'rotate-180'}`}>
+                                            
+                                            <div className={`p-1 rounded-full bg-slate-100 dark:bg-slate-800 transition-transform duration-300 ${isPostCollapsed ? '' : 'rotate-180'}`}>
                                                 <ChevronDownIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 dark:text-slate-400" />
                                             </div>
                                         </div>
@@ -756,8 +854,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                             const isAllSelected = lessonIdsInUnit.length > 0 && lessonIdsInUnit.every(id => selectedSet.has(id));
 
                                             return (
-                                                <div key={unitKey} className="bg-white/50 dark:bg-black/20 rounded-xl sm:rounded-2xl border border-slate-200/60 dark:border-white/5 overflow-hidden">
-                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5">
+                                                <div key={unitKey} className="bg-slate-50 dark:bg-slate-800 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
                                                         <button className="flex-1 flex items-center gap-2 group min-w-0" onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}>
                                                             <h4 className="font-bold text-xs sm:text-base text-slate-800 dark:text-slate-200 group-hover:text-[#007AFF] transition-colors truncate">{unitDisplayName}</h4>
                                                             <ChevronDownIcon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
@@ -782,7 +880,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                     </div>
                                                     
                                                     {!isUnitCollapsed && (
-                                                        <div className="divide-y divide-slate-100 dark:divide-white/5">
+                                                        <div className="divide-y divide-slate-200 dark:divide-slate-700">
                                                             {lessonsInUnit.sort((a, b) => (a.order || 0) - (b.order || 0) || a.title.localeCompare(b.title)).map(lessonDetails => {
                                                                 const isChecked = selectedSet.has(lessonDetails.id);
                                                                 return (
@@ -813,12 +911,20 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                 )}
                             </PostGroup>
                         );
-                    }) : <EmptyState icon={BookOpenIcon} text="No lessons shared yet" subtext="Share lessons with your class to get started." />}
+                    }) : <EmptyState icon={PlayCircleIcon} text="No lessons shared yet" subtext="Share lessons with your class to get started." />}
                 </div>
             );
         }
         
         if (activeTab === 'quizzes') {
+            if (loadingPosts) {
+                return (
+                    <div className="space-y-6 pb-8">
+                        <SkeletonPostGroup />
+                        <SkeletonPostGroup />
+                    </div>
+                );
+            }
             const quizzesByPostAndUnit = sharedContentPosts.reduce((acc, post) => {
                 const postQuizzes = (post.quizzes || []);
                 if (postQuizzes.length === 0) return acc;
@@ -842,7 +948,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             const selectedSet = selectedQuizzes;
 
             return (
-                <div className="space-y-4 sm:space-y-6 pb-6 sm:pb-8">
+                <div className="space-y-4 sm:space-y-6 pb-28 sm:pb-8">
                     {postEntries.length > 0 ? postEntries.map(({ post, units: unitsInPost }) => {
                         
                         const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
@@ -871,11 +977,11 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); handleEditDatesClick(post); }} 
                                                 title="Edit Availability" 
-                                                className="flex items-center gap-1 text-xs sm:text-sm font-semibold text-[#007AFF] hover:text-[#0051A8] px-1.5 py-1 sm:px-2 sm:py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                                className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all active:scale-95"
                                             >
-                                                <PencilSquareIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Manage</span>
+                                                <Cog6ToothIcon className="w-5 h-5" />
                                             </button>
-                                            <div className={`p-1 rounded-full bg-slate-100 dark:bg-white/10 transition-transform duration-300 ${isPostCollapsed ? '' : 'rotate-180'}`}>
+                                            <div className={`p-1 rounded-full bg-slate-100 dark:bg-slate-800 transition-transform duration-300 ${isPostCollapsed ? '' : 'rotate-180'}`}>
                                                 <ChevronDownIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 dark:text-slate-400" />
                                             </div>
                                         </div>
@@ -893,8 +999,8 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                             const isAllSelected = quizIdsInUnit.length > 0 && quizIdsInUnit.every(id => selectedSet.has(id));
 
                                             return (
-                                                <div key={unitKey} className="bg-white/50 dark:bg-black/20 rounded-xl sm:rounded-2xl border border-slate-200/60 dark:border-white/5 overflow-hidden">
-                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5">
+                                                <div key={unitKey} className="bg-slate-50 dark:bg-slate-800 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
                                                         <button className="flex-1 flex items-center gap-2 group min-w-0" onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}>
                                                             <h4 className="font-bold text-xs sm:text-base text-slate-800 dark:text-slate-200 group-hover:text-[#007AFF] transition-colors truncate">{unitDisplayName}</h4>
                                                             <ChevronDownIcon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
@@ -919,7 +1025,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                     </div>
                                                     
                                                     {!isUnitCollapsed && (
-                                                        <div className="divide-y divide-slate-100 dark:divide-white/5">
+                                                        <div className="divide-y divide-slate-200 dark:divide-slate-700">
                                                             {quizzesInUnit.sort((a, b) => (a.order || 0) - (b.order || 0) || a.title.localeCompare(b.title)).map(quizDetails => {
                                                                 const isChecked = selectedSet.has(quizDetails.id);
                                                                 return (
@@ -960,16 +1066,23 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                 )}
                             </PostGroup>
                         );
-                    }) : <EmptyState icon={AcademicCapIcon} text="No quizzes shared yet" subtext="Share quizzes with your class to get started." />}
+                    }) : <EmptyState icon={ClipboardDocumentListIcon} text="No quizzes shared yet" subtext="Share quizzes with your class to get started." />}
                 </div>
             );
         }
         if (activeTab === 'scores') {
+            if (loadingScores) {
+                return (
+                    <div className="pb-8">
+                         <SkeletonScores />
+                    </div>
+                );
+            }
             const allQuizzesFromPosts = sharedContentPosts.flatMap(p => p.quizzes || []);
             const allLessonsFromPosts = sharedContentPosts.flatMap(p => p.lessons || []);
             
             return (
-                 <div className="pb-8">
+                 <div className="pb-28 sm:pb-8">
                     <ScoresTab
                         quizzes={allQuizzesFromPosts}
                         units={units}
@@ -988,21 +1101,26 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         if (activeTab === 'students') {
             if (loadingStudents) {
                 return (
-                    <div className="flex justify-center items-center h-full min-h-[200px]">
-                        <Spinner size="lg" />
+                    <div className="space-y-4 pb-8">
+                        <SkeletonStudentRow />
+                        <SkeletonStudentRow />
+                        <SkeletonStudentRow />
                     </div>
                 );
             }
 
             return (
-                 <div className="space-y-3 pb-8">
+                 <div className="space-y-3 pb-28 sm:pb-8">
                     {(freshStudentData.length > 0) ? (
-                        <div className="bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/20 dark:border-white/5 shadow-sm overflow-hidden">
-                            <div className="divide-y divide-slate-100 dark:divide-white/5">
+                        <motion.div 
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
+                            className="bg-white/80 dark:bg-[#1A1D24]/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl border border-white/40 dark:border-white/5 shadow-sm overflow-hidden"
+                        >
+                            <div className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {freshStudentData.map(student => (
-                                    <div key={student.id} className="flex items-center justify-between gap-3 sm:gap-4 py-3 sm:py-4 px-4 sm:px-5 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
+                                    <div key={student.id} className="flex items-center justify-between gap-3 sm:gap-4 py-3 sm:py-4 px-4 sm:px-5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                                         <div className="flex items-center gap-3 sm:gap-4">
-                                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex-shrink-0 overflow-hidden ring-2 ring-white dark:ring-white/10 shadow-sm">
+                                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex-shrink-0 overflow-hidden ring-2 ring-white dark:ring-slate-800 shadow-sm">
                                                 <UserInitialsAvatar user={student} size="full" />
                                             </div>
                                             <div>
@@ -1016,29 +1134,51 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                     </div>
                                 ))}
                             </div>
-                        </div>
-                    ) : <EmptyState icon={UsersIcon} text="No students enrolled" subtext="Share the class code to get students enrolled." />}
+                        </motion.div>
+                    ) : <EmptyState icon={UserGroupIcon} text="No students enrolled" subtext="Share the class code to get students enrolled." />}
                 </div>
             );
         }
         
         return (
-            <div className="flex flex-col pb-8">
+            <div className="flex flex-col pb-28 sm:pb-8">
                 {showAddForm && (<div className="mb-6 flex-shrink-0"><CreateClassAnnouncementForm classId={classData.id} onAnnouncementPosted={() => setShowAddForm(false)} /></div>)}
                 <div className="space-y-4 sm:space-y-5 flex-grow">
-                    {announcements.length > 0 ? announcements.map(post => (<AnnouncementListItem key={post.id} post={post} isOwn={userProfile?.id === post.teacherId} onEdit={() => { setEditingId(post.id); setEditContent(post.content); }} onDelete={() => handleDelete(post.id)} isEditing={editingId === post.id} editContent={editContent} onChangeEdit={onChangeEdit} onSaveEdit={() => handleEditSave(post.id)} onCancelEdit={() => setEditingId(null)} onClick={() => setSelectedAnnouncement(post)} />)) : <EmptyState icon={MegaphoneIcon} text="No announcements yet" subtext="Post important updates for your students here." />}
+                    {loadingAnnouncements ? (
+                         <>
+                            <SkeletonAnnouncement />
+                            <SkeletonAnnouncement />
+                         </>
+                    ) : announcements.length > 0 ? (
+                        announcements.map(post => (
+                            <AnnouncementListItem 
+                                key={post.id} 
+                                post={post} 
+                                isOwn={userProfile?.id === post.teacherId} 
+                                onEdit={() => { setEditingId(post.id); setEditContent(post.content); }} 
+                                onDelete={() => handleDelete(post.id)} 
+                                isEditing={editingId === post.id} 
+                                editContent={editContent} 
+                                onChangeEdit={onChangeEdit} 
+                                onSaveEdit={() => handleEditSave(post.id)} 
+                                onCancelEdit={() => setEditingId(null)} 
+                                onClick={() => setSelectedAnnouncement(post)} 
+                            />
+                        ))
+                    ) : (
+                        <EmptyState icon={ChatBubbleBottomCenterTextIcon} text="No announcements yet" subtext="Post important updates for your students here." />
+                    )}
                 </div>
             </div>
         );
     };
 
-
     const tabs = [
-        { id: 'announcements', name: 'Announcements', icon: MegaphoneIcon },
-        { id: 'lessons', name: 'Lessons', icon: BookOpenIcon },
-        { id: 'quizzes', name: 'Quizzes', icon: AcademicCapIcon },
-        { id: 'scores', name: 'Scores', icon: ChartBarIcon },
-        { id: 'students', name: 'Students', icon: UsersIcon, count: classData?.students?.length || 0 }
+        { id: 'announcements', name: 'Notices', icon: ChatBubbleBottomCenterTextIcon },
+        { id: 'lessons', name: 'Lessons', icon: PlayCircleIcon },
+        { id: 'quizzes', name: 'Quizzes', icon: ClipboardDocumentListIcon },
+        { id: 'scores', name: 'Scores', icon: PresentationChartLineIcon },
+        { id: 'students', name: 'Students', icon: UserGroupIcon, count: classData?.students?.length || 0 }
     ];
 
     return (
@@ -1049,37 +1189,38 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 title=""
                 size="screen" 
                 roundedClass="rounded-none sm:rounded-3xl"
-                containerClassName="h-full p-0 sm:p-4 bg-black/40 backdrop-blur-md flex items-center justify-center"
+                containerClassName="h-full p-0 sm:p-4 bg-black/50 flex items-center justify-center backdrop-blur-sm"
                 contentClassName="p-0 w-full h-full flex items-center justify-center pointer-events-none" 
                 showCloseButton={false}
             >
-                {/* FIXED STRUCTURE WRAPPER */}
-                <div className="pointer-events-auto relative w-full max-w-7xl h-[100dvh] sm:h-[85vh] bg-[#f5f5f7] dark:bg-black overflow-hidden flex flex-col mx-auto rounded-none sm:rounded-[32px] shadow-2xl border border-white/20 dark:border-white/10">
-                    
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }} 
+                    animate={{ opacity: 1, scale: 1 }} 
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className="pointer-events-auto relative w-full max-w-7xl h-[100dvh] sm:h-[85vh] bg-[#f8fafc] dark:bg-black overflow-hidden flex flex-col mx-auto rounded-none sm:rounded-[32px] shadow-2xl border border-white/20 dark:border-white/10"
+                >
                     <AuroraBackground />
                     
-                    {/* --- FIXED HEADER SECTION --- */}
-                    <div className="relative z-20 flex-shrink-0 bg-white/60 dark:bg-[#1c1c1e]/80 backdrop-blur-xl border-b border-white/20 dark:border-white/5">
-                        {/* Close Button */}
+                    <div className="relative z-20 flex-shrink-0 bg-white/80 dark:bg-[#1A1D24]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700">
                         <div className="absolute top-3 right-3 sm:top-6 sm:right-6 z-30">
-                             <button onClick={onClose} className="p-2 rounded-full bg-slate-200/50 dark:bg-white/10 hover:bg-slate-300/50 dark:hover:bg-white/20 transition-colors text-slate-600 dark:text-slate-300 backdrop-blur-md">
+                             <button onClick={onClose} className="p-2 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors text-slate-600 dark:text-slate-300">
                                 <XMarkIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                             </button>
                         </div>
 
-                        {/* Title & Meta Area (reduced padding on mobile) */}
                         <div className="px-4 pt-4 sm:px-8 sm:pt-8 pb-3 sm:pb-4">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-3 sm:mb-6 pr-10">
                                 <div>
-                                    <h1 className="text-xl sm:text-4xl font-bold text-slate-900 dark:text-white tracking-tight drop-shadow-sm line-clamp-1">{classData?.name || 'Class Details'}</h1>
+                                    <h1 className="text-xl sm:text-4xl font-bold text-slate-900 dark:text-white tracking-tight line-clamp-1">{classData?.name || 'Class Details'}</h1>
                                     <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-6 gap-y-1.5 sm:gap-y-2 mt-1 sm:mt-2">
                                         <p className="text-[10px] sm:text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5 sm:gap-2">
-                                            <span className="px-1.5 py-0.5 rounded-md bg-slate-200/50 dark:bg-white/10 text-[9px] sm:text-xs uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Grade</span>
+                                            <span className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[9px] sm:text-xs uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Grade</span>
                                             {classData?.gradeLevel}
                                         </p>
                                         
                                         <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-sm font-medium text-slate-600 dark:text-slate-300">
-                                            <span className="px-1.5 py-0.5 rounded-md bg-slate-200/50 dark:bg-white/10 text-[9px] sm:text-xs uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Owner</span>
+                                            <span className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[9px] sm:text-xs uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Owner</span>
                                             <div className="flex items-center gap-1">
                                                 <UserInitialsAvatar user={userProfile} size="w-4 h-4 sm:w-5 sm:h-5" />
                                                 <span>{userProfile?.displayName}</span>
@@ -1087,40 +1228,44 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                         </div>
                                         
                                         <p className="text-[10px] sm:text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5 sm:gap-2">
-                                             <span className="px-1.5 py-0.5 rounded-md bg-slate-200/50 dark:bg-white/10 text-[9px] sm:text-xs uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Code</span>
+                                             <span className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[9px] sm:text-xs uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Code</span>
                                             <span className="font-mono font-bold text-[#007AFF] tracking-wider">{classData?.classCode}</span>
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* SEGMENTED CONTROL TABS */}
-                            <div className="w-full overflow-hidden">
-                                <div className="flex items-center p-1 sm:p-1.5 bg-slate-200/50 dark:bg-black/20 backdrop-blur-md rounded-xl sm:rounded-2xl overflow-x-auto no-scrollbar max-w-full sm:w-fit shadow-inner">
-                                    {tabs.map(tab => (
-                                        <button
-                                            key={tab.id}
-                                            onClick={() => handleTabChange(tab.id)}
-                                            className={`
-                                                relative flex-shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-semibold text-xs sm:text-[13px] transition-all duration-300 ease-out
-                                                ${activeTab === tab.id
-                                                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-sm scale-[1.02]'
-                                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/30 dark:hover:bg-white/5'}
-                                            `}
-                                        >
-                                            <tab.icon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 transition-colors ${activeTab === tab.id ? 'text-[#007AFF] dark:text-white' : ''}`} />
-                                            <span className="whitespace-nowrap">{tab.name} {tab.count !== undefined && <span className="opacity-60 text-[10px] sm:text-xs ml-0.5">({tab.count})</span>}</span>
-                                        </button>
-                                    ))}
+                            <div className="hidden sm:flex justify-center w-full">
+                                <div className="flex items-center p-1.5 bg-slate-100/80 dark:bg-black/40 backdrop-blur-xl rounded-full border border-white/40 dark:border-white/5 shadow-inner">
+                                    {tabs.map(tab => {
+                                        const isActive = activeTab === tab.id;
+                                        return (
+                                            <button
+                                                key={tab.id}
+                                                onClick={() => handleTabChange(tab.id)}
+                                                className={`relative flex items-center gap-2 px-5 py-2.5 rounded-full transition-colors z-10 ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                                            >
+                                                {isActive && (
+                                                    <motion.div
+                                                        layoutId="activeTabPill"
+                                                        className="absolute inset-0 bg-white dark:bg-slate-700 rounded-full shadow-sm"
+                                                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                                        style={{ zIndex: -1 }}
+                                                    />
+                                                )}
+                                                <tab.icon className={`h-4 w-4 ${isActive ? 'text-[#007AFF] dark:text-white' : ''}`} />
+                                                <span className="text-xs font-bold">{tab.name}</span>
+                                                {tab.count !== undefined && <span className="opacity-60 text-[10px] ml-0.5">({tab.count})</span>}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* --- FIXED TOOLBAR SECTION --- */}
-                    <div className="relative z-10 flex-shrink-0 px-4 sm:px-6 py-2.5 sm:py-3 bg-white/30 dark:bg-black/20 backdrop-blur-md border-b border-white/10 flex items-center justify-between gap-4 min-h-[50px] sm:min-h-[60px]">
+                    <div className="relative z-10 flex-shrink-0 px-4 sm:px-6 py-2.5 sm:py-3 bg-white/60 dark:bg-[#1A1D24]/60 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-4 min-h-[50px] sm:min-h-[60px]">
                          <div className="text-sm font-medium text-slate-500 dark:text-slate-400 hidden sm:block">
-                            {/* Placeholder for status text if needed */}
                          </div>
                          <div className="flex items-center gap-2 sm:gap-3 ml-auto w-full sm:w-auto justify-end">
                                 {activeTab === 'lessons' && selectedLessons.size > 0 && (
@@ -1164,12 +1309,69 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                             </div>
                     </div>
 
-                    {/* --- SCROLLABLE CONTENT AREA --- */}
                     <div className="relative z-0 flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-6 overscroll-contain">
-                        {renderContent()}
+                         <AnimatePresence mode="wait">
+                            <motion.div
+                                key={activeTab}
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.2 }}
+                                className="h-full"
+                            >
+                                {renderContent()}
+                            </motion.div>
+                         </AnimatePresence>
                     </div>
 
-                </div>
+                    <div className="absolute bottom-6 left-0 right-0 flex justify-center z-50 sm:hidden pointer-events-none">
+                        <motion.div 
+                            layout
+                            className="pointer-events-auto bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white/20 dark:border-white/10 px-2 py-2 rounded-full flex items-center justify-between w-[90%] max-w-sm gap-1.5 shadow-2xl"
+                        >
+                             {tabs.map(tab => {
+                                 const isActive = activeTab === tab.id;
+                                 return (
+                                     <motion.button
+                                         key={tab.id}
+                                         onClick={() => handleTabChange(tab.id)}
+                                         layout
+                                         className={`relative group flex items-center justify-center gap-1.5 p-2 rounded-full transition-colors outline-none overflow-hidden ${
+                                            isActive 
+                                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex-[3]' 
+                                                : 'text-slate-500 dark:text-slate-400 hover:bg-white/40 dark:hover:bg-white/10 flex-1'
+                                         }`}
+                                     >
+                                         <motion.div layout className="relative flex-shrink-0">
+                                            <tab.icon className={`h-5 w-5 ${isActive ? 'scale-105' : 'opacity-80'}`} />
+                                            
+                                            {tab.count > 0 && !isActive && (
+                                                <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 border border-white dark:border-slate-800"></span>
+                                                </span>
+                                            )}
+                                         </motion.div>
+                                         
+                                         <AnimatePresence>
+                                            {isActive && (
+                                                <motion.span 
+                                                    initial={{ opacity: 0, width: 0 }} 
+                                                    animate={{ opacity: 1, width: "auto" }} 
+                                                    exit={{ opacity: 0, width: 0 }} 
+                                                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                                                    className="text-[9px] font-bold tracking-wide whitespace-nowrap overflow-hidden"
+                                                >
+                                                    {tab.name}
+                                                </motion.span>
+                                            )}
+                                         </AnimatePresence>
+                                     </motion.button>
+                                 )
+                             })}
+                        </motion.div>
+                    </div>
+                </motion.div>
             </Modal>
 
             <Modal
@@ -1180,9 +1382,9 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                 className="z-[200]" 
                 contentClassName="p-0"
                 roundedClass="rounded-[28px]"
-                containerClassName="bg-black/40 backdrop-blur-md"
+                containerClassName="bg-black/50 backdrop-blur-sm"
             >
-                <div className="p-6 bg-white dark:bg-[#1c1c1e] rounded-[28px]">
+                <div className="p-6 bg-white dark:bg-[#1A1D24] rounded-[28px]">
                     <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4 mx-auto">
                         <TrashIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
                     </div>
@@ -1191,7 +1393,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                     <div className="grid grid-cols-2 gap-3">
                         <button 
                             onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                            className="py-3 rounded-xl font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors"
+                            className="py-3 rounded-xl font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                         >
                             Cancel
                         </button>
@@ -1231,11 +1433,14 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
 const AnnouncementListItem = ({ post, isOwn, onEdit, onDelete, isEditing, editContent, onChangeEdit, onSaveEdit, onCancelEdit, onClick }) => {
     const formattedDate = post.createdAt?.toDate ? post.createdAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '...';
     return (
-        <div className="group relative bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-xl p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/20 dark:border-white/5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer" onClick={!isEditing ? onClick : undefined}>
+        <motion.div 
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            className="group relative bg-white/80 dark:bg-[#1A1D24]/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/40 dark:border-white/5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer" onClick={!isEditing ? onClick : undefined}
+        >
             {isEditing ? (
                 <div className="flex flex-col gap-3 sm:gap-4">
                     <textarea 
-                        className="w-full border-none p-3 sm:p-4 rounded-xl text-sm sm:text-base text-slate-900 dark:text-white focus:ring-2 focus:ring-[#007AFF]/20 bg-white dark:bg-black/20 resize-none" 
+                        className="w-full border-none p-3 sm:p-4 rounded-xl text-sm sm:text-base text-slate-900 dark:text-white focus:ring-2 focus:ring-[#007AFF]/20 bg-slate-50 dark:bg-black/20 resize-none" 
                         rows={3} 
                         value={editContent} 
                         onChange={onChangeEdit} 
@@ -1262,20 +1467,19 @@ const AnnouncementListItem = ({ post, isOwn, onEdit, onDelete, isEditing, editCo
                     <div className="flex-1 min-w-0">
                         <p className="font-medium text-slate-800 dark:text-white text-base sm:text-lg leading-relaxed group-hover:text-[#007AFF] transition-colors line-clamp-3">{post.content}</p>
                         <div className="flex items-center gap-2 mt-2 sm:mt-3 text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400">
-                            <span className="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">{post.teacherName}</span>
+                            <span className="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">{post.teacherName}</span>
                             <span>•</span>
                             <span>{formattedDate}</span>
                         </div>
                     </div>
                     {isOwn && <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <button onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit" className="p-1.5 sm:p-2 rounded-full text-slate-400 hover:text-[#007AFF] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><PencilSquareIcon className="w-4 h-4 sm:w-5 sm:h-5" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete" className="p-1.5 sm:p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><TrashIcon className="w-4 h-4 sm:w-5 sm:h-5" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit" className="w-8 h-8 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"><Cog6ToothIcon className="w-4 h-4" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete" className="w-8 h-8 flex items-center justify-center rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"><TrashIcon className="w-4 h-4" /></button>
                     </div>}
                 </div>
             )}
-        </div>
+        </motion.div>
     );
 };
-
 
 export default ClassOverviewModal;

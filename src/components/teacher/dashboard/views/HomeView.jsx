@@ -1,6 +1,6 @@
 // src/components/teacher/dashboard/views/HomeView.jsx
-import React, { useState, lazy, Suspense } from 'react';
-import { motion } from 'framer-motion'; 
+import React, { useState, lazy, Suspense, memo } from 'react';
+// Removed motion import since we aren't using it for entrance anymore
 import DashboardHeader from './components/DashboardHeader';
 import DashboardWidgets from './components/DashboardWidgets';
 import ActivityFeed from './components/ActivityFeed';
@@ -8,20 +8,22 @@ import { useSchedule } from './hooks/useSchedule';
 
 const ScheduleModal = lazy(() => import('../widgets/ScheduleModal'));
 
-const auroraStyles = `
-  @keyframes aurora-move {
-    0% { transform: translate3d(0px, 0px, 0px) scale(1); }
-    33% { transform: translate3d(30px, -50px, 0px) scale(1.1); }
-    66% { transform: translate3d(-20px, 20px, 0px) scale(0.9); }
-    100% { transform: translate3d(0px, 0px, 0px) scale(1); }
-  }
-  .animate-aurora {
-    animation: aurora-move 15s infinite ease-in-out; /* Slowed down animation */
-    will-change: transform;
-  }
-  .animation-delay-2000 { animation-delay: 2s; }
-  .animation-delay-4000 { animation-delay: 4s; }
-`;
+// --- OPTIMIZED BACKGROUND (STATIC & VIBRANT) ---
+const AuroraBackground = memo(() => (
+    <div className="fixed inset-0 pointer-events-none z-0 bg-slate-50 dark:bg-[#0f1115]">
+        <div className="absolute inset-0 opacity-80 dark:opacity-40"
+             style={{
+                 backgroundImage: `
+                    radial-gradient(at 0% 0%, rgba(165, 180, 252, 0.7) 0px, transparent 55%),
+                    radial-gradient(at 100% 0%, rgba(103, 232, 249, 0.6) 0px, transparent 55%),
+                    radial-gradient(at 100% 100%, rgba(147, 197, 253, 0.6) 0px, transparent 55%),
+                    radial-gradient(at 0% 100%, rgba(216, 180, 254, 0.6) 0px, transparent 55%)
+                 `
+             }}
+        />
+        <div className="hidden dark:block absolute inset-0 bg-[#0f1115]/70" />
+    </div>
+));
 
 const HomeView = ({
     showToast,
@@ -45,21 +47,11 @@ const HomeView = ({
     
     return (
         <>
-            <style>{auroraStyles}</style>
+            <AuroraBackground />
 
-            {/* OPTIMIZED BACKGROUND: Removed mix-blend-mode, reduced blur, used opacity for blending */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 transform-gpu translate-z-0">
-                <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-indigo-300/30 dark:bg-indigo-600/10 rounded-full blur-[60px] animate-aurora" />
-                <div className="absolute top-[-10%] right-[-10%] w-[60vw] h-[60vw] bg-blue-500/30 dark:bg-blue-600/10 rounded-full blur-[60px] animate-aurora animation-delay-2000" />
-                <div className="absolute bottom-[-20%] left-[10%] w-[60vw] h-[60vw] bg-sky-300/30 dark:bg-cyan-600/10 rounded-full blur-[60px] animate-aurora animation-delay-4000" />
-            </div>
-
-            <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
+            {/* CHANGED: Replaced motion.div with standard div and removed initial/animate props */}
+            <div 
                 className="w-full space-y-8 font-sans pb-32 lg:pb-8 relative z-10"
-                // PERF: content-visibility allows browser to skip rendering off-screen content
                 style={{ contentVisibility: 'auto' }} 
             >
                 <div className="flex flex-col gap-6 sm:gap-8">
@@ -97,7 +89,7 @@ const HomeView = ({
                         />
                     )}
                 </Suspense>
-            </motion.div>
+            </div>
         </>
     );
 };

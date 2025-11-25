@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Dialog } from '@headlessui/react';
 import { collection, query, where, onSnapshot, writeBatch, doc, orderBy, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 import Spinner from '../common/Spinner';
-import { XMarkIcon, DocumentChartBarIcon, LanguageIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import LessonPage from './LessonPage';
+import { XMarkIcon, DocumentTextIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import ProgressIndicator from '../common/ProgressIndicator';
 import SourceContentSelector from '../../hooks/SourceContentSelector';
 
@@ -28,11 +27,11 @@ const tryParseJson = (jsonString) => {
     console.warn("Standard JSON.parse failed. Attempting to fix.", error);
     let sanitizedString = jsonString
       .replace(/```json|```/g, '')
-      .replace(/,\s*([}\]])/g, '$1') // Remove trailing commas
-      .replace(/([{,]\s*)([A-Za-z0-9_]+)\s*:/g, '$1"$2":') // Quote keys
-      .replace(/[“”]/g, '"') // Smart quotes
-      .replace(/[\u0000-\u001F]+/g, ' ') // Clean control chars
-      .replace(/\\(?!["\\/bfnrtu])/g, '\\\\') // Fix backslashes
+      .replace(/,\s*([}\]])/g, '$1')
+      .replace(/([{,]\s*)([A-Za-z0-9_]+)\s*:/g, '$1"$2":')
+      .replace(/[“”]/g, '"')
+      .replace(/[\u0000-\u001F]+/g, ' ')
+      .replace(/\\(?!["\\/bfnrtu])/g, '\\\\')
       .trim();
     try {
       return JSON.parse(sanitizedString);
@@ -46,14 +45,13 @@ const tryParseJson = (jsonString) => {
 export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId, subjectId }) {
     const { showToast } = useToast();
 
-    // --- Neumorphic Styles ---
-    const neuInput = "w-full bg-slate-200 dark:bg-neumorphic-base-dark rounded-lg py-2.5 px-4 text-slate-700 dark:text-slate-100 shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff] dark:shadow-neumorphic-inset-dark focus:outline-none focus:ring-2 focus:ring-sky-500 transition border-2 border-slate-200 dark:border-neumorphic-base-dark focus:border-slate-300 dark:focus:border-slate-700 placeholder:text-slate-400 dark:placeholder:text-slate-500";
-    const neuCard = "bg-slate-200 dark:bg-neumorphic-base-dark p-4 rounded-xl shadow-[6px_6px_12px_#bdc1c6,-6px_-6px_12px_#ffffff] dark:shadow-lg";
-    const neuInsetCard = "bg-slate-200 dark:bg-neumorphic-base-dark p-4 rounded-xl shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff] dark:shadow-neumorphic-inset-dark";
-    const neuButton = "px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-neumorphic-base-dark shadow-[5px_5px_10px_#bdc1c6,-5px_-5px_10px_#ffffff] dark:shadow-lg hover:shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:hover:shadow-neumorphic-inset-dark active:shadow-[inset_5px_5px_10px_#bdc1c6,inset_-5px_-5px_10px_#ffffff] dark:active:shadow-neumorphic-inset-dark disabled:text-slate-400 dark:disabled:text-slate-600 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] dark:disabled:shadow-neumorphic-inset-dark transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-200 dark:focus:ring-offset-neumorphic-base-dark";
-    const neuButtonPrimary = "px-8 py-3 bg-slate-200 font-semibold text-sky-600 dark:text-sky-400 rounded-xl shadow-[5px_5px_10px_#bdc1c6,-5px_-5px_10px_#ffffff] dark:bg-neumorphic-base-dark dark:shadow-lg hover:shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:hover:shadow-neumorphic-inset-dark active:shadow-[inset_5px_5px_10px_#bdc1c6,inset_-5px_-5px_10px_#ffffff] dark:active:shadow-neumorphic-inset-dark disabled:text-slate-400 dark:disabled:text-slate-600 disabled:shadow-[inset_2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] dark:disabled:shadow-neumorphic-inset-dark transition-shadow duration-200";
-    const neuHeaderIcon = "p-3 rounded-xl text-zinc-700 dark:text-zinc-300 bg-slate-200 dark:bg-neumorphic-base-dark shadow-[4px_4px_10px_#bdc1c6,-4px_-4px_10px_#ffffff] dark:shadow-lg inline-flex items-center justify-center";
-    
+    // --- iPadOS 26 Styles ---
+    const iosInput = "w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl py-3 px-4 text-sm font-medium text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#007AFF]/50 focus:border-[#007AFF] transition-all resize-none";
+    const iosCard = "bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-2xl p-5 shadow-sm";
+    const iosBtnPrimary = "px-6 py-3 bg-[#007AFF] hover:bg-[#0062cc] text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-2 justify-center";
+    const iosBtnSecondary = "px-6 py-3 bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-white font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-white/20 transition-all active:scale-95";
+    const iosLabel = "block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 ml-1";
+
     // --- State ---
     const [inputs, setInputs] = useState({
         contentStandard: '',
@@ -67,8 +65,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
     const [selectedLanguage, setSelectedLanguage] = useState('English');
     const [selectedSubjectId, setSelectedSubjectId] = useState(subjectId || '');
     const [selectedUnitIds, setSelectedUnitIds] = useState(new Set(initialUnitId ? [initialUnitId] : []));
-    const [scaffoldLessonIds, setScaffoldLessonIds] = useState(new Set());
-    const [expandedScaffoldUnits, setExpandedScaffoldUnits] = useState(new Set());
     const [isGenerating, setIsGenerating] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [previewData, setPreviewData] = useState(null);
@@ -130,7 +126,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         setInputs(prev => ({ ...prev, [name]: value }));
     }, []);
 
-    // --- Memoized Source Info ---
     const sourceInfo = useMemo(() => {
         if (selectedUnitIds.size === 0) return { title: '', content: '', lessonTitles: [], error: "Please select at least one source unit." };
         const unitDetails = Array.from(selectedUnitIds).map(id => unitsForSubject.find(u => u.id === id)).filter(Boolean);
@@ -147,24 +142,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         if (!content && generationTarget === 'teacherGuide') return { title, content: '', lessonTitles, error: `The selected unit(s) '${title}' appear to have no lesson content.`};
         return { title, content, lessonTitles, error: null };
     }, [selectedUnitIds, unitsForSubject, lessonsForUnit, generationTarget]);
-
-    const handleToggleUnitExpansion = (unitId) => {
-        const newSet = new Set(expandedScaffoldUnits);
-        if (newSet.has(unitId)) newSet.delete(unitId); else newSet.add(unitId);
-        setExpandedScaffoldUnits(newSet);
-    };
-    
-    const handleUnitCheckboxChange = (lessonsInUnit) => {
-        const lessonIdsInUnit = lessonsInUnit.map(l => l.id);
-        const currentlySelectedInUnit = lessonIdsInUnit.filter(id => scaffoldLessonIds.has(id));
-        const newSet = new Set(scaffoldLessonIds);
-        if (currentlySelectedInUnit.length === lessonIdsInUnit.length) {
-            lessonIdsInUnit.forEach(id => newSet.delete(id));
-        } else {
-            lessonIdsInUnit.forEach(id => newSet.add(id));
-        }
-        setScaffoldLessonIds(newSet);
-    };
 
     // --- Schema Definitions ---
     const ulpSchemas = {
@@ -186,13 +163,25 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
     };
 
     /**
-     * --- UPGRADED GENERATION LOGIC (Restored & Safe) ---
-     * Pedagogically aligned with PEAC / DepEd standards AND technically safe.
+     * --- UPGRADED GENERATION LOGIC WITH CONTEXT AWARENESS ---
      */
     const generateUlpSection = async (type, context, maxRetries = 3) => {
       let prompt;
       const iCan = context.language === 'Filipino' ? 'Kaya kong...' : 'I can...';
       const isFilipino = context.language === 'Filipino';
+
+      // --- CONTEXT AWARENESS INJECTION ---
+      const contextInjection = context.previousContent ? `
+      **CONTINUITY CONTEXT (CRITICAL):**
+      You are building upon previously generated sections.
+      - Ensure flow and progression.
+      - **Do NOT repeat** activities or assessments from the content below.
+      - Reference prior concepts where applicable.
+      
+      --- PREVIOUSLY GENERATED CONTENT ---
+      ${context.previousContent}
+      --- END PREVIOUS CONTENT ---
+      ` : "";
 
       const commonRules = `
     **ROLE:** Expert Curriculum Developer for DepEd Philippines / PEAC.
@@ -200,6 +189,8 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
     - Standards: ${context.contentStandard} / ${context.performanceStandard}
     - Content: ${context.sourceLessonTitles}
     - Language: ${context.language}
+
+    ${contextInjection}
 
     **CRITICAL TECHNICAL RULES (NON-NEGOTIABLE):**
     1. **OUTPUT:** Respond ONLY with a valid JSON object. No markdown fences (\`\`\`), no commentary.
@@ -215,119 +206,119 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       switch (type) {
         case 'explore':
           prompt = `
-    ${commonRules}
-    **TASK:** Generate "Explore" (Diagnosis/Hook).
-    **JSON STRUCTURE:**
-    {
-      "type": "explore",
-      "lessonsList": "Bulleted list of lessons.",
-      "unitOverview": "Academic summary of the unit.",
-      "hookedActivities": "Engaging hook activity instructions.",
-      "mapOfConceptualChange": "Diagnostic activity (e.g., KWL, IRF).",
-      "essentialQuestions": ["EQ1", "EQ2"]
-    }
-    `;
+            ${commonRules}
+            **TASK:** Generate "Explore" (Diagnosis/Hook).
+            **JSON STRUCTURE:**
+            {
+            "type": "explore",
+            "lessonsList": "Bulleted list of lessons.",
+            "unitOverview": "Academic summary of the unit.",
+            "hookedActivities": "Engaging hook activity instructions.",
+            "mapOfConceptualChange": "Diagnostic activity (e.g., KWL, IRF).",
+            "essentialQuestions": ["EQ1", "EQ2"]
+            }
+            `;
           break;
 
         case 'firmUp':
           prompt = `
-    ${commonRules}
-    **TASK:** Generate "Firm-Up" (Acquisition) for: "${context.competency}" (${context.code}).
-    **JSON STRUCTURE:**
-    {
-      "type": "firmUp",
-      "code": "${context.code}",
-      "competency": "${context.competency}",
-      "learningTargets": ["${iCan} define...", "${iCan} identify..."],
-      "successIndicators": ["Indicators..."],
-      "inPersonActivity": { "instructions": "Step-by-step instructions...", "materials": "List..." },
-      "onlineActivity": { "instructions": "Online alternative...", "materials": "Tools..." },
-      "supportDiscussion": "Processing questions.",
-      "assessment": { "type": "Quiz", "content": "Assessment content..." },
-      "templates": "Flashcard/worksheet content."
-    }
-    `;
+            ${commonRules}
+            **TASK:** Generate "Firm-Up" (Acquisition) for: "${context.competency}" (${context.code}).
+            **JSON STRUCTURE:**
+            {
+            "type": "firmUp",
+            "code": "${context.code}",
+            "competency": "${context.competency}",
+            "learningTargets": ["${iCan} define...", "${iCan} identify..."],
+            "successIndicators": ["Indicators..."],
+            "inPersonActivity": { "instructions": "Step-by-step instructions...", "materials": "List..." },
+            "onlineActivity": { "instructions": "Online alternative...", "materials": "Tools..." },
+            "supportDiscussion": "Processing questions.",
+            "assessment": { "type": "Quiz", "content": "Assessment content..." },
+            "templates": "Flashcard/worksheet content."
+            }
+            `;
           break;
 
         case 'deepen':
           prompt = `
-    ${commonRules}
-    **TASK:** Generate "Deepen" (Meaning-Making) for: "${context.competency}" (${context.code}).
-    **CRITICAL:** Must use **Guided Generalization** (C-E-R or Concept Map) to derive the Essential Understanding.
-    **JSON STRUCTURE:**
-    {
-      "type": "deepen",
-      "code": "${context.code}",
-      "competency": "${context.competency}",
-      "learningTargets": ["${iCan} explain...", "${iCan} justify..."],
-      "successIndicators": ["Indicators..."],
-      "inPersonActivity": { "instructions": "Guided Generalization activity...", "materials": "Worksheets..." },
-      "onlineActivity": { "instructions": "Online collaboration...", "materials": "Links..." },
-      "supportDiscussion": "Probing questions (Why/How?).",
-      "assessment": { "type": "Reflection", "content": "Reflection prompt..." },
-      "templates": "Graphic organizer content."
-    }
-    `;
+            ${commonRules}
+            **TASK:** Generate "Deepen" (Meaning-Making) for: "${context.competency}" (${context.code}).
+            **CRITICAL:** Must use **Guided Generalization** (C-E-R or Concept Map) to derive the Essential Understanding.
+            **JSON STRUCTURE:**
+            {
+            "type": "deepen",
+            "code": "${context.code}",
+            "competency": "${context.competency}",
+            "learningTargets": ["${iCan} explain...", "${iCan} justify..."],
+            "successIndicators": ["Indicators..."],
+            "inPersonActivity": { "instructions": "Guided Generalization activity...", "materials": "Worksheets..." },
+            "onlineActivity": { "instructions": "Online collaboration...", "materials": "Links..." },
+            "supportDiscussion": "Probing questions (Why/How?).",
+            "assessment": { "type": "Reflection", "content": "Reflection prompt..." },
+            "templates": "Graphic organizer content."
+            }
+            `;
           break;
 
         case 'transfer':
           prompt = `
-    ${commonRules}
-    **TASK:** Generate "Transfer" (Application) for: "${context.competency}" (${context.code}).
-    **GOAL:** Scaffold for Performance Task (GRASPS). Focus on 21st Century Skills.
-    **JSON STRUCTURE:**
-    {
-      "type": "transfer",
-      "code": "${context.code}",
-      "competency": "${context.competency}",
-      "learningTargets": ["${iCan} apply...", "${iCan} create..."],
-      "successIndicators": ["Indicators..."],
-      "inPersonActivity": { "instructions": "Mini-performance task...", "materials": "Rubrics..." },
-      "onlineActivity": { "instructions": "Digital creation task...", "materials": "Tools..." }
-    }
-    `;
+            ${commonRules}
+            **TASK:** Generate "Transfer" (Application) for: "${context.competency}" (${context.code}).
+            **GOAL:** Scaffold for Performance Task (GRASPS). Focus on 21st Century Skills.
+            **JSON STRUCTURE:**
+            {
+            "type": "transfer",
+            "code": "${context.code}",
+            "competency": "${context.competency}",
+            "learningTargets": ["${iCan} apply...", "${iCan} create..."],
+            "successIndicators": ["Indicators..."],
+            "inPersonActivity": { "instructions": "Mini-performance task...", "materials": "Rubrics..." },
+            "onlineActivity": { "instructions": "Digital creation task...", "materials": "Tools..." }
+            }
+            `;
           break;
 
         case 'synthesis':
           prompt = `
-    ${commonRules}
-    **TASK:** Final Synthesis.
-    **JSON STRUCTURE:** { "type": "synthesis", "summary": "Closure statement summarizing the Essential Understanding." }
-    `;
+            ${commonRules}
+            **TASK:** Final Synthesis.
+            **JSON STRUCTURE:** { "type": "synthesis", "summary": "Closure statement summarizing the Essential Understanding." }
+            `;
           break;
 
         case 'performanceTask':
           prompt = `
-    ${commonRules}
-    **TASK:** Unit Performance Task (GRASPS).
-    **JSON STRUCTURE:**
-    {
-      "type": "performanceTask",
-      "graspsTask": {
-        "goal": "...", "role": "...", "audience": "...", "situation": "...", "product": "...", "standards": "..."
-      },
-      "rubric": [
-        { "criteria": "Content", "description": "...", "points": "20" },
-        { "criteria": "Creativity", "description": "...", "points": "15" },
-        { "criteria": "Presentation", "description": "...", "points": "15" }
-      ]
-    }
-    `;
+            ${commonRules}
+            **TASK:** Unit Performance Task (GRASPS).
+            **JSON STRUCTURE:**
+            {
+            "type": "performanceTask",
+            "graspsTask": {
+                "goal": "...", "role": "...", "audience": "...", "situation": "...", "product": "...", "standards": "..."
+            },
+            "rubric": [
+                { "criteria": "Content", "description": "...", "points": "20" },
+                { "criteria": "Creativity", "description": "...", "points": "15" },
+                { "criteria": "Presentation", "description": "...", "points": "15" }
+            ]
+            }
+            `;
           break;
 
         case 'values':
           prompt = `
-    ${commonRules}
-    **TASK:** Integrate DepEd Core Values (Maka-Diyos, Maka-tao, Makakalikasan, Makabansa).
-    **JSON STRUCTURE:**
-    {
-      "type": "values",
-      "values": [
-        { "name": "Maka-Diyos", "description": "..." },
-        { "name": "Makakalikasan", "description": "..." }
-      ]
-    }
-    `;
+            ${commonRules}
+            **TASK:** Integrate DepEd Core Values (Maka-Diyos, Maka-tao, Makakalikasan, Makabansa).
+            **JSON STRUCTURE:**
+            {
+            "type": "values",
+            "values": [
+                { "name": "Maka-Diyos", "description": "..." },
+                { "name": "Makakalikasan", "description": "..." }
+            ]
+            }
+            `;
           break;
 
         default: return Promise.resolve(null);
@@ -351,6 +342,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
     };
 
     // --- HTML Assembler (Strict PEAC Table Format) ---
+    // DO NOT MODIFY STYLING AS REQUESTED
     const assembleUlpFromComponents = (components) => {
         let tbody = '';
         const esc = (text) => text ? text.replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
@@ -447,7 +439,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         </table>`;
     };
 
-    // --- Main Generation Handler ---
+    // --- Main Generation Handler (SEQUENTIAL FOR CONTEXT) ---
     const handleGenerate = async () => {
         if (generationTarget === 'teacherGuide') {
             if (!inputs.contentStandard || !inputs.performanceStandard || !inputs.learningCompetencies) {
@@ -487,7 +479,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
 
             if (!outline || !outline.firmUp) throw new Error("Failed to map competencies.");
 
-            // --- STAGE 2: Parallel Generation ---
+            // --- STAGE 2: Sequential Generation (Context Aware) ---
             setProgress(30);
             setProgressLabel('Step 2/3: Developing academic content...');
 
@@ -498,7 +490,8 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 language: selectedLanguage,
             };
 
-            const sectionsToGenerate = [
+            // Prepare queue
+            const sectionsQueue = [
                 { type: 'explore' },
                 ...outline.firmUp.map(item => ({ type: 'firmUp', ...item })),
                 ...outline.deepen.map(item => ({ type: 'deepen', ...item })),
@@ -509,16 +502,38 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             ];
 
             const componentResults = [];
-            const BATCH_SIZE = 3;
-            for (let i = 0; i < sectionsToGenerate.length; i += BATCH_SIZE) {
-                const batch = sectionsToGenerate.slice(i, i + BATCH_SIZE);
-                const results = await Promise.all(batch.map(section => generateUlpSection(section.type, { ...sharedContext, ...section })));
-                componentResults.push(...results.filter(Boolean));
-                if (i + BATCH_SIZE < sectionsToGenerate.length) await new Promise(r => setTimeout(r, 1500));
+            let accumulatedContextString = ""; // Stores summary of previous parts
+
+            for (let i = 0; i < sectionsQueue.length; i++) {
+                const currentSection = sectionsQueue[i];
+                
+                // Update progress visualization
+                const currentProgress = 30 + Math.floor((i / sectionsQueue.length) * 60);
+                setProgress(currentProgress);
+                setProgressLabel(`Developing: ${currentSection.type} (${i+1}/${sectionsQueue.length})`);
+
+                // Generate with Context
+                const result = await generateUlpSection(currentSection.type, { 
+                    ...sharedContext, 
+                    ...currentSection,
+                    previousContent: accumulatedContextString // Pass context
+                });
+
+                if (result) {
+                    componentResults.push(result);
+                    
+                    // Add summary to context for next iteration
+                    // We stringify the result to give the AI full visibility of what it just created
+                    // Truncate if too long to save tokens, but usually ULP sections are concise enough
+                    accumulatedContextString += `\n[Completed ${currentSection.type}]: ${JSON.stringify(result)}\n`;
+                }
+                
+                // Small delay to respect rate limits
+                await new Promise(r => setTimeout(r, 1000));
             }
 
             // --- STAGE 3: Assembly ---
-            setProgress(90);
+            setProgress(95);
             setProgressLabel('Step 3/3: Finalizing document...');
             
             const finalHtml = assembleUlpFromComponents(componentResults);
@@ -561,72 +576,114 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
 
     return (
         <Dialog open={isOpen} onClose={!isSaving && !isGenerating ? onClose : () => {}} className="relative z-[110]">
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm dark:bg-black/80" aria-hidden="true" />
-            <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-                <Dialog.Panel className="relative p-6 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col bg-slate-200 dark:bg-neumorphic-base-dark shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff] dark:shadow-lg border border-slate-300/50 dark:border-slate-700/50">
+            <div className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm transition-opacity" aria-hidden="true" />
+            <div className="fixed inset-0 flex w-screen items-center justify-center p-4 sm:p-6">
+                <Dialog.Panel className="relative flex flex-col w-full max-w-6xl max-h-[90vh] rounded-[2rem] bg-white dark:bg-[#1C1C1E] shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden transition-all transform">
+                    
+                    {/* Loading Overlay */}
                     {(isGenerating || isSaving) && (
-                        <div className="absolute inset-0 bg-white/70 backdrop-blur-sm dark:bg-neumorphic-base-dark/80 flex flex-col justify-center items-center z-50 rounded-2xl space-y-3">
+                        <div className="absolute inset-0 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-sm flex flex-col justify-center items-center z-50 space-y-6">
                             {isGenerating ? <ProgressIndicator progress={progress} /> : <Spinner />}
-                            <p className="text-zinc-600 dark:text-slate-300">{isGenerating ? progressLabel : 'Saving...'}</p>
-                        </div>
-                    )}
-                    <div className="flex justify-between items-start mb-6 flex-shrink-0">
-                        <div className="flex items-center gap-4">
-                            <div className={neuHeaderIcon}><DocumentChartBarIcon className="h-8 w-8 text-zinc-700 dark:text-zinc-300" /></div>
-                            <div>
-                                <Dialog.Title className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-slate-100">PEAC / DepEd ULP Generator</Dialog.Title>
-                                <p className="text-sm text-zinc-500 dark:text-slate-400">Create academically aligned Unit Learning Plans.</p>
+                            <div className="text-center">
+                                <p className="text-lg font-bold text-gray-900 dark:text-white">{isGenerating ? 'Generating Plan' : 'Saving...'}</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{isGenerating ? progressLabel : 'Writing to database'}</p>
                             </div>
                         </div>
-                        <button onClick={onClose} disabled={isSaving || isGenerating} className={`${neuButton} !p-2 !rounded-full`}><XMarkIcon className="h-5 w-5" /></button>
+                    )}
+
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-8 py-6 border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#1C1C1E] sticky top-0 z-20">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-2xl text-[#007AFF]">
+                                <DocumentTextIcon className="h-8 w-8" />
+                            </div>
+                            <div>
+                                <Dialog.Title className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">ULP Generator</Dialog.Title>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-0.5">DepEd / PEAC Aligned Curriculum Builder</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={onClose} 
+                            disabled={isSaving || isGenerating} 
+                            className="p-2 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/20 transition-colors"
+                        >
+                            <XMarkIcon className="h-6 w-6" />
+                        </button>
                     </div>
-                    <div className="flex-1 overflow-y-auto -mr-3 pr-3">
+
+                    {/* Body */}
+                    <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-white dark:bg-[#1C1C1E]">
                         {!previewData ? (
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <h3 className="font-bold text-lg text-zinc-700 dark:text-slate-300 border-b border-zinc-200 dark:border-slate-700 pb-2">Authoritative Inputs</h3>
-                                    <div>
-                                        <label className="block text-sm font-medium text-zinc-600 dark:text-slate-300 mb-1.5">Content Standard</label>
-                                        <textarea name="contentStandard" value={inputs.contentStandard} onChange={handleInputChange} className={neuInput} rows={3} placeholder="The learner demonstrates understanding of..." />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-zinc-600 dark:text-slate-300 mb-1.5">Performance Standard</label>
-                                        <textarea name="performanceStandard" value={inputs.performanceStandard} onChange={handleInputChange} className={neuInput} rows={3} placeholder="The learner is able to..." />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-zinc-600 dark:text-slate-300 mb-1.5">Learning Competencies</label>
-                                        <textarea name="learningCompetencies" value={inputs.learningCompetencies} onChange={handleInputChange} className={neuInput} rows={4} placeholder="Paste competencies here..." />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-zinc-600 dark:text-slate-300 mb-1.5">Language</label>
-                                        <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className={`${neuInput} appearance-none`}><option>English</option><option>Filipino</option></select>
-                                    </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
+                                {/* Left Col */}
+                                <div className="space-y-8">
+                                    <section>
+                                        <h3 className="text-sm font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10 pb-3 mb-5 flex items-center gap-2">
+                                            1. Authoritative Inputs
+                                        </h3>
+                                        <div className="space-y-5">
+                                            <div>
+                                                <label className={iosLabel}>Content Standard</label>
+                                                <textarea name="contentStandard" value={inputs.contentStandard} onChange={handleInputChange} className={iosInput} rows={3} placeholder="The learner demonstrates understanding of..." />
+                                            </div>
+                                            <div>
+                                                <label className={iosLabel}>Performance Standard</label>
+                                                <textarea name="performanceStandard" value={inputs.performanceStandard} onChange={handleInputChange} className={iosInput} rows={3} placeholder="The learner is able to..." />
+                                            </div>
+                                            <div>
+                                                <label className={iosLabel}>Learning Competencies</label>
+                                                <textarea name="learningCompetencies" value={inputs.learningCompetencies} onChange={handleInputChange} className={iosInput} rows={4} placeholder="Paste competencies here..." />
+                                            </div>
+                                            <div>
+                                                <label className={iosLabel}>Language</label>
+                                                <div className="relative">
+                                                    <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className={`${iosInput} appearance-none`}>
+                                                        <option>English</option>
+                                                        <option>Filipino</option>
+                                                    </select>
+                                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </section>
                                 </div>
-                                <div className="space-y-4">
-                                    <h3 className="font-bold text-lg text-zinc-700 dark:text-slate-300 border-b border-zinc-200 dark:border-slate-700 pb-2">Source Content</h3>
-                                    <div className={neuCard}>
-                                        <SourceContentSelector
-                                            selectedSubjectId={selectedSubjectId}
-                                            handleSubjectChange={(e) => { setSelectedSubjectId(e.target.value); setSelectedUnitIds(new Set()); }}
-                                            allSubjects={allSubjects}
-                                            selectedUnitIds={selectedUnitIds}
-                                            handleUnitSelectionChange={(id) => {
-                                                const newSet = new Set(selectedUnitIds);
-                                                if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
-                                                setSelectedUnitIds(newSet);
-                                            }}
-                                            unitsForSubject={unitsForSubject}
-                                            loading={isLoadingSubjects}
-                                        />
-                                    </div>
+
+                                {/* Right Col */}
+                                <div className="space-y-8">
+                                    <section className="h-full flex flex-col">
+                                        <h3 className="text-sm font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10 pb-3 mb-5 flex items-center gap-2">
+                                            2. Source Content
+                                        </h3>
+                                        <div className={`${iosCard} flex-1 overflow-hidden flex flex-col`}>
+                                            <SourceContentSelector
+                                                selectedSubjectId={selectedSubjectId}
+                                                handleSubjectChange={(e) => { setSelectedSubjectId(e.target.value); setSelectedUnitIds(new Set()); }}
+                                                allSubjects={allSubjects}
+                                                selectedUnitIds={selectedUnitIds}
+                                                handleUnitSelectionChange={(id) => {
+                                                    const newSet = new Set(selectedUnitIds);
+                                                    if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
+                                                    setSelectedUnitIds(newSet);
+                                                }}
+                                                unitsForSubject={unitsForSubject}
+                                                loading={isLoadingSubjects}
+                                            />
+                                        </div>
+                                    </section>
                                 </div>
                             </div>
                         ) : (
-                            <div className="space-y-4">
-                                <h2 className="text-xl font-bold text-zinc-800 dark:text-slate-100">Preview</h2>
-                                <div className="max-h-[65vh] overflow-y-auto border border-zinc-200 dark:border-slate-700 rounded-lg p-4 bg-zinc-100 dark:bg-slate-900/50">
+                            <div className="max-w-4xl mx-auto space-y-6">
+                                <div className="text-center mb-8">
+                                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Unit Learning Plan</h2>
+                                    <p className="text-gray-500 dark:text-gray-400 mt-2">{sourceInfo.title}</p>
+                                </div>
+                                <div className="bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-2xl p-8 shadow-sm overflow-x-auto">
                                     {previewData.generated_lessons.map((lesson, index) => (
                                         <div key={index} className="prose prose-slate dark:prose-invert max-w-none">
+                                            {/* Using the untouched HTML assembler output */}
                                             <div dangerouslySetInnerHTML={{ __html: lesson.pages[0].content }} />
                                         </div>
                                     ))}
@@ -634,14 +691,23 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                             </div>
                         )}
                     </div>
-                    <div className="pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-zinc-200/80 dark:border-slate-700/50 mt-6">
+
+                    {/* Footer */}
+                    <div className="flex-shrink-0 px-8 py-6 border-t border-gray-200 dark:border-white/10 bg-white dark:bg-[#1C1C1E] flex justify-end gap-3 z-20">
                         {previewData ? (
                             <>
-                                <button onClick={() => setPreviewData(null)} disabled={isSaving} className={`${neuButton} w-full sm:w-auto`}>Back to Edit</button>
-                                <button onClick={handleSave} disabled={isSaving} className={`${neuButtonPrimary} w-full sm:w-auto`}>{isSaving ? 'Saving...' : 'Accept & Save'}</button>
+                                <button onClick={() => setPreviewData(null)} disabled={isSaving} className={iosBtnSecondary}>Back to Edit</button>
+                                <button onClick={handleSave} disabled={isSaving} className={iosBtnPrimary}>Accept & Save</button>
                             </>
                         ) : (
-                            <button onClick={handleGenerate} disabled={isGenerating || !selectedUnitIds.size} className={`${neuButtonPrimary} ml-auto w-full sm:w-auto`}>{isGenerating ? 'Generating...' : 'Generate ULP'}</button>
+                            <button 
+                                onClick={handleGenerate} 
+                                disabled={isGenerating || !selectedUnitIds.size} 
+                                className={iosBtnPrimary}
+                            >
+                                <SparklesIcon className="w-5 h-5" />
+                                {isGenerating ? 'Generating...' : 'Generate ULP'}
+                            </button>
                         )}
                     </div>
                 </Dialog.Panel>

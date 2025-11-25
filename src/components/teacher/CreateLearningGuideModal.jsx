@@ -1,20 +1,19 @@
 import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import { Dialog } from '@headlessui/react';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import Spinner from '../common/Spinner';
 
-// --- VITE OPTIMIZATION: Lazy load each step of the modal ---
+// --- LAZY LOAD SCREENS ---
 const TopicSelectionScreen = lazy(() => import('./TopicSelectionScreen'));
 const GenerationScreen = lazy(() => import('./GenerationScreen'));
 const PreviewScreen = lazy(() => import('./PreviewScreen'));
 
-// Fallback for Suspense
+// --- FALLBACK ---
 const LoadingFallback = () => (
-    // --- MODIFIED: Added dark theme background ---
-    <div className="flex h-full min-h-[500px] w-full items-center justify-center dark:bg-neumorphic-base-dark">
+    <div className="flex h-full min-h-[500px] w-full items-center justify-center bg-white dark:bg-[#1C1C1E]">
         <Spinner />
     </div>
 );
@@ -33,19 +32,16 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
     const { showToast } = useToast();
     
     const [currentStep, setCurrentStep] = useState('topic'); // topic, generation, preview
-    const [guideData, setGuideData] = useState(initialFormData); // This holds the user's form input from step 1
+    const [guideData, setGuideData] = useState(initialFormData); 
     
-    // --- START OF REFACTOR: State management for robust retries ---
     const [generationResult, setGenerationResult] = useState({
-        previewData: null, // Holds { generated_lessons: [...] }
+        previewData: null, 
         failedLessonNumber: null,
     });
-    // This state will hold the AI-generated plan (e.g., [{"title": "Lesson 1..."}, {"title": "Lesson 2..."}])
+    
     const [lessonPlan, setLessonPlan] = useState(null); 
     const [startLessonNumber, setStartLessonNumber] = useState(1);
-    // --- END OF REFACTOR ---
 
-    // Data fetched once and passed down
     const [subject, setSubject] = useState(null);
     const [unit, setUnit] = useState(null);
 
@@ -79,7 +75,7 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
         setGuideData(initialFormData);
         setGenerationResult({ previewData: null, failedLessonNumber: null });
         setStartLessonNumber(1);
-        setLessonPlan(null); // --- REFACTOR: Reset lesson plan ---
+        setLessonPlan(null); 
     }, []);
 
     const handleClose = useCallback(() => {
@@ -90,30 +86,26 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
     const handleTopicSubmit = (submittedFormData) => {
         setGuideData(submittedFormData);
         setStartLessonNumber(1);
-        setLessonPlan(null); // --- REFACTOR: Clear any old plan ---
-        setGenerationResult({ previewData: null, failedLessonNumber: null }); // --- REFACTOR: Clear old results ---
+        setLessonPlan(null); 
+        setGenerationResult({ previewData: null, failedLessonNumber: null });
         setCurrentStep('generation');
     };
 
-    // --- REFACTOR: This now receives the lessonPlan from the generation screen ---
     const handleGenerationComplete = ({ previewData, failedLessonNumber, lessonPlan: completedPlan }) => {
         setGenerationResult({ previewData, failedLessonNumber });
-        setLessonPlan(completedPlan); // Save the plan in case of retry
+        setLessonPlan(completedPlan); 
         setCurrentStep('preview');
     };
     
     const handleBackToEdit = () => {
         setCurrentStep('topic');
-        // Keep guideData, but clear results and plan
         setGenerationResult({ previewData: null, failedLessonNumber: null });
         setLessonPlan(null);
     };
 
-    // --- REFACTOR: This handler is now simpler ---
     const handleBackToGeneration = (failedLessonNum) => {
-        setStartLessonNumber(failedLessonNum); // Set the lesson to restart from
-        setCurrentStep('generation'); // Go back to the generation screen
-        // We DON'T clear the lessonPlan or generationResult, as GenerationScreen will use them
+        setStartLessonNumber(failedLessonNum); 
+        setCurrentStep('generation'); 
     };
 
     const renderCurrentStep = () => {
@@ -125,12 +117,10 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
             case 'generation':
                 return (
                     <GenerationScreen
-                        // --- REFACTOR: Use startLessonNumber and a key for proper re-triggering ---
                         key={startLessonNumber} 
                         subject={subject}
                         unit={unit}
                         guideData={guideData}
-                        // --- REFACTOR: Pass all state needed for retries ---
                         initialLessonPlan={lessonPlan}
                         existingLessons={generationResult.previewData?.generated_lessons || []}
                         startLessonNumber={startLessonNumber}
@@ -164,18 +154,23 @@ export default function CreateLearningGuideModal({ isOpen, onClose, unitId, subj
     };
 
     return (
-        <Dialog open={isOpen} onClose={handleClose} className="relative z-50">
-            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm dark:bg-black/80" aria-hidden="true" />
-            <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-                <Dialog.Panel className="relative flex flex-col w-full h-full max-w-5xl max-h-[90vh] rounded-2xl bg-slate-200 shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff] border border-slate-300/50 dark:bg-neumorphic-base-dark dark:shadow-lg dark:border-slate-700">
+        <Dialog open={isOpen} onClose={handleClose} className="relative z-[100]">
+            {/* 1. Standard Backdrop (No heavy blur/saturate) */}
+            <div className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm transition-opacity" aria-hidden="true" />
+            
+            {/* 2. Modal Container */}
+            <div className="fixed inset-0 flex items-center justify-center p-4 sm:p-6">
+                <Dialog.Panel className="relative flex flex-col w-full h-full max-w-6xl max-h-[90vh] rounded-[2rem] bg-white dark:bg-[#1C1C1E] shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden transition-all transform">
+                    
+                    {/* 3. Close Button (Integrated cleanly) */}
                     <button
                         onClick={handleClose}
-                        className="absolute top-4 right-4 p-2 rounded-full text-slate-600 bg-slate-200 shadow-[3px_3px_6px_#bdc1c6,-3px_-3px_6px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_3px_3px_6px_#bdc1c6,inset_-3px_-3px_6px_#ffffff] transition-shadow duration-150 z-10
-                                   dark:bg-neumorphic-base-dark dark:text-slate-400 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark"
+                        className="absolute top-5 right-5 p-2 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/20 transition-colors z-20"
                         aria-label="Close"
                     >
                         <XMarkIcon className="w-5 h-5" />
                     </button>
+
                     <Suspense fallback={<LoadingFallback />}>
                         {renderCurrentStep()}
                     </Suspense>
