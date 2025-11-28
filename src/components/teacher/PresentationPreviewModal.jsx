@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Dialog, Transition, TransitionChild } from '@headlessui/react';
+import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
-import { ArrowPathIcon } from '@heroicons/react/20/solid';
+import { ArrowPathIcon, PresentationChartLineIcon, SpeakerWaveIcon } from '@heroicons/react/20/solid';
 
 // Helper function to format the notes object into a readable string
 const formatNotesToString = (notesObject) => {
@@ -19,40 +19,43 @@ const formatNotesToString = (notesObject) => {
 };
 
 export default function PresentationPreviewModal({ isOpen, onClose, previewData, onConfirm, isSaving }) {
-    // --- ADDED: Local state to track completion ---
+    const [selectedSlideIndex, setSelectedSlideIndex] = useState(0);
     const [isCreationComplete, setIsCreationComplete] = useState(false);
     const prevIsSaving = useRef(isSaving);
 
-    // --- ADDED: Effect to reset on open ---
+    // Effect to reset on open
     useEffect(() => {
         if (isOpen) {
-            // When modal opens, reset the "complete" state
             setIsCreationComplete(false);
-            prevIsSaving.current = isSaving; // Sync ref
+            setSelectedSlideIndex(0);
+            prevIsSaving.current = isSaving;
         }
     }, [isOpen, isSaving]);
 
-    // --- ADDED: Effect to detect when saving finishes ---
+    // Effect to detect when saving finishes
     useEffect(() => {
-        // Check if isSaving just changed from TRUE to FALSE
-        if (prevIsSaving.current === true && isSaving === false) {
-            // This means the save operation just finished.
-            // We assume it was successful because the parent didn't close the modal.
+        if (prevIsSaving.current && !isSaving && isOpen) {
             setIsCreationComplete(true);
+            const timer = setTimeout(() => {
+                onClose();
+            }, 2000);
+            return () => clearTimeout(timer);
         }
-        // Update the ref for the next render
         prevIsSaving.current = isSaving;
-    }, [isSaving]);
-
-    if (!isOpen) return null;
+    }, [isSaving, isOpen, onClose]);
 
     const slides = previewData?.slides || [];
+    const selectedSlide = slides[selectedSlideIndex];
 
     return (
         <Transition show={isOpen} as={React.Fragment}>
-            <Dialog as="div" className="relative z-[9999] font-sans" onClose={onClose}>
-                {/* Backdrop */}
-                <TransitionChild
+            <Dialog 
+                as="div" 
+                className="relative z-[120]" 
+                onClose={isSaving ? () => {} : onClose}
+            >
+                {/* Backdrop: Darker, reduced blur for focus */}
+                <Transition.Child
                     as={React.Fragment}
                     enter="ease-out duration-300"
                     enterFrom="opacity-0"
@@ -61,118 +64,170 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    {/* --- MODIFIED: Added dark theme backdrop --- */}
-                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity dark:bg-black/80" />
-                </TransitionChild>
+                    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity" />
+                </Transition.Child>
 
-                <div className="fixed inset-0 z-[9999] w-screen overflow-y-auto">
-                    <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
-                        <TransitionChild
+                <div className="fixed inset-0 z-10 overflow-y-auto">
+                    <div className="flex min-h-full items-center justify-center p-4 sm:p-6 text-center">
+                        <Transition.Child
                             as={React.Fragment}
                             enter="ease-out duration-300"
-                            enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                            enterTo="opacity-100 translate-y-0 sm:scale-100"
+                            enterFrom="opacity-0 scale-95 translate-y-4"
+                            enterTo="opacity-100 scale-100 translate-y-0"
                             leave="ease-in duration-200"
-                            leaveFrom="opacity-100 translate-y-0 sm:scale-100"
-                            leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                            leaveFrom="opacity-100 scale-100 translate-y-0"
+                            leaveTo="opacity-0 scale-95 translate-y-4"
                         >
-                            {/* Neumorphic Modal Panel */}
-                            {/* --- MODIFIED: Added dark theme panel styles --- */}
-                            <Dialog.Panel className="relative transform overflow-hidden rounded-3xl bg-neumorphic-base shadow-neumorphic transition-all sm:my-8 sm:w-full sm:max-w-4xl max-h-[90vh] flex flex-col p-7
-                                                     dark:bg-neumorphic-base-dark dark:shadow-lg">
+                            <Dialog.Panel className="w-full max-w-6xl transform overflow-hidden rounded-[24px] bg-white dark:bg-[#1e1e1e] shadow-2xl ring-1 ring-black/5 transition-all flex flex-col max-h-[90vh]">
                                 
-                                {/* Header */}
-                                {/* --- MODIFIED: Added dark theme border --- */}
-                                <div className="flex justify-between items-center mb-6 pb-4 border-b border-neumorphic-shadow-dark/20 dark:border-slate-700">
-                                    {/* --- MODIFIED: Added dark theme text --- */}
-                                    <Dialog.Title className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                                        Presentation Preview ({slides.length} Slides)
-                                    </Dialog.Title>
-                                    <button
-                                        onClick={onClose}
-                                        // --- MODIFIED: Added dark theme button styles ---
-                                        className="p-2 rounded-full bg-neumorphic-base shadow-neumorphic hover:shadow-neumorphic-inset transition
-                                                   dark:bg-neumorphic-base-dark dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark"
-                                    >
-                                        {/* --- MODIFIED: Added dark theme icon --- */}
-                                        <XMarkIcon className="w-6 h-6 text-slate-500 dark:text-slate-400" />
-                                    </button>
-                                </div>
-
-                                {/* Slides Content */}
-                                <div className="flex-grow overflow-y-auto pr-3 space-y-6">
-                                    {slides.length > 0 ? (
-                                        slides.map((slide, index) => (
-                                            <div
-                                                key={index}
-                                                // --- MODIFIED: Added dark theme card styles ---
-                                                className="bg-neumorphic-base p-5 rounded-2xl shadow-neumorphic text-left
-                                                           dark:bg-neumorphic-base-dark dark:shadow-lg"
-                                            >
-                                                {/* --- MODIFIED: Added dark theme text --- */}
-                                                <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mb-2">SLIDE {index + 1}</p>
-                                                {/* --- MODIFIED: Added dark theme text --- */}
-                                                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-3">{slide.title}</h3>
-                                                
-                                                {/* --- MODIFIED: Added dark theme inset styles --- */}
-                                                <div className="text-sm text-slate-700 bg-neumorphic-base shadow-neumorphic-inset p-3 rounded-xl mb-4
-                                                                dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:text-slate-200">
-                                                    <pre className="whitespace-pre-wrap font-sans">{slide.body}</pre>
-                                                </div>
-
-                                                {/* --- MODIFIED: Added dark theme text --- */}
-                                                <h4 className="font-semibold text-xs text-slate-500 dark:text-slate-400 mt-4 mb-2">SPEAKER NOTES</h4>
-                                                {/* --- MODIFIED: Added dark theme inset styles --- */}
-                                                <div className="text-xs text-slate-700 bg-neumorphic-base shadow-neumorphic-inset p-3 rounded-xl
-                                                                dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark dark:text-slate-300">
-                                                    <pre className="whitespace-pre-wrap font-sans">{formatNotesToString(slide.notes)}</pre>
-                                                </div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        // --- MODIFIED: Added dark theme text ---
-                                        <p className="text-center text-slate-500 dark:text-slate-400 py-10">No slide data to display.</p>
-                                    )}
-                                </div>
-
-                                {/* --- MODIFIED: Footer Buttons logic --- */}
-                                <div className="pt-6 mt-6 border-t border-neumorphic-shadow-dark/20 dark:border-slate-700 flex justify-end">
-                                    {isCreationComplete ? (
-                                        // --- ADDED: "Close" button for after creation ---
+                                {/* --- Header --- */}
+                                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/5 bg-white/50 dark:bg-[#1e1e1e]/50 backdrop-blur-xl z-20">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                                            <PresentationChartLineIcon className="h-5 w-5" />
+                                        </div>
+                                        <div className="text-left">
+                                            <Dialog.Title as="h3" className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+                                                Generate Slides
+                                            </Dialog.Title>
+                                            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                                                Review content before exporting to Google Slides
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {!isSaving && !isCreationComplete && (
                                         <button
                                             onClick={onClose}
-                                            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-slate-100 bg-gradient-to-br from-slate-500 to-slate-600 shadow-neumorphic hover:shadow-neumorphic-inset transition active:scale-[0.98]
-                                                       dark:from-slate-600 dark:to-slate-700 dark:text-slate-100 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark"
+                                            className="p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-white/10 dark:hover:text-slate-200 transition-colors"
                                         >
-                                            <XMarkIcon className="h-5 w-5" />
-                                            Close
-                                        </button>
-                                    ) : (
-                                        // --- MODIFIED: "Create" button with glow effect ---
-                                        <button
-                                            onClick={onConfirm}
-                                            disabled={isSaving}
-                                            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-blue-700 bg-gradient-to-br from-sky-100 to-blue-200 shadow-neumorphic hover:shadow-neumorphic-inset transition duration-150 disabled:opacity-50
-                                                       dark:from-sky-700 dark:to-blue-800 dark:text-sky-100 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark
-                                                       active:scale-[0.98] active:shadow-[0_0_15px_3px_rgba(56,189,248,0.6)] dark:active:shadow-[0_0_15px_3px_rgba(56,189,248,0.6)]"
-                                        >
-                                            {isSaving ? (
-                                                <>
-                                                    <ArrowPathIcon className="h-5 w-5 animate-spin" />
-                                                    Creating...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <CheckCircleIcon className="h-5 w-5" />
-                                                    Create Presentation
-                                                </>
-                                            )}
+                                            <XMarkIcon className="h-5 w-5 stroke-[2.5]" />
                                         </button>
                                     )}
                                 </div>
-                                {/* --- END: MODIFIED Footer Buttons --- */}
+
+                                {/* --- Main Content Area (Split View) --- */}
+                                <div className="flex flex-grow overflow-hidden relative">
+                                    
+                                    {/* Sidebar: Slide List */}
+                                    <div className="w-1/3 min-w-[250px] max-w-[320px] border-r border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-[#1e1e1e] flex flex-col">
+                                        <div className="p-3 border-b border-slate-100 dark:border-white/5">
+                                            <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2">
+                                                Slides ({slides.length})
+                                            </span>
+                                        </div>
+                                        <div className="flex-grow overflow-y-auto custom-scrollbar p-2 space-y-1">
+                                            {slides.map((slide, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => setSelectedSlideIndex(idx)}
+                                                    className={`w-full text-left px-3 py-3 rounded-[12px] group transition-all duration-200 border
+                                                        ${selectedSlideIndex === idx 
+                                                            ? 'bg-white dark:bg-white/10 border-slate-200 dark:border-white/5 shadow-sm' 
+                                                            : 'border-transparent hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400'
+                                                        }`}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-md flex-shrink-0
+                                                            ${selectedSlideIndex === idx ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400' : 'bg-slate-100 dark:bg-white/10 text-slate-500'}`}>
+                                                            {idx + 1}
+                                                        </span>
+                                                        <div className="min-w-0">
+                                                            <p className={`text-[13px] font-semibold truncate ${selectedSlideIndex === idx ? 'text-slate-900 dark:text-white' : ''}`}>
+                                                                {slide.title || `Slide ${idx + 1}`}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Preview Pane */}
+                                    <div className="flex-grow bg-slate-100/50 dark:bg-black/20 flex flex-col relative overflow-hidden">
+                                        
+                                        {/* Canvas Area */}
+                                        <div className="flex-grow overflow-y-auto p-8 flex items-center justify-center">
+                                            {selectedSlide ? (
+                                                <div className="w-full max-w-3xl aspect-video bg-white dark:bg-[#2c2c2e] rounded-xl shadow-2xl shadow-black/10 border border-slate-200/60 dark:border-white/5 flex flex-col overflow-hidden relative group">
+                                                    {/* Simulated Slide Content */}
+                                                    <div className="flex-grow p-10 md:p-12 flex flex-col justify-center">
+                                                        <h1 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">
+                                                            {selectedSlide.title}
+                                                        </h1>
+                                                        <div className="prose prose-lg prose-slate dark:prose-invert max-w-none text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                                                            {Array.isArray(selectedSlide.body) 
+                                                                ? selectedSlide.body.join('\n') 
+                                                                : selectedSlide.body}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* Branding / Footer Simulation */}
+                                                    <div className="h-2 bg-gradient-to-r from-[#007AFF] to-blue-400 absolute bottom-0 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                </div>
+                                            ) : (
+                                                <p className="text-slate-400">Select a slide to preview</p>
+                                            )}
+                                        </div>
+
+                                        {/* Speaker Notes Drawer */}
+                                        <div className="h-[180px] flex-shrink-0 bg-white dark:bg-[#1e1e1e] border-t border-slate-200 dark:border-white/5 flex flex-col">
+                                            <div className="px-4 py-2 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-[#1e1e1e] flex items-center gap-2">
+                                                <SpeakerWaveIcon className="h-3.5 w-3.5 text-slate-400" />
+                                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Speaker Notes</span>
+                                            </div>
+                                            <div className="flex-grow p-4 overflow-y-auto custom-scrollbar font-mono text-xs leading-relaxed text-slate-600 dark:text-slate-400 whitespace-pre-wrap">
+                                                {selectedSlide ? formatNotesToString(selectedSlide.notes) : ''}
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+
+                                {/* --- Footer Actions --- */}
+                                <div className="px-6 py-4 bg-white dark:bg-[#1e1e1e] border-t border-slate-200 dark:border-white/5 flex justify-end items-center gap-3 z-20">
+                                    {isCreationComplete ? (
+                                        <div className="flex items-center text-green-600 dark:text-green-400 font-bold px-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                            <CheckCircleIcon className="h-5 w-5 mr-2" />
+                                            Presentation Created Successfully!
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={onClose}
+                                                disabled={isSaving}
+                                                className="px-5 py-2.5 rounded-[12px] text-[13px] font-semibold text-slate-700 dark:text-slate-300 
+                                                         hover:bg-slate-100 dark:hover:bg-white/10 border border-transparent disabled:opacity-50 transition-all"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={onConfirm}
+                                                disabled={isSaving}
+                                                className={`px-6 py-2.5 rounded-[14px] text-[13px] font-bold text-white shadow-lg shadow-blue-500/25 flex items-center gap-2 transition-all active:scale-[0.98]
+                                                    ${isSaving 
+                                                        ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed shadow-none' 
+                                                        : 'bg-[#007AFF] hover:bg-[#0062CC]'
+                                                    }`}
+                                            >
+                                                {isSaving ? (
+                                                    <>
+                                                        <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                                                        Creating Presentation...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        Create in Google Slides
+                                                    </>
+                                                )}
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+
                             </Dialog.Panel>
-                        </TransitionChild>
+                        </Transition.Child>
                     </div>
                 </div>
             </Dialog>

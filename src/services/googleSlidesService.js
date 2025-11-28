@@ -173,9 +173,11 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
             // This is the notes *string* from TeacherDashboard.jsx
             const formattedNotes = data.notes;
             
-            // Get the notesPageId and speakerNotesObjectId directly from the slide object
-            const notesPageId = slide.notesPage?.objectId;
-            let speakerNotesObjectId = slide.notesPage?.notesProperties?.speakerNotesObjectId;
+            // FIX: Access notesPage via slideProperties.
+            // In the Google Slides API, the notesPage is a property of slideProperties,
+            // not a direct property of the slide (Page) object.
+            const notesPageId = slide.slideProperties?.notesPage?.objectId;
+            let speakerNotesObjectId = slide.slideProperties?.notesPage?.notesProperties?.speakerNotesObjectId;
             
             // Only proceed if there are notes to add AND the slide has a notes page
             if (formattedNotes && notesPageId) {

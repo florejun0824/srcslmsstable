@@ -19,142 +19,118 @@ const loadingMessages = [
     "Crafting with precision and care...",
 ];
 
-// --- MODIFIED: New CSS for Single Ring Spinner with Dynamic Color Change ---
+// --- macOS 26 Spinner CSS ---
+// A refined, thin-stroke spinner typically found in modern native interfaces.
 const ringSpinnerStyles = `
-/* Keyframes for continuous smooth spin */
-@keyframes single-ring-spin {
+@keyframes macos-spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
-
-/* Keyframes for dynamic color change */
-@keyframes color-pulse {
-    0%   { border-color: rgba(0,0,0,0.1) rgba(0,0,0,0.1) #0ea5e9 #38bdf8; } /* Sky Blue */
-    25%  { border-color: rgba(0,0,0,0.1) rgba(0,0,0,0.1) #6366f1 #3b82f6; } /* Indigo/Blue */
-    50%  { border-color: rgba(0,0,0,0.1) rgba(0,0,0,0.1) #06b6d4 #22d3ee; } /* Cyan */
-    75%  { border-color: rgba(0,0,0,0.1) rgba(0,0,0,0.1) #a855f7 #d946ef; } /* Purple/Fuchsia */
-    100% { border-color: rgba(0,0,0,0.1) rgba(0,0,0,0.1) #0ea5e9 #38bdf8; }
-}
-
-/* Base class for the ring */
-.single-ring-spinner {
-    width: 36px;
-    height: 36px;
-    border: 4px solid; /* Thickness of the ring */
+.macos-spinner {
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
-    
-    /* Apply both spin and color change */
-    animation: single-ring-spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite, 
-               color-pulse 4s linear infinite; /* Slower, linear pulse for color cycle */
-    
-    transition: border-color 0.3s;
-}
-
-/* Dark Mode: Adjust the transparent part for dark background and use brighter colors */
-.dark .single-ring-spinner {
-    /* Base for dark mode pulse */
-    animation: single-ring-spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite, 
-               color-pulse-dark 4s linear infinite;
-    
-    /* Initial state for dark mode */
-    border-color: rgba(255,255,255,0.1) rgba(255,255,255,0.1) #38bdf8 #7dd3fc;
-}
-
-/* Dark Mode Keyframes */
-@keyframes color-pulse-dark {
-    0%   { border-color: rgba(255,255,255,0.1) rgba(255,255,255,0.1) #38bdf8 #7dd3fc; } /* Sky */
-    25%  { border-color: rgba(255,255,255,0.1) rgba(255,255,255,0.1) #60a5fa #3b82f6; } /* Blue */
-    50%  { border-color: rgba(255,255,255,0.1) rgba(255,255,255,0.1) #22d3ee #67e8f9; } /* Cyan */
-    75%  { border-color: rgba(255,255,255,0.1) rgba(255,255,255,0.1) #a855f7 #c084fc; } /* Purple */
-    100% { border-color: rgba(255,255,255,0.1) rgba(255,255,255,0.1) #38bdf8 #7dd3fc; }
+    border: 2.5px solid rgba(0, 122, 255, 0.15); /* Subtle track */
+    border-top-color: #007AFF; /* System Blue active segment */
+    animation: macos-spin 0.8s infinite linear;
 }
 `;
 
-/**
- * Single Ring Spinner component.
- */
-const SingleRingSpinner = () => {
-    return (
-        <div className="relative">
-            <style>{ringSpinnerStyles}</style>
-            <div className="single-ring-spinner"></div>
-        </div>
-    );
-};
+const InteractiveLoadingScreen = ({ isLoading, message, lessonProgress }) => {
+    const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
 
-/**
- * An interactive loading screen with a neumorphic aesthetic.
- * @param {object} props The component props.
- * @param {boolean} props.isSaving If true, shows a saving message.
- * @param {{current: number, total: number}} props.lessonProgress The current and total number of lessons.
- */
-const InteractiveLoadingScreen = ({ isSaving = false, lessonProgress = { current: 1, total: 1 } }) => {
-    const [messageIndex, setMessageIndex] = useState(0);
-
+    // Cycle through messages
     useEffect(() => {
-        if (isSaving) return;
+        if (!isLoading) return;
         const interval = setInterval(() => {
-            setMessageIndex(prevIndex => (prevIndex + 1) % loadingMessages.length);
+            setCurrentMessageIndex((prev) => (prev + 1) % loadingMessages.length);
         }, 3000);
         return () => clearInterval(interval);
-    }, [isSaving]);
+    }, [isLoading]);
 
-    const currentMessage = isSaving ? "Finalizing and saving your work..." : loadingMessages[messageIndex];
-    const progressPercentage = lessonProgress.total > 0 ? (lessonProgress.current / lessonProgress.total) * 100 : 0;
+    const currentMessage = message || loadingMessages[currentMessageIndex];
+
+    // Calculate progress percentage securely
+    const progressPercentage = lessonProgress 
+        ? Math.min(100, Math.max(0, (lessonProgress.current / lessonProgress.total) * 100))
+        : 0;
+
+    if (!isLoading) return null;
 
     return (
         <motion.div
-            initial={{ opacity: 0, scale: 1.05 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.05 }}
-            transition={{ duration: 0.4, ease: "circOut" }}
-            className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-200/70 dark:bg-neumorphic-base-dark/70 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-100/40 dark:bg-black/60 backdrop-blur-md"
         >
-            <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center text-center p-8 bg-slate-200 dark:bg-neumorphic-base-dark border border-slate-300/50 dark:border-transparent rounded-[2.75rem] shadow-[10px_10px_20px_#bdc1c6,-10px_-10px_20px_#ffffff] dark:shadow-lg">
+            {/* Inject localized styles */}
+            <style>{ringSpinnerStyles}</style>
+
+            {/* --- Main Card --- */}
+            <motion.div 
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="relative w-full max-w-[360px] mx-4 p-8 rounded-[28px] 
+                           bg-white/85 dark:bg-[#1c1c1e]/85 
+                           backdrop-blur-2xl 
+                           shadow-2xl shadow-black/10 ring-1 ring-black/5 dark:ring-white/10
+                           flex flex-col items-center text-center"
+            >
                 
-                <div className="mb-4">
-                    <SingleRingSpinner />
+                {/* Visual: Clean Spinner */}
+                <div className="mb-8 relative">
+                    <div className="macos-spinner"></div>
                 </div>
-                
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2 tracking-tight">
-                    {isSaving ? 'Saving Your Lesson' : `Crafting Materials`}
-                </h2>
 
-                <p className="text-base text-slate-600 dark:text-slate-300 mb-6 px-4">
-                    {isSaving ? `Securing your new content.` : `Please wait while we generate your material.`}
-                </p>
-
-                {lessonProgress.total > 0 && (
-                    <div className="w-full max-w-xs mb-4">
-                        <div className="w-full bg-slate-200 dark:bg-neumorphic-base-dark rounded-full h-2 shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] dark:shadow-neumorphic-inset-dark">
+                {/* Progress Bar (Conditional) */}
+                {lessonProgress && (
+                    <div className="w-full mb-6 px-2">
+                        <div className="h-[5px] w-full bg-slate-200/80 dark:bg-white/10 rounded-full overflow-hidden">
                             <motion.div
-                                className="bg-sky-500 h-2 rounded-full shadow-[inset_1px_1px_2px_#0284c7,inset_-1px_-1px_2px_#38bdf8]"
+                                className="h-full bg-[#007AFF] rounded-full shadow-[0_0_8px_rgba(0,122,255,0.5)]"
                                 initial={{ width: 0 }}
                                 animate={{ width: `${progressPercentage}%` }}
-                                transition={{ duration: 0.5, ease: "easeInOut" }}
+                                transition={{ duration: 0.5, ease: "circOut" }}
                             />
                         </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">
-                            Step {lessonProgress.current} of {lessonProgress.total}
-                        </p>
+                        <div className="flex justify-between items-center mt-2.5">
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                Processing
+                            </span>
+                            <span className="text-[11px] font-mono font-medium text-slate-600 dark:text-slate-300">
+                                {Math.round(progressPercentage)}%
+                            </span>
+                        </div>
                     </div>
                 )}
 
-                <div className="h-12 flex items-center justify-center">
+                {/* Text Feedback */}
+                <div className="h-10 flex items-center justify-center w-full">
                     <AnimatePresence mode="wait">
                         <motion.p
                             key={currentMessage}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.4 }}
-                            className="text-sm text-slate-500 dark:text-slate-400 font-medium"
+                            initial={{ opacity: 0, y: 4, filter: 'blur(2px)' }}
+                            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                            exit={{ opacity: 0, y: -4, filter: 'blur(2px)' }}
+                            transition={{ duration: 0.35 }}
+                            className="text-[14px] font-medium text-slate-800 dark:text-white leading-snug"
                         >
                             {currentMessage}
                         </motion.p>
                     </AnimatePresence>
                 </div>
-            </div>
+                
+                {/* Step Counter Detail */}
+                {lessonProgress && (
+                     <p className="mt-1 text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                        Item {lessonProgress.current} of {lessonProgress.total}
+                    </p>
+                )}
+
+            </motion.div>
         </motion.div>
     );
 };
