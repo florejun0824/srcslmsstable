@@ -20,7 +20,6 @@ const loadingMessages = [
 ];
 
 // --- macOS 26 Spinner CSS ---
-// A refined, thin-stroke spinner typically found in modern native interfaces.
 const ringSpinnerStyles = `
 @keyframes macos-spin {
     0% { transform: rotate(0deg); }
@@ -30,32 +29,37 @@ const ringSpinnerStyles = `
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    border: 2.5px solid rgba(0, 122, 255, 0.15); /* Subtle track */
-    border-top-color: #007AFF; /* System Blue active segment */
+    border: 2.5px solid rgba(0, 122, 255, 0.15);
+    border-top-color: #007AFF;
     animation: macos-spin 0.8s infinite linear;
 }
 `;
 
-const InteractiveLoadingScreen = ({ isLoading, message, lessonProgress }) => {
+// 1. ADD: 'topic' to props destructuring
+const InteractiveLoadingScreen = ({ isLoading, message, topic, lessonProgress }) => {
     const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+
+    // 2. ADD: Robust check. If isLoading is undefined, assume we want to show it (default true).
+    const shouldShow = isLoading === undefined ? true : isLoading;
 
     // Cycle through messages
     useEffect(() => {
-        if (!isLoading) return;
+        if (!shouldShow) return; // 3. UPDATE: Use the new check
         const interval = setInterval(() => {
             setCurrentMessageIndex((prev) => (prev + 1) % loadingMessages.length);
         }, 3000);
         return () => clearInterval(interval);
-    }, [isLoading]);
+    }, [shouldShow]);
 
-    const currentMessage = message || loadingMessages[currentMessageIndex];
+    // 4. UPDATE: Use 'message', fallback to 'topic', fallback to defaults
+    const currentMessage = message || topic || loadingMessages[currentMessageIndex];
 
-    // Calculate progress percentage securely
     const progressPercentage = lessonProgress 
         ? Math.min(100, Math.max(0, (lessonProgress.current / lessonProgress.total) * 100))
         : 0;
 
-    if (!isLoading) return null;
+    // 5. UPDATE: Use the new check
+    if (!shouldShow) return null;
 
     return (
         <motion.div
@@ -65,10 +69,8 @@ const InteractiveLoadingScreen = ({ isLoading, message, lessonProgress }) => {
             transition={{ duration: 0.3 }}
             className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-100/40 dark:bg-black/60 backdrop-blur-md"
         >
-            {/* Inject localized styles */}
             <style>{ringSpinnerStyles}</style>
 
-            {/* --- Main Card --- */}
             <motion.div 
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -79,13 +81,10 @@ const InteractiveLoadingScreen = ({ isLoading, message, lessonProgress }) => {
                            shadow-2xl shadow-black/10 ring-1 ring-black/5 dark:ring-white/10
                            flex flex-col items-center text-center"
             >
-                
-                {/* Visual: Clean Spinner */}
                 <div className="mb-8 relative">
                     <div className="macos-spinner"></div>
                 </div>
 
-                {/* Progress Bar (Conditional) */}
                 {lessonProgress && (
                     <div className="w-full mb-6 px-2">
                         <div className="h-[5px] w-full bg-slate-200/80 dark:bg-white/10 rounded-full overflow-hidden">
@@ -107,7 +106,6 @@ const InteractiveLoadingScreen = ({ isLoading, message, lessonProgress }) => {
                     </div>
                 )}
 
-                {/* Text Feedback */}
                 <div className="h-10 flex items-center justify-center w-full">
                     <AnimatePresence mode="wait">
                         <motion.p
@@ -123,7 +121,6 @@ const InteractiveLoadingScreen = ({ isLoading, message, lessonProgress }) => {
                     </AnimatePresence>
                 </div>
                 
-                {/* Step Counter Detail */}
                 {lessonProgress && (
                      <p className="mt-1 text-[11px] font-medium text-slate-400 dark:text-slate-500">
                         Item {lessonProgress.current} of {lessonProgress.total}
