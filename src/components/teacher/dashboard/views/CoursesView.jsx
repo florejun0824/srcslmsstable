@@ -19,10 +19,9 @@ import {
 } from '@heroicons/react/24/solid';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
-// --- OPTIMIZED BACKGROUND (STATIC BUT VIBRANT) ---
+// --- BACKGROUND ---
 const AuroraBackground = memo(() => (
     <div className="fixed inset-0 pointer-events-none z-0 bg-slate-50 dark:bg-[#0f1115]">
-        {/* Static Gradient Mesh - Increased opacity for better visibility */}
         <div className="absolute inset-0 opacity-80 dark:opacity-40"
              style={{
                  backgroundImage: `
@@ -33,7 +32,6 @@ const AuroraBackground = memo(() => (
                  `
              }}
         />
-        {/* Dark mode specific overlay for better contrast */}
         <div className="hidden dark:block absolute inset-0 bg-[#0f1115]/70" />
     </div>
 ));
@@ -41,14 +39,84 @@ const AuroraBackground = memo(() => (
 const commonContainerClasses = "relative h-[calc(100vh-7rem)] lg:h-[calc(100vh-8rem)] w-full p-2 sm:p-4 font-sans selection:bg-blue-500/30";
 const windowContainerClasses = "relative z-10 h-full flex flex-col bg-white/90 dark:bg-[#1A1D24]/95 rounded-3xl sm:rounded-[2rem] shadow-xl shadow-slate-200/60 dark:shadow-black/50 border border-slate-200 dark:border-slate-800 w-full max-w-7xl mx-auto overflow-hidden";
 
-const baseButtonStyles = `font-semibold rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-95 tracking-wide shrink-0`;
-const primaryButton = `${baseButtonStyles} px-4 py-2 sm:px-6 sm:py-2.5 text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-sm`;
-const secondaryButton = `${baseButtonStyles} px-4 py-2 sm:px-5 sm:py-2.5 text-sm text-slate-700 dark:text-slate-300 bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700`;
-const iconButton = `${baseButtonStyles} p-2 sm:p-2.5 text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200 rounded-full border border-slate-200 dark:border-slate-700`;
-const destructiveIconButton = `${baseButtonStyles} p-2 sm:p-2.5 text-red-500 hover:text-red-600 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-full border border-red-100 dark:border-red-900/30`;
-const searchInputStyles = "w-full sm:max-w-md p-2.5 pl-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-black/20 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 transition-all";
+// --- CANDY UI STYLE CONSTANTS ---
 
-// --- SKELETON COMPONENTS ---
+// 1. Buttons
+const candyBase = `
+    relative overflow-hidden font-bold rounded-full transition-all duration-200 
+    disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 
+    active:scale-95 tracking-wide shrink-0 shadow-lg hover:shadow-xl
+    after:absolute after:inset-0 after:rounded-full after:pointer-events-none 
+    after:shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]
+`;
+
+const primaryButton = `
+    ${candyBase}
+    px-4 py-2 sm:px-6 sm:py-2.5 text-sm text-white
+    bg-gradient-to-b from-blue-400 to-blue-600 
+    hover:from-blue-300 hover:to-blue-500
+    border-b-[2px] border-blue-700 shadow-blue-500/40
+`;
+
+const secondaryButton = `
+    ${candyBase}
+    px-4 py-2 sm:px-5 sm:py-2.5 text-sm
+    text-slate-700 dark:text-white
+    bg-gradient-to-b from-white/80 to-white/40 dark:from-slate-700/80 dark:to-slate-800/40
+    backdrop-blur-md
+    border border-white/40 dark:border-white/10
+    shadow-slate-200/50 dark:shadow-black/30
+    hover:bg-white/60 dark:hover:bg-slate-700/60
+`;
+
+const iconButton = `
+    ${candyBase}
+    p-2 sm:p-2.5 aspect-square rounded-full
+    text-slate-500 dark:text-slate-300
+    bg-gradient-to-b from-white/90 to-slate-100/50 dark:from-slate-700 dark:to-slate-800
+    border border-white/50 dark:border-white/5
+    hover:text-blue-600 dark:hover:text-blue-400
+`;
+
+const destructiveIconButton = `
+    ${candyBase}
+    p-2 sm:p-2.5 aspect-square rounded-full
+    text-white
+    bg-gradient-to-b from-red-400 to-red-600 
+    hover:from-red-300 hover:to-red-500
+    border-b-[2px] border-red-700 shadow-red-500/30
+`;
+
+const searchInputStyles = `
+    w-full sm:max-w-md p-2.5 pl-10 rounded-2xl 
+    focus:outline-none focus:ring-2 focus:ring-blue-500/50 
+    border border-slate-200 dark:border-slate-700 
+    bg-slate-50/50 dark:bg-black/20 backdrop-blur-sm
+    text-slate-800 dark:text-slate-200 placeholder:text-slate-400 
+    shadow-inner transition-all
+`;
+
+// 2. Candy Cards (Subjects/Categories)
+// Creates a "lickable" card with top highlight, deep shadow, and vibrant gradient background
+const candyCardBase = `
+    group relative rounded-[2.5rem] p-6 sm:p-8 
+    transition-all duration-300 cursor-pointer overflow-hidden 
+    border border-white/20 dark:border-white/5 
+    shadow-xl hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98]
+    after:absolute after:inset-0 after:rounded-[2.5rem] after:pointer-events-none 
+    after:shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)]
+    after:bg-gradient-to-t after:from-black/5 after:to-white/10
+`;
+
+// Glassy Icon Container for Cards
+const candyIconBox = `
+    w-14 h-14 rounded-2xl flex items-center justify-center 
+    bg-white/40 dark:bg-black/20 backdrop-blur-md 
+    shadow-[inset_0_1px_2px_rgba(255,255,255,0.5)] dark:shadow-none
+    border border-white/40 dark:border-white/10
+`;
+
+// --- SKELETONS ---
 const SkeletonGrid = memo(() => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
         {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -76,41 +144,48 @@ const SkeletonList = memo(() => (
     </div>
 ));
 
-// --- SUBJECT STYLING HELPER (RESTORED COLORS) ---
+// --- SUBJECT STYLING ---
 const getSubjectStyling = (subjectTitle) => {
     const lowerCaseTitle = subjectTitle.toLowerCase();
     let IconComponent = BookOpenIcon;
-    let iconColor = 'text-slate-600 dark:text-slate-400';
-    // Restored specific gradient flows for that colorful look
-    let gradient = 'from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900';
+    let iconColor = 'text-slate-700 dark:text-white drop-shadow-sm';
+    // Vibrant Candy Gradients
+    let gradient = 'bg-gradient-to-br from-slate-100 via-slate-200 to-slate-300 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900';
     
     if (lowerCaseTitle.includes('math')) { 
-        IconComponent = CalculatorIcon; iconColor = 'text-blue-600 dark:text-blue-400'; 
-        gradient = 'from-blue-50 via-indigo-50 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/10'; 
+        IconComponent = CalculatorIcon; 
+        gradient = 'bg-gradient-to-br from-blue-100 via-blue-200 to-indigo-300 dark:from-blue-900/60 dark:via-blue-800/40 dark:to-indigo-900/60'; 
+        iconColor = 'text-blue-600 dark:text-blue-100';
     }
     else if (lowerCaseTitle.includes('english') || lowerCaseTitle.includes('filipino')) { 
-        IconComponent = BookOpenIcon; iconColor = 'text-teal-600 dark:text-teal-400'; 
-        gradient = 'from-teal-50 via-emerald-50 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/10'; 
+        IconComponent = BookOpenIcon; 
+        gradient = 'bg-gradient-to-br from-teal-100 via-emerald-200 to-green-300 dark:from-teal-900/60 dark:via-emerald-800/40 dark:to-green-900/60'; 
+        iconColor = 'text-teal-600 dark:text-teal-100';
     }
     else if (lowerCaseTitle.includes('religious education')) { 
-        IconComponent = BookOpenIcon; iconColor = 'text-amber-600 dark:text-amber-400'; 
-        gradient = 'from-amber-50 via-orange-50 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/10'; 
+        IconComponent = BookOpenIcon; 
+        gradient = 'bg-gradient-to-br from-amber-100 via-orange-200 to-yellow-300 dark:from-amber-900/60 dark:via-orange-800/40 dark:to-yellow-900/60'; 
+        iconColor = 'text-amber-700 dark:text-amber-100';
     }
     else if (lowerCaseTitle.includes('science')) { 
-        IconComponent = BeakerIcon; iconColor = 'text-violet-600 dark:text-violet-400'; 
-        gradient = 'from-violet-50 via-purple-50 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/10'; 
+        IconComponent = BeakerIcon; 
+        gradient = 'bg-gradient-to-br from-violet-100 via-purple-200 to-fuchsia-300 dark:from-violet-900/60 dark:via-purple-800/40 dark:to-fuchsia-900/60'; 
+        iconColor = 'text-purple-600 dark:text-purple-100';
     }
     else if (lowerCaseTitle.includes('araling panlipunan')) { 
-        IconComponent = GlobeAltIcon; iconColor = 'text-rose-600 dark:text-rose-400'; 
-        gradient = 'from-rose-50 via-red-50 to-red-100 dark:from-rose-900/30 dark:to-red-900/10'; 
+        IconComponent = GlobeAltIcon; 
+        gradient = 'bg-gradient-to-br from-rose-100 via-red-200 to-orange-300 dark:from-rose-900/60 dark:via-red-800/40 dark:to-orange-900/60'; 
+        iconColor = 'text-rose-600 dark:text-rose-100';
     }
     else if (lowerCaseTitle.includes('mapeh')) { 
-        IconComponent = MusicalNoteIcon; iconColor = 'text-pink-600 dark:text-pink-400'; 
-        gradient = 'from-pink-50 via-fuchsia-50 to-fuchsia-100 dark:from-pink-900/30 dark:to-fuchsia-900/10'; 
+        IconComponent = MusicalNoteIcon; 
+        gradient = 'bg-gradient-to-br from-pink-100 via-rose-200 to-red-300 dark:from-pink-900/60 dark:via-rose-800/40 dark:to-red-900/60'; 
+        iconColor = 'text-pink-600 dark:text-pink-100';
     }
     else if (lowerCaseTitle.includes('tle')) { 
-        IconComponent = WrenchScrewdriverIcon; iconColor = 'text-orange-600 dark:text-orange-400'; 
-        gradient = 'from-orange-50 via-amber-50 to-amber-100 dark:from-orange-900/30 dark:to-amber-900/10'; 
+        IconComponent = WrenchScrewdriverIcon; 
+        gradient = 'bg-gradient-to-br from-orange-100 via-amber-200 to-yellow-300 dark:from-orange-900/60 dark:via-amber-800/40 dark:to-yellow-900/60'; 
+        iconColor = 'text-orange-700 dark:text-orange-100';
     }
     
     return { icon: IconComponent, iconColor, gradient };
@@ -226,7 +301,7 @@ const SubjectDetail = memo((props) => {
             <div className={windowContainerClasses}>
                 
                 {/* HEADER */}
-                <div className="flex-none flex flex-col md:flex-row justify-between items-start md:items-center py-2 px-4 sm:p-6 gap-4 border-b border-slate-200/60 dark:border-white/5 bg-white/80 dark:bg-[#1A1D24]/80 z-20">
+                <div className="flex-none flex flex-col md:flex-row justify-between items-start md:items-center py-4 px-4 sm:p-6 gap-4 border-b border-slate-200/60 dark:border-white/5 bg-white/80 dark:bg-[#1A1D24]/80 z-20">
                     <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full md:w-auto">
                         <button onClick={handleBackNavigation} className={secondaryButton}>
                             {activeUnit ? <Squares2X2Icon className="w-4 h-4" /> : <ArrowUturnLeftIcon className="w-4 h-4" />}
@@ -236,7 +311,7 @@ const SubjectDetail = memo((props) => {
                         <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight truncate max-w-[180px] sm:max-w-sm">
                             {activeSubject.title}
                         </h2>
-                        <div className="flex items-center ml-auto sm:ml-2 space-x-1">
+                        <div className="flex items-center ml-auto sm:ml-2 space-x-2">
                             <button onClick={() => handleOpenEditSubject(activeSubject)} className={iconButton} title="Edit Subject Name"><PencilSquareIcon className="w-4 h-4" /></button>
                             <button onClick={() => handleInitiateDelete('subject', activeSubject.id, activeSubject.title)} className={destructiveIconButton} title="Delete Subject"><TrashIcon className="w-4 h-4" /></button>
                         </div>
@@ -245,14 +320,14 @@ const SubjectDetail = memo((props) => {
                     <div className="flex gap-2 sm:gap-3 flex-wrap w-full md:w-auto">
                         <button onClick={() => setShareContentModalOpen(true)} className={`${secondaryButton} flex-1 sm:flex-none justify-center`}>
                             <ShareIcon className="w-4 h-4 text-blue-500" />
-                            <span className="text-slate-700 dark:text-slate-200 text-xs sm:text-sm">Share</span>
+                            <span className="text-xs sm:text-sm">Share</span>
                         </button>
                         <button onClick={() => setAddUnitModalOpen(true)} className={`${secondaryButton} flex-1 sm:flex-none justify-center`}>
                             <PlusCircleIcon className="w-5 h-5 text-emerald-500" />
-                            <span className="text-slate-700 dark:text-slate-200 text-xs sm:text-sm">Add Unit</span>
+                            <span className="text-xs sm:text-sm">Add Unit</span>
                         </button>
                         <button onClick={() => setIsAiHubOpen(true)} className={`${primaryButton} pl-4 pr-5 flex-1 sm:flex-none justify-center whitespace-nowrap`}>
-                            <SparklesIcon className="w-5 h-5 text-yellow-300" />AI Tools
+                            <SparklesIcon className="w-5 h-5 text-yellow-300 drop-shadow-sm" />AI Tools
                         </button>
                     </div>
                 </div>
@@ -297,8 +372,8 @@ const SubjectDetail = memo((props) => {
 
             {/* --- LESSON PICKER MODAL --- */}
             {showLessonPicker && activeUnitForPicker && (
-                <div className="fixed inset-0 flex items-center justify-center bg-slate-900/50 z-[5000] p-4 transition-all duration-300">
-                    <div className="relative w-full max-w-lg max-h-[85vh] flex flex-col rounded-[2rem] bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden">
+                <div className="fixed inset-0 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm z-[5000] p-4 transition-all duration-300">
+                    <div className="relative w-full max-w-lg max-h-[85vh] flex flex-col rounded-[2rem] bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
                         
                         <div className="px-8 py-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-start bg-slate-50 dark:bg-[#1A1D24]">
                             <div>
@@ -311,7 +386,7 @@ const SubjectDetail = memo((props) => {
                                     Choose lessons from <span className="text-slate-700 dark:text-slate-200 font-bold">"{activeUnitForPicker.title}"</span>
                                 </p>
                             </div>
-                            <button onClick={() => setShowLessonPicker(false)} className={`${iconButton}`}>
+                            <button onClick={() => setShowLessonPicker(false)} className={`${iconButton} !p-1.5`}>
                                 <XMarkIcon className="w-5 h-5" />
                             </button>
                         </div>
@@ -338,10 +413,10 @@ const SubjectDetail = memo((props) => {
                                     return (
                                         <label 
                                             key={lesson.id} 
-                                            className={`group flex items-center justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-200 relative overflow-hidden ${
+                                            className={`group flex items-center justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-200 relative overflow-hidden active:scale-[0.98] ${
                                                 isSelected 
-                                                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700' 
-                                                : 'bg-slate-50 dark:bg-slate-800/50 border-transparent hover:bg-slate-100 dark:hover:bg-slate-800'
+                                                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 shadow-inner' 
+                                                : 'bg-slate-50 dark:bg-slate-800/50 border-transparent hover:bg-slate-100 dark:hover:bg-slate-800 shadow-sm'
                                             }`}
                                         >
                                             <div className="min-w-0 pr-4 relative z-10">
@@ -362,7 +437,7 @@ const SubjectDetail = memo((props) => {
                                                     onChange={() => handleLessonSelect(lesson.id)} 
                                                     className="peer appearance-none w-6 h-6 rounded-full border-2 border-slate-300 dark:border-slate-600 checked:bg-blue-500 checked:border-blue-500 transition-all cursor-pointer" 
                                                 />
-                                                <CheckCircleIcon className="absolute w-6 h-6 text-blue-500 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100" />
+                                                <CheckCircleIcon className="absolute w-6 h-6 text-blue-500 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 drop-shadow-sm" />
                                             </div>
                                         </label>
                                     );
@@ -380,7 +455,7 @@ const SubjectDetail = memo((props) => {
                                 </button>
                                 <button 
                                     onClick={() => { setShowLessonPicker(false); handleGeneratePresentationClick(); }} 
-                                    className={`${primaryButton} shadow-md`}
+                                    className={primaryButton}
                                     disabled={selectedLessons.size === 0 || isAiGenerating}
                                 >
                                     {isAiGenerating ? <ArrowPathIcon className="w-5 h-5 animate-spin" /> : <PresentationChartBarIcon className="w-5 h-5" />}
@@ -424,7 +499,7 @@ const SubjectList = memo((props) => {
                 <div className="flex-none flex flex-col md:flex-row justify-between items-start md:items-end gap-4 p-5 sm:p-8 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-[#1A1D24]/80 z-20">
                     <div className="flex flex-col gap-2 w-full md:w-auto">
                         <div className="flex items-center gap-2">
-                             <button onClick={() => navigate(`/dashboard/courses/${contentGroup}`)} className={`${iconButton} w-8 h-8 p-1.5`}><ArrowUturnLeftIcon className="w-4 h-4" /></button>
+                             <button onClick={() => navigate(`/dashboard/courses/${contentGroup}`)} className={`${iconButton} !p-1.5`}><ArrowUturnLeftIcon className="w-4 h-4" /></button>
                              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{contentGroup} View</span>
                         </div>
                         <h1 className="text-2xl sm:text-4xl font-black text-slate-800 dark:text-white tracking-tight leading-tight">
@@ -433,7 +508,7 @@ const SubjectList = memo((props) => {
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                         <div className="relative w-full sm:w-64">
-                            <MagnifyingGlassIcon className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                            <MagnifyingGlassIcon className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                             <input type="text" placeholder="Filter subjects..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={searchInputStyles} />
                         </div>
                         <button onClick={() => onAddSubjectClick && onAddSubjectClick(decodedCategoryName)} className={primaryButton}><PlusCircleIcon className="w-5 h-5" />New Subject</button>
@@ -445,24 +520,23 @@ const SubjectList = memo((props) => {
                     {loading || (!courses && filteredCourses.length === 0) ? (
                         <SkeletonGrid />
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                             {filteredCourses.map((course) => {
                                 const { icon: Icon, iconColor, gradient } = getSubjectStyling(course.title);
                                 const unitCount = course.unitCount || 0;
                                 return (
-                                    // Applied bg-gradient-to-br directly to the Link component for full card color
-                                    <Link key={course.id} to={course.id} className={`group relative rounded-[2rem] p-6 transition-all duration-300 cursor-pointer overflow-hidden border border-slate-200 dark:border-slate-700 hover:-translate-y-1 shadow-lg hover:shadow-xl bg-gradient-to-br ${gradient}`}>
+                                    <Link key={course.id} to={course.id} className={`${candyCardBase} ${gradient}`}>
                                         <div className="relative z-10 flex flex-col h-full justify-between">
                                             <div className="flex justify-between items-start">
-                                                <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/60 dark:bg-slate-800/60 shadow-sm border border-white/50 dark:border-slate-600"><Icon className={`w-6 h-6 ${iconColor}`} /></div>
-                                                <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
+                                                <div className={candyIconBox}><Icon className={`w-8 h-8 ${iconColor}`} /></div>
+                                                <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 scale-95 group-hover:scale-100">
                                                     <button onClick={(e) => {e.preventDefault(); props.handleOpenEditSubject(course)}} className={iconButton} title="Edit"><PencilSquareIcon className="w-4 h-4"/></button> 
                                                     <button onClick={(e)=>{e.preventDefault(); handleInitiateDelete('subject', course.id, course.title)}} className={destructiveIconButton} title="Delete"><TrashIcon className="w-4 h-4"/></button>
                                                 </div>
                                             </div>
-                                            <div className="mt-6">
-                                                <h2 className="text-lg font-bold text-slate-800 dark:text-white mb-2 leading-tight">{course.title}</h2>
-                                                <span className="px-3 py-1 rounded-full bg-white/40 dark:bg-black/20 text-xs font-bold text-slate-700 dark:text-slate-200 border border-white/20">{unitCount} {unitCount === 1 ? 'Unit' : 'Units'}</span>
+                                            <div className="mt-8">
+                                                <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2 leading-tight drop-shadow-sm">{course.title}</h2>
+                                                <span className="px-3 py-1 rounded-full bg-white/40 dark:bg-black/20 text-xs font-bold text-slate-700 dark:text-slate-200 border border-white/20 backdrop-blur-sm shadow-sm">{unitCount} {unitCount === 1 ? 'Unit' : 'Units'}</span>
                                             </div>
                                         </div>
                                     </Link>
@@ -524,20 +598,19 @@ const CategoryList = memo((props) => {
                                 const cleanName = cat.name.replace(/\s\((Teacher|Learner)'s Content\)/i, '');
                                 
                                 return (
-                                    // Applied bg-gradient-to-br directly here as well
-                                    <Link key={cat.id} to={encodeURIComponent(cat.name)} className={`group relative p-8 rounded-[2.5rem] cursor-pointer border border-slate-200 dark:border-slate-700 hover:shadow-2xl hover:-translate-y-1 transition-all overflow-hidden bg-gradient-to-br ${gradient}`}>
+                                    <Link key={cat.id} to={encodeURIComponent(cat.name)} className={`${candyCardBase} ${gradient}`}>
                                         <div className="relative z-10 flex flex-col h-full">
                                             <div className="flex justify-between items-start mb-6">
-                                                <div className="p-4 bg-white/60 dark:bg-slate-800/60 rounded-2xl shadow-sm border border-white/50 dark:border-slate-600"><Icon className={`w-8 h-8 ${iconColor}`} /></div>
-                                                <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 sm:scale-90 sm:group-hover:scale-100">
+                                                <div className={candyIconBox}><Icon className={`w-8 h-8 ${iconColor}`} /></div>
+                                                <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 scale-95 group-hover:scale-100">
                                                     <button onClick={(e) => {e.preventDefault(); handleEditCategory(cat)}} className={iconButton}><PencilSquareIcon className="w-4 h-4"/></button> 
                                                     <button onClick={(e)=>{e.preventDefault(); handleInitiateDelete('category', cat.id, cat.name)}} className={destructiveIconButton}><TrashIcon className="w-4 h-4"/></button>
                                                 </div>
                                             </div>
                                             <div className="mt-auto">
-                                                <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 tracking-tight">{cleanName}</h2>
+                                                <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 tracking-tight drop-shadow-sm">{cleanName}</h2>
                                                 <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
-                                                    <span className="w-2 h-2 rounded-full bg-slate-500 dark:bg-slate-400"></span>
+                                                    <span className="w-2 h-2 rounded-full bg-slate-500 dark:bg-slate-400 shadow-sm"></span>
                                                     {courseCount} {courseCount === 1 ? 'Subject' : 'Subjects'}
                                                 </div>
                                             </div>
@@ -572,11 +645,11 @@ const ContentGroupSelector = memo((props) => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-12 px-4">
-                        {/* Learner Card - Restored colorful gradient */}
-                        <Link to="learner" className="group relative p-8 sm:p-12 rounded-[3rem] transition-all duration-300 cursor-pointer overflow-hidden border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 dark:from-sky-900/20 dark:to-blue-900/10 shadow-xl hover:shadow-2xl hover:-translate-y-1">
+                        {/* Learner Card */}
+                        <Link to="learner" className={`${candyCardBase} bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 dark:from-sky-900/20 dark:to-blue-900/10`}>
                             <div className="relative z-10 flex flex-col h-full items-start">
-                                <div className="p-4 sm:p-5 bg-white/60 dark:bg-slate-800/60 rounded-2xl sm:rounded-3xl mb-6 sm:mb-8 shadow-sm border border-white/50 dark:border-slate-600">
-                                    <LearnerIcon className="w-10 h-10 sm:w-12 sm:h-12 text-sky-600 dark:text-sky-300" />
+                                <div className={`${candyIconBox} w-16 h-16 rounded-[1.2rem] mb-6 sm:mb-8`}>
+                                    <LearnerIcon className="w-8 h-8 sm:w-10 sm:h-10 text-sky-600 dark:text-sky-300 drop-shadow-sm" />
                                 </div>
                                 <h2 className="text-2xl sm:text-4xl font-bold text-slate-800 dark:text-white tracking-tight mb-3">Learner</h2>
                                 <p className="text-base sm:text-lg text-slate-700 dark:text-slate-300 leading-relaxed mb-8 sm:mb-10">
@@ -588,11 +661,11 @@ const ContentGroupSelector = memo((props) => {
                             </div>
                         </Link>
 
-                        {/* Teacher Card - Restored colorful gradient */}
-                        <Link to="teacher" className="group relative p-8 sm:p-12 rounded-[3rem] transition-all duration-300 cursor-pointer overflow-hidden border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-emerald-50 via-teal-50 to-green-50 dark:from-emerald-900/20 dark:to-teal-900/10 shadow-xl hover:shadow-2xl hover:-translate-y-1">
+                        {/* Teacher Card */}
+                        <Link to="teacher" className={`${candyCardBase} bg-gradient-to-br from-emerald-50 via-teal-50 to-green-50 dark:from-emerald-900/20 dark:to-teal-900/10`}>
                             <div className="relative z-10 flex flex-col h-full items-start">
-                                <div className="p-4 sm:p-5 bg-white/60 dark:bg-slate-800/60 rounded-2xl sm:rounded-3xl mb-6 sm:mb-8 shadow-sm border border-white/50 dark:border-slate-600">
-                                    <TeacherIcon className="w-10 h-10 sm:w-12 sm:h-12 text-emerald-600 dark:text-emerald-300" />
+                                <div className={`${candyIconBox} w-16 h-16 rounded-[1.2rem] mb-6 sm:mb-8`}>
+                                    <TeacherIcon className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600 dark:text-emerald-300 drop-shadow-sm" />
                                 </div>
                                 <h2 className="text-2xl sm:text-4xl font-bold text-slate-800 dark:text-white tracking-tight mb-3">Teacher</h2>
                                 <p className="text-base sm:text-lg text-slate-700 dark:text-slate-300 leading-relaxed mb-8 sm:mb-10">

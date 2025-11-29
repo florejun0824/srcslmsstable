@@ -30,6 +30,7 @@ import PostLoginExperience from "./components/PostLoginExperience";
 import UpdateOverlay from './components/UpdateOverlay';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 import './index.css';
+import PrivacyPage from './pages/PrivacyPage';
 
 const AVERAGE_BUILD_SECONDS = 300;
 
@@ -230,6 +231,9 @@ const AppRouter = () => {
       {/* Publicly accessible routes */}
       <Route path="/test" element={<TestPage />} />
       <Route path="/create-admin-xyz" element={<AdminSignup />} />
+	  
+	  {/* ADD THIS NEW ROUTE HERE: */}
+	        <Route path="/privacy" element={<PrivacyPage />} />
 
       {/* Login Route */}
       <Route 

@@ -11,7 +11,6 @@ import {
     DocumentTextIcon,
     ClipboardDocumentListIcon,
     Bars3Icon,
-    BookOpenIcon,
     RectangleStackIcon,
     QueueListIcon,
     ArrowsUpDownIcon,
@@ -19,10 +18,8 @@ import {
     CloudArrowUpIcon,
     ChevronRightIcon,
     FolderIcon,
-    PresentationChartBarIcon,
-    CheckCircleIcon
+    PresentationChartBarIcon
 } from '@heroicons/react/24/solid';
-import { XMarkIcon } from '@heroicons/react/24/outline';
 import {
     DndContext,
     closestCenter,
@@ -37,6 +34,7 @@ import {
     sortableKeyboardCoordinates,
     useSortable,
     verticalListSortingStrategy,
+    rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { marked } from 'marked';
@@ -49,17 +47,51 @@ import pdfMake from "pdfmake/build/pdfmake";
 import pdfFonts from "pdfmake/build/vfs_fonts";
 pdfMake.vfs = pdfFonts;
 
-// NATIVE FIX: Import Capacitor plugins
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FileOpener } from '@capacitor-community/file-opener';
 
-// --- CSS OPTIMIZATION: FIXED BLANKING ISSUES ---
-// Removed content-visibility and GPU forcing to prevent rendering glitches on fast scroll
+// --- STYLES: "MacOS 26" / Candy Look ---
 const performanceStyles = {
-    touchAction: 'pan-y', // Critical for smooth mobile scrolling
-    backfaceVisibility: 'hidden', // Prevents flickering during animations
+    touchAction: 'none',
+    backfaceVisibility: 'hidden', 
 };
+
+// Base Candy Button (Glossy, Depth, Rounded)
+const candyBase = `
+    relative overflow-hidden font-bold rounded-full transition-all duration-200 
+    disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 
+    active:scale-95 tracking-wide shadow-lg hover:shadow-xl
+    after:absolute after:inset-0 after:rounded-full after:pointer-events-none 
+    after:shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]
+`;
+
+// Primary: Blue Candy
+const primaryButton = `
+    ${candyBase}
+    bg-gradient-to-b from-blue-400 to-blue-600 
+    hover:from-blue-300 hover:to-blue-500
+    text-white shadow-blue-500/40 
+    border-b-[2px] border-blue-700
+`;
+
+// Secondary: Glass/Frost Candy
+const secondaryButton = `
+    ${candyBase}
+    bg-gradient-to-b from-white/80 to-white/40 dark:from-slate-700/80 dark:to-slate-800/40
+    backdrop-blur-md text-slate-700 dark:text-white
+    border border-white/40 dark:border-white/10
+    shadow-slate-200/50 dark:shadow-black/30
+    hover:bg-white/60 dark:hover:bg-slate-700/60
+`;
+
+// Icon Button: Circular Glass
+const iconButtonCandy = `
+    ${candyBase} p-2 rounded-full aspect-square
+    bg-gradient-to-b from-white/90 to-slate-100/50 dark:from-slate-700 to-slate-800
+    text-slate-500 dark:text-slate-300 hover:text-blue-500
+    border border-white/50 dark:border-white/5
+`;
 
 // --- HELPER FUNCTIONS ---
 const isNativePlatform = () => Capacitor.isNativePlatform();
@@ -69,13 +101,8 @@ const blobToBase64 = (blob) => {
     const reader = new FileReader();
     reader.onerror = reject;
     reader.onload = () => {
-      const dataUrl = reader.result.toString();
-      const base64Data = dataUrl.split(',')[1];
-      if (!base64Data) {
-        reject(new Error("Failed to convert blob to base64."));
-      } else {
-        resolve(base64Data);
-      }
+      const base64Data = reader.result.toString().split(',')[1];
+      base64Data ? resolve(base64Data) : reject(new Error("Failed to convert blob."));
     };
     reader.readAsDataURL(blob);
   });
@@ -83,34 +110,25 @@ const blobToBase64 = (blob) => {
 
 const nativeSave = async (blob, fileName, mimeType, showToast) => {
   if (!isNativePlatform()) return;
-  const directory = Directory.Data; 
   try {
     const base64Data = await blobToBase64(blob);
     const result = await Filesystem.writeFile({
       path: fileName,
       data: base64Data,
-      directory: directory,
+      directory: Directory.Data,
       recursive: true
     });
     showToast(`Opening file...`, 'info');
-    await FileOpener.open({
-      filePath: result.uri,
-      contentType: mimeType,
-    });
+    await FileOpener.open({ filePath: result.uri, contentType: mimeType });
   } catch (error) {
-    console.error('Unable to save or open file', error);
-    showToast(`Error saving file: ${error.message || 'Unknown error'}`, 'error');
+    showToast(`Error saving: ${error.message}`, 'error');
   }
 };
 
-// Font Loading Functions
 async function loadFontToVfs(name, url) {
   const res = await fetch(url);
   const buffer = await res.arrayBuffer();
-  const base64 = btoa(
-    new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
-  );
-  pdfMake.vfs[name] = base64;
+  pdfMake.vfs[name] = btoa(new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ""));
 }
 
 let dejaVuLoaded = false;
@@ -122,104 +140,58 @@ async function registerDejaVuFonts() {
     await loadFontToVfs("DejaVuSans-Oblique.ttf", "/fonts/DejaVuSans-Oblique.ttf");
     await loadFontToVfs("DejaVuSans-BoldOblique.ttf", "/fonts/DejaVuSans-BoldOblique.ttf");
     pdfMake.fonts = {
-      DejaVu: {
-        normal: "DejaVuSans.ttf",
-        bold: "DejaVuSans-Bold.ttf",
-        italics: "DejaVuSans-Oblique.ttf",
-        bolditalics: "DejaVuSans-BoldOblique.ttf",
-      },
+      DejaVu: { normal: "DejaVuSans.ttf", bold: "DejaVuSans-Bold.ttf", italics: "DejaVuSans-Oblique.ttf", bolditalics: "DejaVuSans-BoldOblique.ttf" },
     };
     dejaVuLoaded = true;
-  } catch (error) {
-    console.error("Failed to load custom fonts:", error);
-  }
+  } catch (e) { console.error("Font load error", e); }
 }
 
 const processLatex = (text) => {
     if (!text) return '';
-    let processedText = text;
-    processedText = processedText.replace(/\\degree/g, '°');
-    processedText = processedText.replace(/\\angle/g, '∠');
-    processedText = processedText.replace(/\\vec\{(.*?)\}/g, (match, content) => {
-        return content.split('').map(char => char + '\u20D7').join('');
-    });
-    processedText = processedText.replace(/\$\$(.*?)\$\$/g, '$1');
-    processedText = processedText.replace(/\$(.*?)\$/g, '$1');
-    return processedText;
+    return text
+        .replace(/\\degree/g, '°')
+        .replace(/\\angle/g, '∠')
+        .replace(/\\vec\{(.*?)\}/g, (_, c) => c.split('').map(x => x + '\u20D7').join(''))
+        .replace(/\$\$(.*?)\$\$/g, '$1')
+        .replace(/\$(.*?)\$/g, '$1');
 };
 
-// Helper Functions
 async function fetchImageAsBase64(url) {
   const res = await fetch(url);
   const blob = await res.blob();
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
 }
 
-// --- SVG Converter ---
 const convertSvgStringToPngDataUrl = (svgString) => {
     return new Promise((resolve, reject) => {
         const MAX_WIDTH = 550;
-        let correctedSvgString = svgString;
-        correctedSvgString = correctedSvgString.replace(
-            /xmlns="\[http:\/\/www\.w3\.org\/2000\/svg\]\(http:\/\/www\.w3\.org\/2000\/svg\)"/g,
-            'xmlns="http://www.w3.org/2000/svg"'
-        );
-        if (!correctedSvgString.includes('xmlns=')) {
-            correctedSvgString = correctedSvgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
-        }
+        let corrected = svgString.replace(/xmlns="\[http:\/\/www\.w3\.org\/2000\/svg\]\(http:\/\/www\.w3\.org\/2000\/svg\)"/g, 'xmlns="http://www.w3.org/2000/svg"');
+        if (!corrected.includes('xmlns=')) corrected = corrected.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+        
         const img = new Image();
-        const dataUri = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(correctedSvgString)))}`;
+        const src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(corrected)))}`;
+        
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            let width, height;
-            const viewBoxMatch = correctedSvgString.match(/viewBox="([0-9\s.,-]+)"/);
-            let svgWidth = img.width;
-            let svgHeight = img.height;
-            if (viewBoxMatch && viewBoxMatch[1]) {
-                const viewBox = viewBoxMatch[1].split(/[,\s]+/);
-                if (viewBox.length >= 4) {
-                    const vbWidth = parseFloat(viewBox[2]);
-                    const vbHeight = parseFloat(viewBox[3]);
-                    if (vbWidth > 0 && vbHeight > 0) {
-                        svgWidth = vbWidth;
-                        svgHeight = vbHeight;
-                    }
-                }
-            }
-            if (!svgWidth || !svgHeight || svgWidth === 0 || svgHeight === 0) {
-                svgWidth = img.width;
-                svgHeight = img.height;
-            }
-            if (!svgWidth || !svgHeight || svgWidth === 0 || svgHeight === 0) {
-                width = MAX_WIDTH;
-                height = 450;
-            } else {
-                const aspectRatio = svgHeight / svgWidth;
-                width = MAX_WIDTH;
-                height = MAX_WIDTH * aspectRatio;
-            }
+            const aspectRatio = img.height / img.width;
+            const width = MAX_WIDTH;
+            const height = width * aspectRatio;
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
-            const dataUrl = canvas.toDataURL('image/png');
-            if (dataUrl === 'data:,') {
-                reject(new Error("Canvas generated an empty data URL."));
-            } else {
-                resolve({ dataUrl, width, height });
-            }
+            resolve({ dataUrl: canvas.toDataURL('image/png'), width, height });
         };
-        img.onerror = () => reject(new Error("Failed to load SVG."));
-        img.src = dataUri;
+        img.onerror = () => reject(new Error("SVG Load Failed"));
+        img.src = src;
     });
 };
 
-// Lazy load modals
+// Lazy Imports
 const AddLessonModal = lazy(() => import('./AddLessonModal'));
 const AddQuizModal = lazy(() => import('./AddQuizModal'));
 const EditLessonModal = lazy(() => import('./EditLessonModal'));
@@ -230,41 +202,27 @@ const ViewQuizModal = lazy(() => import('./ViewQuizModal'));
 const AiQuizModal = lazy(() => import('./AiQuizModal'));
 const AiGenerationHub = lazy(() => import('./AiGenerationHub'));
 
-// --- DESIGN SYSTEM CONSTANTS ---
-const baseButtonStyles = `font-semibold rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-95 tracking-wide`;
-const secondaryButton = `${baseButtonStyles} px-4 py-2 text-sm text-slate-700 dark:text-slate-300 bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/10 shadow-sm backdrop-blur-md`;
+// Skeleton
+const ContentListSkeleton = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+        {[1,2,3].map(i => (
+            <div key={i} className="h-48 rounded-[2rem] bg-slate-200 dark:bg-slate-800" />
+        ))}
+    </div>
+);
 
-// --- UI COMPONENTS ---
-const ContentListSkeleton = () => {
-    return (
-        <div className="space-y-4 animate-pulse">
-            {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="w-full flex items-center p-4 bg-white/40 dark:bg-white/5 rounded-2xl border border-white/20 dark:border-white/5">
-                    <div className="h-10 w-10 flex-shrink-0 rounded-xl bg-slate-200/50 dark:bg-white/10 mx-3"></div>
-                    <div className="flex-grow min-w-0 space-y-2">
-                        <div className="h-4 w-1/3 bg-slate-200/50 dark:bg-white/10 rounded-full"></div>
-                        <div className="h-3 w-1/4 bg-slate-200/30 dark:bg-white/5 rounded-full"></div>
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-};
-
+// Menus
 const MenuPortal = ({ children, menuStyle, onClose }) => {
     const menuRef = useRef(null);
     useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (menuRef.current && !menuRef.current.contains(event.target)) onClose();
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) onClose(); };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
     }, [onClose]);
     return createPortal(
-        <div ref={menuRef} style={menuStyle} className="fixed bg-white/95 dark:bg-[#1E212B]/95 backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-slate-900/5 dark:ring-white/10 z-[5000] p-1.5 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex flex-col gap-0.5" onClick={onClose}>{children}</div>
-        </div>, 
-        document.body
+        <div ref={menuRef} style={menuStyle} className="fixed bg-white/80 dark:bg-[#1E212B]/90 backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-black/5 z-[5000] p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1">
+            {children}
+        </div>, document.body
     );
 };
 
@@ -273,19 +231,23 @@ const ActionMenu = ({ children }) => {
     const [menuStyle, setMenuStyle] = useState({});
     const iconRef = useRef(null);
     const handleToggle = (e) => {
-        e.stopPropagation();
-        setIsOpen(!isOpen);
+        e.stopPropagation(); setIsOpen(!isOpen);
         if (!isOpen) {
-            const iconRect = iconRef.current.getBoundingClientRect();
-            const spaceBelow = window.innerHeight - iconRect.bottom;
-            const style = { right: `${window.innerWidth - iconRect.right}px`, width: '240px' };
-            if (spaceBelow < 200) { style.bottom = `${window.innerHeight - iconRect.top}px`; } else { style.top = `${iconRect.bottom}px`; }
-            setMenuStyle(style);
+            const rect = iconRef.current.getBoundingClientRect();
+            // Adjust placement for mobile/edge cases
+            let top = rect.bottom + 5;
+            let right = window.innerWidth - rect.right;
+            
+            setMenuStyle({ 
+                top: `${top}px`, 
+                right: `${right}px`, 
+                minWidth: '180px' 
+            });
         }
     };
     return (
         <>
-            <div role="button" tabIndex={0} ref={iconRef} onClick={handleToggle} onPointerDown={(e) => e.stopPropagation()} className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full cursor-pointer transition-all duration-200">
+            <div ref={iconRef} onClick={handleToggle} className={`${iconButtonCandy} relative z-20`}>
                 <EllipsisVerticalIcon className="h-5 w-5" />
             </div>
             {isOpen && <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>{children}</MenuPortal>}
@@ -293,10 +255,10 @@ const ActionMenu = ({ children }) => {
     );
 };
 
-const MenuItem = ({ icon: Icon, text, onClick, disabled = false, loading = false }) => (
-    <button onClick={onClick} disabled={disabled || loading} className="flex items-center w-full px-3 py-2.5 text-sm text-left text-slate-700 dark:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group">
-        <Icon className={`h-4 w-4 mr-3 text-slate-400 dark:text-slate-500 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors ${loading ? 'animate-spin text-blue-500' : ''}`} />
-        <span className="font-medium tracking-wide">{text}</span>
+const MenuItem = ({ icon: Icon, text, onClick, disabled, loading }) => (
+    <button onClick={onClick} disabled={disabled || loading} className="flex items-center w-full px-3 py-2.5 text-sm font-semibold rounded-xl hover:bg-blue-50 dark:hover:bg-white/10 transition-colors text-slate-700 dark:text-slate-200">
+        <Icon className={`h-4 w-4 mr-3 ${loading ? 'animate-spin text-blue-500' : 'text-slate-400'}`} />
+        {text}
     </button>
 );
 
@@ -304,191 +266,198 @@ const AddContentButton = ({ onAddLesson, onAddQuiz }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [menuStyle, setMenuStyle] = useState({});
     const buttonRef = useRef(null);
-
     const handleToggle = (e) => {
         e.stopPropagation();
-        if (!buttonRef.current) return;
-        const btnRect = buttonRef.current.getBoundingClientRect();
-        const style = { right: `${window.innerWidth - btnRect.right}px`, top: `${btnRect.bottom + 8}px`, width: '180px' };
-        const spaceBelow = window.innerHeight - btnRect.bottom;
-        if (spaceBelow < 120) { style.top = 'auto'; style.bottom = `${window.innerHeight - btnRect.top + 8}px`; }
-        setMenuStyle(style);
-        setIsOpen(prev => !prev);
+        const rect = buttonRef.current.getBoundingClientRect();
+        setMenuStyle({ top: `${rect.bottom + 8}px`, right: `${window.innerWidth - rect.right}px`, minWidth: '180px' });
+        setIsOpen(!isOpen);
     };
-
     return (
         <>
-            <button ref={buttonRef} onClick={handleToggle} onPointerDown={(e) => e.stopPropagation()} className={`${secondaryButton} !bg-blue-600 hover:!bg-blue-500 !text-white !border-transparent shadow-blue-500/30 hover:shadow-blue-500/50`}>
-                <PlusIcon className="w-5 h-5" /> Add Content
+            <button ref={buttonRef} onClick={handleToggle} className={`${primaryButton} !px-4 !py-2 text-sm md:text-base`}>
+                <PlusIcon className="w-5 h-5" /> <span className="hidden md:inline">Add Content</span> <span className="md:hidden">Add</span>
             </button>
-            {isOpen && (
-                <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>
-                    <MenuItem icon={DocumentTextIcon} text="Add Lesson" onClick={onAddLesson} />
-                    <MenuItem icon={ClipboardDocumentListIcon} text="Add Quiz" onClick={onAddQuiz} />
-                </MenuPortal>
-            )}
+            {isOpen && <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>
+                <MenuItem icon={DocumentTextIcon} text="Add Lesson" onClick={onAddLesson} />
+                <MenuItem icon={ClipboardDocumentListIcon} text="Add Quiz" onClick={onAddQuiz} />
+            </MenuPortal>}
         </>
     );
 };
 
-// --- OPTIMIZED SORTABLE ITEMS ---
-
-const SortableContentItem = memo(({ item, isReordering, onAction, exportingLessonId, isAiGenerating }) => {
+// --- SORTABLE UNIT CARD ---
+const SortableUnitCard = memo(({ unit, onSelect, onAction, isReordering, index }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
-        id: item.id,
-        data: { type: item.type, unitId: item.unitId },
-        disabled: !isReordering,
+        id: unit.id, data: { type: 'unit' }, disabled: !isReordering,
     });
     
-    // PERF: Use CSS.Translate instead of Transform for smoother lists (no scale calculations)
-    // Removed 'willChange: transform' to prevent layer explosion unless absolutely necessary
-    const style = { 
-        transform: CSS.Translate.toString(transform), 
-        transition: transition || undefined,
-        willChange: isReordering ? 'transform' : 'auto'
-    };
+    const style = { transform: CSS.Translate.toString(transform), transition };
     
-    const isLesson = item.type === 'lesson';
-    const Icon = isLesson ? DocumentTextIcon : ClipboardDocumentListIcon;
-    const iconBg = isLesson ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400';
+    // AURORA THEMES
+    const gradients = [
+        "bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600 dark:from-cyan-900 dark:via-blue-900 dark:to-indigo-950",
+        "bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 dark:from-purple-900 dark:via-pink-900 dark:to-rose-950",
+        "bg-gradient-to-br from-teal-400 via-emerald-500 to-green-600 dark:from-teal-900 dark:via-emerald-900 dark:to-green-950",
+        "bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 dark:from-amber-900 dark:via-orange-900 dark:to-red-950"
+    ];
+
+    const activeGradient = gradients[index % gradients.length];
+    const glassOverlay = "after:absolute after:inset-0 after:bg-gradient-to-t after:from-black/10 after:to-white/10 after:pointer-events-none";
+    const cardClasses = isReordering 
+        ? "bg-slate-100 dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 opacity-80"
+        : `${activeGradient} ${glassOverlay} text-white shadow-xl shadow-slate-300/50 dark:shadow-black/50 hover:-translate-y-1 hover:shadow-2xl`;
 
     return (
-        // Removed 'transform-gpu' class which forces composite layers and can cause blanking on list
-        <div ref={setNodeRef} style={{...style, ...performanceStyles}} {...attributes} className="mb-3 group"> 
-            <div className={`w-full flex items-center p-3 bg-white dark:bg-[#1E212B] rounded-2xl border border-slate-100 dark:border-white/5 shadow-sm transition-all duration-200 ${isReordering ? 'ring-2 ring-blue-500/50 bg-blue-50/50' : 'hover:shadow-md hover:border-slate-300 dark:hover:border-white/10'}`}>
-                {isReordering && (
-                    <button {...listeners} className="p-2 rounded-full text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-grab flex-shrink-0 transition-colors">
-                        <Bars3Icon className="w-5 h-5" />
-                    </button>
-                )}
-                
-                <div className={`h-10 w-10 flex-shrink-0 rounded-xl flex items-center justify-center mx-3 ${iconBg}`}>
-                    <Icon className="h-5 w-5" />
+        <div ref={setNodeRef} style={{...style, ...performanceStyles}} {...attributes} className="h-full group">
+            <div onClick={() => !isReordering && onSelect(unit)} className={`relative flex flex-col h-full p-6 rounded-[2.5rem] transition-all duration-300 overflow-hidden cursor-pointer ${cardClasses}`}>
+                {!isReordering && <div className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-gradient-to-b from-white/20 to-transparent rotate-45 pointer-events-none" />}
+                <div className="relative z-10 flex justify-between items-start w-full">
+                    <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner border border-white/30">
+                        <FolderIcon className="h-7 w-7 text-white drop-shadow-md" />
+                    </div>
+                    {isReordering ? (
+                        <button {...listeners} className="p-2 rounded-full bg-slate-200 dark:bg-slate-700 cursor-grab"><ArrowsUpDownIcon className="h-5 w-5 text-slate-500" /></button>
+                    ) : (
+                        <div className="flex gap-2">
+                            <button onClick={(e) => { e.stopPropagation(); onAction('ai', unit); }} className="h-10 w-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center hover:bg-white/40 transition-colors border border-white/20">
+                                <SparklesIcon className="w-5 h-5 text-yellow-300 drop-shadow-sm" />
+                            </button>
+                            <ActionMenu>
+                                <MenuItem icon={PencilIcon} text="Edit Unit" onClick={(e) => { e.stopPropagation(); onAction('edit', unit); }} />
+                                <MenuItem icon={TrashIcon} text="Delete Unit" onClick={(e) => { e.stopPropagation(); onAction('delete', unit); }} />
+                            </ActionMenu>
+                        </div>
+                    )}
                 </div>
-                
-                <div className="flex-grow min-w-0">
-                    <h4 className={`font-semibold text-slate-800 dark:text-slate-200 leading-snug line-clamp-2 tracking-tight ${!isReordering ? 'cursor-pointer group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors' : 'cursor-default'}`} onClick={() => !isReordering && onAction('view', item)}>
-                        {item.title || 'Untitled'}
-                    </h4>
-                </div>
-                
-                <div className="flex items-center gap-1 ml-4 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <ActionMenu>
-                      <MenuItem icon={PencilIcon} text={isLesson ? "Edit Lesson" : "Edit Quiz"} onClick={() => onAction('edit', item)} />
-                      {isLesson && (
-                        <>
-                            <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as PDF"} onClick={() => onAction('exportPdf', item)} loading={exportingLessonId === item.id} />
-                            <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as .docx"} onClick={() => onAction('exportDocx', item)} loading={exportingLessonId === item.id} />
-                        </>
-                      )}
-                      {isLesson && <MenuItem icon={SparklesIcon} text="AI Generate Quiz" onClick={() => onAction('generateQuiz', item)} disabled={isAiGenerating} />}
-                      <MenuItem icon={TrashIcon} text={isLesson ? "Delete Lesson" : "Delete Quiz"} onClick={() => onAction('delete', item)} />
-                    </ActionMenu>
-                </div>
-            </div>
-        </div>
-    );
-}, (prev, next) => {
-    return (
-        prev.item.id === next.item.id &&
-        prev.item.title === next.item.title &&
-        prev.item.order === next.item.order &&
-        prev.isReordering === next.isReordering &&
-        prev.exportingLessonId === next.exportingLessonId &&
-        prev.isAiGenerating === next.isAiGenerating
-    );
-});
-
-// --- OPTIMIZED SORTABLE UNIT ROW ---
-const SortableUnitRow = memo(({ unit, onSelect, onAction, isReordering }) => {
-    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
-        id: unit.id,
-        data: { type: 'unit' },
-        disabled: !isReordering,
-    });
-    
-    const style = { 
-        transform: CSS.Translate.toString(transform), 
-        transition,
-    };
-    
-    const listRowBg = isReordering 
-        ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800' 
-        : 'bg-white dark:bg-[#1E212B] hover:bg-slate-50 dark:hover:bg-[#252936] border-slate-100 dark:border-white/5';
-
-    return (
-        <div ref={setNodeRef} style={{...style, ...performanceStyles}} {...attributes} className="mb-3 group">
-            <div 
-                onClick={() => !isReordering && onSelect(unit)}
-                className={`relative flex items-center p-3 rounded-2xl transition-all duration-200 border shadow-sm ${listRowBg}`}
-            >
-                {isReordering && (
-                    <button {...listeners} className="p-2 rounded-full text-slate-400 hover:text-blue-600 cursor-grab flex-shrink-0">
-                        <ArrowsUpDownIcon className="h-5 w-5" />
-                    </button>
-                )}
-
-                <div className={`flex-shrink-0 h-12 w-12 rounded-xl flex items-center justify-center ${isReordering ? 'ml-2' : ''} bg-blue-50 dark:bg-white/5 border border-blue-100 dark:border-white/5 shadow-sm`}>
-                    <FolderIcon className="h-6 w-6 text-blue-500 dark:text-blue-400" />
-                </div>
-
-                <div className="ml-4 flex-grow min-w-0">
-                    <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 leading-tight truncate">
+                <div className="relative z-10 mt-auto pt-6">
+                    <h3 className="text-2xl font-black leading-tight tracking-tight drop-shadow-md text-white">
                         {unit.title}
                     </h3>
-                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                        Click to view content
-                    </p>
-                </div>
-
-                <div className="flex items-center gap-1 ml-2">
                     {!isReordering && (
-                        <>
-                            <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
-                                <button onClick={(e) => { e.stopPropagation(); onAction('ai', unit); }} className="p-2 rounded-full text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="AI Tools">
-                                    <SparklesIcon className="w-4 h-4" />
-                                </button>
-                                <button onClick={(e) => { e.stopPropagation(); onAction('edit', unit); }} className="p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors" title="Edit">
-                                    <PencilIcon className="w-4 h-4" />
-                                </button>
-                                <button onClick={(e) => { e.stopPropagation(); onAction('reorder', unit); }} className="p-2 rounded-full text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Reorder Units">
-                                    <ArrowsUpDownIcon className="w-4 h-4" />
-                                </button>
-                                <button onClick={(e) => { e.stopPropagation(); onAction('delete', unit); }} className="p-2 rounded-full text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete">
-                                    <TrashIcon className="w-4 h-4" />
-                                </button>
+                        <div className="flex items-center justify-between mt-3 opacity-90">
+                            <span className="text-xs font-bold uppercase tracking-widest text-white/80">Open Unit</span>
+                            <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center group-hover:translate-x-1 transition-transform">
+                                <ChevronRightIcon className="h-4 w-4 text-white" />
                             </div>
-                            <div className="sm:hidden">
-                                <ActionMenu>
-                                    <MenuItem icon={SparklesIcon} text="AI Tools" onClick={(e) => { e.stopPropagation(); onAction('ai', unit); }} />
-                                    <MenuItem icon={PencilIcon} text="Edit Unit" onClick={(e) => { e.stopPropagation(); onAction('edit', unit); }} />
-                                    <MenuItem icon={ArrowsUpDownIcon} text="Reorder Units" onClick={(e) => { e.stopPropagation(); onAction('reorder', unit); }} />
-                                    <MenuItem icon={TrashIcon} text="Delete Unit" onClick={(e) => { e.stopPropagation(); onAction('delete', unit); }} />
-                                </ActionMenu>
-                            </div>
-                            <ChevronRightIcon className="h-5 w-5 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 transition-colors" />
-                        </>
+                        </div>
                     )}
                 </div>
             </div>
         </div>
     );
-}, (prev, next) => prev.unit.id === next.unit.id && prev.unit.title === next.unit.title && prev.isReordering === next.isReordering);
+}, (prev, next) => prev.unit.id === next.unit.id && prev.unit.title === next.unit.title && prev.isReordering === next.isReordering && prev.index === next.index);
 
-const customSort = (a, b) => {
-    const orderA = a.order;
-    const orderB = b.order;
-    if (orderA !== undefined && orderB !== undefined) {
-        if (orderA !== orderB) return orderA - orderB;
-    }
-    if (orderA !== undefined && orderB === undefined) return -1;
-    if (orderA === undefined && orderB !== undefined) return 1;
-    const timeA = a.createdAt?.toMillis() || 0;
-    const timeB = b.createdAt?.toMillis() || 0;
-    return timeA - timeB;
-};
+// --- SORTABLE CONTENT (LESSON) ROW ---
+const SortableContentItem = memo(({ item, isReordering, onAction, exportingLessonId, isAiGenerating }) => {
+    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+        id: item.id, data: { type: item.type, unitId: item.unitId }, disabled: !isReordering,
+    });
+    
+    const style = { transform: CSS.Translate.toString(transform), transition };
+    const isLesson = item.type === 'lesson';
+    const Icon = isLesson ? DocumentTextIcon : ClipboardDocumentListIcon;
 
-// Main Component
+    // Candy Styles based on type
+    const theme = isLesson 
+        ? {
+            // Blue/Cyan Gradient
+            iconBg: 'bg-gradient-to-br from-blue-400 to-cyan-500 shadow-blue-500/30',
+            hoverBorder: 'hover:border-blue-400/30',
+            activeRing: 'active:ring-blue-500/20',
+            textTitle: 'group-hover:text-blue-600 dark:group-hover:text-blue-300'
+          }
+        : {
+            // Purple/Pink Gradient
+            iconBg: 'bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-purple-500/30',
+            hoverBorder: 'hover:border-purple-400/30',
+            activeRing: 'active:ring-purple-500/20',
+            textTitle: 'group-hover:text-purple-600 dark:group-hover:text-purple-300'
+          };
+
+    return (
+        <div ref={setNodeRef} style={{...style, ...performanceStyles}} {...attributes} className="mb-3 md:mb-4"> 
+            <div 
+                onClick={() => !isReordering && onAction('view', item)}
+                className={`
+                    relative group w-full flex items-center 
+                    p-3 md:p-4 
+                    rounded-[1.5rem] md:rounded-[2rem] 
+                    transition-all duration-300 ease-out
+                    bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-2xl
+                    border border-white/50 dark:border-white/5
+                    shadow-sm hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-black/50
+                    md:hover:-translate-y-1 active:scale-[0.98]
+                    ${theme.hoverBorder} ${isReordering ? 'ring-2 ring-blue-500/50 bg-blue-50/50' : ''}
+                `}
+            >
+                {/* Drag Handle (Visible only when reordering) */}
+                {isReordering && (
+                    <button {...listeners} className="p-2 mr-2 rounded-full text-slate-400 hover:text-blue-500 hover:bg-blue-50 cursor-grab active:cursor-grabbing">
+                        <Bars3Icon className="w-5 h-5" />
+                    </button>
+                )}
+
+                {/* Juicy Icon (Scaled for Mobile) */}
+                <div className={`
+                    h-12 w-12 md:h-16 md:w-16 flex-shrink-0 
+                    rounded-[1rem] md:rounded-[1.2rem] 
+                    flex items-center justify-center 
+                    mr-3 md:mr-5 
+                    shadow-lg ${theme.iconBg} ring-2 md:ring-4 ring-white/50 dark:ring-white/5
+                `}>
+                    <Icon className="h-6 w-6 md:h-8 md:w-8 text-white drop-shadow-md stroke-[2]" />
+                </div>
+
+                {/* Content Info */}
+                <div className="flex-grow min-w-0 pr-2 md:pr-4">
+                    <h4 className={`
+                        font-bold text-[16px] md:text-[19px] 
+                        text-slate-800 dark:text-slate-100 
+                        tracking-tight leading-snug
+                        transition-colors duration-300 
+                        ${!isReordering ? `cursor-pointer ${theme.textTitle}` : ''}
+                    `}>
+                        {item.title || 'Untitled'}
+                    </h4>
+                    {item.subtitle && (
+                        <p className="text-[12px] md:text-[14px] font-medium text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
+                            {item.subtitle}
+                        </p>
+                    )}
+                </div>
+
+                {/* Actions & Chevron */}
+                <div className={`
+                    flex items-center gap-1 transition-all duration-300
+                    ${isReordering ? 'opacity-0' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100 md:translate-x-4 md:group-hover:translate-x-0'}
+                `}>
+                    {/* Action Menu (Visible on mobile, Hover on desktop) */}
+                    <div onClick={(e) => e.stopPropagation()}>
+                        <ActionMenu>
+                          <MenuItem icon={PencilIcon} text="Edit" onClick={() => onAction('edit', item)} />
+                          {isLesson && (
+                            <>
+                                <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as PDF"} onClick={() => onAction('exportPdf', item)} loading={exportingLessonId === item.id} />
+                                <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as .docx"} onClick={() => onAction('exportDocx', item)} loading={exportingLessonId === item.id} />
+                            </>
+                          )}
+                          {isLesson && <MenuItem icon={SparklesIcon} text="AI Quiz" onClick={() => onAction('generateQuiz', item)} disabled={isAiGenerating} /> }
+                          <MenuItem icon={TrashIcon} text="Delete" onClick={() => onAction('delete', item)} />
+                        </ActionMenu>
+                    </div>
+                    
+                    {/* Visual Chevron (Hidden on smallest screens to save space, visible md+) */}
+                    <div className="hidden md:flex h-10 w-10 rounded-full bg-slate-100/50 dark:bg-white/5 items-center justify-center ml-2 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300">
+                        <ChevronRightIcon className="w-5 h-5 stroke-[2.5]" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}, (prev, next) => prev.item.id === next.item.id && prev.isReordering === next.isReordering && prev.exportingLessonId === next.exportingLessonId);
+
+
+// --- MAIN COMPONENT ---
 export default function UnitAccordion({ subject, onInitiateDelete, userProfile, isAiGenerating, setIsAiGenerating, activeUnit, onSetActiveUnit, selectedLessons, onLessonSelect, renderGeneratePptButton, onUpdateLesson, currentUserRole }) {
     const [units, setUnits] = useState([]);
     const [allLessons, setAllLessons] = useState([]);
@@ -496,7 +465,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     const [exportingLessonId, setExportingLessonId] = useState(null);
     const [isReordering, setIsReordering] = useState(false);
     
-    // Modals State
+    // Modals
     const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
     const [addQuizModalOpen, setAddQuizModalOpen] = useState(false);
     const [editLessonModalOpen, setEditLessonModalOpen] = useState(false);
@@ -507,7 +476,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     const [aiQuizModalOpen, setAiQuizModalOpen] = useState(false);
     const [isAiHubOpen, setIsAiHubOpen] = useState(false);
 
-    // Selected items state
+    // Context
     const [selectedUnit, setSelectedUnit] = useState(null);
     const [selectedLesson, setSelectedLesson] = useState(null);
     const [selectedQuiz, setSelectedQuiz] = useState(null);
@@ -517,72 +486,105 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     const { showToast } = useToast();
     const isExportingRef = useRef(false);
 
-    // DND Sensors
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
-    // Firebase Listeners
     useEffect(() => {
         if (!subject?.id) { setUnits([]); return; }
         if (onSetActiveUnit) { onSetActiveUnit(null); }
         const q = query(collection(db, 'units'), where('subjectId', '==', subject.id));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const fetchedUnits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            fetchedUnits.sort(customSort);
-            setUnits(fetchedUnits);
-        }, (error) => console.error("Error fetching units: ", error));
+            const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            fetched.sort((a,b) => (a.order ?? 0) - (b.order ?? 0) || (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
+            setUnits(fetched);
+        });
         return () => unsubscribe();
     }, [subject?.id, onSetActiveUnit]);
 
     useEffect(() => {
         if (!subject?.id) { setAllLessons([]); setAllQuizzes([]); return; }
-        const lessonQuery = query(collection(db, 'lessons'), where('subjectId', '==', subject.id));
-        const unsubLessons = onSnapshot(lessonQuery, snapshot => setAllLessons(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
-        const quizQuery = query(collection(db, 'quizzes'), where('subjectId', '==', subject.id));
-        const unsubQuizzes = onSnapshot(quizQuery, snapshot => setAllQuizzes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
-        return () => { unsubLessons(); unsubQuizzes(); };
+        const lq = query(collection(db, 'lessons'), where('subjectId', '==', subject.id));
+        const qq = query(collection(db, 'quizzes'), where('subjectId', '==', subject.id));
+        const unL = onSnapshot(lq, s => setAllLessons(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+        const unQ = onSnapshot(qq, s => setAllQuizzes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+        return () => { unL(); unQ(); };
     }, [subject?.id]);
 
-    // --- FULL EXPORT LOGIC ---
-    
+    // --- ENHANCED DOCX EXPORT ---
     const handleExportDocx = async (lesson) => {
         if (isExportingRef.current) return;
         isExportingRef.current = true;
         setExportingLessonId(lesson.id);
         showToast("Generating .docx file...", "info");
-        const lessonTitle = lesson.lessonTitle || lesson.title;
-        const sanitizedFileName = (lessonTitle.replace(/[\\/:"*?<>|]+/g, '_') || 'lesson') + '.docx';
         
         try {
-            let finalHtml = `<h1>${lessonTitle}</h1>`;
+            const lessonTitle = lesson.lessonTitle || lesson.title;
+            const subjectTitle = subject?.title || "SRCS Learning Portal";
+            const sanitizedFileName = (lessonTitle.replace(/[\\/:"*?<>|]+/g, '_') || 'lesson') + '.docx';
+            
+            const headerBase64 = await fetchImageAsBase64("/header-port.png");
+            const footerBase64 = await fetchImageAsBase64("/Footer.png");
+            const headerHtml = `<div style="text-align: center;"><img src="${headerBase64}" width="450" /></div>`;
+            const footerHtml = `<div style="text-align: center;"><img src="${footerBase64}" width="450" /></div>`;
+
+            let finalHtml = `
+                <div style="font-family: 'DejaVu Sans', sans-serif; color: #333333;">
+                    <div style="min-height: 900px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                         <div>
+                            <h1 style="font-size: 32pt; font-weight: bold; margin-bottom: 20px; color: #000000;">${lessonTitle}</h1>
+                            <p style="font-size: 18pt; font-style: italic; color: #666666;">${subjectTitle}</p>
+                         </div>
+                    </div>
+                    <div style="page-break-after: always;"></div>
+                    `;
+
             for (const page of lesson.pages) {
                 const cleanTitle = (page.title || '').replace(/^page\s*\d+\s*[:-]?\s*/i, '');
                 const contentString = typeof page.content === 'string' ? page.content : '';
                 const processedContent = processLatex(contentString);
                 const rawHtml = marked.parse(processedContent);
-                finalHtml += `<h2>${cleanTitle}</h2>` + rawHtml;
+                
+                finalHtml += `
+                    <h2 style="color: #2563EB; font-size: 18pt; font-weight: bold; margin-top: 20px; margin-bottom: 10px; text-align: left;">${cleanTitle}</h2>
+                    <div style="font-size: 11pt; line-height: 1.5; text-align: justify;">${rawHtml}</div>
+                    <br />
+                `;
             }
+            finalHtml += '</div>';
+
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = finalHtml;
             const svgElements = tempDiv.querySelectorAll('svg');
-            const conversionPromises = Array.from(svgElements).map(async (svg) => {
-                try {
-                    const svgString = svg.outerHTML;
-                    const result = await convertSvgStringToPngDataUrl(svgString);
-                    const img = document.createElement('img');
-                    img.src = result.dataUrl;
-                    img.style.width = `${result.width}px`;
-                    img.style.height = `${result.height}px`;
-                    img.style.maxWidth = '100%';
-                    svg.parentNode.replaceChild(img, svg);
-                } catch (err) {
-                    console.error("SVG Error", err);
-                }
-            });
-            await Promise.all(conversionPromises);
-            const fileBlob = await htmlToDocx(tempDiv.innerHTML, null, { table: { row: { cantSplit: true } }, footer: true, pageNumber: true });
+            if (svgElements.length > 0) {
+                const conversionPromises = Array.from(svgElements).map(async (svg) => {
+                    try {
+                        const { dataUrl, width, height } = await convertSvgStringToPngDataUrl(svg.outerHTML);
+                        const img = document.createElement('img');
+                        img.src = dataUrl;
+                        img.setAttribute('width', width); 
+                        img.setAttribute('height', height);
+                        svg.parentNode.replaceChild(img, svg);
+                    } catch (err) { console.error("SVG Conversion failed", err); }
+                });
+                await Promise.all(conversionPromises);
+            }
+
+            const fileBlob = await htmlToDocx(
+                tempDiv.innerHTML, 
+                headerHtml, 
+                {
+                    table: { row: { cantSplit: true } },
+                    footer: true,
+                    pageNumber: true,
+                    page: {
+                        size: { width: 11906, height: 16838 },
+                        margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
+                    }
+                },
+                footerHtml
+            );
             
             if (isNativePlatform()) {
                 await nativeSave(fileBlob, sanitizedFileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', showToast);
@@ -590,300 +592,191 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                 saveAs(fileBlob, sanitizedFileName);
             }
         } catch (error) {
-            console.error("Failed to export DOCX:", error);
-            showToast("An error occurred while creating the Word document.", "error");
+            console.error("Export Error:", error);
+            showToast("Failed to create Word document.", "error");
         } finally {
             isExportingRef.current = false;
             setExportingLessonId(null);
         }
     };
 
-    const handleExportUlpAsPdf = async (lesson) => {
-        if (exportingLessonId) return;
-        setExportingLessonId(lesson.id);
-        showToast("Preparing PDF...", "info");
-        const lessonTitle = lesson.lessonTitle || lesson.title;
-        const sanitizedFileName = (lessonTitle.replace(/[\\/:"*?<>|]+/g, '_') || 'lesson') + '.pdf';
-        try {
-            await registerDejaVuFonts();
-            const headerBase64 = await fetchImageAsBase64("/header-port.png");
-            const footerBase64 = await fetchImageAsBase64("/Footer.png");
-            const pdfStyles = { coverTitle: { fontSize: 32, bold: true, margin: [0, 0, 0, 15] }, coverSub: { fontSize: 18, italics: true, color: '#555555' }, pageTitle: { fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] }, default: { fontSize: 9, lineHeight: 1.15, color: '#333333', alignment: 'justify' } };
-            const subjectTitle = subject?.title || "SRCS Learning Portal";
-            let lessonContent = [];
-            for (const page of lesson.pages) {
-                const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
-                if (cleanTitle) lessonContent.push({ text: cleanTitle, style: 'pageTitle' });
-                const contentString = typeof page.content === 'string' ? page.content : '';
-                let html = marked.parse(contentString);
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = html;
-                const svgElements = tempDiv.querySelectorAll('svg');
-                if (svgElements.length > 0) {
-                     const conversionPromises = Array.from(svgElements).map(async (svg) => {
-                        try {
-                            const result = await convertSvgStringToPngDataUrl(svg.outerHTML);
-                            const img = document.createElement('img');
-                            img.src = result.dataUrl;
-                            img.style.width = `${result.width}px`; img.style.height = `${result.height}px`; img.style.maxWidth = '100%';
-                            svg.parentNode.replaceChild(img, svg);
-                        } catch (err) {}
-                    });
-                    await Promise.all(conversionPromises);
-                    html = tempDiv.innerHTML;
-                }
-                const convertedContent = htmlToPdfmake(html, { defaultStyles: pdfStyles.default });
-                lessonContent.push(convertedContent);
-            }
-            const docDefinition = { pageSize: "Folio", pageMargins: [72, 100, 72, 100], header: { margin: [0, 20, 0, 0], stack: [{ image: "headerImg", width: 450, alignment: "center" }] }, footer: { margin: [0, 0, 0, 20], stack: [{ image: "footerImg", width: 450, alignment: "center" }] }, defaultStyle: { font: 'DejaVu', ...pdfStyles.default }, styles: pdfStyles, content: [{ stack: [{ text: lessonTitle, style: "coverTitle" }, { text: subjectTitle, style: "coverSub" }], alignment: "center", margin: [0, 200, 0, 0], pageBreak: "after" }, { stack: lessonContent, margin: [0, 0, 0, 0], width: "auto", alignment: "justify" }], images: { headerImg: headerBase64, footerImg: footerBase64 } };
-            const pdfDoc = pdfMake.createPdf(docDefinition);
-            if (isNativePlatform()) { pdfDoc.getBlob(async (blob) => { await nativeSave(blob, sanitizedFileName, 'application/pdf', showToast); setExportingLessonId(null); }); } else { pdfDoc.getBlob((blob) => { saveAs(blob, sanitizedFileName); setExportingLessonId(null); }); }
-        } catch (error) { console.error("Failed to export PDF:", error); showToast("An error occurred.", "error"); setExportingLessonId(null); }
-    };
-
-    const handleExportUlpAsDocx = async (lesson) => {
-      if (exportingLessonId) return;
-      setExportingLessonId(lesson.id);
-      showToast("Preparing Word Document...", "info");
-      const lessonTitle = lesson.lessonTitle || lesson.title;
-      const sanitizedFileName = (lessonTitle.replace(/[\\/:"*?<>|]+/g, '_') || 'lesson') + '.docx';
-      try {
-        const page = lesson.pages[0];
-        let ulpHtmlContent = page?.content || "";
-        ulpHtmlContent = ulpHtmlContent.replace(/<tr>(\s*<td[^>]*>Learning Focus<\/td>\s*<td[^>]*>Learning Process<\/td>\s*)<\/tr>/i, (match, offset, full) => offset < full.indexOf("Learning Focus") ? match : `<tr style="font-weight:bold; color:white;"><td bgcolor="#374151" style="padding:8px; width:108px;">Learning Focus</td><td bgcolor="#374151" style="padding:8px;">Learning Process</td></tr>`).replace(/<td/gi, (match, offset, full) => offset < full.indexOf("Learning Focus") ? match : match.includes("width:") ? match : `${match} style="width:108px;"`);
-        const headerBase64 = await fetchImageAsBase64("/header-port.png");
-        const footerBase64 = await fetchImageAsBase64("/Footer.png");
-        const fileBuffer = await htmlToDocx(ulpHtmlContent, null, { table: { row: { cantSplit: false } }, page: { size: { width: 12240, height: 18720 }, margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } }, header: { default: `<div style="text-align:center;"><img src="${headerBase64}" style="width:450px;"/></div>` }, footer: { default: `<div style="text-align:center;"><img src="${footerBase64}" style="width:450px;"/></div>` } });
-        if (isNativePlatform()) { await nativeSave(fileBuffer, sanitizedFileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', showToast); } else { saveAs(fileBuffer, sanitizedFileName); }
-        setExportingLessonId(null);
-      } catch (error) { console.error("Failed to export DOCX:", error); showToast("An error occurred.", "error"); setExportingLessonId(null); }
-    };
-    
-    const handleExportAtgPdf = (lesson) => {
-        if (isNativePlatform()) { showToast("Preparing PDF...", "info"); handleExportLessonPdf(lesson); return; }
-        if (exportingLessonId) return;
-        setExportingLessonId(lesson.id);
-        showToast("Preparing PDF for printing...", "info");
-        let finalHtml = `<h1>${lesson.lessonTitle || lesson.title}</h1>`;
-        for (const page of lesson.pages) {
-            const cleanTitle = (page.title || '').replace(/^page\s*\d+\s*[:-]?\s*/i, '');
-            const contentString = typeof page.content === 'string' ? page.content : '';
-            const rawHtml = marked.parse(contentString);
-            finalHtml += `<h2>${cleanTitle}</h2>` + rawHtml;
-        }
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) { showToast("Could not open a new window.", "error"); setExportingLessonId(null); return; }
-        printWindow.document.write(`<html><head><title>${lesson.lessonTitle || lesson.title}</title><style>@media print { @page { size: 8.5in 13in; margin: 1in; } body { margin: 0; font-family: 'DejaVu Sans', sans-serif; } h1, h2, h3 { page-break-after: avoid; } ul, p { page-break-inside: avoid; } table { width: 100%; border-collapse: collapse; } td, th { border: 1px solid #ccc; padding: 6px; } }</style></head><body>${finalHtml}</body></html>`);
-        printWindow.document.close();
-        setTimeout(() => { printWindow.focus(); printWindow.print(); setExportingLessonId(null); }, 500);
-    };
-
     const handleExportLessonPdf = async (lesson) => {
         if (exportingLessonId) return;
         setExportingLessonId(lesson.id);
         showToast("Preparing PDF...", "info");
-        const lessonTitleToExport = lesson.lessonTitle || lesson.title || 'Untitled Lesson';
-        let safeTitle = lessonTitleToExport.replace(/[^a-zA-Z0-9.-_]/g, '_');
-        if (safeTitle.length > 200) safeTitle = safeTitle.substring(0, 200);
-        const sanitizedFileName = (safeTitle || 'lesson') + '.pdf';
         try {
             await registerDejaVuFonts();
             const headerBase64 = await fetchImageAsBase64("/header-port.png");
             const footerBase64 = await fetchImageAsBase64("/Footer.png");
-            const pdfStyles = { coverTitle: { fontSize: 32, bold: true, margin: [0, 0, 0, 15] }, coverSub: { fontSize: 18, italics: true, color: '#555555' }, pageTitle: { fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] }, blockquote: { margin: [20, 5, 20, 5], italics: true, color: '#4a4a4a' }, default: { fontSize: 11, lineHeight: 1.5, color: '#333333', alignment: 'justify' } };
-            const subjectTitle = subject?.title || "SRCS Learning Portal";
+            
             let lessonContent = [];
             for (const page of lesson.pages) {
                 const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
-                if (cleanTitle) lessonContent.push({ text: cleanTitle, style: 'pageTitle' });
-                let contentString = typeof page.content === 'string' ? page.content : '';
-                contentString = processLatex(contentString);
-                let html = marked.parse(contentString);
+                if (cleanTitle) lessonContent.push({ text: cleanTitle, fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] });
+                
+                let html = marked.parse(processLatex(page.content || ''));
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = html;
-                const svgElements = tempDiv.querySelectorAll('svg');
-                if (svgElements.length > 0) {
-                    const conversionPromises = Array.from(svgElements).map(async (svg) => {
+                const svgs = tempDiv.querySelectorAll('svg');
+                if (svgs.length) {
+                    await Promise.all(Array.from(svgs).map(async (svg) => {
                         try {
-                            const result = await convertSvgStringToPngDataUrl(svg.outerHTML);
+                            const res = await convertSvgStringToPngDataUrl(svg.outerHTML);
                             const img = document.createElement('img');
-                            img.src = result.dataUrl; img.style.width = `${result.width}px`; img.style.height = `${result.height}px`; img.style.maxWidth = '100%';
+                            img.src = res.dataUrl; img.width = res.width;
                             svg.parentNode.replaceChild(img, svg);
-                        } catch (err) {}
-                    });
-                    await Promise.all(conversionPromises);
+                        } catch (e) {}
+                    }));
                     html = tempDiv.innerHTML;
                 }
-                html = html.replace(/<blockquote>\s*<p>/g, '<blockquote>').replace(/<\/p>\s*<\/blockquote>/g, '</blockquote>');
-                const convertedContent = htmlToPdfmake(html, { defaultStyles: pdfStyles.default });
-                lessonContent.push(convertedContent);
+                lessonContent.push(htmlToPdfmake(html, { defaultStyles: { fontSize: 11, lineHeight: 1.5, alignment: 'justify' } }));
             }
-            const docDefinition = { pageSize: "A4", pageMargins: [72, 100, 72, 100], header: { margin: [0, 20, 0, 0], stack: [{ image: "headerImg", width: 450, alignment: "center" }] }, footer: { margin: [0, 0, 0, 20], stack: [{ image: "footerImg", width: 450, alignment: "center" }] }, defaultStyle: { font: 'DejaVu', ...pdfStyles.default, }, styles: pdfStyles, content: [{ stack: [{ text: lessonTitleToExport, style: "coverTitle" }, { text: subjectTitle, style: "coverSub" }], alignment: "center", margin: [0, 200, 0, 0], pageBreak: "after" }, ...lessonContent], images: { headerImg: headerBase64, footerImg: footerBase64 } };
-            const pdfDoc = pdfMake.createPdf(docDefinition);
-            if (isNativePlatform()) { pdfDoc.getBlob(async (blob) => { await nativeSave(blob, sanitizedFileName, 'application/pdf', showToast); setExportingLessonId(null); }); } else { pdfDoc.getBlob((blob) => { saveAs(blob, sanitizedFileName); setExportingLessonId(null); }); }
-        } catch (error) { console.error("Failed to export PDF:", error); showToast("An error occurred.", "error"); setExportingLessonId(null); }
+
+            const docDef = {
+                pageSize: "A4", pageMargins: [72, 100, 72, 100],
+                header: { margin: [0, 20, 0, 0], stack: [{ image: "headerImg", width: 450, alignment: "center" }] },
+                footer: { margin: [0, 0, 0, 20], stack: [{ image: "footerImg", width: 450, alignment: "center" }] },
+                content: [
+                    { text: lesson.title, fontSize: 32, bold: true, alignment: "center", margin: [0, 200, 0, 0] },
+                    { text: subject?.title || "", fontSize: 18, italics: true, alignment: "center", color: '#555555', pageBreak: "after" },
+                    ...lessonContent
+                ],
+                images: { headerImg: headerBase64, footerImg: footerBase64 },
+                defaultStyle: { font: 'DejaVu' }
+            };
+            
+            const pdfDoc = pdfMake.createPdf(docDef);
+            isNativePlatform() 
+                ? pdfDoc.getBlob(b => nativeSave(b, `${lesson.title}.pdf`, 'application/pdf', showToast))
+                : pdfDoc.download(`${lesson.title}.pdf`);
+                
+        } catch (e) { showToast("PDF Error", "error"); }
+        setExportingLessonId(null);
     };
 
-    // --- STABLE HANDLERS (The key to fixing lag) ---
-    // Instead of passing new functions to every row, we use one handler that takes an 'action' type.
-    const handleUnitAction = useCallback((action, unit) => {
-        if (action === 'select') onSetActiveUnit(unit);
-        else if (action === 'edit') { setSelectedUnit(unit); setEditUnitModalOpen(true); }
-        else if (action === 'delete') onInitiateDelete('unit', unit.id, unit.title, unit.subjectId);
-        else if (action === 'ai') { setUnitForAi(unit); setIsAiHubOpen(true); }
-        else if (action === 'reorder') setIsReordering(true);
+    const handleAction = useCallback((type, item) => {
+        switch(type) {
+            case 'select': onSetActiveUnit(item); break;
+            case 'edit': if(item.type) { 
+                item.type === 'lesson' ? (setSelectedLesson(item), setEditLessonModalOpen(true)) : (setSelectedQuiz(item), setEditQuizModalOpen(true));
+            } else { setSelectedUnit(item); setEditUnitModalOpen(true); } break;
+            case 'delete': if(item.type) onInitiateDelete(item.type, item.id, item.title, item.subjectId); 
+                           else onInitiateDelete('unit', item.id, item.title, item.subjectId); break;
+            case 'view': item.type === 'lesson' ? (setSelectedLesson(item), setViewLessonModalOpen(true)) : (setSelectedQuiz(item), setViewQuizModalOpen(true)); break;
+            case 'ai': setUnitForAi(item); setIsAiHubOpen(true); break;
+            case 'reorder': setIsReordering(true); break;
+            case 'generateQuiz': setLessonForAiQuiz(item); setAiQuizModalOpen(true); break;
+            case 'exportPdf': handleExportLessonPdf(item); break;
+            case 'exportDocx': handleExportDocx(item); break;
+        }
     }, [onSetActiveUnit, onInitiateDelete]);
 
-    const handleContentAction = useCallback((action, item) => {
-        if (action === 'view') {
-            if (item.type === 'lesson') { setSelectedLesson(item); setViewLessonModalOpen(true); }
-            else { setSelectedQuiz(item); setViewQuizModalOpen(true); }
-        } else if (action === 'edit') {
-            if (item.type === 'lesson') { setSelectedLesson(item); setEditLessonModalOpen(true); }
-            else { setSelectedQuiz(item); setEditQuizModalOpen(true); }
-        } else if (action === 'delete') {
-            onInitiateDelete(item.type, item.id, item.title, item.subjectId);
-        } else if (action === 'generateQuiz') {
-            setLessonForAiQuiz(item); setAiQuizModalOpen(true);
-        } else if (action === 'exportPdf') {
-             handleExportLessonPdf(item); 
-        } else if (action === 'exportDocx') {
-             handleExportDocx(item);
-        }
-    }, [onInitiateDelete]);
-
-    // Memoize the content list to prevent recalc on unrelated re-renders
     const unifiedContent = useMemo(() => {
         if (!activeUnit) return [];
-        const lessonsForUnit = allLessons.filter(item => item.unitId === activeUnit.id).map(item => ({ ...item, type: 'lesson' }));
-        const quizzesForUnit = allQuizzes.filter(item => item.unitId === activeUnit.id).map(item => ({ ...item, type: 'quiz' }));
-        return [...lessonsForUnit, ...quizzesForUnit].sort(customSort);
+        return [
+            ...allLessons.filter(l => l.unitId === activeUnit.id).map(l => ({...l, type: 'lesson'})),
+            ...allQuizzes.filter(q => q.unitId === activeUnit.id).map(q => ({...q, type: 'quiz'}))
+        ].sort((a,b) => (a.order??0) - (b.order??0));
     }, [activeUnit, allLessons, allQuizzes]);
 
-    // Memoize ID lists for Dnd-Kit to prevent context thrashing
-    const unitIds = useMemo(() => units.map(u => u.id), [units]);
-    const contentIds = useMemo(() => unifiedContent.map(i => i.id), [unifiedContent]);
-
-    async function handleDragEnd(event) {
-        const { active, over } = event;
+    const handleDragEnd = async (e) => {
+        const { active, over } = e;
         if (!over || active.id === over.id) return;
-        const activeType = active.data.current?.type;
-        const overType = over.data.current?.type;
-        
-        if (activeType === 'unit' && overType === 'unit') {
-            const oldIndex = units.findIndex(u => u.id === active.id);
-            const newIndex = units.findIndex(u => u.id === over.id);
-            if (oldIndex !== -1 && newIndex !== -1) {
-                const reorderedUnits = arrayMove(units, oldIndex, newIndex);
-                setUnits(reorderedUnits); // Optimistic update
-                const batch = writeBatch(db);
-                reorderedUnits.forEach((unit, index) => batch.update(doc(db, 'units', unit.id), { order: index }));
-                await batch.commit();
-            }
-        } else if ((activeType === 'lesson' || activeType === 'quiz') && (overType === 'lesson' || overType === 'quiz')) {
-            const unitId = active.data.current.unitId;
-            if (unitId !== over.data.current.unitId) return; // No cross-unit drag
-            
-            const oldIndex = unifiedContent.findIndex(item => item.id === active.id);
-            const newIndex = unifiedContent.findIndex(item => item.id === over.id);
-            if (oldIndex !== -1 && newIndex !== -1) {
-                const reorderedContent = arrayMove(unifiedContent, oldIndex, newIndex);
-                // Optimistic updates for state
-                const newLessons = reorderedContent.filter(i => i.type === 'lesson');
-                const newQuizzes = reorderedContent.filter(i => i.type === 'quiz');
-                setAllLessons(prev => [...prev.filter(l => l.unitId !== unitId), ...newLessons]);
-                setAllQuizzes(prev => [...prev.filter(q => q.unitId !== unitId), ...newQuizzes]);
 
-                const batch = writeBatch(db);
-                reorderedContent.forEach((item, index) => {
-                    const collectionName = item.type === 'lesson' ? 'lessons' : 'quizzes';
-                    batch.update(doc(db, collectionName, item.id), { order: index });
-                });
-                await batch.commit();
-            }
+        if (active.data.current.type === 'unit') {
+            const oldIdx = units.findIndex(u => u.id === active.id);
+            const newIdx = units.findIndex(u => u.id === over.id);
+            const reordered = arrayMove(units, oldIdx, newIdx);
+            setUnits(reordered);
+            const batch = writeBatch(db);
+            reordered.forEach((u, i) => batch.update(doc(db, 'units', u.id), { order: i }));
+            await batch.commit();
+        } else {
+            const oldIdx = unifiedContent.findIndex(i => i.id === active.id);
+            const newIdx = unifiedContent.findIndex(i => i.id === over.id);
+            const reordered = arrayMove(unifiedContent, oldIdx, newIdx);
+            
+            setAllLessons(prev => [...prev.filter(l => l.unitId !== activeUnit.id), ...reordered.filter(i => i.type === 'lesson')]);
+            setAllQuizzes(prev => [...prev.filter(q => q.unitId !== activeUnit.id), ...reordered.filter(i => i.type === 'quiz')]);
+
+            const batch = writeBatch(db);
+            reordered.forEach((item, index) => {
+                 batch.update(doc(db, item.type === 'lesson' ? 'lessons' : 'quizzes', item.id), { order: index });
+            });
+            await batch.commit();
         }
-    }
+    };
 
     return (
         <>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 {activeUnit ? (
                     <div className="relative">
-                        <div className="sticky top-0 z-30 -mx-4 px-4 pt-4 pb-4 bg-slate-50/90 dark:bg-[#0F1115]/90 backdrop-blur-xl border-b border-white/20 dark:border-white/5 transition-all duration-300 mb-6 animate-in fade-in slide-in-from-top-2">
-                            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-                                <div className="max-w-3xl">
-                                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">{activeUnit.title}</h2>
-                                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-1">Organize and manage the learning materials for this unit.</p>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                                    {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
-                                    <button onClick={() => setIsReordering(prev => !prev)} className={`${secondaryButton} ${isReordering ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 border-blue-200 dark:border-blue-800' : ''}`}>
-                                        {isReordering ? 'Done' : 'Reorder'}
-                                    </button>
+                        <div className="sticky top-0 z-30 -mx-4 px-4 md:px-6 pt-4 pb-4 bg-slate-50/90 dark:bg-[#0F1115]/90 backdrop-blur-xl border-b border-white/20 dark:border-white/5 mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 animate-in slide-in-from-top-2">
+                            <div>
+                                <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white tracking-tight leading-tight">{activeUnit.title}</h2>
+                                <p className="text-sm md:text-base text-slate-500 font-medium">Manage Lessons & Quizzes</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                                {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
+                                <button onClick={() => setIsReordering(!isReordering)} className={`${secondaryButton} flex-1 md:flex-none`}>
+                                    {isReordering ? 'Done' : 'Reorder'}
+                                </button>
+                                <div className="flex-1 md:flex-none">
                                     <AddContentButton onAddLesson={() => { setSelectedUnit(activeUnit); setAddLessonModalOpen(true); }} onAddQuiz={() => { setSelectedUnit(activeUnit); setAddQuizModalOpen(true); }} />
                                 </div>
                             </div>
                         </div>
 
-                        {(!allLessons || !allQuizzes) ? <div className="pb-20"><ContentListSkeleton /></div> : unifiedContent.length > 0 ? (
-                            <div className="space-y-4 pb-20 animate-in slide-in-from-bottom-4 fade-in duration-500">
-                                <SortableContext items={contentIds} strategy={verticalListSortingStrategy}>
+                        <div className="pb-20 px-1 md:px-2">
+                            {unifiedContent.length > 0 ? (
+                                <SortableContext items={unifiedContent.map(i => i.id)} strategy={verticalListSortingStrategy}>
                                     {unifiedContent.map(item => (
-                                        <SortableContentItem
-                                            key={item.id}
-                                            item={item}
-                                            isReordering={isReordering}
-                                            onAction={handleContentAction} // STABLE PROP
-                                            exportingLessonId={exportingLessonId}
-                                            isAiGenerating={isAiGenerating}
-                                        />
+                                        <SortableContentItem key={item.id} item={item} isReordering={isReordering} onAction={handleAction} exportingLessonId={exportingLessonId} isAiGenerating={isAiGenerating} />
+                                    ))}
+                                </SortableContext>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-24 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-[2.5rem] bg-white/40 dark:bg-white/5 backdrop-blur-md mx-2">
+                                    <div className="h-24 w-24 rounded-[2rem] bg-white dark:bg-white/10 flex items-center justify-center mb-6 shadow-xl ring-1 ring-black/5">
+                                        <RectangleStackIcon className="h-12 w-12 text-slate-300 dark:text-slate-500" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-800 dark:text-white">Empty Unit</h3>
+                                    <p className="text-slate-500 mb-6 font-medium text-center px-4">Add your first lesson or quiz to get started.</p>
+                                    <AddContentButton onAddLesson={() => { setSelectedUnit(activeUnit); setAddLessonModalOpen(true); }} onAddQuiz={() => { setSelectedUnit(activeUnit); setAddQuizModalOpen(true); }} />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="relative">
+                        {isReordering && (
+                            <div className="sticky top-0 z-30 mb-6 p-4 bg-blue-500/10 backdrop-blur-xl rounded-2xl border border-blue-500/20 flex justify-between items-center animate-in slide-in-from-top-2">
+                                <span className="font-bold text-blue-600 dark:text-blue-300 flex items-center gap-2 text-sm md:text-base">
+                                    <ArrowsUpDownIcon className="w-5 h-5" /> Reordering Mode
+                                </span>
+                                <button onClick={() => setIsReordering(false)} className={`${primaryButton} !py-1 !px-4 text-sm`}>Done</button>
+                            </div>
+                        )}
+
+                        {units.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
+                                <SortableContext items={units.map(u => u.id)} strategy={rectSortingStrategy}>
+                                    {units.map((unit, idx) => (
+                                        <SortableUnitCard key={unit.id} unit={unit} index={idx} onSelect={onSetActiveUnit} onAction={handleAction} isReordering={isReordering} />
                                     ))}
                                 </SortableContext>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center py-24 px-6 text-center border-2 border-dashed border-slate-200 dark:border-white/10 rounded-3xl bg-slate-50/50 dark:bg-white/5 animate-in zoom-in-95 fade-in duration-300">
-                                <div className="w-16 h-16 bg-white dark:bg-white/10 rounded-full flex items-center justify-center mb-6 shadow-sm ring-1 ring-slate-100 dark:ring-white/10"><RectangleStackIcon className="h-8 w-8 text-slate-300 dark:text-slate-500" /></div>
-                                <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Start Building Content</h3>
-                                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8">This unit is currently empty.</p>
-                                <AddContentButton onAddLesson={() => { setSelectedUnit(activeUnit); setAddLessonModalOpen(true); }} onAddQuiz={() => { setSelectedUnit(activeUnit); setAddQuizModalOpen(true); }} />
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <div className="relative">
-                         {isReordering && (
-                            <div className="sticky top-0 z-30 -mx-4 px-4 pt-4 pb-4 bg-blue-50/90 dark:bg-blue-900/20 backdrop-blur-xl border-b border-blue-200 dark:border-blue-800 transition-all duration-300 mb-6 animate-in fade-in slide-in-from-top-2">
-                                <div className="flex items-center justify-between">
-                                    <span className="font-bold text-blue-800 dark:text-blue-200 flex items-center gap-2"><ArrowsUpDownIcon className="w-5 h-5" /> Reordering Units</span>
-                                    <button onClick={() => setIsReordering(false)} className="px-4 py-1.5 bg-blue-600 text-white text-sm font-bold rounded-full shadow-sm hover:bg-blue-700 transition-colors">Done</button>
-                                </div>
-                            </div>
-                        )}
-                        {units.length > 0 ? (
-                            <SortableContext items={unitIds} strategy={verticalListSortingStrategy}>
-                                <div className="space-y-4 pb-10 animate-in slide-in-from-bottom-4 fade-in duration-500">
-                                    {units.map((unit) => (
-                                        <SortableUnitRow
-                                            key={unit.id}
-                                            unit={unit}
-                                            onSelect={onSetActiveUnit}
-                                            onAction={handleUnitAction} // STABLE PROP
-                                            isReordering={isReordering}
-                                        />
-                                    ))}
-                                </div>
-                            </SortableContext>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center py-32 text-center opacity-60 animate-in fade-in duration-700">
-                                <QueueListIcon className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4" />
-                                <h3 className="text-xl font-medium text-slate-900 dark:text-white">No units yet</h3>
-                                <p className="text-slate-500 dark:text-slate-400 mt-1">Create a unit to organize your lessons.</p>
+                            <div className="flex flex-col items-center justify-center py-32 opacity-60">
+                                <QueueListIcon className="w-20 h-20 text-slate-300 dark:text-slate-600 mb-4" />
+                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">No Units Yet</h3>
                             </div>
                         )}
                     </div>
                 )}
             </DndContext>
-            
+
+            {/* Modals */}
             <Suspense fallback={<ContentListSkeleton />}>
                 {isAiHubOpen && <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} unitId={unitForAi?.id} subjectId={subject?.id} />}
                 {editUnitModalOpen && <EditUnitModal isOpen={editUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={selectedUnit} />}

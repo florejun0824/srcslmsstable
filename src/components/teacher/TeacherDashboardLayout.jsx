@@ -32,7 +32,7 @@ import { useToast } from '../../contexts/ToastContext';
 import Spinner from '../common/Spinner'; 
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
 import AnimatedRobot from './dashboard/widgets/AnimatedRobot';
-import ThemeToggle from '../common/ThemeToggle';
+// ThemeToggle import removed as we implemented a custom single button
 
 // LAZY-LOADED VIEWS
 const AdminDashboard = lazy(() => import('../../pages/AdminDashboard'));
@@ -69,7 +69,7 @@ const EditSubjectModal = lazy(() => import('./EditSubjectModal'));
 const DeleteSubjectModal = lazy(() => import('./DeleteSubjectModal'));
 
 
-// --- CUSTOM CSS: OPTIMIZED FOR PERFORMANCE (NO BLUR) ---
+// --- CUSTOM CSS: OPTIMIZED FOR PERFORMANCE ---
 const macOsStyles = `
   /* Global Scrollbar Styling */
   ::-webkit-scrollbar { width: 0px; height: 0px; }
@@ -78,31 +78,35 @@ const macOsStyles = `
   .mac-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(0, 0, 0, 0.1); border-radius: 100px; }
   .dark .mac-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.1); }
 
-  /* Glass Morphism Utilities - REPLACED WITH SOLID/HIGH OPACITY */
+  /* Glass Morphism Utilities */
   .glass-panel {
-    background: #ffffff; /* Solid white for max performance */
-    border: 1px solid rgba(226, 232, 240, 0.8);
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.5);
     box-shadow: 
-        0 4px 6px -1px rgba(0, 0, 0, 0.02),
-        0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        0 4px 6px -1px rgba(0, 0, 0, 0.05),
+        0 10px 15px -3px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255,255,255,0.5);
+    backdrop-filter: blur(12px);
   }
   .dark .glass-panel {
-    background: #1A1D24; /* Solid dark */
+    background: rgba(26, 29, 36, 0.9);
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 
-        0 4px 6px -1px rgba(0, 0, 0, 0.2),
-        0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        0 4px 6px -1px rgba(0, 0, 0, 0.3),
+        0 10px 15px -3px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(12px);
   }
   
-  /* macOS 26 Dock - OPTIMIZED */
+  /* macOS Dock */
   .macos-dock {
-    background: #ffffff;
-    border: 1px solid rgba(226, 232, 240, 1);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(20px);
     transition: width 0.3s ease;
   }
   .dark .macos-dock {
-    background: #1A1D24;
+    background: rgba(30, 41, 59, 0.8);
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6);
   }
@@ -119,10 +123,9 @@ const macOsStyles = `
   .logout-modal-exit-active { opacity: 0; transform: scale(0.95); transition: all 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 `;
 
-// --- OPTIMIZED BACKGROUND (STATIC & VIBRANT) ---
+// --- OPTIMIZED BACKGROUND ---
 const AuroraBackground = memo(() => (
     <div className="fixed inset-0 pointer-events-none z-0 bg-slate-50 dark:bg-[#0f1115]">
-        {/* Static Gradient Mesh - Mimics Aurora Colors with high visibility */}
         <div className="absolute inset-0 opacity-80 dark:opacity-40"
              style={{
                  backgroundImage: `
@@ -133,25 +136,19 @@ const AuroraBackground = memo(() => (
                  `
              }}
         />
-        {/* Dark mode specific overlay for better text contrast */}
         <div className="hidden dark:block absolute inset-0 bg-[#0f1115]/70" />
     </div>
 ));
 
-// --- SKELETAL LOADING STATE (Optimized) ---
+// --- SKELETAL LOADING STATE ---
 const DashboardSkeleton = () => (
     <div className="w-full h-full p-6 space-y-8 animate-pulse">
-        {/* Header Skeleton */}
         <div className="w-full h-48 bg-slate-200 dark:bg-slate-800 rounded-[2.5rem]"></div>
-        
-        {/* Widgets Grid Skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="h-40 bg-slate-200 dark:bg-slate-800 rounded-[2rem]"></div>
             ))}
         </div>
-        
-        {/* Feed Skeleton */}
         <div className="space-y-4">
             <div className="w-48 h-8 bg-slate-200 dark:bg-slate-800 rounded-full"></div>
             {[1, 2, 3].map((i) => (
@@ -242,8 +239,8 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
 };
 
 
-// --- DESKTOP HEADER COMPONENT ---
-const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
+// --- DESKTOP HEADER (CANDY STYLE) ---
+const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, theme, toggleTheme }) => {
     const navItems = [
         { view: 'home', text: 'Home', icon: IconHome },
         { view: 'lounge', text: 'Lounge', icon: IconRocket },
@@ -262,55 +259,57 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
-            className="glass-panel mx-auto max-w-[1920px] rounded-[2rem] px-6 py-3 shadow-xl flex items-center justify-between relative w-full z-50 transform-gpu"
+            className="glass-panel mx-auto max-w-[1920px] rounded-[2rem] px-6 py-3 shadow-2xl flex items-center justify-between relative w-full z-50 transform-gpu"
         >
-            {/* Left side: Logo + Brand */}
+            {/* Left: Logo */}
             <div className="flex items-center gap-4 flex-shrink-0 z-20 group cursor-default">
-                <div className="w-11 h-11 rounded-[1rem] bg-gradient-to-br from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-black/30 flex items-center justify-center flex-shrink-0 border border-slate-200 dark:border-slate-700 transition-transform duration-500 group-hover:rotate-6">
+                <div className="w-11 h-11 rounded-[1.2rem] bg-gradient-to-br from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)] flex items-center justify-center flex-shrink-0 border border-slate-200/60 dark:border-slate-700/60 transition-transform duration-500 group-hover:rotate-6 drop-shadow-md">
                     <img src="/logo.png" alt="Logo" className="w-7 h-7 object-contain drop-shadow-sm" />
                 </div>
                 <div className="hidden xl:block">
-                    <span className="font-bold text-lg text-slate-800 dark:text-slate-100 tracking-tight leading-tight block">
+                    <span className="font-black text-lg bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 tracking-tight leading-tight block">
                         SRCS
                     </span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">
                         Portal
                     </span>
                 </div>
             </div>
 
-            {/* Center: Navigation (Fluid Pills) */}
+            {/* Center: Candy Navigation */}
             <nav className="hidden lg:flex items-center justify-center absolute left-1/2 -translate-x-1/2 z-10">
-                <div className="flex items-center gap-1 p-1.5 bg-slate-100 dark:bg-black/30 rounded-full border border-slate-200 dark:border-slate-700 shadow-inner">
+                <div className="flex items-center gap-1.5 p-2 bg-slate-100/50 dark:bg-black/20 rounded-full border border-white/50 dark:border-white/5 shadow-[inset_0_1px_4px_rgba(0,0,0,0.05)] backdrop-blur-md">
                     {navItems.map((item) => {
                         return (
                             <NavLink
                                 key={item.view}
                                 to={item.view === 'home' ? '/dashboard' : `/dashboard/${item.view}`}
                                 end={item.view === 'home'} 
-                                className={({ isActive }) => 
-                                    `relative flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors duration-300 group outline-none`
-                                }
+                                className="relative flex items-center gap-2 px-5 py-2.5 rounded-full transition-all duration-300 group outline-none z-10"
                             >
                                 {({ isActive }) => (
                                     <>
                                         {isActive && (
                                             <motion.div
                                                 layoutId="desktopNavPill"
-                                                className="absolute inset-0 bg-white dark:bg-slate-700 rounded-full shadow-sm border border-black/5 dark:border-white/5"
-                                                transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                                                className="absolute inset-0 bg-gradient-to-b from-white to-slate-50 dark:from-slate-700 dark:to-slate-800 rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-black/40 border border-black/5 dark:border-white/10"
+                                                transition={{ type: "spring", stiffness: 400, damping: 30 }}
                                             />
                                         )}
                                         <span className="relative z-10 flex items-center gap-2">
                                             <item.icon
-                                                stroke={isActive ? 2.5 : 1.5}
+                                                stroke={isActive ? 2.5 : 2}
                                                 size={18}
-                                                className={`transition-colors duration-300 ${
-                                                    isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'
+                                                className={`transition-all duration-300 ${
+                                                    isActive 
+                                                    ? 'text-blue-600 dark:text-blue-400 drop-shadow-sm scale-105' 
+                                                    : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'
                                                 }`}
                                             />
-                                            <span className={`text-xs font-bold tracking-wide transition-colors duration-300 ${
-                                                isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'
+                                            <span className={`text-[11px] font-bold uppercase tracking-wide transition-all duration-300 ${
+                                                isActive 
+                                                ? 'text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-200' 
+                                                : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'
                                             }`}>
                                                 {item.text}
                                             </span>
@@ -323,10 +322,22 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen }) => {
                 </div>
             </nav>
 
-            {/* Right side: Actions & Profile */}
+            {/* Right: Actions */}
             <div className="flex items-center gap-4 flex-shrink-0 z-20">
-                <ThemeToggle />
-                <div className="h-6 w-[1px] bg-slate-200 dark:bg-slate-700 mx-1"></div>
+                {/* --- SINGLE CANDY ICON TOGGLE --- */}
+                <button
+                    onClick={toggleTheme}
+                    className="w-11 h-11 rounded-full bg-white/50 dark:bg-black/20 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-[inset_0_1px_2px_rgba(255,255,255,0.5)] dark:shadow-none flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 text-orange-500 dark:text-blue-400"
+                    title="Toggle Theme"
+                >
+                    {theme === 'dark' ? (
+                        <MoonIcon className="h-5 w-5 drop-shadow-sm" />
+                    ) : (
+                        <SunIcon className="h-5 w-5 drop-shadow-sm" />
+                    )}
+                </button>
+
+                <div className="h-8 w-[1px] bg-gradient-to-b from-transparent via-slate-200 dark:via-slate-700 to-transparent mx-1"></div>
                 <ProfileDropdown 
                     userProfile={userProfile}
                     onLogout={() => setIsLogoutModalOpen(true)}
@@ -389,10 +400,8 @@ const TeacherDashboardLayout = (props) => {
     const [isChangePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-    // FIX: Using useRef for CSSTransition nodeRefs
-    const robotRef = useRef(null);     // For the Animated Robot switch
+    const robotRef = useRef(null);
     
-    // PERF: Inject Styles once
     useLayoutEffect(() => {
         const styleId = 'teacher-dashboard-styles';
         if (!document.getElementById(styleId)) {
@@ -403,7 +412,6 @@ const TeacherDashboardLayout = (props) => {
         }
     }, []);
 
-    // Theme Logic
     const [theme, setTheme] = useState(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
     const toggleTheme = () => {
         if (theme === 'light') {
@@ -417,7 +425,6 @@ const TeacherDashboardLayout = (props) => {
         }
     };
     
-    // Logic Handlers
     const handleRenameCategory = async (newName) => {
         const oldName = categoryToEdit?.name;
         if (!oldName || !newName || oldName === newName) {
@@ -456,7 +463,6 @@ const TeacherDashboardLayout = (props) => {
         rest.setCreateCourseModalOpen(true);
     };
 
-    // Navigation Data
     const bottomNavItems = [
         { view: 'home', text: 'Home', icon: IconHome },
         { view: 'classes', text: 'Classes', icon: IconSchool },
@@ -471,7 +477,6 @@ const TeacherDashboardLayout = (props) => {
         ...(userProfile?.role === 'admin' ? [{ view: 'admin', text: 'Admin', icon: IconShieldCog }] : [])
     ];
 
-    // Online Class Handlers
     const handleStartOnlineClass = async (classId, meetingCode, meetLink) => {
             try {
                 const classRef = doc(db, 'classes', classId);
@@ -505,7 +510,6 @@ const TeacherDashboardLayout = (props) => {
             }
         };
 
-    // --- RENDER MAIN CONTENT ---
     const renderMainContent = () => {
         if (loading || authLoading) return <DashboardSkeleton />;
 
@@ -537,11 +541,9 @@ const TeacherDashboardLayout = (props) => {
 
     return (
         <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 font-sans antialiased text-slate-900 dark:text-slate-100 pb-24 lg:pb-0 relative overflow-hidden">
-            
-            {/* --- GLOBAL AURORA BACKGROUND (OPTIMIZED) --- */}
             <AuroraBackground />
             
-            {/* --- MOBILE HEADER (FIXED TOP) --- */}
+            {/* MOBILE HEADER */}
             <div className="fixed top-0 left-0 right-0 z-40 px-4 pt-2 pb-2 lg:hidden">
                 <motion.div 
                     initial={{ y: -50, opacity: 0 }}
@@ -560,7 +562,11 @@ const TeacherDashboardLayout = (props) => {
                         </span>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 z-20">
-                            <button onClick={toggleTheme} className="w-9 h-9 rounded-full bg-white dark:bg-slate-800 hover:scale-105 active:scale-95 flex items-center justify-center transition-all duration-300 border border-slate-200 dark:border-slate-700 shadow-sm">
+                        {/* SINGLE ICON TOGGLE (MOBILE) */}
+                        <button
+                            onClick={toggleTheme}
+                            className="w-9 h-9 rounded-full bg-white dark:bg-slate-800 hover:scale-105 active:scale-95 flex items-center justify-center transition-all duration-300 border border-slate-200 dark:border-slate-700 shadow-sm"
+                        >
                             {theme === 'dark' ? <MoonIcon className="h-5 w-5 text-blue-400" /> : <SunIcon className="h-5 w-5 text-orange-500" />}
                         </button>
                         <ProfileDropdown userProfile={userProfile} onLogout={() => setIsLogoutModalOpen(true)} size="mobile" />
@@ -568,12 +574,16 @@ const TeacherDashboardLayout = (props) => {
                 </motion.div>
             </div>
 
-            {/* --- DESKTOP HEADER (FIXED TOP, NO GAP) --- */}
+            {/* DESKTOP HEADER - PASSING PROPS */}
             <div className="hidden lg:block fixed top-0 left-0 right-0 z-[50] px-4 md:px-6 lg:px-8 pt-0 pb-2 w-full max-w-[1920px] mx-auto transition-all duration-300">
-                <DesktopHeader userProfile={userProfile} setIsLogoutModalOpen={setIsLogoutModalOpen} />
+                <DesktopHeader 
+                    userProfile={userProfile} 
+                    setIsLogoutModalOpen={setIsLogoutModalOpen} 
+                    theme={theme} 
+                    toggleTheme={toggleTheme} 
+                />
             </div>
 
-            {/* --- MAIN CONTENT --- */}
             <main className="flex-1 w-full max-w-[1920px] mx-auto px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-24 lg:pt-24 relative z-10">
                 <div className="w-full h-full">
                     <Suspense fallback={<DashboardSkeleton />}>
@@ -582,7 +592,7 @@ const TeacherDashboardLayout = (props) => {
                 </div>
             </main>
 
-            {/* --- MOBILE DOCK (FIXED REAL BOTTOM) --- */}
+            {/* MOBILE DOCK */}
             <div className="fixed bottom-1 left-0 right-0 flex justify-center z-[49] lg:hidden pointer-events-none">
                 <motion.div 
                     initial={{ y: 100 }} animate={{ y: 0 }} transition={{ type: "spring", stiffness: 250, damping: 25, delay: 0.2 }} layout
@@ -614,7 +624,6 @@ const TeacherDashboardLayout = (props) => {
                 </motion.div>
             </div>
 
-            {/* --- MOBILE MENU EXPANSION --- */}
             <AnimatePresence>
                 {isMobileMenuOpen && (
                     <motion.div
@@ -648,9 +657,7 @@ const TeacherDashboardLayout = (props) => {
                 )}
             </AnimatePresence>
 
-            {/* ROBOT & MODALS */}
             <Suspense fallback={null}>
-                {/* FIX: Add nodeRef to Robot CSSTransition */}
                 <CSSTransition 
                     in={!isChatOpen && activeView === 'home'} 
                     timeout={400} 
@@ -686,7 +693,6 @@ const TeacherDashboardLayout = (props) => {
                 {rest.isDeleteSubjectModalOpen && <DeleteSubjectModal isOpen={rest.isDeleteSubjectModalOpen} onClose={() => rest.setDeleteSubjectModalOpen(false)} subject={rest.subjectToActOn} />}
             </Suspense>
 
-            {/* Logout Modal */}
             <CSSTransition in={isLogoutModalOpen} timeout={400} classNames="logout-modal" unmountOnExit>
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
                     <div className="glass-panel rounded-[2.5rem] shadow-2xl p-8 w-full max-w-sm text-center transform transition-all bg-white dark:bg-[#1A1D24]">
