@@ -4,13 +4,13 @@ import {
     XMarkIcon, 
     PlusIcon, 
     TrashIcon, 
-    ClipboardDocumentListIcon, 
     ArrowUturnLeftIcon,
     PlayCircleIcon,
     CheckBadgeIcon,
-    DocumentArrowDownIcon
+    DocumentArrowDownIcon,
+    DocumentDuplicateIcon
 } from '@heroicons/react/24/outline';
-import { doc, collection, writeBatch, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
+import { doc, collection, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
@@ -21,6 +21,7 @@ import LessonSelector from './LessonSelector';
 // --- UTILS & PARSERS ---
 
 const uniqueId = () => `id_${Math.random().toString(36).substr(2, 9)}`;
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const calculateItemsForRange = (rangeString) => {
     if (!rangeString) return 0;
@@ -98,25 +99,28 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
     const { type, range } = testType;
     const tosContext = JSON.stringify(generatedTos, null, 2);
 
+    // Reduced context length to prevent 504 Timeouts
+    const safeContent = combinedContent.substring(0, 12000);
+
     return `
-    Role: Academic Examiner.
-    Task: Generate exam questions for section: **${type}**.
+    Role: Subject Matter Expert and Academic Examiner.
+    Task: Create exam questions for section: **${type}**.
     Language: ${language}.
     Items Range: ${range}.
     
-    Source Material:
-    \`\`\`${combinedContent.substring(0, 15000)}\`\`\`
+    Source Material (Facts Only):
+    \`\`\`${safeContent}\`\`\`
 
     TOS Context (Align difficulty/topic to item numbers):
     ${tosContext}
 
-    **CRITICAL ANTI-REDUNDANCY INSTRUCTION:**
-    The following topics have ALREADY been asked in previous sections. 
-    You MUST NOT repeat these specific questions or test the exact same fact in the exact same way. Find different angles or other details to test.
-    
-    --- PREVIOUSLY ASKED (DO NOT REPEAT) ---
-    ${previousQuestionsContext || "None yet."}
-    ----------------------------------------
+    **STRICT ACADEMIC STYLE GUIDE (MUST FOLLOW):**
+    1. **NO META-REFERENCES:** Do NOT use phrases like "According to the text", "As stated in the passage", "The text defines...", or "In the lesson".
+    2. **ABSOLUTE TRUTHS:** State the question as a fact about the subject matter itself. 
+       * BAD: "According to the text, what is accountability?"
+       * GOOD: "What is the primary definition of accountability in a spiritual context?"
+    3. **NO REDUNDANCY:** Do not repeat questions asked in previous sections (context provided below).
+    4. **DISTRACTORS:** For Multiple Choice, distractors must be plausible misconceptions, not obvious jokes.
 
     Output JSON:
     {
@@ -348,6 +352,9 @@ const ExamGenerationScreen = ({ guideData, onComplete, onBack }) => {
             // --- STEP 1: TOS PLANNER ---
             setProgress({ current: 1, total: testTypes.length + 1, status: 'Designing Table of Specifications...' });
             
+            // Artificial delay to prevent hitting API limits immediately
+            await delay(500);
+
             const tosPrompt = getTosPlannerPrompt(fullGuideData);
             const tosResponse = await callGeminiWithLimitCheck(tosPrompt, { signal });
             if (!isMounted.current) return;
@@ -367,6 +374,9 @@ const ExamGenerationScreen = ({ guideData, onComplete, onBack }) => {
                     total: testTypes.length + 1, 
                     status: `Writing ${testType.type} questions (${testType.range})...` 
                 });
+
+                // Add delay to prevent 504 Gateway Timeouts on the server side due to rapid requests
+                await delay(1000);
 
                 const previousQuestionsString = contextChain.join('\n');
                 const prompt = getExamComponentPrompt(fullGuideData, parsedTosData.tos, testType, previousQuestionsString);
@@ -421,6 +431,7 @@ const ExamGenerationScreen = ({ guideData, onComplete, onBack }) => {
 
 const ExamPreviewScreen = ({ previewData, language, onSave, onBack, onClose }) => {
     const [activeTab, setActiveTab] = useState('exam'); 
+    const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
 
     const tabs = [
         { id: 'tos', label: 'TOS' },
@@ -466,7 +477,7 @@ const ExamPreviewScreen = ({ previewData, language, onSave, onBack, onClose }) =
     };
 
     return (
-        <div className="flex flex-col h-full bg-white dark:bg-[#000000]">
+        <div className="flex flex-col h-full bg-white dark:bg-[#000000] relative">
             <ModalHeader title="Review Exam" onClose={onClose} onBack={onBack} showBack={true} />
             
             <div className="px-6 pt-4 pb-2">
@@ -536,14 +547,50 @@ const ExamPreviewScreen = ({ previewData, language, onSave, onBack, onClose }) =
                 </div>
             </div>
 
+            {/* SAVE BUTTONS */}
             <div className="p-6 border-t border-gray-200 dark:border-white/10 bg-gray-50/80 dark:bg-[#2C2C2E]/80 backdrop-blur-xl flex justify-end gap-3">
-                <button onClick={() => onSave('lesson')} className="px-6 py-3 rounded-xl font-bold text-sm bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-white/20 transition-all flex items-center gap-2">
-                    <DocumentArrowDownIcon className="w-5 h-5" /> Save as Lesson
-                </button>
-                <button onClick={() => onSave('quiz')} className="px-6 py-3 rounded-xl font-bold text-sm bg-[#007AFF] hover:bg-[#0062cc] text-white shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2">
-                    <CheckBadgeIcon className="w-5 h-5" /> Save as Quiz
+                 <button 
+                    onClick={() => setIsSaveModalOpen(true)} 
+                    className="px-8 py-3.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-500/20 transition-all flex items-center gap-2"
+                >
+                    <CheckBadgeIcon className="w-5 h-5" /> Save Options
                 </button>
             </div>
+
+            {/* SAVE OPTIONS MODAL */}
+            {isSaveModalOpen && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-gray-200 dark:border-white/10">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Save Exam As</h3>
+                        <div className="space-y-3">
+                            <button onClick={() => onSave('lesson')} className="w-full flex items-center gap-3 p-4 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] hover:bg-gray-100 dark:hover:bg-white/5 border border-gray-200 dark:border-white/5 transition-all text-left">
+                                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400"><DocumentArrowDownIcon className="w-6 h-6" /></div>
+                                <div>
+                                    <p className="font-bold text-gray-900 dark:text-white text-sm">Viewable Lesson</p>
+                                    <p className="text-xs text-gray-500">Save as a standard lesson file (TOS + Exam)</p>
+                                </div>
+                            </button>
+                            <button onClick={() => onSave('quiz')} className="w-full flex items-center gap-3 p-4 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] hover:bg-gray-100 dark:hover:bg-white/5 border border-gray-200 dark:border-white/5 transition-all text-left">
+                                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400"><CheckBadgeIcon className="w-6 h-6" /></div>
+                                <div>
+                                    <p className="font-bold text-gray-900 dark:text-white text-sm">Interactive Quiz</p>
+                                    <p className="text-xs text-gray-500">Save as an editable online quiz</p>
+                                </div>
+                            </button>
+                            <button onClick={() => onSave('both')} className="w-full flex items-center gap-3 p-4 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] hover:bg-gray-100 dark:hover:bg-white/5 border border-gray-200 dark:border-white/5 transition-all text-left">
+                                <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400"><DocumentDuplicateIcon className="w-6 h-6" /></div>
+                                <div>
+                                    <p className="font-bold text-gray-900 dark:text-white text-sm">Save as Both</p>
+                                    <p className="text-xs text-gray-500">Create both lesson and quiz entries</p>
+                                </div>
+                            </button>
+                        </div>
+                        <button onClick={() => setIsSaveModalOpen(false)} className="w-full mt-4 py-3 text-sm font-bold text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition-colors">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -574,11 +621,42 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
         try {
             const batch = writeBatch(db);
             
+            // Helper to generate Markdown content for the Lesson view
+            const generateMarkdown = () => {
+                const { tos, examQuestions, examTitle } = generatedData;
+                let md = `# ${examTitle}\n\n`;
+                
+                // TOS Table in Markdown
+                md += `### Table of Specifications\n\n`;
+                md += `| Competency | No. Items | Easy | Avg | Diff |\n|---|---|---|---|---|\n`;
+                tos.competencyBreakdown.forEach(row => {
+                    md += `| ${row.competency} | ${row.noOfItems} | ${row.easyItems.itemNumbers} | ${row.averageItems.itemNumbers} | ${row.difficultItems.itemNumbers} |\n`;
+                });
+                md += `\n\n---\n\n`;
+
+                // Questions
+                md += `### Exam Questions\n\n`;
+                examQuestions.forEach(q => {
+                    md += `**${q.questionNumber}.** ${q.question}\n`;
+                    if(q.options) {
+                        q.options.forEach((opt, i) => md += `- ${String.fromCharCode(97+i)}. ${opt}\n`);
+                    }
+                    md += `\n`;
+                });
+
+                // Answer Key
+                md += `\n\n---\n### Answer Key\n\n`;
+                examQuestions.forEach(q => {
+                    md += `**${q.questionNumber}:** ${q.correctAnswer}\n`;
+                });
+
+                return md;
+            };
+
             // Save as Lesson (Viewable/Printable)
             if (type === 'lesson' || type === 'both') {
                 const lessonRef = doc(collection(db, 'lessons'));
-                // In a real app, you would use a markdown generator function here
-                const content = `# ${generatedData.examTitle}\n\n(Full content saved in interactive format)`; 
+                const content = generateMarkdown();
                 
                 batch.set(lessonRef, {
                     title: generatedData.examTitle,
