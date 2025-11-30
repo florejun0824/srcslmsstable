@@ -23,6 +23,12 @@ import LessonSelector from './LessonSelector';
 const uniqueId = () => `id_${Math.random().toString(36).substr(2, 9)}`;
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Helper to remove "A.", "1.", "a)" from the start of AI strings
+const cleanPrefix = (str) => {
+    if (typeof str !== 'string') return str;
+    return str.replace(/^[A-Za-z0-9]+[\.\)\-\s]+\s*/, '').trim();
+};
+
 const calculateItemsForRange = (rangeString) => {
     if (!rangeString) return 0;
     const ranges = rangeString.split(',').map(r => r.trim());
@@ -114,13 +120,13 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
     TOS Context (Align difficulty/topic to item numbers):
     ${tosContext}
 
-    **STRICT ACADEMIC STYLE GUIDE (MUST FOLLOW):**
-    1. **NO META-REFERENCES:** Do NOT use phrases like "According to the text", "As stated in the passage", "The text defines...", or "In the lesson".
-    2. **ABSOLUTE TRUTHS:** State the question as a fact about the subject matter itself. 
-       * BAD: "According to the text, what is accountability?"
-       * GOOD: "What is the primary definition of accountability in a spiritual context?"
-    3. **NO REDUNDANCY:** Do not repeat questions asked in previous sections (context provided below).
-    4. **DISTRACTORS:** For Multiple Choice, distractors must be plausible misconceptions, not obvious jokes.
+    **STRICT FORMATTING RULES:**
+    1. **NO PREFIXES IN OPTIONS:** When writing the "options" array, write ONLY the text.
+       - WRONG: ["A. Freedom", "B. Justice"]
+       - CORRECT: ["Freedom", "Justice"]
+    2. **CORRECT ANSWER:** Must match the option text EXACTLY.
+    3. **NO META-REFERENCES:** Do NOT use phrases like "According to the text". State the question as a fact.
+    4. **NO REDUNDANCY:** Do not repeat questions asked in previous sections.
 
     Output JSON:
     {
@@ -130,8 +136,8 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
                 "type": "${type}", 
                 "instruction": "...", 
                 "question": "...", 
-                "options": ["A", "B", "C", "D"], // For MC only. Pure text options.
-                "correctAnswer": "...", 
+                "options": ["OptionText1", "OptionText2", "OptionText3", "OptionText4"], // STRICTLY NO "A." OR "1." PREFIXES
+                "correctAnswer": "OptionText2", // Must match option text exactly
                 "explanation": "...",
                 // For Matching Type Only:
                 "prompts": ["Prompt 1", "Prompt 2"],
@@ -352,7 +358,6 @@ const ExamGenerationScreen = ({ guideData, onComplete, onBack }) => {
             // --- STEP 1: TOS PLANNER ---
             setProgress({ current: 1, total: testTypes.length + 1, status: 'Designing Table of Specifications...' });
             
-            // Artificial delay to prevent hitting API limits immediately
             await delay(500);
 
             const tosPrompt = getTosPlannerPrompt(fullGuideData);
@@ -375,8 +380,7 @@ const ExamGenerationScreen = ({ guideData, onComplete, onBack }) => {
                     status: `Writing ${testType.type} questions (${testType.range})...` 
                 });
 
-                // Add delay to prevent 504 Gateway Timeouts on the server side due to rapid requests
-                await delay(1000);
+                await delay(1000); // Prevent API overload
 
                 const previousQuestionsString = contextChain.join('\n');
                 const prompt = getExamComponentPrompt(fullGuideData, parsedTosData.tos, testType, previousQuestionsString);
@@ -386,8 +390,20 @@ const ExamGenerationScreen = ({ guideData, onComplete, onBack }) => {
                 
                 const componentData = tryParseJson(extractJson(response));
                 if (componentData?.questions) {
-                    allQuestions = [...allQuestions, ...componentData.questions];
-                    const summary = componentData.questions.map(q => `[Q${q.questionNumber}]: ${q.question}`).join('; ');
+                    // --- SANITIZE DATA HERE (CRITICAL FIX FOR "a. A. Freedom") ---
+                    const sanitizedQuestions = componentData.questions.map(q => ({
+                        ...q,
+                        // Clean "A. " from options
+                        options: q.options ? q.options.map(o => cleanPrefix(o)) : undefined,
+                        // Clean "A. " from correct answers
+                        correctAnswer: cleanPrefix(q.correctAnswer),
+                        // Clean "1. " from matching pairs
+                        prompts: q.prompts ? q.prompts.map(p => cleanPrefix(p)) : undefined,
+                        matchingOptions: q.matchingOptions ? q.matchingOptions.map(m => cleanPrefix(m)) : undefined
+                    }));
+
+                    allQuestions = [...allQuestions, ...sanitizedQuestions];
+                    const summary = sanitizedQuestions.map(q => `[Q${q.questionNumber}]: ${q.question}`).join('; ');
                     contextChain.push(`Section (${testType.type}): ${summary}`);
                 }
             }
@@ -547,7 +563,6 @@ const ExamPreviewScreen = ({ previewData, language, onSave, onBack, onClose }) =
                 </div>
             </div>
 
-            {/* SAVE BUTTONS */}
             <div className="p-6 border-t border-gray-200 dark:border-white/10 bg-gray-50/80 dark:bg-[#2C2C2E]/80 backdrop-blur-xl flex justify-end gap-3">
                  <button 
                     onClick={() => setIsSaveModalOpen(true)} 
@@ -557,7 +572,6 @@ const ExamPreviewScreen = ({ previewData, language, onSave, onBack, onClose }) =
                 </button>
             </div>
 
-            {/* SAVE OPTIONS MODAL */}
             {isSaveModalOpen && (
                 <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
                     <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-gray-200 dark:border-white/10">
@@ -621,12 +635,11 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
         try {
             const batch = writeBatch(db);
             
-            // Helper to generate Markdown content for the Lesson view
+            // Generate Markdown for Lesson
             const generateMarkdown = () => {
                 const { tos, examQuestions, examTitle } = generatedData;
                 let md = `# ${examTitle}\n\n`;
                 
-                // TOS Table in Markdown
                 md += `### Table of Specifications\n\n`;
                 md += `| Competency | No. Items | Easy | Avg | Diff |\n|---|---|---|---|---|\n`;
                 tos.competencyBreakdown.forEach(row => {
@@ -634,7 +647,6 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                 });
                 md += `\n\n---\n\n`;
 
-                // Questions
                 md += `### Exam Questions\n\n`;
                 examQuestions.forEach(q => {
                     md += `**${q.questionNumber}.** ${q.question}\n`;
@@ -644,7 +656,6 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                     md += `\n`;
                 });
 
-                // Answer Key
                 md += `\n\n---\n### Answer Key\n\n`;
                 examQuestions.forEach(q => {
                     md += `**${q.questionNumber}:** ${q.correctAnswer}\n`;
@@ -653,11 +664,10 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                 return md;
             };
 
-            // Save as Lesson (Viewable/Printable)
+            // Save as Lesson
             if (type === 'lesson' || type === 'both') {
                 const lessonRef = doc(collection(db, 'lessons'));
                 const content = generateMarkdown();
-                
                 batch.set(lessonRef, {
                     title: generatedData.examTitle,
                     contentType: 'studentLesson',
@@ -666,29 +676,31 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                 });
             }
 
-            // Save as Interactive Quiz (Editable in ManualQuizCreator)
+            // Save as Interactive Quiz
             if (type === 'quiz' || type === 'both') {
-                // TRANSFORM DATA TO MATCH MANUAL CREATOR SCHEMA
                 const formattedQuestions = generatedData.examQuestions.map(q => {
                     const base = {
                         id: uniqueId(),
                         text: q.question,
-                        points: 1, // Default
+                        points: 1, 
                         explanation: q.explanation || '',
                         type: q.type.toLowerCase().replace(/\s+/g, '-').replace('multiple-choice', 'multiple-choice') 
                     };
 
-                    // 1. Multiple Choice
                     if (base.type.includes('multiple')) {
+                        // FIX: Ensure finding the correct index works by using cleaned strings
+                        const cleanCorrect = cleanPrefix(q.correctAnswer).trim();
+                        const options = q.options || [];
+                        const correctIndex = options.findIndex(o => cleanPrefix(o).trim() === cleanCorrect);
+                        
                         return {
                             ...base,
                             type: 'multiple-choice',
-                            options: q.options || [],
-                            correctAnswerIndex: q.options ? q.options.findIndex(o => o.trim() === q.correctAnswer.trim()) : 0
+                            options: options,
+                            correctAnswerIndex: correctIndex > -1 ? correctIndex : 0
                         };
                     }
 
-                    // 2. True/False
                     if (base.type.includes('alternative') || base.type.includes('true')) {
                         return {
                             ...base,
@@ -697,13 +709,9 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                         };
                     }
 
-                    // 3. Matching Type
                     if (base.type.includes('matching')) {
-                        // Transform AI output (lists) into ID-mapped objects
                         const prompts = (q.prompts || []).map(p => ({ id: uniqueId(), text: p }));
                         const options = (q.matchingOptions || []).map(o => ({ id: uniqueId(), text: o }));
-                        
-                        // Build correctPairs map based on AI "pairs" array
                         const correctPairs = {};
                         if (q.pairs) {
                             q.pairs.forEach(pair => {
@@ -712,31 +720,14 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                 if (pObj && oObj) correctPairs[pObj.id] = oObj.id;
                             });
                         }
-
-                        return {
-                            ...base,
-                            type: 'matching-type',
-                            prompts,
-                            options,
-                            correctPairs
-                        };
+                        return { ...base, type: 'matching-type', prompts, options, correctPairs };
                     }
 
-                    // 4. Essay
                     if (base.type.includes('essay')) {
-                        return {
-                            ...base,
-                            type: 'essay',
-                            rubric: [{ id: uniqueId(), criteria: 'Content', points: 5 }] // Default rubric if AI didn't provide one
-                        };
+                        return { ...base, type: 'essay', rubric: [{ id: uniqueId(), criteria: 'Content', points: 5 }] };
                     }
 
-                    // 5. Identification (Default fallback)
-                    return {
-                        ...base,
-                        type: 'identification',
-                        correctAnswer: q.correctAnswer
-                    };
+                    return { ...base, type: 'identification', correctAnswer: q.correctAnswer };
                 });
 
                 const quizRef = doc(collection(db, 'quizzes'));
