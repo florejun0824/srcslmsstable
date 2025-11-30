@@ -2,7 +2,6 @@
 import React, { useState, Suspense, lazy, Fragment, useEffect, useRef, useLayoutEffect, memo } from 'react';
 import { CSSTransition } from 'react-transition-group'; 
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { SunIcon, MoonIcon } from '@heroicons/react/24/solid';
 import { Menu, Transition } from '@headlessui/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -19,7 +18,8 @@ import {
     IconX,
     IconGridDots,
     IconLayoutDashboard,
-    IconSettings
+    IconSettings,
+    IconPalette
 } from '@tabler/icons-react'
 import { NavLink } from 'react-router-dom';
 
@@ -27,12 +27,14 @@ import { NavLink } from 'react-router-dom';
 import { getDocs, writeBatch, doc, where, query, collection, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 // CORE COMPONENTS
 import Spinner from '../common/Spinner'; 
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
 import AnimatedRobot from './dashboard/widgets/AnimatedRobot';
-// ThemeToggle import removed as we implemented a custom single button
+import UniversalBackground from '../common/UniversalBackground';
+import ThemeToggle from '../common/ThemeToggle';
 
 // LAZY-LOADED VIEWS
 const AdminDashboard = lazy(() => import('../../pages/AdminDashboard'));
@@ -110,35 +112,40 @@ const macOsStyles = `
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6);
   }
-
-  /* Page Transitions */
-  .view-fade-enter { opacity: 0; transform: scale(0.98) translateY(10px); }
-  .view-fade-enter-active { opacity: 1; transform: scale(1) translateY(0); transition: all 300ms cubic-bezier(0.2, 0.8, 0.2, 1); }
-  .view-fade-exit { opacity: 1; transform: scale(1) translateY(0); }
-  .view-fade-exit-active { opacity: 0; transform: scale(1.02) translateY(-5px); transition: all 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
-  
-  .logout-modal-enter { opacity: 0; transform: scale(0.95); }
-  .logout-modal-enter-active { opacity: 1; transform: scale(1); transition: all 300ms cubic-bezier(0.2, 0.8, 0.2, 1); }
-  .logout-modal-exit { opacity: 1; transform: scale(1); }
-  .logout-modal-exit-active { opacity: 0; transform: scale(0.95); transition: all 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 `;
 
-// --- OPTIMIZED BACKGROUND ---
-const AuroraBackground = memo(() => (
-    <div className="fixed inset-0 pointer-events-none z-0 bg-slate-50 dark:bg-[#0f1115]">
-        <div className="absolute inset-0 opacity-80 dark:opacity-40"
-             style={{
-                 backgroundImage: `
-                    radial-gradient(at 0% 0%, rgba(165, 180, 252, 0.7) 0px, transparent 55%),
-                    radial-gradient(at 100% 0%, rgba(103, 232, 249, 0.6) 0px, transparent 55%),
-                    radial-gradient(at 100% 100%, rgba(147, 197, 253, 0.6) 0px, transparent 55%),
-                    radial-gradient(at 0% 100%, rgba(216, 180, 254, 0.6) 0px, transparent 55%)
-                 `
-             }}
-        />
-        <div className="hidden dark:block absolute inset-0 bg-[#0f1115]/70" />
-    </div>
-));
+// --- HELPER: MONET EFFECT COLOR EXTRACTION (Dark Mode Only) ---
+const getHeaderStyle = (activeOverlay) => {
+    // 1. Christmas: Deep Midnight Blue
+    if (activeOverlay === 'christmas') {
+        return { background: 'rgba(15, 23, 66, 0.85)', borderColor: 'rgba(100, 116, 139, 0.2)' }; 
+    }
+    // 2. Valentines: Velvet Red
+    if (activeOverlay === 'valentines') {
+        return { background: 'rgba(60, 10, 20, 0.85)', borderColor: 'rgba(255, 100, 100, 0.15)' }; 
+    }
+    // 3. Graduation: Dark Gold
+    if (activeOverlay === 'graduation') {
+        return { background: 'rgba(30, 25, 10, 0.85)', borderColor: 'rgba(255, 215, 0, 0.15)' }; 
+    }
+    // 4. Rainy: Mossy Green (Updated)
+    if (activeOverlay === 'rainy') {
+        return { background: 'rgba(20, 35, 20, 0.85)', borderColor: 'rgba(100, 150, 100, 0.2)' };
+    }
+    // 5. Cyberpunk: Deep Neon Purple (Updated)
+    if (activeOverlay === 'cyberpunk') {
+        return { background: 'rgba(35, 5, 45, 0.85)', borderColor: 'rgba(180, 0, 255, 0.2)' };
+    }
+    // 6. Spring: Dark Cherry / Sakura (Updated)
+    if (activeOverlay === 'spring') {
+        return { background: 'rgba(50, 10, 20, 0.85)', borderColor: 'rgba(255, 150, 180, 0.2)' };
+    }
+    // 7. Space: Deep Void Black
+    if (activeOverlay === 'space') {
+        return { background: 'rgba(5, 5, 10, 0.85)', borderColor: 'rgba(100, 100, 255, 0.15)' };
+    }
+    return {}; 
+};
 
 // --- SKELETAL LOADING STATE ---
 const DashboardSkeleton = () => (
@@ -157,6 +164,81 @@ const DashboardSkeleton = () => (
         </div>
     </div>
 );
+
+// --- ThemeDropdown Component WITH TUTORIAL ---
+const ThemeDropdown = ({ size = 'desktop', showTutorial = false, onTutorialComplete }) => {
+  const buttonSize = size === 'desktop' ? 'w-11 h-11' : 'w-9 h-9';
+  const iconSize = size === 'desktop' ? 20 : 18;
+
+  return (
+    <div className="relative z-50 flex-shrink-0">
+      <Menu as="div" className="relative">
+        <Menu.Button
+          className={`relative flex items-center justify-center ${buttonSize} rounded-full bg-white/50 dark:bg-black/20 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-sm transition-all duration-300 hover:scale-105 active:scale-95 text-slate-600 dark:text-slate-300 ${showTutorial ? 'ring-4 ring-blue-500/50 z-50' : ''}`}
+          title="Change Theme"
+          onClick={() => {
+             if (showTutorial && onTutorialComplete) onTutorialComplete();
+          }}
+        >
+          <IconPalette size={iconSize} stroke={1.5} />
+          
+          {/* Pulse Effect when Tutorial is active */}
+          {showTutorial && (
+            <span className="absolute inset-0 rounded-full animate-ping bg-blue-400/30"></span>
+          )}
+        </Menu.Button>
+
+        {/* --- TUTORIAL TOOLTIP --- */}
+        <AnimatePresence>
+            {showTutorial && (
+                <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                    className="absolute right-0 mt-4 w-64 p-4 rounded-2xl bg-slate-800/90 border border-blue-500/30 shadow-2xl backdrop-blur-xl z-[60]"
+                >
+                    <div className="absolute -top-2 right-4 w-4 h-4 bg-slate-800 rotate-45 border-t border-l border-blue-500/30"></div>
+                    <div className="relative z-10">
+                        <h4 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
+                           ✨ Set the Vibe
+                        </h4>
+                        <p className="text-xs text-slate-300 leading-relaxed mb-3">
+                            Customize your dashboard ambience! Switch between <strong>Christmas</strong>, <strong>Cyberpunk</strong>, <strong>Space</strong> and more.
+                        </p>
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if(onTutorialComplete) onTutorialComplete();
+                            }}
+                            className="w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors"
+                        >
+                            Got it!
+                        </button>
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+
+        <Transition
+          as={Fragment}
+          enter="transition ease-out duration-200"
+          enterFrom="transform opacity-0 scale-95 translate-y-2"
+          enterTo="transform opacity-100 scale-100 translate-y-0"
+          leave="transition ease-in duration-150"
+          leaveFrom="transform opacity-100 scale-100 translate-y-0"
+          leaveTo="transform opacity-0 scale-95 translate-y-2"
+        >
+          <Menu.Items className="absolute right-0 mt-2 w-72 origin-top-right focus:outline-none z-[60]">
+             <div className="relative">
+               <ThemeToggle />
+             </div>
+          </Menu.Items>
+        </Transition>
+      </Menu>
+    </div>
+  );
+};
 
 // --- ProfileDropdown Component ---
 const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
@@ -240,7 +322,11 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
 
 
 // --- DESKTOP HEADER (CANDY STYLE) ---
-const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, theme, toggleTheme }) => {
+const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTutorialComplete }) => {
+    // 1. Get Theme Context for Dynamic Styling
+    const { activeOverlay } = useTheme();
+    const dynamicStyle = getHeaderStyle(activeOverlay);
+
     const navItems = [
         { view: 'home', text: 'Home', icon: IconHome },
         { view: 'lounge', text: 'Lounge', icon: IconRocket },
@@ -259,7 +345,9 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, theme, toggleTheme }
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
-            className="glass-panel mx-auto max-w-[1920px] rounded-[2rem] px-6 py-3 shadow-2xl flex items-center justify-between relative w-full z-50 transform-gpu"
+            // Apply Dynamic Background Style Here
+            style={dynamicStyle} 
+            className="glass-panel mx-auto max-w-[1920px] rounded-[2rem] px-6 py-3 shadow-2xl flex items-center justify-between relative w-full z-50 transform-gpu transition-colors duration-500"
         >
             {/* Left: Logo */}
             <div className="flex items-center gap-4 flex-shrink-0 z-20 group cursor-default">
@@ -324,18 +412,12 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, theme, toggleTheme }
 
             {/* Right: Actions */}
             <div className="flex items-center gap-4 flex-shrink-0 z-20">
-                {/* --- SINGLE CANDY ICON TOGGLE --- */}
-                <button
-                    onClick={toggleTheme}
-                    className="w-11 h-11 rounded-full bg-white/50 dark:bg-black/20 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-[inset_0_1px_2px_rgba(255,255,255,0.5)] dark:shadow-none flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 text-orange-500 dark:text-blue-400"
-                    title="Toggle Theme"
-                >
-                    {theme === 'dark' ? (
-                        <MoonIcon className="h-5 w-5 drop-shadow-sm" />
-                    ) : (
-                        <SunIcon className="h-5 w-5 drop-shadow-sm" />
-                    )}
-                </button>
+                {/* --- THEME DROPDOWN WITH TUTORIAL PROP --- */}
+                <ThemeDropdown 
+                   size="desktop" 
+                   showTutorial={showTutorial} 
+                   onTutorialComplete={onTutorialComplete}
+                />
 
                 <div className="h-8 w-[1px] bg-gradient-to-b from-transparent via-slate-200 dark:via-slate-700 to-transparent mx-1"></div>
                 <ProfileDropdown 
@@ -399,6 +481,9 @@ const TeacherDashboardLayout = (props) => {
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
     const [isChangePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    
+    // --- TUTORIAL STATE ---
+    const [showAmbienceTutorial, setShowAmbienceTutorial] = useState(false);
 
     const robotRef = useRef(null);
     
@@ -412,19 +497,34 @@ const TeacherDashboardLayout = (props) => {
         }
     }, []);
 
-    const [theme, setTheme] = useState(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-    const toggleTheme = () => {
-        if (theme === 'light') {
-            document.documentElement.classList.add('dark');
-            localStorage.setItem('theme', 'dark');
-            setTheme('dark');
+    // --- TUTORIAL LOGIC: Check LocalStorage on Mount/View Change ---
+    useEffect(() => {
+        // Only run logic if we are on the 'home' view and data is loaded
+        if (activeView === 'home' && !loading) {
+            const hasSeenTutorial = localStorage.getItem('hasSeenAmbienceTutorial');
+            
+            if (!hasSeenTutorial) {
+                // Delay slightly to ensure UI is stable and user is settled
+                const timer = setTimeout(() => {
+                    setShowAmbienceTutorial(true);
+                }, 2000); // 2 second delay after load
+                return () => clearTimeout(timer);
+            }
         } else {
-            document.documentElement.classList.remove('dark');
-            localStorage.setItem('theme', 'light');
-            setTheme('light');
+            // If changing views, ensure tutorial is hidden (optional)
+            setShowAmbienceTutorial(false);
         }
+    }, [activeView, loading]);
+
+    const handleTutorialComplete = () => {
+        setShowAmbienceTutorial(false);
+        localStorage.setItem('hasSeenAmbienceTutorial', 'true');
     };
-    
+
+    const { activeOverlay } = useTheme(); 
+    // Get Theme Context for Mobile Header as well
+    const dynamicStyle = getHeaderStyle(activeOverlay);
+
     const handleRenameCategory = async (newName) => {
         const oldName = categoryToEdit?.name;
         if (!oldName || !newName || oldName === newName) {
@@ -541,7 +641,8 @@ const TeacherDashboardLayout = (props) => {
 
     return (
         <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 font-sans antialiased text-slate-900 dark:text-slate-100 pb-24 lg:pb-0 relative overflow-hidden">
-            <AuroraBackground />
+            {/* ADDED UNIVERSAL BACKGROUND */}
+            <UniversalBackground />
             
             {/* MOBILE HEADER */}
             <div className="fixed top-0 left-0 right-0 z-40 px-4 pt-2 pb-2 lg:hidden">
@@ -549,7 +650,9 @@ const TeacherDashboardLayout = (props) => {
                     initial={{ y: -50, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    className="glass-panel relative flex items-center justify-between px-5 py-3 rounded-[1.5rem] shadow-lg transform-gpu"
+                    // Apply Dynamic Styles Here Too
+                    style={dynamicStyle}
+                    className="glass-panel relative flex items-center justify-between px-5 py-3 rounded-[1.5rem] shadow-lg transform-gpu transition-colors duration-500"
                 >
                     <div className="flex items-center flex-shrink-0 z-20">
                             <div className="w-10 h-10 rounded-[1rem] bg-gradient-to-tr from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 shadow-sm flex items-center justify-center border border-slate-200 dark:border-slate-700">
@@ -562,13 +665,12 @@ const TeacherDashboardLayout = (props) => {
                         </span>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 z-20">
-                        {/* SINGLE ICON TOGGLE (MOBILE) */}
-                        <button
-                            onClick={toggleTheme}
-                            className="w-9 h-9 rounded-full bg-white dark:bg-slate-800 hover:scale-105 active:scale-95 flex items-center justify-center transition-all duration-300 border border-slate-200 dark:border-slate-700 shadow-sm"
-                        >
-                            {theme === 'dark' ? <MoonIcon className="h-5 w-5 text-blue-400" /> : <SunIcon className="h-5 w-5 text-orange-500" />}
-                        </button>
+                        {/* THEME DROPDOWN (MOBILE) */}
+                        <ThemeDropdown 
+                           size="mobile" 
+                           showTutorial={showAmbienceTutorial}
+                           onTutorialComplete={handleTutorialComplete}
+                        />
                         <ProfileDropdown userProfile={userProfile} onLogout={() => setIsLogoutModalOpen(true)} size="mobile" />
                     </div>
                 </motion.div>
@@ -579,8 +681,8 @@ const TeacherDashboardLayout = (props) => {
                 <DesktopHeader 
                     userProfile={userProfile} 
                     setIsLogoutModalOpen={setIsLogoutModalOpen} 
-                    theme={theme} 
-                    toggleTheme={toggleTheme} 
+                    showTutorial={showAmbienceTutorial}
+                    onTutorialComplete={handleTutorialComplete}
                 />
             </div>
 
@@ -596,7 +698,9 @@ const TeacherDashboardLayout = (props) => {
             <div className="fixed bottom-1 left-0 right-0 flex justify-center z-[49] lg:hidden pointer-events-none">
                 <motion.div 
                     initial={{ y: 100 }} animate={{ y: 0 }} transition={{ type: "spring", stiffness: 250, damping: 25, delay: 0.2 }} layout
-                    className="macos-dock pointer-events-auto px-2 py-2 rounded-[2.5rem] flex items-center justify-between w-auto min-w-[90%] max-w-md sm:gap-2 shadow-2xl transform-gpu"
+                    // ADDED DYNAMIC STYLE SUPPORT HERE
+                    style={dynamicStyle}
+                    className="macos-dock pointer-events-auto px-2 py-2 rounded-[2.5rem] flex items-center justify-between w-auto min-w-[90%] max-w-md sm:gap-2 shadow-2xl transform-gpu transition-colors duration-500"
                 >
                     {bottomNavItems.map(item => { 
                             const isActive = activeView === item.view;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useTheme } from '../contexts/ThemeContext'; // 1. Import Theme Context
 import { db } from '../services/firebase';
 import {
   doc,
@@ -29,23 +30,15 @@ import {
   MapPinIcon,
   PhoneIcon,
   HeartIcon,
-  PencilSquareIcon,
   LockClosedIcon, 
-  UserCircleIcon,
-  ArrowRightIcon,
-  IdentificationIcon,
-  ExclamationTriangleIcon,
   CameraIcon
 } from '@heroicons/react/24/solid';
 import { updateStudentDetailsInClasses } from '../services/firestoreService';
 
 import { Switch } from '@headlessui/react';
-import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
-import { Preferences } from '@capacitor/preferences';
-
 import EditStudentProfileModal from '../components/student/EditStudentProfileModal';
 import AboutInfoModal from '../components/student/AboutInfoModal';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 
 import DOMPurify from 'dompurify';
 
@@ -60,19 +53,33 @@ function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
+// 2. HELPER: MONET EFFECT COLOR EXTRACTION (Copied from Dashboard for consistency)
+const getMonetStyle = (activeOverlay) => {
+    if (activeOverlay === 'christmas') return { background: 'rgba(15, 23, 66, 0.85)', borderColor: 'rgba(100, 116, 139, 0.2)' }; 
+    if (activeOverlay === 'valentines') return { background: 'rgba(60, 10, 20, 0.85)', borderColor: 'rgba(255, 100, 100, 0.15)' }; 
+    if (activeOverlay === 'graduation') return { background: 'rgba(30, 25, 10, 0.85)', borderColor: 'rgba(255, 215, 0, 0.15)' }; 
+    if (activeOverlay === 'rainy') return { background: 'rgba(20, 35, 20, 0.85)', borderColor: 'rgba(100, 150, 100, 0.2)' };
+    if (activeOverlay === 'cyberpunk') return { background: 'rgba(35, 5, 45, 0.85)', borderColor: 'rgba(180, 0, 255, 0.2)' };
+    if (activeOverlay === 'spring') return { background: 'rgba(50, 10, 20, 0.85)', borderColor: 'rgba(255, 150, 180, 0.2)' };
+    if (activeOverlay === 'space') return { background: 'rgba(5, 5, 10, 0.85)', borderColor: 'rgba(100, 100, 255, 0.15)' };
+    
+    // Default Glass Style (Standard Dark Theme)
+    return { 
+        background: 'rgba(15, 23, 42, 0.75)', // Dark Slate (matches dark mode text)
+        borderColor: 'rgba(255, 255, 255, 0.1)' 
+    };
+};
+
 // --- CUSTOM CSS: MAC OS 26 SCROLLBARS & UTILS ---
 const scrollbarStyles = `
-  /* Glass Morphism Utilities */
+  /* Glass Morphism Utilities - Fallback */
   .glass-panel {
-    background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(40px) saturate(180%);
     -webkit-backdrop-filter: blur(40px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.6);
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.06);
+    transition: background-color 0.5s ease, border-color 0.5s ease;
   }
   .dark .glass-panel {
-    background: rgba(15, 23, 42, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
   }
   
@@ -153,6 +160,8 @@ const InfoRowCompact = ({ icon: Icon, label, value }) => (
 const StudentProfilePage = () => {
   const { user, userProfile, refreshUserProfile, loading: authLoading } = useAuth();
   const { showToast } = useToast();
+  const { activeOverlay } = useTheme(); // 3. Get Active Theme
+  const monetStyle = getMonetStyle(activeOverlay); // 4. Compute Dynamic Styles
 
   const [profile, setProfile] = useState({
     firstName: '', lastName: '', gender: '', photoURL: '', customBio: '',
@@ -270,8 +279,6 @@ const StudentProfilePage = () => {
     });
     return () => unsubscribe();
   }, [profile.id, profile.canCreatePost, showToast]); 
-
-  // ... (Biometric and XP Effects omitted for brevity but present) ...
   
   // Handle Updates
   const handleModalProfileSubmit = async (updates) => {
@@ -306,7 +313,6 @@ const StudentProfilePage = () => {
           photoURL: updatedData.photoURL,
       });
       
-      // Storage cleanup
       const storage = getStorage();
       if (userProfile.coverPhotoURL && userProfile.coverPhotoURL !== updates.coverPhotoURL && userProfile.coverPhotoURL.includes('firebasestorage')) {
          try { deleteObject(ref(storage, userProfile.coverPhotoURL)); } catch(e){}
@@ -354,7 +360,7 @@ const StudentProfilePage = () => {
   };
 
   const handleBiometricToggle = async (enabled) => {
-        // ... (Same logic)
+        // ... (Logic remains same)
   };
 
   if (authLoading || !userProfile) {
@@ -409,8 +415,7 @@ const StudentProfilePage = () => {
       {/* --- LAYOUT CONTAINER --- */}
       <div className="relative w-full min-h-screen pb-32 font-sans">
          
-         {/* Background Mesh */}
-         <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50/50 to-indigo-50/50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 z-0 pointer-events-none"></div>
+         {/* 5. REMOVED HARDCODED BACKGROUND MESH HERE to allow UniversalBackground to show through */}
 
          {/* --- CINEMATIC HEADER --- */}
          <div className="relative z-10 w-full max-w-[1920px] mx-auto">
@@ -441,9 +446,12 @@ const StudentProfilePage = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10"></div>
              </div>
 
-             {/* 2. Floating "Glass Island" Profile Header */}
+             {/* 2. Floating "Glass Island" Profile Header - APPLIED MONET STYLE */}
              <div className="relative -mt-20 md:-mt-24 px-4 sm:px-8 z-20">
-                 <div className="glass-panel rounded-[2.5rem] p-6 md:p-8 flex flex-col md:flex-row items-center md:items-end gap-6 shadow-2xl border-t border-white/40 dark:border-white/10 backdrop-blur-3xl">
+                 <div 
+                    style={monetStyle}
+                    className="glass-panel rounded-[2.5rem] p-6 md:p-8 flex flex-col md:flex-row items-center md:items-end gap-6 shadow-2xl border-t border-white/40 dark:border-white/10 backdrop-blur-3xl transition-colors duration-500"
+                 >
                      
                      {/* Avatar (Overlapping) */}
                      <div className="flex-shrink-0 -mt-16 md:-mt-20 relative">
@@ -504,15 +512,15 @@ const StudentProfilePage = () => {
              </div>
          </div>
 
-         {/* --- MAIN CONTENT GRID (Utilizing Full Width) --- */}
+         {/* --- MAIN CONTENT GRID --- */}
          <div className="relative z-10 w-full max-w-[1920px] mx-auto py-10 px-4 sm:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 
                 {/* --- LEFT COLUMN: Identity & Metadata (Sticky) --- */}
                 <aside className="lg:col-span-4 xl:col-span-3 space-y-6 lg:sticky lg:top-28 self-start">
                     
-                    {/* Intro Card */}
-                    <div className="glass-panel rounded-[2rem] p-6">
+                    {/* Intro Card - APPLIED MONET STYLE */}
+                    <div style={monetStyle} className="glass-panel rounded-[2rem] p-6 transition-colors duration-500">
                         <h2 className="text-xl font-black text-slate-900 dark:text-white mb-5">Intro</h2>
                         
                         {/* Bio Capsule */}
@@ -549,9 +557,9 @@ const StudentProfilePage = () => {
                         </button>
                     </div>
 
-                    {/* Badges */}
+                    {/* Badges - APPLIED MONET STYLE */}
                     {badges.length > 0 && (
-                        <div className="glass-panel rounded-[2rem] p-6">
+                        <div style={monetStyle} className="glass-panel rounded-[2rem] p-6 transition-colors duration-500">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-lg font-black text-slate-900 dark:text-white">Badges</h2>
                                 <span className="text-xs font-bold text-slate-400">{badges.length} Total</span>
@@ -571,9 +579,9 @@ const StudentProfilePage = () => {
                         </div>
                     )}
                     
-                    {/* Security */}
+                    {/* Security - APPLIED MONET STYLE */}
                     {isBiometricSupported && !isLoadingBiometrics && (
-                        <div className="glass-panel rounded-[2rem] p-4 flex items-center justify-between">
+                        <div style={monetStyle} className="glass-panel rounded-[2rem] p-4 flex items-center justify-between transition-colors duration-500">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-500"><FingerPrintIcon className="w-5 h-5" /></div>
                                 <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Biometric Login</span>
@@ -593,8 +601,8 @@ const StudentProfilePage = () => {
                 {/* --- RIGHT COLUMN: Activity Feed (Spacious) --- */}
                 <main className="lg:col-span-8 xl:col-span-9 space-y-6">
                     
-                    {/* Create Post Input */}
-                    <div className="glass-panel rounded-[2rem] p-6 shadow-sm">
+                    {/* Create Post Input - APPLIED MONET STYLE */}
+                    <div style={monetStyle} className="glass-panel rounded-[2rem] p-6 shadow-sm transition-colors duration-500">
                         <div className="flex items-center gap-4">
                             <UserInitialsAvatar user={userProfile} size="md" className="rounded-full shadow-sm flex-shrink-0" />
                             {canCreatePost ? (
@@ -626,7 +634,7 @@ const StudentProfilePage = () => {
                                     <Spinner />
                                 </div>
                             ) : myPosts.length === 0 ? (
-                                <div className="glass-panel rounded-[2.5rem] p-16 text-center border-2 border-dashed border-slate-200 dark:border-slate-700">
+                                <div style={monetStyle} className="glass-panel rounded-[2.5rem] p-16 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 transition-colors duration-500">
                                     <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6">
                                         <PencilIcon className="w-8 h-8 text-slate-300 dark:text-slate-600" />
                                     </div>
@@ -657,8 +665,8 @@ const StudentProfilePage = () => {
                             )}
                         </div>
                     ) : (
-                        // LOCKED FEED STATE
-                        <div className="glass-panel rounded-[2rem] p-16 text-center relative overflow-hidden border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center space-y-4 bg-slate-50/50 dark:bg-slate-900/50">
+                        // LOCKED FEED STATE - APPLIED MONET STYLE
+                        <div style={monetStyle} className="glass-panel rounded-[2rem] p-16 text-center relative overflow-hidden border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center space-y-4 bg-slate-50/50 dark:bg-slate-900/50 transition-colors duration-500">
                             <div className="p-5 rounded-full bg-slate-200/50 dark:bg-slate-800/50 mb-2">
                                 <LockClosedIcon className="w-12 h-12 text-slate-400 dark:text-slate-500" />
                             </div>

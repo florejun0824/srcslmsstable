@@ -14,23 +14,26 @@ if (typeof window !== "undefined") {
   }
 }
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react'; // Added Suspense, lazy
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar } from '@capacitor/status-bar';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { useAuth } from './contexts/AuthContext'; 
-import LoginPage from './pages/LoginPage';
-import TeacherDashboard from './pages/TeacherDashboard';
-import StudentDashboard from './pages/StudentDashboard';
-import AdminSignup from './pages/AdminSignup';
-import TestPage from './pages/TestPage';
 import { handleAuthRedirect, createPresentationFromData } from './services/googleSlidesService';
 import PostLoginExperience from "./components/PostLoginExperience";
 import UpdateOverlay from './components/UpdateOverlay';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 import './index.css';
-import PrivacyPage from './pages/PrivacyPage';
+
+// --- LAZY LOADED PAGES (Code Splitting) ---
+// These will now be split into separate chunks and loaded only when needed.
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const TeacherDashboard = lazy(() => import('./pages/TeacherDashboard'));
+const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
+const AdminSignup = lazy(() => import('./pages/AdminSignup'));
+const TestPage = lazy(() => import('./pages/TestPage'));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 
 const AVERAGE_BUILD_SECONDS = 300;
 
@@ -213,90 +216,97 @@ const AppRouter = () => {
   }, []);
 
   // --- LOGIC: Choose Skeleton based on role ---
+  // This handles the initial Auth Loading state
   if (loading) {
-     // Try to guess role from localStorage if userProfile isn't ready yet
      const storedRole = localStorage.getItem('userRole');
      const role = userProfile?.role || storedRole;
 
      if (role === 'student') {
          return <StudentSkeleton />;
      } else {
-         // Default to Teacher skeleton for admins/teachers or unknown
          return <TeacherSkeleton />;
      }
   }
 
+  // Helper to choose fallback during LAZY LOADING (Chunk download)
+  const getSuspenseFallback = () => {
+      const role = userProfile?.role || localStorage.getItem('userRole');
+      return role === 'student' ? <StudentSkeleton /> : <TeacherSkeleton />;
+  };
+
   return (
-    <Routes>
-      {/* Publicly accessible routes */}
-      <Route path="/test" element={<TestPage />} />
-      <Route path="/create-admin-xyz" element={<AdminSignup />} />
-	  
-	  {/* ADD THIS NEW ROUTE HERE: */}
-	        <Route path="/privacy" element={<PrivacyPage />} />
+    // Suspense handles the loading state when a specific page chunk is being fetched
+    <Suspense fallback={getSuspenseFallback()}>
+        <Routes>
+        {/* Publicly accessible routes */}
+        <Route path="/test" element={<TestPage />} />
+        <Route path="/create-admin-xyz" element={<AdminSignup />} />
+        
+        <Route path="/privacy" element={<PrivacyPage />} />
 
-      {/* Login Route */}
-      <Route 
-        path="/login" 
-        element={
-          !userProfile ? (
-            <LoginPage />
-          ) : (
-            <Navigate 
-              to={userProfile.role === 'student' ? "/student" : "/dashboard"} 
-              replace 
-            />
-          )
-        } 
-      />
+        {/* Login Route */}
+        <Route 
+            path="/login" 
+            element={
+            !userProfile ? (
+                <LoginPage />
+            ) : (
+                <Navigate 
+                to={userProfile.role === 'student' ? "/student" : "/dashboard"} 
+                replace 
+                />
+            )
+            } 
+        />
 
-      {/* Student Dashboard Routes */}
-      <Route 
-        path="/student/*" 
-        element={
-          !userProfile ? (
-            <Navigate to="/login" replace />
-          ) : userProfile.role === 'student' ? (
-            <PostLoginExperience>
-              <StudentDashboard />
-            </PostLoginExperience>
-          ) : (
-            <Navigate to="/dashboard" replace />
-          )
-        }
-      />
+        {/* Student Dashboard Routes */}
+        <Route 
+            path="/student/*" 
+            element={
+            !userProfile ? (
+                <Navigate to="/login" replace />
+            ) : userProfile.role === 'student' ? (
+                <PostLoginExperience>
+                <StudentDashboard />
+                </PostLoginExperience>
+            ) : (
+                <Navigate to="/dashboard" replace />
+            )
+            }
+        />
 
-      {/* Teacher/Admin Dashboard Routes */}
-      <Route 
-        path="/dashboard/*" 
-        element={
-          !userProfile ? (
-            <Navigate to="/login" replace />
-          ) : (userProfile.role === 'teacher' || userProfile.role === 'admin') ? (
-            <PostLoginExperience>
-              <TeacherDashboard />
-            </PostLoginExperience>
-          ) : (
-            <Navigate to="/student" replace />
-          )
-        }
-      />
+        {/* Teacher/Admin Dashboard Routes */}
+        <Route 
+            path="/dashboard/*" 
+            element={
+            !userProfile ? (
+                <Navigate to="/login" replace />
+            ) : (userProfile.role === 'teacher' || userProfile.role === 'admin') ? (
+                <PostLoginExperience>
+                <TeacherDashboard />
+                </PostLoginExperience>
+            ) : (
+                <Navigate to="/student" replace />
+            )
+            }
+        />
 
-      {/* Default Fallback Route */}
-      <Route 
-        path="/" 
-        element={
-          !userProfile ? (
-            <Navigate to="/login" replace />
-          ) : (
-            <Navigate 
-              to={userProfile.role === 'student' ? "/student" : "/dashboard"} 
-              replace 
-            />
-          )
-        } 
-      />
-    </Routes>
+        {/* Default Fallback Route */}
+        <Route 
+            path="/" 
+            element={
+            !userProfile ? (
+                <Navigate to="/login" replace />
+            ) : (
+                <Navigate 
+                to={userProfile.role === 'student' ? "/student" : "/dashboard"} 
+                replace 
+                />
+            )
+            } 
+        />
+        </Routes>
+    </Suspense>
   );
 };
 

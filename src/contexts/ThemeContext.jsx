@@ -1,62 +1,48 @@
+// src/contexts/ThemeContext.jsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 const ThemeContext = createContext(undefined);
 
-// Get the initial theme from localStorage or default to 'system'
-const getInitialTheme = () => {
+// Helper to get the initial Seasonal Overlay Preference
+const getInitialOverlay = () => {
   if (typeof window !== 'undefined') {
-    const storedTheme = localStorage.getItem('theme');
-    if (storedTheme === 'light' || storedTheme === 'dark' || storedTheme === 'system') {
-      return storedTheme;
-    }
+    const storedOverlay = localStorage.getItem('theme_overlay');
+    if (storedOverlay) return storedOverlay;
   }
-  return 'system';
+  return 'none';
 };
 
 export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState(getInitialTheme);
+  // --- State ---
+  // 1. Theme is ALWAYS 'dark'. We no longer toggle it.
+  const theme = 'dark'; 
 
+  // 2. Seasonal Overlay Logic (Remains unchanged)
+  const [activeOverlay, setActiveOverlayState] = useState(getInitialOverlay);
+
+  const setActiveOverlay = (newOverlay) => {
+    setActiveOverlayState(newOverlay);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('theme_overlay', newOverlay);
+    }
+  };
+
+  // --- Effect: Enforce Dark Mode Globally ---
   useEffect(() => {
     const root = window.document.documentElement;
-    const systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
-
-    const applyTheme = (newTheme) => {
-      // 1. Save preference to localStorage
-      localStorage.setItem('theme', newTheme);
-      
-      // 2. Apply theme to HTML tag
-      if (newTheme === 'system') {
-        // Apply system theme
-        const systemTheme = systemThemeQuery.matches ? 'dark' : 'light';
-        root.classList.remove(systemTheme === 'dark' ? 'light' : 'dark');
-        root.classList.add(systemTheme);
-      } else {
-        // Apply user's direct choice
-        root.classList.remove(newTheme === 'dark' ? 'light' : 'dark');
-        root.classList.add(newTheme);
-      }
-    };
-
-    // Listener for system theme changes
-    const handleSystemThemeChange = (e) => {
-      if (theme === 'system') {
-        applyTheme('system');
-      }
-    };
-
-    // Apply the theme when the component loads or theme changes
-    applyTheme(theme);
     
-    systemThemeQuery.addEventListener('change', handleSystemThemeChange);
-
-    return () => {
-      systemThemeQuery.removeEventListener('change', handleSystemThemeChange);
-    };
-  }, [theme]);
+    // Remove 'light' just in case, and force 'dark'
+    root.classList.remove('light');
+    root.classList.add('dark');
+    
+    // Optional: Save to localStorage so if you ever revert, it remembers
+    localStorage.setItem('theme', 'dark');
+  }, []);
 
   const value = {
-    theme,
-    setTheme,
+    theme,             // Always 'dark'
+    activeOverlay,     // 'none', 'christmas', 'valentines', 'graduation'
+    setActiveOverlay,  // Function to change ambience
   };
 
   return (

@@ -13,6 +13,67 @@ import {
 import ClockWidget from '../../widgets/ClockWidget';
 import InspirationCard from '../../widgets/InspirationCard';
 import CreateAnnouncement from '../../widgets/CreateAnnouncement'; 
+import { useTheme } from '../../../../../contexts/ThemeContext';
+
+// --- HELPER: MONET WIDGET STYLES (DARKER VARIATIONS) ---
+const getMonetWidgetStyle = (activeOverlay, type) => {
+    if (!activeOverlay) return null;
+
+    const base = {
+        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)', // Slightly stronger shadow for dark mode feel
+        border: '1px solid rgba(255, 255, 255, 0.1)', // More subtle border
+        color: 'white'
+    };
+
+    // Define specific gradients for each card type per theme
+    // All colors shifted to deeper, darker tones
+    switch (activeOverlay) {
+        case 'christmas':
+            // Activities: Deep Forest Green | Announce: Deep Crimson
+            if (type === 'activities') return { ...base, background: 'linear-gradient(135deg, rgba(20, 83, 45, 0.95) 0%, rgba(5, 46, 22, 0.98) 100%)' }; 
+            if (type === 'announce') return { ...base, background: 'linear-gradient(135deg, rgba(127, 29, 29, 0.95) 0%, rgba(69, 10, 10, 0.98) 100%)' }; 
+            return { ...base, background: 'linear-gradient(135deg, rgba(15, 23, 66, 0.9) 0%, rgba(2, 6, 23, 0.95) 100%)' }; 
+            
+        case 'valentines':
+            // Activities: Deep Mauve | Announce: Dark Burgundy
+            if (type === 'activities') return { ...base, background: 'linear-gradient(135deg, rgba(131, 24, 67, 0.95) 0%, rgba(80, 7, 36, 0.98) 100%)' }; 
+            if (type === 'announce') return { ...base, background: 'linear-gradient(135deg, rgba(159, 18, 57, 0.95) 0%, rgba(88, 28, 135, 0.98) 100%)' }; 
+            return { ...base, background: 'linear-gradient(135deg, rgba(66, 10, 20, 0.9) 0%, rgba(35, 5, 5, 0.95) 100%)' };
+            
+        case 'graduation':
+            // Activities: Dark Bronze/Ochre | Announce: Deep Slate/Black
+            if (type === 'activities') return { ...base, background: 'linear-gradient(135deg, rgba(161, 98, 7, 0.95) 100%, rgba(113, 63, 18, 0.98) 100%)' }; 
+            if (type === 'announce') return { ...base, background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(2, 6, 23, 0.98) 100%)' }; 
+            return { ...base, background: 'linear-gradient(135deg, rgba(30, 25, 10, 0.9) 0%, rgba(10, 5, 0, 0.95) 100%)' };
+
+        case 'rainy':
+             // Activities: Deep Teal | Announce: Dark Moss
+             if (type === 'activities') return { ...base, background: 'linear-gradient(135deg, rgba(17, 94, 89, 0.95) 0%, rgba(4, 47, 46, 0.98) 100%)' }; 
+             if (type === 'announce') return { ...base, background: 'linear-gradient(135deg, rgba(20, 83, 45, 0.95) 0%, rgba(6, 78, 59, 0.98) 100%)' }; 
+             return { ...base, background: 'linear-gradient(135deg, rgba(6, 30, 20, 0.9) 0%, rgba(2, 15, 10, 0.95) 100%)' };
+
+        case 'cyberpunk':
+            // Activities: Deep Violet | Announce: Dark Magenta
+            if (type === 'activities') return { ...base, background: 'linear-gradient(135deg, rgba(88, 28, 135, 0.95) 0%, rgba(59, 7, 100, 0.98) 100%)' }; 
+            if (type === 'announce') return { ...base, background: 'linear-gradient(135deg, rgba(131, 24, 67, 0.95) 0%, rgba(80, 7, 36, 0.98) 100%)' }; 
+            return { ...base, background: 'linear-gradient(135deg, rgba(30, 5, 40, 0.9) 0%, rgba(10, 0, 20, 0.95) 100%)' };
+
+        case 'spring':
+            // Activities: Deep Rose | Announce: Dark Emerald
+            if (type === 'activities') return { ...base, background: 'linear-gradient(135deg, rgba(157, 23, 77, 0.95) 0%, rgba(131, 24, 67, 0.98) 100%)' }; 
+            if (type === 'announce') return { ...base, background: 'linear-gradient(135deg, rgba(6, 78, 59, 0.95) 0%, rgba(2, 44, 34, 0.98) 100%)' }; 
+            return { ...base, background: 'linear-gradient(135deg, rgba(40, 10, 20, 0.9) 0%, rgba(20, 5, 10, 0.95) 100%)' };
+
+        case 'space':
+            // Activities: Deep Navy | Announce: Void Indigo
+            if (type === 'activities') return { ...base, background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.95) 0%, rgba(23, 37, 84, 0.98) 100%)' }; 
+            if (type === 'announce') return { ...base, background: 'linear-gradient(135deg, rgba(49, 46, 129, 0.95) 0%, rgba(30, 27, 75, 0.98) 100%)' }; 
+            return { ...base, background: 'linear-gradient(135deg, rgba(5, 5, 20, 0.9) 0%, rgba(2, 2, 10, 0.95) 100%)' };
+
+        default: return null;
+    }
+};
+
 
 // --- CANDY STYLES ---
 
@@ -49,13 +110,14 @@ const glassIconBox = `
 // --- COMPONENTS ---
 
 // Updated IconLink for Mobile (Looks like an App Icon)
-const IconLink = ({ icon: Icon, text, onClick, gradient }) => (
+const IconLink = ({ icon: Icon, text, onClick, gradient, style }) => (
     <motion.button
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         whileTap={{ scale: 0.95 }}
         onClick={onClick}
         className={`${mobileIconStyle} ${gradient}`}
+        style={style}
     >
         {/* Gloss Shine */}
         <div className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-gradient-to-b from-white/20 to-transparent rotate-45 pointer-events-none" />
@@ -117,11 +179,29 @@ const DashboardWidgets = ({
 }) => {
     const [openModal, setOpenModal] = useState(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    
+    // 2. Get Active Theme
+    const { activeOverlay } = useTheme();
 
     const handlePostAndCloseModal = (postData) => {
         handleCreateAnnouncement(postData); 
         setIsCreateModalOpen(false); 
     };
+
+    // 3. Compute Styles
+    // Activities and Announce use specific variations.
+    const activitiesStyle = getMonetWidgetStyle(activeOverlay, 'activities');
+    const announceStyle = getMonetWidgetStyle(activeOverlay, 'announce');
+    
+    // Fallback classes if no monet style
+    const clockGradient = !activeOverlay ? "bg-gradient-to-br from-indigo-400 to-violet-600 shadow-indigo-500/30" : "";
+    const inspoGradient = !activeOverlay ? "bg-gradient-to-br from-amber-400 to-orange-500 shadow-orange-500/30" : "";
+    const scheduleGradient = !activeOverlay ? "bg-gradient-to-br from-blue-400 to-cyan-500 shadow-blue-500/30" : "";
+    const postGradient = !activeOverlay ? "bg-gradient-to-br from-rose-400 to-pink-600 shadow-rose-500/30" : "";
+    
+    const desktopActivitiesGradient = !activeOverlay ? "bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600" : "";
+    const desktopAnnounceGradient = !activeOverlay ? "bg-gradient-to-br from-orange-500 via-orange-600 to-rose-600" : "";
+
 
     return (
         <>
@@ -130,25 +210,29 @@ const DashboardWidgets = ({
                 <IconLink
                     icon={Clock}
                     text="Clock"
-                    gradient="bg-gradient-to-br from-indigo-400 to-violet-600 shadow-indigo-500/30"
+                    gradient={clockGradient}
+                    style={announceStyle || {}} // Use announce style as fallback tint
                     onClick={() => setOpenModal('clock')}
                 />
                 <IconLink
                     icon={Lightbulb}
                     text="Inspo"
-                    gradient="bg-gradient-to-br from-amber-400 to-orange-500 shadow-orange-500/30"
+                    gradient={inspoGradient}
+                    style={activitiesStyle || {}} // Use activities style as fallback tint
                     onClick={() => setOpenModal('inspo')}
                 />
                 <IconLink
                     icon={CalendarDays}
                     text="Schedule"
-                    gradient="bg-gradient-to-br from-blue-400 to-cyan-500 shadow-blue-500/30"
+                    gradient={scheduleGradient}
+                    style={activitiesStyle || {}}
                     onClick={onOpenScheduleModal}
                 />
                 <IconLink
                     icon={Megaphone}
                     text="Post"
-                    gradient="bg-gradient-to-br from-rose-400 to-pink-600 shadow-rose-500/30"
+                    gradient={postGradient}
+                    style={announceStyle || {}}
                     onClick={() => setIsCreateModalOpen(true)}
                 />
             </div>
@@ -170,9 +254,10 @@ const DashboardWidgets = ({
                     </div>
                 </div>
 
-                {/* 3. Activities Card (Vibrant Blue Candy) */}
+                {/* 3. Activities Card (Vibrant Blue Candy OR Monet) */}
                 <div
-                    className={`${desktopCardStyle} bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 group cursor-pointer flex flex-col items-center justify-center text-center p-6`}
+                    className={`${desktopCardStyle} ${desktopActivitiesGradient} group cursor-pointer flex flex-col items-center justify-center text-center p-6`}
+                    style={activitiesStyle || {}}
                     onClick={onOpenScheduleModal}
                 >
                     {/* Gloss Shine */}
@@ -189,9 +274,10 @@ const DashboardWidgets = ({
                     </div>
                 </div>
 
-                {/* 4. Announcement Card (Vibrant Orange/Pink Candy) */}
+                {/* 4. Announcement Card (Vibrant Orange/Pink Candy OR Monet) */}
                 <div
-                    className={`${desktopCardStyle} bg-gradient-to-br from-orange-500 via-orange-600 to-rose-600 group cursor-pointer flex flex-col items-center justify-center text-center p-6`}
+                    className={`${desktopCardStyle} ${desktopAnnounceGradient} group cursor-pointer flex flex-col items-center justify-center text-center p-6`}
+                    style={announceStyle || {}}
                     onClick={() => setIsCreateModalOpen(true)}
                 >
                     {/* Gloss Shine */}

@@ -8,13 +8,14 @@ import {
     IconPhone, 
     IconHeart 
 } from '@tabler/icons-react';
+import { useTheme } from '../../contexts/ThemeContext'; //
 
 // --- MACOS 26 DESIGN SYSTEM CONSTANTS ---
 
 const headingStyle = "font-display font-bold tracking-tight text-slate-800 dark:text-white";
 const subHeadingStyle = "font-medium tracking-wide text-slate-500 dark:text-slate-400 uppercase text-[0.65rem] letter-spacing-2";
 
-const windowContainerClasses = "relative w-full max-w-lg flex flex-col bg-white/80 dark:bg-[#121212]/80 backdrop-blur-[50px] rounded-[2rem] shadow-2xl shadow-black/20 dark:shadow-black/50 ring-1 ring-white/40 dark:ring-white/5 overflow-hidden";
+const windowContainerClasses = "relative w-full max-w-lg flex flex-col bg-white/80 dark:bg-[#121212]/80 backdrop-blur-[50px] rounded-[2rem] shadow-2xl shadow-black/20 dark:shadow-black/50 ring-1 ring-white/40 dark:ring-white/5 overflow-hidden transition-colors duration-500";
 const cardSurface = "bg-white/40 dark:bg-[#1F2229]/40 backdrop-blur-xl rounded-[1.5rem] border border-white/20 dark:border-white/5 shadow-sm";
 
 const iconButton = `
@@ -34,6 +35,28 @@ const secondaryButton = `
     bg-white/40 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 
     backdrop-blur-md border border-white/20 shadow-sm hover:shadow-md
 `;
+
+// --- [ADDED] Helper: Monet/Theme Background Extraction ---
+const getThemeModalStyle = (activeOverlay) => {
+    switch (activeOverlay) {
+        case 'christmas': 
+            return { background: 'linear-gradient(to bottom, rgba(15, 23, 66, 0.95), rgba(15, 23, 66, 0.9))', borderColor: 'rgba(100, 116, 139, 0.2)' };
+        case 'valentines': 
+            return { background: 'linear-gradient(to bottom, rgba(60, 10, 20, 0.95), rgba(60, 10, 20, 0.9))', borderColor: 'rgba(255, 100, 100, 0.15)' };
+        case 'graduation': 
+            return { background: 'linear-gradient(to bottom, rgba(30, 25, 10, 0.95), rgba(30, 25, 10, 0.9))', borderColor: 'rgba(255, 215, 0, 0.15)' };
+        case 'rainy': 
+            return { background: 'linear-gradient(to bottom, rgba(20, 35, 20, 0.95), rgba(20, 35, 20, 0.9))', borderColor: 'rgba(100, 150, 100, 0.2)' };
+        case 'cyberpunk': 
+            return { background: 'linear-gradient(to bottom, rgba(35, 5, 45, 0.95), rgba(35, 5, 45, 0.9))', borderColor: 'rgba(180, 0, 255, 0.2)' };
+        case 'spring': 
+            return { background: 'linear-gradient(to bottom, rgba(50, 10, 20, 0.95), rgba(50, 10, 20, 0.9))', borderColor: 'rgba(255, 150, 180, 0.2)' };
+        case 'space': 
+            return { background: 'linear-gradient(to bottom, rgba(5, 5, 10, 0.95), rgba(5, 5, 10, 0.9))', borderColor: 'rgba(100, 100, 255, 0.15)' };
+        default: 
+            return {}; 
+    }
+};
 
 // --- COMPONENT ---
 
@@ -57,6 +80,10 @@ const InfoRow = ({ icon: Icon, label, value }) => {
 
 const AboutInfoModal = ({ isOpen, onClose, userProfile }) => {
     
+    // [Added] Theme Context
+    const { activeOverlay } = useTheme(); //
+    const dynamicThemeStyle = getThemeModalStyle(activeOverlay);
+
     // Format the relationship status to include the partner
     let relationshipValue = userProfile?.relationship_status;
     if (userProfile?.relationship_status && (userProfile.relationship_status === 'In a Relationship' || userProfile.relationship_status === 'Married') && userProfile.relationship_partner) {
@@ -88,6 +115,7 @@ const AboutInfoModal = ({ isOpen, onClose, userProfile }) => {
                         exit={{ scale: 0.95, opacity: 0, y: 20 }}
                         transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                         className={windowContainerClasses}
+                        style={dynamicThemeStyle} // [Applied Theme]
                     >
                         {/* Header */}
                         <div className="pt-6 pb-4 px-6 border-b border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-md flex items-center justify-between">

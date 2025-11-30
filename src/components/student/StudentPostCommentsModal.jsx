@@ -28,6 +28,7 @@ import UserInitialsAvatar from '../common/UserInitialsAvatar';
 import Linkify from 'react-linkify';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useTheme } from '../../contexts/ThemeContext'; // [Added] Theme Context
 
 // --- HELPER: Hyper-real Emojis ---
 const EmojiBase = ({ symbol, className = "" }) => (
@@ -67,6 +68,28 @@ const componentDecorator = (href, text, key) => (
   </a>
 );
 
+// --- [ADDED] Helper: Monet/Theme Background Extraction ---
+const getThemeModalStyle = (activeOverlay) => {
+    switch (activeOverlay) {
+        case 'christmas': 
+            return { background: 'linear-gradient(to bottom, rgba(15, 23, 66, 0.95), rgba(15, 23, 66, 0.9))', borderColor: 'rgba(100, 116, 139, 0.2)' };
+        case 'valentines': 
+            return { background: 'linear-gradient(to bottom, rgba(60, 10, 20, 0.95), rgba(60, 10, 20, 0.9))', borderColor: 'rgba(255, 100, 100, 0.15)' };
+        case 'graduation': 
+            return { background: 'linear-gradient(to bottom, rgba(30, 25, 10, 0.95), rgba(30, 25, 10, 0.9))', borderColor: 'rgba(255, 215, 0, 0.15)' };
+        case 'rainy': 
+            return { background: 'linear-gradient(to bottom, rgba(20, 35, 20, 0.95), rgba(20, 35, 20, 0.9))', borderColor: 'rgba(100, 150, 100, 0.2)' };
+        case 'cyberpunk': 
+            return { background: 'linear-gradient(to bottom, rgba(35, 5, 45, 0.95), rgba(35, 5, 45, 0.9))', borderColor: 'rgba(180, 0, 255, 0.2)' };
+        case 'spring': 
+            return { background: 'linear-gradient(to bottom, rgba(50, 10, 20, 0.95), rgba(50, 10, 20, 0.9))', borderColor: 'rgba(255, 150, 180, 0.2)' };
+        case 'space': 
+            return { background: 'linear-gradient(to bottom, rgba(5, 5, 10, 0.95), rgba(5, 5, 10, 0.9))', borderColor: 'rgba(100, 100, 255, 0.15)' };
+        default: 
+            return {}; // Fallback to class-based gradient
+    }
+};
+
 // --- MAIN COMPONENT ---
 
 const StudentPostCommentsModal = ({
@@ -91,6 +114,10 @@ const StudentPostCommentsModal = ({
 
   const timeoutRef = useRef(null);
   const commentInputRef = useRef(null);
+  
+  // [Added] Theme Context
+  const { activeOverlay } = useTheme();
+  const dynamicThemeStyle = getThemeModalStyle(activeOverlay);
   
   const canReact = userProfile?.role === 'teacher' || userProfile?.role === 'admin' || (userProfile?.canReact || false);
   const usersMapRef = useRef(usersMap);
@@ -419,16 +446,16 @@ const StudentPostCommentsModal = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", bounce: 0.3, duration: 0.5 }}
-            className="
+            style={dynamicThemeStyle} // [Applied Theme Style]
+            className={`
                 relative w-full max-w-2xl h-[85vh] flex flex-col overflow-hidden
-                bg-gradient-to-b from-white/90 via-white/80 to-white/60 
-                dark:from-slate-900/90 dark:via-slate-900/80 dark:to-slate-900/60
                 backdrop-blur-3xl
                 rounded-[40px]
                 shadow-[0_25px_80px_-15px_rgba(0,0,0,0.3)] dark:shadow-[0_25px_80px_-15px_rgba(0,0,0,0.7)]
                 border border-white/50 dark:border-white/10
                 ring-1 ring-white/40 dark:ring-white/5
-            "
+                ${activeOverlay === 'none' ? 'bg-gradient-to-b from-white/90 via-white/80 to-white/60 dark:from-slate-900/90 dark:via-slate-900/80 dark:to-slate-900/60' : ''}
+            `}
         >
             {/* --- Header --- */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-black/5 dark:border-white/5 bg-white/10 backdrop-blur-sm z-20">

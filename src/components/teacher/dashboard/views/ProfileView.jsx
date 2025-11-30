@@ -21,6 +21,7 @@ import { Switch, Dialog, Transition, RadioGroup } from '@headlessui/react';
 import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
 import { Preferences } from '@capacitor/preferences';
 import { useToast } from '../../../../contexts/ToastContext';
+import { useTheme } from '../../../../contexts/ThemeContext'; // [Added] Theme Context
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Firebase Imports
@@ -50,7 +51,8 @@ import AboutInfoModal from '../../../student/AboutInfoModal';
 const headingStyle = "font-display font-bold tracking-tight text-slate-800 dark:text-white";
 const subHeadingStyle = "font-medium tracking-wide text-slate-500 dark:text-slate-400 uppercase text-[0.65rem] letter-spacing-2";
 
-const cardSurface = "bg-white/40 dark:bg-[#1F2229]/40 backdrop-blur-xl rounded-[1.5rem] border border-white/20 dark:border-white/5 shadow-sm overflow-hidden";
+// [Modified] cardSurface: Kept as base, but background will be overridden by inline styles if a theme is active
+const cardSurface = "bg-white/40 dark:bg-[#1F2229]/40 backdrop-blur-xl rounded-[1.5rem] border border-white/20 dark:border-white/5 shadow-sm overflow-hidden transition-colors duration-500";
 const glassInput = "w-full bg-slate-50/50 dark:bg-black/20 border border-slate-200/60 dark:border-white/10 rounded-xl px-4 py-3 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all";
 
 const baseButtonStyles = `
@@ -76,6 +78,30 @@ const iconButton = `
     ${baseButtonStyles} p-2 text-slate-500 dark:text-slate-400 
     hover:bg-slate-100 dark:hover:bg-white/10 rounded-full border border-transparent hover:border-white/20
 `;
+
+// --- [ADDED] Helper: Monet/Theme Color Extraction ---
+// Returns a style object to override background/border based on the seasonal theme
+const getThemeCardStyle = (activeOverlay) => {
+    // Opacity is set to 0.6 to allow some of the background (snow, hearts) to show through the glass
+    switch (activeOverlay) {
+        case 'christmas': 
+            return { backgroundColor: 'rgba(15, 23, 66, 0.6)', borderColor: 'rgba(100, 116, 139, 0.2)' };
+        case 'valentines': 
+            return { backgroundColor: 'rgba(60, 10, 20, 0.6)', borderColor: 'rgba(255, 100, 100, 0.15)' };
+        case 'graduation': 
+            return { backgroundColor: 'rgba(30, 25, 10, 0.6)', borderColor: 'rgba(255, 215, 0, 0.15)' };
+        case 'rainy': 
+            return { backgroundColor: 'rgba(20, 35, 20, 0.6)', borderColor: 'rgba(100, 150, 100, 0.2)' };
+        case 'cyberpunk': 
+            return { backgroundColor: 'rgba(35, 5, 45, 0.6)', borderColor: 'rgba(180, 0, 255, 0.2)' };
+        case 'spring': 
+            return { backgroundColor: 'rgba(50, 10, 20, 0.6)', borderColor: 'rgba(255, 150, 180, 0.2)' };
+        case 'space': 
+            return { backgroundColor: 'rgba(5, 5, 10, 0.6)', borderColor: 'rgba(100, 100, 255, 0.15)' };
+        default: 
+            return {}; // Fallback to the Tailwind classes in cardSurface
+    }
+};
 
 // Helper for class names
 function classNames(...classes) {
@@ -131,6 +157,13 @@ const CreateTeacherPostModal = ({ isOpen, onClose, userProfile, onSubmit, isPost
     const [content, setContent] = useState('');
     const [audience, setAudience] = useState('Public');
     
+    // [Added] Theme Context for Modal Styling
+    const { activeOverlay } = useTheme();
+    // Use slightly higher opacity (0.85) for the modal popup than the cards
+    const modalStyle = activeOverlay !== 'none' 
+        ? { ...getThemeCardStyle(activeOverlay), backgroundColor: getThemeCardStyle(activeOverlay).backgroundColor.replace('0.6', '0.85') } 
+        : {};
+
     // Images State (Arrays)
     const [selectedImages, setSelectedImages] = useState([]);
     const [imagePreviews, setImagePreviews] = useState([]);
@@ -229,7 +262,10 @@ const CreateTeacherPostModal = ({ isOpen, onClose, userProfile, onSubmit, isPost
                             leaveFrom="opacity-100 scale-100 translate-y-0"
                             leaveTo="opacity-0 scale-95 translate-y-4"
                         >
-                            <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-[2rem] bg-white/80 dark:bg-[#121212]/80 backdrop-blur-[50px] p-6 text-left align-middle shadow-2xl ring-1 ring-white/40 dark:ring-white/5 transition-all">
+                            <Dialog.Panel 
+                                style={modalStyle} // [Apply Theme Style]
+                                className="w-full max-w-lg transform overflow-hidden rounded-[2rem] bg-white/80 dark:bg-[#121212]/80 backdrop-blur-[50px] p-6 text-left align-middle shadow-2xl ring-1 ring-white/40 dark:ring-white/5 transition-all"
+                            >
                                 <form onSubmit={handleSubmit}>
                                     <div className="flex items-center justify-between pb-4 border-b border-slate-200/60 dark:border-white/10">
                                         <Dialog.Title as="h3" className={headingStyle + " text-lg"}>
@@ -381,6 +417,10 @@ const ProfileView = ({
     logout
 }) => {
     const { showToast } = useToast();
+    // [Added] Theme Context Access
+    const { activeOverlay } = useTheme();
+    const dynamicCardStyle = getThemeCardStyle(activeOverlay);
+
     const [isBiometricSupported, setIsBiometricSupported] = useState(false);
     const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
     const [isLoadingBiometrics, setIsLoadingBiometrics] = useState(true);
@@ -571,7 +611,7 @@ const ProfileView = ({
                     
                     {/* --- LEFT COLUMN: Profile Card (Sticky) --- */}
                     <div className="lg:col-span-4 lg:sticky lg:top-24 space-y-6">
-                        <div className={cardSurface}>
+                        <div className={cardSurface} style={dynamicCardStyle}>
                             
                             {/* Cover Photo */}
                             <div className="relative h-48 w-full bg-slate-200 dark:bg-slate-700">
@@ -675,7 +715,7 @@ const ProfileView = ({
 
                         {/* Security Card */}
                         {isBiometricSupported && !isLoadingBiometrics && (
-                            <div className={cardSurface + " p-6"}>
+                            <div className={cardSurface + " p-6"} style={dynamicCardStyle}>
                                 <div className="flex items-center gap-3 mb-4 text-slate-800 dark:text-white">
                                     <IconFingerprint size={20} className="text-emerald-500" />
                                     <h3 className="font-bold text-sm uppercase tracking-wider">Security</h3>
@@ -716,7 +756,7 @@ const ProfileView = ({
                     <div className="lg:col-span-8 space-y-6">
 
                         {/* Post Creator */}
-                        <div className={cardSurface + " p-4 sm:p-6"}>
+                        <div className={cardSurface + " p-4 sm:p-6"} style={dynamicCardStyle}>
                             <div className="flex items-center gap-4">
                                 <div className="flex-shrink-0 w-12 h-12 rounded-full ring-2 ring-white dark:ring-white/10 overflow-hidden shadow-sm">
                                     <UserInitialsAvatar user={userProfile} size="full" />
@@ -744,7 +784,10 @@ const ProfileView = ({
                                     <Spinner size="lg" />
                                 </div>
                             ) : myPosts.length === 0 ? (
-                                <div className={`${cardSurface} p-12 text-center flex flex-col items-center justify-center`}>
+                                <div 
+                                    className={`${cardSurface} p-12 text-center flex flex-col items-center justify-center`}
+                                    style={dynamicCardStyle}
+                                >
                                     <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mb-4">
                                         <IconPencil size={32} className="text-slate-400" />
                                     </div>

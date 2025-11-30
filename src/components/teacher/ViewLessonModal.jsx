@@ -22,6 +22,19 @@ import ContentRenderer from './ContentRenderer';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
+import { useTheme } from '../../contexts/ThemeContext'; // 1. Import Theme Context
+
+// --- HELPER: MONET STYLE FOR MODALS ---
+const getMonetModalStyle = (activeOverlay) => {
+    if (activeOverlay === 'christmas') return { background: 'rgba(15, 23, 66, 0.95)', borderColor: 'rgba(100, 116, 139, 0.3)' }; 
+    if (activeOverlay === 'valentines') return { background: 'rgba(60, 10, 20, 0.95)', borderColor: 'rgba(255, 100, 100, 0.2)' }; 
+    if (activeOverlay === 'graduation') return { background: 'rgba(30, 25, 10, 0.95)', borderColor: 'rgba(255, 215, 0, 0.2)' }; 
+    if (activeOverlay === 'rainy') return { background: 'rgba(20, 35, 20, 0.95)', borderColor: 'rgba(100, 150, 100, 0.2)' };
+    if (activeOverlay === 'cyberpunk') return { background: 'rgba(35, 5, 45, 0.95)', borderColor: 'rgba(180, 0, 255, 0.2)' };
+    if (activeOverlay === 'spring') return { background: 'rgba(50, 10, 20, 0.95)', borderColor: 'rgba(255, 150, 180, 0.2)' };
+    if (activeOverlay === 'space') return { background: 'rgba(5, 5, 10, 0.95)', borderColor: 'rgba(100, 100, 255, 0.2)' };
+    return null; 
+};
 
 // --- ANIMATION VARIANTS ---
 const modalVariants = {
@@ -46,10 +59,14 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
     const [currentPage, setCurrentPage] = useState(0);
     const [currentLesson, setCurrentLesson] = useState(lesson);
     const { showToast } = useToast();
+    const { activeOverlay } = useTheme(); // 2. Get active theme
     const [isFinalizing, setIsFinalizing] = useState(false);
     const [isPageNavOpen, setIsPageNavOpen] = useState(false);
     const contentRef = useRef(null);
     const lessonPageRef = useRef(null);
+
+    // 3. Compute Monet Style
+    const monetStyle = getMonetModalStyle(activeOverlay);
 
     useEffect(() => { setCurrentLesson(lesson); }, [lesson]);
     useEffect(() => { 
@@ -139,14 +156,26 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
     if (!isOpen || !currentLesson) return null;
 
     // --- DESIGN CONSTANTS ---
-    const glassPanel = "bg-white/90 dark:bg-[#121212]/90 backdrop-blur-2xl border border-white/20 dark:border-white/5 shadow-2xl";
+    // If monetStyle is active, we remove the default background so the style prop takes over
+    const glassPanel = monetStyle 
+        ? "backdrop-blur-2xl border border-white/20 shadow-2xl transition-colors duration-500"
+        : "bg-white/90 dark:bg-[#121212]/90 backdrop-blur-2xl border border-white/20 dark:border-white/5 shadow-2xl transition-colors duration-500";
+        
     const actionBtn = "p-2 sm:p-2.5 rounded-full transition-all active:scale-95 shadow-sm border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/30 bg-white/50 dark:bg-white/5";
 
     return (
         <Dialog open={isOpen} onClose={onClose} className={`fixed inset-0 z-[100] flex items-center justify-center font-sans ${className}`}>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" />
             
-            <Dialog.Panel as={motion.div} variants={modalVariants} initial="hidden" animate="visible" exit="exit" className={`relative w-full max-w-6xl h-[100dvh] md:h-[90vh] flex flex-col overflow-hidden md:rounded-[2.5rem] ${glassPanel}`}>
+            <Dialog.Panel 
+                as={motion.div} 
+                variants={modalVariants} 
+                initial="hidden" 
+                animate="visible" 
+                exit="exit"
+                style={monetStyle || {}} // 4. Apply Monet Style
+                className={`relative w-full max-w-6xl h-[100dvh] md:h-[90vh] flex flex-col overflow-hidden md:rounded-[2.5rem] ${glassPanel}`}
+            >
                 
                 {/* Progress Bar */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-slate-100/10 z-20">
@@ -161,14 +190,14 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                 {/* Header */}
                 <header className="relative z-10 flex justify-between items-center px-4 py-3 sm:px-8 sm:py-5 border-b border-slate-200/50 dark:border-white/5 flex-shrink-0 bg-white/40 dark:bg-white/5 backdrop-blur-md">
                     <div className="flex flex-col gap-0.5 overflow-hidden">
-                        <Dialog.Title className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white truncate tracking-tight">
+                        <Dialog.Title className={`text-lg sm:text-2xl font-bold truncate tracking-tight ${monetStyle ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
                             {lessonTitle}
                         </Dialog.Title>
                         
                         {/* JUMP TO PAGE TRIGGER */}
                         <button 
                             onClick={() => setIsPageNavOpen(!isPageNavOpen)}
-                            className="flex items-center gap-1.5 text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider hover:text-blue-600 dark:hover:text-blue-400 transition-colors w-fit"
+                            className={`flex items-center gap-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider hover:text-blue-600 dark:hover:text-blue-400 transition-colors w-fit ${monetStyle ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}
                         >
                             <span>{totalPages > 0 ? `Page ${currentPage + 1} / ${totalPages}` : 'Empty'}</span>
                             <ChevronDownIcon className={`w-3 h-3 transition-transform duration-300 ${isPageNavOpen ? 'rotate-180' : ''}`} />
@@ -183,7 +212,7 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                                 <span className="hidden lg:inline">Guide</span>
                             </a>
                         )}
-                        <button onClick={onClose} className="p-2 rounded-full text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-all">
+                        <button onClick={onClose} className={`p-2 rounded-full transition-all ${monetStyle ? 'text-slate-300 hover:text-white hover:bg-white/20' : 'text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10'}`}>
                             <XMarkIcon className="w-5 h-5 sm:w-6 sm:h-6 stroke-2" />
                         </button>
                     </div>
@@ -228,7 +257,11 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                 </header>
                 
                 {/* Content Area */}
-                <main ref={contentRef} className="flex-grow overflow-y-auto custom-scrollbar flex flex-col items-center p-4 sm:p-6 md:p-10 pb-20 sm:pb-10 relative bg-[#f8f9fa] dark:bg-transparent">
+                {/* 5. Adjust content background - Make transparent if monetStyle is active to let tint show */}
+                <main 
+                    ref={contentRef} 
+                    className={`flex-grow overflow-y-auto custom-scrollbar flex flex-col items-center p-4 sm:p-6 md:p-10 pb-20 sm:pb-10 relative ${monetStyle ? 'bg-transparent text-white' : 'bg-[#f8f9fa] dark:bg-transparent'}`}
+                >
                     <div className="w-full max-w-4xl flex-grow">
                         <AnimatePresence initial={false} mode="wait">
                             <motion.div key={currentPage} variants={pageTransitionVariants} initial="hidden" animate="visible" exit="exit" className="w-full min-h-full">
@@ -237,15 +270,15 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                                 {currentPage === 0 && objectives.length > 0 && (
                                     <motion.div 
                                         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                                        className="mb-8 p-6 sm:p-8 rounded-2xl sm:rounded-3xl bg-white dark:bg-white/5 border border-slate-100 dark:border-white/5 shadow-sm"
+                                        className={`mb-8 p-6 sm:p-8 rounded-2xl sm:rounded-3xl shadow-sm border ${monetStyle ? 'bg-black/20 border-white/10 text-white' : 'bg-white dark:bg-white/5 border-slate-100 dark:border-white/5'}`}
                                     >
-                                        <h3 className="flex items-center gap-3 text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-4 sm:mb-6">
+                                        <h3 className={`flex items-center gap-3 text-base sm:text-lg font-bold mb-4 sm:mb-6 ${monetStyle ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
                                             <div className="p-1.5 sm:p-2 rounded-lg bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300">
                                                 <QueueListIcon className="h-4 w-4 sm:h-5 sm:w-5 stroke-2" />
                                             </div>
                                             {objectivesLabel}
                                         </h3>
-                                        <ul className="grid gap-3 sm:gap-4 text-xs sm:text-base text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                                        <ul className={`grid gap-3 sm:gap-4 text-xs sm:text-base font-medium leading-relaxed ${monetStyle ? 'text-slate-200' : 'text-slate-600 dark:text-slate-300'}`}>
                                             {objectives.map((objective, index) => (
                                                 <li key={index} className="flex items-start gap-3 sm:gap-4">
                                                     <CheckCircleSolid className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-500 flex-shrink-0 mt-0.5" />
@@ -258,13 +291,13 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
 
                                 {/* Main Page Content with Justified Text and Indentation */}
                                 {pageData ? (
-                                    <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none text-justify [&_p]:indent-8">
+                                    <div className={`prose prose-sm sm:prose-base dark:prose-invert max-w-none text-justify [&_p]:indent-8 ${monetStyle ? 'prose-headings:text-white prose-p:text-slate-100 prose-strong:text-white' : ''}`}>
                                         {pageData.title && (
                                             <motion.h1 
                                                 initial={{ opacity: 0, y: -10 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 transition={{ delay: 0.1 }}
-                                                className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white mb-4 sm:mb-8 tracking-tight leading-tight text-left indent-0"
+                                                className={`text-2xl sm:text-4xl font-black mb-4 sm:mb-8 tracking-tight leading-tight text-left indent-0 ${monetStyle ? 'text-white' : 'text-slate-900 dark:text-white'}`}
                                             >
                                                 {pageData.title}
                                             </motion.h1>

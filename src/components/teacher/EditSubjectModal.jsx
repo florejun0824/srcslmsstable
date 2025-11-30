@@ -6,11 +6,38 @@ import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
 import { PencilSquareIcon } from '@heroicons/react/24/solid';
+import { useTheme } from '../../contexts/ThemeContext'; // [Added] Theme Context
+
+// --- [ADDED] Helper: Monet/Theme Background Extraction ---
+const getThemeModalStyle = (activeOverlay) => {
+    switch (activeOverlay) {
+        case 'christmas': 
+            return { background: 'linear-gradient(to bottom, rgba(15, 23, 66, 0.95), rgba(15, 23, 66, 0.9))', borderColor: 'rgba(100, 116, 139, 0.2)' };
+        case 'valentines': 
+            return { background: 'linear-gradient(to bottom, rgba(60, 10, 20, 0.95), rgba(60, 10, 20, 0.9))', borderColor: 'rgba(255, 100, 100, 0.15)' };
+        case 'graduation': 
+            return { background: 'linear-gradient(to bottom, rgba(30, 25, 10, 0.95), rgba(30, 25, 10, 0.9))', borderColor: 'rgba(255, 215, 0, 0.15)' };
+        case 'rainy': 
+            return { background: 'linear-gradient(to bottom, rgba(20, 35, 20, 0.95), rgba(20, 35, 20, 0.9))', borderColor: 'rgba(100, 150, 100, 0.2)' };
+        case 'cyberpunk': 
+            return { background: 'linear-gradient(to bottom, rgba(35, 5, 45, 0.95), rgba(35, 5, 45, 0.9))', borderColor: 'rgba(180, 0, 255, 0.2)' };
+        case 'spring': 
+            return { background: 'linear-gradient(to bottom, rgba(50, 10, 20, 0.95), rgba(50, 10, 20, 0.9))', borderColor: 'rgba(255, 150, 180, 0.2)' };
+        case 'space': 
+            return { background: 'linear-gradient(to bottom, rgba(5, 5, 10, 0.95), rgba(5, 5, 10, 0.9))', borderColor: 'rgba(100, 100, 255, 0.15)' };
+        default: 
+            return {}; 
+    }
+};
 
 export default function EditSubjectModal({ isOpen, onClose, subject }) {
   const [subjectName, setSubjectName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const { showToast } = useToast();
+  
+  // [Added] Theme Context
+  const { activeOverlay } = useTheme();
+  const dynamicThemeStyle = getThemeModalStyle(activeOverlay);
 
   useEffect(() => {
     if (subject?.title) {
@@ -63,11 +90,13 @@ export default function EditSubjectModal({ isOpen, onClose, subject }) {
       <div className="fixed inset-0 flex items-center justify-center p-4">
         {/* Modal Panel - Ultra-Glass Style */}
         <Dialog.Panel 
-          className="w-full max-w-md transform overflow-hidden rounded-[2.5rem] 
-                     bg-white/90 dark:bg-[#16181D]/90 backdrop-blur-3xl 
+          style={dynamicThemeStyle} // [Applied Theme]
+          className={`w-full max-w-md transform overflow-hidden rounded-[2.5rem] 
+                     backdrop-blur-3xl 
                      p-8 text-left align-middle shadow-2xl shadow-slate-400/20 dark:shadow-black/60 
                      border border-white/60 dark:border-white/5 
-                     ring-1 ring-slate-900/5 transition-all animate-in fade-in zoom-in-95 duration-300 scale-100"
+                     ring-1 ring-slate-900/5 transition-all animate-in fade-in zoom-in-95 duration-300 scale-100
+                     ${activeOverlay === 'none' ? 'bg-white/90 dark:bg-[#16181D]/90' : ''}`}
         >
           
           {/* Icon Header with Ambient Bloom */}

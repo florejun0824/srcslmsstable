@@ -3,29 +3,53 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../../../../contexts/AuthContext'; 
 import { useToast } from '../../../../contexts/ToastContext'; 
+import { useTheme } from '../../../../contexts/ThemeContext';
 import {
   Cog,
   Search,
   UserPlus,
   X,
-  Filter, 
   ChevronDown,
   ChevronsUpDown,
   CheckIcon,
   ListFilter,
   Trash2
 } from 'lucide-react';
+// [ADDED] Import CheckCircleIcon for the custom radio-style checkbox
+import { CheckCircleIcon } from '@heroicons/react/24/solid'; 
 import { motion, AnimatePresence } from 'framer-motion';
 
 import EditUserModal from '../../../admin/EditUserModal'; 
 import ImportToClassModal from './ImportToClassModal'; 
 import UserInitialsAvatar from '../../../common/UserInitialsAvatar';
 
-// --- SKELETAL LOADING COMPONENT (Optimized: Solid BG) ---
+// --- Helper: Monet/Theme Color Extraction ---
+const getThemeCardStyle = (activeOverlay) => {
+    switch (activeOverlay) {
+        case 'christmas': 
+            return { backgroundColor: 'rgba(15, 23, 66, 0.6)', borderColor: 'rgba(100, 116, 139, 0.2)' };
+        case 'valentines': 
+            return { backgroundColor: 'rgba(60, 10, 20, 0.6)', borderColor: 'rgba(255, 100, 100, 0.15)' };
+        case 'graduation': 
+            return { backgroundColor: 'rgba(30, 25, 10, 0.6)', borderColor: 'rgba(255, 215, 0, 0.15)' };
+        case 'rainy': 
+            return { backgroundColor: 'rgba(20, 35, 20, 0.6)', borderColor: 'rgba(100, 150, 100, 0.2)' };
+        case 'cyberpunk': 
+            return { backgroundColor: 'rgba(35, 5, 45, 0.6)', borderColor: 'rgba(180, 0, 255, 0.2)' };
+        case 'spring': 
+            return { backgroundColor: 'rgba(50, 10, 20, 0.6)', borderColor: 'rgba(255, 150, 180, 0.2)' };
+        case 'space': 
+            return { backgroundColor: 'rgba(5, 5, 10, 0.6)', borderColor: 'rgba(100, 100, 255, 0.15)' };
+        default: 
+            return {}; 
+    }
+};
+
+// --- SKELETAL LOADING COMPONENT ---
 const StudentTableSkeleton = () => (
   <div className="flex-1 bg-white dark:bg-[#1A1D24] rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden flex flex-col p-4 animate-pulse">
     <div className="hidden md:flex items-center gap-4 mb-4 px-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-      <div className="w-6 h-6 rounded-md bg-slate-200 dark:bg-slate-700"></div>
+      <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700"></div>
       <div className="h-4 w-32 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
       <div className="h-4 w-24 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
       <div className="flex-1"></div>
@@ -34,7 +58,7 @@ const StudentTableSkeleton = () => (
     <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1">
       {[1, 2, 3, 4, 5, 6, 7].map((i) => (
         <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700">
-           <div className="w-5 h-5 rounded-md bg-slate-200 dark:bg-slate-700 flex-shrink-0"></div>
+           <div className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0"></div>
            <div className="flex-1 space-y-2">
               <div className="h-4 w-48 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
               <div className="md:hidden h-3 w-24 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
@@ -48,33 +72,44 @@ const StudentTableSkeleton = () => (
   </div>
 );
 
-// --- STUDENT ROW (Visuals Updated) ---
-const StudentRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => {
+// --- COMPONENT: Student Mobile Card ---
+const StudentMobileCard = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => {
+  const { activeOverlay } = useTheme();
+  const dynamicThemeStyle = getThemeCardStyle(activeOverlay);
+
   return (
-    <>
-      {/* MOBILE CARD VIEW */}
-      <motion.div 
+    <motion.div 
         layout
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`block md:hidden relative p-4 mb-3 rounded-[2rem] border shadow-sm overflow-hidden transition-all duration-300
+        style={dynamicThemeStyle}
+        className={`relative p-4 mb-3 rounded-[2rem] border shadow-sm overflow-hidden transition-all duration-300
             ${isSelected 
                 ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700 ring-1 ring-indigo-500/20' 
-                : 'bg-white dark:bg-[#1A1D24] border-slate-200 dark:border-slate-700'}`}
-      >
+                : (activeOverlay === 'none' ? 'bg-white dark:bg-[#1A1D24]' : '') + ' border-slate-200 dark:border-slate-700'}`}
+    >
         {/* Card Header */}
         <div className="flex items-start gap-3.5">
             <div className="pt-1">
-                <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={onSelect}
-                    className="h-5 w-5 rounded-lg border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-offset-0 focus:ring-indigo-500 dark:bg-slate-800 cursor-pointer"
-                />
+                {/* [UPDATED] Custom Radio-Style Checkbox */}
+                <div className="relative flex items-center justify-center w-6 h-6">
+                    <input 
+                        type="checkbox" 
+                        checked={isSelected} 
+                        onChange={onSelect} 
+                        className={`peer appearance-none w-6 h-6 rounded-full border-2 transition-all cursor-pointer 
+                            ${activeOverlay !== 'none' 
+                                ? 'border-white/40 checked:bg-white checked:border-white' 
+                                : 'border-slate-300 dark:border-slate-600 checked:bg-indigo-500 checked:border-indigo-500'
+                            }`}
+                    />
+                    <CheckCircleIcon className={`absolute w-6 h-6 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 drop-shadow-sm 
+                        ${activeOverlay !== 'none' ? 'text-black' : 'text-white'}`} 
+                    />
+                </div>
             </div>
 
             <div className="flex-1 flex gap-3">
-                {/* FIX: Wrapped Avatar in a ringed, overflow-hidden container to prevent bleed/glitch */}
                 <div className="flex-shrink-0 w-12 h-12 rounded-full shadow-sm ring-2 ring-white dark:ring-slate-800 overflow-hidden bg-slate-100 dark:bg-slate-800">
                     <UserInitialsAvatar 
                         user={user} 
@@ -123,25 +158,40 @@ const StudentRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => 
                 )}
             </div>
         </div>
-      </motion.div>
+    </motion.div>
+  );
+};
 
-      {/* DESKTOP TABLE ROW */}
-      <motion.tr 
+// --- COMPONENT: Student Desktop Row (Renders as TR) ---
+const StudentDesktopRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => {
+  const { activeOverlay } = useTheme(); // Need theme context here for proper checkbox styling in monet mode
+
+  return (
+    <motion.tr 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className={`hidden md:table-row transition-colors border-b border-slate-100 dark:border-slate-800 last:border-none group ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
-      >
+        className={`hidden md:table-row transition-colors border-b border-slate-100 dark:border-slate-800 last:border-none group ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+    >
         <td className="px-6 py-4 text-center w-16">
-          <input
-              type="checkbox"
-              checked={isSelected}
-              onChange={onSelect}
-              className="h-5 w-5 rounded-md border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-slate-800 cursor-pointer"
-            />
+            {/* [UPDATED] Custom Radio-Style Checkbox */}
+            <div className="relative flex items-center justify-center w-5 h-5 mx-auto">
+                <input 
+                    type="checkbox" 
+                    checked={isSelected} 
+                    onChange={onSelect} 
+                    className={`peer appearance-none w-5 h-5 rounded-full border-2 transition-all cursor-pointer 
+                        ${activeOverlay !== 'none' 
+                            ? 'border-white/40 checked:bg-white checked:border-white' 
+                            : 'border-slate-300 dark:border-slate-600 checked:bg-indigo-500 checked:border-indigo-500'
+                        }`}
+                />
+                <CheckCircleIcon className={`absolute w-5 h-5 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 drop-shadow-sm 
+                    ${activeOverlay !== 'none' ? 'text-black' : 'text-white'}`} 
+                />
+            </div>
         </td>
         <td className="px-6 py-4 whitespace-nowrap">
             <div className="flex items-center gap-3">
-                {/* FIX: Wrapped Avatar in a ringed, overflow-hidden container */}
                 <div className="flex-shrink-0 w-9 h-9 rounded-full shadow-sm ring-2 ring-white dark:ring-slate-800 overflow-hidden bg-slate-100 dark:bg-slate-800">
                     <UserInitialsAvatar user={user} size="full" className="w-full h-full text-xs font-bold" />
                 </div>
@@ -177,8 +227,7 @@ const StudentRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => 
             <Cog size={18} />
           </button>
         </td>
-      </motion.tr>
-    </>
+    </motion.tr>
   );
 };
 
@@ -242,19 +291,18 @@ const CustomSelect = ({ value, onChange, options }) => {
 };
 
 
-// --- FILTER POPUP (Solid Background) ---
+// --- FILTER POPUP ---
 const FilterPopup = ({
   allClasses,
   filters,
   onFilterChange,
-  onClose, // Passed but logic moved to parent
+  onClose,
   onClear
 }) => {
   const [classSearch, setClassSearch] = useState('');
   const [isClassSearchOpen, setIsClassSearchOpen] = useState(false);
-  
-  // Note: We removed the internal click-outside logic here 
-  // because the parent now controls closing when clicking outside the container.
+  const { activeOverlay } = useTheme();
+  const dynamicThemeStyle = getThemeCardStyle(activeOverlay);
 
   const availableClasses = useMemo(() => {
     const lowerSearch = classSearch.toLowerCase();
@@ -279,14 +327,15 @@ const FilterPopup = ({
 
   return (
     <>
-        {/* Mobile Backdrop */}
         <div className="fixed inset-0 bg-black/30 z-40 md:hidden" onClick={onClose} />
 
         <motion.div 
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className="fixed top-24 left-4 right-4 z-50 md:absolute md:top-14 md:left-0 md:right-auto md:w-80 bg-white dark:bg-[#1A1D24] rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-700"
+            style={dynamicThemeStyle}
+            className={`fixed top-24 left-4 right-4 z-50 md:absolute md:top-14 md:left-0 md:right-auto md:w-80 rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-700
+                ${activeOverlay === 'none' ? 'bg-white dark:bg-[#1A1D24]' : ''}`}
         >
             <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
                 <h3 className="font-bold text-base text-slate-900 dark:text-white">Filters</h3>
@@ -299,7 +348,6 @@ const FilterPopup = ({
                 </button>
             </div>
             <div className="p-4 space-y-4">
-                {/* Grade Filter */}
                 <div>
                     <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
                         By Grade
@@ -311,7 +359,6 @@ const FilterPopup = ({
                     />
                 </div>
 
-                {/* Class Filter */}
                 <div>
                     <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
                         By Class
@@ -384,8 +431,9 @@ const FilterPopup = ({
 const StudentManagementView = () => {
   const { firestoreService, userProfile } = useAuth();
   const { showToast } = useToast();
+  const { activeOverlay } = useTheme();
+  const dynamicThemeStyle = getThemeCardStyle(activeOverlay);
 
-  // Ref for the Filter Button Container to detect outside clicks
   const filterContainerRef = useRef(null);
 
   const [allStudents, setAllStudents] = useState([]);
@@ -404,10 +452,8 @@ const StudentManagementView = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  // --- FIX: Handle Outside Click for Filter ---
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // If filter is open, and click is NOT inside the filter container
       if (isFilterOpen && filterContainerRef.current && !filterContainerRef.current.contains(event.target)) {
         setIsFilterOpen(false);
       }
@@ -565,16 +611,16 @@ const StudentManagementView = () => {
             </div>
         </motion.header>
 
-        {/* Toolbar (Control Center Style - Solid) */}
+        {/* Toolbar */}
         <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white dark:bg-[#1A1D24] p-2 rounded-[1.25rem] border border-slate-200 dark:border-slate-700 shadow-lg flex flex-col md:flex-row gap-2 items-center justify-between relative z-50"
+            style={dynamicThemeStyle}
+            className={`p-2 rounded-[1.25rem] border border-slate-200 dark:border-slate-700 shadow-lg flex flex-col md:flex-row gap-2 items-center justify-between relative z-50
+                ${activeOverlay === 'none' ? 'bg-white dark:bg-[#1A1D24]' : ''}`}
         >
-            {/* Integrated Search & Filter Group */}
             <div className="flex flex-1 w-full gap-2">
-                {/* Search Input */}
                 <div className="relative flex-1">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     <input
@@ -586,8 +632,6 @@ const StudentManagementView = () => {
                     />
                 </div>
 
-                {/* Filter Toggle Button & Popup Wrapper */}
-                {/* FIX: Added filterContainerRef here to capture clicks inside the button OR popup */}
                 <div className="relative" ref={filterContainerRef}>
                     <button
                         onClick={() => setIsFilterOpen(prev => !prev)}
@@ -620,7 +664,6 @@ const StudentManagementView = () => {
                 </div>
             </div>
 
-            {/* Primary Action */}
             <button
               onClick={() => setIsImportModalOpen(true)}
               disabled={selectedStudentIds.size === 0}
@@ -638,20 +681,34 @@ const StudentManagementView = () => {
             {loading ? (
                 <StudentTableSkeleton />
             ) : (
-            <div className="flex-1 bg-white dark:bg-[#1A1D24] rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden flex flex-col">
+            <div 
+                style={dynamicThemeStyle}
+                className={`flex-1 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden flex flex-col
+                    ${activeOverlay === 'none' ? 'bg-white dark:bg-[#1A1D24]' : ''}`}
+            >
                 {/* Desktop Table */}
                 <div className="hidden md:block overflow-x-auto custom-scrollbar flex-1">
                 <table className="min-w-full text-sm">
                     <thead className="bg-slate-50 dark:bg-slate-800 sticky top-0 z-10">
                     <tr>
                         <th className="px-6 py-4 text-center w-16">
-                        <input
-                            type="checkbox"
-                            checked={allVisibleSelected}
-                            onChange={handleSelectAll}
-                            disabled={filteredStudents.length === 0}
-                            className="h-5 w-5 rounded-md border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-slate-800 cursor-pointer"
-                        />
+                            {/* [UPDATED] Select All Checkbox (Radio Style) */}
+                            <div className="relative flex items-center justify-center w-5 h-5 mx-auto">
+                                <input
+                                    type="checkbox"
+                                    checked={allVisibleSelected}
+                                    onChange={handleSelectAll}
+                                    disabled={filteredStudents.length === 0}
+                                    className={`peer appearance-none w-5 h-5 rounded-full border-2 transition-all cursor-pointer 
+                                        ${activeOverlay !== 'none' 
+                                            ? 'border-white/40 checked:bg-white checked:border-white' 
+                                            : 'border-slate-300 dark:border-slate-600 checked:bg-indigo-500 checked:border-indigo-500'
+                                        }`}
+                                />
+                                <CheckCircleIcon className={`absolute w-5 h-5 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 drop-shadow-sm 
+                                    ${activeOverlay !== 'none' ? 'text-black' : 'text-white'}`} 
+                                />
+                            </div>
                         </th>
                         <th className="px-6 py-4 text-left font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">Name</th>
                         <th className="px-6 py-4 text-left font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">Grade</th>
@@ -659,10 +716,10 @@ const StudentManagementView = () => {
                         <th className="px-6 py-4 text-right font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">Edit</th>
                     </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-transparent">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-[#1A1D24]">
                     {filteredStudents.length > 0 ? (
                         filteredStudents.map(user => (
-                        <StudentRow 
+                        <StudentDesktopRow 
                             key={user.id} 
                             user={user} 
                             enrolledClasses={enrolledClassesMap.get(user.id) || []}
@@ -686,25 +743,35 @@ const StudentManagementView = () => {
                 <div className="block md:hidden flex-1 overflow-y-auto p-4 custom-scrollbar">
                 {filteredStudents.length > 0 && (
                     <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl mb-4 border border-slate-200 dark:border-slate-700">
-                    <input
-                        type="checkbox"
-                        checked={allVisibleSelected}
-                        onChange={handleSelectAll}
-                        className="h-5 w-5 rounded-md border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <label 
-                        className="font-bold text-slate-700 dark:text-slate-200 text-sm"
-                        onClick={handleSelectAll}
-                    >
-                        Select All ({filteredStudents.length})
-                    </label>
+                        {/* [UPDATED] Mobile Select All Checkbox (Radio Style) */}
+                        <div className="relative flex items-center justify-center w-5 h-5">
+                            <input
+                                type="checkbox"
+                                checked={allVisibleSelected}
+                                onChange={handleSelectAll}
+                                className={`peer appearance-none w-5 h-5 rounded-full border-2 transition-all cursor-pointer 
+                                    ${activeOverlay !== 'none' 
+                                        ? 'border-white/40 checked:bg-white checked:border-white' 
+                                        : 'border-slate-300 dark:border-slate-600 checked:bg-indigo-500 checked:border-indigo-500'
+                                    }`}
+                            />
+                            <CheckCircleIcon className={`absolute w-5 h-5 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 drop-shadow-sm 
+                                ${activeOverlay !== 'none' ? 'text-black' : 'text-white'}`} 
+                            />
+                        </div>
+                        <label 
+                            className="font-bold text-slate-700 dark:text-slate-200 text-sm"
+                            onClick={handleSelectAll}
+                        >
+                            Select All ({filteredStudents.length})
+                        </label>
                     </div>
                 )}
                 
                 {filteredStudents.length > 0 ? (
                     <div className="space-y-2">
                         {filteredStudents.map(user => (
-                        <StudentRow 
+                        <StudentMobileCard 
                             key={user.id} 
                             user={user} 
                             enrolledClasses={enrolledClassesMap.get(user.id) || []}

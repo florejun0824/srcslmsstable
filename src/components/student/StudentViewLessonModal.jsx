@@ -18,6 +18,7 @@ import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
 import LessonPage from '../teacher/LessonPage';
 import ContentRenderer from '../teacher/ContentRenderer';
 import { useToast } from '../../contexts/ToastContext';
+import { useTheme } from '../../contexts/ThemeContext'; // IMPORTED
 
 // --- PDF & NATIVE IMPORTS ---
 import htmlToPdfmake from 'html-to-pdfmake';
@@ -47,7 +48,6 @@ const blobToBase64 = (blob) => {
   });
 };
 
-// --- YOUR CUSTOM IMAGE FETCHER ---
 const fetchImageAsBase64 = async (url) => {
     try {
         const response = await fetch(url);
@@ -132,6 +132,18 @@ const navMenuVariants = {
     exit: { opacity: 0, y: -10, scale: 0.95, transition: { duration: 0.15 } }
 };
 
+// --- HELPER: MONET EFFECT COLOR EXTRACTION (High Opacity for Readability) ---
+const getMonetStyle = (activeOverlay) => {
+    if (activeOverlay === 'christmas') return { background: 'rgba(15, 23, 66, 0.95)', borderColor: 'rgba(100, 116, 139, 0.2)' }; 
+    if (activeOverlay === 'valentines') return { background: 'rgba(60, 10, 20, 0.95)', borderColor: 'rgba(255, 100, 100, 0.15)' }; 
+    if (activeOverlay === 'graduation') return { background: 'rgba(30, 25, 10, 0.95)', borderColor: 'rgba(255, 215, 0, 0.15)' }; 
+    if (activeOverlay === 'rainy') return { background: 'rgba(20, 35, 20, 0.95)', borderColor: 'rgba(100, 150, 100, 0.2)' };
+    if (activeOverlay === 'cyberpunk') return { background: 'rgba(20, 5, 30, 0.95)', borderColor: 'rgba(180, 0, 255, 0.2)' };
+    if (activeOverlay === 'spring') return { background: 'rgba(50, 10, 20, 0.95)', borderColor: 'rgba(255, 150, 180, 0.2)' };
+    if (activeOverlay === 'space') return { background: 'rgba(5, 5, 10, 0.95)', borderColor: 'rgba(100, 100, 255, 0.15)' };
+    return {}; 
+};
+
 function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, className }) {
     const [currentPage, setCurrentPage] = useState(0);
     const [maxPageReached, setMaxPageReached] = useState(0);
@@ -141,6 +153,9 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
     const [isPageNavOpen, setIsPageNavOpen] = useState(false);
     
     const { showToast } = useToast();
+    const { activeOverlay } = useTheme(); // Theme Hook
+    const monetStyle = getMonetStyle(activeOverlay); // Monet Style
+
     const contentRef = useRef(null);
     const lessonPageRef = useRef(null);
 
@@ -191,11 +206,20 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
     };
 
     const handleFinishLesson = async () => {
-        if (xpAwarded || !onComplete || totalPages === 0 || currentPage < totalPages - 1) return;
+        // If already awarded, this function shouldn't necessarily do anything except close if button clicked again
+        if (xpAwarded) {
+            handleClose();
+            return;
+        }
+        
+        if (!onComplete || totalPages === 0 || currentPage < totalPages - 1) return;
+        
         try {
             await onComplete({ pagesRead: maxPageReached + 1, totalPages, isFinished: true, lessonId: currentLesson?.id || null });
             setXpAwarded(true); 
-        } catch (error) { showToast("Failed to finalize lesson progress.", "error"); }
+        } catch (error) { 
+            showToast("Failed to finalize lesson progress.", "error"); 
+        }
     };
 
     const handleClose = () => {
@@ -225,10 +249,8 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
 	    try {
             await registerDejaVuFonts();
             
-            // --- INTEGRATED YOUR CODE HERE ---
             const headerBase64 = await fetchImageAsBase64("/header-port.png");
             const footerBase64 = await fetchImageAsBase64("/Footer.png");
-            // --------------------------------
 
 	        const pdfStyles = {
 	            coverTitle: { fontSize: 32, bold: true, margin: [0, 0, 0, 15] },
@@ -278,10 +300,14 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
     if (!isOpen || !currentLesson) return null;
 
     // --- DESIGN CONSTANTS ---
-    const glassPanel = "bg-white/90 dark:bg-[#121212]/90 backdrop-blur-2xl border border-white/20 dark:border-white/5 shadow-2xl";
+    // If NO monet style, fallback to this. Otherwise, use Monet style.
+    const glassPanelClass = !monetStyle.background 
+        ? "bg-white/90 dark:bg-[#121212]/90 backdrop-blur-2xl border border-white/20 dark:border-white/5 shadow-2xl"
+        : "backdrop-blur-2xl shadow-2xl border border-white/10"; // Base classes if Monet active
     
     return (
-        <Dialog open={isOpen} onClose={handleClose} className={`fixed inset-0 z-[9999] flex items-center justify-center font-sans ${className}`}>
+        // Changed z-index from 9999 to 50 so toasts (z-50+) show on top
+        <Dialog open={isOpen} onClose={handleClose} className={`fixed inset-0 z-[50] flex items-center justify-center font-sans ${className}`}>
             {/* Immersive Blur Backdrop */}
             <motion.div 
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }} 
@@ -289,8 +315,14 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
             />
             
             {/* Modal Window */}
-            <Dialog.Panel as={motion.div} variants={modalVariants} initial="hidden" animate="visible" exit="exit" 
-                className={`relative w-full max-w-6xl h-[100dvh] md:h-[90vh] flex flex-col overflow-hidden md:rounded-[2.5rem] ${glassPanel}`}
+            <Dialog.Panel 
+                as={motion.div} 
+                variants={modalVariants} 
+                initial="hidden" 
+                animate="visible" 
+                exit="exit" 
+                style={monetStyle} // Apply dynamic background color
+                className={`relative w-full max-w-6xl h-[100dvh] md:h-[90vh] flex flex-col overflow-hidden md:rounded-[2.5rem] ${glassPanelClass}`}
             >
                 
                 {/* Progress Bar */}
@@ -474,7 +506,8 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
 
                         {/* Next / Finish */}
                         <button
-                            onClick={currentPage < totalPages - 1 ? goToNextPage : handleFinishLesson}
+                            // CHANGED: If already finished (xpAwarded), click closes the modal.
+                            onClick={currentPage < totalPages - 1 ? goToNextPage : (xpAwarded ? handleClose : handleFinishLesson)}
                             className={`
                                 flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full font-bold text-xs sm:text-sm text-white shadow-md transition-all active:scale-95
                                 ${currentPage < totalPages - 1 

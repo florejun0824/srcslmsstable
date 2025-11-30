@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo, Suspense, lazy, memo, useC
 import { createPortal } from 'react-dom';
 import { db } from '../../services/firebase';
 import { collection, query, where, onSnapshot, writeBatch, doc } from 'firebase/firestore';
+import { useTheme } from '../../contexts/ThemeContext';
 import {
     PlusIcon,
     TrashIcon,
@@ -51,13 +52,13 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FileOpener } from '@capacitor-community/file-opener';
 
-// --- STYLES: "MacOS 26" / Candy Look ---
+// --- STYLES ---
 const performanceStyles = {
     touchAction: 'none',
     backfaceVisibility: 'hidden', 
 };
 
-// Base Candy Button (Glossy, Depth, Rounded)
+// Base Candy Button
 const candyBase = `
     relative overflow-hidden font-bold rounded-full transition-all duration-200 
     disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 
@@ -66,34 +67,29 @@ const candyBase = `
     after:shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]
 `;
 
-// Primary: Blue Candy
-const primaryButton = `
-    ${candyBase}
-    bg-gradient-to-b from-blue-400 to-blue-600 
-    hover:from-blue-300 hover:to-blue-500
-    text-white shadow-blue-500/40 
-    border-b-[2px] border-blue-700
-`;
+// Helper to get button/card classes based on monet presence
+const getStyles = (monet) => {
+    if (monet) {
+        return {
+            primaryButton: `${candyBase} ${monet.buttonPrimary}`,
+            secondaryButton: `${candyBase} ${monet.buttonSecondary}`,
+            iconButton: `${candyBase} p-2 rounded-full aspect-square ${monet.buttonSecondary}`,
+            unitCard: `${monet.cardGradient} border border-white/20 text-white shadow-xl hover:-translate-y-1 hover:shadow-2xl`,
+            // UPDATED: Content Item now adopts the 'secondary button' style of the theme for consistent coloring
+            contentItem: `${monet.buttonSecondary} !justify-start !rounded-[1.5rem] md:!rounded-[2rem] border-white/10 hover:border-white/30`
+        };
+    }
+    // Default Candy Styles
+    return {
+        primaryButton: `${candyBase} bg-gradient-to-b from-blue-400 to-blue-600 hover:from-blue-300 hover:to-blue-500 text-white shadow-blue-500/40 border-b-[2px] border-blue-700`,
+        secondaryButton: `${candyBase} bg-gradient-to-b from-white/80 to-white/40 dark:from-slate-700/80 dark:to-slate-800/40 backdrop-blur-md text-slate-700 dark:text-white border border-white/40 dark:border-white/10 shadow-slate-200/50 dark:shadow-black/30 hover:bg-white/60 dark:hover:bg-slate-700/60`,
+        iconButton: `${candyBase} p-2 rounded-full aspect-square bg-gradient-to-b from-white/90 to-slate-100/50 dark:from-slate-700 to-slate-800 text-slate-500 dark:text-slate-300 hover:text-blue-500 border border-white/50 dark:border-white/5`,
+        unitCard: null, 
+        contentItem: `bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-2xl border border-white/50 dark:border-white/5 shadow-sm hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-black/50 text-slate-800 dark:text-slate-100`
+    };
+};
 
-// Secondary: Glass/Frost Candy
-const secondaryButton = `
-    ${candyBase}
-    bg-gradient-to-b from-white/80 to-white/40 dark:from-slate-700/80 dark:to-slate-800/40
-    backdrop-blur-md text-slate-700 dark:text-white
-    border border-white/40 dark:border-white/10
-    shadow-slate-200/50 dark:shadow-black/30
-    hover:bg-white/60 dark:hover:bg-slate-700/60
-`;
-
-// Icon Button: Circular Glass
-const iconButtonCandy = `
-    ${candyBase} p-2 rounded-full aspect-square
-    bg-gradient-to-b from-white/90 to-slate-100/50 dark:from-slate-700 to-slate-800
-    text-slate-500 dark:text-slate-300 hover:text-blue-500
-    border border-white/50 dark:border-white/5
-`;
-
-// --- HELPER FUNCTIONS ---
+// --- HELPER FUNCTIONS (Export Logic) ---
 const isNativePlatform = () => Capacitor.isNativePlatform();
 
 const blobToBase64 = (blob) => {
@@ -212,21 +208,26 @@ const ContentListSkeleton = () => (
 );
 
 // Menus
-const MenuPortal = ({ children, menuStyle, onClose }) => {
+const MenuPortal = ({ children, menuStyle, onClose, monet }) => {
     const menuRef = useRef(null);
     useEffect(() => {
         const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) onClose(); };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, [onClose]);
+    
+    const containerClass = monet 
+        ? `fixed backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-white/10 z-[5000] p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1 bg-[#1E212B]/90 border border-white/10`
+        : `fixed bg-white/80 dark:bg-[#1E212B]/90 backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-black/5 z-[5000] p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1`;
+
     return createPortal(
-        <div ref={menuRef} style={menuStyle} className="fixed bg-white/80 dark:bg-[#1E212B]/90 backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-black/5 z-[5000] p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1">
+        <div ref={menuRef} style={menuStyle} className={containerClass}>
             {children}
         </div>, document.body
     );
 };
 
-const ActionMenu = ({ children }) => {
+const ActionMenu = ({ children, monet, styles }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [menuStyle, setMenuStyle] = useState({});
     const iconRef = useRef(null);
@@ -234,35 +235,33 @@ const ActionMenu = ({ children }) => {
         e.stopPropagation(); setIsOpen(!isOpen);
         if (!isOpen) {
             const rect = iconRef.current.getBoundingClientRect();
-            // Adjust placement for mobile/edge cases
             let top = rect.bottom + 5;
             let right = window.innerWidth - rect.right;
-            
-            setMenuStyle({ 
-                top: `${top}px`, 
-                right: `${right}px`, 
-                minWidth: '180px' 
-            });
+            setMenuStyle({ top: `${top}px`, right: `${right}px`, minWidth: '180px' });
         }
     };
     return (
         <>
-            <div ref={iconRef} onClick={handleToggle} className={`${iconButtonCandy} relative z-20`}>
+            <div ref={iconRef} onClick={handleToggle} className={`${styles.iconButton} relative z-20 cursor-pointer`}>
                 <EllipsisVerticalIcon className="h-5 w-5" />
             </div>
-            {isOpen && <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>{children}</MenuPortal>}
+            {isOpen && <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)} monet={monet}>{children}</MenuPortal>}
         </>
     );
 };
 
-const MenuItem = ({ icon: Icon, text, onClick, disabled, loading }) => (
-    <button onClick={onClick} disabled={disabled || loading} className="flex items-center w-full px-3 py-2.5 text-sm font-semibold rounded-xl hover:bg-blue-50 dark:hover:bg-white/10 transition-colors text-slate-700 dark:text-slate-200">
-        <Icon className={`h-4 w-4 mr-3 ${loading ? 'animate-spin text-blue-500' : 'text-slate-400'}`} />
+const MenuItem = ({ icon: Icon, text, onClick, disabled, loading, monet }) => (
+    <button 
+        onClick={onClick} 
+        disabled={disabled || loading} 
+        className={`flex items-center w-full px-3 py-2.5 text-sm font-semibold rounded-xl transition-colors ${monet ? 'hover:bg-white/10 text-white' : 'hover:bg-blue-50 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200'}`}
+    >
+        <Icon className={`h-4 w-4 mr-3 ${loading ? 'animate-spin text-blue-500' : (monet ? 'text-white/60' : 'text-slate-400')}`} />
         {text}
     </button>
 );
 
-const AddContentButton = ({ onAddLesson, onAddQuiz }) => {
+const AddContentButton = ({ onAddLesson, onAddQuiz, monet, styles }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [menuStyle, setMenuStyle] = useState({});
     const buttonRef = useRef(null);
@@ -272,28 +271,33 @@ const AddContentButton = ({ onAddLesson, onAddQuiz }) => {
         setMenuStyle({ top: `${rect.bottom + 8}px`, right: `${window.innerWidth - rect.right}px`, minWidth: '180px' });
         setIsOpen(!isOpen);
     };
+    
+    // FIX: Wrapper functions to close the menu immediately
+    const handleAddLesson = () => { onAddLesson(); setIsOpen(false); };
+    const handleAddQuiz = () => { onAddQuiz(); setIsOpen(false); };
+
     return (
         <>
-            <button ref={buttonRef} onClick={handleToggle} className={`${primaryButton} !px-4 !py-2 text-sm md:text-base`}>
+            <button ref={buttonRef} onClick={handleToggle} className={`${styles.primaryButton} !px-4 !py-2 text-sm md:text-base`}>
                 <PlusIcon className="w-5 h-5" /> <span className="hidden md:inline">Add Content</span> <span className="md:hidden">Add</span>
             </button>
-            {isOpen && <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>
-                <MenuItem icon={DocumentTextIcon} text="Add Lesson" onClick={onAddLesson} />
-                <MenuItem icon={ClipboardDocumentListIcon} text="Add Quiz" onClick={onAddQuiz} />
+            {isOpen && <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)} monet={monet}>
+                <MenuItem icon={DocumentTextIcon} text="Add Lesson" onClick={handleAddLesson} monet={monet} />
+                <MenuItem icon={ClipboardDocumentListIcon} text="Add Quiz" onClick={handleAddQuiz} monet={monet} />
             </MenuPortal>}
         </>
     );
 };
 
 // --- SORTABLE UNIT CARD ---
-const SortableUnitCard = memo(({ unit, onSelect, onAction, isReordering, index }) => {
+const SortableUnitCard = memo(({ unit, onSelect, onAction, isReordering, index, monet, styles }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: unit.id, data: { type: 'unit' }, disabled: !isReordering,
     });
     
     const style = { transform: CSS.Translate.toString(transform), transition };
     
-    // AURORA THEMES
+    // Default Aurora Gradients (Fallback)
     const gradients = [
         "bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600 dark:from-cyan-900 dark:via-blue-900 dark:to-indigo-950",
         "bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 dark:from-purple-900 dark:via-pink-900 dark:to-rose-950",
@@ -301,18 +305,22 @@ const SortableUnitCard = memo(({ unit, onSelect, onAction, isReordering, index }
         "bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 dark:from-amber-900 dark:via-orange-900 dark:to-red-950"
     ];
 
-    const activeGradient = gradients[index % gradients.length];
+    const activeGradient = monet ? styles.unitCard : gradients[index % gradients.length];
     const glassOverlay = "after:absolute after:inset-0 after:bg-gradient-to-t after:from-black/10 after:to-white/10 after:pointer-events-none";
     const cardClasses = isReordering 
         ? "bg-slate-100 dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 opacity-80"
         : `${activeGradient} ${glassOverlay} text-white shadow-xl shadow-slate-300/50 dark:shadow-black/50 hover:-translate-y-1 hover:shadow-2xl`;
+
+    const iconContainerClass = monet 
+        ? `h-14 w-14 rounded-2xl flex items-center justify-center shadow-inner ${monet.iconBox || 'bg-white/20'}`
+        : `h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner border border-white/30`;
 
     return (
         <div ref={setNodeRef} style={{...style, ...performanceStyles}} {...attributes} className="h-full group">
             <div onClick={() => !isReordering && onSelect(unit)} className={`relative flex flex-col h-full p-6 rounded-[2.5rem] transition-all duration-300 overflow-hidden cursor-pointer ${cardClasses}`}>
                 {!isReordering && <div className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-gradient-to-b from-white/20 to-transparent rotate-45 pointer-events-none" />}
                 <div className="relative z-10 flex justify-between items-start w-full">
-                    <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner border border-white/30">
+                    <div className={iconContainerClass}>
                         <FolderIcon className="h-7 w-7 text-white drop-shadow-md" />
                     </div>
                     {isReordering ? (
@@ -322,9 +330,11 @@ const SortableUnitCard = memo(({ unit, onSelect, onAction, isReordering, index }
                             <button onClick={(e) => { e.stopPropagation(); onAction('ai', unit); }} className="h-10 w-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center hover:bg-white/40 transition-colors border border-white/20">
                                 <SparklesIcon className="w-5 h-5 text-yellow-300 drop-shadow-sm" />
                             </button>
-                            <ActionMenu>
-                                <MenuItem icon={PencilIcon} text="Edit Unit" onClick={(e) => { e.stopPropagation(); onAction('edit', unit); }} />
-                                <MenuItem icon={TrashIcon} text="Delete Unit" onClick={(e) => { e.stopPropagation(); onAction('delete', unit); }} />
+                            <ActionMenu monet={monet} styles={styles}>
+                                <MenuItem icon={PencilIcon} text="Edit Unit" onClick={(e) => { e.stopPropagation(); onAction('edit', unit); }} monet={monet} />
+                                {/* [ADDED] Reorder Option in Menu */}
+                                <MenuItem icon={ArrowsUpDownIcon} text="Reorder" onClick={(e) => { e.stopPropagation(); onAction('reorder', unit); }} monet={monet} />
+                                <MenuItem icon={TrashIcon} text="Delete Unit" onClick={(e) => { e.stopPropagation(); onAction('delete', unit); }} monet={monet} />
                             </ActionMenu>
                         </div>
                     )}
@@ -345,10 +355,11 @@ const SortableUnitCard = memo(({ unit, onSelect, onAction, isReordering, index }
             </div>
         </div>
     );
-}, (prev, next) => prev.unit.id === next.unit.id && prev.unit.title === next.unit.title && prev.isReordering === next.isReordering && prev.index === next.index);
+    // UPDATED MEMO COMPARISON TO INCLUDE MONET
+}, (prev, next) => prev.unit.id === next.unit.id && prev.unit.title === next.unit.title && prev.isReordering === next.isReordering && prev.index === next.index && prev.monet === next.monet);
 
 // --- SORTABLE CONTENT (LESSON) ROW ---
-const SortableContentItem = memo(({ item, isReordering, onAction, exportingLessonId, isAiGenerating }) => {
+const SortableContentItem = memo(({ item, isReordering, onAction, exportingLessonId, isAiGenerating, monet, styles }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: item.id, data: { type: item.type, unitId: item.unitId }, disabled: !isReordering,
     });
@@ -357,22 +368,27 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
     const isLesson = item.type === 'lesson';
     const Icon = isLesson ? DocumentTextIcon : ClipboardDocumentListIcon;
 
-    // Candy Styles based on type
-    const theme = isLesson 
+    // Candy Styles based on type (Defaults)
+    const defaultTheme = isLesson 
         ? {
-            // Blue/Cyan Gradient
             iconBg: 'bg-gradient-to-br from-blue-400 to-cyan-500 shadow-blue-500/30',
             hoverBorder: 'hover:border-blue-400/30',
             activeRing: 'active:ring-blue-500/20',
             textTitle: 'group-hover:text-blue-600 dark:group-hover:text-blue-300'
           }
         : {
-            // Purple/Pink Gradient
             iconBg: 'bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-purple-500/30',
             hoverBorder: 'hover:border-purple-400/30',
             activeRing: 'active:ring-purple-500/20',
             textTitle: 'group-hover:text-purple-600 dark:group-hover:text-purple-300'
           };
+
+    // Monet overrides
+    // Uses the generic 'buttonSecondary' style which usually contains the main theme color (e.g., Red for Valentines)
+    // but in a lighter/transparent way suitable for buttons/cards.
+    const monetIconBg = monet ? (isLesson ? monet.buttonPrimary : monet.buttonSecondary) : '';
+    const monetHoverBorder = monet ? 'hover:border-white/30' : '';
+    const monetTextTitle = monet ? 'text-white' : '';
 
     return (
         <div ref={setNodeRef} style={{...style, ...performanceStyles}} {...attributes} className="mb-3 md:mb-4"> 
@@ -383,27 +399,27 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
                     p-3 md:p-4 
                     rounded-[1.5rem] md:rounded-[2rem] 
                     transition-all duration-300 ease-out
-                    bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-2xl
-                    border border-white/50 dark:border-white/5
-                    shadow-sm hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-black/50
                     md:hover:-translate-y-1 active:scale-[0.98]
-                    ${theme.hoverBorder} ${isReordering ? 'ring-2 ring-blue-500/50 bg-blue-50/50' : ''}
+                    ${styles.contentItem} 
+                    ${monet ? monetHoverBorder : defaultTheme.hoverBorder} 
+                    ${isReordering ? 'ring-2 ring-blue-500/50 bg-blue-50/50' : ''}
                 `}
             >
-                {/* Drag Handle (Visible only when reordering) */}
+                {/* Drag Handle */}
                 {isReordering && (
                     <button {...listeners} className="p-2 mr-2 rounded-full text-slate-400 hover:text-blue-500 hover:bg-blue-50 cursor-grab active:cursor-grabbing">
                         <Bars3Icon className="w-5 h-5" />
                     </button>
                 )}
 
-                {/* Juicy Icon (Scaled for Mobile) */}
+                {/* Juicy Icon */}
                 <div className={`
                     h-12 w-12 md:h-16 md:w-16 flex-shrink-0 
                     rounded-[1rem] md:rounded-[1.2rem] 
                     flex items-center justify-center 
                     mr-3 md:mr-5 
-                    shadow-lg ${theme.iconBg} ring-2 md:ring-4 ring-white/50 dark:ring-white/5
+                    shadow-lg ring-2 md:ring-4 ring-white/50 dark:ring-white/5
+                    ${monet ? monetIconBg : defaultTheme.iconBg}
                 `}>
                     <Icon className="h-6 w-6 md:h-8 md:w-8 text-white drop-shadow-md stroke-[2]" />
                 </div>
@@ -412,15 +428,15 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
                 <div className="flex-grow min-w-0 pr-2 md:pr-4">
                     <h4 className={`
                         font-bold text-[16px] md:text-[19px] 
-                        text-slate-800 dark:text-slate-100 
                         tracking-tight leading-snug
                         transition-colors duration-300 
-                        ${!isReordering ? `cursor-pointer ${theme.textTitle}` : ''}
+                        ${monet ? monetTextTitle : 'text-slate-800 dark:text-slate-100'}
+                        ${!isReordering && !monet ? `cursor-pointer ${defaultTheme.textTitle}` : ''}
                     `}>
                         {item.title || 'Untitled'}
                     </h4>
                     {item.subtitle && (
-                        <p className="text-[12px] md:text-[14px] font-medium text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
+                        <p className={`text-[12px] md:text-[14px] font-medium mt-0.5 line-clamp-1 ${monet ? 'text-white/60' : 'text-slate-500 dark:text-slate-400'}`}>
                             {item.subtitle}
                         </p>
                     )}
@@ -431,40 +447,43 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
                     flex items-center gap-1 transition-all duration-300
                     ${isReordering ? 'opacity-0' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100 md:translate-x-4 md:group-hover:translate-x-0'}
                 `}>
-                    {/* Action Menu (Visible on mobile, Hover on desktop) */}
                     <div onClick={(e) => e.stopPropagation()}>
-                        <ActionMenu>
-                          <MenuItem icon={PencilIcon} text="Edit" onClick={() => onAction('edit', item)} />
+                        <ActionMenu monet={monet} styles={styles}>
+                          <MenuItem icon={PencilIcon} text="Edit" onClick={() => onAction('edit', item)} monet={monet} />
                           {isLesson && (
                             <>
-                                <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as PDF"} onClick={() => onAction('exportPdf', item)} loading={exportingLessonId === item.id} />
-                                <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as .docx"} onClick={() => onAction('exportDocx', item)} loading={exportingLessonId === item.id} />
+                                <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as PDF"} onClick={() => onAction('exportPdf', item)} loading={exportingLessonId === item.id} monet={monet} />
+                                <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as .docx"} onClick={() => onAction('exportDocx', item)} loading={exportingLessonId === item.id} monet={monet} />
                             </>
                           )}
-                          {isLesson && <MenuItem icon={SparklesIcon} text="AI Quiz" onClick={() => onAction('generateQuiz', item)} disabled={isAiGenerating} /> }
-                          <MenuItem icon={TrashIcon} text="Delete" onClick={() => onAction('delete', item)} />
+                          {isLesson && <MenuItem icon={SparklesIcon} text="AI Quiz" onClick={() => onAction('generateQuiz', item)} disabled={isAiGenerating} monet={monet} /> }
+                          <MenuItem icon={TrashIcon} text="Delete" onClick={() => onAction('delete', item)} monet={monet} />
                         </ActionMenu>
                     </div>
                     
-                    {/* Visual Chevron (Hidden on smallest screens to save space, visible md+) */}
-                    <div className="hidden md:flex h-10 w-10 rounded-full bg-slate-100/50 dark:bg-white/5 items-center justify-center ml-2 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300">
+                    <div className={`hidden md:flex h-10 w-10 rounded-full items-center justify-center ml-2 ${monet ? 'bg-white/10 text-white/50 group-hover:text-white' : 'bg-slate-100/50 dark:bg-white/5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`}>
                         <ChevronRightIcon className="w-5 h-5 stroke-[2.5]" />
                     </div>
                 </div>
             </div>
         </div>
     );
-}, (prev, next) => prev.item.id === next.item.id && prev.isReordering === next.isReordering && prev.exportingLessonId === next.exportingLessonId);
+    // UPDATED MEMO COMPARISON TO INCLUDE MONET
+}, (prev, next) => prev.item.id === next.item.id && prev.isReordering === next.isReordering && prev.exportingLessonId === next.exportingLessonId && prev.monet === next.monet);
 
 
 // --- MAIN COMPONENT ---
-export default function UnitAccordion({ subject, onInitiateDelete, userProfile, isAiGenerating, setIsAiGenerating, activeUnit, onSetActiveUnit, selectedLessons, onLessonSelect, renderGeneratePptButton, onUpdateLesson, currentUserRole }) {
+export default function UnitAccordion({ subject, onInitiateDelete, userProfile, isAiGenerating, setIsAiGenerating, activeUnit, onSetActiveUnit, selectedLessons, onLessonSelect, renderGeneratePptButton, onUpdateLesson, currentUserRole, monet }) {
     const [units, setUnits] = useState([]);
     const [allLessons, setAllLessons] = useState([]);
     const [allQuizzes, setAllQuizzes] = useState([]);
     const [exportingLessonId, setExportingLessonId] = useState(null);
     const [isReordering, setIsReordering] = useState(false);
     
+    // Get styles based on monet prop
+    const styles = getStyles(monet);
+    const { activeOverlay } = useTheme();
+
     // Modals
     const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
     const [addQuizModalOpen, setAddQuizModalOpen] = useState(false);
@@ -512,7 +531,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         return () => { unL(); unQ(); };
     }, [subject?.id]);
 
-    // --- ENHANCED DOCX EXPORT ---
     const handleExportDocx = async (lesson) => {
         if (isExportingRef.current) return;
         isExportingRef.current = true;
@@ -707,23 +725,54 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         }
     };
 
+    // Header Background Logic (Solid for Monet)
+    const getMonetHeaderBg = () => {
+        switch (activeOverlay) {
+            case 'christmas': return 'bg-[#0f172a]/95';
+            case 'valentines': return 'bg-[#2c0b0e]/95';
+            case 'graduation': return 'bg-[#1a1400]/95';
+            case 'rainy': return 'bg-[#061816]/95';
+            case 'cyberpunk': return 'bg-[#180a20]/95';
+            case 'spring': return 'bg-[#1f0f15]/95';
+            case 'space': return 'bg-[#020617]/95';
+            default: return 'bg-[#1A1D24]/95';
+        }
+    };
+
+    const headerBg = monet 
+        ? `${getMonetHeaderBg()} backdrop-blur-xl border-b border-white/10 shadow-sm z-40`
+        : 'bg-slate-50/90 dark:bg-[#0F1115]/90 backdrop-blur-xl border-b border-white/20 dark:border-white/5 z-40';
+
+    const headerText = monet
+        ? 'text-white'
+        : 'text-slate-800 dark:text-white';
+
+    const headerSubText = monet
+        ? 'text-white/60'
+        : 'text-slate-500';
+
     return (
         <>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 {activeUnit ? (
                     <div className="relative">
-                        <div className="sticky top-0 z-30 -mx-4 px-4 md:px-6 pt-4 pb-4 bg-slate-50/90 dark:bg-[#0F1115]/90 backdrop-blur-xl border-b border-white/20 dark:border-white/5 mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 animate-in slide-in-from-top-2">
+                        <div className={`sticky top-0 -mx-4 px-4 md:px-6 pt-4 pb-4 mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 animate-in slide-in-from-top-2 ${headerBg}`}>
                             <div>
-                                <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white tracking-tight leading-tight">{activeUnit.title}</h2>
-                                <p className="text-sm md:text-base text-slate-500 font-medium">Manage Lessons & Quizzes</p>
+                                <h2 className={`text-2xl md:text-3xl font-black tracking-tight leading-tight ${headerText}`}>{activeUnit.title}</h2>
+                                <p className={`text-sm md:text-base font-medium ${headerSubText}`}>Manage Lessons & Quizzes</p>
                             </div>
                             <div className="flex flex-wrap gap-2 w-full md:w-auto">
                                 {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
-                                <button onClick={() => setIsReordering(!isReordering)} className={`${secondaryButton} flex-1 md:flex-none`}>
+                                <button onClick={() => setIsReordering(!isReordering)} className={`${styles.secondaryButton} flex-1 md:flex-none`}>
                                     {isReordering ? 'Done' : 'Reorder'}
                                 </button>
                                 <div className="flex-1 md:flex-none">
-                                    <AddContentButton onAddLesson={() => { setSelectedUnit(activeUnit); setAddLessonModalOpen(true); }} onAddQuiz={() => { setSelectedUnit(activeUnit); setAddQuizModalOpen(true); }} />
+                                    <AddContentButton 
+                                        onAddLesson={() => { setSelectedUnit(activeUnit); setAddLessonModalOpen(true); }} 
+                                        onAddQuiz={() => { setSelectedUnit(activeUnit); setAddQuizModalOpen(true); }}
+                                        monet={monet}
+                                        styles={styles}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -732,29 +781,53 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                             {unifiedContent.length > 0 ? (
                                 <SortableContext items={unifiedContent.map(i => i.id)} strategy={verticalListSortingStrategy}>
                                     {unifiedContent.map(item => (
-                                        <SortableContentItem key={item.id} item={item} isReordering={isReordering} onAction={handleAction} exportingLessonId={exportingLessonId} isAiGenerating={isAiGenerating} />
+                                        <SortableContentItem key={item.id} item={item} isReordering={isReordering} onAction={handleAction} exportingLessonId={exportingLessonId} isAiGenerating={isAiGenerating} monet={monet} styles={styles} />
                                     ))}
                                 </SortableContext>
                             ) : (
-                                <div className="flex flex-col items-center justify-center py-24 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-[2.5rem] bg-white/40 dark:bg-white/5 backdrop-blur-md mx-2">
-                                    <div className="h-24 w-24 rounded-[2rem] bg-white dark:bg-white/10 flex items-center justify-center mb-6 shadow-xl ring-1 ring-black/5">
-                                        <RectangleStackIcon className="h-12 w-12 text-slate-300 dark:text-slate-500" />
+                                <div className={`flex flex-col items-center justify-center py-24 border-2 border-dashed rounded-[2.5rem] backdrop-blur-md mx-2 ${monet ? 'bg-black/20 border-white/10' : 'border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/5'}`}>
+                                    <div className={`h-24 w-24 rounded-[2rem] flex items-center justify-center mb-6 shadow-xl ring-1 ring-black/5 ${monet ? 'bg-white/10' : 'bg-white dark:bg-white/10'}`}>
+                                        <RectangleStackIcon className={`h-12 w-12 ${monet ? 'text-white/60' : 'text-slate-300 dark:text-slate-500'}`} />
                                     </div>
-                                    <h3 className="text-xl font-bold text-slate-800 dark:text-white">Empty Unit</h3>
-                                    <p className="text-slate-500 mb-6 font-medium text-center px-4">Add your first lesson or quiz to get started.</p>
-                                    <AddContentButton onAddLesson={() => { setSelectedUnit(activeUnit); setAddLessonModalOpen(true); }} onAddQuiz={() => { setSelectedUnit(activeUnit); setAddQuizModalOpen(true); }} />
+                                    <h3 className={`text-xl font-bold ${monet ? 'text-white' : 'text-slate-800 dark:text-white'}`}>Empty Unit</h3>
+                                    <p className={`mb-6 font-medium text-center px-4 ${monet ? 'text-white/60' : 'text-slate-500'}`}>Add your first lesson or quiz to get started.</p>
+                                    <AddContentButton 
+                                        onAddLesson={() => { setSelectedUnit(activeUnit); setAddLessonModalOpen(true); }} 
+                                        onAddQuiz={() => { setSelectedUnit(activeUnit); setAddQuizModalOpen(true); }}
+                                        monet={monet}
+                                        styles={styles}
+                                    />
                                 </div>
                             )}
                         </div>
                     </div>
                 ) : (
                     <div className="relative">
+                        {/* [ADDED] Global Unit Reorder Toolbar */}
+                        {units.length > 0 && (
+                            <div className="flex justify-end mb-4">
+                                <button 
+                                    onClick={() => setIsReordering(!isReordering)} 
+                                    className={`${styles.secondaryButton} !px-4 !py-2 text-sm`}
+                                >
+                                    {isReordering ? (
+                                        <>Done</>
+                                    ) : (
+                                        <>
+                                            <ArrowsUpDownIcon className="w-4 h-4" /> 
+                                            Reorder Units
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        )}
+
                         {isReordering && (
-                            <div className="sticky top-0 z-30 mb-6 p-4 bg-blue-500/10 backdrop-blur-xl rounded-2xl border border-blue-500/20 flex justify-between items-center animate-in slide-in-from-top-2">
-                                <span className="font-bold text-blue-600 dark:text-blue-300 flex items-center gap-2 text-sm md:text-base">
+                            <div className={`sticky top-0 z-30 mb-6 p-4 backdrop-blur-xl rounded-2xl border flex justify-between items-center animate-in slide-in-from-top-2 ${monet ? 'bg-black/20 border-white/10' : 'bg-blue-500/10 border-blue-500/20'}`}>
+                                <span className={`font-bold flex items-center gap-2 text-sm md:text-base ${monet ? 'text-white' : 'text-blue-600 dark:text-blue-300'}`}>
                                     <ArrowsUpDownIcon className="w-5 h-5" /> Reordering Mode
                                 </span>
-                                <button onClick={() => setIsReordering(false)} className={`${primaryButton} !py-1 !px-4 text-sm`}>Done</button>
+                                <button onClick={() => setIsReordering(false)} className={`${styles.primaryButton} !py-1 !px-4 text-sm`}>Done</button>
                             </div>
                         )}
 
@@ -762,14 +835,14 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
                                 <SortableContext items={units.map(u => u.id)} strategy={rectSortingStrategy}>
                                     {units.map((unit, idx) => (
-                                        <SortableUnitCard key={unit.id} unit={unit} index={idx} onSelect={onSetActiveUnit} onAction={handleAction} isReordering={isReordering} />
+                                        <SortableUnitCard key={unit.id} unit={unit} index={idx} onSelect={onSetActiveUnit} onAction={handleAction} isReordering={isReordering} monet={monet} styles={styles} />
                                     ))}
                                 </SortableContext>
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-32 opacity-60">
-                                <QueueListIcon className="w-20 h-20 text-slate-300 dark:text-slate-600 mb-4" />
-                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">No Units Yet</h3>
+                                <QueueListIcon className={`w-20 h-20 mb-4 ${monet ? 'text-white/30' : 'text-slate-300 dark:text-slate-600'}`} />
+                                <h3 className={`text-2xl font-bold ${monet ? 'text-white/60' : 'text-slate-900 dark:text-white'}`}>No Units Yet</h3>
                             </div>
                         )}
                     </div>

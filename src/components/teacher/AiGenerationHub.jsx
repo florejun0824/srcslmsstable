@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '../../contexts/ThemeContext'; // Import Theme Context
 import CreateLearningGuideModal from './CreateLearningGuideModal';
 import CreateUlpModal from './CreateUlpModal';
 import CreateAtgModal from './CreateAtgModal';
@@ -13,6 +14,23 @@ import {
     SparklesIcon,
     ComputerDesktopIcon
 } from '@heroicons/react/24/outline';
+
+// --- HELPER: MONET EFFECT COLOR EXTRACTION ---
+const getMonetStyle = (activeOverlay) => {
+    if (activeOverlay === 'christmas') return { background: 'rgba(15, 23, 66, 0.85)', borderColor: 'rgba(100, 116, 139, 0.2)' }; 
+    if (activeOverlay === 'valentines') return { background: 'rgba(60, 10, 20, 0.85)', borderColor: 'rgba(255, 100, 100, 0.15)' }; 
+    if (activeOverlay === 'graduation') return { background: 'rgba(30, 25, 10, 0.85)', borderColor: 'rgba(255, 215, 0, 0.15)' }; 
+    if (activeOverlay === 'rainy') return { background: 'rgba(20, 35, 20, 0.85)', borderColor: 'rgba(100, 150, 100, 0.2)' };
+    if (activeOverlay === 'cyberpunk') return { background: 'rgba(35, 5, 45, 0.85)', borderColor: 'rgba(180, 0, 255, 0.2)' };
+    if (activeOverlay === 'spring') return { background: 'rgba(50, 10, 20, 0.85)', borderColor: 'rgba(255, 150, 180, 0.2)' };
+    if (activeOverlay === 'space') return { background: 'rgba(5, 5, 10, 0.85)', borderColor: 'rgba(100, 100, 255, 0.15)' };
+    
+    // Default Glass Style (Standard Dark Theme)
+    return { 
+        background: 'rgba(15, 23, 42, 0.85)', 
+        borderColor: 'rgba(255, 255, 255, 0.1)' 
+    };
+};
 
 // --- MOBILE RESTRICTION OVERLAY (Refined) ---
 const MobileRestricted = ({ onClose }) => (
@@ -90,7 +108,7 @@ const AIToolButton = ({ title, description, icon: Icon, iconColor, onClick, disa
             className={`group relative p-6 rounded-[32px] text-left h-full flex flex-col transition-all duration-500 ease-out border
                 ${disabled
                     ? 'bg-slate-50/50 dark:bg-white/5 border-transparent opacity-40 cursor-not-allowed grayscale'
-                    : `bg-white/60 dark:bg-[#1c1c1e]/60 hover:bg-white/80 dark:hover:bg-[#2c2c2e]/80 border-white/40 dark:border-white/5 ${theme.border} shadow-xl hover:shadow-2xl hover:shadow-black/5 backdrop-blur-xl hover:-translate-y-1 active:scale-[0.98]`
+                    : `bg-white/60 dark:bg-black/20 hover:bg-white/80 dark:hover:bg-black/40 border-white/40 dark:border-white/10 ${theme.border} shadow-lg hover:shadow-xl hover:-translate-y-1 active:scale-[0.98]`
                 }`}
         >
             {/* Inner Glow Gradient */}
@@ -111,7 +129,7 @@ const AIToolButton = ({ title, description, icon: Icon, iconColor, onClick, disa
                 <h3 className="text-[19px] font-bold text-slate-800 dark:text-white tracking-tight leading-snug mb-1.5 group-hover:text-black dark:group-hover:text-white transition-colors">
                     {title}
                 </h3>
-                <p className="text-[14px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                <p className="text-[14px] font-medium text-slate-500 dark:text-slate-300 leading-relaxed group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-colors">
                     {description}
                 </p>
             </div>
@@ -133,6 +151,8 @@ const AIToolButton = ({ title, description, icon: Icon, iconColor, onClick, disa
  */
 export default function AiGenerationHub({ isOpen, onClose, subjectId, unitId }) {
     const [view, setView] = useState('menu');
+    const { activeOverlay } = useTheme(); // Access Theme
+    const monetStyle = getMonetStyle(activeOverlay); // Calculate dynamic style
 
     useEffect(() => {
         if (!isOpen) {
@@ -203,31 +223,37 @@ export default function AiGenerationHub({ isOpen, onClose, subjectId, unitId }) 
                     className="fixed inset-0 z-[200] flex items-center justify-center p-4 overflow-hidden"
                     onClick={handleCloseAll}
                 >
-                    {/* Deep Blur Backdrop with colored aura */}
-                    <div className="absolute inset-0 bg-[#e0e0e0]/40 dark:bg-black/60 backdrop-blur-3xl transition-opacity duration-500" />
+                    {/* MONET BACKDROP:
+                      Replaced heavy opacity/blur with lighter glass overlay 
+                      so background animations are visible 
+                    */}
+                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-500" />
                     
-                    {/* Atmospheric Glow */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-500/10 dark:bg-indigo-500/20 rounded-full blur-[120px] pointer-events-none" />
+                    {/* Atmospheric Glow (reduced slightly to not wash out content) */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-500/10 dark:bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
 
                     {/* Mobile Restriction Layer (Visible < md) */}
                     <MobileRestricted onClose={handleCloseAll} />
 
-                    {/* Desktop/Tablet Content Container (Visible >= md) */}
+                    {/* DESKTOP CONTAINER (Visible >= md)
+                       Applied monetStyle here and reduced backdrop-blur to 'xl'
+                    */}
                     <div
-                        className="hidden md:flex flex-col relative w-full max-w-6xl bg-white/75 dark:bg-[#161618]/75 backdrop-blur-[40px] rounded-[40px] shadow-2xl border border-white/50 dark:border-white/10 p-10 animate-in zoom-in-95 duration-300 ring-1 ring-black/5 dark:ring-white/5"
+                        style={monetStyle}
+                        className="hidden md:flex flex-col relative w-full max-w-6xl backdrop-blur-xl rounded-[40px] shadow-2xl border p-10 animate-in zoom-in-95 duration-300 ring-1 ring-white/10 transition-colors duration-500"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header Section */}
                         <div className="flex justify-between items-start mb-10">
                             <div className="flex items-center gap-5">
-                                <div className="w-16 h-16 rounded-[24px] bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 ring-4 ring-white/50 dark:ring-white/10">
+                                <div className="w-16 h-16 rounded-[24px] bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 ring-4 ring-white/20">
                                     <SparklesIcon className="w-8 h-8 text-white stroke-[2]" />
                                 </div>
                                 <div>
                                     <h2 className="text-[32px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
                                         AI Studio
                                     </h2>
-                                    <p className="text-[16px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                                    <p className="text-[16px] font-medium text-slate-500 dark:text-slate-300 mt-0.5">
                                         Generative tools to accelerate your workflow.
                                     </p>
                                 </div>
@@ -235,9 +261,9 @@ export default function AiGenerationHub({ isOpen, onClose, subjectId, unitId }) 
                             
                             <button
                                 onClick={handleCloseAll}
-                                className="group p-3 rounded-full bg-slate-100/50 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-all active:scale-90 border border-transparent hover:border-black/5 dark:hover:border-white/10"
+                                className="group p-3 rounded-full bg-slate-100/50 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-all active:scale-90 border border-transparent hover:border-black/5 dark:hover:border-white/10"
                             >
-                                <XMarkIcon className="w-6 h-6 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors stroke-[2.5]" />
+                                <XMarkIcon className="w-6 h-6 text-slate-500 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors stroke-[2.5]" />
                             </button>
                         </div>
 

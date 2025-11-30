@@ -5,11 +5,74 @@ import { Megaphone, Activity } from 'lucide-react';
 import AnnouncementCard from './AnnouncementCard';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 import { useReactions } from '../hooks/useReactions';
+import { useTheme } from '../../../../../contexts/ThemeContext'; // 1. Import Theme Context
 
 import { db } from '../../../../../services/firebase';
 
 const AnnouncementModal = lazy(() => import('../../widgets/AnnouncementModal'));
 const ReactionsBreakdownModal = lazy(() => import('../../widgets/ReactionsBreakdownModal'));
+
+// --- HELPER: MONET STYLES ---
+const getMonetStyles = (activeOverlay) => {
+    if (!activeOverlay) return null;
+
+    // Common Glass Style for containers
+    const glassBase = "backdrop-blur-xl border border-white/10 shadow-lg";
+
+    switch (activeOverlay) {
+        case 'christmas':
+            return {
+                iconBox: "bg-emerald-900/60 text-emerald-200 border border-emerald-700/50",
+                emptyState: `${glassBase} bg-slate-900/60 text-white`,
+                emptyIcon: "bg-emerald-900/30 text-emerald-400",
+                textColor: "text-white"
+            };
+        case 'valentines':
+            return {
+                iconBox: "bg-rose-900/60 text-rose-200 border border-rose-700/50",
+                emptyState: `${glassBase} bg-rose-950/60 text-white`,
+                emptyIcon: "bg-rose-900/30 text-rose-400",
+                textColor: "text-white"
+            };
+        case 'graduation':
+            return {
+                iconBox: "bg-amber-900/60 text-amber-200 border border-amber-700/50",
+                emptyState: `${glassBase} bg-slate-900/60 text-white`,
+                emptyIcon: "bg-amber-900/30 text-amber-400",
+                textColor: "text-white"
+            };
+        case 'rainy':
+            return {
+                iconBox: "bg-teal-900/60 text-teal-200 border border-teal-700/50",
+                emptyState: `${glassBase} bg-slate-900/60 text-white`,
+                emptyIcon: "bg-teal-900/30 text-teal-400",
+                textColor: "text-white"
+            };
+        case 'cyberpunk':
+            return {
+                iconBox: "bg-purple-900/60 text-purple-200 border border-purple-700/50",
+                emptyState: `${glassBase} bg-slate-900/60 text-white`,
+                emptyIcon: "bg-purple-900/30 text-purple-400",
+                textColor: "text-white"
+            };
+        case 'spring':
+            return {
+                iconBox: "bg-pink-900/60 text-pink-200 border border-pink-700/50",
+                emptyState: `${glassBase} bg-slate-900/60 text-white`,
+                emptyIcon: "bg-pink-900/30 text-pink-400",
+                textColor: "text-white"
+            };
+        case 'space':
+            return {
+                iconBox: "bg-indigo-900/60 text-indigo-200 border border-indigo-700/50",
+                emptyState: `${glassBase} bg-slate-950/60 text-white`,
+                emptyIcon: "bg-indigo-900/30 text-indigo-400",
+                textColor: "text-white"
+            };
+        default:
+            return null;
+    }
+};
 
 const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
     const { 
@@ -27,6 +90,10 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
     } = useAnnouncements(teacherAnnouncements, showToast);
     
     const { postReactions, usersMap, handleTogglePostReaction } = useReactions(teacherAnnouncements, userProfile?.id, showToast);
+
+    // Theme Context
+    const { activeOverlay } = useTheme();
+    const monetStyles = getMonetStyles(activeOverlay);
 
     const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = useState(false);
     const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
@@ -53,16 +120,16 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
     return (
         <div className="space-y-6 w-full relative z-10 pb-8">
             
-            {/* Section Header - Removed entrance animation */}
+            {/* Section Header */}
             <div className="flex items-center gap-4 px-2">
-                <div className="p-3 rounded-2xl bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-sm">
+                <div className={`p-3 rounded-2xl shadow-sm ${monetStyles ? monetStyles.iconBox : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'}`}>
                     <Activity className="w-6 h-6" strokeWidth={2.5} />
                 </div>
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                    <h2 className={`text-2xl font-bold tracking-tight ${monetStyles ? monetStyles.textColor : 'text-slate-900 dark:text-white'}`}>
                         Activity Feed
                     </h2>
-                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                    <p className={`text-sm font-medium ${monetStyles ? 'text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>
                         Latest updates from your classes
                     </p>
                 </div>
@@ -92,19 +159,37 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
                                 onToggleExpansion={toggleAnnouncementExpansion}
                                 onViewComments={openAnnouncementModal}
                                 onViewReactions={openReactionsBreakdownModal}
+                                // Pass monet styles down if AnnouncementCard supports it, 
+                                // otherwise the card manages its own internal styling.
+                                // Typically cards are white/slate-900, so we leave them standard 
+                                // to pop against the colored background.
                             />
                         ))}
                     </div>
                 ) : (
-                    // --- Empty State - Removed entrance animation ---
+                    // --- Empty State with Monet Support ---
                     <div
-                        className="bg-white dark:bg-slate-900 rounded-[32px] p-12 flex flex-col items-center justify-center text-center border border-slate-200 dark:border-slate-700 shadow-sm"
+                        className={`rounded-[32px] p-12 flex flex-col items-center justify-center text-center shadow-sm 
+                        ${monetStyles 
+                            ? monetStyles.emptyState 
+                            : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700'
+                        }`}
                     >
-                        <div className="w-24 h-24 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-6">
-                            <Megaphone className="w-10 h-10 text-slate-400 dark:text-slate-500" strokeWidth={1.5} />
+                        <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 
+                            ${monetStyles 
+                                ? monetStyles.emptyIcon 
+                                : 'bg-slate-100 dark:bg-slate-800'
+                            }`}
+                        >
+                            <Megaphone 
+                                className={`w-10 h-10 ${monetStyles ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} 
+                                strokeWidth={1.5} 
+                            />
                         </div>
-                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">No updates yet</h3>
-                        <p className="text-base text-slate-500 dark:text-slate-400 mt-2 max-w-sm mx-auto">
+                        <h3 className={`text-xl font-bold ${monetStyles ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                            No updates yet
+                        </h3>
+                        <p className={`text-base mt-2 max-w-sm mx-auto ${monetStyles ? 'text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>
                             It looks quiet here. Post an announcement to get things started!
                         </p>
                     </div>
