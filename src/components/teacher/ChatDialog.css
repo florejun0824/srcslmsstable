@@ -2,12 +2,13 @@
 
 /* =========================================
    MACOS 26 / SPATIAL DESIGN SYSTEM
+   Updated for Monet Effect & Reduced Blurring
    ========================================= */
 
 /* --- BASE DIALOG --- */
 .chat-dialog {
   position: fixed;
-  z-index: 2000; /* High z-index to float above everything */
+  z-index: 2000;
   width: 400px;
   max-width: 100vw;
   height: 650px;
@@ -17,21 +18,22 @@
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   
-  /* Glassmorphism Base */
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(25px) saturate(180%);
-  -webkit-backdrop-filter: blur(25px) saturate(180%);
+  /* Dynamic Background with fallback */
+  background: var(--chat-bg, rgba(255, 255, 255, 0.95));
+  /* Reduced blur for Monet themes, subtle for default */
+  backdrop-filter: blur(8px); 
+  -webkit-backdrop-filter: blur(8px);
   
-  /* Spatial Borders & Shadows */
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  /* Borders & Shadows */
+  border: 1px solid var(--chat-border, rgba(255, 255, 255, 0.5));
   box-shadow: 
-    0 20px 40px rgba(0, 0, 0, 0.1), /* Drop shadow */
-    0 0 0 1px rgba(255, 255, 255, 0.4) inset; /* Inner light ring */
+    0 20px 40px rgba(0, 0, 0, 0.3), 
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
 
   bottom: 24px;
   right: 24px;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: background-color 0.5s ease, border-color 0.5s ease;
+  color: var(--text-color, #1d1d1f);
 }
 
 /* --- HEADER --- */
@@ -40,10 +42,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(255, 255, 255, 0.4); /* Subtle separation */
+  background: var(--header-bg, rgba(255, 255, 255, 0.5));
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  backdrop-filter: blur(10px);
   z-index: 10;
+  transition: background-color 0.5s ease;
 }
 
 .chat-info {
@@ -55,7 +57,7 @@
 .chat-profile-pic {
   width: 40px;
   height: 40px;
-  border-radius: 12px; /* Soft square aka Squircle */
+  border-radius: 12px;
   object-fit: cover;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
@@ -68,14 +70,15 @@
 .chat-title {
   font-weight: 700;
   font-size: 1rem;
-  color: #1d1d1f;
+  color: var(--text-color, #1d1d1f);
   letter-spacing: -0.02em;
 }
 
 .chat-status {
   font-size: 0.75rem;
   font-weight: 500;
-  color: #86868b;
+  color: var(--text-color, #86868b);
+  opacity: 0.8;
 }
 
 .chat-close-btn {
@@ -89,11 +92,11 @@
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  color: #1d1d1f;
+  color: var(--text-color, #1d1d1f);
 }
 
 .chat-close-btn:hover {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.2);
   transform: scale(1.05);
 }
 
@@ -113,7 +116,7 @@
 .chat-messages::-webkit-scrollbar { width: 6px; }
 .chat-messages::-webkit-scrollbar-track { background: transparent; }
 .chat-messages::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(128, 128, 128, 0.2);
   border-radius: 10px;
 }
 
@@ -147,25 +150,24 @@
   font-size: 0.95rem;
   line-height: 1.5;
   position: relative;
-  backdrop-filter: blur(5px);
 }
 
-/* AI Bubble: Frosted Glass */
+/* AI Bubble: Uses variable or fallback */
 .ai-message .message-content {
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  color: #1d1d1f;
+  background: var(--ai-bubble-bg, rgba(255, 255, 255, 0.6));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--text-color, #1d1d1f);
   border-bottom-left-radius: 4px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.03);
 }
 
-/* User Bubble: Gradient */
+/* User Bubble: Gradient from variable or default */
 .user-message .message-content {
-  background: linear-gradient(135deg, #007AFF, #5856D6); /* Apple Blue to Purple */
-  color: white;
+  background: var(--user-bubble-bg, linear-gradient(135deg, #007AFF, #5856D6));
+  color: white; /* User text always white on colorful bubbles */
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-bottom-right-radius: 4px;
-  box-shadow: 0 8px 20px rgba(0, 122, 255, 0.25);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
 /* --- TYPING INDICATOR --- */
@@ -173,20 +175,21 @@
   margin-bottom: 8px;
 }
 .typing-indicator span {
-  background: #86868b;
+  background: var(--text-color, #86868b);
   width: 5px;
   height: 5px;
+  opacity: 0.7;
 }
 
 /* --- INPUT AREA --- */
 .chat-input-area {
   padding: 16px 20px;
-  background: rgba(255, 255, 255, 0.3);
-  border-top: 1px solid rgba(255, 255, 255, 0.5);
+  background: var(--header-bg, rgba(255, 255, 255, 0.5)); /* Match header usually */
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: flex-end;
   gap: 10px;
-  backdrop-filter: blur(15px);
+  transition: background-color 0.5s ease;
 }
 
 .chat-input {
@@ -195,19 +198,18 @@
   max-height: 120px;
   padding: 12px 16px;
   border-radius: 22px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--input-bg, rgba(255, 255, 255, 0.6));
   font-size: 0.95rem;
   outline: none;
   transition: all 0.2s ease;
-  color: #1d1d1f;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+  color: var(--text-color, #1d1d1f);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .chat-input:focus {
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
-  border-color: rgba(0, 122, 255, 0.3);
+  background: var(--chat-bg, rgba(255, 255, 255, 0.9));
+  box-shadow: 0 0 0 2px var(--chat-border, rgba(0, 122, 255, 0.3));
 }
 
 .send-btn {
@@ -215,75 +217,32 @@
   height: 44px;
   border-radius: 50%;
   border: none;
-  background: #007AFF;
+  background: var(--user-bubble-bg, #007AFF); /* Match user bubble */
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .send-btn:hover:not(:disabled) { transform: scale(1.1); }
 .send-btn:active:not(:disabled) { transform: scale(0.95); }
 .send-btn:disabled {
-  background: rgba(0, 0, 0, 0.1);
-  color: rgba(0, 0, 0, 0.3);
+  background: rgba(128, 128, 128, 0.3);
+  color: rgba(255, 255, 255, 0.5);
   box-shadow: none;
   cursor: default;
 }
 
 /* =========================================
-   DARK MODE (Native Apple Dark Glass)
+   DARK MODE FALLBACKS (If 'none' theme is active)
    ========================================= */
-.dark .chat-dialog {
-  background: rgba(30, 30, 30, 0.65);
+.dark .chat-dialog[style*="--chat-bg: undefined"] {
+  background: rgba(30, 30, 30, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-}
-
-.dark .chat-header {
-  background: rgba(0, 0, 0, 0.2);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.dark .chat-title { color: #f5f5f7; }
-.dark .chat-status { color: #86868b; }
-
-.dark .chat-close-btn {
-  background: rgba(255, 255, 255, 0.1);
-  color: #f5f5f7;
-}
-.dark .chat-close-btn:hover { background: rgba(255, 255, 255, 0.2); }
-
-/* Dark Mode Messages */
-.dark .ai-message .message-content {
-  background: rgba(60, 60, 60, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #f5f5f7;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-}
-
-.dark .user-message .message-content {
-  /* Keep gradient but slightly deeper */
-  background: linear-gradient(135deg, #0A84FF, #5E5CE6);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.dark .chat-input-area {
-  background: rgba(0, 0, 0, 0.2);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.dark .chat-input {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: white;
-}
-.dark .chat-input:focus {
-  background: rgba(0, 0, 0, 0.5);
-  border-color: #0A84FF;
 }
 
 /* =========================================
@@ -292,35 +251,24 @@
 @media (max-width: 768px) {
   .chat-dialog {
     width: 100%;
-    height: 100%; /* Full screen on mobile */
+    height: 100%;
     max-height: 100%;
     max-width: 100%;
-    border-radius: 0; /* Remove corners for full screen */
+    border-radius: 0;
     bottom: 0;
     right: 0;
     left: 0;
     top: 0;
     border: none;
-    
-    /* Increase backdrop blur for immersion */
-    backdrop-filter: blur(30px) saturate(180%);
-    background: rgba(255, 255, 255, 0.85);
-  }
-
-  .dark .chat-dialog {
-    background: rgba(20, 20, 20, 0.85);
+    background: var(--chat-bg, rgba(255, 255, 255, 0.98)); /* Higher opacity on mobile */
   }
 
   .chat-header {
-    padding: 16px; /* Safe area spacing */
-    padding-top: env(safe-area-inset-top, 20px); /* Handle iPhone Notch */
-  }
-
-  .chat-messages {
     padding: 16px;
+    padding-top: env(safe-area-inset-top, 20px);
   }
 
   .chat-input-area {
-    padding-bottom: max(16px, env(safe-area-inset-bottom, 20px)); /* Safe area for home bar */
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 20px));
   }
 }
