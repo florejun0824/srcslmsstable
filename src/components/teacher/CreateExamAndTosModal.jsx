@@ -501,7 +501,8 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
     const { language, combinedContent, gradeLevel } = guideData;
     const { type, numItems, range } = testType;
     
-    const normalizedType = type.toLowerCase();
+    // Normalize type for the JSON field (e.g., "Multiple Choice" -> "multiple_choice")
+    const normalizedType = type.toLowerCase().replace(/\s+/g, '_');
     const isSingleQuestionType = normalizedType.includes('essay') || normalizedType.includes('solving');
     
     const tosContext = JSON.stringify(generatedTos, null, 2);
@@ -516,10 +517,10 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
         "questions": [
             { 
                 "questionNumber": 1, // Start numbering from the 'range'
-                "type": "...", // e.g., "multiple_choice"
+                "type": "${normalizedType}", // MUST BE EXACTLY "${normalizedType}"
                 "instruction": "...", 
                 "question": "...", 
-                // ... other fields like options, correctAnswer, prompts, etc.
+                // ... include 'options' ONLY if Multiple Choice. Include 'answer' or 'correctAnswer'.
             }
         ]
     }
@@ -543,28 +544,33 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
     - **TOS Adherence:** Ensure the questions you generate for this range (${range}) match the competencies and difficulty levels specified for those item numbers in the provided "Full Table of Specifications".
 
     **CRITICAL GENERATION RULES:**
-    1.  **NO REDUNDANCY (STRICT):** The following questions have ALREADY been generated for other parts of this exam. 
-        **DO NOT** ask about the same specific facts, definitions, or scenarios found in this list. You must cover DIFFERENT aspects of the lesson content:
+    1.  **FORMAT STRICTNESS:** You MUST generate questions strictly in the **${type}** format.
+        - If **Identification**: Provide a question/statement and a strict answer. DO NOT provide "options" (A, B, C, D).
+        - If **True/False**: The user must determine validity.
+        - If **Multiple Choice**: Provide exactly 4 options.
+        - The "type" field in your JSON output MUST be "${normalizedType}".
+
+    2.  **NO REDUNDANCY:** The following questions have ALREADY been generated. **DO NOT** repeat them:
         \`\`\`
         ${previousQuestionsSummary || "No previous questions generated yet."}
         \`\`\`
 
-    2.  **MULTIPLE CHOICE OPTIONS:** The 'options' array MUST contain the option text ONLY. DO NOT include prefixes like "a)".
+    3.  **MULTIPLE CHOICE OPTIONS:** The 'options' array MUST contain the option text ONLY. DO NOT include prefixes like "a)".
     
-    3.  **ESSAY / SOLVING:** If the **Test Type** is "Essay" or "Solving", you MUST generate **ONE prompt**. The "Item Range" (${range}) represents the item numbers this single question covers, and the "Number of Items" (${numItems}) represents the **total points** it is worth. You MUST create a scoring rubric that totals **${numItems}** points. The \`questionNumber\` in the JSON should be the first number in the range (e.g., for "46-50", use 46).
+    4.  **ESSAY / SOLVING:** If the **Test Type** is "Essay" or "Solving", you MUST generate **ONE prompt**. The "Item Range" (${range}) represents the item numbers this single question covers, and the "Number of Items" (${numItems}) represents the **total points** it is worth. You MUST create a scoring rubric that totals **${numItems}** points. The \`questionNumber\` in the JSON should be the first number in the range (e.g., for "46-50", use 46).
     
-    4.  **IDENTIFICATION (STRICT PHRASING):** - Group all items. Generate a single \`choicesBox\` with all answers plus ONE distractor.
+    5.  **IDENTIFICATION (STRICT PHRASING):** - **ONLY applies if Test Type is 'Identification'.**
+        - Group all items. Generate a single \`choicesBox\` with all answers plus ONE distractor.
         - **DO NOT start questions with the word "Identify".** Since the instruction already says "Identify the term," using it again is redundant.
         - Phrase the question as a declarative statement, description, or definition.
-        - *Incorrect Example:* "Identify the factor that..."
         - *Correct Example:* "It is the factor that..." or "This internal disposition leads a person to..."
 
-    5.  **MATCHING TYPE (STRICT):** Use the \`"type": "matching-type"\` format with \`prompts\`, \`options\`, \`correctPairs\`, and one distractor in \`options\`. The entire test for this range must be a SINGLE object in the "questions" array.
+    6.  **MATCHING TYPE (STRICT):** - **ONLY applies if Test Type is 'Matching Type'.**
+        - Use the \`"type": "matching-type"\` format with \`prompts\`, \`options\`, \`correctPairs\`, and one distractor in \`options\`. The entire test for this range must be a SINGLE object in the "questions" array.
     
-    6.  **CONTENT ADHERENCE & TOPIC FIDELITY (ABSOLUTE RULE):**
+    7.  **CONTENT ADHERENCE & TOPIC FIDELITY (ABSOLUTE RULE):**
         - All questions, options, and explanations MUST be derived STRICTLY and SOLELY from the provided **Lesson Content**.
-        - DO NOT generate meta-questions. The quiz must test the student on the lesson material.
-        - You are **STRICTLY FORBIDDEN** from using any phrases that refer back to the source material. It is forbidden to use text like "According to the lesson," "Based on the topic," "As mentioned in the content," or any similar citations. The questions must stand on their own.
+        - You are **STRICTLY FORBIDDEN** from using any phrases that refer back to the source material (e.g., "According to the lesson").
     `;
 };
 
@@ -900,150 +906,176 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
         await batch.commit();
     };
 
-    const saveAsQuiz = async () => {
-        const uniqueQuestions = [];
-        const seenGroupableTypes = new Set();
+	const saveAsQuiz = async () => {
+	        const uniqueQuestions = [];
+	        const seenGroupableTypes = new Set();
         
-        // --- FIX: Extract Global Choices for Identification ---
-        // Sometimes the AI puts the 'choicesBox' only on the first question. 
-        // We need to find it and pass it to ALL identification questions so they aren't "orphaned".
-        const identQuestions = previewData.examQuestions.filter(q => (q.type||'').toLowerCase().includes('identification'));
-        let globalIdentChoices = null;
+	        // --- Extract Global Choices for Identification ---
+	        const identQuestions = previewData.examQuestions.filter(q => (q.type||'').toLowerCase().includes('identification'));
+	        let globalIdentChoices = null;
         
-        const firstIdentWithChoices = identQuestions.find(q => q.choicesBox && (Array.isArray(q.choicesBox) || typeof q.choicesBox === 'string'));
-        if (firstIdentWithChoices) {
-            // clean the choices for the quiz payload
-            const rawBox = firstIdentWithChoices.choicesBox;
-            if (Array.isArray(rawBox)) {
-                 globalIdentChoices = rawBox.map(c => (typeof c === 'object' ? c.text || c.value : c));
-            } else {
-                 globalIdentChoices = [rawBox];
-            }
-        }
+	        const firstIdentWithChoices = identQuestions.find(q => q.choicesBox && (Array.isArray(q.choicesBox) || typeof q.choicesBox === 'string'));
+	        if (firstIdentWithChoices) {
+	            const rawBox = firstIdentWithChoices.choicesBox;
+	            if (Array.isArray(rawBox)) {
+	                 globalIdentChoices = rawBox.map(c => (typeof c === 'object' ? c.text || c.value : c));
+	            } else {
+	                 globalIdentChoices = [rawBox];
+	            }
+	        }
 
-        for (const q of previewData.examQuestions) {
-            const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
+	        for (const q of previewData.examQuestions) {
+	            const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
+	            const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type'; 
+
+	            if (isGroupable) {
+	                if (!seenGroupableTypes.has(normalizedType)) {
+	                    uniqueQuestions.push(q);
+	                    seenGroupableTypes.add(normalizedType);
+	                }
+	            } else {
+	                uniqueQuestions.push(q);
+	            }
+	        }
+
+	        const quizQuestions = uniqueQuestions
+	            .map(q => {
+	                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
             
-            // Matching types are grouped (one object for many questions), others are individual
-            const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type'; 
+	                const questionText = (normalizedType === 'interpretive' && q.passage)
+	                    ? `${q.passage}\n\n${q.question || ''}`
+	                    : (q.question || 'Missing question text from AI.');
 
-            if (isGroupable) {
-                if (!seenGroupableTypes.has(normalizedType)) {
-                    uniqueQuestions.push(q);
-                    seenGroupableTypes.add(normalizedType);
-                }
-            } else {
-                // All other types (Multiple Choice, Identification, Essay) are added individually
-                uniqueQuestions.push(q);
-            }
-        }
+	                const baseQuestion = {
+	                    text: questionText,
+	                    difficulty: q.difficulty || 'easy',
+	                    explanation: q.explanation || '',
+	                };
 
-        const quizQuestions = uniqueQuestions
-            .map(q => {
-                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
-            
-                const questionText = (normalizedType === 'interpretive' && q.passage)
-                    ? `${q.passage}\n\n${q.question || ''}`
-                    : (q.question || 'Missing question text from AI.');
-
-                const baseQuestion = {
-                    text: questionText,
-                    difficulty: q.difficulty || 'easy',
-                    explanation: q.explanation || '',
-                };
-
-                // --- 1. Multiple Choice / Analogy ---
-                if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
-                    const options = q.options || [];
-                    const correctAnswerText = (q.correctAnswer || '').replace(/^[a-d]\.\s*/i, '').trim();
-                    const correctIndex = options.findIndex(opt => opt === correctAnswerText);
-
-                    if (options.length > 0 && correctIndex > -1) {
-                        return {
-                            ...baseQuestion,
-                            type: 'multiple-choice',
-                            options: options.map(opt => ({ text: opt, isCorrect: opt === correctAnswerText })),
-                            correctAnswerIndex: correctIndex,
-                        };
-                    }
-                }
-                
-                // --- 2. True/False ---
-                if (normalizedType === 'alternative_response') {
-                    if (typeof q.correctAnswer === 'string') {
-                        return {
-                            ...baseQuestion,
-                            type: 'true-false',
-                            correctAnswer: q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama',
-                        };
-                    }
-                }
-                
-                // --- 3. Identification (Fix for Missing Questions) ---
-                if (normalizedType === 'identification' || normalizedType === 'solving') {
-                    // Identification requires the student to TYPE the answer.
-                    // We check for 'correctAnswer' OR 'answer'
-                    const answer = q.correctAnswer || q.answer;
+	                // --- 1. Multiple Choice / Analogy ---
+	                if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
+	                    const options = q.options || [];
                     
-                    if (answer) {
-                        return {
-                            ...baseQuestion,
-                            type: 'identification',
-                            correctAnswer: answer,
-                            // We pass the choicesBox (bank) so the Quiz UI *can* display it as a reference if it wants to.
-                            choicesBox: globalIdentChoices, 
-                        };
-                    }
-                }
+	                    // CLEANUP: Remove "a. ", "b. " prefixes from the answer text for matching
+	                    const rawAnswer = q.correctAnswer || '';
+	                    const cleanAnswerText = rawAnswer.replace(/^[a-d][\.\)]\s*/i, '').trim();
+                    
+	                    // STRATEGY 1: Exact Match
+	                    let correctIndex = options.findIndex(opt => opt.trim() === cleanAnswerText);
+
+	                    // STRATEGY 2: If no match, check if Answer starts with a Letter (e.g. "a. Answer")
+	                    if (correctIndex === -1) {
+	                        const letterMatch = rawAnswer.match(/^([a-d])[\.\)]/i);
+	                        if (letterMatch) {
+	                            const letterMap = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
+	                            correctIndex = letterMap[letterMatch[1].toLowerCase()];
+	                        }
+	                    }
+
+	                    // STRATEGY 3: Fuzzy Match (Ignore punctuation/case)
+	                    if (correctIndex === -1) {
+	                        correctIndex = options.findIndex(opt => {
+	                            const cleanOpt = opt.toLowerCase().replace(/[^a-z0-9]/g, '');
+	                            const cleanKey = cleanAnswerText.toLowerCase().replace(/[^a-z0-9]/g, '');
+	                            return cleanOpt === cleanKey || cleanOpt.includes(cleanKey) || cleanKey.includes(cleanOpt);
+	                        });
+	                    }
+
+	                    if (options.length > 0 && correctIndex > -1 && correctIndex < options.length) {
+	                        return {
+	                            ...baseQuestion,
+	                            type: 'multiple-choice',
+	                            options: options.map((opt, idx) => ({ 
+	                                text: opt, 
+	                                isCorrect: idx === correctIndex 
+	                            })),
+	                            correctAnswerIndex: correctIndex,
+	                        };
+	                    } else {
+	                        // Fallback: If we still can't find the answer, default to the first option (0) 
+	                        // but log a warning, rather than deleting the question.
+	                        console.warn(`Could not match answer "${rawAnswer}" to options for Q: ${q.question}. Defaulting to first option.`);
+	                        return {
+	                            ...baseQuestion,
+	                            type: 'multiple-choice',
+	                            options: options.map((opt, idx) => ({ text: opt, isCorrect: idx === 0 })),
+	                            correctAnswerIndex: 0,
+	                        };
+	                    }
+	                }
                 
-                // --- 4. Matching Type ---
-                if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
-                    const prompts = q.prompts || [];
-                    const options = q.options || [];
-                    const correctPairs = q.correctPairs || {};
-
-                    if (prompts.length > 0 && options.length > 0 && Object.keys(correctPairs).length > 0) {
-                        return {
-                            ...baseQuestion,
-                            text: q.instruction || 'Match the following items.',
-                            type: 'matching-type',
-                            prompts: prompts,
-                            options: options,
-                            correctPairs: correctPairs,
-                        };
-                    }
-                }
+	                // --- 2. True/False ---
+	                if (normalizedType === 'alternative_response') {
+	                    if (typeof q.correctAnswer === 'string') {
+	                        return {
+	                            ...baseQuestion,
+	                            type: 'true-false',
+	                            correctAnswer: q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama',
+	                        };
+	                    }
+	                }
                 
-                // --- 5. Essay ---
-                if (normalizedType === 'essay') {
-                    return {
-                        ...baseQuestion,
-                        type: 'essay',
-                        rubric: q.rubric || [],
-                    };
-                }
+	                // --- 3. Identification ---
+	                if (normalizedType === 'identification' || normalizedType === 'solving') {
+	                    const answer = q.correctAnswer || q.answer;
+	                    if (answer) {
+	                        return {
+	                            ...baseQuestion,
+	                            type: 'identification',
+	                            correctAnswer: answer,
+	                            choicesBox: globalIdentChoices, 
+	                        };
+	                    }
+	                }
+                
+	                // --- 4. Matching Type ---
+	                if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
+	                    const prompts = q.prompts || [];
+	                    const options = q.options || [];
+	                    const correctPairs = q.correctPairs || {};
 
-                return null;
-            })
-            .filter(Boolean);
+	                    if (prompts.length > 0 && options.length > 0 && Object.keys(correctPairs).length > 0) {
+	                        return {
+	                            ...baseQuestion,
+	                            text: q.instruction || 'Match the following items.',
+	                            type: 'matching-type',
+	                            prompts: prompts,
+	                            options: options,
+	                            correctPairs: correctPairs,
+	                        };
+	                    }
+	                }
+                
+	                // --- 5. Essay ---
+	                if (normalizedType === 'essay') {
+	                    return {
+	                        ...baseQuestion,
+	                        type: 'essay',
+	                        rubric: q.rubric || [],
+	                    };
+	                }
 
-        if (quizQuestions.length === 0) {
-            throw new Error("No compatible, well-formed questions were generated to create an interactive quiz.");
-        }
+	                return null;
+	            })
+	            .filter(Boolean);
 
-        const quizRef = doc(collection(db, 'quizzes'));
-        const quizData = {
-            title: `Quiz: ${previewData.examTitle || 'Generated Exam'}`,
-            language: language,
-            unitId: unitId,
-            subjectId: subjectId,
-            lessonId: null, // If saved as both, you might want to link this, but null is safer for now
-            createdAt: serverTimestamp(),
-            createdBy: 'AI',
-            questions: quizQuestions,
-        };
-        await setDoc(quizRef, quizData);
-    };
+	        if (quizQuestions.length === 0) {
+	            throw new Error("No compatible, well-formed questions were generated to create an interactive quiz.");
+	        }
+
+	        const quizRef = doc(collection(db, 'quizzes'));
+	        const quizData = {
+	            title: `Quiz: ${previewData.examTitle || 'Generated Exam'}`,
+	            language: language,
+	            unitId: unitId,
+	            subjectId: subjectId,
+	            lessonId: null, 
+	            createdAt: serverTimestamp(),
+	            createdBy: 'AI',
+	            questions: quizQuestions,
+	        };
+	        await setDoc(quizRef, quizData);
+	    };
 
     const handleFinalSave = async (saveType) => {
         if (!previewData) {
