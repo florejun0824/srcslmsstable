@@ -1,246 +1,273 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import Lottie from "lottie-react";
-import maintenanceAnimation from "../assets/systemmaintenance.json"; 
-import { useTheme } from '../../contexts/ThemeContext'; // Import Theme Context
+import React, { useEffect, useState, useMemo } from "react";
+import { useTheme } from '../contexts/ThemeContext'; // Import Theme Context
 
-// --- macOS 26 Visual Constants (Updated) ---
-// Changed backdrop-blur-3xl to backdrop-blur-md for lighter effect
-const glassCard = "bg-white/70 dark:bg-[#1a1b26]/80 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-2xl shadow-black/5 dark:shadow-black/50 rounded-[32px]";
-const progressTrack = "bg-slate-200 dark:bg-white/10 h-1.5 rounded-full overflow-hidden";
+// --- CUSTOM HOOKS ---
+const useIsMobile = (breakpoint = 768) => {
+  const [isMobile, setIsMobile] = useState(false);
 
-export default function UpdateOverlay({ status, timeLeft, onEnter }) {
-  const [progress, setProgress] = useState(0);
-  const [currentFile, setCurrentFile] = useState("");
-  const [message, setMessage] = useState("");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleResize = () => setIsMobile(window.innerWidth < breakpoint);
+    handleResize(); // Set initial value
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [breakpoint]);
+
+  return isMobile;
+};
+
+export default function HologramOnboarding({ versionInfo, onClose }) {
+  const [visible, setVisible] = useState(true);
+  const [typedText, setTypedText] = useState("");
+  const [dontShowAgain, setDontShowAgain] = useState(false);
+  const [currentStep, setCurrentStep] = useState("welcome"); // Steps: 'welcome' -> 'whatsNew' -> 'refresh'
+  const isMobile = useIsMobile();
   
-  // --- MONET SUPPORT ---
+  // --- MONET SUPPORT: THEME CONTEXT ---
   const { activeOverlay } = useTheme();
 
-  // Define dynamic styles based on active overlay
+  // Define dynamic styles based on the active overlay (Monet effect)
   const themeStyles = useMemo(() => {
     switch (activeOverlay) {
         case 'christmas':
             return {
-                blob1: 'bg-red-500/30',
-                blob2: 'bg-green-500/30',
-                accent: 'bg-red-600',
-                iconGradient: 'from-red-500 to-green-600',
-                btnGradient: 'bg-gradient-to-r from-red-600 to-green-700 hover:from-red-500 hover:to-green-600',
-                glow: 'bg-red-500/20'
+                glow: 'bg-red-600/30',
+                accentText: 'text-red-500 dark:text-red-400',
+                secondaryText: 'text-green-500 dark:text-green-400',
+                btnGradient: 'from-red-700 to-green-800',
+                toggleActive: 'bg-red-600'
             };
         case 'valentines':
             return {
-                blob1: 'bg-pink-500/30',
-                blob2: 'bg-rose-500/30',
-                accent: 'bg-pink-500',
-                iconGradient: 'from-pink-500 to-rose-600',
-                btnGradient: 'bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-400 hover:to-rose-500',
-                glow: 'bg-pink-500/20'
+                glow: 'bg-pink-500/30',
+                accentText: 'text-pink-500 dark:text-pink-400',
+                secondaryText: 'text-rose-500 dark:text-rose-400',
+                btnGradient: 'from-pink-600 to-rose-600',
+                toggleActive: 'bg-pink-600'
+            };
+        case 'graduation':
+            return {
+                glow: 'bg-yellow-500/20',
+                accentText: 'text-yellow-600 dark:text-yellow-400',
+                secondaryText: 'text-amber-600 dark:text-amber-400',
+                btnGradient: 'from-yellow-600 to-amber-700',
+                toggleActive: 'bg-yellow-600'
             };
         case 'cyberpunk':
             return {
-                blob1: 'bg-fuchsia-500/40',
-                blob2: 'bg-cyan-500/40',
-                accent: 'bg-fuchsia-500',
-                iconGradient: 'from-fuchsia-600 to-cyan-600',
-                btnGradient: 'bg-gradient-to-r from-fuchsia-600 to-cyan-600 hover:from-fuchsia-500 hover:to-cyan-500',
-                glow: 'bg-cyan-500/20'
+                glow: 'bg-fuchsia-500/40',
+                accentText: 'text-cyan-400',
+                secondaryText: 'text-fuchsia-400',
+                btnGradient: 'from-fuchsia-600 to-cyan-600',
+                toggleActive: 'bg-fuchsia-500'
             };
         case 'space':
             return {
-                blob1: 'bg-indigo-500/40',
-                blob2: 'bg-violet-500/40',
-                accent: 'bg-indigo-500',
-                iconGradient: 'from-indigo-600 to-violet-600',
-                btnGradient: 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500',
-                glow: 'bg-indigo-500/20'
-            };
-        case 'graduation':
-             return {
-                blob1: 'bg-yellow-500/30',
-                blob2: 'bg-amber-500/30',
-                accent: 'bg-amber-500',
-                iconGradient: 'from-yellow-500 to-amber-600',
-                btnGradient: 'bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500',
-                glow: 'bg-yellow-500/20'
+                glow: 'bg-indigo-500/40',
+                accentText: 'text-indigo-400',
+                secondaryText: 'text-violet-400',
+                btnGradient: 'from-indigo-600 to-violet-800',
+                toggleActive: 'bg-indigo-500'
             };
         case 'rainy':
              return {
-                blob1: 'bg-teal-500/30',
-                blob2: 'bg-slate-500/30',
-                accent: 'bg-teal-600',
-                iconGradient: 'from-teal-600 to-slate-600',
-                btnGradient: 'bg-gradient-to-r from-teal-600 to-slate-600 hover:from-teal-500 hover:to-slate-500',
-                glow: 'bg-teal-500/20'
+                glow: 'bg-teal-500/30',
+                accentText: 'text-teal-500 dark:text-teal-400',
+                secondaryText: 'text-emerald-500 dark:text-emerald-400',
+                btnGradient: 'from-slate-600 to-teal-700',
+                toggleActive: 'bg-teal-600'
             };
         default: // Standard / Spring
             return {
-                blob1: 'bg-blue-400/30',
-                blob2: 'bg-indigo-400/30',
-                accent: 'bg-[#007AFF]',
-                iconGradient: 'from-blue-500 to-indigo-600',
-                btnGradient: 'bg-[#007AFF] hover:bg-[#0062CC]',
-                glow: 'bg-blue-500/20'
+                glow: 'bg-blue-500/30',
+                accentText: 'text-blue-500 dark:text-blue-400',
+                secondaryText: 'text-purple-500 dark:text-purple-400',
+                btnGradient: 'from-blue-500 to-indigo-600',
+                toggleActive: 'bg-blue-500'
             };
     }
   }, [activeOverlay]);
 
-  const files = [
-    "Initializing update protocol...",
-    "Downloading core modules...",
-    "Updating interface assets...",
-    "Synchronizing content data...",
-    "Applying patches...",
-    "Rebuilding dependencies...",
-    "Verifying integrity...",
-    "Installing components...",
-    "Finalizing setup...",
-    "Cleaning temporary files...",
-    "Restarting services...",
-    "Update complete. Please wait while launching the new version..."
-  ];
+  // --- CONTENT LOGIC ---
+  const welcomeMessage = useMemo(() => 
+    `// System Update Detected...\n// Initializing Guide Protocol\n\nconsole.log("Welcome to Version ${versionInfo.version}");\nconsole.log("Systems are fully operational.");`, 
+    [versionInfo.version]
+  );
 
+  const whatsNewMessage = useMemo(() => {
+    const notes = versionInfo.whatsNew
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .map(line => `  "${line}",`)
+      .join("\n");
+    return `const newFeatures = [\n${notes}\n];\n\n// Review complete. Ready to launch?`;
+  }, [versionInfo.whatsNew]);
+
+  const refreshInstructionMessage = useMemo(() => 
+    `// FINAL CONFIGURATION REQUIRED\n\nconsole.warn("CACHE CLEAR RECOMMENDED");\n\n/* \n * To ensure all new assets load correctly,\n * please perform a HARD REFRESH:\n */\n\n// Windows / Linux:\n   Press [ Ctrl + F5 ]\n\n// Mac OS:\n   Press [ Cmd + Shift + R ]\n\nreturn "System Updated.";`,
+    []
+  );
+
+  // Determine which message to show based on step
+  const currentMessage = useMemo(() => {
+      if (currentStep === 'welcome') return welcomeMessage;
+      if (currentStep === 'whatsNew') return whatsNewMessage;
+      return refreshInstructionMessage;
+  }, [currentStep, welcomeMessage, whatsNewMessage, refreshInstructionMessage]);
+
+  // --- TYPING EFFECT ---
   useEffect(() => {
-    let progressInterval, fileInterval;
+    setTypedText("");
+    let i = 0;
+    // Speed up typing slightly for the long refresh message
+    const speed = currentStep === 'refresh' ? 10 : 15;
+    
+    const interval = setInterval(() => {
+      setTypedText(currentMessage.slice(0, i));
+      i++;
+      if (i > currentMessage.length) clearInterval(interval);
+    }, speed); 
+    return () => clearInterval(interval);
+  }, [currentMessage, currentStep]);
 
-    if (status === "building") {
-      setProgress(0);
-      setMessage("Preparing update...");
+  // --- NAVIGATION HANDLER ---
+  const handleNextOrClose = () => {
+    if (currentStep === "welcome") {
+      setCurrentStep("whatsNew");
+    } else if (currentStep === "whatsNew") {
+      // Go to Refresh Instruction step
+      setCurrentStep("refresh");
+    } else {
+      // "Reload Browser" Action
       
-      // --- LOGIC UPDATE: 1.5 Minutes (90 Seconds) ---
-      const totalDuration = 90000; // 90,000ms = 1.5 minutes
-      const updateFrequency = 100; // Update every 100ms for smoothness
-      const totalSteps = totalDuration / updateFrequency;
-      const incrementPerStep = 99 / totalSteps; // Target 99%
-      
-      let currentProgress = 0;
+      // 1. Immediately hide the modal for visual feedback
+      setVisible(false);
 
-      progressInterval = setInterval(() => {
-        currentProgress += incrementPerStep;
-        if (currentProgress >= 99) {
-             currentProgress = 99;
-             clearInterval(progressInterval);
-        }
-        setProgress(currentProgress);
-      }, updateFrequency);
+      // 2. Trigger parent onClose logic (saving dontShowAgain pref)
+      if (onClose) onClose({ dontShowAgain });
 
-      // --- LOGIC UPDATE: Sync File Messages to 1.5 Minutes ---
-      let fileIndex = 0;
-      // Distribute files evenly across the 90 seconds
-      const fileSwitchSpeed = totalDuration / (files.length + 1); 
-
-      fileInterval = setInterval(() => {
-        if (fileIndex < files.length - 1) {
-          fileIndex++;
-          setCurrentFile(files[fileIndex]);
-          setMessage(files[fileIndex]);
-        }
-      }, fileSwitchSpeed);
-
-    } else if (status === "complete") {
-      setProgress(100);
-      setMessage("System update successful!");
+      // 3. Force reload after a tiny delay to allow the close animation to start/UI to update
+      setTimeout(() => {
+          window.location.reload();
+      }, 100);
     }
-
-    return () => {
-      clearInterval(progressInterval);
-      clearInterval(fileInterval);
-    };
-  }, [status]);
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
-  const estimatedTime = timeLeft ? formatTime(timeLeft) : "--:--";
+  const handleManualClose = () => {
+    setVisible(false);
+    setTimeout(() => {
+        if (onClose) onClose({ dontShowAgain });
+    }, 300);
+  };
+
+  if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#f5f5f7] dark:bg-black font-sans overflow-hidden">
+    <div className="fixed inset-0 z-[13000] flex items-center justify-center p-4 transition-opacity duration-500 ease-out">
+      
+      {/* 1. BACKDROP */}
+      <div className="absolute inset-0 bg-slate-100/40 dark:bg-black/40 backdrop-blur-[20px]" />
+      
+      <div className={`relative z-10 flex items-center gap-8 max-w-6xl w-full ${isMobile ? 'flex-col justify-center mt-10' : 'flex-row justify-center items-end'}`}>
         
-        {/* Background Mesh (Dynamic Colors) */}
-        <div className="absolute inset-0 pointer-events-none opacity-40 dark:opacity-20">
-             <div className={`absolute top-[-20%] left-[-10%] w-[70vw] h-[70vw] rounded-full blur-[150px] animate-pulse-slow ${themeStyles.blob1}`} />
-             <div className={`absolute bottom-[-20%] right-[-10%] w-[70vw] h-[70vw] rounded-full blur-[150px] animate-pulse-slow delay-1000 ${themeStyles.blob2}`} />
+        {/* 2. CHARACTER */}
+        <div className="relative group">
+            {/* Dynamic Glow based on Monet Theme */}
+            <div className={`absolute inset-0 rounded-full blur-[60px] animate-pulse pointer-events-none ${themeStyles.glow}`} />
+            <img 
+                src="/characters/guide.png" 
+                alt="Guide" 
+                className={`relative z-10 object-contain drop-shadow-[0_10px_40px_rgba(0,0,0,0.25)] transition-transform duration-700 ease-in-out hover:scale-105 ${isMobile ? 'h-[280px]' : 'h-[550px]'}`}
+            />
         </div>
 
-      <AnimatePresence mode="wait">
-        {status === "building" && (
-          <motion.div
-            key="building"
-            initial={{ opacity: 0, scale: 0.95, filter: 'blur(10px)' }}
-            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, scale: 0.98, filter: 'blur(10px)' }}
-            transition={{ duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }}
-            className={`relative w-full max-w-md p-8 sm:p-10 flex flex-col items-center text-center ${glassCard}`}
-          >
-            {/* Icon / Animation */}
-            <div className="w-32 h-32 mb-6 relative">
-                 <div className={`absolute inset-0 blur-xl rounded-full animate-pulse ${themeStyles.glow}`}></div>
-                 <Lottie animationData={maintenanceAnimation} loop autoplay className="relative z-10" />
-            </div>
-
-            {/* Main Text */}
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
-                Updating System
-            </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 h-5 overflow-hidden">
-                 <span className="inline-block animate-fade-in-up key={currentFile}">{message}</span>
-            </p>
-
-            {/* Progress Bar */}
-            <div className="w-full space-y-2">
-                <div className={progressTrack}>
-                    <motion.div 
-                        className={`h-full rounded-full transition-all duration-300 ease-out ${themeStyles.accent}`}
-                        style={{ width: `${progress}%` }}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progress}%` }}
-                    />
+        {/* 3. THE "GLASS" WINDOW */}
+        <div className="relative w-full max-w-lg animate-in fade-in slide-in-from-bottom-8 duration-700">
+            
+            {/* Glass Container */}
+            <div className="relative overflow-hidden rounded-[2rem] border border-white/60 dark:border-white/10 bg-white/70 dark:bg-[#1a1b26]/70 backdrop-blur-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]">
+                
+                {/* Header */}
+                <div className="flex-shrink-0 flex items-center gap-2 px-5 py-4 border-b border-black/5 dark:border-white/5 bg-white/30 dark:bg-white/5">
+                    <div className="w-3 h-3 rounded-full bg-[#FF5F57] border border-black/10"></div>
+                    <div className="w-3 h-3 rounded-full bg-[#FEBC2E] border border-black/10"></div>
+                    <div className="w-3 h-3 rounded-full bg-[#28C840] border border-black/10"></div>
+                    <div className="ml-auto text-[10px] font-bold tracking-widest text-slate-400 uppercase opacity-60">Term_v2.0</div>
                 </div>
-                <div className="flex justify-between text-[11px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                    <span>{Math.floor(progress)}% Completed</span>
-                    {/* Optional: Show static text or dynamic time if passed */}
-                    <span>Est. 1m 30s</span>
+
+                <div className="p-6 md:p-8 flex flex-col h-[360px] md:h-[500px] max-h-[80vh]">
+                    
+                    <div className="flex-grow min-h-0 overflow-y-auto custom-scrollbar font-mono text-[13px] md:text-[14px] leading-relaxed text-slate-600 dark:text-slate-300 pr-2">
+                        {/* Dynamic Accent Colors */}
+                        <span className={`${themeStyles.accentText} select-none mr-2`}>➜</span>
+                        <span className={`${themeStyles.secondaryText} select-none mr-2`}>~</span>
+                        
+                        <span className="whitespace-pre-wrap">{typedText}</span>
+                        <span className="inline-block w-2 h-4 ml-1 align-middle bg-slate-400 animate-pulse"></span>
+                    </div>
+
+                    {/* Footer Controls */}
+                    <div className="mt-6 pt-6 border-t border-black/5 dark:border-white/5 flex flex-col gap-4 flex-shrink-0">
+                        
+                        {/* Toggle Switch */}
+                        <div className="flex items-center justify-between group cursor-pointer" onClick={() => setDontShowAgain(!dontShowAgain)}>
+                            <span className="text-sm font-medium text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">
+                                Don't show this again
+                            </span>
+                            {/* Dynamic Toggle Color */}
+                            <div className={`relative w-12 h-7 rounded-full transition-colors duration-300 ease-in-out ${dontShowAgain ? themeStyles.toggleActive : 'bg-slate-300 dark:bg-slate-600'}`}>
+                                <div className={`absolute top-1 left-1 bg-white w-5 h-5 rounded-full shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${dontShowAgain ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                            </div>
+                        </div>
+
+                        {/* Buttons Container */}
+                        <div className="flex flex-col gap-3">
+                            {/* Primary Action Button (Dynamic Gradient) */}
+                            <button
+                                onClick={handleNextOrClose}
+                                className={`w-full py-3.5 rounded-2xl font-semibold text-white shadow-lg 
+                                        bg-gradient-to-r ${themeStyles.btnGradient}
+                                        hover:shadow-blue-500/25 hover:scale-[1.02] active:scale-[0.98] 
+                                        transition-all duration-300 ease-out flex items-center justify-center gap-2`}
+                            >
+                                {currentStep === "welcome" && "See Updates"}
+                                {currentStep === "whatsNew" && "Start Exploring"}
+                                {currentStep === "refresh" && "Reload Browser"}
+                                
+                                {currentStep !== "refresh" ? (
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                                ) : (
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                )}
+                            </button>
+
+                            {/* Secondary Close Button (Only show on refresh step to allow manual exit) */}
+                            {currentStep === 'refresh' && (
+                                <button 
+                                    onClick={handleManualClose}
+                                    className="text-xs font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors py-1"
+                                >
+                                    No thanks, I'll refresh later
+                                </button>
+                            )}
+                        </div>
+
+                    </div>
                 </div>
             </div>
-          </motion.div>
-        )}
 
-        {status === "complete" && (
-          <motion.div
-            key="complete"
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
-            className={`relative w-full max-w-md p-10 flex flex-col items-center text-center ${glassCard}`}
-          >
-            {/* Dynamic Gradient Icon Background */}
-            <div className={`w-24 h-24 mb-6 rounded-full bg-gradient-to-br shadow-lg flex items-center justify-center animate-bounce-slow ${themeStyles.iconGradient} ${themeStyles.glow.replace('bg-', 'shadow-').replace('/20', '/30')}`}>
-                 <img src="/logo.png" alt="Logo" className="w-12 h-12 object-contain brightness-0 invert" />
-            </div>
-
-            <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">
-              Update Complete
-            </h2>
-            <p className="text-base text-slate-500 dark:text-slate-400 mb-8 max-w-xs leading-relaxed">
-              The system has been successfully updated to the latest version.
-            </p>
-
-            <motion.button
-              onClick={onEnter}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className={`w-full py-3.5 rounded-full text-white font-semibold text-lg shadow-lg transition-all ${themeStyles.btnGradient}`}
-            >
-              Enter Portal
-            </motion.button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            {/* 4. THE GLASS ARROW (Color adaptive) */}
+            {!isMobile ? (
+                 <svg className="absolute top-[120px] -left-5 w-6 h-12 text-white/70 dark:text-[#1a1b26]/70 drop-shadow-[-4px_0_4px_rgba(0,0,0,0.05)]" viewBox="0 0 24 48" fill="currentColor">
+                    <path d="M24 0V48L0 24L24 0Z" />
+                 </svg>
+            ) : (
+                <svg className="absolute -top-4 left-1/2 -translate-x-1/2 w-12 h-6 text-white/70 dark:text-[#1a1b26]/70 drop-shadow-[0_-4px_4px_rgba(0,0,0,0.05)]" viewBox="0 0 48 24" fill="currentColor">
+                    <path d="M0 24H48L24 0L0 24Z" />
+                </svg>
+            )}
+        </div>
+      </div>
     </div>
   );
 }

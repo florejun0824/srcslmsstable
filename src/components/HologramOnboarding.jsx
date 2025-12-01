@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { useTheme } from '../../contexts/ThemeContext'; // Import Theme Context
+import { useTheme } from '../contexts/ThemeContext'; // Import Theme Context
 
 // --- CUSTOM HOOKS ---
 const useIsMobile = (breakpoint = 768) => {
