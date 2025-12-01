@@ -403,6 +403,8 @@ export default function App() {
   }, []);
 
   const handleEnter = () => {
+  // 1. ADD THIS LINE: Flag that we are reloading due to an update
+      localStorage.setItem("hologram_update_pending", "true");
     if (waitingWorker) {
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         window.location.reload();

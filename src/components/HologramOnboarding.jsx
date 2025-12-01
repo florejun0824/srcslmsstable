@@ -39,14 +39,15 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
 
   // --- 1. INITIALIZATION LOGIC ---
   useEffect(() => {
-    const hasSeen = localStorage.getItem("hologram_onboarding_seen");
-    const isPendingReload = localStorage.getItem("hologram_update_pending");
-
-    // Case A: User completed the flow previously. Do not show.
-    if (hasSeen === "true" && !isPendingReload) {
-        if (onClose) onClose({ dontShowAgain: true });
-        return; 
-    }
+	  // REMOVE or COMMENT OUT this "hasSeen" block entirely:
+	      /* const hasSeen = localStorage.getItem("hologram_onboarding_seen");
+    
+	      // Case A: User completed the flow previously. Do not show.
+	      if (hasSeen === "true" && !isPendingReload) {
+	          if (onClose) onClose({ dontShowAgain: true });
+	          return; 
+	      }
+	      */
 
     // Case B: User just reloaded the page via the Hologram
     if (isPendingReload === "true") {

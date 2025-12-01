@@ -601,36 +601,52 @@ const TeacherDashboard = () => {
 	            }
 	        ];
 
-	        // 3. SEQUENTIAL LOOP (Stream-like processing)
+// 3. SEQUENTIAL LOOP
 	        for (let i = 0; i < validPages.length; i++) {
 	            const page = validPages[i];
 	            showToast(`Generating slides for section ${i + 1} of ${validPages.length}...`, "info");
 
+                // --- UPDATED PROMPT START ---
 	            const prompt = `
-	                You are an instructional designer. 
-	                **TASK:** Create 1-3 presentation slides based **ONLY** on the specific text provided below.
-	                **CRITICAL CONTEXT:** - This text is **Part ${i + 1}** of a larger lesson titled "${targetLesson.title}".
-	                - **DO NOT** generate a "Presentation Title" slide. 
-	                - **DO NOT** generate a generic "Introduction" slide (we already have one).
-	                - **DO NOT** repeat general context.
-	                - **JUMP STRAIGHT** into the specific details found in this text chunk.
-	                - If the text contains a Quiz/Assessment, transcribe it exactly into slides.
+	                You are an expert Educational Content Developer and Instructional Designer. 
+	                
+                    **SOURCE MATERIAL:**
+                    The text below is **Part ${i + 1}** of a lesson titled "${targetLesson.title}".
+                    
+                    **TASK:** Convert the provided text into 1-3 Google Slides.
+
+                    **STRICT CONTENT RULES:**
+                    1. **ACCURACY:** Do not invent, hallucinate, or bring in outside knowledge. Use **ONLY** the provided text.
+                    2. **SUMMARIES:** If the text is a "Lesson Summary" or "Wrap-up", bullet point the key takeaways exactly as stated in the text. Do not rewrite them into a generic conclusion.
+                    3. **ASSESSMENTS & ANSWER KEYS:** - If the text is a Quiz, Assessment, or Answer Key, **DO NOT** summarize it or create an explanation paragraph. 
+                       - List the questions and answers exactly as they appear (e.g., "1. Question - Answer").
+                       - Make sure the Answer Key is clearly distinct from the questions.
+
+                    **SPEAKER NOTES (TALKING POINTS) REQUIREMENTS:**
+                    - The "talkingPoints" must be **detailed, paragraph-form explanations** suitable for a teacher to read or paraphrase while presenting.
+                    - **DO NOT** just summarize the slide bullet points.
+                    - **DO** elaborate on the concepts, provide context, or suggest how to explain the specific bullet points to students.
+                    - If the slide is an Answer Key, the talking points should simply say "Review the answers with the class."
 
 	                **JSON SCHEMA (Strict):**
 	                {
 	                  "slides": [
 	                    {
-	                      "title": "Specific Slide Title (e.g. '${page.title}: Key Concept')",
-	                      "body": "Detailed content text...",
-	                      "notes": { "talkingPoints": "...", "interactiveElement": "...", "slideTiming": "..." }
+	                      "title": "Clear, Short Slide Title",
+	                      "body": "The visible slide content (Use bullet points for lists, clear short paragraphs for concepts)",
+	                      "notes": { 
+                            "talkingPoints": "Comprehensive script for the teacher (3-5 sentences minimum)...", 
+                            "interactiveElement": "A quick question to ask the class based on this slide...", 
+                            "slideTiming": "e.g. 2 mins" 
+                          }
 	                    }
 	                  ]
 	                }
 
-	                CONTENT TO PROCESS:
+	                **CONTENT TO PROCESS:**
 	                ${page.content}
 	            `;
-
+                // --- UPDATED PROMPT END ---
 	            try {
 	                const aiResponseText = await callGeminiWithLimitCheck(prompt);
 	                const jsonText = aiResponseText.match(/```json\s*([\s\S]*?)\s*```/)?.[1] || aiResponseText;

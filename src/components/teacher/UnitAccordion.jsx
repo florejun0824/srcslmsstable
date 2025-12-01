@@ -210,20 +210,38 @@ const ContentListSkeleton = () => (
 // Menus
 const MenuPortal = ({ children, menuStyle, onClose, monet }) => {
     const menuRef = useRef(null);
+    
     useEffect(() => {
-        const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) onClose(); };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
+        const handler = (e) => { 
+            // Close if clicking outside the menu
+            if (menuRef.current && !menuRef.current.contains(e.target)) {
+                onClose(); 
+            }
+        };
+        // Add mousedown listener to window
+        window.addEventListener('mousedown', handler); 
+        // Also listen to scroll to close menu on scroll (optional but recommended for floating menus)
+        window.addEventListener('scroll', onClose, true);
+        
+        return () => {
+            window.removeEventListener('mousedown', handler);
+            window.removeEventListener('scroll', onClose, true);
+        };
     }, [onClose]);
     
     const containerClass = monet 
-        ? `fixed backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-white/10 z-[5000] p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1 bg-[#1E212B]/90 border border-white/10`
-        : `fixed bg-white/80 dark:bg-[#1E212B]/90 backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-black/5 z-[5000] p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1`;
+        ? `fixed backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-white/10 p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1 bg-[#1E212B]/90 border border-white/10`
+        : `fixed bg-white/90 dark:bg-[#1E212B]/95 backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-black/5 p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1 border border-white/20 dark:border-white/5`;
 
     return createPortal(
-        <div ref={menuRef} style={menuStyle} className={containerClass}>
+        <div 
+            ref={menuRef} 
+            style={menuStyle} // This now contains top/bottom/right coordinates
+            className={containerClass}
+        >
             {children}
-        </div>, document.body
+        </div>, 
+        document.body
     );
 };
 
@@ -231,21 +249,73 @@ const ActionMenu = ({ children, monet, styles }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [menuStyle, setMenuStyle] = useState({});
     const iconRef = useRef(null);
+
     const handleToggle = (e) => {
-        e.stopPropagation(); setIsOpen(!isOpen);
-        if (!isOpen) {
-            const rect = iconRef.current.getBoundingClientRect();
-            let top = rect.bottom + 5;
-            let right = window.innerWidth - rect.right;
-            setMenuStyle({ top: `${top}px`, right: `${right}px`, minWidth: '180px' });
+        e.stopPropagation();
+
+        if (isOpen) {
+            setIsOpen(false);
+            return;
         }
+
+        // --- FIX FOR OVERFLOW (Problem 2) ---
+        const rect = iconRef.current.getBoundingClientRect();
+        const screenHeight = window.innerHeight;
+        const spaceBelow = screenHeight - rect.bottom;
+        
+        // Estimate menu height (approx 40px per item * 5 items = ~200px)
+        // If space below is less than 220px, flip upwards
+        const shouldFlip = spaceBelow < 220; 
+
+        let newStyle = { 
+            right: `${window.innerWidth - rect.right}px`, 
+            minWidth: '180px',
+            position: 'fixed',
+            zIndex: 9999
+        };
+
+        if (shouldFlip) {
+            // Position above the button
+            newStyle.bottom = `${screenHeight - rect.top + 5}px`;
+            newStyle.transformOrigin = 'bottom right';
+        } else {
+            // Position below the button
+            newStyle.top = `${rect.bottom + 5}px`;
+            newStyle.transformOrigin = 'top right';
+        }
+
+        setMenuStyle(newStyle);
+        setIsOpen(true);
     };
+
+    // Helper to close menu
+    const closeMenu = () => setIsOpen(false);
+
     return (
         <>
             <div ref={iconRef} onClick={handleToggle} className={`${styles.iconButton} relative z-20 cursor-pointer`}>
                 <EllipsisVerticalIcon className="h-5 w-5" />
             </div>
-            {isOpen && <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)} monet={monet}>{children}</MenuPortal>}
+            
+            {isOpen && (
+                <MenuPortal menuStyle={menuStyle} onClose={closeMenu} monet={monet}>
+                    {/* --- FIX FOR STICKY MENU (Problem 1) --- */}
+                    {/* We map over the children (MenuItems) and inject the closeMenu function */}
+                    {React.Children.map(children, (child) => {
+                        if (React.isValidElement(child)) {
+                            return React.cloneElement(child, {
+                                onClick: (e) => {
+                                    // Execute the original action
+                                    if (child.props.onClick) child.props.onClick(e);
+                                    // Close the menu immediately
+                                    closeMenu();
+                                }
+                            });
+                        }
+                        return child;
+                    })}
+                </MenuPortal>
+            )}
         </>
     );
 };
@@ -469,7 +539,14 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
         </div>
     );
     // UPDATED MEMO COMPARISON TO INCLUDE MONET
-}, (prev, next) => prev.item.id === next.item.id && prev.isReordering === next.isReordering && prev.exportingLessonId === next.exportingLessonId && prev.monet === next.monet);
+}, (prev, next) => 
+    prev.item.id === next.item.id && 
+    prev.item.title === next.item.title && // Check if title changed
+    prev.item.subtitle === next.item.subtitle && // Check if subtitle changed
+    prev.isReordering === next.isReordering && 
+    prev.exportingLessonId === next.exportingLessonId && 
+    prev.monet === next.monet
+);
 
 
 // --- MAIN COMPONENT ---
