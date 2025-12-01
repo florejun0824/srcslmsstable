@@ -8,25 +8,86 @@ import {
   ChevronDownIcon 
 } from '@heroicons/react/24/outline';
 import { useToast } from '../../contexts/ToastContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
-// --- MACOS 26 DESIGN CONSTANTS ---
-const inputWrapperStyle = "relative group";
-const inputIconStyle = "absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500 w-5 h-5 transition-colors group-focus-within:text-blue-500";
-const inputStyle = `
-  w-full pl-12 pr-4 py-3.5 
-  bg-slate-50/50 dark:bg-black/20 
-  border border-slate-200/80 dark:border-white/10 
-  rounded-2xl text-sm font-medium text-slate-700 dark:text-slate-200 
-  placeholder:text-slate-400 
-  focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent 
-  transition-all duration-300
-`;
-
-// Dropdown specific style to handle the APK visual mess
-const selectStyle = `
-  ${inputStyle} 
-  appearance-none cursor-pointer
-`;
+// --- MONET EFFECT HELPER ---
+const getThemeStyles = (overlay) => {
+    switch (overlay) {
+        case 'christmas':
+            return {
+                modalBg: '#0f291e', 
+                borderColor: 'rgba(34, 197, 94, 0.3)', 
+                innerPanelBg: 'rgba(20, 83, 45, 0.4)',
+                inputBg: 'rgba(0, 0, 0, 0.3)',
+                textColor: '#e2e8f0',
+                accentText: '#86efac', 
+            };
+        case 'valentines':
+            return {
+                modalBg: '#2a0a12', 
+                borderColor: 'rgba(244, 63, 94, 0.3)', 
+                innerPanelBg: 'rgba(80, 7, 36, 0.4)',
+                inputBg: 'rgba(0, 0, 0, 0.3)',
+                textColor: '#ffe4e6',
+                accentText: '#fda4af', 
+            };
+        case 'graduation':
+            return {
+                modalBg: '#1a1600', 
+                borderColor: 'rgba(234, 179, 8, 0.3)', 
+                innerPanelBg: 'rgba(66, 32, 6, 0.4)',
+                inputBg: 'rgba(0, 0, 0, 0.3)',
+                textColor: '#fefce8',
+                accentText: '#fde047', 
+            };
+        case 'rainy':
+            return {
+                modalBg: '#0f172a', 
+                borderColor: 'rgba(56, 189, 248, 0.3)', 
+                innerPanelBg: 'rgba(30, 41, 59, 0.5)',
+                inputBg: 'rgba(15, 23, 42, 0.5)',
+                textColor: '#f1f5f9',
+                accentText: '#7dd3fc', 
+            };
+        case 'cyberpunk':
+            return {
+                modalBg: '#180a2e', 
+                borderColor: 'rgba(217, 70, 239, 0.4)', 
+                innerPanelBg: 'rgba(46, 16, 101, 0.4)',
+                inputBg: 'rgba(0, 0, 0, 0.4)',
+                textColor: '#fae8ff',
+                accentText: '#e879f9', 
+            };
+        case 'spring':
+            return {
+                modalBg: '#2a1a1f', 
+                borderColor: 'rgba(244, 114, 182, 0.3)', 
+                innerPanelBg: 'rgba(80, 20, 40, 0.3)',
+                inputBg: 'rgba(0, 0, 0, 0.2)',
+                textColor: '#fce7f3',
+                accentText: '#f9a8d4', 
+            };
+        case 'space':
+            return {
+                modalBg: '#0b0f19', 
+                borderColor: 'rgba(99, 102, 241, 0.3)', 
+                innerPanelBg: 'rgba(17, 24, 39, 0.6)',
+                inputBg: 'rgba(0, 0, 0, 0.5)',
+                textColor: '#e0e7ff',
+                accentText: '#a5b4fc', 
+            };
+        case 'none':
+        default:
+            return {
+                modalBg: '#262a33', 
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+                innerPanelBg: '#2b303b', 
+                inputBg: '#20242c', 
+                textColor: '#f1f5f9',
+                accentText: '#cbd5e1', 
+            };
+    }
+};
 
 const gradeLevels = [
   "Kindergarten", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6",
@@ -41,6 +102,28 @@ const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) 
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { showToast } = useToast();
+  
+  // --- THEME HOOK ---
+  const { activeOverlay } = useTheme();
+  const themeStyles = getThemeStyles(activeOverlay);
+
+  // --- STYLES ---
+  const inputWrapperStyle = "relative group";
+  const inputBaseStyle = `
+    w-full pl-12 pr-4 py-3.5 
+    border 
+    rounded-2xl text-sm font-medium 
+    placeholder:opacity-50
+    focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent 
+    transition-all duration-300
+  `;
+  
+  // Extruded button style for Cancel
+  const btnExtruded = `
+    shadow-[4px_4px_8px_rgba(0,0,0,0.3),-4px_-4px_8px_rgba(255,255,255,0.02)] 
+    hover:shadow-[inset_2px_2px_4px_rgba(0,0,0,0.3),inset_-2px_-2px_4px_rgba(255,255,255,0.02)] 
+    active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.3),inset_-4px_-4px_8px_rgba(255,255,255,0.02)]
+  `;
 
   useEffect(() => {
     if (isOpen && classData) {
@@ -92,34 +175,37 @@ const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) 
   if (!isOpen || !classData) return null;
 
   return (
-    // 1. BACKDROP: Heavy blur and slight tint
+    // 1. BACKDROP: Reduced blur
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
       <div 
-        className="absolute inset-0 bg-slate-900/30 dark:bg-black/60 backdrop-blur-md transition-opacity" 
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
         onClick={onClose}
       />
 
-      {/* 2. WINDOW: Glassmorphism container */}
-      <div className="relative w-full max-w-lg transform overflow-hidden 
-                      bg-white/80 dark:bg-[#121212]/80 backdrop-blur-[50px] 
-                      rounded-[2rem] shadow-2xl shadow-black/20 dark:shadow-black/50 
-                      ring-1 ring-white/40 dark:ring-white/5 
-                      flex flex-col transition-all duration-300 scale-100 opacity-100">
+      {/* 2. WINDOW: Themed container */}
+      <div 
+        className="relative w-full max-w-lg transform overflow-hidden rounded-[2rem] shadow-2xl flex flex-col transition-all duration-300 scale-100 opacity-100 border"
+        style={{ 
+            backgroundColor: themeStyles.modalBg, 
+            borderColor: themeStyles.borderColor 
+        }}
+      >
         
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200/50 dark:border-white/5 bg-white/50 dark:bg-white/5">
+        <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: themeStyles.borderColor }}>
           <div>
-            <h2 className="text-xl font-display font-bold tracking-tight text-slate-800 dark:text-white">
+            <h2 className="text-xl font-display font-bold tracking-tight" style={{ color: themeStyles.textColor }}>
               Edit Class
             </h2>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">
+            <p className="text-xs font-medium uppercase tracking-wider mt-1 opacity-70" style={{ color: themeStyles.textColor }}>
               {classData.name}
             </p>
           </div>
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            className="p-2 rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors"
+            className="p-2 rounded-full hover:bg-white/10 transition-colors"
+            style={{ color: themeStyles.textColor }}
           >
             <XMarkIcon className="w-5 h-5" />
           </button>
@@ -131,90 +217,109 @@ const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) 
             
             {/* Class Name */}
             <div className={inputWrapperStyle}>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">
+              <label className="block text-xs font-bold uppercase tracking-wider mb-2 ml-1 opacity-60" style={{ color: themeStyles.textColor }}>
                 Class Name
               </label>
               <div className="relative">
-                <PencilSquareIcon className={inputIconStyle} />
+                <PencilSquareIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors group-focus-within:text-blue-500" style={{ color: themeStyles.accentText }} />
                 <input
                   type="text"
                   value={editedName}
                   onChange={(e) => setEditedName(e.target.value)}
                   disabled={isSubmitting}
-                  className={inputStyle}
+                  className={inputBaseStyle}
+                  style={{ 
+                    backgroundColor: themeStyles.inputBg, 
+                    color: themeStyles.textColor,
+                    borderColor: 'transparent' // Neumorphic style relies on bg/shadow usually, or clear border
+                  }}
                   placeholder="e.g. Science 101"
                 />
               </div>
             </div>
 
-            {/* Subject Dropdown - Fixed for Mobile/APK */}
+            {/* Subject Dropdown */}
             <div className={inputWrapperStyle}>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">
+              <label className="block text-xs font-bold uppercase tracking-wider mb-2 ml-1 opacity-60" style={{ color: themeStyles.textColor }}>
                 Subject
               </label>
               <div className="relative">
-                <BookOpenIcon className={inputIconStyle} />
+                <BookOpenIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors group-focus-within:text-blue-500" style={{ color: themeStyles.accentText }} />
                 <select
                   value={selectedSubjectId}
                   onChange={(e) => setSelectedSubjectId(e.target.value)}
                   disabled={isSubmitting}
-                  className={selectStyle}
+                  className={`${inputBaseStyle} appearance-none cursor-pointer`}
+                  style={{ 
+                    backgroundColor: themeStyles.inputBg, 
+                    color: themeStyles.textColor,
+                    borderColor: 'transparent'
+                  }}
                 >
-                  <option value="">No Subject Assigned</option>
+                  <option value="" className="bg-gray-800">No Subject Assigned</option>
                   {courses.map((course) => (
-                    <option key={course.id} value={course.id}>
+                    <option key={course.id} value={course.id} className="bg-gray-800">
                       {course.title}
                     </option>
                   ))}
                 </select>
-                {/* Custom Chevron to replace ugly native one */}
-                <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none opacity-50" style={{ color: themeStyles.textColor }} />
               </div>
             </div>
 
-            {/* Grade Level Dropdown - Fixed for Mobile/APK */}
+            {/* Grade Level Dropdown */}
             <div className={inputWrapperStyle}>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">
+              <label className="block text-xs font-bold uppercase tracking-wider mb-2 ml-1 opacity-60" style={{ color: themeStyles.textColor }}>
                 Grade Level
               </label>
               <div className="relative">
-                <AcademicCapIcon className={inputIconStyle} />
+                <AcademicCapIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors group-focus-within:text-blue-500" style={{ color: themeStyles.accentText }} />
                 <select
                   value={selectedGradeLevel}
                   onChange={(e) => setSelectedGradeLevel(e.target.value)}
                   disabled={isSubmitting}
-                  className={selectStyle}
+                  className={`${inputBaseStyle} appearance-none cursor-pointer`}
+                  style={{ 
+                    backgroundColor: themeStyles.inputBg, 
+                    color: themeStyles.textColor,
+                    borderColor: 'transparent'
+                  }}
                 >
-                  <option value="">Select Grade Level</option>
+                  <option value="" className="bg-gray-800">Select Grade Level</option>
                   {gradeLevels.map((grade) => (
-                    <option key={grade} value={grade}>
+                    <option key={grade} value={grade} className="bg-gray-800">
                       {grade}
                     </option>
                   ))}
                 </select>
-                <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none opacity-50" style={{ color: themeStyles.textColor }} />
               </div>
             </div>
 
             {/* Google Meet Link */}
             <div className={inputWrapperStyle}>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1 flex justify-between">
+              <label className="block text-xs font-bold uppercase tracking-wider mb-2 ml-1 flex justify-between opacity-60" style={{ color: themeStyles.textColor }}>
                 <span>Google Meet Link</span>
-                <span className="text-red-500 text-[10px] font-normal normal-case">* Required</span>
+                <span className="text-red-400 text-[10px] font-normal normal-case">* Required</span>
               </label>
               <div className="relative">
-                <VideoCameraIcon className={inputIconStyle} />
+                <VideoCameraIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors group-focus-within:text-blue-500" style={{ color: themeStyles.accentText }} />
                 <input
                   type="url"
                   value={meetLink}
                   onChange={(e) => setMeetLink(e.target.value)}
                   disabled={isSubmitting}
-                  className={inputStyle}
+                  className={inputBaseStyle}
+                  style={{ 
+                    backgroundColor: themeStyles.inputBg, 
+                    color: themeStyles.textColor,
+                    borderColor: 'transparent'
+                  }}
                   placeholder="https://meet.google.com/..."
                   required
                 />
               </div>
-              <p className="text-[11px] text-slate-400 mt-2 ml-1 leading-relaxed">
+              <p className="text-[11px] mt-2 ml-1 leading-relaxed opacity-50" style={{ color: themeStyles.textColor }}>
                 Paste the permanent Meet link generated from your Google Calendar or Classroom.
               </p>
             </div>
@@ -223,14 +328,16 @@ const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) 
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-slate-200/50 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 backdrop-blur-md flex justify-end gap-3">
+        <div className="p-6 border-t flex justify-end gap-3" style={{ borderColor: themeStyles.borderColor }}>
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-6 py-2.5 rounded-full text-sm font-semibold text-slate-600 dark:text-slate-300 
-                       bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10
-                       hover:bg-slate-50 dark:hover:bg-white/10 transition-all active:scale-95"
+            className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-95 ${btnExtruded}`}
+            style={{ 
+                backgroundColor: themeStyles.innerPanelBg, 
+                color: themeStyles.textColor 
+            }}
           >
             Cancel
           </button>
@@ -238,9 +345,9 @@ const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) 
           <button
             onClick={handleSave}
             disabled={isSubmitting}
-            className="relative px-8 py-2.5 rounded-full text-sm font-semibold text-white 
-                       bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500
-                       shadow-[0_4px_12px_rgba(37,99,235,0.3)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.4)]
+            className="relative px-8 py-2.5 rounded-xl text-sm font-semibold text-white 
+                       bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600
+                       shadow-lg shadow-blue-500/30
                        border-t border-white/20 transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (

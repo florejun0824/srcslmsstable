@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
-import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import imageCompression from 'browser-image-compression';
 import { 
     IconX, 
@@ -16,38 +16,89 @@ import {
 } from '@tabler/icons-react';
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from '../../contexts/ThemeContext';
 
-// --- MACOS 26 DESIGN SYSTEM CONSTANTS ---
+// --- MONET EFFECT HELPER ---
+const getThemeStyles = (overlay) => {
+    switch (overlay) {
+        case 'christmas':
+            return {
+                modalBg: '#0f291e', 
+                borderColor: 'rgba(34, 197, 94, 0.3)', 
+                innerPanelBg: 'rgba(20, 83, 45, 0.4)',
+                inputBg: 'rgba(0, 0, 0, 0.3)',
+                textColor: '#e2e8f0',
+                accentText: '#86efac', 
+            };
+        case 'valentines':
+            return {
+                modalBg: '#2a0a12', 
+                borderColor: 'rgba(244, 63, 94, 0.3)', 
+                innerPanelBg: 'rgba(80, 7, 36, 0.4)',
+                inputBg: 'rgba(0, 0, 0, 0.3)',
+                textColor: '#ffe4e6',
+                accentText: '#fda4af', 
+            };
+        case 'graduation':
+            return {
+                modalBg: '#1a1600', 
+                borderColor: 'rgba(234, 179, 8, 0.3)', 
+                innerPanelBg: 'rgba(66, 32, 6, 0.4)',
+                inputBg: 'rgba(0, 0, 0, 0.3)',
+                textColor: '#fefce8',
+                accentText: '#fde047', 
+            };
+        case 'rainy':
+            return {
+                modalBg: '#0f172a', 
+                borderColor: 'rgba(56, 189, 248, 0.3)', 
+                innerPanelBg: 'rgba(30, 41, 59, 0.5)',
+                inputBg: 'rgba(15, 23, 42, 0.5)',
+                textColor: '#f1f5f9',
+                accentText: '#7dd3fc', 
+            };
+        case 'cyberpunk':
+            return {
+                modalBg: '#180a2e', 
+                borderColor: 'rgba(217, 70, 239, 0.4)', 
+                innerPanelBg: 'rgba(46, 16, 101, 0.4)',
+                inputBg: 'rgba(0, 0, 0, 0.4)',
+                textColor: '#fae8ff',
+                accentText: '#e879f9', 
+            };
+        case 'spring':
+            return {
+                modalBg: '#2a1a1f', 
+                borderColor: 'rgba(244, 114, 182, 0.3)', 
+                innerPanelBg: 'rgba(80, 20, 40, 0.3)',
+                inputBg: 'rgba(0, 0, 0, 0.2)',
+                textColor: '#fce7f3',
+                accentText: '#f9a8d4', 
+            };
+        case 'space':
+            return {
+                modalBg: '#0b0f19', 
+                borderColor: 'rgba(99, 102, 241, 0.3)', 
+                innerPanelBg: 'rgba(17, 24, 39, 0.6)',
+                inputBg: 'rgba(0, 0, 0, 0.5)',
+                textColor: '#e0e7ff',
+                accentText: '#a5b4fc', 
+            };
+        case 'none':
+        default:
+            return {
+                modalBg: '#262a33', 
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+                innerPanelBg: '#2b303b', 
+                inputBg: '#20242c', 
+                textColor: '#f1f5f9',
+                accentText: '#cbd5e1', 
+            };
+    }
+};
 
-const headingStyle = "font-display font-bold tracking-tight text-slate-800 dark:text-white";
-const subHeadingStyle = "font-medium tracking-wide text-slate-500 dark:text-slate-400 uppercase text-[0.65rem] letter-spacing-2";
-
-const windowContainerClasses = "relative w-full max-w-lg bg-white/80 dark:bg-[#121212]/80 backdrop-blur-[50px] rounded-[2rem] shadow-2xl shadow-black/20 dark:shadow-black/50 ring-1 ring-white/40 dark:ring-white/5 overflow-hidden flex flex-col max-h-[90vh]";
-
-// Enhanced Input Style (Frosted Glass)
-const glassInput = "w-full bg-slate-50/50 dark:bg-black/20 border border-slate-200/60 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-medium text-sm hover:bg-white/40 dark:hover:bg-white/5";
-const labelStyle = "block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide ml-1";
-
-// Enhanced Button Styles
-const baseButtonStyles = `
-    relative font-semibold rounded-full transition-all duration-300 
-    flex items-center justify-center gap-2 active:scale-95 tracking-wide shrink-0 select-none
-    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed
-`;
-
-const primaryButton = `
-    ${baseButtonStyles} px-6 py-3 text-sm text-white 
-    bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500
-    shadow-[0_4px_12px_rgba(37,99,235,0.3)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.4)]
-    border border-blue-400/20 w-full
-`;
-
-const secondaryButton = `
-    ${baseButtonStyles} px-5 py-2.5 text-sm text-slate-600 dark:text-slate-300 
-    hover:bg-slate-100 dark:hover:bg-white/5 
-    border border-transparent hover:border-slate-200 dark:hover:border-white/10
-    w-full
-`;
+// --- CONSTANTS ---
+const headingStyle = "font-display font-bold tracking-tight";
 
 // --- Quill Toolbar Options ---
 const quillModules = {
@@ -70,7 +121,7 @@ const relationshipOptions = [
     { value: 'Widowed', label: 'Widowed' },
 ];
 
-const CustomSelect = ({ value, onChange, options, placeholder }) => {
+const CustomSelect = ({ value, onChange, options, placeholder, themeStyles }) => {
     const [isOpen, setIsOpen] = useState(false);
     const selectRef = useRef(null);
     const selectedLabel = options.find(opt => opt.value === value)?.label || placeholder;
@@ -90,14 +141,20 @@ const CustomSelect = ({ value, onChange, options, placeholder }) => {
             <button
                 type="button"
                 onClick={() => setIsOpen(prev => !prev)}
-                className={`${glassInput} flex justify-between items-center text-left cursor-pointer`}
+                className={`w-full border rounded-xl px-4 py-2.5 flex justify-between items-center text-left cursor-pointer transition-all font-medium text-sm`}
+                style={{ 
+                    backgroundColor: themeStyles.inputBg, 
+                    color: themeStyles.textColor,
+                    borderColor: 'transparent'
+                }}
             >
-                <span className={value ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500'}>
+                <span className={value ? '' : 'opacity-50'}>
                     {selectedLabel}
                 </span>
                 <IconChevronDown 
                     size={16} 
-                    className={`text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
+                    className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''} opacity-50`} 
+                    style={{ color: themeStyles.textColor }}
                 />
             </button>
 
@@ -108,7 +165,11 @@ const CustomSelect = ({ value, onChange, options, placeholder }) => {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 5, scale: 0.95 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute z-50 top-full mt-2 w-full max-h-48 overflow-y-auto custom-scrollbar bg-white/90 dark:bg-[#1A1D24]/95 backdrop-blur-xl rounded-xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 p-1.5"
+                        className="absolute z-50 top-full mt-2 w-full max-h-48 overflow-y-auto custom-scrollbar backdrop-blur-xl rounded-xl shadow-xl ring-1 ring-black/5 p-1.5 border"
+                        style={{ 
+                            backgroundColor: themeStyles.modalBg,
+                            borderColor: themeStyles.borderColor
+                        }}
                     >
                         {options.map(option => (
                             <button
@@ -117,11 +178,11 @@ const CustomSelect = ({ value, onChange, options, placeholder }) => {
                                     onChange(option.value);
                                     setIsOpen(false);
                                 }}
-                                className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm font-medium transition-colors ${
-                                    value === option.value 
-                                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
-                                    : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5'
-                                }`}
+                                className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm font-medium transition-colors`}
+                                style={{ 
+                                    color: value === option.value ? themeStyles.accentText : themeStyles.textColor,
+                                    backgroundColor: value === option.value ? themeStyles.innerPanelBg : 'transparent'
+                                }}
                             >
                                 <span>{option.label}</span>
                                 {value === option.value && (
@@ -144,6 +205,19 @@ const EditProfileModal = ({
     onUpdate,
     setChangePasswordModalOpen
 }) => {
+    // --- Theme Hook ---
+    const { activeOverlay } = useTheme();
+    const themeStyles = getThemeStyles(activeOverlay);
+
+    // --- Styles ---
+    const labelStyle = `block text-xs font-bold mb-1.5 uppercase tracking-wide ml-1`;
+    const glassInput = `w-full border rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-medium text-sm`;
+
+    const baseButtonStyles = `relative font-semibold rounded-full transition-all duration-300 flex items-center justify-center gap-2 active:scale-95 tracking-wide shrink-0 select-none focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed`;
+    const primaryButton = `${baseButtonStyles} px-6 py-3 text-sm text-white bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 shadow-lg shadow-blue-500/30 border-t border-white/20 w-full`;
+    const secondaryButton = `${baseButtonStyles} px-5 py-2.5 text-sm w-full`;
+    const btnExtruded = `shadow-[4px_4px_8px_rgba(0,0,0,0.3),-4px_-4px_8px_rgba(255,255,255,0.02)] hover:shadow-[inset_2px_2px_4px_rgba(0,0,0,0.3),inset_-2px_-2px_4px_rgba(255,255,255,0.02)] active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.3),inset_-4px_-4px_8px_rgba(255,255,255,0.02)]`;
+
     // --- Profile Data State ---
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -290,11 +364,11 @@ const EditProfileModal = ({
                         key="modal-container"
                         className="fixed inset-0 z-[100] flex items-center justify-center p-4"
                     >
-                        {/* Backdrop */}
+                        {/* Backdrop - Reduced blur */}
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             onClick={onClose}
-                            className="absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm"
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                         />
 
                         {/* Modal Window */}
@@ -303,7 +377,11 @@ const EditProfileModal = ({
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.95, opacity: 0, y: 20 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                            className={windowContainerClasses}
+                            className="relative w-full max-w-lg rounded-[2rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border"
+                            style={{ 
+                                backgroundColor: themeStyles.modalBg,
+                                borderColor: themeStyles.borderColor
+                            }}
                         >
                             {/* --- Header & Cover Photo --- */}
                             <div className="relative flex-shrink-0 group/cover">
@@ -313,7 +391,7 @@ const EditProfileModal = ({
                                 </button>
 
                                 {/* Cover Photo Area */}
-                                <div className="relative w-full h-40 bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                                <div className="relative w-full h-40 bg-slate-800 overflow-hidden">
                                     <div 
                                         ref={coverPhotoRef}
                                         className={`w-full h-full relative ${coverPhotoURL && !isUploading ? 'cursor-grab active:cursor-grabbing' : ''}`}
@@ -362,8 +440,8 @@ const EditProfileModal = ({
 
                                 {/* Profile Photo Area (Overlapping) */}
                                 <div className="absolute -bottom-12 left-6">
-                                    <div className="relative w-24 h-24 rounded-full p-1 bg-white/30 dark:bg-black/30 backdrop-blur-md ring-1 ring-white/20 shadow-2xl">
-                                        <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-slate-800 relative">
+                                    <div className="relative w-24 h-24 rounded-full p-1 bg-black/30 backdrop-blur-md ring-1 ring-white/20 shadow-2xl">
+                                        <div className="w-full h-full rounded-full overflow-hidden bg-slate-800 relative">
                                             <UserInitialsAvatar user={{...userProfile, photoURL: photoURL}} size="full" className="w-full h-full text-3xl" effectsEnabled={false} />
                                             
                                             {/* Profile Upload Overlay */}
@@ -386,62 +464,125 @@ const EditProfileModal = ({
                             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar pt-14 px-6 pb-6">
                                 <div className="space-y-6">
                                     <div>
-                                        <h2 className={headingStyle + " text-2xl"}>Edit Profile</h2>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400">Update your personal details.</p>
+                                        <h2 className={headingStyle + " text-2xl"} style={{ color: themeStyles.textColor }}>Edit Profile</h2>
+                                        <p className="text-sm opacity-60" style={{ color: themeStyles.textColor }}>Update your personal details.</p>
                                     </div>
 
                                     {/* Inputs */}
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label htmlFor="firstName" className={labelStyle}>First Name</label>
-                                            <input type="text" id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={glassInput} required />
+                                            <label htmlFor="firstName" className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>First Name</label>
+                                            <input 
+                                                type="text" 
+                                                id="firstName" 
+                                                value={firstName} 
+                                                onChange={(e) => setFirstName(e.target.value)} 
+                                                className={glassInput}
+                                                style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
+                                                required 
+                                            />
                                         </div>
                                         <div>
-                                            <label htmlFor="lastName" className={labelStyle}>Last Name</label>
-                                            <input type="text" id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} className={glassInput} required />
+                                            <label htmlFor="lastName" className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Last Name</label>
+                                            <input 
+                                                type="text" 
+                                                id="lastName" 
+                                                value={lastName} 
+                                                onChange={(e) => setLastName(e.target.value)} 
+                                                className={glassInput}
+                                                style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
+                                                required 
+                                            />
                                         </div>
                                     </div>
 
                                     <div>
-                                        <label className={labelStyle}>Bio</label>
-                                        <div className="rounded-xl overflow-hidden border border-slate-200/60 dark:border-white/10 bg-slate-50/50 dark:bg-black/20">
+                                        <label className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Bio</label>
+                                        <div 
+                                            className="rounded-xl overflow-hidden border"
+                                            style={{ backgroundColor: themeStyles.inputBg, borderColor: 'transparent', color: themeStyles.textColor }}
+                                        >
                                             <ReactQuill theme="snow" value={bio} onChange={setBio} modules={quillModules} placeholder="Tell us about yourself..." />
                                         </div>
                                     </div>
 
                                     <div className="space-y-4">
                                         <div>
-                                            <label htmlFor="work" className={labelStyle}>Work</label>
-                                            <input type="text" id="work" value={work} onChange={(e) => setWork(e.target.value)} className={glassInput} placeholder="Where do you work?" />
+                                            <label htmlFor="work" className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Work</label>
+                                            <input 
+                                                type="text" 
+                                                id="work" 
+                                                value={work} 
+                                                onChange={(e) => setWork(e.target.value)} 
+                                                className={glassInput}
+                                                style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
+                                                placeholder="Where do you work?" 
+                                            />
                                         </div>
                                         <div>
-                                            <label htmlFor="education" className={labelStyle}>Education</label>
-                                            <input type="text" id="education" value={education} onChange={(e) => setEducation(e.target.value)} className={glassInput} placeholder="Where did you study?" />
+                                            <label htmlFor="education" className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Education</label>
+                                            <input 
+                                                type="text" 
+                                                id="education" 
+                                                value={education} 
+                                                onChange={(e) => setEducation(e.target.value)} 
+                                                className={glassInput}
+                                                style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
+                                                placeholder="Where did you study?" 
+                                            />
                                         </div>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div>
-                                                <label htmlFor="current_city" className={labelStyle}>Current City</label>
-                                                <input type="text" id="current_city" value={current_city} onChange={(e) => setCurrentCity(e.target.value)} className={glassInput} />
+                                                <label htmlFor="current_city" className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Current City</label>
+                                                <input 
+                                                    type="text" 
+                                                    id="current_city" 
+                                                    value={current_city} 
+                                                    onChange={(e) => setCurrentCity(e.target.value)} 
+                                                    className={glassInput}
+                                                    style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
+                                                />
                                             </div>
                                             <div>
-                                                <label htmlFor="hometown" className={labelStyle}>Hometown</label>
-                                                <input type="text" id="hometown" value={hometown} onChange={(e) => setHometown(e.target.value)} className={glassInput} />
+                                                <label htmlFor="hometown" className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Hometown</label>
+                                                <input 
+                                                    type="text" 
+                                                    id="hometown" 
+                                                    value={hometown} 
+                                                    onChange={(e) => setHometown(e.target.value)} 
+                                                    className={glassInput}
+                                                    style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
+                                                />
                                             </div>
                                         </div>
                                         <div>
-                                            <label htmlFor="mobile_phone" className={labelStyle}>Mobile Phone</label>
-                                            <input type="tel" id="mobile_phone" value={mobile_phone} onChange={(e) => setMobilePhone(e.target.value)} className={glassInput} />
+                                            <label htmlFor="mobile_phone" className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Mobile Phone</label>
+                                            <input 
+                                                type="tel" 
+                                                id="mobile_phone" 
+                                                value={mobile_phone} 
+                                                onChange={(e) => setMobilePhone(e.target.value)} 
+                                                className={glassInput}
+                                                style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
+                                            />
                                         </div>
                                         
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div>
-                                                <label className={labelStyle}>Relationship Status</label>
-                                                <CustomSelect value={relationship_status} onChange={setRelationshipStatus} options={relationshipOptions} placeholder="Select status..." />
+                                                <label className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Relationship Status</label>
+                                                <CustomSelect value={relationship_status} onChange={setRelationshipStatus} options={relationshipOptions} placeholder="Select status..." themeStyles={themeStyles} />
                                             </div>
                                             {(relationship_status === 'In a Relationship' || relationship_status === 'Married') && (
                                                 <div>
-                                                    <label htmlFor="partner" className={labelStyle}>Partner's Name</label>
-                                                    <input type="text" id="partner" value={relationship_partner} onChange={(e) => setRelationshipPartner(e.target.value)} className={glassInput} />
+                                                    <label htmlFor="partner" className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Partner's Name</label>
+                                                    <input 
+                                                        type="text" 
+                                                        id="partner" 
+                                                        value={relationship_partner} 
+                                                        onChange={(e) => setRelationshipPartner(e.target.value)} 
+                                                        className={glassInput}
+                                                        style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
+                                                    />
                                                 </div>
                                             )}
                                         </div>
@@ -449,7 +590,7 @@ const EditProfileModal = ({
                                 </div>
 
                                 {/* Footer Actions */}
-                                <div className="mt-8 space-y-3 pt-6 border-t border-slate-200/60 dark:border-white/10">
+                                <div className="mt-8 space-y-3 pt-6 border-t" style={{ borderColor: themeStyles.borderColor }}>
                                     <button type="submit" disabled={loading || isUploading || isUploadingProfile} className={primaryButton}>
                                         {loading ? (
                                             <>
@@ -463,7 +604,12 @@ const EditProfileModal = ({
                                             </>
                                         )}
                                     </button>
-                                    <button type="button" onClick={handleChangePasswordClick} className={secondaryButton}>
+                                    <button 
+                                        type="button" 
+                                        onClick={handleChangePasswordClick} 
+                                        className={`${secondaryButton} ${btnExtruded}`}
+                                        style={{ backgroundColor: themeStyles.innerPanelBg, color: themeStyles.textColor }}
+                                    >
                                         <IconKey size={16} />
                                         Change Password
                                     </button>
@@ -474,14 +620,15 @@ const EditProfileModal = ({
                 )}
             </AnimatePresence>
             
-            {/* Global Styles for Quill Overrides - MOVED OUTSIDE ANIMATEPRESENCE */}
+            {/* Global Styles for Quill Overrides */}
             <style>{`
                 .ql-toolbar.ql-snow { border: none !important; border-bottom: 1px solid rgba(200,200,200,0.2) !important; background: rgba(255,255,255,0.05); }
                 .ql-container.ql-snow { border: none !important; font-family: inherit !important; }
-                .ql-editor { min-height: 100px; color: inherit; font-size: 0.95rem; }
+                .ql-editor { min-height: 100px; font-size: 0.95rem; }
                 .ql-stroke { stroke: currentColor !important; }
                 .ql-fill { fill: currentColor !important; }
                 .ql-picker { color: currentColor !important; }
+                .ql-editor.ql-blank::before { color: rgba(150,150,150,0.5); font-style: normal; }
             `}</style>
         </>
     );

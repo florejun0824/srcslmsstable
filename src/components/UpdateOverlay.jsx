@@ -109,8 +109,8 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
       setMessage("Preparing update...");
       
       // --- LOGIC UPDATE: 1.5 Minutes (90 Seconds) ---
-      const totalDuration = 90000; // 90,000ms = 1.5 minutes
-      const updateFrequency = 100; // Update every 100ms for smoothness
+      const totalDuration = 180000; // 90,000ms = 3 minutes
+      const updateFrequency = 200; // Update every 100ms for smoothness
       const totalSteps = totalDuration / updateFrequency;
       const incrementPerStep = 99 / totalSteps; // Target 99%
       

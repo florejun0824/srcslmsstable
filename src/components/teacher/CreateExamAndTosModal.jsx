@@ -423,16 +423,18 @@ const getTosPlannerPrompt = (guideData) => {
         totalConfiguredItems, 
         formattedTestStructure,
         selectedCourse,
-        selectedLessons
+        selectedLessons,
+        gradeLevel 
     } = guideData;
 
     const examTitle = `Periodical Exam for ${selectedCourse?.title || 'Subject'}`;
     const subject = selectedCourse?.title || 'Not Specified';
-    const gradeLevel = selectedCourse?.gradeLevel || 'Not Specified';
+    // Use the explicit gradeLevel from the picker
+    const gradeLevelText = gradeLevel || selectedCourse?.gradeLevel || 'Not Specified';
     const combinedLessonTitles = selectedLessons.map(lesson => lesson.title).join(', ');
 
     return `
-    You are an expert educational assessment planner. Your *only* task is to generate a detailed Table of Specifications (TOS) in JSON format. Do NOT generate exam questions.
+    You are an expert educational assessment planner for the Philippines K-12 curriculum. Your *only* task is to generate a detailed Table of Specifications (TOS) in JSON format. Do NOT generate exam questions.
 
     **PRIMARY DIRECTIVE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
     ---
@@ -440,7 +442,7 @@ const getTosPlannerPrompt = (guideData) => {
     {
         "examTitle": "${examTitle}",
         "tos": {
-            "header": { "examTitle": "${examTitle}", "subject": "${subject}", "gradeLevel": "${gradeLevel}" },
+            "header": { "examTitle": "${examTitle}", "subject": "${subject}", "gradeLevel": "${gradeLevelText}" },
             "competencyBreakdown": [
                 { "competency": "...", "noOfHours": 0, "weightPercentage": "...", "noOfItems": 0, "easyItems": { "count": 0, "itemNumbers": "..." }, "averageItems": { "count": 0, "itemNumbers": "..." }, "difficultItems": { "count": 0, "itemNumbers": "..." } }
             ],
@@ -449,6 +451,7 @@ const getTosPlannerPrompt = (guideData) => {
     }
     ---
     **INPUT DATA**
+    - **Grade Level:** ${gradeLevelText} (Strictly adhere to this difficulty level)
     - **Lesson Titles:** "${combinedLessonTitles}"
     - **Learning Competencies:** \`\`\`${learningCompetencies}\`\`\`
     - **Language:** ${language}
@@ -473,8 +476,8 @@ const getTosPlannerPrompt = (guideData) => {
     `;
 };
 
-const getExamComponentPrompt = (guideData, generatedTos, testType) => {
-    const { language, combinedContent } = guideData;
+const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuestionsSummary) => {
+    const { language, combinedContent, gradeLevel } = guideData;
     const { type, numItems, range } = testType;
     
     const normalizedType = type.toLowerCase();
@@ -483,7 +486,7 @@ const getExamComponentPrompt = (guideData, generatedTos, testType) => {
     const tosContext = JSON.stringify(generatedTos, null, 2);
 
     return `
-    You are an expert exam question writer. Your task is to generate *only* the questions for a specific section of an exam.
+    You are an expert exam question writer for the Philippines K-12 curriculum. Your task is to generate *only* the questions for a specific section of an exam.
 
     **PRIMARY DIRECTIVE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
     ---
@@ -501,6 +504,7 @@ const getExamComponentPrompt = (guideData, generatedTos, testType) => {
     }
     ---
     **INPUT DATA**
+    - **Target Grade Level:** ${gradeLevel} (Adjust vocabulary, sentence length, and conceptual complexity to match this grade level).
     - **Lesson Content:** \`\`\`${combinedContent}\`\`\`
     - **Language:** ${language}
     - **Full Table of Specifications (TOS):** ${tosContext}
@@ -518,27 +522,33 @@ const getExamComponentPrompt = (guideData, generatedTos, testType) => {
     - **TOS Adherence:** Ensure the questions you generate for this range (${range}) match the competencies and difficulty levels specified for those item numbers in the provided "Full Table of Specifications".
 
     **CRITICAL GENERATION RULES:**
-    1.  **MULTIPLE CHOICE OPTIONS:** The 'options' array MUST contain the option text ONLY. DO NOT include prefixes like "a)".
+    1.  **NO REDUNDANCY (STRICT):** The following questions have ALREADY been generated for other parts of this exam. 
+        **DO NOT** ask about the same specific facts, definitions, or scenarios found in this list. You must cover DIFFERENT aspects of the lesson content:
+        \`\`\`
+        ${previousQuestionsSummary || "No previous questions generated yet."}
+        \`\`\`
+
+    2.  **MULTIPLE CHOICE OPTIONS:** The 'options' array MUST contain the option text ONLY. DO NOT include prefixes like "a)".
     
-    2.  **ESSAY / SOLVING:** If the **Test Type** is "Essay" or "Solving", you MUST generate **ONE prompt**. The "Item Range" (${range}) represents the item numbers this single question covers, and the "Number of Items" (${numItems}) represents the **total points** it is worth. You MUST create a scoring rubric that totals **${numItems}** points. The \`questionNumber\` in the JSON should be the first number in the range (e.g., for "46-50", use 46).
+    3.  **ESSAY / SOLVING:** If the **Test Type** is "Essay" or "Solving", you MUST generate **ONE prompt**. The "Item Range" (${range}) represents the item numbers this single question covers, and the "Number of Items" (${numItems}) represents the **total points** it is worth. You MUST create a scoring rubric that totals **${numItems}** points. The \`questionNumber\` in the JSON should be the first number in the range (e.g., for "46-50", use 46).
     
-    3.  **IDENTIFICATION (STRICT PHRASING):** - Group all items. Generate a single \`choicesBox\` with all answers plus ONE distractor.
+    4.  **IDENTIFICATION (STRICT PHRASING):** - Group all items. Generate a single \`choicesBox\` with all answers plus ONE distractor.
         - **DO NOT start questions with the word "Identify".** Since the instruction already says "Identify the term," using it again is redundant.
         - Phrase the question as a declarative statement, description, or definition.
         - *Incorrect Example:* "Identify the factor that..."
         - *Correct Example:* "It is the factor that..." or "This internal disposition leads a person to..."
 
-    4.  **MATCHING TYPE (STRICT):** Use the \`"type": "matching-type"\` format with \`prompts\`, \`options\`, \`correctPairs\`, and one distractor in \`options\`. The entire test for this range must be a SINGLE object in the "questions" array.
+    5.  **MATCHING TYPE (STRICT):** Use the \`"type": "matching-type"\` format with \`prompts\`, \`options\`, \`correctPairs\`, and one distractor in \`options\`. The entire test for this range must be a SINGLE object in the "questions" array.
     
-    5.  **CONTENT ADHERENCE & TOPIC FIDELITY (ABSOLUTE RULE):**
+    6.  **CONTENT ADHERENCE & TOPIC FIDELITY (ABSOLUTE RULE):**
         - All questions, options, and explanations MUST be derived STRICTLY and SOLELY from the provided **Lesson Content**.
         - DO NOT generate meta-questions. The quiz must test the student on the lesson material.
         - You are **STRICTLY FORBIDDEN** from using any phrases that refer back to the source material. It is forbidden to use text like "According to the lesson," "Based on the topic," "As mentioned in the content," or any similar citations. The questions must stand on their own.
     `;
 };
 
-const generateExamComponent = async (guideData, generatedTos, testType, isGenerationRunningRef, maxRetries = 3) => {
-    const prompt = getExamComponentPrompt(guideData, generatedTos, testType);
+const generateExamComponent = async (guideData, generatedTos, testType, previousQuestionsSummary, isGenerationRunningRef, maxRetries = 3) => {
+    const prompt = getExamComponentPrompt(guideData, generatedTos, testType, previousQuestionsSummary);
     
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         if (!isGenerationRunningRef.current) throw new Error("Generation aborted by user.");
@@ -590,15 +600,36 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
     const [learningCompetencies, setLearningCompetencies] = useState('');
     const [testTypes, setTestTypes] = useState([]);
     const [totalHours, setTotalHours] = useState('');
+    const [gradeLevel, setGradeLevel] = useState('');
     const [isSaveOptionsOpen, setIsSaveOptionsOpen] = useState(false);
 
     const isGenerationRunning = useRef(false);
+
+    const gradeLevels = [
+        'Kinder',
+        'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6',
+        'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10',
+        'Grade 11', 'Grade 12'
+    ];
 
     useEffect(() => {
         return () => {
             isGenerationRunning.current = false;
         };
     }, []);
+
+    // Effect to set grade level when course changes, but allow manual override
+    useEffect(() => {
+        if (selectedCourse?.gradeLevel) {
+            // Check if the course grade level matches one of our options approx
+            const found = gradeLevels.find(g => selectedCourse.gradeLevel.includes(g));
+            if (found) {
+                setGradeLevel(found);
+            } else {
+                setGradeLevel(selectedCourse.gradeLevel);
+            }
+        }
+    }, [selectedCourse]);
 
     const handleClose = useCallback(() => {
         isGenerationRunning.current = false;
@@ -653,7 +684,8 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
             selectedCourse,
             selectedLessons,
             combinedContent,
-            combinedLessonTitles
+            combinedLessonTitles,
+            gradeLevel 
         };
 
         let generatedTos = null;
@@ -706,10 +738,16 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 
                 showToast(`Generating ${testType.type} (Items ${testType.range})...`, "info", 10000);
                 
+                // Get summary of questions generated so far to prevent redundancy
+                const previousQuestionsSummary = allGeneratedQuestions
+                    .map(q => `- ${q.question} (Type: ${q.type})`)
+                    .join('\n');
+                
                 const componentData = await generateExamComponent(
                     guideData, 
                     generatedTos, 
                     testType,
+                    previousQuestionsSummary,
                     isGenerationRunning 
                 );
 
@@ -1063,6 +1101,28 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                             {/* RIGHT COLUMN */}
                             <div className="space-y-6">
                                 <div className="p-5 rounded-2xl shadow-lg h-full flex flex-col transition-colors duration-500" style={{ backgroundColor: themeStyles.innerPanelBg }}>
+                                    {/* Grade Level Selection - Added Here */}
+                                    <div className="mb-6 pb-6 border-b" style={{ borderColor: themeStyles.borderColor }}>
+                                        <h3 className="text-lg font-semibold mb-4" style={{ color: themeStyles.textColor }}>Target Level</h3>
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1.5 opacity-80" style={{ color: themeStyles.textColor }}>Grade Level (Context)</label>
+                                            <select 
+                                                value={gradeLevel} 
+                                                onChange={e => setGradeLevel(e.target.value)} 
+                                                className={neumorphicSelect} 
+                                                style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor }}
+                                            >
+                                                <option value="" disabled>Select Grade Level</option>
+                                                {gradeLevels.map((level) => (
+                                                    <option key={level} value={level}>{level}</option>
+                                                ))}
+                                            </select>
+                                            <p className="text-xs mt-2 opacity-60" style={{ color: themeStyles.textColor }}>
+                                                This sets the difficulty and vocabulary level for the generated questions.
+                                            </p>
+                                        </div>
+                                    </div>
+
                                     <div className="flex justify-between items-center mb-4">
                                         <div>
                                             <h3 className="text-lg font-semibold" style={{ color: themeStyles.textColor }}>Test Structure</h3>
