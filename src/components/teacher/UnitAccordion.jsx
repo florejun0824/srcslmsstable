@@ -208,6 +208,7 @@ const ContentListSkeleton = () => (
 );
 
 // Menus
+// around line 183
 const MenuPortal = ({ children, menuStyle, onClose, monet }) => {
     const menuRef = useRef(null);
     
@@ -229,9 +230,10 @@ const MenuPortal = ({ children, menuStyle, onClose, monet }) => {
         };
     }, [onClose]);
     
+    // ADDED z-[9999] to both strings below to ensure menu floats above sticky headers and lists
     const containerClass = monet 
-        ? `fixed backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-white/10 p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1 bg-[#1E212B]/90 border border-white/10`
-        : `fixed bg-white/90 dark:bg-[#1E212B]/95 backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-black/5 p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1 border border-white/20 dark:border-white/5`;
+        ? `fixed z-[9999] backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-white/10 p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1 bg-[#1E212B]/90 border border-white/10`
+        : `fixed z-[9999] bg-white/90 dark:bg-[#1E212B]/95 backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-black/5 p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1 border border-white/20 dark:border-white/5`;
 
     return createPortal(
         <div 
@@ -244,7 +246,8 @@ const MenuPortal = ({ children, menuStyle, onClose, monet }) => {
         document.body
     );
 };
-
+// Create a context to handle closing the menu from anywhere inside
+const MenuContext = React.createContext(() => {});
 const ActionMenu = ({ children, monet, styles }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [menuStyle, setMenuStyle] = useState({});
@@ -258,13 +261,10 @@ const ActionMenu = ({ children, monet, styles }) => {
             return;
         }
 
-        // --- FIX FOR OVERFLOW (Problem 2) ---
         const rect = iconRef.current.getBoundingClientRect();
         const screenHeight = window.innerHeight;
         const spaceBelow = screenHeight - rect.bottom;
         
-        // Estimate menu height (approx 40px per item * 5 items = ~200px)
-        // If space below is less than 220px, flip upwards
         const shouldFlip = spaceBelow < 220; 
 
         let newStyle = { 
@@ -275,11 +275,9 @@ const ActionMenu = ({ children, monet, styles }) => {
         };
 
         if (shouldFlip) {
-            // Position above the button
             newStyle.bottom = `${screenHeight - rect.top + 5}px`;
             newStyle.transformOrigin = 'bottom right';
         } else {
-            // Position below the button
             newStyle.top = `${rect.bottom + 5}px`;
             newStyle.transformOrigin = 'top right';
         }
@@ -299,37 +297,41 @@ const ActionMenu = ({ children, monet, styles }) => {
             
             {isOpen && (
                 <MenuPortal menuStyle={menuStyle} onClose={closeMenu} monet={monet}>
-                    {/* --- FIX FOR STICKY MENU (Problem 1) --- */}
-                    {/* We map over the children (MenuItems) and inject the closeMenu function */}
-                    {React.Children.map(children, (child) => {
-                        if (React.isValidElement(child)) {
-                            return React.cloneElement(child, {
-                                onClick: (e) => {
-                                    // Execute the original action
-                                    if (child.props.onClick) child.props.onClick(e);
-                                    // Close the menu immediately
-                                    closeMenu();
-                                }
-                            });
-                        }
-                        return child;
-                    })}
+                    {/* PROVIDE THE CLOSE FUNCTION TO ALL CHILDREN */}
+                    <MenuContext.Provider value={closeMenu}>
+                        {children}
+                    </MenuContext.Provider>
                 </MenuPortal>
             )}
         </>
     );
 };
+const MenuItem = ({ icon: Icon, text, onClick, disabled, loading, monet }) => {
+    // 1. Get the close function from context
+    const closeMenu = React.useContext(MenuContext);
 
-const MenuItem = ({ icon: Icon, text, onClick, disabled, loading, monet }) => (
-    <button 
-        onClick={onClick} 
-        disabled={disabled || loading} 
-        className={`flex items-center w-full px-3 py-2.5 text-sm font-semibold rounded-xl transition-colors ${monet ? 'hover:bg-white/10 text-white' : 'hover:bg-blue-50 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200'}`}
-    >
-        <Icon className={`h-4 w-4 mr-3 ${loading ? 'animate-spin text-blue-500' : (monet ? 'text-white/60' : 'text-slate-400')}`} />
-        {text}
-    </button>
-);
+    // 2. Wrap the click handler
+    const handleClick = (e) => {
+        if (disabled || loading) return;
+        
+        // Execute the actual action passed via props
+        if (onClick) onClick(e);
+        
+        // Close the menu immediately
+        if (closeMenu) closeMenu();
+    };
+
+    return (
+        <button 
+            onClick={handleClick} 
+            disabled={disabled || loading} 
+            className={`flex items-center w-full px-3 py-2.5 text-sm font-semibold rounded-xl transition-colors ${monet ? 'hover:bg-white/10 text-white' : 'hover:bg-blue-50 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200'}`}
+        >
+            <Icon className={`h-4 w-4 mr-3 ${loading ? 'animate-spin text-blue-500' : (monet ? 'text-white/60' : 'text-slate-400')}`} />
+            {text}
+        </button>
+    );
+};
 
 const AddContentButton = ({ onAddLesson, onAddQuiz, monet, styles }) => {
     const [isOpen, setIsOpen] = useState(false);
