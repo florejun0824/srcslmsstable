@@ -261,7 +261,10 @@ const generateExamQuestionsMarkdown = (questions, language) => {
             markdown += `\n# ${romanNumerals[typeCounter]}. ${typeHeader}\n`;
             typeCounter++;
             
-            if (type === 'interpretive' && questionsOfType[0].passage) {
+            // --- FIX: Force Standard Instruction for Identification ---
+            if (type === 'identification') {
+                 markdown += `${t['identification']}\n\n`;
+            } else if (type === 'interpretive' && questionsOfType[0].passage) {
                 markdown += `${questionsOfType[0].instruction || t[type]}\n\n`;
                 markdown += `> ${questionsOfType[0].passage.replace(/\n/g, '\n> ')}\n\n`;
             } else {
@@ -269,17 +272,35 @@ const generateExamQuestionsMarkdown = (questions, language) => {
             }
 
             if (type === 'identification') {
-                const choices = questionsOfType[0]?.choicesBox;
+                // --- FIX: Handle [object Object] in Choices Box ---
+                // We look at the first question to find the 'choicesBox' array
+                const firstQ = questionsOfType[0];
+                const choices = firstQ?.choicesBox;
+                
                 if (choices) {
-                    // Safe handling for string vs array
-                    const choicesMarkdown = Array.isArray(choices) 
-                        ? choices.map(choice => `**${choice}**`).join(' &nbsp; &nbsp; • &nbsp; &nbsp; ')
-                        : `**${choices}**`;
-                    markdown += `<div style="border: 1px solid #ccc; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 15px;">\n${choicesMarkdown}\n</div>\n\n`;
+                    let cleanChoices = [];
+                    if (Array.isArray(choices)) {
+                        // If it's an array of objects (e.g. {id: 1, text: "Answer"}), extract the text
+                        cleanChoices = choices.map(c => {
+                            if (typeof c === 'object' && c !== null) {
+                                return c.text || c.value || c.answer || JSON.stringify(c);
+                            }
+                            return String(c);
+                        });
+                    } else {
+                        // If it's a single string, wrap it
+                        cleanChoices = [String(choices)];
+                    }
+
+                    // Render the box beautifully
+                    const choicesMarkdown = cleanChoices.map(choice => `**${choice}**`).join(' &nbsp; &nbsp; • &nbsp; &nbsp; ');
+                    markdown += `<div style="border: 1px solid #ccc; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 15px; background-color: rgba(255,255,255,0.05);">\n${choicesMarkdown}\n</div>\n\n`;
                 }
+
                 questionsOfType.forEach(q => {
                     markdown += `${q.questionNumber}. ${q.question} \n   **Answer:** __________________\n\n`;
                 });
+
             } else if (type === 'matching-type') {
                  markdown += `| ${t.columnA} | ${t.columnB} |\n`;
                  markdown += `|---|---|\n`;
@@ -802,119 +823,150 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
         await batch.commit();
     };
 
-    const saveAsQuiz = async () => {
-        const uniqueQuestions = [];
-        const seenGroupableTypes = new Set();
-        for (const q of previewData.examQuestions) {
-            const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
+	const saveAsQuiz = async () => {
+	        const uniqueQuestions = [];
+	        const seenGroupableTypes = new Set();
+        
+	        // --- FIX: Extract Global Choices for Identification ---
+	        // Sometimes the AI puts the 'choicesBox' only on the first question. 
+	        // We need to find it and pass it to ALL identification questions so they aren't "orphaned".
+	        const identQuestions = previewData.examQuestions.filter(q => (q.type||'').toLowerCase().includes('identification'));
+	        let globalIdentChoices = null;
+        
+	        const firstIdentWithChoices = identQuestions.find(q => q.choicesBox && (Array.isArray(q.choicesBox) || typeof q.choicesBox === 'string'));
+	        if (firstIdentWithChoices) {
+	            // clean the choices for the quiz payload
+	            const rawBox = firstIdentWithChoices.choicesBox;
+	            if (Array.isArray(rawBox)) {
+	                 globalIdentChoices = rawBox.map(c => (typeof c === 'object' ? c.text || c.value : c));
+	            } else {
+	                 globalIdentChoices = [rawBox];
+	            }
+	        }
+
+	        for (const q of previewData.examQuestions) {
+	            const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
             
-            // --- FIX: Removed 'identification' from isGroupable ---
-            // Identification questions are individual objects, so we must save ALL of them.
-            const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type'; 
+	            // Matching types are grouped (one object for many questions), others are individual
+	            const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type'; 
 
-            if (isGroupable) {
-                if (!seenGroupableTypes.has(normalizedType)) {
-                    uniqueQuestions.push(q);
-                    seenGroupableTypes.add(normalizedType);
-                }
-            } else {
-                uniqueQuestions.push(q);
-            }
-        }
+	            if (isGroupable) {
+	                if (!seenGroupableTypes.has(normalizedType)) {
+	                    uniqueQuestions.push(q);
+	                    seenGroupableTypes.add(normalizedType);
+	                }
+	            } else {
+	                // All other types (Multiple Choice, Identification, Essay) are added individually
+	                uniqueQuestions.push(q);
+	            }
+	        }
 
-        const quizQuestions = uniqueQuestions
-            .map(q => {
-                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
+	        const quizQuestions = uniqueQuestions
+	            .map(q => {
+	                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
             
-                const questionText = (normalizedType === 'interpretive' && q.passage)
-                    ? `${q.passage}\n\n${q.question || ''}`
-                    : (q.question || 'Missing question text from AI.');
+	                const questionText = (normalizedType === 'interpretive' && q.passage)
+	                    ? `${q.passage}\n\n${q.question || ''}`
+	                    : (q.question || 'Missing question text from AI.');
 
-                const baseQuestion = {
-                    text: questionText,
-                    difficulty: q.difficulty || 'easy',
-                    explanation: q.explanation || '',
-                };
+	                const baseQuestion = {
+	                    text: questionText,
+	                    difficulty: q.difficulty || 'easy',
+	                    explanation: q.explanation || '',
+	                };
 
-                if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
-                    const options = q.options || [];
-                    const correctAnswerText = (q.correctAnswer || '').replace(/^[a-d]\.\s*/i, '').trim();
-                    const correctIndex = options.findIndex(opt => opt === correctAnswerText);
+	                // --- 1. Multiple Choice / Analogy ---
+	                if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
+	                    const options = q.options || [];
+	                    const correctAnswerText = (q.correctAnswer || '').replace(/^[a-d]\.\s*/i, '').trim();
+	                    const correctIndex = options.findIndex(opt => opt === correctAnswerText);
 
-                    if (options.length > 0 && correctIndex > -1) {
-                        return {
-                            ...baseQuestion,
-                            type: 'multiple-choice',
-                            options: options.map(opt => ({ text: opt, isCorrect: opt === correctAnswerText })),
-                            correctAnswerIndex: correctIndex,
-                        };
-                    }
-                }
-                if (normalizedType === 'alternative_response') {
-                    if (typeof q.correctAnswer === 'string') {
-                        return {
-                            ...baseQuestion,
-                            type: 'true-false',
-                            correctAnswer: q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama',
-                        };
-                    }
-                }
-                if (normalizedType === 'identification' || normalizedType === 'solving') {
-                    if (q.correctAnswer) {
-                        return {
-                            ...baseQuestion,
-                            type: 'identification',
-                            correctAnswer: q.correctAnswer,
-                            choicesBox: q.choicesBox || null,
-                        };
-                    }
-                }
-                if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
-                    const prompts = q.prompts || [];
-                    const options = q.options || [];
-                    const correctPairs = q.correctPairs || {};
-
-                    if (prompts.length > 0 && options.length > 0 && Object.keys(correctPairs).length > 0) {
-                        return {
-                            ...baseQuestion,
-                            text: q.instruction || 'Match the following items.',
-                            type: 'matching-type',
-                            prompts: prompts,
-                            options: options,
-                            correctPairs: correctPairs,
-                        };
-                    }
-                }
+	                    if (options.length > 0 && correctIndex > -1) {
+	                        return {
+	                            ...baseQuestion,
+	                            type: 'multiple-choice',
+	                            options: options.map(opt => ({ text: opt, isCorrect: opt === correctAnswerText })),
+	                            correctAnswerIndex: correctIndex,
+	                        };
+	                    }
+	                }
                 
-                if (normalizedType === 'essay') {
-                    return {
-                        ...baseQuestion,
-                        type: 'essay',
-                        rubric: q.rubric || [],
-                    };
-                }
+	                // --- 2. True/False ---
+	                if (normalizedType === 'alternative_response') {
+	                    if (typeof q.correctAnswer === 'string') {
+	                        return {
+	                            ...baseQuestion,
+	                            type: 'true-false',
+	                            correctAnswer: q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama',
+	                        };
+	                    }
+	                }
+                
+	                // --- 3. Identification (Fix for Missing Questions) ---
+	                if (normalizedType === 'identification' || normalizedType === 'solving') {
+	                    // Identification requires the student to TYPE the answer.
+	                    // We check for 'correctAnswer' OR 'answer'
+	                    const answer = q.correctAnswer || q.answer;
+                    
+	                    if (answer) {
+	                        return {
+	                            ...baseQuestion,
+	                            type: 'identification',
+	                            correctAnswer: answer,
+	                            // We pass the choicesBox (bank) so the Quiz UI *can* display it as a reference if it wants to.
+	                            choicesBox: globalIdentChoices, 
+	                        };
+	                    }
+	                }
+                
+	                // --- 4. Matching Type ---
+	                if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
+	                    const prompts = q.prompts || [];
+	                    const options = q.options || [];
+	                    const correctPairs = q.correctPairs || {};
 
-                return null;
-            })
-            .filter(Boolean);
+	                    if (prompts.length > 0 && options.length > 0 && Object.keys(correctPairs).length > 0) {
+	                        return {
+	                            ...baseQuestion,
+	                            text: q.instruction || 'Match the following items.',
+	                            type: 'matching-type',
+	                            prompts: prompts,
+	                            options: options,
+	                            correctPairs: correctPairs,
+	                        };
+	                    }
+	                }
+                
+	                // --- 5. Essay ---
+	                if (normalizedType === 'essay') {
+	                    return {
+	                        ...baseQuestion,
+	                        type: 'essay',
+	                        rubric: q.rubric || [],
+	                    };
+	                }
 
-        if (quizQuestions.length === 0) {
-            throw new Error("No compatible, well-formed questions were generated to create an interactive quiz.");
-        }
+	                return null;
+	            })
+	            .filter(Boolean);
 
-        const quizRef = doc(collection(db, 'quizzes'));
-        const quizData = {
-            title: `Quiz: ${previewData.examTitle || 'Generated Exam'}`,
-            language: language,
-            unitId: unitId,
-            subjectId: subjectId,
-            lessonId: null,
-            createdAt: serverTimestamp(),
-            createdBy: 'AI',
-            questions: quizQuestions,
-        };
-        await setDoc(quizRef, quizData);
-    };
+	        if (quizQuestions.length === 0) {
+	            throw new Error("No compatible, well-formed questions were generated to create an interactive quiz.");
+	        }
+
+	        const quizRef = doc(collection(db, 'quizzes'));
+	        const quizData = {
+	            title: `Quiz: ${previewData.examTitle || 'Generated Exam'}`,
+	            language: language,
+	            unitId: unitId,
+	            subjectId: subjectId,
+	            lessonId: null, // If saved as both, you might want to link this, but null is safer for now
+	            createdAt: serverTimestamp(),
+	            createdBy: 'AI',
+	            questions: quizQuestions,
+	        };
+	        await setDoc(quizRef, quizData);
+	    };
 
     const handleFinalSave = async (saveType) => {
         if (!previewData) {
@@ -1208,17 +1260,21 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                                                     {data.instruction && <p className="text-sm font-medium italic my-2 opacity-80" style={{ color: themeStyles.textColor }}>{data.instruction}</p>}
                                                                     {data.passage && <p className="text-sm my-2 p-3 rounded-xl border opacity-90" style={{ backgroundColor: themeStyles.innerPanelBg, borderColor: themeStyles.borderColor, color: themeStyles.textColor }}>{data.passage}</p>}
 
-                                                                    {type === 'identification' && data.choicesBox && (
-                                                                        <div className="text-center p-3 my-4 border rounded-xl" style={{ backgroundColor: themeStyles.inputBg, borderColor: themeStyles.borderColor }}>
-                                                                            <p className="text-sm font-semibold" style={{ color: themeStyles.textColor }}>
-                                                                                {/* FIX: Handle string or array choicesBox safely */}
-                                                                                {Array.isArray(data.choicesBox) 
-                                                                                    ? data.choicesBox.join('   •   ')
-                                                                                    : String(data.choicesBox)
-                                                                                }
-                                                                            </p>
-                                                                        </div>
-                                                                    )}
+																	{type === 'identification' && data.choicesBox && (
+																	    <div className="text-center p-3 my-4 border rounded-xl" style={{ backgroundColor: themeStyles.inputBg, borderColor: themeStyles.borderColor }}>
+																	        <p className="text-sm font-semibold" style={{ color: themeStyles.textColor }}>
+																	            {/* FIX: Handle string vs object array vs single string safely */}
+																	            {(() => {
+																	                const box = data.choicesBox;
+																	                if (Array.isArray(box)) {
+																	                    // Map objects to text if necessary (e.g., {id:1, text:'A'} -> 'A')
+																	                    return box.map(c => (typeof c === 'object' ? c.text || c.value : c)).join('   •   ');
+																	                }
+																	                return String(box);
+																	            })()}
+																	        </p>
+																	    </div>
+																	)}
                                                                     <div className="space-y-5 mt-4">
                                                                         {type === 'matching-type' ? (
                                                                             (() => {
