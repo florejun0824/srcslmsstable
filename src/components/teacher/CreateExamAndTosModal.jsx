@@ -769,115 +769,124 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
         await batch.commit();
     };
 
-    const saveAsQuiz = async () => {
-        const uniqueQuestions = [];
-        const seenGroupableTypes = new Set();
-        for (const q of previewData.examQuestions) {
-            const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
-            const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type' || normalizedType === 'identification';
-            if (isGroupable) {
-                if (!seenGroupableTypes.has(normalizedType)) {
-                    uniqueQuestions.push(q);
-                    seenGroupableTypes.add(normalizedType);
-                }
-            } else {
-                uniqueQuestions.push(q);
-            }
-        }
+	const saveAsQuiz = async () => {
+	        const uniqueQuestions = [];
+	        const seenGroupableTypes = new Set();
 
-        const quizQuestions = uniqueQuestions
-            .map(q => {
-                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
+	        for (const q of previewData.examQuestions) {
+	            const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
             
-                const questionText = (normalizedType === 'interpretive' && q.passage)
-                    ? `${q.passage}\n\n${q.question || ''}`
-                    : (q.question || 'Missing question text from AI.');
+	            // --- FIX: Removed 'identification' from isGroupable ---
+	            // Identification questions are individual objects (Q1, Q2...), so we must save ALL of them.
+	            // Matching Type is the only one that usually comes as a single "container" object.
+	            const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type'; 
 
-                const baseQuestion = {
-                    text: questionText,
-                    difficulty: q.difficulty || 'easy',
-                    explanation: q.explanation || '',
-                };
+	            if (isGroupable) {
+	                // If it's matching type, only take the first instance (since it contains all pairs)
+	                if (!seenGroupableTypes.has(normalizedType)) {
+	                    uniqueQuestions.push(q);
+	                    seenGroupableTypes.add(normalizedType);
+	                }
+	            } else {
+	                // For everything else (Multiple Choice, Identification, Essay), add EVERY question
+	                uniqueQuestions.push(q);
+	            }
+	        }
 
-                if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
-                    const options = q.options || [];
-                    const correctAnswerText = (q.correctAnswer || '').replace(/^[a-d]\.\s*/i, '').trim();
-                    const correctIndex = options.findIndex(opt => opt === correctAnswerText);
+	        const quizQuestions = uniqueQuestions
+	            .map(q => {
+	                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
+            
+	                const questionText = (normalizedType === 'interpretive' && q.passage)
+	                    ? `${q.passage}\n\n${q.question || ''}`
+	                    : (q.question || 'Missing question text from AI.');
 
-                    if (options.length > 0 && correctIndex > -1) {
-                        return {
-                            ...baseQuestion,
-                            type: 'multiple-choice',
-                            options: options.map(opt => ({ text: opt, isCorrect: opt === correctAnswerText })),
-                            correctAnswerIndex: correctIndex,
-                        };
-                    }
-                }
-                if (normalizedType === 'alternative_response') {
-                    if (typeof q.correctAnswer === 'string') {
-                        return {
-                            ...baseQuestion,
-                            type: 'true-false',
-                            correctAnswer: q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama',
-                        };
-                    }
-                }
-                if (normalizedType === 'identification' || normalizedType === 'solving') {
-                    if (q.correctAnswer) {
-                        return {
-                            ...baseQuestion,
-                            type: 'identification',
-                            correctAnswer: q.correctAnswer,
-                            choicesBox: q.choicesBox || null,
-                        };
-                    }
-                }
-                if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
-                    const prompts = q.prompts || [];
-                    const options = q.options || [];
-                    const correctPairs = q.correctPairs || {};
+	                const baseQuestion = {
+	                    text: questionText,
+	                    difficulty: q.difficulty || 'easy',
+	                    explanation: q.explanation || '',
+	                };
 
-                    if (prompts.length > 0 && options.length > 0 && Object.keys(correctPairs).length > 0) {
-                        return {
-                            ...baseQuestion,
-                            text: q.instruction || 'Match the following items.',
-                            type: 'matching-type',
-                            prompts: prompts,
-                            options: options,
-                            correctPairs: correctPairs,
-                        };
-                    }
-                }
+	                if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
+	                    const options = q.options || [];
+	                    const correctAnswerText = (q.correctAnswer || '').replace(/^[a-d]\.\s*/i, '').trim();
+	                    const correctIndex = options.findIndex(opt => opt === correctAnswerText);
+
+	                    if (options.length > 0 && correctIndex > -1) {
+	                        return {
+	                            ...baseQuestion,
+	                            type: 'multiple-choice',
+	                            options: options.map(opt => ({ text: opt, isCorrect: opt === correctAnswerText })),
+	                            correctAnswerIndex: correctIndex,
+	                        };
+	                    }
+	                }
+	                if (normalizedType === 'alternative_response') {
+	                    if (typeof q.correctAnswer === 'string') {
+	                        return {
+	                            ...baseQuestion,
+	                            type: 'true-false',
+	                            correctAnswer: q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama',
+	                        };
+	                    }
+	                }
+	                // --- IDENTIFICATION HANDLER ---
+	                if (normalizedType === 'identification' || normalizedType === 'solving') {
+	                    if (q.correctAnswer) {
+	                        return {
+	                            ...baseQuestion,
+	                            type: 'identification',
+	                            correctAnswer: q.correctAnswer,
+	                            choicesBox: q.choicesBox || null, // Persist the choices box if available
+	                        };
+	                    }
+	                }
+	                if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
+	                    const prompts = q.prompts || [];
+	                    const options = q.options || [];
+	                    const correctPairs = q.correctPairs || {};
+
+	                    if (prompts.length > 0 && options.length > 0 && Object.keys(correctPairs).length > 0) {
+	                        return {
+	                            ...baseQuestion,
+	                            text: q.instruction || 'Match the following items.',
+	                            type: 'matching-type',
+	                            prompts: prompts,
+	                            options: options,
+	                            correctPairs: correctPairs,
+	                        };
+	                    }
+	                }
                 
-                if (normalizedType === 'essay') {
-                    return {
-                        ...baseQuestion,
-                        type: 'essay',
-                        rubric: q.rubric || [],
-                    };
-                }
+	                if (normalizedType === 'essay') {
+	                    return {
+	                        ...baseQuestion,
+	                        type: 'essay',
+	                        rubric: q.rubric || [],
+	                    };
+	                }
 
-                return null;
-            })
-            .filter(Boolean);
+	                return null;
+	            })
+	            .filter(Boolean);
 
-        if (quizQuestions.length === 0) {
-            throw new Error("No compatible, well-formed questions were generated to create an interactive quiz.");
-        }
+	        if (quizQuestions.length === 0) {
+	            throw new Error("No compatible, well-formed questions were generated to create an interactive quiz.");
+	        }
 
-        const quizRef = doc(collection(db, 'quizzes'));
-        const quizData = {
-            title: `Quiz: ${previewData.examTitle || 'Generated Exam'}`,
-            language: language,
-            unitId: unitId,
-            subjectId: subjectId,
-            lessonId: null,
-            createdAt: serverTimestamp(),
-            createdBy: 'AI',
-            questions: quizQuestions,
-        };
-        await setDoc(quizRef, quizData);
-    };
+	        const quizRef = doc(collection(db, 'quizzes'));
+	        const quizData = {
+	            title: `Quiz: ${previewData.examTitle || 'Generated Exam'}`,
+	            language: language,
+	            unitId: unitId,
+	            subjectId: subjectId,
+	            lessonId: null,
+	            createdAt: serverTimestamp(),
+	            createdBy: 'AI',
+	            questions: quizQuestions,
+	        };
+	        await setDoc(quizRef, quizData);
+	    };
 
     const handleFinalSave = async (saveType) => {
         if (!previewData) {
