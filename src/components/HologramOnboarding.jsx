@@ -39,15 +39,8 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
 
   // --- 1. INITIALIZATION LOGIC ---
   useEffect(() => {
-	  // REMOVE or COMMENT OUT this "hasSeen" block entirely:
-	      /* const hasSeen = localStorage.getItem("hologram_onboarding_seen");
-    
-	      // Case A: User completed the flow previously. Do not show.
-	      if (hasSeen === "true" && !isPendingReload) {
-	          if (onClose) onClose({ dontShowAgain: true });
-	          return; 
-	      }
-	      */
+    // ✅ FIX: Define the variable here so the checks below work
+    const isPendingReload = localStorage.getItem("hologram_update_pending");
 
     // Case B: User just reloaded the page via the Hologram
     if (isPendingReload === "true") {
@@ -55,7 +48,6 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
         localStorage.removeItem("hologram_update_pending"); // Clear the pending flag
         setIsLoading(false); // No need to wait for data on the Enter step
         setVisible(true);
-        // We still load data below just in case we need version numbers
     } 
     // Case C: Fresh Start
     else {
@@ -73,7 +65,7 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
         }, 5000);
         return () => clearTimeout(timer);
     }
-  }, [versionInfo, onClose]);
+  }, [versionInfo, onClose]); //
 
   // Watch for late arrival of props
   useEffect(() => {
