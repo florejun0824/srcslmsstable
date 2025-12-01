@@ -568,9 +568,10 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
     `;
 };
 
-const generateExamComponent = async (guideData, generatedTos, testType, previousQuestionsSummary, isGenerationRunningRef, maxRetries = 3) => {
-    const prompt = getExamComponentPrompt(guideData, generatedTos, testType, previousQuestionsSummary);
-    
+// --- BATCHING HELPER: Generates a small chunk of questions to avoid 504 Timeouts ---
+const generateSingleBatch = async (guideData, generatedTos, batchTestType, previousQuestionsSummary, isGenerationRunningRef, maxRetries) => {
+    const prompt = getExamComponentPrompt(guideData, generatedTos, batchTestType, previousQuestionsSummary);
+
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         if (!isGenerationRunningRef.current) throw new Error("Generation aborted by user.");
 
@@ -581,26 +582,101 @@ const generateExamComponent = async (guideData, generatedTos, testType, previous
             
             const jsonData = sanitizeJsonComponent(aiResponse); 
             
-            await new Promise(res => setTimeout(res, 1500));
+            // Artificial delay to prevent hitting rate limits too hard between retries
+            await new Promise(res => setTimeout(res, 1000));
             
-            if (!isGenerationRunningRef.current) throw new Error("Generation aborted by user.");
-
             return jsonData; 
 
         } catch (error) {
             if (!isGenerationRunningRef.current) throw new Error("Generation aborted by user.");
 
             console.warn(
-                `Attempt ${attempt + 1} of ${maxRetries} failed for component: ${testType.type}`,
+                `Attempt ${attempt + 1} of ${maxRetries} failed for batch ${batchTestType.range}:`,
                 error.message
             );
             if (attempt === maxRetries - 1) {
-                throw new Error(`Failed to generate ${testType.type} after ${maxRetries} attempts.`);
+                throw error; // Re-throw to be caught by the parent
             }
-
-            await new Promise(res => setTimeout(res, 5000));
+            // Increase delay on failure
+            await new Promise(res => setTimeout(res, 3000 * (attempt + 1)));
         }
     }
+};
+
+const generateExamComponent = async (guideData, generatedTos, testType, previousQuestionsSummary, isGenerationRunningRef, maxRetries = 3) => {
+    // 1. Analyze the Request
+    const { type, range } = testType;
+    const normalizedType = type.toLowerCase();
+    
+    // Check if this is a "Single Item" type (Essay/Solving) where range implies points, not count.
+    // We do NOT batch these because they are single prompts.
+    const isSingleQuestionType = normalizedType.includes('essay') || normalizedType.includes('solving');
+
+    if (isSingleQuestionType) {
+        return await generateSingleBatch(guideData, generatedTos, testType, previousQuestionsSummary, isGenerationRunningRef, maxRetries);
+    }
+
+    // 2. Parse Range for splitting (e.g., "1-20")
+    // Handles simple ranges "1-20" or single numbers "1"
+    const rangeParts = range.split('-').map(s => parseInt(s.trim()));
+    const startItem = rangeParts[0];
+    const endItem = rangeParts.length > 1 ? rangeParts[1] : startItem;
+    const totalItems = endItem - startItem + 1;
+
+    // 3. Define Batch Size (Safe limit for Serverless Functions is usually ~5 items)
+    const BATCH_SIZE = 5;
+
+    // If request is small enough, just do it in one go.
+    if (totalItems <= BATCH_SIZE) {
+        return await generateSingleBatch(guideData, generatedTos, testType, previousQuestionsSummary, isGenerationRunningRef, maxRetries);
+    }
+
+    // 4. Batching Logic
+    console.log(`Splitting ${type} (${range}) into batches of ${BATCH_SIZE}...`);
+    let allQuestions = [];
+    
+    // Loop through the range in steps of BATCH_SIZE
+    for (let i = startItem; i <= endItem; i += BATCH_SIZE) {
+        if (!isGenerationRunningRef.current) throw new Error("Generation aborted by user.");
+
+        const batchStart = i;
+        const batchEnd = Math.min(i + BATCH_SIZE - 1, endItem);
+        const batchRange = `${batchStart}-${batchEnd}`;
+        const batchNumItems = batchEnd - batchStart + 1;
+
+        // Create a temporary testType config for this specific batch
+        const batchTestType = {
+            ...testType,
+            range: batchRange,
+            numItems: batchNumItems
+        };
+
+        try {
+            // Pass accumulated summary to avoid duplicates across batches
+            // Note: We append the questions we've ALREADY generated in this loop to the summary
+            const currentSummary = previousQuestionsSummary + 
+                (allQuestions.length > 0 ? "\n[Recently Generated]:\n" + allQuestions.map(q => q.question).join('\n') : "");
+
+            const batchResult = await generateSingleBatch(
+                guideData, 
+                generatedTos, 
+                batchTestType, 
+                currentSummary, 
+                isGenerationRunningRef, 
+                maxRetries
+            );
+
+            if (batchResult && batchResult.questions) {
+                allQuestions = [...allQuestions, ...batchResult.questions];
+            }
+        } catch (err) {
+            console.error(`Batch ${batchRange} failed:`, err);
+            // Optional: We could choose to continue with partial results, but throwing ensures integrity.
+            throw new Error(`Failed to generate items ${batchRange}: ${err.message}`);
+        }
+    }
+
+    return { questions: allQuestions };
 };
 
 // --- MAIN COMPONENT ---
@@ -764,6 +840,7 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                     .map(q => `- ${q.question} (Type: ${q.type})`)
                     .join('\n');
                 
+                // generateExamComponent now handles batching internally to avoid 504 errors
                 const componentData = await generateExamComponent(
                     guideData, 
                     generatedTos, 
@@ -823,150 +900,150 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
         await batch.commit();
     };
 
-	const saveAsQuiz = async () => {
-	        const uniqueQuestions = [];
-	        const seenGroupableTypes = new Set();
+    const saveAsQuiz = async () => {
+        const uniqueQuestions = [];
+        const seenGroupableTypes = new Set();
         
-	        // --- FIX: Extract Global Choices for Identification ---
-	        // Sometimes the AI puts the 'choicesBox' only on the first question. 
-	        // We need to find it and pass it to ALL identification questions so they aren't "orphaned".
-	        const identQuestions = previewData.examQuestions.filter(q => (q.type||'').toLowerCase().includes('identification'));
-	        let globalIdentChoices = null;
+        // --- FIX: Extract Global Choices for Identification ---
+        // Sometimes the AI puts the 'choicesBox' only on the first question. 
+        // We need to find it and pass it to ALL identification questions so they aren't "orphaned".
+        const identQuestions = previewData.examQuestions.filter(q => (q.type||'').toLowerCase().includes('identification'));
+        let globalIdentChoices = null;
         
-	        const firstIdentWithChoices = identQuestions.find(q => q.choicesBox && (Array.isArray(q.choicesBox) || typeof q.choicesBox === 'string'));
-	        if (firstIdentWithChoices) {
-	            // clean the choices for the quiz payload
-	            const rawBox = firstIdentWithChoices.choicesBox;
-	            if (Array.isArray(rawBox)) {
-	                 globalIdentChoices = rawBox.map(c => (typeof c === 'object' ? c.text || c.value : c));
-	            } else {
-	                 globalIdentChoices = [rawBox];
-	            }
-	        }
+        const firstIdentWithChoices = identQuestions.find(q => q.choicesBox && (Array.isArray(q.choicesBox) || typeof q.choicesBox === 'string'));
+        if (firstIdentWithChoices) {
+            // clean the choices for the quiz payload
+            const rawBox = firstIdentWithChoices.choicesBox;
+            if (Array.isArray(rawBox)) {
+                 globalIdentChoices = rawBox.map(c => (typeof c === 'object' ? c.text || c.value : c));
+            } else {
+                 globalIdentChoices = [rawBox];
+            }
+        }
 
-	        for (const q of previewData.examQuestions) {
-	            const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
+        for (const q of previewData.examQuestions) {
+            const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
             
-	            // Matching types are grouped (one object for many questions), others are individual
-	            const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type'; 
+            // Matching types are grouped (one object for many questions), others are individual
+            const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type'; 
 
-	            if (isGroupable) {
-	                if (!seenGroupableTypes.has(normalizedType)) {
-	                    uniqueQuestions.push(q);
-	                    seenGroupableTypes.add(normalizedType);
-	                }
-	            } else {
-	                // All other types (Multiple Choice, Identification, Essay) are added individually
-	                uniqueQuestions.push(q);
-	            }
-	        }
+            if (isGroupable) {
+                if (!seenGroupableTypes.has(normalizedType)) {
+                    uniqueQuestions.push(q);
+                    seenGroupableTypes.add(normalizedType);
+                }
+            } else {
+                // All other types (Multiple Choice, Identification, Essay) are added individually
+                uniqueQuestions.push(q);
+            }
+        }
 
-	        const quizQuestions = uniqueQuestions
-	            .map(q => {
-	                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
+        const quizQuestions = uniqueQuestions
+            .map(q => {
+                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
             
-	                const questionText = (normalizedType === 'interpretive' && q.passage)
-	                    ? `${q.passage}\n\n${q.question || ''}`
-	                    : (q.question || 'Missing question text from AI.');
+                const questionText = (normalizedType === 'interpretive' && q.passage)
+                    ? `${q.passage}\n\n${q.question || ''}`
+                    : (q.question || 'Missing question text from AI.');
 
-	                const baseQuestion = {
-	                    text: questionText,
-	                    difficulty: q.difficulty || 'easy',
-	                    explanation: q.explanation || '',
-	                };
+                const baseQuestion = {
+                    text: questionText,
+                    difficulty: q.difficulty || 'easy',
+                    explanation: q.explanation || '',
+                };
 
-	                // --- 1. Multiple Choice / Analogy ---
-	                if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
-	                    const options = q.options || [];
-	                    const correctAnswerText = (q.correctAnswer || '').replace(/^[a-d]\.\s*/i, '').trim();
-	                    const correctIndex = options.findIndex(opt => opt === correctAnswerText);
+                // --- 1. Multiple Choice / Analogy ---
+                if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
+                    const options = q.options || [];
+                    const correctAnswerText = (q.correctAnswer || '').replace(/^[a-d]\.\s*/i, '').trim();
+                    const correctIndex = options.findIndex(opt => opt === correctAnswerText);
 
-	                    if (options.length > 0 && correctIndex > -1) {
-	                        return {
-	                            ...baseQuestion,
-	                            type: 'multiple-choice',
-	                            options: options.map(opt => ({ text: opt, isCorrect: opt === correctAnswerText })),
-	                            correctAnswerIndex: correctIndex,
-	                        };
-	                    }
-	                }
+                    if (options.length > 0 && correctIndex > -1) {
+                        return {
+                            ...baseQuestion,
+                            type: 'multiple-choice',
+                            options: options.map(opt => ({ text: opt, isCorrect: opt === correctAnswerText })),
+                            correctAnswerIndex: correctIndex,
+                        };
+                    }
+                }
                 
-	                // --- 2. True/False ---
-	                if (normalizedType === 'alternative_response') {
-	                    if (typeof q.correctAnswer === 'string') {
-	                        return {
-	                            ...baseQuestion,
-	                            type: 'true-false',
-	                            correctAnswer: q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama',
-	                        };
-	                    }
-	                }
+                // --- 2. True/False ---
+                if (normalizedType === 'alternative_response') {
+                    if (typeof q.correctAnswer === 'string') {
+                        return {
+                            ...baseQuestion,
+                            type: 'true-false',
+                            correctAnswer: q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama',
+                        };
+                    }
+                }
                 
-	                // --- 3. Identification (Fix for Missing Questions) ---
-	                if (normalizedType === 'identification' || normalizedType === 'solving') {
-	                    // Identification requires the student to TYPE the answer.
-	                    // We check for 'correctAnswer' OR 'answer'
-	                    const answer = q.correctAnswer || q.answer;
+                // --- 3. Identification (Fix for Missing Questions) ---
+                if (normalizedType === 'identification' || normalizedType === 'solving') {
+                    // Identification requires the student to TYPE the answer.
+                    // We check for 'correctAnswer' OR 'answer'
+                    const answer = q.correctAnswer || q.answer;
                     
-	                    if (answer) {
-	                        return {
-	                            ...baseQuestion,
-	                            type: 'identification',
-	                            correctAnswer: answer,
-	                            // We pass the choicesBox (bank) so the Quiz UI *can* display it as a reference if it wants to.
-	                            choicesBox: globalIdentChoices, 
-	                        };
-	                    }
-	                }
+                    if (answer) {
+                        return {
+                            ...baseQuestion,
+                            type: 'identification',
+                            correctAnswer: answer,
+                            // We pass the choicesBox (bank) so the Quiz UI *can* display it as a reference if it wants to.
+                            choicesBox: globalIdentChoices, 
+                        };
+                    }
+                }
                 
-	                // --- 4. Matching Type ---
-	                if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
-	                    const prompts = q.prompts || [];
-	                    const options = q.options || [];
-	                    const correctPairs = q.correctPairs || {};
+                // --- 4. Matching Type ---
+                if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
+                    const prompts = q.prompts || [];
+                    const options = q.options || [];
+                    const correctPairs = q.correctPairs || {};
 
-	                    if (prompts.length > 0 && options.length > 0 && Object.keys(correctPairs).length > 0) {
-	                        return {
-	                            ...baseQuestion,
-	                            text: q.instruction || 'Match the following items.',
-	                            type: 'matching-type',
-	                            prompts: prompts,
-	                            options: options,
-	                            correctPairs: correctPairs,
-	                        };
-	                    }
-	                }
+                    if (prompts.length > 0 && options.length > 0 && Object.keys(correctPairs).length > 0) {
+                        return {
+                            ...baseQuestion,
+                            text: q.instruction || 'Match the following items.',
+                            type: 'matching-type',
+                            prompts: prompts,
+                            options: options,
+                            correctPairs: correctPairs,
+                        };
+                    }
+                }
                 
-	                // --- 5. Essay ---
-	                if (normalizedType === 'essay') {
-	                    return {
-	                        ...baseQuestion,
-	                        type: 'essay',
-	                        rubric: q.rubric || [],
-	                    };
-	                }
+                // --- 5. Essay ---
+                if (normalizedType === 'essay') {
+                    return {
+                        ...baseQuestion,
+                        type: 'essay',
+                        rubric: q.rubric || [],
+                    };
+                }
 
-	                return null;
-	            })
-	            .filter(Boolean);
+                return null;
+            })
+            .filter(Boolean);
 
-	        if (quizQuestions.length === 0) {
-	            throw new Error("No compatible, well-formed questions were generated to create an interactive quiz.");
-	        }
+        if (quizQuestions.length === 0) {
+            throw new Error("No compatible, well-formed questions were generated to create an interactive quiz.");
+        }
 
-	        const quizRef = doc(collection(db, 'quizzes'));
-	        const quizData = {
-	            title: `Quiz: ${previewData.examTitle || 'Generated Exam'}`,
-	            language: language,
-	            unitId: unitId,
-	            subjectId: subjectId,
-	            lessonId: null, // If saved as both, you might want to link this, but null is safer for now
-	            createdAt: serverTimestamp(),
-	            createdBy: 'AI',
-	            questions: quizQuestions,
-	        };
-	        await setDoc(quizRef, quizData);
-	    };
+        const quizRef = doc(collection(db, 'quizzes'));
+        const quizData = {
+            title: `Quiz: ${previewData.examTitle || 'Generated Exam'}`,
+            language: language,
+            unitId: unitId,
+            subjectId: subjectId,
+            lessonId: null, // If saved as both, you might want to link this, but null is safer for now
+            createdAt: serverTimestamp(),
+            createdBy: 'AI',
+            questions: quizQuestions,
+        };
+        await setDoc(quizRef, quizData);
+    };
 
     const handleFinalSave = async (saveType) => {
         if (!previewData) {
@@ -1260,21 +1337,21 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                                                     {data.instruction && <p className="text-sm font-medium italic my-2 opacity-80" style={{ color: themeStyles.textColor }}>{data.instruction}</p>}
                                                                     {data.passage && <p className="text-sm my-2 p-3 rounded-xl border opacity-90" style={{ backgroundColor: themeStyles.innerPanelBg, borderColor: themeStyles.borderColor, color: themeStyles.textColor }}>{data.passage}</p>}
 
-																	{type === 'identification' && data.choicesBox && (
-																	    <div className="text-center p-3 my-4 border rounded-xl" style={{ backgroundColor: themeStyles.inputBg, borderColor: themeStyles.borderColor }}>
-																	        <p className="text-sm font-semibold" style={{ color: themeStyles.textColor }}>
-																	            {/* FIX: Handle string vs object array vs single string safely */}
-																	            {(() => {
-																	                const box = data.choicesBox;
-																	                if (Array.isArray(box)) {
-																	                    // Map objects to text if necessary (e.g., {id:1, text:'A'} -> 'A')
-																	                    return box.map(c => (typeof c === 'object' ? c.text || c.value : c)).join('   •   ');
-																	                }
-																	                return String(box);
-																	            })()}
-																	        </p>
-																	    </div>
-																	)}
+                                                                    {type === 'identification' && data.choicesBox && (
+                                                                        <div className="text-center p-3 my-4 border rounded-xl" style={{ backgroundColor: themeStyles.inputBg, borderColor: themeStyles.borderColor }}>
+                                                                            <p className="text-sm font-semibold" style={{ color: themeStyles.textColor }}>
+                                                                                {/* FIX: Handle string vs object array vs single string safely */}
+                                                                                {(() => {
+                                                                                    const box = data.choicesBox;
+                                                                                    if (Array.isArray(box)) {
+                                                                                        // Map objects to text if necessary (e.g., {id:1, text:'A'} -> 'A')
+                                                                                        return box.map(c => (typeof c === 'object' ? c.text || c.value : c)).join('   •   ');
+                                                                                    }
+                                                                                    return String(box);
+                                                                                })()}
+                                                                            </p>
+                                                                        </div>
+                                                                    )}
                                                                     <div className="space-y-5 mt-4">
                                                                         {type === 'matching-type' ? (
                                                                             (() => {

@@ -3,7 +3,7 @@ import { db } from './firebase';
 import { doc, getDoc, updateDoc, setDoc, increment } from 'firebase/firestore';
 
 // --- ADD THESE NEW DEBUG LINES ---
-console.log("!!!!!!!!!! AISERVICE.JSX: Build 123 IS RUNNING !!!!!!!!!!");
+console.log("!!!!!!!!!! AISERVICE.JSX: Build 124 (NO HF) IS RUNNING !!!!!!!!!!");
 // ---------------------------------
 
 // --- THIS IS THE FIX ---
@@ -23,35 +23,18 @@ const API_BASE = isNative ? PROD_API_URL : '';
 console.log("!!!!!!!!!! AISERVICE.JSX: API_BASE is:", API_BASE);
 // -------------------------------
 
-// --- API Keys (REMOVED) ---
-// All API keys are now handled in the serverless functions (proxies)
-// or were removed (Groq).
-
 // --- Model & URL Definitions ---
-const GEMINI_MODEL = 'gemini-flash-latest'; // <-- Corrected 1.5
+const GEMINI_MODEL = 'gemini-flash-latest'; 
 
-// Hugging Face models
-// --- MODIFIED ---
-const HF_MODEL_1 = 'Qwen/Qwen3-4B-Instruct-2507'; // <-- Retained Qwen
-// const HF_MODEL_2 = 'meta-llama/Llama-3.1-8B-Instruct';    // <-- REMOVED
-// const HF_MODEL_3 = 'google/gemma-2-9b-it';                // <-- REMOVED
-
-// --- Unified API Configuration (UPDATED with API_BASE) ---
+// --- Unified API Configuration (UPDATED - Removed HuggingFace) ---
 const API_CONFIGS = [
     // --- Gemini Endpoints ---
     { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini-primary`, name: 'Gemini Primary' },
     { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini-fallback`, name: 'Gemini Fallback 1' },
-    // --- THIS IS THE NEW LINE YOU REQUESTED ---
     { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini-fallback-2`, name: 'Gemini Fallback 2' },
-
-    // --- Hugging Face Endpoints (All point to /api/hf) ---
-    { service: 'huggingface', model: HF_MODEL_1, url: `${API_BASE}/api/hf`, name: `HuggingFace (${HF_MODEL_1})` },
-    // { service: 'huggingface', model: HF_MODEL_2, url: `${API_BASE}/api/hf`, name: `HuggingFace (${HF_MODEL_2})` }, // <-- REMOVED
-    // { service: 'huggingface', model: HF_MODEL_3, url: `${API_BASE}/api/hf`, name: `HuggingFace (${HF_MODEL_3})` }, // <-- REMOVED
-    
 ];
 
-// This will now be 4
+// This will now be 3
 const NUM_CONFIGS = API_CONFIGS.length;
 let currentApiIndex = 0;
 
@@ -111,9 +94,6 @@ const checkAiLimitReached = async () => {
     }
 };
 
-// --- Internal Groq API Caller (REMOVED) ---
-// The callGroqApiInternal function has been removed.
-
 // --- Internal Proxy API Caller (UPDATED) ---
 // This function now sends the model name to the proxy
 const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputTokens = undefined) => {
@@ -148,14 +128,12 @@ const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputT
         throw new Error(`Failed to parse JSON response from proxy.`);
     }
 
-    // --- BUG FIX FROM hf.js ---
-    // This now looks for the structure { response: [{ generated_text: "..." }] }
-    // which our modified hf.js function now correctly provides.
-    const fullText = data.response?.[0]?.generated_text || data.text; // Support both old/new for safety
+    // Standard Gemini/Proxy response check
+    const fullText = data.text || data.response?.[0]?.generated_text; 
     
     if (!fullText) {
         console.error(`Invalid response structure from Proxy (${config.url}):`, JSON.stringify(data, null, 2));
-        throw new Error("Proxy response was not in the expected format (missing 'text' or 'response' field).");
+        throw new Error("Proxy response was not in the expected format (missing 'text' field).");
     }
 
     return fullText;
@@ -179,7 +157,7 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
             let response;
             
             // Simplified: All services now use the proxy caller
-            if (config.service === 'gemini' || config.service === 'huggingface') {
+            if (config.service === 'gemini') {
                 response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
             } else {
                 throw new Error(`Unknown service type: ${config.service}`);
@@ -191,7 +169,7 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
         } catch (error) {
             errors[keyName] = error.message;
 
-            if (error.status === 429 || error.status === 503 || error.status === 500 || error.status === 504) { // <-- Added 504
+            if (error.status === 429 || error.status === 503 || error.status === 500 || error.status === 504) {
                 console.warn(`AI API ${keyName} failed with retryable status ${error.status}: ${error.message}. Waiting 2 seconds before retry...`);
                 await delay(2000); 
             } else {
@@ -205,7 +183,6 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
 };
 
 // --- Exported Functions (Unchanged) ---
-// --- THIS IS THE FUNCTION I MISTAKENLY REMOVED THE EXPORT FOR ---
 export const callGeminiWithLimitCheck = async (prompt) => {
     const limitReached = await checkAiLimitReached();
     if (limitReached) {
@@ -230,7 +207,6 @@ export const callGeminiWithLimitCheck = async (prompt) => {
     }
 };
 
-// --- THIS IS THE FUNCTION I MISTAKENLY DELETED ---
 export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
     const limitReached = await checkAiLimitReached();
     if (limitReached) {
