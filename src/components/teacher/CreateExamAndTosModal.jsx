@@ -14,13 +14,12 @@ import { doc, collection, writeBatch, serverTimestamp, setDoc } from 'firebase/f
 import { db } from '../../services/firebase';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
-import { useTheme } from '../../contexts/ThemeContext'; // Added Theme Context
+import { useTheme } from '../../contexts/ThemeContext'; 
 import InteractiveLoadingScreen from '../common/InteractiveLoadingScreen'; 
 import CourseSelector from './CourseSelector'; 
 import LessonSelector from './LessonSelector'; 
 
 // --- Neumorphic Style Helpers (Base) ---
-// We keep the structure but will inject dynamic colors via style props for the Monet effect
 const inputBaseStyles = "block w-full text-sm rounded-xl shadow-[inset_2px_2px_5px_rgba(0,0,0,0.2),inset_-2px_-2px_5px_rgba(255,255,255,0.05)] focus:outline-none focus:ring-2 focus:ring-sky-500 placeholder:text-slate-500 border-none text-slate-100 transition-colors duration-300";
 const btnBase = "w-full inline-flex items-center justify-center px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800";
 const btnExtruded = `shadow-[4px_4px_8px_rgba(0,0,0,0.3),-4px_-4px_8px_rgba(255,255,255,0.05)] hover:shadow-[inset_2px_2px_4px_rgba(0,0,0,0.3),inset_-2px_-2px_4px_rgba(255,255,255,0.05)] active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.3),inset_-4px_-4px_8px_rgba(255,255,255,0.05)]`;
@@ -31,76 +30,76 @@ const getThemeStyles = (overlay) => {
     switch (overlay) {
         case 'christmas':
             return {
-                modalBg: '#0f291e', // Deep Evergreen
-                borderColor: 'rgba(34, 197, 94, 0.3)', // Green Tint
+                modalBg: '#0f291e', 
+                borderColor: 'rgba(34, 197, 94, 0.3)', 
                 innerPanelBg: 'rgba(20, 83, 45, 0.4)',
                 inputBg: 'rgba(0, 0, 0, 0.3)',
                 textColor: '#e2e8f0',
-                accentText: '#86efac', // Light Green
+                accentText: '#86efac', 
             };
         case 'valentines':
             return {
-                modalBg: '#2a0a12', // Deep Burgundy
-                borderColor: 'rgba(244, 63, 94, 0.3)', // Red/Pink Tint
+                modalBg: '#2a0a12', 
+                borderColor: 'rgba(244, 63, 94, 0.3)', 
                 innerPanelBg: 'rgba(80, 7, 36, 0.4)',
                 inputBg: 'rgba(0, 0, 0, 0.3)',
                 textColor: '#ffe4e6',
-                accentText: '#fda4af', // Rose
+                accentText: '#fda4af', 
             };
         case 'graduation':
             return {
-                modalBg: '#1a1600', // Deep Gold/Brown
-                borderColor: 'rgba(234, 179, 8, 0.3)', // Gold Tint
+                modalBg: '#1a1600', 
+                borderColor: 'rgba(234, 179, 8, 0.3)', 
                 innerPanelBg: 'rgba(66, 32, 6, 0.4)',
                 inputBg: 'rgba(0, 0, 0, 0.3)',
                 textColor: '#fefce8',
-                accentText: '#fde047', // Yellow
+                accentText: '#fde047', 
             };
         case 'rainy':
             return {
-                modalBg: '#0f172a', // Slate 900
-                borderColor: 'rgba(56, 189, 248, 0.3)', // Cyan Tint
+                modalBg: '#0f172a', 
+                borderColor: 'rgba(56, 189, 248, 0.3)', 
                 innerPanelBg: 'rgba(30, 41, 59, 0.5)',
                 inputBg: 'rgba(15, 23, 42, 0.5)',
                 textColor: '#f1f5f9',
-                accentText: '#7dd3fc', // Sky
+                accentText: '#7dd3fc', 
             };
         case 'cyberpunk':
             return {
-                modalBg: '#180a2e', // Deep Purple
-                borderColor: 'rgba(217, 70, 239, 0.4)', // Neon Purple/Pink
+                modalBg: '#180a2e', 
+                borderColor: 'rgba(217, 70, 239, 0.4)', 
                 innerPanelBg: 'rgba(46, 16, 101, 0.4)',
                 inputBg: 'rgba(0, 0, 0, 0.4)',
                 textColor: '#fae8ff',
-                accentText: '#e879f9', // Fuchsia
+                accentText: '#e879f9', 
             };
         case 'spring':
             return {
-                modalBg: '#2a1a1f', // Warm Dark
-                borderColor: 'rgba(244, 114, 182, 0.3)', // Pink Tint
+                modalBg: '#2a1a1f', 
+                borderColor: 'rgba(244, 114, 182, 0.3)', 
                 innerPanelBg: 'rgba(80, 20, 40, 0.3)',
                 inputBg: 'rgba(0, 0, 0, 0.2)',
                 textColor: '#fce7f3',
-                accentText: '#f9a8d4', // Pink
+                accentText: '#f9a8d4', 
             };
         case 'space':
             return {
-                modalBg: '#0b0f19', // Deep Void
-                borderColor: 'rgba(99, 102, 241, 0.3)', // Indigo Tint
+                modalBg: '#0b0f19', 
+                borderColor: 'rgba(99, 102, 241, 0.3)', 
                 innerPanelBg: 'rgba(17, 24, 39, 0.6)',
                 inputBg: 'rgba(0, 0, 0, 0.5)',
                 textColor: '#e0e7ff',
-                accentText: '#a5b4fc', // Indigo
+                accentText: '#a5b4fc', 
             };
         case 'none':
         default:
             return {
-                modalBg: '#262a33', // Neumorphic Base Dark (Manual Hex approximation)
+                modalBg: '#262a33', 
                 borderColor: 'rgba(255, 255, 255, 0.1)',
-                innerPanelBg: '#2b303b', // Slightly lighter than base
-                inputBg: '#20242c', // Darker inset
+                innerPanelBg: '#2b303b', 
+                inputBg: '#20242c', 
                 textColor: '#f1f5f9',
-                accentText: '#cbd5e1', // Slate
+                accentText: '#cbd5e1', 
             };
     }
 };
@@ -109,12 +108,6 @@ const getThemeStyles = (overlay) => {
 
 const uniqueId = () => `id_${Math.random().toString(36).substr(2, 9)}`;
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// Helper to remove "A.", "1.", "a)" from the start of AI strings
-const cleanPrefix = (str) => {
-    if (typeof str !== 'string') return str;
-    return str.replace(/^[A-Za-z0-9]+[\.\)\-\s]+\s*/, '').trim();
-};
 
 const calculateItemsForRange = (rangeString) => {
     if (!rangeString) return 0;
@@ -150,7 +143,6 @@ const tryParseJson = (jsonString) => {
     }
 };
 
-// --- Helper function to round percentages and ensure they sum to 100 ---
 const roundPercentagesToSum100 = (breakdown) => {
     if (!breakdown || breakdown.length === 0) {
         return [];
@@ -278,8 +270,11 @@ const generateExamQuestionsMarkdown = (questions, language) => {
 
             if (type === 'identification') {
                 const choices = questionsOfType[0]?.choicesBox;
-                if (choices && choices.length > 0) {
-                    const choicesMarkdown = choices.map(choice => `**${choice}**`).join(' &nbsp; &nbsp; • &nbsp; &nbsp; ');
+                if (choices) {
+                    // Safe handling for string vs array
+                    const choicesMarkdown = Array.isArray(choices) 
+                        ? choices.map(choice => `**${choice}**`).join(' &nbsp; &nbsp; • &nbsp; &nbsp; ')
+                        : `**${choices}**`;
                     markdown += `<div style="border: 1px solid #ccc; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 15px;">\n${choicesMarkdown}\n</div>\n\n`;
                 }
                 questionsOfType.forEach(q => {
@@ -527,11 +522,12 @@ const getExamComponentPrompt = (guideData, generatedTos, testType) => {
     
     2.  **ESSAY / SOLVING:** If the **Test Type** is "Essay" or "Solving", you MUST generate **ONE prompt**. The "Item Range" (${range}) represents the item numbers this single question covers, and the "Number of Items" (${numItems}) represents the **total points** it is worth. You MUST create a scoring rubric that totals **${numItems}** points. The \`questionNumber\` in the JSON should be the first number in the range (e.g., for "46-50", use 46).
     
-	3.  **IDENTIFICATION (STRICT PHRASING):** - Group all items. Generate a single \`choicesBox\` with all answers plus ONE distractor.
+    3.  **IDENTIFICATION (STRICT PHRASING):** - Group all items. Generate a single \`choicesBox\` with all answers plus ONE distractor.
         - **DO NOT start questions with the word "Identify".** Since the instruction already says "Identify the term," using it again is redundant.
         - Phrase the question as a declarative statement, description, or definition.
         - *Incorrect Example:* "Identify the factor that..."
         - *Correct Example:* "It is the factor that..." or "This internal disposition leads a person to..."
+
     4.  **MATCHING TYPE (STRICT):** Use the \`"type": "matching-type"\` format with \`prompts\`, \`options\`, \`correctPairs\`, and one distractor in \`options\`. The entire test for this range must be a SINGLE object in the "questions" array.
     
     5.  **CONTENT ADHERENCE & TOPIC FIDELITY (ABSOLUTE RULE):**
@@ -744,7 +740,6 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
         }
     };
     
-    // --- (The rest of the logic: saveAsLesson, saveAsQuiz, handleFinalSave) remains exactly as you provided ---
     const saveAsLesson = async () => {
         const batch = writeBatch(db);
         const newLessonRef = doc(collection(db, 'lessons'));
@@ -769,124 +764,119 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
         await batch.commit();
     };
 
-	const saveAsQuiz = async () => {
-	        const uniqueQuestions = [];
-	        const seenGroupableTypes = new Set();
-
-	        for (const q of previewData.examQuestions) {
-	            const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
+    const saveAsQuiz = async () => {
+        const uniqueQuestions = [];
+        const seenGroupableTypes = new Set();
+        for (const q of previewData.examQuestions) {
+            const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
             
-	            // --- FIX: Removed 'identification' from isGroupable ---
-	            // Identification questions are individual objects (Q1, Q2...), so we must save ALL of them.
-	            // Matching Type is the only one that usually comes as a single "container" object.
-	            const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type'; 
+            // --- FIX: Removed 'identification' from isGroupable ---
+            // Identification questions are individual objects, so we must save ALL of them.
+            const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type'; 
 
-	            if (isGroupable) {
-	                // If it's matching type, only take the first instance (since it contains all pairs)
-	                if (!seenGroupableTypes.has(normalizedType)) {
-	                    uniqueQuestions.push(q);
-	                    seenGroupableTypes.add(normalizedType);
-	                }
-	            } else {
-	                // For everything else (Multiple Choice, Identification, Essay), add EVERY question
-	                uniqueQuestions.push(q);
-	            }
-	        }
+            if (isGroupable) {
+                if (!seenGroupableTypes.has(normalizedType)) {
+                    uniqueQuestions.push(q);
+                    seenGroupableTypes.add(normalizedType);
+                }
+            } else {
+                uniqueQuestions.push(q);
+            }
+        }
 
-	        const quizQuestions = uniqueQuestions
-	            .map(q => {
-	                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
+        const quizQuestions = uniqueQuestions
+            .map(q => {
+                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
             
-	                const questionText = (normalizedType === 'interpretive' && q.passage)
-	                    ? `${q.passage}\n\n${q.question || ''}`
-	                    : (q.question || 'Missing question text from AI.');
+                const questionText = (normalizedType === 'interpretive' && q.passage)
+                    ? `${q.passage}\n\n${q.question || ''}`
+                    : (q.question || 'Missing question text from AI.');
 
-	                const baseQuestion = {
-	                    text: questionText,
-	                    difficulty: q.difficulty || 'easy',
-	                    explanation: q.explanation || '',
-	                };
+                const baseQuestion = {
+                    text: questionText,
+                    difficulty: q.difficulty || 'easy',
+                    explanation: q.explanation || '',
+                };
 
-	                if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
-	                    const options = q.options || [];
-	                    const correctAnswerText = (q.correctAnswer || '').replace(/^[a-d]\.\s*/i, '').trim();
-	                    const correctIndex = options.findIndex(opt => opt === correctAnswerText);
+                if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
+                    const options = q.options || [];
+                    const correctAnswerText = (q.correctAnswer || '').replace(/^[a-d]\.\s*/i, '').trim();
+                    const correctIndex = options.findIndex(opt => opt === correctAnswerText);
 
-	                    if (options.length > 0 && correctIndex > -1) {
-	                        return {
-	                            ...baseQuestion,
-	                            type: 'multiple-choice',
-	                            options: options.map(opt => ({ text: opt, isCorrect: opt === correctAnswerText })),
-	                            correctAnswerIndex: correctIndex,
-	                        };
-	                    }
-	                }
-	                if (normalizedType === 'alternative_response') {
-	                    if (typeof q.correctAnswer === 'string') {
-	                        return {
-	                            ...baseQuestion,
-	                            type: 'true-false',
-	                            correctAnswer: q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama',
-	                        };
-	                    }
-	                }
-	                // --- IDENTIFICATION HANDLER ---
-	                if (normalizedType === 'identification' || normalizedType === 'solving') {
-	                    if (q.correctAnswer) {
-	                        return {
-	                            ...baseQuestion,
-	                            type: 'identification',
-	                            correctAnswer: q.correctAnswer,
-	                            choicesBox: q.choicesBox || null, // Persist the choices box if available
-	                        };
-	                    }
-	                }
-	                if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
-	                    const prompts = q.prompts || [];
-	                    const options = q.options || [];
-	                    const correctPairs = q.correctPairs || {};
+                    if (options.length > 0 && correctIndex > -1) {
+                        return {
+                            ...baseQuestion,
+                            type: 'multiple-choice',
+                            options: options.map(opt => ({ text: opt, isCorrect: opt === correctAnswerText })),
+                            correctAnswerIndex: correctIndex,
+                        };
+                    }
+                }
+                if (normalizedType === 'alternative_response') {
+                    if (typeof q.correctAnswer === 'string') {
+                        return {
+                            ...baseQuestion,
+                            type: 'true-false',
+                            correctAnswer: q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama',
+                        };
+                    }
+                }
+                if (normalizedType === 'identification' || normalizedType === 'solving') {
+                    if (q.correctAnswer) {
+                        return {
+                            ...baseQuestion,
+                            type: 'identification',
+                            correctAnswer: q.correctAnswer,
+                            choicesBox: q.choicesBox || null,
+                        };
+                    }
+                }
+                if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
+                    const prompts = q.prompts || [];
+                    const options = q.options || [];
+                    const correctPairs = q.correctPairs || {};
 
-	                    if (prompts.length > 0 && options.length > 0 && Object.keys(correctPairs).length > 0) {
-	                        return {
-	                            ...baseQuestion,
-	                            text: q.instruction || 'Match the following items.',
-	                            type: 'matching-type',
-	                            prompts: prompts,
-	                            options: options,
-	                            correctPairs: correctPairs,
-	                        };
-	                    }
-	                }
+                    if (prompts.length > 0 && options.length > 0 && Object.keys(correctPairs).length > 0) {
+                        return {
+                            ...baseQuestion,
+                            text: q.instruction || 'Match the following items.',
+                            type: 'matching-type',
+                            prompts: prompts,
+                            options: options,
+                            correctPairs: correctPairs,
+                        };
+                    }
+                }
                 
-	                if (normalizedType === 'essay') {
-	                    return {
-	                        ...baseQuestion,
-	                        type: 'essay',
-	                        rubric: q.rubric || [],
-	                    };
-	                }
+                if (normalizedType === 'essay') {
+                    return {
+                        ...baseQuestion,
+                        type: 'essay',
+                        rubric: q.rubric || [],
+                    };
+                }
 
-	                return null;
-	            })
-	            .filter(Boolean);
+                return null;
+            })
+            .filter(Boolean);
 
-	        if (quizQuestions.length === 0) {
-	            throw new Error("No compatible, well-formed questions were generated to create an interactive quiz.");
-	        }
+        if (quizQuestions.length === 0) {
+            throw new Error("No compatible, well-formed questions were generated to create an interactive quiz.");
+        }
 
-	        const quizRef = doc(collection(db, 'quizzes'));
-	        const quizData = {
-	            title: `Quiz: ${previewData.examTitle || 'Generated Exam'}`,
-	            language: language,
-	            unitId: unitId,
-	            subjectId: subjectId,
-	            lessonId: null,
-	            createdAt: serverTimestamp(),
-	            createdBy: 'AI',
-	            questions: quizQuestions,
-	        };
-	        await setDoc(quizRef, quizData);
-	    };
+        const quizRef = doc(collection(db, 'quizzes'));
+        const quizData = {
+            title: `Quiz: ${previewData.examTitle || 'Generated Exam'}`,
+            language: language,
+            unitId: unitId,
+            subjectId: subjectId,
+            lessonId: null,
+            createdAt: serverTimestamp(),
+            createdBy: 'AI',
+            questions: quizQuestions,
+        };
+        await setDoc(quizRef, quizData);
+    };
 
     const handleFinalSave = async (saveType) => {
         if (!previewData) {
@@ -1161,7 +1151,11 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                                                                     {type === 'identification' && data.choicesBox && (
                                                                         <div className="text-center p-3 my-4 border rounded-xl" style={{ backgroundColor: themeStyles.inputBg, borderColor: themeStyles.borderColor }}>
                                                                             <p className="text-sm font-semibold" style={{ color: themeStyles.textColor }}>
-                                                                                {data.choicesBox.join('   •   ')}
+                                                                                {/* FIX: Handle string or array choicesBox safely */}
+                                                                                {Array.isArray(data.choicesBox) 
+                                                                                    ? data.choicesBox.join('   •   ')
+                                                                                    : String(data.choicesBox)
+                                                                                }
                                                                             </p>
                                                                         </div>
                                                                     )}
