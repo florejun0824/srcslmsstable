@@ -527,7 +527,11 @@ const getExamComponentPrompt = (guideData, generatedTos, testType) => {
     
     2.  **ESSAY / SOLVING:** If the **Test Type** is "Essay" or "Solving", you MUST generate **ONE prompt**. The "Item Range" (${range}) represents the item numbers this single question covers, and the "Number of Items" (${numItems}) represents the **total points** it is worth. You MUST create a scoring rubric that totals **${numItems}** points. The \`questionNumber\` in the JSON should be the first number in the range (e.g., for "46-50", use 46).
     
-    3.  **IDENTIFICATION:** Group all items. Generate a single \`choicesBox\` with all answers plus ONE distractor.
+	3.  **IDENTIFICATION (STRICT PHRASING):** - Group all items. Generate a single \`choicesBox\` with all answers plus ONE distractor.
+        - **DO NOT start questions with the word "Identify".** Since the instruction already says "Identify the term," using it again is redundant.
+        - Phrase the question as a declarative statement, description, or definition.
+        - *Incorrect Example:* "Identify the factor that..."
+        - *Correct Example:* "It is the factor that..." or "This internal disposition leads a person to..."
     4.  **MATCHING TYPE (STRICT):** Use the \`"type": "matching-type"\` format with \`prompts\`, \`options\`, \`correctPairs\`, and one distractor in \`options\`. The entire test for this range must be a SINGLE object in the "questions" array.
     
     5.  **CONTENT ADHERENCE & TOPIC FIDELITY (ABSOLUTE RULE):**
