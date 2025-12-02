@@ -11,7 +11,7 @@ const CORS_HEADERS = {
 };
 // --- END OF FIX ---
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   // --- THIS IS THE CORS FIX ---
   // Handle the "preflight" OPTIONS request
   if (event.httpMethod === 'OPTIONS') {

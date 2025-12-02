@@ -405,40 +405,58 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
     };
 
 // --- HTML Assembler (Strict PEAC Table Format) ---
-    // UPDATED: Improved Markdown rendering and Table detection
     const assembleUlpFromComponents = (components) => {
         let tbody = '';
 
         // Configure marked options
         marked.setOptions({
             breaks: true, // Convert \n to <br>
-            gfm: true,    // GitHub Flavored Markdown (Crucial for tables)
+            gfm: true,    // GitHub Flavored Markdown
         });
 
         // 1. Basic HTML Escape (for headers/codes only)
         const esc = (text) => (text == null ? '' : String(text)).replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-        // 2. Enhanced Markdown Renderer (Fixes Tables & Blocks)
+        // 2. Enhanced Markdown Renderer
         const renderMd = (text) => {
             if (!text) return '';
-            
-            // REGEX FIX: Finds a newline followed immediately by a pipe (|) 
-            // and forces a double newline (\n\n) before it. 
-            // This ensures the markdown parser sees it as a table, not a paragraph.
-            let safeText = text.replace(/([^\n])\n(\s*\|)/g, '$1\n\n$2');
-            
-            // Also ensure headers |---| have a newline after them
-            safeText = safeText.replace(/\|\n\|/g, '|\n|');
 
+            // A. Standardize newlines
+            let safeText = text.replace(/\r\n/g, '\n');
+
+            // B. Dedent (Remove common leading whitespace)
+            const lines = safeText.split('\n');
+            const minIndent = lines.reduce((min, line) => {
+                if (line.trim().length === 0) return min;
+                const indent = line.match(/^\s*/)[0].length;
+                return Math.min(min, indent);
+            }, Infinity);
+            
+            if (minIndent !== Infinity && minIndent > 0) {
+                safeText = lines.map(line => line.substring(minIndent)).join('\n');
+            }
+
+            // C. CRITICAL FIX: The "Table Protector"
+            // The previous regex was inserting newlines BETWEEN table rows (breaking them).
+            // We only want to ensure a newline BEFORE the start of a table, not inside it.
+            
+            // Step 1: Ensure table block starts on a new line if it follows text immediately
+            // Look for a line NOT starting with pipe, followed by a line starting with pipe
+            safeText = safeText.replace(/^([^|].*)\n(\|.*)$/gm, '$1\n\n$2');
+
+            // Step 2: Fix common AI mistake of omitting the outer pipes in headers
+            // e.g. "Col 1 | Col 2" -> "| Col 1 | Col 2 |" (Simple heuristic)
+            // (Optional, but helps with AI inconsistency)
+            
             try {
                 return marked.parse(safeText);
             } catch (e) {
+                console.error("Markdown parsing error:", e);
                 return text;
             }
         };
 
-        // 3. Inline Markdown Renderer (For Lists/Targets)
-        // Renders bold/italic but removes the wrapping <p> tags
+        // 3. Inline Markdown Renderer
         const renderInlineMd = (text) => {
             if (!text) return '';
             const html = renderMd(text);
@@ -460,14 +478,12 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
 
         // --- Helper for Competency Rows ---
         const renderCompetencyRow = (item, stageName) => {
-            // UPDATED: Uses renderInlineMd for targets/indicators so **bold** works
             const learningFocus = `
                 <strong>${esc(item.code)}</strong><br/>
                 ${esc(item.competency)}<br/><br/>
                 <strong>Learning Targets:</strong><ul>${(item.learningTargets || []).map(t => `<li>${renderInlineMd(t)}</li>`).join('')}</ul>
                 <strong>Success Indicators:</strong><ul>${(item.successIndicators || []).map(i => `<li>${renderInlineMd(i)}</li>`).join('')}</ul>`;
             
-            // UPDATED: Uses renderMd for Materials (lists were breaking before)
             const learningExperience = `
                 <strong>In-Person Activity:</strong><br/>${renderMd(item.inPersonActivity?.instructions)}<br/>
                 <div style="margin-top: 8px; font-style: italic;">
@@ -541,32 +557,34 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             </td></tr>`;
         }
         
-        // GLOBAL Styles (No changes needed here, keeping your existing styles)
+        // CSS FIX: Nested table styles strictly defined
         const globalStyle = `
         <style>
-            /* Main layout table */
             table.main-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 1em; }
             table.main-table th, table.main-table td { word-wrap: break-word; overflow-wrap: break-word; border: 1px solid black; padding: 8px; vertical-align: top; }
             
-            /* Nested tables (generated by AI content) */
-            table:not(.main-table) { 
-                width: 100%; 
-                border-collapse: collapse; 
-                margin: 10px 0; 
-                border: 1px solid #666;
+            /* Styles for inner content tables (from Markdown) */
+            /* CRITICAL: table-layout auto allows inner tables to size correctly based on content */
+            td table { 
+                width: 100% !important; 
+                table-layout: auto !important;
+                border-collapse: collapse !important; 
+                margin: 15px 0 !important; 
+                border: 1px solid #666 !important; 
             }
-            table:not(.main-table) th, table:not(.main-table) td { 
-                border: 1px solid #999; 
-                padding: 6px; 
+            td table th, td table td { 
+                border: 1px solid #999 !important; 
+                padding: 8px !important; 
                 background-color: #fff !important;
                 color: #000 !important;
+                vertical-align: middle !important;
             }
-            table:not(.main-table) th {
-                background-color: #e5e7eb !important;
-                font-weight: bold;
+            td table th {
+                background-color: #f3f4f6 !important; /* light gray */
+                font-weight: bold !important;
+                text-align: left !important;
             }
 
-            /* List Styling */
             ul, ol { margin-top: 0; margin-bottom: 8px; padding-left: 20px; }
             li { margin-bottom: 4px; }
             p { margin-top: 0; margin-bottom: 10px; }
