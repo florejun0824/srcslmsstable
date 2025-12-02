@@ -630,118 +630,112 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         return () => { unL(); unQ(); };
     }, [subject?.id]);
 	
-	// --- HELPER: Manual Markdown Table Parser (The "Nuclear Option") ---
+	// --- HELPER: Smart Markdown Table Parser (Preserves Surrounding Text) ---
 	const forceParseMarkdownTable = (text) => {
-	    // 1. Check if it actually looks like a markdown table (has pipes and divider row)
-	    if (!text || !text.includes('|') || !text.includes('---')) return text;
+	    if (!text) return text;
 
-	    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-	    let html = '';
-	    let inTable = false;
-
-	    // Helper to process a single line into TR/TD
-	    const processRow = (line, isHeader = false) => {
-	        // Remove outer pipes if they exist
-	        const content = line.replace(/^\||\|$/g, '');
-	        const cells = content.split('|');
-	        const tag = isHeader ? 'th' : 'td';
-	        return `<tr>${cells.map(c => `<${tag} style="border: 1px solid black; padding: 5px;">${marked.parseInline(c.trim())}</${tag}>`).join('')}</tr>`;
-	    };
-
-	    for (let i = 0; i < lines.length; i++) {
-	        const line = lines[i];
+	    // 1. Clean and Split
+	    // Decode HTML entities (like &nbsp;) and split by newlines
+	    const rawLines = text
+	        .replace(/&nbsp;/g, ' ')
+	        .replace(/<br\s*\/?>/gi, '\n')
+	        .split('\n');
         
-	        // Detect Table Start (Header followed by Divider)
-	        if (line.includes('|') && lines[i+1] && lines[i+1].includes('---')) {
-	            inTable = true;
-	            html += '<table style="width:100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 10px; border: 1px solid black;">';
-	            html += `<thead>${processRow(line, true)}</thead>`;
+	    const lines = rawLines.map(l => l.trim()).filter(l => l.length > 0);
+    
+	    let html = '';
+	    let i = 0;
+
+	    while (i < lines.length) {
+	        const line = lines[i];
+
+	        // CHECK: Is this the start of a table?
+	        // We look for a pipe in this line, AND a separator pattern in the NEXT line
+	        const isTableStart = line.includes('|') && 
+	                             lines[i+1] && 
+	                             /^\|?\s*:?-+:?\s*(\|?\s*:?-+:?\s*)+\|?$/.test(lines[i+1]);
+
+	        if (isTableStart) {
+	            // --- RENDER TABLE ---
+	            html += '<table border="1" style="width:100%; border-collapse: collapse; margin: 10px 0;">';
+            
+	            // 1. Header (Current Line)
+	            const headerCells = line.replace(/^\||\|$/g, '').split('|');
+	            html += '<thead><tr>';
+	            headerCells.forEach(cell => {
+	                html += `<th style="border: 1px solid #666; padding: 4px; background-color: #e2e8f0; font-weight: bold;">${marked.parseInline(cell.trim())}</th>`;
+	            });
+	            html += '</tr></thead>';
+
+	            // 2. Skip Separator (Next Line)
+	            i += 2; 
+
+	            // 3. Body
 	            html += '<tbody>';
-	            i++; // Skip the divider line
-	        } 
-	        // Detect Table Body
-	        else if (inTable && line.includes('|')) {
-	            html += processRow(line, false);
-	        } 
-	        // Detect End of Table
-	        else if (inTable && !line.includes('|')) {
-	            inTable = false;
+	            while (i < lines.length && lines[i].includes('|')) {
+	                const rowCells = lines[i].replace(/^\||\|$/g, '').split('|');
+	                html += '<tr>';
+	                rowCells.forEach(cell => {
+	                    html += `<td style="border: 1px solid #666; padding: 4px;">${marked.parseInline(cell.trim())}</td>`;
+	                });
+	                html += '</tr>';
+	                i++;
+	            }
 	            html += '</tbody></table>';
-	            html += `<div>${marked.parse(line)}</div>`; // Render the non-table line normally
-	        } 
-	        // Normal Text
-	        else {
-	            html += `<div>${marked.parse(line)}</div>`;
+	        } else {
+	            // --- RENDER NORMAL TEXT ---
+	            // If it's not a table, render it as a paragraph using the markdown parser
+	            // ensuring we don't lose the text surrounding the table.
+	            html += `<div style="margin-bottom: 4px;">${marked.parse(line)}</div>`;
+	            i++;
 	        }
 	    }
 
-	    if (inTable) html += '</tbody></table>'; // Close table if it ended at the last line
 	    return html;
 	};
-
 	// --- HELPER: Pre-process HTML to Split Tables, Fix Colspans & Rescue Markdown ---
 	const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
 	    const tempDiv = document.createElement('div');
 	    tempDiv.innerHTML = rawHtml;
 
 	    // --- PHASE 1: MARKDOWN RESCUE ---
-	    const allCells = tempDiv.querySelectorAll('td');
-	    allCells.forEach(cell => {
-	        let text = cell.innerHTML || '';
-        
-	        // Decode HTML entities if necessary (e.g. &lt; to <) to ensure pipes are visible
+	    const allCells = tempDiv.querySelectorAll('td, div, p');
+	    allCells.forEach(el => {
+	        let text = el.innerHTML || '';
 	        const txt = document.createElement("textarea");
 	        txt.innerHTML = text;
 	        const decodedText = txt.value;
 
-	        // CHECK: Does this cell contain a broken Markdown table?
-	        // Logic: Has pipes, has divider '---', and DOES NOT already have a <table> tag
-	        if (decodedText.includes('|') && decodedText.includes('---') && !cell.querySelector('table')) {
+	        if (decodedText.includes('|') && decodedText.includes('---') && !el.querySelector('table')) {
 	            try {
-	                // Use the manual parser defined above
 	                const newHtml = forceParseMarkdownTable(decodedText);
-	                cell.innerHTML = newHtml;
-	            } catch (e) {
-	                console.warn("Manual table parse failed", e);
-	            }
+	                if (newHtml !== decodedText) el.innerHTML = newHtml;
+	            } catch (e) { console.warn("Manual table parse failed", e); }
 	        }
 	    });
 
 	    // --- PHASE 2: STANDARD CLEANUP ---
-	    // Remove explicit width styles
 	    tempDiv.querySelectorAll('[style]').forEach(el => {
 	        const style = el.getAttribute('style') || '';
-	        const cleaned = style.replace(/(min-|max-)?width:\s*\d+px;?/gi, '')
-	                             .replace(/width:\s*\d+px;?/gi, '');
+	        const cleaned = style.replace(/(min-|max-)?width:\s*\d+px;?/gi, '').replace(/width:\s*\d+px;?/gi, '');
 	        if (cleaned !== style) el.setAttribute('style', cleaned);
 	    });
 
-	    [cite_start]// Normalize images [cite: 201]
 	    tempDiv.querySelectorAll('img').forEach(img => {
-	        img.removeAttribute('width');
-	        img.removeAttribute('height');
-	        img.style.maxWidth = (mode === 'ulp') ? '450px' : (mode === 'atg') ? '500px' : '550px';
-	        img.style.height = 'auto';
-	        img.style.display = 'block';
-	        img.style.margin = '8px 0';
+	        img.removeAttribute('width'); img.removeAttribute('height');
+	        img.style.maxWidth = (mode === 'ulp') ? '450px' : '550px';
+	        img.style.height = 'auto'; img.style.display = 'block'; img.style.margin = '8px 0';
 	    });
 
-	    [cite_start]// Tables: split for ULP and sanitize general table attributes [cite: 201]
 	    const tables = Array.from(tempDiv.querySelectorAll('table'));
 	    tables.forEach(table => {
-	        table.style.width = '100%';
-	        table.removeAttribute('width');
-	        table.style.borderCollapse = 'collapse';
+	        table.style.width = '100%'; table.removeAttribute('width'); table.style.borderCollapse = 'collapse';
         
-	        [cite_start]// Fix for nested tables so they don't break layout [cite: 201]
 	        if (table.parentElement.tagName === 'TD') {
-	            table.style.tableLayout = 'auto';
-	            table.style.marginBottom = '10px';
-	            table.style.border = '1px solid #ccc';
+	            table.style.marginTop = '10px'; table.style.marginBottom = '10px'; table.setAttribute('border', '1');
+	            table.querySelectorAll('th').forEach(th => th.style.backgroundColor = '#e2e8f0');
 	        }
 
-	        // --- SPLIT LOGIC (ULP Only) ---
-	        [cite_start]// This breaks long tables into chunks based on Section Headers [cite: 201]
 	        if (mode === 'ulp') {
 	            const rows = Array.from(table.rows || []);
 	            const splitKeywords = [
@@ -760,47 +754,28 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 
 	            if (splitIndex > 0 && splitIndex < rows.length) {
 	                const newTable = document.createElement('table');
-	                newTable.style.width = '100%';
-	                newTable.style.borderCollapse = 'collapse';
-	                newTable.style.marginTop = '20px';
-                
+	                newTable.style.width = '100%'; newTable.style.borderCollapse = 'collapse'; newTable.style.marginTop = '20px';
 	                const newTbody = document.createElement('tbody');
-	                for (let i = splitIndex; i < rows.length; i++) {
-	                    newTbody.appendChild(rows[i]);
-	                }
+	                for (let i = splitIndex; i < rows.length; i++) newTbody.appendChild(rows[i]);
 	                newTable.appendChild(newTbody);
 	                table.parentNode.insertBefore(newTable, table.nextSibling);
 	            }
 	        }
 	    });
 
-	    // --- WIDTH ENFORCEMENT (Refined for Nested Tables) ---
-	    // Re-query tables because we might have created new ones during the split logic
 	    const finalTables = Array.from(tempDiv.querySelectorAll('table'));
 	    finalTables.forEach(table => {
-	        table.style.width = '100%';
-	        table.style.borderCollapse = 'collapse';
+	        table.style.width = '100%'; table.style.borderCollapse = 'collapse';
         
-	        // CHECK IF NESTED (Inside another TD)
-	        const isNested = table.parentElement.tagName === 'TD';
-
-	        if (isNested) {
-	            // Fix styles for the INNER table so it looks good in PDF
-	            table.style.marginTop = "10px";
-	            table.style.marginBottom = "10px";
-	            table.setAttribute('border', '1');
-	        } 
-	        else if (mode === 'ulp') {
-	            [cite_start]// Apply strict 35/65 layout ONLY to the OUTER tables [cite: 201]
+	        if (mode === 'ulp') {
 	            const allRows = Array.from(table.querySelectorAll('tr'));
 	            allRows.forEach(row => {
 	                const cells = Array.from(row.children).filter(c => /TD|TH/.test(c.tagName));
-                
-	                // Skip if this row is part of a nested table we just generated
-	                if (row.closest('table') !== table) return;
+	                if (row.closest('table') !== table) return; 
 
 	                const txt = (row.textContent || '').toUpperCase();
-	                const isSectionHeader = ['DEEPEN', 'TRANSFER', 'FIRM-UP', 'EXPLORE', 'PERFORMANCE'].some(k => txt.includes(k));
+	                // FIX: Added length check (< 100) to ensure we don't treat long paragraphs as headers
+	                const isSectionHeader = ['DEEPEN', 'TRANSFER', 'FIRM-UP', 'EXPLORE', 'PERFORMANCE', 'SYNTHESIS'].some(k => txt.includes(k)) && txt.length < 100;
 
 	                if (isSectionHeader) {
 	                    if (cells[0]) {
@@ -810,28 +785,16 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	                        cells[0].style.fontWeight = 'bold';
 	                        cells[0].style.border = '1px solid black';
 	                    }
-	                    // Remove extra cells if they exist in header row
-	                    for(let k=1; k<cells.length; k++) {
-	                        cells[k].remove();
-	                    }
+	                    for(let k=1; k<cells.length; k++) cells[k]?.remove();
 	                } 
-	                else if (cells.length === 2) {
-	                    cells[0].style.width = '35%';
-	                    cells[1].style.width = '65%';
-	                    cells[0].style.border = '1px solid black';
-	                    cells[1].style.border = '1px solid black';
-	                    cells[0].style.verticalAlign = 'top';
-	                    cells[1].style.verticalAlign = 'top';
-	                }
+	                // We REMOVED the manual 35% styling here to let cleanUpPdfContent handle it consistently
 	            });
 	        }
         
-	        [cite_start]// Cleanup huge colspans [cite: 201]
 	        Array.from(table.querySelectorAll('[colspan]')).forEach(cell => {
 	            const cs = parseInt(cell.getAttribute('colspan'), 10);
 	            if (!isNaN(cs) && cs > 3) {
-	                cell.removeAttribute('colspan');
-	                cell.style.width = '100%';
+	                cell.removeAttribute('colspan'); cell.style.width = '100%';
 	            }
 	        });
 	    });
@@ -839,7 +802,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	    return tempDiv;
 	};
 
-	// --- HELPER: Sanitize PDF Structure (Aggressive Width & Overflow Fix) ---
+	// --- HELPER: Sanitize PDF Structure (Ruthless Left-Column Shrink) ---
 	const cleanUpPdfContent = (content, inTable = false) => {
 	    if (!content) return;
 
@@ -851,8 +814,8 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 
 	    // 2. Handle Objects
 	    if (typeof content === 'object') {
-        
-	        // A. Fix Structure: pdfmake requires 'stack' for vertical lists, not 'content'
+
+	        // A. Fix Structure: pdfmake requires 'stack' for vertical lists
 	        if (content.content && Array.isArray(content.content)) {
 	            content.stack = content.content;
 	            delete content.content;
@@ -861,29 +824,19 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        }
 
 	        // B. IMAGE HANDLING
-	        // Essential to prevent images from blowing out the table width
+	        // Keep images strictly small so they don't force columns open
 	        if (content.image) {
-	            const maxWidth = inTable ? 150 : 480; 
-            
-	            if (!content.fit) {
-	                content.fit = [maxWidth, 800]; // Default max dimensions
-	            } else {
-	                // Ensure existing fit doesn't exceed safe bounds
-	                content.fit[0] = Math.min(content.fit[0], maxWidth);
-	            }
-
-	            // Remove explicit width/height to force 'fit' to take precedence
+	            const maxWidth = inTable ? 80 : 350; 
+	            content.fit = [maxWidth, 600];
 	            delete content.width;
 	            delete content.height;
+	            content.alignment = 'center';
 	        }
 	        // C. TEXT & CONTAINER HANDLING
 	        else {
-	            // Remove fixed widths that might break layout
 	            if (content.width !== undefined && content.width !== '*' && content.width !== 'auto') {
 	                delete content.width;
 	            }
-            
-	            // Handle Columns (Force them to fit)
 	            if (content.columns) {
 	                content.columns.forEach(col => {
 	                    col.width = '*'; 
@@ -893,76 +846,57 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	            }
 	        }
 
-	        // D. TABLE HANDLING (Your Updated Logic)
+	        // D. TABLE HANDLING (The Absolute Fix)
 	        if (content.table) {
+	            delete content.width; 
+
 	            const body = content.table.body;
 	            if (body && Array.isArray(body) && body.length > 0) {
 	                const colCount = body[0].length;
 
 	                // --- WIDTH LOGIC ---
-	                if (inTable) {
-	                    // NESTED TABLE: Use 'star' widths so they fill the parent cell evenly
-	                    content.table.widths = Array(colCount).fill('*');
-                    
-	                    // Style the nested table to look distinct (lighter borders)
-	                    content.layout = {
-	                        hLineWidth: () => 0.5,
-	                        vLineWidth: () => 0.5,
-	                        hLineColor: () => '#555',
-	                        vLineColor: () => '#555',
-	                        paddingLeft: () => 4, paddingRight: () => 4,
-	                        paddingTop: () => 2, paddingBottom: () => 2,
-	                    };
-	                } else {
-	                    // OUTER TABLE
-	                    // If it's the standard ULP 2-column layout, force 35/65 split
-	                    if (colCount === 2) {
-	                        content.table.widths = ['35%', '*'];
-	                    } else {
-	                        content.table.widths = Array(colCount).fill('*');
+	                // We no longer care if it is 'inTable' (nested) or not.
+	                // We apply the narrow-left rule to EVERYTHING.
+                
+	                if (colCount >= 2) {
+	                    // Create the widths array dynamically
+	                    // Column 1: 16% (Fixed Narrow)
+	                    // Columns 2+: * (Share all remaining space)
+	                    const widths = ['22%']; 
+	                    for (let i = 1; i < colCount; i++) {
+	                        widths.push('*');
 	                    }
-                    
-	                    // Standard outer table styling (heavy borders)
-	                    content.layout = {
-	                        hLineWidth: () => 1,
-	                        vLineWidth: () => 1,
-	                        hLineColor: () => 'black',
-	                        vLineColor: () => 'black',
-	                        paddingLeft: () => 5, paddingRight: () => 5,
-	                        paddingTop: () => 5, paddingBottom: () => 5,
-	                    };
+	                    content.table.widths = widths;
+	                } else {
+	                    // Single column tables just fill space
+	                    content.table.widths = ['*'];
 	                }
+                
+	                // Styles: consistent padding
+	                content.layout = {
+	                    hLineWidth: () => 1,
+	                    vLineWidth: () => 1,
+	                    hLineColor: () => '#444', // Dark grey lines
+	                    vLineColor: () => '#444',
+	                    paddingLeft: () => 4, paddingRight: () => 4,
+	                    paddingTop: () => 4, paddingBottom: () => 4,
+	                };
 
 	                // Clean cells & Recurse
 	                body.forEach(row => {
 	                    row.forEach(cell => {
-	                        // Recursively clean content inside cells
-	                        // We check for common container types inside a cell
 	                        if (typeof cell === 'object') {
-	                            // Remove conflicting cell properties
 	                            delete cell.border; 
 	                            delete cell.borderColor; 
 	                            delete cell.width; 
-
-	                            // Pass 'true' to indicate we are now deep inside a table
+	                            // Recurse to clean content inside cells
 	                            cleanUpPdfContent(cell, true); 
-	                        }
-                        
-	                        // Handle ColSpans (Standard PDFMake cleanup)
-	                        if (cell && cell.colSpan && cell.colSpan > 1) {
-	                            // PDFMake requires empty objects for spanned cells
-	                            // Note: We use row iteration to find the index, but here we assume 
-	                            // this logic runs during the render or map.
-	                            // However, since we are iterating the body:
-	                            // We can't easily access the "next" index in a forEach without the index arg.
-	                            // But usually, the structure is already set, we just clean content here.
 	                        }
 	                    });
 	                });
 	            }
 	        }
 
-	        // E. Recurse common containers
 	        if (content.stack) cleanUpPdfContent(content.stack, inTable);
 	        if (content.ul) cleanUpPdfContent(content.ul, inTable);
 	        if (content.ol) cleanUpPdfContent(content.ol, inTable);
@@ -1155,7 +1089,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                 
 	                let pdfBody = htmlToPdfmake(finalHtml, { 
 	                    defaultStyles: { 
-	                        fontSize: 10, 
+	                        fontSize: 7, 
 	                        lineHeight: 1.1, 
 	                        alignment: 'justify' 
 	                    },

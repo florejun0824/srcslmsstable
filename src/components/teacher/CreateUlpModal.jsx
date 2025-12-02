@@ -179,7 +179,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       return true;
     };
 
-    /**
+/**
      * --- GENERATION LOGIC ---
      */
     const generateUlpSection = async (type, context, maxRetries = 3) => {
@@ -207,7 +207,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
          - For tables use strict markdown table syntax with |---| separators.
          - **CRITICAL:** Always put a blank line before a markdown table.
       3. **CREATE THE MATERIALS:** If an activity uses "Scenario Cards" or "Worksheets", YOU MUST WRITE THE CONTENT of those cards/worksheets in the instruction text.
-      4. **NO PLACEHOLDERS:** Never say "Teacher provides resources." Instead say "Resource Content: [Write the content here]".
       `;
 
       const valuesRule = `
@@ -220,8 +219,11 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       **OUTPUT FIELD:** "valuesIntegration": { "value": "Name", "integration": "Conversational paragraph..." }
       `;
 
+      // UPDATED: High-Depth Persona
       const commonRules = `
-      **ROLE:** Expert Curriculum Developer for San Ramon Catholic School (SRCS).
+      **ROLE:** You are a Master Curriculum Developer and Theologian for San Ramon Catholic School (SRCS). 
+      **TONE:** Your "Support Discussions" must be deep, insightful, and pedagogical. Do not be superficial. Treat the teacher reading this as a professional who needs deep background knowledge.
+      
       **INPUTS:**
       - Standards: ${context.contentStandard} / ${context.performanceStandard}
       - Content Source: ${context.sourceLessonTitles}
@@ -260,11 +262,15 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             ${commonRules}
             **TASK:** Generate "Firm-Up" (Acquisition) for: "${context.competency}" (${context.code}).
             **FOCUS:** Acquisition of facts and skills. Scaffolds towards Meaning-Making.
-            **ASSESSMENT:** VARIED. (Matching, Identification, Concept Maps).
             
-            **SUPPORT DISCUSSION REQUIREMENT (Reinforcement):** 1. **Key Concept Reinforcement:** Summarize the specific factual takeaways from the activity.
-            2. **Context Connection:** Explain how these facts connect to the larger unit topic/real world.
-            3. **Processing Questions:** 3-5 questions to check understanding.
+            **SUPPORT DISCUSSION REQUIREMENT (MUST BE RICH AND DETAILED):** Use the following headers and structure in the Markdown output:
+            
+            1. **Checking for Understanding Questions:** Provide 4-5 specific questions the teacher can ask to check if students grasped the activity.
+            2. **In-Depth Discussion:** Write 2-3 substantial paragraphs.
+               - Explain the *significance* of the concept (e.g., why is family the 'first school'?).
+               - Connect the specific activity details to broader life values.
+               - Explain *how* these lessons are absorbed (e.g., observation, participation).
+               - **Goal:** Give the teacher a script/lecture notes that add depth beyond the obvious.
 
             **JSON STRUCTURE:**
             {
@@ -278,7 +284,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 "materials": "Detailed list." 
             },
             "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
-            "supportDiscussion": "**Key Concept Reinforcement:**\\n[Summary]\\n\\n**Context Connection:**\\n[Connection]\\n\\n**Processing Questions:**\\n1. [Question]...",
+            "supportDiscussion": "**Checking for Understanding Questions:**\\n1. [Question]...\\n\\n**In-Depth Discussion:**\\n[Write a rich, detailed explanation of the concept, approx 150-200 words. Be profound.]",
             "assessment": { "type": "Quiz/Matching/Graphic Organizer", "content": "Write the actual questions/items here. USE MARKDOWN TABLE if matching." },
             "templates": "Text content for any definitions/flashcards needed.",
             "valuesIntegration": { "value": "Name of SRCS Value", "integration": "Conversational connection paragraph." }
@@ -293,11 +299,12 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             **FOCUS:** Making Meaning, Analysis, Generalization.
             **CRITICAL:** Use **Guided Generalization**. Generate specific "Scenario Cards" or "Case Studies".
             
-            **SUPPORT DISCUSSION:** Must be a **Reinforcement Discussion**. 
-            1. Summarize the Key Concept derived from the activity.
-            2. Explicitly CONNECT this concept to a specific Real-World Context (give an example).
-            
-            **ASSESSMENT:** VARIED. NO PLAIN ESSAYS. Use: Case Analysis Grid, Analogy Map, Venn Diagram.
+            **SUPPORT DISCUSSION REQUIREMENT (MUST BE RICH AND DETAILED):** Use the following headers and structure in the Markdown output:
+
+            1. **Detailed Summarization of Key Concepts:** Write 2 substantial paragraphs defining the core concepts (e.g., "Natural Institution" vs "Domestic Church"). Use formal terminology.
+            2. **In-Depth Elaboration and Probing Questions:** - Provide 3-4 deep questions (e.g., "How does X complement Y?").
+               - Provide a "Teacher Note" explaining the nuance of the answer.
+               - Discuss obstacles/challenges families face regarding this concept and how to overcome them.
             
             **JSON STRUCTURE:**
             {
@@ -311,7 +318,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 "materials": "Scenario Cards, C-E-R Worksheet." 
             },
             "onlineActivity": { "instructions": "Instructions for breakout rooms/shared docs.", "materials": "Links..." },
-            "supportDiscussion": "**Reinforcement Discussion:**\\n\\n**Key Concept:** [Summary]\\n\\n**Real World Connection:** [Detailed connection]",
+            "supportDiscussion": "**Detailed Summarization of Key Concepts:**\\n[Paragraph 1]\\n[Paragraph 2]\\n\\n**In-Depth Elaboration and Probing Questions:**\\n* [Question 1]\\n* [Question 2]\\n* [Elaboration on obstacles/nuance]",
             "assessment": { "type": "Case Analysis/Analogy/Diagram", "content": "Instructions for the varied assessment task." },
             "templates": "Structure of the worksheet.",
             "valuesIntegration": { "value": "Name of SRCS Value", "integration": "Conversational connection paragraph." }
@@ -327,13 +334,12 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             
             **ACTIVITY REQUIREMENT:** This activity MUST be a scaffold or direct entry point to the main Unit Performance Task (GRASPS).
             
-            **NO END OF LESSON ASSESSMENT:** Do not generate a quiz/rubric. The activity itself is the practice.
-
-            **SUPPORT DISCUSSION:** Must be a **Transitional Synthesis**. 
-            1. Summarize the entire unit's journey (connect Explore, Firm-Up, Deepen).
-            2. Connect the "dots" between the activities, core concepts, and the real-world scenario.
-            3. Explicitly transition students to the upcoming Performance Task.
+            **SUPPORT DISCUSSION REQUIREMENT (MUST BE RICH AND DETAILED):** Use the following headers and structure in the Markdown output:
             
+            1. **Core Behavioral Principles:** Do not just list behaviors. Explain the *psychology* and *spirituality* behind them. (e.g., "Empathy is not just feeling sorry; it is the active attempt to...").
+            2. **Practical Application & Nuance:** Explain how these behaviors build "Psychological Safety" or "Spiritual Unity" in the family. Discuss how to handle conflict constructively using these tools.
+            3. **Transition to Performance Task:** Briefly explain how practicing these small behaviors prepares them for the major Unit Task.
+
             **JSON STRUCTURE:**
             {
             "type": "transfer",
@@ -346,7 +352,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 "materials": "Specific list." 
             },
             "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
-            "supportDiscussion": "**Unit Synthesis & Transition:**\\n\\n[Write a robust paragraph connecting unit concepts, previous activities, and the real world, ending with a call to action for the Performance Task.]",
+            "supportDiscussion": "**Core Behavioral Principles:**\\n[Detailed Paragraph]\\n\\n**Practical Application & Nuance:**\\n[Detailed Paragraph]\\n\\n**Transition:**\\n[Short paragraph]",
             "valuesIntegration": { "value": "Name of SRCS Value", "integration": "Conversational connection paragraph." }
             }
             `;
@@ -390,6 +396,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       let retries = 0;
       while (retries < maxRetries) {
         try {
+          // Increased token limit to allow for the richer, longer responses
           const jsonString = await callGeminiWithLimitCheck(prompt, { maxOutputTokens: 8192 }); 
           const parsedJson = tryParseJson(extractJson(jsonString));
           if (!parsedJson) throw new Error(`Failed to generate valid JSON for section: ${type}`);
