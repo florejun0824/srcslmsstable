@@ -8,6 +8,8 @@ import Spinner from '../common/Spinner';
 import { XMarkIcon, DocumentTextIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import ProgressIndicator from '../common/ProgressIndicator';
 import SourceContentSelector from '../../hooks/SourceContentSelector';
+// Import marked to handle Markdown tables and formatting
+import { marked } from 'marked';
 
 // --- SRCS Core Values Definition ---
 const SRCS_VALUES_CONTEXT = `
@@ -25,6 +27,7 @@ const SRCS_VALUES_CONTEXT = `
 // --- Helper Functions ---
 
 const extractJson = (text) => {
+    if (!text || typeof text !== 'string') return null;
     const match = text.match(/```json\s*([\s\S]*?)\s*```/);
     if (match && match[1]) return match[1].trim();
     const firstBrace = text.indexOf('{');
@@ -35,9 +38,11 @@ const extractJson = (text) => {
 
 const tryParseJson = (jsonString) => {
   try {
+    if (!jsonString) return null;
     return JSON.parse(jsonString);
   } catch (error) {
     console.warn("Standard JSON.parse failed. Attempting to fix.", error);
+    if (typeof jsonString !== 'string') return null;
     let sanitizedString = jsonString
       .replace(/```json|```/g, '')
       .replace(/,\s*([}\]])/g, '$1')
@@ -157,7 +162,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
     }, [selectedUnitIds, unitsForSubject, lessonsForUnit, generationTarget]);
 
     // --- Schema Definitions ---
-    // Updated schemas to include valuesIntegration in FirmUp, Deepen, Transfer
     const ulpSchemas = {
       explore: ["type", "lessonsList", "unitOverview", "hookedActivities", "mapOfConceptualChange", "essentialQuestions"],
       firmUp: ["type", "code", "competency", "learningTargets", "successIndicators", "inPersonActivity", "onlineActivity", "supportDiscussion", "assessment", "templates", "valuesIntegration"],
@@ -197,15 +201,23 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       const verbosityRules = `
       **CRITICAL CONTENT RULES (MUST FOLLOW):**
       1. **BE EXTREMELY DETAILED:** Do not just summarize. Write out the actual content.
-      2. **CREATE THE MATERIALS:** If an activity uses "Scenario Cards" or "Worksheets", YOU MUST WRITE THE CONTENT of those cards/worksheets in the instruction text.
-      3. **STEP-BY-STEP:** Instructions must be numbered lists (1. 2. 3. 4. 5.) with high detail.
+      2. **MARKDOWN FORMATTING:** You MUST use valid Markdown. 
+         - For bold text use **text**.
+         - For numbered lists use 1. (space) text.
+         - For tables use strict markdown table syntax with |---| separators.
+         - **CRITICAL:** Always put a blank line before a markdown table.
+      3. **CREATE THE MATERIALS:** If an activity uses "Scenario Cards" or "Worksheets", YOU MUST WRITE THE CONTENT of those cards/worksheets in the instruction text.
       4. **NO PLACEHOLDERS:** Never say "Teacher provides resources." Instead say "Resource Content: [Write the content here]".
       `;
 
       const valuesRule = `
       **SRCS VALUES INTEGRATION (REQUIRED):**
       ${SRCS_VALUES_CONTEXT}
-      **INSTRUCTION:** Select **ONE** specific value from the list above that matches this specific lesson/activity. Explain *how* this activity reinforces that value.
+      **INSTRUCTION:** Select **ONE** specific value. Write a **seamless, conversational 'Small Talk' or 'Teacher's Connection' paragraph** (3-4 sentences). 
+      - DO NOT just define the value. 
+      - Speak as if you are the teacher transitioning the class, connecting the activity they just did to the SRCS Core Value and a real-world application.
+      - Make it flow naturally.
+      **OUTPUT FIELD:** "valuesIntegration": { "value": "Name", "integration": "Conversational paragraph..." }
       `;
 
       const commonRules = `
@@ -223,6 +235,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       1. **OUTPUT:** Valid JSON object ONLY.
       2. **ESCAPING:** Escape double quotes inside strings (\\").
       3. **FORMATTING:** Use \\n for line breaks inside strings.
+      4. **TABLES:** You MUST include \\n\\n before any markdown table row.
       `;
 
       switch (type) {
@@ -249,6 +262,10 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             **FOCUS:** Acquisition of facts and skills. Scaffolds towards Meaning-Making.
             **ASSESSMENT:** VARIED. (Matching, Identification, Concept Maps).
             
+            **SUPPORT DISCUSSION REQUIREMENT (Reinforcement):** 1. **Key Concept Reinforcement:** Summarize the specific factual takeaways from the activity.
+            2. **Context Connection:** Explain how these facts connect to the larger unit topic/real world.
+            3. **Processing Questions:** 3-5 questions to check understanding.
+
             **JSON STRUCTURE:**
             {
             "type": "firmUp",
@@ -257,14 +274,14 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             "learningTargets": ["${iCan} define...", "${iCan} identify...", "${iCan} describe..."],
             "successIndicators": ["3 distinct bullet points."],
             "inPersonActivity": { 
-                "instructions": "Title: [Name]\\n1. [Step 1]\\n2. [Step 2]...\\n\\n**CONTENT FOR WORKSHEET/CARDS:**\\n[Write the actual text/items students will analyze here]", 
+                "instructions": "Title: [Name]\\n1. [Step 1]\\n2. [Step 2]...\\n\\n**CONTENT FOR WORKSHEET/CARDS:**\\n\\n| Column 1 | Column 2 |\\n|---|---|\\n| Item 1 | Detail 1 |\\n| Item 2 | Detail 2 |", 
                 "materials": "Detailed list." 
             },
             "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
-            "supportDiscussion": "Write 5 specific questions checking for factual understanding.",
-            "assessment": { "type": "Quiz/Matching/Graphic Organizer", "content": "Write the actual questions/items here." },
+            "supportDiscussion": "**Key Concept Reinforcement:**\\n[Summary]\\n\\n**Context Connection:**\\n[Connection]\\n\\n**Processing Questions:**\\n1. [Question]...",
+            "assessment": { "type": "Quiz/Matching/Graphic Organizer", "content": "Write the actual questions/items here. USE MARKDOWN TABLE if matching." },
             "templates": "Text content for any definitions/flashcards needed.",
-            "valuesIntegration": { "value": "Name of SRCS Value", "integration": "2-3 sentences explaining the connection." }
+            "valuesIntegration": { "value": "Name of SRCS Value", "integration": "Conversational connection paragraph." }
             }
             `;
           break;
@@ -290,14 +307,14 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             "learningTargets": ["${iCan} analyze...", "${iCan} justify...", "${iCan} generalize..."],
             "successIndicators": ["3 distinct indicators."],
             "inPersonActivity": { 
-                "instructions": "Activity: [Name]\\nInstructions:\\n1. [Step]...\\n\\n**SCENARIO CARDS CONTENT:**\\nCard 1: [Write full paragraph]\\nCard 2: [Write full paragraph]", 
+                "instructions": "Activity: [Name]\\nInstructions:\\n1. [Step]...\\n\\n**SCENARIO CARDS CONTENT:**\\n\\n| Card | Scenario |\\n|---|---|\\n| Card 1 | [Full text] |\\n| Card 2 | [Full text] |", 
                 "materials": "Scenario Cards, C-E-R Worksheet." 
             },
             "onlineActivity": { "instructions": "Instructions for breakout rooms/shared docs.", "materials": "Links..." },
             "supportDiscussion": "**Reinforcement Discussion:**\\n\\n**Key Concept:** [Summary]\\n\\n**Real World Connection:** [Detailed connection]",
             "assessment": { "type": "Case Analysis/Analogy/Diagram", "content": "Instructions for the varied assessment task." },
             "templates": "Structure of the worksheet.",
-            "valuesIntegration": { "value": "Name of SRCS Value", "integration": "2-3 sentences explaining the connection." }
+            "valuesIntegration": { "value": "Name of SRCS Value", "integration": "Conversational connection paragraph." }
             }
             `;
           break;
@@ -330,7 +347,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             },
             "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
             "supportDiscussion": "**Unit Synthesis & Transition:**\\n\\n[Write a robust paragraph connecting unit concepts, previous activities, and the real world, ending with a call to action for the Performance Task.]",
-            "valuesIntegration": { "value": "Name of SRCS Value", "integration": "2-3 sentences explaining the connection." }
+            "valuesIntegration": { "value": "Name of SRCS Value", "integration": "Conversational connection paragraph." }
             }
             `;
           break;
@@ -366,8 +383,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             }
             `;
           break;
-
-        // "Values" case REMOVED as requested
         
         default: return Promise.resolve(null);
       }
@@ -389,12 +404,46 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       throw new Error(`Failed to generate section '${type}' after ${maxRetries} retries.`);
     };
 
-    // --- HTML Assembler (Strict PEAC Table Format) ---
-    // DO NOT MODIFY STYLING AS REQUESTED
+// --- HTML Assembler (Strict PEAC Table Format) ---
+    // UPDATED: Improved Markdown rendering and Table detection
     const assembleUlpFromComponents = (components) => {
         let tbody = '';
-        const esc = (text) => text ? text.replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
-        const nl2br = (text) => esc(text || '').replace(/\n/g, '<br/>');
+
+        // Configure marked options
+        marked.setOptions({
+            breaks: true, // Convert \n to <br>
+            gfm: true,    // GitHub Flavored Markdown (Crucial for tables)
+        });
+
+        // 1. Basic HTML Escape (for headers/codes only)
+        const esc = (text) => (text == null ? '' : String(text)).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        // 2. Enhanced Markdown Renderer (Fixes Tables & Blocks)
+        const renderMd = (text) => {
+            if (!text) return '';
+            
+            // REGEX FIX: Finds a newline followed immediately by a pipe (|) 
+            // and forces a double newline (\n\n) before it. 
+            // This ensures the markdown parser sees it as a table, not a paragraph.
+            let safeText = text.replace(/([^\n])\n(\s*\|)/g, '$1\n\n$2');
+            
+            // Also ensure headers |---| have a newline after them
+            safeText = safeText.replace(/\|\n\|/g, '|\n|');
+
+            try {
+                return marked.parse(safeText);
+            } catch (e) {
+                return text;
+            }
+        };
+
+        // 3. Inline Markdown Renderer (For Lists/Targets)
+        // Renders bold/italic but removes the wrapping <p> tags
+        const renderInlineMd = (text) => {
+            if (!text) return '';
+            const html = renderMd(text);
+            return html.replace(/^<p>|<\/p>\n?$/g, ''); 
+        };
 
         // --- 1. EXPLORE ---
         const explore = components.find(c => c.type === 'explore');
@@ -402,32 +451,41 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             tbody += `
             <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>EXPLORE</td></tr>
             <tr><td colspan='2' style='padding: 10px; border: 1px solid black; vertical-align: top;'>
-                <strong>Unit Overview:</strong><br/>${nl2br(explore.unitOverview)}<br/><br/>
-                <strong>Essential Questions:</strong><ul>${(explore.essentialQuestions || []).map(q => `<li>${esc(q)}</li>`).join('')}</ul>
-                <strong>Map of Conceptual Change:</strong><br/>${nl2br(explore.mapOfConceptualChange)}<br/><br/>
-                <strong>Hook Activities:</strong><br/>${nl2br(explore.hookedActivities)}
+                <strong>Unit Overview:</strong><br/>${renderMd(explore.unitOverview)}<br/><br/>
+                <strong>Essential Questions:</strong><ul>${(explore.essentialQuestions || []).map(q => `<li>${renderInlineMd(q)}</li>`).join('')}</ul>
+                <strong>Map of Conceptual Change:</strong><br/>${renderMd(explore.mapOfConceptualChange)}<br/><br/>
+                <strong>Hook Activities:</strong><br/>${renderMd(explore.hookedActivities)}
             </td></tr>`;
         }
 
         // --- Helper for Competency Rows ---
         const renderCompetencyRow = (item, stageName) => {
+            // UPDATED: Uses renderInlineMd for targets/indicators so **bold** works
             const learningFocus = `
                 <strong>${esc(item.code)}</strong><br/>
                 ${esc(item.competency)}<br/><br/>
-                <strong>Learning Targets:</strong><ul>${(item.learningTargets || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul>
-                <strong>Success Indicators:</strong><ul>${(item.successIndicators || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
+                <strong>Learning Targets:</strong><ul>${(item.learningTargets || []).map(t => `<li>${renderInlineMd(t)}</li>`).join('')}</ul>
+                <strong>Success Indicators:</strong><ul>${(item.successIndicators || []).map(i => `<li>${renderInlineMd(i)}</li>`).join('')}</ul>`;
             
+            // UPDATED: Uses renderMd for Materials (lists were breaking before)
             const learningExperience = `
-                <strong>In-Person Activity:</strong><br/>${nl2br(item.inPersonActivity?.instructions)}<br/>
-                <em>Materials: ${esc(item.inPersonActivity?.materials)}</em><br/><br/>
-                <strong>Online Activity:</strong><br/>${nl2br(item.onlineActivity?.instructions)}<br/><br/>
-                ${item.supportDiscussion ? `<strong>Processing/Discussion:</strong><br/>${nl2br(item.supportDiscussion)}<br/><br/>` : ''}
-                ${item.valuesIntegration ? `<div style='margin-top: 15px; padding: 10px; background-color: #f9fafb; border-left: 4px solid #007AFF; font-style: italic;'>
-                    <strong>SRCS Values Integration (${esc(item.valuesIntegration.value)}):</strong><br/>
-                    ${esc(item.valuesIntegration.integration)}
+                <strong>In-Person Activity:</strong><br/>${renderMd(item.inPersonActivity?.instructions)}<br/>
+                <div style="margin-top: 8px; font-style: italic;">
+                    <strong>Materials:</strong> 
+                    <div style="display:inline-block; vertical-align:top;">${renderMd(item.inPersonActivity?.materials)}</div>
+                </div><br/>
+                
+                <strong>Online Activity:</strong><br/>${renderMd(item.onlineActivity?.instructions)}<br/><br/>
+                
+                ${item.supportDiscussion ? `<strong>Processing/Discussion:</strong><br/>${renderMd(item.supportDiscussion)}<br/><br/>` : ''}
+                
+                ${item.valuesIntegration ? `<div style='margin-top: 15px; padding: 15px; background-color: #f0fdf4 !important; color: #14532d !important; border-left: 4px solid #16a34a; border-radius: 6px;'>
+                    <strong style="display:block; margin-bottom:5px; font-size:1.1em;">🌿 SRCS Values Connection: ${esc(item.valuesIntegration.value)}</strong>
+                    <span style="font-style:italic; line-height:1.6;">${renderMd(item.valuesIntegration.integration)}</span>
                 </div><br/>` : ''}
-                ${item.assessment ? `<strong>Assessment (${esc(item.assessment.type)}):</strong><br/>${nl2br(item.assessment.content)}` : ''}
-                ${item.templates ? `<br/><strong>Templates/Resources:</strong><br/>${nl2br(item.templates)}` : ''}`;
+                
+                ${item.assessment ? `<strong>Assessment (${esc(item.assessment.type)}):</strong><br/>${renderMd(item.assessment.content)}` : ''}
+                ${item.templates ? `<br/><strong>Templates/Resources:</strong><br/>${renderMd(item.templates)}` : ''}`;
 
             return `<tr>
                 <td style='width: 35%; padding: 10px; border: 1px solid black; vertical-align: top;'>${learningFocus}</td>
@@ -461,7 +519,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         if (synthesis) {
             tbody += `
             <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>FINAL SYNTHESIS</td></tr>
-            <tr><td colspan='2' style='padding: 10px; border: 1px solid black;'>${nl2br(synthesis.summary)}</td></tr>`;
+            <tr><td colspan='2' style='padding: 10px; border: 1px solid black;'>${renderMd(synthesis.summary)}</td></tr>`;
         }
 
         // --- 6. PERFORMANCE TASK ---
@@ -474,19 +532,53 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 <p><strong>Goal:</strong> ${esc(graspsTask?.goal)}</p>
                 <p><strong>Role:</strong> ${esc(graspsTask?.role)}</p>
                 <p><strong>Audience:</strong> ${esc(graspsTask?.audience)}</p>
-                <p><strong>Situation:</strong> ${esc(graspsTask?.situation)}</p>
+                <p><strong>Situation:</strong> ${renderMd(graspsTask?.situation)}</p>
                 <p><strong>Product:</strong> ${esc(graspsTask?.product)}</p>
                 <p><strong>Standards:</strong> ${esc(graspsTask?.standards)}</p>
                 <hr/>
                 <strong>Rubric:</strong>
-                <ul>${(rubric || []).map(r => `<li><strong>${esc(r.criteria)} (${esc(String(r.points))}pts):</strong> ${esc(r.description)}</li>`).join('')}</ul>
+                <ul>${(rubric || []).map(r => `<li><strong>${esc(r.criteria)} (${esc(String(r.points))}pts):</strong> ${renderInlineMd(r.description)}</li>`).join('')}</ul>
             </td></tr>`;
         }
+        
+        // GLOBAL Styles (No changes needed here, keeping your existing styles)
+        const globalStyle = `
+        <style>
+            /* Main layout table */
+            table.main-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 1em; }
+            table.main-table th, table.main-table td { word-wrap: break-word; overflow-wrap: break-word; border: 1px solid black; padding: 8px; vertical-align: top; }
+            
+            /* Nested tables (generated by AI content) */
+            table:not(.main-table) { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin: 10px 0; 
+                border: 1px solid #666;
+            }
+            table:not(.main-table) th, table:not(.main-table) td { 
+                border: 1px solid #999; 
+                padding: 6px; 
+                background-color: #fff !important;
+                color: #000 !important;
+            }
+            table:not(.main-table) th {
+                background-color: #e5e7eb !important;
+                font-weight: bold;
+            }
 
-        return `<table style='width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 14px; border: 1px solid black;'>
+            /* List Styling */
+            ul, ol { margin-top: 0; margin-bottom: 8px; padding-left: 20px; }
+            li { margin-bottom: 4px; }
+            p { margin-top: 0; margin-bottom: 10px; }
+            img { max-width: 100%; height: auto; }
+            * { box-sizing: border-box; }
+        </style>`;
+
+        return `${globalStyle}
+        <table class='main-table' style='width: 100%; table-layout: fixed; word-wrap: break-word; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 14px; border: 1px solid black;'>
             <thead><tr>
-                <th style='border: 1px solid black; background-color: #d0d0d0; padding: 10px; text-align: left;'>Learning Focus</th>
-                <th style='border: 1px solid black; background-color: #d0d0d0; padding: 10px; text-align: left;'>Learning Experience</th>
+                <th style='border: 1px solid black; background-color: #d0d0d0; padding: 10px; text-align: left; width: 35%;'>Learning Focus</th>
+                <th style='border: 1px solid black; background-color: #d0d0d0; padding: 10px; text-align: left; width: 65%;'>Learning Experience</th>
             </tr></thead>
             <tbody>${tbody}</tbody>
         </table>`;
@@ -549,7 +641,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 language: selectedLanguage,
             };
 
-            // Prepare queue - NOTE: 'values' type removed from queue
+            // Prepare queue
             const sectionsQueue = [
                 { type: 'explore' },
                 ...outline.firmUp.map(item => ({ type: 'firmUp', ...item })),
@@ -585,7 +677,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                     accumulatedContextString += `\n[Completed ${currentSection.type}]: ${JSON.stringify(result)}\n`;
                 }
                 
-                // Small delay to respect rate limits and allow browser to breathe
+                // Small delay to respect rate limits
                 await new Promise(r => setTimeout(r, 1000));
             }
 

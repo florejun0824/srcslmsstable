@@ -3,7 +3,7 @@ import { db } from './firebase';
 import { doc, getDoc, updateDoc, setDoc, increment } from 'firebase/firestore';
 
 // --- ADD THESE NEW DEBUG LINES ---
-console.log("!!!!!!!!!! AISERVICE.JSX: Build 124 (NO HF) IS RUNNING !!!!!!!!!!");
+console.log("!!!!!!!!!! AISERVICE.JSX: Build 125 (String Safety Fix) IS RUNNING !!!!!!!!!!");
 // ---------------------------------
 
 // --- THIS IS THE FIX ---
@@ -131,7 +131,7 @@ const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputT
     // Standard Gemini/Proxy response check
     const fullText = data.text || data.response?.[0]?.generated_text; 
     
-    if (!fullText) {
+    if (fullText === undefined || fullText === null) {
         console.error(`Invalid response structure from Proxy (${config.url}):`, JSON.stringify(data, null, 2));
         throw new Error("Proxy response was not in the expected format (missing 'text' field).");
     }
@@ -182,8 +182,8 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
     throw new Error(`All AI keys failed: ${JSON.stringify(errors)}`);
 };
 
-// --- Exported Functions (Unchanged) ---
-export const callGeminiWithLimitCheck = async (prompt) => {
+// --- Exported Functions (UPDATED FOR SAFETY) ---
+export const callGeminiWithLimitCheck = async (prompt, options = {}) => {
     const limitReached = await checkAiLimitReached();
     if (limitReached) {
         throw new Error("LIMIT_REACHED");
@@ -193,12 +193,17 @@ export const callGeminiWithLimitCheck = async (prompt) => {
     usageCache.lastChecked = Date.now();
 
     try {
-        const rawResponse = await callGeminiWithLoadBalancing(prompt, false);
+        // Pass the new maxOutputTokens option if present
+        const rawResponse = await callGeminiWithLoadBalancing(prompt, false, options.maxOutputTokens);
         
         const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
         await updateDoc(usageDocRef, { callCount: increment(1) });
 
-        return rawResponse.replace(/^```json\s*|```$/g, '').trim();
+        // FIX: Ensure rawResponse is a string before replacing
+        // This prevents "TypeError: rawResponse.replace is not a function" if API returns a number/object
+        const safeResponse = rawResponse !== null && rawResponse !== undefined ? String(rawResponse) : '';
+        
+        return safeResponse.replace(/^```json\s*|```$/g, '').trim();
 
     } catch (error) {
         usageCache.callCount -= 1; 
@@ -261,7 +266,21 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
         console.log("Sending grading prompt to AI (load balanced)...");
         const jsonResponseText = await callGeminiWithLoadBalancing(gradingPrompt, true);
 
-        const data = JSON.parse(jsonResponseText);
+        // Safety check for parsing
+        let data;
+        try {
+             // FIX: Ensure it is a string before parsing
+             const safeText = typeof jsonResponseText === 'string' ? jsonResponseText : JSON.stringify(jsonResponseText);
+             data = JSON.parse(safeText);
+        } catch (e) {
+             // Fallback if already object
+             if (typeof jsonResponseText === 'object') {
+                 data = jsonResponseText;
+             } else {
+                 throw e;
+             }
+        }
+
         const validatedData = validateAndCleanGradingResponse(data, validRubric, "AI (Load Balanced)");
 
         const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');

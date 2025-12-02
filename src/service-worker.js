@@ -30,10 +30,21 @@ registerRoute(
   createHandlerBoundToURL(process.env.PUBLIC_URL + '/index.html')
 );
 
-// --- FIX: This is the critical change ---
-// This route now caches both lessons and quizzes using a more specific regex
+// --- FIX APPLIED HERE ---
+// Added 'request' to arguments and a check for 'GET' method
 registerRoute(
-  ({ url }) => url.origin === self.location.origin && (url.pathname.includes('/lessons/') || url.pathname.includes('/quizzes/')),
+  ({ request, url }) => {
+    // 1. Ignore non-GET requests (POST, PUT, DELETE, etc.) to prevent Cache API errors
+    if (request.method !== 'GET') {
+      return false;
+    }
+    
+    // 2. Check if the origin matches and path contains lessons/quizzes
+    return (
+      url.origin === self.location.origin &&
+      (url.pathname.includes('/lessons/') || url.pathname.includes('/quizzes/'))
+    );
+  },
   new StaleWhileRevalidate({
     cacheName: 'content-cache',
     plugins: [
