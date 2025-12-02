@@ -75,7 +75,6 @@ const getStyles = (monet) => {
             secondaryButton: `${candyBase} ${monet.buttonSecondary}`,
             iconButton: `${candyBase} p-2 rounded-full aspect-square ${monet.buttonSecondary}`,
             unitCard: `${monet.cardGradient} border border-white/20 text-white shadow-xl hover:-translate-y-1 hover:shadow-2xl`,
-            // UPDATED: Content Item now adopts the 'secondary button' style of the theme for consistent coloring
             contentItem: `${monet.buttonSecondary} !justify-start !rounded-[1.5rem] md:!rounded-[2rem] border-white/10 hover:border-white/30`
         };
     }
@@ -131,17 +130,40 @@ let dejaVuLoaded = false;
 async function registerDejaVuFonts() {
   if (dejaVuLoaded) return;
   try {
+    // 1. Load the font files into the Virtual File System (VFS)
     await loadFontToVfs("DejaVuSans.ttf", "/fonts/DejaVuSans.ttf");
     await loadFontToVfs("DejaVuSans-Bold.ttf", "/fonts/DejaVuSans-Bold.ttf");
     await loadFontToVfs("DejaVuSans-Oblique.ttf", "/fonts/DejaVuSans-Oblique.ttf");
     await loadFontToVfs("DejaVuSans-BoldOblique.ttf", "/fonts/DejaVuSans-BoldOblique.ttf");
+
+    // 2. Define the font families
+    // We map 'Arial' and 'Helvetica' to DejaVu files so the PDF doesn't crash 
+    // if the HTML contains those fonts.
     pdfMake.fonts = {
-      DejaVu: { normal: "DejaVuSans.ttf", bold: "DejaVuSans-Bold.ttf", italics: "DejaVuSans-Oblique.ttf", bolditalics: "DejaVuSans-BoldOblique.ttf" },
+      DejaVu: { 
+          normal: "DejaVuSans.ttf", 
+          bold: "DejaVuSans-Bold.ttf", 
+          italics: "DejaVuSans-Oblique.ttf", 
+          bolditalics: "DejaVuSans-BoldOblique.ttf" 
+      },
+      // FIX: Alias Arial to prevent "Font 'Arial' not defined" error
+      Arial: { 
+          normal: "DejaVuSans.ttf", 
+          bold: "DejaVuSans-Bold.ttf", 
+          italics: "DejaVuSans-Oblique.ttf", 
+          bolditalics: "DejaVuSans-BoldOblique.ttf" 
+      },
+      // FIX: Alias Helvetica as a backup safety net
+      Helvetica: { 
+          normal: "DejaVuSans.ttf", 
+          bold: "DejaVuSans-Bold.ttf", 
+          italics: "DejaVuSans-Oblique.ttf", 
+          bolditalics: "DejaVuSans-BoldOblique.ttf" 
+      }
     };
     dejaVuLoaded = true;
   } catch (e) { console.error("Font load error", e); }
 }
-
 const processLatex = (text) => {
     if (!text) return '';
     return text
@@ -173,9 +195,9 @@ const convertSvgStringToPngDataUrl = (svgString) => {
         
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const aspectRatio = img.height / img.width;
+            const aspectRatio = img.height / img.width || 1;
             const width = MAX_WIDTH;
-            const height = width * aspectRatio;
+            const height = Math.round(width * aspectRatio);
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
@@ -185,7 +207,7 @@ const convertSvgStringToPngDataUrl = (svgString) => {
         img.onerror = () => reject(new Error("SVG Load Failed"));
         img.src = src;
     });
-};
+}
 
 // Lazy Imports
 const AddLessonModal = lazy(() => import('./AddLessonModal'));
@@ -208,20 +230,16 @@ const ContentListSkeleton = () => (
 );
 
 // Menus
-// around line 183
 const MenuPortal = ({ children, menuStyle, onClose, monet }) => {
     const menuRef = useRef(null);
     
     useEffect(() => {
         const handler = (e) => { 
-            // Close if clicking outside the menu
             if (menuRef.current && !menuRef.current.contains(e.target)) {
                 onClose(); 
             }
         };
-        // Add mousedown listener to window
         window.addEventListener('mousedown', handler); 
-        // Also listen to scroll to close menu on scroll (optional but recommended for floating menus)
         window.addEventListener('scroll', onClose, true);
         
         return () => {
@@ -230,7 +248,6 @@ const MenuPortal = ({ children, menuStyle, onClose, monet }) => {
         };
     }, [onClose]);
     
-    // ADDED z-[9999] to both strings below to ensure menu floats above sticky headers and lists
     const containerClass = monet 
         ? `fixed z-[9999] backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-white/10 p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1 bg-[#1E212B]/90 border border-white/10`
         : `fixed z-[9999] bg-white/90 dark:bg-[#1E212B]/95 backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-black/5 p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1 border border-white/20 dark:border-white/5`;
@@ -238,7 +255,7 @@ const MenuPortal = ({ children, menuStyle, onClose, monet }) => {
     return createPortal(
         <div 
             ref={menuRef} 
-            style={menuStyle} // This now contains top/bottom/right coordinates
+            style={menuStyle}
             className={containerClass}
         >
             {children}
@@ -246,7 +263,6 @@ const MenuPortal = ({ children, menuStyle, onClose, monet }) => {
         document.body
     );
 };
-// Create a context to handle closing the menu from anywhere inside
 const MenuContext = React.createContext(() => {});
 const ActionMenu = ({ children, monet, styles }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -286,7 +302,6 @@ const ActionMenu = ({ children, monet, styles }) => {
         setIsOpen(true);
     };
 
-    // Helper to close menu
     const closeMenu = () => setIsOpen(false);
 
     return (
@@ -297,7 +312,6 @@ const ActionMenu = ({ children, monet, styles }) => {
             
             {isOpen && (
                 <MenuPortal menuStyle={menuStyle} onClose={closeMenu} monet={monet}>
-                    {/* PROVIDE THE CLOSE FUNCTION TO ALL CHILDREN */}
                     <MenuContext.Provider value={closeMenu}>
                         {children}
                     </MenuContext.Provider>
@@ -307,17 +321,11 @@ const ActionMenu = ({ children, monet, styles }) => {
     );
 };
 const MenuItem = ({ icon: Icon, text, onClick, disabled, loading, monet }) => {
-    // 1. Get the close function from context
     const closeMenu = React.useContext(MenuContext);
 
-    // 2. Wrap the click handler
     const handleClick = (e) => {
         if (disabled || loading) return;
-        
-        // Execute the actual action passed via props
         if (onClick) onClick(e);
-        
-        // Close the menu immediately
         if (closeMenu) closeMenu();
     };
 
@@ -344,7 +352,6 @@ const AddContentButton = ({ onAddLesson, onAddQuiz, monet, styles }) => {
         setIsOpen(!isOpen);
     };
     
-    // FIX: Wrapper functions to close the menu immediately
     const handleAddLesson = () => { onAddLesson(); setIsOpen(false); };
     const handleAddQuiz = () => { onAddQuiz(); setIsOpen(false); };
 
@@ -369,7 +376,6 @@ const SortableUnitCard = memo(({ unit, onSelect, onAction, isReordering, index, 
     
     const style = { transform: CSS.Translate.toString(transform), transition };
     
-    // Default Aurora Gradients (Fallback)
     const gradients = [
         "bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600 dark:from-cyan-900 dark:via-blue-900 dark:to-indigo-950",
         "bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 dark:from-purple-900 dark:via-pink-900 dark:to-rose-950",
@@ -404,7 +410,6 @@ const SortableUnitCard = memo(({ unit, onSelect, onAction, isReordering, index, 
                             </button>
                             <ActionMenu monet={monet} styles={styles}>
                                 <MenuItem icon={PencilIcon} text="Edit Unit" onClick={(e) => { e.stopPropagation(); onAction('edit', unit); }} monet={monet} />
-                                {/* [ADDED] Reorder Option in Menu */}
                                 <MenuItem icon={ArrowsUpDownIcon} text="Reorder" onClick={(e) => { e.stopPropagation(); onAction('reorder', unit); }} monet={monet} />
                                 <MenuItem icon={TrashIcon} text="Delete Unit" onClick={(e) => { e.stopPropagation(); onAction('delete', unit); }} monet={monet} />
                             </ActionMenu>
@@ -427,7 +432,6 @@ const SortableUnitCard = memo(({ unit, onSelect, onAction, isReordering, index, 
             </div>
         </div>
     );
-    // UPDATED MEMO COMPARISON TO INCLUDE MONET
 }, (prev, next) => prev.unit.id === next.unit.id && prev.unit.title === next.unit.title && prev.isReordering === next.isReordering && prev.index === next.index && prev.monet === next.monet);
 
 // --- SORTABLE CONTENT (LESSON) ROW ---
@@ -440,7 +444,6 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
     const isLesson = item.type === 'lesson';
     const Icon = isLesson ? DocumentTextIcon : ClipboardDocumentListIcon;
 
-    // Candy Styles based on type (Defaults)
     const defaultTheme = isLesson 
         ? {
             iconBg: 'bg-gradient-to-br from-blue-400 to-cyan-500 shadow-blue-500/30',
@@ -455,9 +458,6 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
             textTitle: 'group-hover:text-purple-600 dark:group-hover:text-purple-300'
           };
 
-    // Monet overrides
-    // Uses the generic 'buttonSecondary' style which usually contains the main theme color (e.g., Red for Valentines)
-    // but in a lighter/transparent way suitable for buttons/cards.
     const monetIconBg = monet ? (isLesson ? monet.buttonPrimary : monet.buttonSecondary) : '';
     const monetHoverBorder = monet ? 'hover:border-white/30' : '';
     const monetTextTitle = monet ? 'text-white' : '';
@@ -477,14 +477,12 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
                     ${isReordering ? 'ring-2 ring-blue-500/50 bg-blue-50/50' : ''}
                 `}
             >
-                {/* Drag Handle */}
                 {isReordering && (
                     <button {...listeners} className="p-2 mr-2 rounded-full text-slate-400 hover:text-blue-500 hover:bg-blue-50 cursor-grab active:cursor-grabbing">
                         <Bars3Icon className="w-5 h-5" />
                     </button>
                 )}
 
-                {/* Juicy Icon */}
                 <div className={`
                     h-12 w-12 md:h-16 md:w-16 flex-shrink-0 
                     rounded-[1rem] md:rounded-[1.2rem] 
@@ -496,7 +494,6 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
                     <Icon className="h-6 w-6 md:h-8 md:w-8 text-white drop-shadow-md stroke-[2]" />
                 </div>
 
-                {/* Content Info */}
                 <div className="flex-grow min-w-0 pr-2 md:pr-4">
                     <h4 className={`
                         font-bold text-[16px] md:text-[19px] 
@@ -514,25 +511,51 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
                     )}
                 </div>
 
-                {/* Actions & Chevron */}
                 <div className={`
                     flex items-center gap-1 transition-all duration-300
                     ${isReordering ? 'opacity-0' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100 md:translate-x-4 md:group-hover:translate-x-0'}
                 `}>
                     <div onClick={(e) => e.stopPropagation()}>
                         <ActionMenu monet={monet} styles={styles}>
-                          <MenuItem icon={PencilIcon} text="Edit" onClick={() => onAction('edit', item)} monet={monet} />
-                          {isLesson && (
-                            <>
-                                <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as PDF"} onClick={() => onAction('exportPdf', item)} loading={exportingLessonId === item.id} monet={monet} />
-                                <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as .docx"} onClick={() => onAction('exportDocx', item)} loading={exportingLessonId === item.id} monet={monet} />
-                            </>
-                          )}
-                          {isLesson && <MenuItem icon={SparklesIcon} text="AI Quiz" onClick={() => onAction('generateQuiz', item)} disabled={isAiGenerating} monet={monet} /> }
-                          <MenuItem icon={TrashIcon} text="Delete" onClick={() => onAction('delete', item)} monet={monet} />
+                            <MenuItem icon={PencilIcon} text="Edit" onClick={() => onAction('edit', item)} monet={monet} />
+            
+                            {isLesson && (
+                                <>
+                                    <MenuItem 
+                                        icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} 
+                                        text={
+                                            exportingLessonId === item.id 
+                                                ? "Exporting..." 
+                                                : item.contentType === 'teacherGuide' ? "Export ULP (PDF)"
+                                                : item.contentType === 'teacherAtg' ? "Export ATG (PDF)"
+                                                : "Export as PDF"
+                                        } 
+                                        onClick={() => onAction('exportPdf', item)} 
+                                        loading={exportingLessonId === item.id} 
+                                        monet={monet} 
+                                    />
+
+                                    <MenuItem 
+                                        icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} 
+                                        text={
+                                            exportingLessonId === item.id 
+                                                ? "Exporting..." 
+                                                : item.contentType === 'teacherGuide' ? "Export ULP (.docx)"
+                                                : item.contentType === 'teacherAtg' ? "Export ATG (.docx)"
+                                                : "Export as .docx"
+                                        } 
+                                        onClick={() => onAction('exportDocx', item)} 
+                                        loading={exportingLessonId === item.id} 
+                                        monet={monet} 
+                                    />
+                                </>
+                            )}
+
+                            {isLesson && <MenuItem icon={SparklesIcon} text="AI Quiz" onClick={() => onAction('generateQuiz', item)} disabled={isAiGenerating} monet={monet} /> }
+                            <MenuItem icon={TrashIcon} text="Delete" onClick={() => onAction('delete', item)} monet={monet} />
                         </ActionMenu>
                     </div>
-                    
+    
                     <div className={`hidden md:flex h-10 w-10 rounded-full items-center justify-center ml-2 ${monet ? 'bg-white/10 text-white/50 group-hover:text-white' : 'bg-slate-100/50 dark:bg-white/5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`}>
                         <ChevronRightIcon className="w-5 h-5 stroke-[2.5]" />
                     </div>
@@ -540,16 +563,14 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
             </div>
         </div>
     );
-    // UPDATED MEMO COMPARISON TO INCLUDE MONET
 }, (prev, next) => 
     prev.item.id === next.item.id && 
-    prev.item.title === next.item.title && // Check if title changed
-    prev.item.subtitle === next.item.subtitle && // Check if subtitle changed
+    prev.item.title === next.item.title &&
+    prev.item.subtitle === next.item.subtitle &&
     prev.isReordering === next.isReordering && 
     prev.exportingLessonId === next.exportingLessonId && 
     prev.monet === next.monet
 );
-
 
 // --- MAIN COMPONENT ---
 export default function UnitAccordion({ subject, onInitiateDelete, userProfile, isAiGenerating, setIsAiGenerating, activeUnit, onSetActiveUnit, selectedLessons, onLessonSelect, renderGeneratePptButton, onUpdateLesson, currentUserRole, monet }) {
@@ -559,7 +580,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     const [exportingLessonId, setExportingLessonId] = useState(null);
     const [isReordering, setIsReordering] = useState(false);
     
-    // Get styles based on monet prop
     const styles = getStyles(monet);
     const { activeOverlay } = useTheme();
 
@@ -610,147 +630,498 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         return () => { unL(); unQ(); };
     }, [subject?.id]);
 
-    const handleExportDocx = async (lesson) => {
-        if (isExportingRef.current) return;
-        isExportingRef.current = true;
-        setExportingLessonId(lesson.id);
-        showToast("Generating .docx file...", "info");
+	// --- HELPER: Pre-process HTML to Split Tables & Fix Colspans ---
+	const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
+	    const tempDiv = document.createElement('div');
+	    tempDiv.innerHTML = rawHtml;
+
+	    // Remove explicit width styles to avoid px-based sizes
+	    tempDiv.querySelectorAll('[style]').forEach(el => {
+	        const style = el.getAttribute('style') || '';
+	        const cleaned = style.replace(/(min-|max-)?width:\s*\d+px;?/gi, '')
+	                             .replace(/width:\s*\d+px;?/gi, '');
+	        if (cleaned !== style) el.setAttribute('style', cleaned);
+	    });
+
+	    // Normalize images
+	    tempDiv.querySelectorAll('img').forEach(img => {
+	        img.removeAttribute('width');
+	        img.removeAttribute('height');
+	        img.style.maxWidth = (mode === 'ulp') ? '450px' : (mode === 'atg') ? '500px' : '550px';
+	        img.style.height = 'auto';
+	        img.style.display = 'block';
+	        img.style.margin = '8px 0';
+	    });
+
+	    // Tables: split for ULP and sanitize general table attributes
+	    const tables = Array.from(tempDiv.querySelectorAll('table'));
+	    tables.forEach(table => {
+	        table.style.width = '100%';
+	        table.removeAttribute('width');
+	        table.style.borderCollapse = 'collapse';
+
+	        // --- SPLIT LOGIC: Break tables at key section headers ---
+	        // We do this BEFORE width formatting so specific sections get their own table context
+	        if (mode === 'ulp') {
+	            const rows = Array.from(table.rows || []);
+	            // Keywords that signal a new section starting
+	            const splitKeywords = [
+	                'PERFORMANCE TASK', 
+	                'SYNTHESIS', 
+	                'VALUES INTEGRATION', 
+	                'DEEPEN', 
+	                'TRANSFER',
+	                'MEANING-MAKING',
+	                'APPLICATION'
+	            ];
+
+	            let splitIndex = -1;
+
+	            // Find the first row that matches a keyword to split
+	            for (let i = 1; i < rows.length; i++) { // Start at 1 to avoid splitting the very first header
+	                const txt = (rows[i].textContent || '').toUpperCase();
+	                if (splitKeywords.some(keyword => txt.includes(keyword))) {
+	                    splitIndex = i;
+	                    break; 
+	                }
+	            }
+
+	            // Perform the split if a keyword was found
+	            if (splitIndex > 0 && splitIndex < rows.length) {
+	                const newTable = document.createElement('table');
+	                newTable.style.width = '100%';
+	                newTable.style.borderCollapse = 'collapse';
+	                newTable.style.marginTop = '20px'; // Add space between sections
+
+	                const newTbody = document.createElement('tbody');
+
+	                // Move all rows from the split point onwards to the new table
+	                for (let i = splitIndex; i < rows.length; i++) {
+	                    const row = rows[i];
+	                    newTbody.appendChild(row);
+	                }
+
+	                if (newTbody.children.length > 0) {
+	                    newTable.appendChild(newTbody);
+	                    table.parentNode.insertBefore(newTable, table.nextSibling);
+                    
+	                    // Recursively process the new table (in case there are more splits needed inside it)
+	                    // We call the logic on the new table by adding it to our list or letting the next export step handle it.
+	                    // For simplicity here, we just apply standard styling below.
+	                }
+	            }
+	        }
+
+	        // --- WIDTH ENFORCEMENT ---
+	        // Now that tables are split, enforce the 35/65 layout on all content rows
+	        if (mode === 'ulp') {
+	            const allRows = Array.from(table.querySelectorAll('tr'));
+	            allRows.forEach(row => {
+	                const cells = Array.from(row.children).filter(c => /TD|TH/.test(c.tagName));
+	                const txt = (row.textContent || '').toUpperCase();
+
+	                // Check if this row is a Section Header (like "DEEPEN" or "TRANSFER")
+	                const isSectionHeader = ['DEEPEN', 'TRANSFER', 'FIRM-UP', 'EXPLORE'].some(k => txt.includes(k));
+
+	                if (isSectionHeader) {
+	                    // Force Section Headers to span full width
+	                    if(cells[0]) {
+	                        cells[0].setAttribute('colspan', '2');
+	                        cells[0].style.width = '100%';
+	                        cells[0].style.backgroundColor = '#f0f0f0'; // Optional: Light gray background for headers
+	                        cells[0].style.fontWeight = 'bold';
+	                    }
+	                    // Remove extra cells if they exist in header row
+	                    for(let k=1; k<cells.length; k++) {
+	                        cells[k].remove();
+	                    }
+	                } 
+	                else if (cells.length === 2) {
+	                    // Standard Content Rows: Force 35% / 65% split
+	                    cells[0].style.width = '35%';
+	                    cells[1].style.width = '65%';
+                    
+	                    // Clear conflicting attributes
+	                    cells[0].removeAttribute('width');
+	                    cells[1].removeAttribute('width');
+	                    cells[0].removeAttribute('colspan');
+	                    cells[1].removeAttribute('colspan');
+                    
+	                    cells[0].style.verticalAlign = 'top';
+	                    cells[1].style.verticalAlign = 'top';
+	                }
+	            });
+	        }
+
+	        // Cleanup any remaining massive colspans
+	        Array.from(table.querySelectorAll('[colspan]')).forEach(cell => {
+	            const cs = parseInt(cell.getAttribute('colspan'), 10);
+	            if (!isNaN(cs) && cs > 3) {
+	                cell.removeAttribute('colspan');
+	                cell.style.display = 'block';
+	                cell.style.width = '100%';
+	            }
+	        });
+	    });
+
+	    return tempDiv;
+	};
+
+	// --- HELPER: Sanitize PDF Structure (Aggressive Width & Overflow Fix + Custom Column Widths) ---
+	const cleanUpPdfContent = (content, inTable = false) => {
+	    if (!content) return;
+
+	    // 1. Handle Arrays (Recurse)
+	    if (Array.isArray(content)) {
+	        content.forEach(item => cleanUpPdfContent(item, inTable));
+	        return;
+	    }
+
+	    // 2. Handle Objects
+	    if (typeof content === 'object') {
         
-        try {
-            const lessonTitle = lesson.lessonTitle || lesson.title;
-            const subjectTitle = subject?.title || "SRCS Learning Portal";
-            const sanitizedFileName = (lessonTitle.replace(/[\\/:"*?<>|]+/g, '_') || 'lesson') + '.docx';
+	        // A. Fix Structure: pdfmake requires 'stack', not 'content'
+	        if (content.content && Array.isArray(content.content)) {
+	            content.stack = content.content;
+	            delete content.content;
+	            cleanUpPdfContent(content.stack, inTable);
+	            return;
+	        }
+
+	        // B. IMAGE HANDLING
+	        if (content.image) {
+	            const maxWidth = inTable ? 150 : 480; 
             
-            const headerBase64 = await fetchImageAsBase64("/header-port.png");
-            const footerBase64 = await fetchImageAsBase64("/Footer.png");
-            const headerHtml = `<div style="text-align: center;"><img src="${headerBase64}" width="450" /></div>`;
-            const footerHtml = `<div style="text-align: center;"><img src="${footerBase64}" width="450" /></div>`;
+	            if (!content.fit) {
+	                content.fit = [maxWidth, 800];
+	            } else {
+	                content.fit[0] = Math.min(content.fit[0], maxWidth);
+	            }
 
-            let finalHtml = `
-                <div style="font-family: 'DejaVu Sans', sans-serif; color: #333333;">
-                    <div style="min-height: 900px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-                         <div>
-                            <h1 style="font-size: 32pt; font-weight: bold; margin-bottom: 20px; color: #000000;">${lessonTitle}</h1>
-                            <p style="font-size: 18pt; font-style: italic; color: #666666;">${subjectTitle}</p>
-                         </div>
-                    </div>
-                    <div style="page-break-after: always;"></div>
-                    `;
+	            delete content.width;
+	            delete content.height;
+	        }
+	        // C. TEXT & CONTAINER HANDLING
+	        else {
+	            if (content.width !== undefined && content.width !== '*' && content.width !== 'auto') {
+	                delete content.width;
+	            }
+	            if (content.columns) {
+	                content.columns.forEach(col => {
+	                    col.width = '*'; 
+	                    cleanUpPdfContent(col, inTable);
+	                });
+	                delete content.columnGap;
+	            }
+	            if (content.margin && Array.isArray(content.margin)) {
+	                if (typeof content.margin[0] === 'number' && content.margin[0] > 20) content.margin[0] = 20; 
+	                if (typeof content.margin[2] === 'number') content.margin[2] = 0; 
+	            }
+	        }
 
-            for (const page of lesson.pages) {
-                const cleanTitle = (page.title || '').replace(/^page\s*\d+\s*[:-]?\s*/i, '');
-                const contentString = typeof page.content === 'string' ? page.content : '';
-                const processedContent = processLatex(contentString);
-                const rawHtml = marked.parse(processedContent);
+	        // D. TABLE HANDLING
+	        if (content.table) {
+	            const body = content.table.body;
+	            if (body && Array.isArray(body) && body.length > 0) {
                 
-                finalHtml += `
-                    <h2 style="color: #2563EB; font-size: 18pt; font-weight: bold; margin-top: 20px; margin-bottom: 10px; text-align: left;">${cleanTitle}</h2>
-                    <div style="font-size: 11pt; line-height: 1.5; text-align: justify;">${rawHtml}</div>
-                    <br />
-                `;
-            }
-            finalHtml += '</div>';
-
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = finalHtml;
-            const svgElements = tempDiv.querySelectorAll('svg');
-            if (svgElements.length > 0) {
-                const conversionPromises = Array.from(svgElements).map(async (svg) => {
-                    try {
-                        const { dataUrl, width, height } = await convertSvgStringToPngDataUrl(svg.outerHTML);
-                        const img = document.createElement('img');
-                        img.src = dataUrl;
-                        img.setAttribute('width', width); 
-                        img.setAttribute('height', height);
-                        svg.parentNode.replaceChild(img, svg);
-                    } catch (err) { console.error("SVG Conversion failed", err); }
-                });
-                await Promise.all(conversionPromises);
-            }
-
-            const fileBlob = await htmlToDocx(
-                tempDiv.innerHTML, 
-                headerHtml, 
-                {
-                    table: { row: { cantSplit: true } },
-                    footer: true,
-                    pageNumber: true,
-                    page: {
-                        size: { width: 11906, height: 16838 },
-                        margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
-                    }
-                },
-                footerHtml
-            );
-            
-            if (isNativePlatform()) {
-                await nativeSave(fileBlob, sanitizedFileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', showToast);
-            } else {
-                saveAs(fileBlob, sanitizedFileName);
-            }
-        } catch (error) {
-            console.error("Export Error:", error);
-            showToast("Failed to create Word document.", "error");
-        } finally {
-            isExportingRef.current = false;
-            setExportingLessonId(null);
-        }
-    };
-
-    const handleExportLessonPdf = async (lesson) => {
-        if (exportingLessonId) return;
-        setExportingLessonId(lesson.id);
-        showToast("Preparing PDF...", "info");
-        try {
-            await registerDejaVuFonts();
-            const headerBase64 = await fetchImageAsBase64("/header-port.png");
-            const footerBase64 = await fetchImageAsBase64("/Footer.png");
-            
-            let lessonContent = [];
-            for (const page of lesson.pages) {
-                const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
-                if (cleanTitle) lessonContent.push({ text: cleanTitle, fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] });
+	                // --- [UPDATE START] CUSTOM WIDTH LOGIC ---
+	                const colCount = body[0].length;
                 
-                let html = marked.parse(processLatex(page.content || ''));
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = html;
-                const svgs = tempDiv.querySelectorAll('svg');
-                if (svgs.length) {
-                    await Promise.all(Array.from(svgs).map(async (svg) => {
-                        try {
-                            const res = await convertSvgStringToPngDataUrl(svg.outerHTML);
-                            const img = document.createElement('img');
-                            img.src = res.dataUrl; img.width = res.width;
-                            svg.parentNode.replaceChild(img, svg);
-                        } catch (e) {}
-                    }));
-                    html = tempDiv.innerHTML;
-                }
-                lessonContent.push(htmlToPdfmake(html, { defaultStyles: { fontSize: 11, lineHeight: 1.5, alignment: 'justify' } }));
-            }
+	                // If it's a standard 2-column table, make Left smaller (35%) and Right larger (Fill)
+	                if (colCount === 2) {
+	                    content.table.widths = ['35%', '*'];
+	                } else {
+	                    // Otherwise, distribute evenly
+	                    content.table.widths = Array(colCount).fill('*');
+	                }
+	                // --- [UPDATE END] ---
 
-            const docDef = {
-                pageSize: "A4", pageMargins: [72, 100, 72, 100],
-                header: { margin: [0, 20, 0, 0], stack: [{ image: "headerImg", width: 450, alignment: "center" }] },
-                footer: { margin: [0, 0, 0, 20], stack: [{ image: "footerImg", width: 450, alignment: "center" }] },
-                content: [
-                    { text: lesson.title, fontSize: 32, bold: true, alignment: "center", margin: [0, 200, 0, 0] },
-                    { text: subject?.title || "", fontSize: 18, italics: true, alignment: "center", color: '#555555', pageBreak: "after" },
-                    ...lessonContent
-                ],
-                images: { headerImg: headerBase64, footerImg: footerBase64 },
-                defaultStyle: { font: 'DejaVu' }
-            };
-            
-            const pdfDoc = pdfMake.createPdf(docDef);
-            isNativePlatform() 
-                ? pdfDoc.getBlob(b => nativeSave(b, `${lesson.title}.pdf`, 'application/pdf', showToast))
-                : pdfDoc.download(`${lesson.title}.pdf`);
+	                // High contrast black borders
+	                content.layout = {
+	                    hLineWidth: () => 1,
+	                    vLineWidth: () => 1,
+	                    hLineColor: () => 'black',
+	                    vLineColor: () => 'black',
+	                    paddingLeft: () => 4,
+	                    paddingRight: () => 4,
+	                    paddingTop: () => 4,
+	                    paddingBottom: () => 4,
+	                };
+
+	                // Clean cells
+	                body.forEach(row => {
+	                    row.forEach((cell, index) => {
+	                        if (typeof cell === 'object') {
+	                            delete cell.border;
+	                            delete cell.borderColor;
+	                            delete cell.width; 
+	                        }
+
+	                        // Handle ColSpans
+	                        if (cell && cell.colSpan && cell.colSpan > 1) {
+	                            for (let i = 1; i < cell.colSpan; i++) {
+	                                if (row[index + i]) {
+	                                    row[index + i] = { text: '', border: [false, false, false, false] };
+	                                }
+	                            }
+	                        }
+	                    });
+	                });
                 
-        } catch (e) { showToast("PDF Error", "error"); }
-        setExportingLessonId(null);
-    };
+	                // Recurse inside table
+	                cleanUpPdfContent(content.table.body, true);
+	            }
+	        }
 
+	        // E. Recurse common containers
+	        if (content.stack) cleanUpPdfContent(content.stack, inTable);
+	        if (content.ul) cleanUpPdfContent(content.ul, inTable);
+	        if (content.ol) cleanUpPdfContent(content.ol, inTable);
+	    }
+	};
+	const handleExportDocx = async (lesson) => {
+	        if (isExportingRef.current) return;
+	        isExportingRef.current = true;
+	        setExportingLessonId(lesson.id);
+        
+	        const isULP = lesson.contentType === 'teacherGuide';
+	        const isATG = lesson.contentType === 'teacherAtg';
+	        const isSpecialDoc = isULP || isATG;
+
+	        const docLabel = isULP ? "ULP" : (isATG ? "ATG" : "Lesson");
+	        const suffix = isULP ? "_ULP" : (isATG ? "_ATG" : "");
+        
+	        // Use standard A4 or Letter sizes in TWIPS (1/1440 inch)
+	        // A4 = 11906 x 16838
+	        const pageSize = isSpecialDoc 
+	            ? { width: 12240, height: 18720 } // Legal/Long
+	            : { width: 11906, height: 16838 }; // A4
+
+	        showToast(`Generating ${docLabel} .docx...`, "info");
+        
+	        try {
+	            const lessonTitle = lesson.lessonTitle || lesson.title || 'document';
+	            const subjectTitle = subject?.title || "SRCS Learning Portal";
+	            const sanitizedFileName = (lessonTitle.replace(/[\\/:"*?<>|]+/g, '_') || 'document') + suffix + '.docx';
+            
+	            const headerBase64 = await fetchImageAsBase64("/header-port.png").catch(()=>null);
+	            const footerBase64 = await fetchImageAsBase64("/Footer.png").catch(()=>null);
+
+	            // FIX: Header HTML wrapper
+	            const headerHtml = headerBase64 
+	                ? `<p align="center" style="text-align: center; margin-bottom: 0;">
+	                     <img src="${headerBase64}" width="650" style="width: 100%; max-width: 650px; height: auto;" />
+	                   </p>` 
+	                : '';
+
+	            const footerHtml = footerBase64 
+	                ? `<p align="center" style="text-align: center; margin-top: 0;">
+	                     <img src="${footerBase64}" width="650" style="width: 100%; max-width: 650px; height: auto;" />
+	                   </p>` 
+	                : '';
+
+	            let finalHtml = `
+	                <div style="font-family: 'DejaVu Sans', sans-serif; color: #333333;">
+	                    <div style="min-height: 900px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+	                         <div>
+	                            <h1 style="font-size: 32pt; font-weight: bold; margin-bottom: 20px; color: #000000;">${lessonTitle}</h1>
+	                            <p style="font-size: 18pt; font-style: italic; color: #666666;">${subjectTitle}</p>
+	                            <p style="font-size: 12pt; margin-top: 10px; color: #888;">${docLabel.toUpperCase()} DOCUMENT</p>
+	                         </div>
+	                    </div>
+	                    <div style="page-break-after: always;"></div>
+	                    `;
+
+	            const pages = Array.isArray(lesson.pages) && lesson.pages.length ? lesson.pages : [{ title: lesson.title || '', content: lesson.content || lesson.html || '' }];
+
+	            for (const page of pages) {
+	                const cleanTitle = (page.title || '').replace(/^page\s*\d+\s*[:-]?\s*/i, '');
+                
+	                let rawHtml;
+	                if (isSpecialDoc) {
+	                    rawHtml = page.content || '';
+	                } else {
+	                    const processedContent = processLatex(page.content || '');
+	                    rawHtml = marked.parse(processedContent);
+	                }
+                
+	                if (cleanTitle && !cleanTitle.includes('Unit Learning Plan') && !cleanTitle.includes('Adaptive Teaching Guide')) {
+	                     finalHtml += `<h2 style="color: #2563EB; font-size: 18pt; font-weight: bold; margin-top: 20px; margin-bottom: 10px; text-align: left;">${cleanTitle}</h2>`;
+	                }
+	                finalHtml += `<div style="font-size: 11pt; line-height: 1.5; text-align: justify;">${rawHtml}</div><br />`;
+	            }
+	            finalHtml += '</div>';
+
+	            const processedDiv = preProcessHtmlForExport(finalHtml, isULP ? 'ulp' : (isATG ? 'atg' : 'pdf'));
+
+	            // ... SVG conversion logic stays the same ...
+	            const svgElements = processedDiv.querySelectorAll('svg');
+	            if (svgElements.length > 0) {
+	                await Promise.all(Array.from(svgElements).map(async (svg) => {
+	                    try {
+	                        const { dataUrl, width, height } = await convertSvgStringToPngDataUrl(svg.outerHTML);
+	                        const img = document.createElement('img');
+	                        img.src = dataUrl;
+	                        img.setAttribute('width', width); 
+	                        img.setAttribute('height', height);
+	                        svg.parentNode.replaceChild(img, svg);
+	                    } catch (err) {
+	                        // ignore and continue
+	                    }
+	                }));
+	            }
+
+	            const fileBlob = await htmlToDocx(
+	                processedDiv.innerHTML, 
+	                headerHtml, 
+	                {
+	                    table: { row: { cantSplit: false } }, 
+	                    header: true, 
+	                    footer: true,
+	                    pageNumber: true,
+	                    page: {
+	                        size: pageSize,
+	                        // FIX: Increased TOP margin to 2880 (approx 2 inches) to prevent header overlap
+	                        margin: { top: 2880, right: 1440, bottom: 1440, left: 1440 }
+	                    }
+	                },
+	                footerHtml
+	            );
+            
+	            if (isNativePlatform()) {
+	                await nativeSave(fileBlob, sanitizedFileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', showToast);
+	            } else {
+	                saveAs(fileBlob, sanitizedFileName);
+	            }
+	        } catch (error) {
+	            console.error("Export Error:", error);
+	            showToast("Failed to create Word document.", "error");
+	        } finally {
+	            isExportingRef.current = false;
+	            setExportingLessonId(null);
+	        }
+	    };
+	// --- SMART EXPORT: PDF ---
+	    const handleExportLessonPdf = async (lesson) => {
+	        if (exportingLessonId) return;
+	        setExportingLessonId(lesson.id);
+
+	        const isULP = lesson.contentType === 'teacherGuide';
+	        const isATG = lesson.contentType === 'teacherAtg';
+	        const isSpecialDoc = isULP || isATG;
+        
+	        const docLabel = isULP ? "ULP" : (isATG ? "ATG" : "Lesson");
+	        const suffix = isULP ? "_ULP" : (isATG ? "_ATG" : "");
+
+	        const pageSize = isSpecialDoc ? { width: 612, height: 936 } : 'A4';
+        
+	        // FIX 1: INCREASED TOP MARGIN [Left, Top, Right, Bottom]
+	        // Changed Top from 60 to 150 to clear the header image
+	        const pageMargins = isSpecialDoc ? [36, 80, 36, 60] : [40, 80, 40, 80];
+
+	        showToast(`Preparing ${docLabel} PDF...`, "info");
+	        try {
+	            await registerDejaVuFonts();
+	            const headerBase64 = await fetchImageAsBase64("/header-port.png").catch(()=>null);
+	            const footerBase64 = await fetchImageAsBase64("/Footer.png").catch(()=>null);
+            
+	            const pages = Array.isArray(lesson.pages) && lesson.pages.length ? lesson.pages : [{ title: lesson.title || '', content: lesson.content || lesson.html || '' }];
+
+	            let lessonContent = [];
+
+	            for (const page of pages) {
+	                const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
+                
+	                if (cleanTitle && !cleanTitle.includes('Unit Learning Plan') && !cleanTitle.includes('Adaptive Teaching Guide')) {
+	                    lessonContent.push({ text: cleanTitle, fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] });
+	                }
+                
+	                let rawHtml;
+	                if (isSpecialDoc) {
+	                    rawHtml = page.content || '';
+	                } else {
+	                    rawHtml = marked.parse(processLatex(page.content || ''));
+	                }
+
+	                // FIX 2: Ensure we use the robust 'ulp' mode for pre-processing
+	                // This splits the tables and fixes the columns BEFORE pdf conversion
+	                const processedDiv = preProcessHtmlForExport(rawHtml, isULP ? 'ulp' : (isATG ? 'atg' : 'pdf'));
+                
+	                // Convert SVGs in the DOM to images
+	                const svgs = processedDiv.querySelectorAll('svg');
+	                if (svgs.length) {
+	                    await Promise.all(Array.from(svgs).map(async (svg) => {
+	                        try {
+	                            const res = await convertSvgStringToPngDataUrl(svg.outerHTML);
+	                            const img = document.createElement('img');
+	                            img.src = res.dataUrl; img.width = res.width;
+	                            svg.parentNode.replaceChild(img, svg);
+	                        } catch (e) {
+	                            // ignore
+	                        }
+	                    }));
+	                }
+                
+	                const finalHtml = processedDiv.innerHTML;
+                
+	                let pdfBody = htmlToPdfmake(finalHtml, { 
+	                    defaultStyles: { 
+	                        fontSize: 10, 
+	                        lineHeight: 1.1, 
+	                        alignment: 'justify' 
+	                    },
+	                    tableAutoSize: true, 
+	                    imagesByReference: true
+	                });
+
+	                if (!Array.isArray(pdfBody)) {
+	                    if (pdfBody.content && Array.isArray(pdfBody.content)) {
+	                        pdfBody = pdfBody.content;
+	                    } else {
+	                        pdfBody = [pdfBody];
+	                    }
+	                }
+
+	                // Clean and sanitize pdfBody to enforce widths and prevent overflow
+	                cleanUpPdfContent(pdfBody, isULP ? 'ulp' : (isATG ? 'atg' : 'pdf'));
+
+	                if (pdfBody.length > 0) {
+	                    lessonContent.push(...pdfBody);
+	                }
+	            }
+
+	            const docDef = {
+	                pageSize: pageSize,
+	                pageMargins: pageMargins,
+	                // FIX 3: Ensure header has enough margin from the top edge
+	                header: headerBase64 ? { margin: [0, 20, 0, 0], stack: [{ image: "headerImg", width: 450, alignment: "center" }] } : undefined,
+	                footer: footerBase64 ? { margin: [0, 0, 0, 20], stack: [{ image: "footerImg", width: 450, alignment: "center" }] } : undefined,
+	                content: [
+	                    { text: lesson.title || '', fontSize: 28, bold: true, alignment: "center", margin: [0, 12, 0, 8] },
+	                    { text: subject?.title || "", fontSize: 14, italics: true, alignment: "center", color: '#555555', margin: [0, 0, 0, 10], pageBreak: "after" },
+	                    ...lessonContent
+	                ],
+	                images: {},
+	                defaultStyle: { font: 'DejaVu' }
+	            };
+
+	            if (headerBase64) docDef.images.headerImg = headerBase64;
+	            if (footerBase64) docDef.images.footerImg = footerBase64;
+
+	            const pdfDoc = pdfMake.createPdf(docDef);
+	            if (isNativePlatform()) {
+	                pdfDoc.getBlob(b => nativeSave(b, `${(lesson.title || 'export').replace(/[^a-z0-9]/gi, '_')}${suffix}.pdf`, 'application/pdf', showToast));
+	            } else {
+	                pdfDoc.download(`${(lesson.title || 'export').replace(/[^a-z0-9]/gi, '_')}${suffix}.pdf`);
+	            }
+                
+	        } catch (e) { 
+	            console.error("PDF Export Error:", e);
+	            showToast("PDF Error: " + (e.message || e), "error"); 
+	        }
+	        setExportingLessonId(null);
+	    };
+	
     const handleAction = useCallback((type, item) => {
         switch(type) {
             case 'select': onSetActiveUnit(item); break;
@@ -804,7 +1175,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         }
     };
 
-    // Header Background Logic (Solid for Monet)
     const getMonetHeaderBg = () => {
         switch (activeOverlay) {
             case 'christmas': return 'bg-[#0f172a]/95';
@@ -882,7 +1252,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                     </div>
                 ) : (
                     <div className="relative">
-                        {/* [ADDED] Global Unit Reorder Toolbar */}
                         {units.length > 0 && (
                             <div className="flex justify-end mb-4">
                                 <button 

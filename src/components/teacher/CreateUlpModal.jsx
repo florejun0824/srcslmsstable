@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog } from '@headlessui/react';
 import { collection, query, where, onSnapshot, writeBatch, doc, orderBy, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -8,6 +8,19 @@ import Spinner from '../common/Spinner';
 import { XMarkIcon, DocumentTextIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import ProgressIndicator from '../common/ProgressIndicator';
 import SourceContentSelector from '../../hooks/SourceContentSelector';
+
+// --- SRCS Core Values Definition ---
+const SRCS_VALUES_CONTEXT = `
+**SRCS CORE VALUES (San Ramon Catholic School):**
+1. **Pro-God:** Recognizing God in ourselves/others; striving to manifest God's will.
+2. **Pro-Life:** Affirming the essential dignity of each human being (Imago Dei).
+3. **Pro-Environment:** Stewardship of creation; caring for the environment.
+4. **Pro-Nation:** Social awareness; concern for community/nation building.
+5. **Self-Discipline and Leadership:** Countering impulses; maintaining focus; future leadership.
+6. **Self-worth and Integrity:** Reverence for oneself; adhering to moral/ethical principles.
+7. **Fairness and Gender Sensitivity:** Respect/fairness for all; inclusivity; compassion.
+8. **Excellence:** Holistic approach (physical, intellectual, spiritual); becoming the best version of oneself.
+`;
 
 // --- Helper Functions ---
 
@@ -45,7 +58,7 @@ const tryParseJson = (jsonString) => {
 export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId, subjectId }) {
     const { showToast } = useToast();
 
-    // --- iPadOS 26 Styles ---
+    // --- Styles ---
     const iosInput = "w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl py-3 px-4 text-sm font-medium text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#007AFF]/50 focus:border-[#007AFF] transition-all resize-none";
     const iosCard = "bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-2xl p-5 shadow-sm";
     const iosBtnPrimary = "px-6 py-3 bg-[#007AFF] hover:bg-[#0062cc] text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-2 justify-center";
@@ -144,14 +157,14 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
     }, [selectedUnitIds, unitsForSubject, lessonsForUnit, generationTarget]);
 
     // --- Schema Definitions ---
+    // Updated schemas to include valuesIntegration in FirmUp, Deepen, Transfer
     const ulpSchemas = {
       explore: ["type", "lessonsList", "unitOverview", "hookedActivities", "mapOfConceptualChange", "essentialQuestions"],
-      firmUp: ["type", "code", "competency", "learningTargets", "successIndicators", "inPersonActivity", "onlineActivity", "supportDiscussion", "assessment", "templates"],
-      deepen: ["type", "code", "competency", "learningTargets", "successIndicators", "inPersonActivity", "onlineActivity", "supportDiscussion", "assessment", "templates"],
-      transfer: ["type", "code", "competency", "learningTargets", "successIndicators", "inPersonActivity", "onlineActivity"],
+      firmUp: ["type", "code", "competency", "learningTargets", "successIndicators", "inPersonActivity", "onlineActivity", "supportDiscussion", "assessment", "templates", "valuesIntegration"],
+      deepen: ["type", "code", "competency", "learningTargets", "successIndicators", "inPersonActivity", "onlineActivity", "supportDiscussion", "assessment", "templates", "valuesIntegration"],
+      transfer: ["type", "code", "competency", "learningTargets", "successIndicators", "inPersonActivity", "onlineActivity", "supportDiscussion", "valuesIntegration"],
       synthesis: ["type", "summary"],
       performanceTask: ["type", "graspsTask", "rubric"],
-      values: ["type", "values"],
     };
 
     const validateUlpJson = (type, jsonObj) => {
@@ -163,45 +176,54 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
     };
 
     /**
-     * --- UPGRADED GENERATION LOGIC WITH CONTEXT AWARENESS ---
+     * --- GENERATION LOGIC ---
      */
     const generateUlpSection = async (type, context, maxRetries = 3) => {
       let prompt;
       const iCan = context.language === 'Filipino' ? 'Kaya kong...' : 'I can...';
-      const isFilipino = context.language === 'Filipino';
 
-      // --- CONTEXT AWARENESS INJECTION ---
+      // --- SCAFFOLDING CONTEXT ---
       const contextInjection = context.previousContent ? `
-      **CONTINUITY CONTEXT (CRITICAL):**
-      You are building upon previously generated sections.
-      - Ensure flow and progression.
-      - **Do NOT repeat** activities or assessments from the content below.
-      - Reference prior concepts where applicable.
+      **SCAFFOLDING CONTEXT (CRITICAL):**
+      You are writing the NEXT lesson in a sequence.
+      - **Reinforce:** Explicitly reference concepts from the previous lesson to build connection.
+      - **Scaffold:** Ensure the complexity increases from the previous content.
       
-      --- PREVIOUSLY GENERATED CONTENT ---
+      --- PREVIOUS CONTENT SUMMARY ---
       ${context.previousContent}
       --- END PREVIOUS CONTENT ---
       ` : "";
 
+      const verbosityRules = `
+      **CRITICAL CONTENT RULES (MUST FOLLOW):**
+      1. **BE EXTREMELY DETAILED:** Do not just summarize. Write out the actual content.
+      2. **CREATE THE MATERIALS:** If an activity uses "Scenario Cards" or "Worksheets", YOU MUST WRITE THE CONTENT of those cards/worksheets in the instruction text.
+      3. **STEP-BY-STEP:** Instructions must be numbered lists (1. 2. 3. 4. 5.) with high detail.
+      4. **NO PLACEHOLDERS:** Never say "Teacher provides resources." Instead say "Resource Content: [Write the content here]".
+      `;
+
+      const valuesRule = `
+      **SRCS VALUES INTEGRATION (REQUIRED):**
+      ${SRCS_VALUES_CONTEXT}
+      **INSTRUCTION:** Select **ONE** specific value from the list above that matches this specific lesson/activity. Explain *how* this activity reinforces that value.
+      `;
+
       const commonRules = `
-    **ROLE:** Expert Curriculum Developer for DepEd Philippines / PEAC.
-    **INPUTS:**
-    - Standards: ${context.contentStandard} / ${context.performanceStandard}
-    - Content: ${context.sourceLessonTitles}
-    - Language: ${context.language}
+      **ROLE:** Expert Curriculum Developer for San Ramon Catholic School (SRCS).
+      **INPUTS:**
+      - Standards: ${context.contentStandard} / ${context.performanceStandard}
+      - Content Source: ${context.sourceLessonTitles}
+      - Language: ${context.language}
 
-    ${contextInjection}
+      ${contextInjection}
+      ${verbosityRules}
+      ${valuesRule}
 
-    **CRITICAL TECHNICAL RULES (NON-NEGOTIABLE):**
-    1. **OUTPUT:** Respond ONLY with a valid JSON object. No markdown fences (\`\`\`), no commentary.
-    2. **ESCAPING:** You MUST escape all double quotes inside string values (e.g., \\").
-    3. **NO NEWLINES:** Do not put real line breaks or tabs inside string values. Use \\n for line breaks.
-    4. **FORMATTING:** Use plain text only inside strings. No HTML tags.
-    
-    **PEDAGOGICAL RULES:**
-    1. **FRAMEWORK:** Strictly follow the PEAC "Understanding by Design" (UbD) framework.
-    2. **LANGUAGE:** ${isFilipino ? "Formal Filipino (Academic)." : "Academic English."}
-    `;
+      **TECHNICAL RULES:**
+      1. **OUTPUT:** Valid JSON object ONLY.
+      2. **ESCAPING:** Escape double quotes inside strings (\\").
+      3. **FORMATTING:** Use \\n for line breaks inside strings.
+      `;
 
       switch (type) {
         case 'explore':
@@ -211,11 +233,11 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             **JSON STRUCTURE:**
             {
             "type": "explore",
-            "lessonsList": "Bulleted list of lessons.",
-            "unitOverview": "Academic summary of the unit.",
-            "hookedActivities": "Engaging hook activity instructions.",
-            "mapOfConceptualChange": "Diagnostic activity (e.g., KWL, IRF).",
-            "essentialQuestions": ["EQ1", "EQ2"]
+            "lessonsList": "Bulleted list of lessons in this unit.",
+            "unitOverview": "2 paragraphs. First: engaging welcome. Second: summary of the journey.",
+            "hookedActivities": "Create 2 DISTINCT activities. For each: Title, Description, Detailed Step-by-Step Instructions (4+ steps), and Materials List.",
+            "mapOfConceptualChange": "Detailed instructions for a diagnostic activity (e.g., KWL, IRF). Include the exact column headers or questions students will answer.",
+            "essentialQuestions": ["EQ1 (Deep/Philosophical)", "EQ2", "EQ3"]
             }
             `;
           break;
@@ -224,18 +246,25 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
           prompt = `
             ${commonRules}
             **TASK:** Generate "Firm-Up" (Acquisition) for: "${context.competency}" (${context.code}).
+            **FOCUS:** Acquisition of facts and skills. Scaffolds towards Meaning-Making.
+            **ASSESSMENT:** VARIED. (Matching, Identification, Concept Maps).
+            
             **JSON STRUCTURE:**
             {
             "type": "firmUp",
             "code": "${context.code}",
             "competency": "${context.competency}",
-            "learningTargets": ["${iCan} define...", "${iCan} identify..."],
-            "successIndicators": ["Indicators..."],
-            "inPersonActivity": { "instructions": "Step-by-step instructions...", "materials": "List..." },
-            "onlineActivity": { "instructions": "Online alternative...", "materials": "Tools..." },
-            "supportDiscussion": "Processing questions.",
-            "assessment": { "type": "Quiz", "content": "Assessment content..." },
-            "templates": "Flashcard/worksheet content."
+            "learningTargets": ["${iCan} define...", "${iCan} identify...", "${iCan} describe..."],
+            "successIndicators": ["3 distinct bullet points."],
+            "inPersonActivity": { 
+                "instructions": "Title: [Name]\\n1. [Step 1]\\n2. [Step 2]...\\n\\n**CONTENT FOR WORKSHEET/CARDS:**\\n[Write the actual text/items students will analyze here]", 
+                "materials": "Detailed list." 
+            },
+            "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
+            "supportDiscussion": "Write 5 specific questions checking for factual understanding.",
+            "assessment": { "type": "Quiz/Matching/Graphic Organizer", "content": "Write the actual questions/items here." },
+            "templates": "Text content for any definitions/flashcards needed.",
+            "valuesIntegration": { "value": "Name of SRCS Value", "integration": "2-3 sentences explaining the connection." }
             }
             `;
           break;
@@ -244,19 +273,31 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
           prompt = `
             ${commonRules}
             **TASK:** Generate "Deepen" (Meaning-Making) for: "${context.competency}" (${context.code}).
-            **CRITICAL:** Must use **Guided Generalization** (C-E-R or Concept Map) to derive the Essential Understanding.
+            **FOCUS:** Making Meaning, Analysis, Generalization.
+            **CRITICAL:** Use **Guided Generalization**. Generate specific "Scenario Cards" or "Case Studies".
+            
+            **SUPPORT DISCUSSION:** Must be a **Reinforcement Discussion**. 
+            1. Summarize the Key Concept derived from the activity.
+            2. Explicitly CONNECT this concept to a specific Real-World Context (give an example).
+            
+            **ASSESSMENT:** VARIED. NO PLAIN ESSAYS. Use: Case Analysis Grid, Analogy Map, Venn Diagram.
+            
             **JSON STRUCTURE:**
             {
             "type": "deepen",
             "code": "${context.code}",
             "competency": "${context.competency}",
-            "learningTargets": ["${iCan} explain...", "${iCan} justify..."],
-            "successIndicators": ["Indicators..."],
-            "inPersonActivity": { "instructions": "Guided Generalization activity...", "materials": "Worksheets..." },
-            "onlineActivity": { "instructions": "Online collaboration...", "materials": "Links..." },
-            "supportDiscussion": "Probing questions (Why/How?).",
-            "assessment": { "type": "Reflection", "content": "Reflection prompt..." },
-            "templates": "Graphic organizer content."
+            "learningTargets": ["${iCan} analyze...", "${iCan} justify...", "${iCan} generalize..."],
+            "successIndicators": ["3 distinct indicators."],
+            "inPersonActivity": { 
+                "instructions": "Activity: [Name]\\nInstructions:\\n1. [Step]...\\n\\n**SCENARIO CARDS CONTENT:**\\nCard 1: [Write full paragraph]\\nCard 2: [Write full paragraph]", 
+                "materials": "Scenario Cards, C-E-R Worksheet." 
+            },
+            "onlineActivity": { "instructions": "Instructions for breakout rooms/shared docs.", "materials": "Links..." },
+            "supportDiscussion": "**Reinforcement Discussion:**\\n\\n**Key Concept:** [Summary]\\n\\n**Real World Connection:** [Detailed connection]",
+            "assessment": { "type": "Case Analysis/Analogy/Diagram", "content": "Instructions for the varied assessment task." },
+            "templates": "Structure of the worksheet.",
+            "valuesIntegration": { "value": "Name of SRCS Value", "integration": "2-3 sentences explaining the connection." }
             }
             `;
           break;
@@ -265,16 +306,31 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
           prompt = `
             ${commonRules}
             **TASK:** Generate "Transfer" (Application) for: "${context.competency}" (${context.code}).
-            **GOAL:** Scaffold for Performance Task (GRASPS). Focus on 21st Century Skills.
+            **GOAL:** Application in real-world situations.
+            
+            **ACTIVITY REQUIREMENT:** This activity MUST be a scaffold or direct entry point to the main Unit Performance Task (GRASPS).
+            
+            **NO END OF LESSON ASSESSMENT:** Do not generate a quiz/rubric. The activity itself is the practice.
+
+            **SUPPORT DISCUSSION:** Must be a **Transitional Synthesis**. 
+            1. Summarize the entire unit's journey (connect Explore, Firm-Up, Deepen).
+            2. Connect the "dots" between the activities, core concepts, and the real-world scenario.
+            3. Explicitly transition students to the upcoming Performance Task.
+            
             **JSON STRUCTURE:**
             {
             "type": "transfer",
             "code": "${context.code}",
             "competency": "${context.competency}",
-            "learningTargets": ["${iCan} apply...", "${iCan} create..."],
-            "successIndicators": ["Indicators..."],
-            "inPersonActivity": { "instructions": "Mini-performance task...", "materials": "Rubrics..." },
-            "onlineActivity": { "instructions": "Digital creation task...", "materials": "Tools..." }
+            "learningTargets": ["${iCan} apply...", "${iCan} prepare..."],
+            "successIndicators": ["3 distinct indicators."],
+            "inPersonActivity": { 
+                "instructions": "Activity: [Scaffold to Performance Task]\\nInstructions:\\n1. [Step]...\\n\\n**SCENARIOS/PROMPTS:**\\n[Specific content]", 
+                "materials": "Specific list." 
+            },
+            "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
+            "supportDiscussion": "**Unit Synthesis & Transition:**\\n\\n[Write a robust paragraph connecting unit concepts, previous activities, and the real world, ending with a call to action for the Performance Task.]",
+            "valuesIntegration": { "value": "Name of SRCS Value", "integration": "2-3 sentences explaining the connection." }
             }
             `;
           break;
@@ -283,51 +339,43 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
           prompt = `
             ${commonRules}
             **TASK:** Final Synthesis.
-            **JSON STRUCTURE:** { "type": "synthesis", "summary": "Closure statement summarizing the Essential Understanding." }
+            **JSON STRUCTURE:** { "type": "synthesis", "summary": "3 Paragraphs. 1. Summarize Explore/Firm-Up. 2. Summarize Deepen. 3. Summarize Transfer. Be inspiring." }
             `;
           break;
 
         case 'performanceTask':
           prompt = `
             ${commonRules}
-            **TASK:** Unit Performance Task (GRASPS).
+            **TASK:** Unit Performance Task (GRASPS). Be very specific.
             **JSON STRUCTURE:**
             {
             "type": "performanceTask",
             "graspsTask": {
-                "goal": "...", "role": "...", "audience": "...", "situation": "...", "product": "...", "standards": "..."
+                "goal": "Detailed goal statement.", 
+                "role": "Creative role name.", 
+                "audience": "Specific audience.", 
+                "situation": "Detailed paragraph describing the challenge/context.", 
+                "product": "Specific output description.", 
+                "standards": "Criteria for success."
             },
             "rubric": [
-                { "criteria": "Content", "description": "...", "points": "20" },
-                { "criteria": "Creativity", "description": "...", "points": "15" },
-                { "criteria": "Presentation", "description": "...", "points": "15" }
+                { "criteria": "Content Integration", "description": "Detailed description.", "points": "20" },
+                { "criteria": "Practicality/Feasibility", "description": "Detailed description.", "points": "15" },
+                { "criteria": "Creativity & Presentation", "description": "Detailed description.", "points": "15" }
             ]
             }
             `;
           break;
 
-        case 'values':
-          prompt = `
-            ${commonRules}
-            **TASK:** Integrate DepEd Core Values (Maka-Diyos, Maka-tao, Makakalikasan, Makabansa).
-            **JSON STRUCTURE:**
-            {
-            "type": "values",
-            "values": [
-                { "name": "Maka-Diyos", "description": "..." },
-                { "name": "Makakalikasan", "description": "..." }
-            ]
-            }
-            `;
-          break;
-
+        // "Values" case REMOVED as requested
+        
         default: return Promise.resolve(null);
       }
 
       let retries = 0;
       while (retries < maxRetries) {
         try {
-          const jsonString = await callGeminiWithLimitCheck(prompt, { maxOutputTokens: 4096 });
+          const jsonString = await callGeminiWithLimitCheck(prompt, { maxOutputTokens: 8192 }); 
           const parsedJson = tryParseJson(extractJson(jsonString));
           if (!parsedJson) throw new Error(`Failed to generate valid JSON for section: ${type}`);
           validateUlpJson(type, parsedJson);
@@ -354,30 +402,36 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             tbody += `
             <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>EXPLORE</td></tr>
             <tr><td colspan='2' style='padding: 10px; border: 1px solid black; vertical-align: top;'>
-                <strong>Unit Overview:</strong> ${nl2br(explore.unitOverview)}<br/><br/>
+                <strong>Unit Overview:</strong><br/>${nl2br(explore.unitOverview)}<br/><br/>
                 <strong>Essential Questions:</strong><ul>${(explore.essentialQuestions || []).map(q => `<li>${esc(q)}</li>`).join('')}</ul>
-                <strong>Map of Conceptual Change:</strong> ${nl2br(explore.mapOfConceptualChange)}<br/><br/>
-                <strong>Hook Activity:</strong> ${nl2br(explore.hookedActivities)}
+                <strong>Map of Conceptual Change:</strong><br/>${nl2br(explore.mapOfConceptualChange)}<br/><br/>
+                <strong>Hook Activities:</strong><br/>${nl2br(explore.hookedActivities)}
             </td></tr>`;
         }
 
         // --- Helper for Competency Rows ---
         const renderCompetencyRow = (item, stageName) => {
             const learningFocus = `
-                <strong>${stageName} - ${esc(item.code)}</strong><br/>
+                <strong>${esc(item.code)}</strong><br/>
                 ${esc(item.competency)}<br/><br/>
                 <strong>Learning Targets:</strong><ul>${(item.learningTargets || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul>
                 <strong>Success Indicators:</strong><ul>${(item.successIndicators || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
             
             const learningExperience = `
-                <strong>Activity:</strong><br/>${nl2br(item.inPersonActivity?.instructions)}<br/>
+                <strong>In-Person Activity:</strong><br/>${nl2br(item.inPersonActivity?.instructions)}<br/>
                 <em>Materials: ${esc(item.inPersonActivity?.materials)}</em><br/><br/>
+                <strong>Online Activity:</strong><br/>${nl2br(item.onlineActivity?.instructions)}<br/><br/>
                 ${item.supportDiscussion ? `<strong>Processing/Discussion:</strong><br/>${nl2br(item.supportDiscussion)}<br/><br/>` : ''}
-                ${item.assessment ? `<strong>Assessment (${esc(item.assessment.type)}):</strong><br/>${nl2br(item.assessment.content)}` : ''}`;
+                ${item.valuesIntegration ? `<div style='margin-top: 15px; padding: 10px; background-color: #f9fafb; border-left: 4px solid #007AFF; font-style: italic;'>
+                    <strong>SRCS Values Integration (${esc(item.valuesIntegration.value)}):</strong><br/>
+                    ${esc(item.valuesIntegration.integration)}
+                </div><br/>` : ''}
+                ${item.assessment ? `<strong>Assessment (${esc(item.assessment.type)}):</strong><br/>${nl2br(item.assessment.content)}` : ''}
+                ${item.templates ? `<br/><strong>Templates/Resources:</strong><br/>${nl2br(item.templates)}` : ''}`;
 
             return `<tr>
-                <td style='width: 40%; padding: 10px; border: 1px solid black; vertical-align: top;'>${learningFocus}</td>
-                <td style='width: 60%; padding: 10px; border: 1px solid black; vertical-align: top;'>${learningExperience}</td>
+                <td style='width: 35%; padding: 10px; border: 1px solid black; vertical-align: top;'>${learningFocus}</td>
+                <td style='width: 65%; padding: 10px; border: 1px solid black; vertical-align: top;'>${learningExperience}</td>
             </tr>`;
         };
 
@@ -402,7 +456,15 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             transferItems.forEach(item => tbody += renderCompetencyRow(item, 'Transfer'));
         }
 
-        // --- 5. PERFORMANCE TASK ---
+        // --- 5. SYNTHESIS ---
+        const synthesis = components.find(c => c.type === 'synthesis');
+        if (synthesis) {
+            tbody += `
+            <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>FINAL SYNTHESIS</td></tr>
+            <tr><td colspan='2' style='padding: 10px; border: 1px solid black;'>${nl2br(synthesis.summary)}</td></tr>`;
+        }
+
+        // --- 6. PERFORMANCE TASK ---
         const performanceTask = components.find(c => c.type === 'performanceTask');
         if (performanceTask) {
             const { graspsTask, rubric } = performanceTask;
@@ -419,15 +481,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 <strong>Rubric:</strong>
                 <ul>${(rubric || []).map(r => `<li><strong>${esc(r.criteria)} (${esc(String(r.points))}pts):</strong> ${esc(r.description)}</li>`).join('')}</ul>
             </td></tr>`;
-        }
-
-        // --- 6. VALUES ---
-        const values = components.find(c => c.type === 'values');
-        if (values && values.values) {
-            const valuesHtml = values.values.map(v => `<strong>${esc(v.name)}:</strong> ${esc(v.description)}`).join('<br/>');
-            tbody += `
-            <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>VALUES INTEGRATION</td></tr>
-            <tr><td colspan='2' style='padding: 10px; border: 1px solid black;'>${valuesHtml}</td></tr>`;
         }
 
         return `<table style='width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 14px; border: 1px solid black;'>
@@ -462,6 +515,12 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 2. **Deepen** (Making meaning/understanding)
                 3. **Transfer** (Transfer of learning)
                 
+                **CRITICAL CODING REQUIREMENT:**
+                Assign codes STRICTLY as follows:
+                - For Firm-Up items use: A1, A2, A3...
+                - For Deepen items use: M1, M2, M3...
+                - For Transfer items use: T1, T2, T3...
+
                 **INPUTS:**
                 - Content Standard: ${inputs.contentStandard}
                 - Performance Standard: ${inputs.performanceStandard}
@@ -481,7 +540,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
 
             // --- STAGE 2: Sequential Generation (Context Aware) ---
             setProgress(30);
-            setProgressLabel('Step 2/3: Developing academic content...');
+            setProgressLabel('Step 2/3: Developing comprehensive content...');
 
             const sharedContext = {
                 contentStandard: inputs.contentStandard,
@@ -490,7 +549,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 language: selectedLanguage,
             };
 
-            // Prepare queue
+            // Prepare queue - NOTE: 'values' type removed from queue
             const sectionsQueue = [
                 { type: 'explore' },
                 ...outline.firmUp.map(item => ({ type: 'firmUp', ...item })),
@@ -498,7 +557,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 ...outline.transfer.map(item => ({ type: 'transfer', ...item })),
                 { type: 'synthesis' },
                 { type: 'performanceTask' },
-                { type: 'values' },
             ];
 
             const componentResults = [];
@@ -524,11 +582,10 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                     
                     // Add summary to context for next iteration
                     // We stringify the result to give the AI full visibility of what it just created
-                    // Truncate if too long to save tokens, but usually ULP sections are concise enough
                     accumulatedContextString += `\n[Completed ${currentSection.type}]: ${JSON.stringify(result)}\n`;
                 }
                 
-                // Small delay to respect rate limits
+                // Small delay to respect rate limits and allow browser to breathe
                 await new Promise(r => setTimeout(r, 1000));
             }
 
