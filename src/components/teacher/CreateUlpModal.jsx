@@ -421,11 +421,45 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             gfm: true,    // GitHub Flavored Markdown
         });
 
-        // 1. Basic HTML Escape (for headers/codes only)
+        // 1. Helper: Handle AI returning Objects/Arrays instead of Strings
+        const formatAIContent = (content) => {
+            if (!content) return '';
+            if (typeof content === 'string') return content;
+
+            // If AI returned an Array (Common in 'hookedActivities')
+            if (Array.isArray(content)) {
+                return content.map(item => {
+                    if (typeof item === 'string') return `• ${item}`;
+                    // Attempt to extract meaningful fields if it's an object inside array
+                    const title = item.title || item.name || 'Activity';
+                    const desc = item.description || item.content || '';
+                    const steps = item.steps || item.instructions || '';
+                    const mats = item.materials || '';
+                    return `### ${title}\n${desc}\n${steps}\n${mats ? `**Materials:** ${mats}` : ''}`;
+                }).join('\n\n---\n\n');
+            }
+
+            // If AI returned a single Object
+            if (typeof content === 'object') {
+                // If it looks like an instruction block
+                if (content.instructions) {
+                    return `${content.instructions}\n\n${content.materials ? `**Materials:** ${content.materials}` : ''}`;
+                }
+                // Fallback: Join all values
+                return Object.values(content).filter(v => typeof v === 'string').join('\n\n');
+            }
+
+            return String(content);
+        };
+
+        // 2. Basic HTML Escape (for headers/codes only)
         const esc = (text) => (text == null ? '' : String(text)).replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-        // 2. Enhanced Markdown Renderer
-        const renderMd = (text) => {
+        // 3. Enhanced Markdown Renderer (Crash Proof)
+        const renderMd = (input) => {
+            // FIX: Ensure input is a string. If not, format it first.
+            let text = typeof input === 'string' ? input : formatAIContent(input);
+            
             if (!text) return '';
 
             // A. Standardize newlines
@@ -443,18 +477,9 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 safeText = lines.map(line => line.substring(minIndent)).join('\n');
             }
 
-            // C. CRITICAL FIX: The "Table Protector"
-            // The previous regex was inserting newlines BETWEEN table rows (breaking them).
-            // We only want to ensure a newline BEFORE the start of a table, not inside it.
-            
-            // Step 1: Ensure table block starts on a new line if it follows text immediately
-            // Look for a line NOT starting with pipe, followed by a line starting with pipe
+            // C. Table Protector
             safeText = safeText.replace(/^([^|].*)\n(\|.*)$/gm, '$1\n\n$2');
 
-            // Step 2: Fix common AI mistake of omitting the outer pipes in headers
-            // e.g. "Col 1 | Col 2" -> "| Col 1 | Col 2 |" (Simple heuristic)
-            // (Optional, but helps with AI inconsistency)
-            
             try {
                 return marked.parse(safeText);
             } catch (e) {
@@ -463,7 +488,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             }
         };
 
-        // 3. Inline Markdown Renderer
+        // 4. Inline Markdown Renderer
         const renderInlineMd = (text) => {
             if (!text) return '';
             const html = renderMd(text);
@@ -473,18 +498,28 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         // --- 1. EXPLORE ---
         const explore = components.find(c => c.type === 'explore');
         if (explore) {
+            // FIX: Explicitly format these fields before rendering to avoid [object Object]
+            const unitOverview = formatAIContent(explore.unitOverview);
+            const mapOfConceptualChange = formatAIContent(explore.mapOfConceptualChange);
+            const hookedActivities = formatAIContent(explore.hookedActivities);
+
             tbody += `
             <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>EXPLORE</td></tr>
             <tr><td colspan='2' style='padding: 10px; border: 1px solid black; vertical-align: top;'>
-                <strong>Unit Overview:</strong><br/>${renderMd(explore.unitOverview)}<br/><br/>
+                <strong>Unit Overview:</strong><br/>${renderMd(unitOverview)}<br/><br/>
                 <strong>Essential Questions:</strong><ul>${(explore.essentialQuestions || []).map(q => `<li>${renderInlineMd(q)}</li>`).join('')}</ul>
-                <strong>Map of Conceptual Change:</strong><br/>${renderMd(explore.mapOfConceptualChange)}<br/><br/>
-                <strong>Hook Activities:</strong><br/>${renderMd(explore.hookedActivities)}
+                <strong>Map of Conceptual Change:</strong><br/>${renderMd(mapOfConceptualChange)}<br/><br/>
+                <strong>Hook Activities:</strong><br/>${renderMd(hookedActivities)}
             </td></tr>`;
         }
 
         // --- Helper for Competency Rows ---
         const renderCompetencyRow = (item, stageName) => {
+            // FIX: Apply formatter to instructions in case they come back as objects
+            const inPersonInstructions = formatAIContent(item.inPersonActivity?.instructions);
+            const onlineInstructions = formatAIContent(item.onlineActivity?.instructions);
+            const processing = formatAIContent(item.supportDiscussion);
+
             const learningFocus = `
                 <strong>${esc(item.code)}</strong><br/>
                 ${esc(item.competency)}<br/><br/>
@@ -492,15 +527,15 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 <strong>Success Indicators:</strong><ul>${(item.successIndicators || []).map(i => `<li>${renderInlineMd(i)}</li>`).join('')}</ul>`;
             
             const learningExperience = `
-                <strong>In-Person Activity:</strong><br/>${renderMd(item.inPersonActivity?.instructions)}<br/>
+                <strong>In-Person Activity:</strong><br/>${renderMd(inPersonInstructions)}<br/>
                 <div style="margin-top: 8px; font-style: italic;">
                     <strong>Materials:</strong> 
                     <div style="display:inline-block; vertical-align:top;">${renderMd(item.inPersonActivity?.materials)}</div>
                 </div><br/>
                 
-                <strong>Online Activity:</strong><br/>${renderMd(item.onlineActivity?.instructions)}<br/><br/>
+                <strong>Online Activity:</strong><br/>${renderMd(onlineInstructions)}<br/><br/>
                 
-                ${item.supportDiscussion ? `<strong>Processing/Discussion:</strong><br/>${renderMd(item.supportDiscussion)}<br/><br/>` : ''}
+                ${processing ? `<strong>Processing/Discussion:</strong><br/>${renderMd(processing)}<br/><br/>` : ''}
                 
                 ${item.valuesIntegration ? `<div style='margin-top: 15px; padding: 15px; background-color: #f0fdf4 !important; color: #14532d !important; border-left: 4px solid #16a34a; border-radius: 6px;'>
                     <strong style="display:block; margin-bottom:5px; font-size:1.1em;">🌿 SRCS Values Connection: ${esc(item.valuesIntegration.value)}</strong>
