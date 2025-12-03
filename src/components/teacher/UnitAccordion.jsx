@@ -559,34 +559,56 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
     prev.monet === next.monet
 );
 
-// --- HELPER: Render Table Buffer (Converts cleaned rows to HTML) ---
+// --- HELPER: Cell Formatter (Handles **bold** and \n newlines inside cells) ---
+const formatCellContent = (text) => {
+    if (!text) return '';
+    let formatted = text
+        .replace(/\\n/g, '<br/>')      // Handle literal \n strings
+        .replace(/\n/g, '<br/>')       // Handle actual newlines
+        .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') // Handle **bold**
+        .replace(/\*(.*?)\*/g, '<i>$1</i>');    // Handle *italics*
+    return marked.parseInline(formatted);
+};
+
+// --- HELPER: Render Table Buffer ---
 const renderTableBuffer = (rows) => {
     if (!rows || rows.length === 0) return '';
     
     // 1. Process Header
     const header = rows[0];
-    // Remove outer pipes and split
-    const headerCells = header.replace(/^\||\|$/g, '').split('|'); 
+    const headerCells = header.split('|').map(c => c.trim()).filter((c, i, arr) => {
+        // Filter out empty start/end splits resulting from leading/trailing pipes
+        if (i === 0 && c === '') return false;
+        if (i === arr.length - 1 && c === '') return false;
+        return true;
+    });
     
     let html = '<table border="1" style="width:100%; border-collapse: collapse; margin: 10px 0;"><thead><tr>';
     headerCells.forEach(c => {
-        // Use marked.parseInline to handle bolding/italics within cells
-        html += `<th style="border: 1px solid #666; padding: 6px; background-color: #e2e8f0; font-weight: bold; text-align: left;">${marked.parseInline(c.trim())}</th>`;
+        html += `<th style="border: 1px solid #666; padding: 6px; background-color: #e2e8f0; font-weight: bold; text-align: left;">${formatCellContent(c)}</th>`;
     });
     html += '</tr></thead><tbody>';
 
     // 2. Process Body
     for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
-        if (!row.trim()) continue; // Skip empty rows
+        if (!row.trim()) continue;
 
-        // Remove outer pipes and split
-        const cleanRow = row.replace(/^\||\|$/g, '');
-        const cells = cleanRow.split('|');
+        // Split and filter empty edges
+        const cells = row.split('|').map(c => c.trim()).filter((c, i, arr) => {
+            if (i === 0 && c === '') return false;
+            if (i === arr.length - 1 && c === '') return false;
+            return true;
+        });
         
+        // Pad cells if row is short (prevents "Malformed table" error)
+        while(cells.length < headerCells.length) {
+            cells.push('');
+        }
+
         html += '<tr>';
         cells.forEach(c => {
-            html += `<td style="border: 1px solid #666; padding: 6px;">${marked.parseInline(c.trim())}</td>`;
+            html += `<td style="border: 1px solid #666; padding: 6px;">${formatCellContent(c)}</td>`;
         });
         html += '</tr>';
     }
@@ -594,24 +616,18 @@ const renderTableBuffer = (rows) => {
     return html;
 };
 
-// --- HELPER: Smart Markdown Table Parser (Robust) ---
+// --- HELPER: Smart Markdown Table Parser (Handles Wrapped Lines) ---
 const forceParseMarkdownTable = (text) => {
     if (!text) return text;
 
-    // 1. Clean input: Replace non-breaking spaces, standardize newlines
-    const cleanText = text
-        .replace(/\u00A0/g, ' ') // Replace &nbsp;
+    // Normalize newlines
+    const rawLines = text
         .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/p>/gi, '\n</p>') 
-        .replace(/<p>/gi, '\n<p>');
-
-    const rawLines = cleanText.split('\n');
+        .split('\n');
     
-    // Regex to identify a separator line (e.g., |---| or |:---|)
-    // Flexible: allows spaces, dashes, colons
     const isSeparator = (line) => {
-        const collapsed = line.trim().replace(/\s/g, '');
-        return /^\|?(:?-+:?\|)+:?-+:?\|?$/.test(collapsed);
+        // Detects |---| or |:---| patterns
+        return /^\|?(:?-+:?\|)+:?-+:?\|?$/.test(line.trim().replace(/\s/g, ''));
     };
 
     let processedLines = [];
@@ -620,75 +636,53 @@ const forceParseMarkdownTable = (text) => {
 
     for (let i = 0; i < rawLines.length; i++) {
         let line = rawLines[i].trim();
-        
-        if (!line) {
-            if (insideTable) {
-                processedLines.push(renderTableBuffer(tableBuffer));
-                tableBuffer = [];
-                insideTable = false;
-            }
-            if (line === '') processedLines.push(''); 
-            continue;
-        }
 
+        // 1. Detect Header (Look ahead for separator)
         if (!insideTable) {
-            // --- TABLE DETECTION & HEADER REPAIR ---
-            // If line has a pipe, it MIGHT be a header. Check ahead.
-            if (line.includes('|')) {
-                let separatorIndex = -1;
-                // Look ahead 1 line
-                if (rawLines[i+1] && isSeparator(rawLines[i+1])) separatorIndex = i+1;
-                // Look ahead 2 lines (Broken Header Case)
-                else if (rawLines[i+2] && isSeparator(rawLines[i+2])) separatorIndex = i+2;
-
-                if (separatorIndex > -1) {
-                    insideTable = true;
-                    
-                    // MERGE HEADER: Combine lines from i to separatorIndex
-                    let combinedHeader = line;
-                    // If the header is split (separator is at i+2), merge the middle line
-                    for(let k = i + 1; k < separatorIndex; k++) {
-                        let nextPart = rawLines[k].trim();
-                        // Clean up join
-                        if (combinedHeader.endsWith('|')) combinedHeader = combinedHeader.slice(0, -1);
-                        if (nextPart.startsWith('|')) nextPart = nextPart.substring(1);
-                        combinedHeader += " " + nextPart;
-                    }
-
-                    tableBuffer.push(combinedHeader); // Add clean header
-                    i = separatorIndex; // Advance loop to the separator line (skipping it)
-                } else {
-                    processedLines.push(line);
-                }
+            if (rawLines[i + 1] && isSeparator(rawLines[i + 1])) {
+                insideTable = true;
+                tableBuffer.push(line); // Add Header
+                i++; // Skip the separator line in the loop
             } else {
                 processedLines.push(line);
             }
-        } else {
-            // --- INSIDE TABLE ---
-            if (line.startsWith('|')) {
+        } 
+        // 2. Inside Table Processing
+        else {
+            if (line === '') {
+                // End of table
+                if (tableBuffer.length > 0) {
+                    processedLines.push(renderTableBuffer(tableBuffer));
+                    tableBuffer = [];
+                }
+                insideTable = false;
+            } 
+            else if (line.startsWith('|')) {
+                // New Row
                 tableBuffer.push(line);
-            } else {
-                // ROW REPAIR: Wrapped text belongs to previous cell
+            } 
+            else {
+                // WRAPPED TEXT CASE: Line doesn't start with pipe, append to previous row
                 if (tableBuffer.length > 0) {
                     let lastRow = tableBuffer[tableBuffer.length - 1];
-                    let suffix = "";
+                    // If last row ended with pipe, remove it before appending
                     if (lastRow.endsWith('|')) {
                         lastRow = lastRow.slice(0, -1);
-                        suffix = "|";
                     }
-                    tableBuffer[tableBuffer.length - 1] = lastRow + " " + line + suffix;
+                    // Append current line to last cell of previous row
+                    tableBuffer[tableBuffer.length - 1] = lastRow + " " + line + "|";
                 }
             }
         }
     }
 
+    // Flush remaining buffer
     if (tableBuffer.length > 0) {
         processedLines.push(renderTableBuffer(tableBuffer));
     }
 
     return processedLines.join('\n');
 };
-
 // --- HELPER: Pre-process HTML to Split Tables & Rescue Markdown ---
 const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
 
@@ -862,7 +856,7 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
     return tempDiv;
 };
 
-// --- HELPER: Sanitize PDF Structure (Ruthless Left-Column Shrink) ---
+// --- HELPER: Sanitize PDF Structure (Fixed for Malformed Tables) ---
 const cleanUpPdfContent = (content, inTable = false) => {
     if (!content) return;
 
@@ -873,6 +867,7 @@ const cleanUpPdfContent = (content, inTable = false) => {
 
     if (typeof content === 'object') {
 
+        // Handle Stacks
         if (content.content && Array.isArray(content.content)) {
             content.stack = content.content;
             delete content.content;
@@ -880,6 +875,7 @@ const cleanUpPdfContent = (content, inTable = false) => {
             return;
         }
 
+        // Handle Images
         if (content.image) {
             const maxWidth = inTable ? 100 : 500; 
             content.fit = [maxWidth, 600];
@@ -887,6 +883,7 @@ const cleanUpPdfContent = (content, inTable = false) => {
             delete content.height;
             content.alignment = 'center';
         }
+        // Handle Standard Elements
         else {
             if (content.width !== undefined && content.width !== '*' && content.width !== 'auto') {
                 delete content.width;
@@ -900,20 +897,43 @@ const cleanUpPdfContent = (content, inTable = false) => {
             }
         }
 
+        // --- FIX: Handle Table Normalization ---
         if (content.table) {
             delete content.width; 
 
             const body = content.table.body;
             if (body && Array.isArray(body) && body.length > 0) {
-                const colCount = body[0].length;
+                
+                // 1. Calculate Maximum Columns
+                const maxCols = body.reduce((max, row) => Math.max(max, row.length), 0);
 
-                // --- WIDTH LOGIC ---
-                if (colCount === 2) {
+                // 2. Normalize Rows (Pad short rows with empty cells)
+                body.forEach(row => {
+                    // Fill gaps if row is shorter than maxCols
+                    while (row.length < maxCols) {
+                        row.push({ text: '', border: [false, false, false, false] });
+                    }
+                    
+                    // Sanitize cells (ensure no cell is undefined)
+                    for (let i = 0; i < row.length; i++) {
+                        if (!row[i]) {
+                            row[i] = { text: '' };
+                        } else if (typeof row[i] === 'object') {
+                            // Recursively clean the cell content
+                            delete row[i].border; 
+                            delete row[i].borderColor; 
+                            delete row[i].width; 
+                            cleanUpPdfContent(row[i], true); 
+                        }
+                    }
+                });
+
+                // 3. Set Widths based on normalized column count
+                // If it's exactly 2 columns, use your custom ratio, otherwise distribute evenly
+                if (maxCols === 2) {
                     content.table.widths = ['25%', '75%'];
                 } else {
-                    const widths = [];
-                    for(let k=0; k<colCount; k++) widths.push('*');
-                    content.table.widths = widths;
+                    content.table.widths = Array(maxCols).fill('*');
                 }
             
                 content.layout = {
@@ -924,17 +944,6 @@ const cleanUpPdfContent = (content, inTable = false) => {
                     paddingLeft: () => 4, paddingRight: () => 4,
                     paddingTop: () => 4, paddingBottom: () => 4,
                 };
-
-                body.forEach(row => {
-                    row.forEach(cell => {
-                        if (typeof cell === 'object') {
-                            delete cell.border; 
-                            delete cell.borderColor; 
-                            delete cell.width; 
-                            cleanUpPdfContent(cell, true); 
-                        }
-                    });
-                });
             }
         }
 
@@ -943,7 +952,6 @@ const cleanUpPdfContent = (content, inTable = false) => {
         if (content.ol) cleanUpPdfContent(content.ol, inTable);
     }
 };
-
 // --- MAIN COMPONENT ---
 export default function UnitAccordion({ subject, onInitiateDelete, userProfile, isAiGenerating, setIsAiGenerating, activeUnit, onSetActiveUnit, selectedLessons, onLessonSelect, renderGeneratePptButton, onUpdateLesson, currentUserRole, monet }) {
     const [units, setUnits] = useState([]);

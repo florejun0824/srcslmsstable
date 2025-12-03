@@ -8,52 +8,60 @@ import Spinner from '../common/Spinner';
 import { XMarkIcon, DocumentTextIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import ProgressIndicator from '../common/ProgressIndicator';
 import SourceContentSelector from '../../hooks/SourceContentSelector';
-// Import marked to handle Markdown tables and formatting
 import { marked } from 'marked';
 
-// --- Markdown Table Converter (CRITICAL FIX) ---
-function convertMarkdownTablesToHTML(text) {
-  if (!text || typeof text !== "string") return text;
+// --- ROBUST TABLE HEALER (Replaces Regex Converter) ---
+// This function fixes the specific error where AI wraps text inside a table cell
+// to a new line, causing the table structure to break.
+function healBrokenMarkdownTables(text) {
+    if (!text || typeof text !== "string") return text;
 
-  const tableRegex = /(?:^|\n)(\|.+\|\n\|[-:\s|]+\|\n(?:\|.*\|\n?)+)/g;
+    const lines = text.split('\n');
+    const healedLines = [];
+    let insideTable = false;
 
-  return text.replace(tableRegex, (match, tableBlock) => {
-    const rows = tableBlock.trim().split("\n");
+    // Helper to identify a table separator line (e.g., |---| or |:---|)
+    const isSeparator = (line) => /^\|?[\s\-:]+\|\s*[\-:]+/.test(line.trim());
 
-    const headerCells = rows[0]
-      .split("|")
-      .map(c => c.trim())
-      .filter(Boolean);
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trimEnd(); // Keep leading indentation, trim trailing
 
-    const bodyRows = rows
-      .slice(2)
-      .map(r =>
-        r
-          .split("|")
-          .map(c => c.trim())
-          .filter(Boolean)
-      );
+        // 1. Detect Table Start
+        // If the NEXT line is a separator, this line is a header.
+        if (!insideTable && lines[i + 1] && isSeparator(lines[i + 1])) {
+            insideTable = true;
+        }
 
-    let thead = "<thead><tr>";
-    headerCells.forEach(h => {
-      thead += `<th>${h}</th>`;
-    });
-    thead += "</tr></thead>";
+        if (insideTable) {
+            // 2. Check for End of Table
+            // Empty line usually means table ended.
+            if (line.trim() === '') {
+                insideTable = false;
+                healedLines.push(line);
+                continue;
+            }
 
-    let tbody = "<tbody>";
-    bodyRows.forEach(cols => {
-      tbody += "<tr>";
-      cols.forEach(c => {
-        tbody += `<td>${c}</td>`;
-      });
-      tbody += "</tr>";
-    });
-    tbody += "</tbody>";
+            // 3. Heal Wrapped Lines
+            // If we are inside a table, but the line DOES NOT start with a pipe '|',
+            // it likely belongs to the previous cell. Merge it up.
+            if (!line.trim().startsWith('|')) {
+                if (healedLines.length > 0) {
+                    const prevLine = healedLines[healedLines.length - 1];
+                    // Append current content to previous line with a space
+                    healedLines[healedLines.length - 1] = `${prevLine} ${line.trim()}`;
+                }
+            } else {
+                // Valid row, keep it.
+                healedLines.push(line);
+            }
+        } else {
+            // Not in a table, keep line as is
+            healedLines.push(line);
+        }
+    }
 
-    return `<table class="inner-table">${thead}${tbody}</table>\n`;
-  });
+    return healedLines.join('\n');
 }
-
 
 // --- SRCS Core Values Definition ---
 const SRCS_VALUES_CONTEXT = `
@@ -205,7 +213,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         return { title, content, lessonTitles, error: null };
     }, [selectedUnitIds, unitsForSubject, lessonsForUnit, generationTarget]);
 
-    // --- Schema Definitions ---
     const ulpSchemas = {
       explore: ["type", "lessonsList", "unitOverview", "hookedActivities", "mapOfConceptualChange", "essentialQuestions"],
       firmUp: ["type", "code", "competency", "learningTargets", "successIndicators", "inPersonActivity", "onlineActivity", "supportDiscussion", "assessment", "templates", "valuesIntegration"],
@@ -223,9 +230,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       return true;
     };
 
-/**
-     * --- GENERATION LOGIC ---
-     */
     const generateUlpSection = async (type, context, maxRetries = 3) => {
       let prompt;
       const iCan = context.language === 'Filipino' ? 'Kaya kong...' : 'I can...';
@@ -248,8 +252,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       2. **MARKDOWN FORMATTING:** You MUST use valid Markdown. 
          - For bold text use **text**.
          - For numbered lists use 1. (space) text.
-         - For tables use strict markdown table syntax with |---| separators.
-         - **CRITICAL:** Always put a blank line before a markdown table.
       3. **CREATE THE MATERIALS:** If an activity uses "Scenario Cards" or "Worksheets", YOU MUST WRITE THE CONTENT of those cards/worksheets in the instruction text.
       `;
 
@@ -263,7 +265,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       **OUTPUT FIELD:** "valuesIntegration": { "value": "Name", "integration": "Conversational paragraph..." }
       `;
 
-      // UPDATED: High-Depth Persona
+      // UPDATED: High-Depth Persona with Strict Table Rules
       const commonRules = `
       **ROLE:** You are a Master Curriculum Developer and Theologian for San Ramon Catholic School (SRCS). 
       **TONE:** Your "Support Discussions" must be deep, insightful, and pedagogical. Do not be superficial. Treat the teacher reading this as a professional who needs deep background knowledge.
@@ -277,11 +279,16 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       ${verbosityRules}
       ${valuesRule}
 
+      **STRICT TABLE RULE (CRITICAL):**
+      When generating Markdown tables in the JSON string:
+      1. Ensure EVERY row starts and ends with a pipe character (|).
+      2. **NEVER** use line breaks (\\n) inside a table row. Keep all content for a single row on ONE line.
+      3. Always insert a double newline (\\n\\n) before starting a table.
+
       **TECHNICAL RULES:**
       1. **OUTPUT:** Valid JSON object ONLY.
       2. **ESCAPING:** Escape double quotes inside strings (\\").
       3. **FORMATTING:** Use \\n for line breaks inside strings.
-      4. **TABLES:** You MUST include \\n\\n before any markdown table row.
       `;
 
       switch (type) {
@@ -307,14 +314,8 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             **TASK:** Generate "Firm-Up" (Acquisition) for: "${context.competency}" (${context.code}).
             **FOCUS:** Acquisition of facts and skills. Scaffolds towards Meaning-Making.
             
-            **SUPPORT DISCUSSION REQUIREMENT (MUST BE RICH AND DETAILED):** Use the following headers and structure in the Markdown output:
-            
-            1. **Checking for Understanding Questions:** Provide 4-5 specific questions the teacher can ask to check if students grasped the activity.
-            2. **In-Depth Discussion:** Write 2-3 substantial paragraphs.
-               - Explain the *significance* of the concept (e.g., why is family the 'first school'?).
-               - Connect the specific activity details to broader life values.
-               - Explain *how* these lessons are absorbed (e.g., observation, participation).
-               - **Goal:** Give the teacher a script/lecture notes that add depth beyond the obvious.
+            **SUPPORT DISCUSSION REQUIREMENT:** 1. **Checking for Understanding Questions:** 4-5 specific questions.
+            2. **In-Depth Discussion:** 2-3 substantial paragraphs explaining significance and connecting to life values.
 
             **JSON STRUCTURE:**
             {
@@ -324,11 +325,11 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             "learningTargets": ["${iCan} define...", "${iCan} identify...", "${iCan} describe..."],
             "successIndicators": ["3 distinct bullet points."],
             "inPersonActivity": { 
-                "instructions": "Title: [Name]\\n1. [Step 1]\\n2. [Step 2]...\\n\\n**CONTENT FOR WORKSHEET/CARDS:**\\n\\n| Column 1 | Column 2 |\\n|---|---|\\n| Item 1 | Detail 1 |\\n| Item 2 | Detail 2 |", 
+                "instructions": "Title: [Name]\\n1. [Step 1]\\n2. [Step 2]...\\n\\n**CONTENT FOR WORKSHEET:**\\n\\n| Column 1 | Column 2 |\\n|---|---|\\n| Item 1 | Detail 1 |\\n| Item 2 | Detail 2 |", 
                 "materials": "Detailed list." 
             },
             "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
-            "supportDiscussion": "**Checking for Understanding Questions:**\\n1. [Question]...\\n\\n**In-Depth Discussion:**\\n[Write a rich, detailed explanation of the concept, approx 150-200 words. Be profound.]",
+            "supportDiscussion": "**Checking for Understanding Questions:**\\n1. [Question]...\\n\\n**In-Depth Discussion:**\\n[Write a rich, detailed explanation.]",
             "assessment": { "type": "Quiz/Matching/Graphic Organizer", "content": "Write the actual questions/items here. USE MARKDOWN TABLE if matching." },
             "templates": "Text content for any definitions/flashcards needed.",
             "valuesIntegration": { "value": "Name of SRCS Value", "integration": "Conversational connection paragraph." }
@@ -343,12 +344,8 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             **FOCUS:** Making Meaning, Analysis, Generalization.
             **CRITICAL:** Use **Guided Generalization**. Generate specific "Scenario Cards" or "Case Studies".
             
-            **SUPPORT DISCUSSION REQUIREMENT (MUST BE RICH AND DETAILED):** Use the following headers and structure in the Markdown output:
-
-            1. **Detailed Summarization of Key Concepts:** Write 2 substantial paragraphs defining the core concepts (e.g., "Natural Institution" vs "Domestic Church"). Use formal terminology.
-            2. **In-Depth Elaboration and Probing Questions:** - Provide 3-4 deep questions (e.g., "How does X complement Y?").
-               - Provide a "Teacher Note" explaining the nuance of the answer.
-               - Discuss obstacles/challenges families face regarding this concept and how to overcome them.
+            **SUPPORT DISCUSSION REQUIREMENT:** 1. **Detailed Summarization of Key Concepts:** 2 substantial paragraphs.
+            2. **In-Depth Elaboration:** 3-4 probing questions with Teacher Notes.
             
             **JSON STRUCTURE:**
             {
@@ -362,7 +359,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 "materials": "Scenario Cards, C-E-R Worksheet." 
             },
             "onlineActivity": { "instructions": "Instructions for breakout rooms/shared docs.", "materials": "Links..." },
-            "supportDiscussion": "**Detailed Summarization of Key Concepts:**\\n[Paragraph 1]\\n[Paragraph 2]\\n\\n**In-Depth Elaboration and Probing Questions:**\\n* [Question 1]\\n* [Question 2]\\n* [Elaboration on obstacles/nuance]",
+            "supportDiscussion": "**Detailed Summarization:**\\n[Text]\\n\\n**In-Depth Elaboration:**\\n* [Question 1]",
             "assessment": { "type": "Case Analysis/Analogy/Diagram", "content": "Instructions for the varied assessment task." },
             "templates": "Structure of the worksheet.",
             "valuesIntegration": { "value": "Name of SRCS Value", "integration": "Conversational connection paragraph." }
@@ -376,13 +373,9 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             **TASK:** Generate "Transfer" (Application) for: "${context.competency}" (${context.code}).
             **GOAL:** Application in real-world situations.
             
-            **ACTIVITY REQUIREMENT:** This activity MUST be a scaffold or direct entry point to the main Unit Performance Task (GRASPS).
-            
-            **SUPPORT DISCUSSION REQUIREMENT (MUST BE RICH AND DETAILED):** Use the following headers and structure in the Markdown output:
-            
-            1. **Core Behavioral Principles:** Do not just list behaviors. Explain the *psychology* and *spirituality* behind them. (e.g., "Empathy is not just feeling sorry; it is the active attempt to...").
-            2. **Practical Application & Nuance:** Explain how these behaviors build "Psychological Safety" or "Spiritual Unity" in the family. Discuss how to handle conflict constructively using these tools.
-            3. **Transition to Performance Task:** Briefly explain how practicing these small behaviors prepares them for the major Unit Task.
+            **SUPPORT DISCUSSION REQUIREMENT:** 1. **Core Behavioral Principles:** Psychology/spirituality behind behavior.
+            2. **Practical Application & Nuance:** Building psychological safety/unity.
+            3. **Transition:** Connect to Performance Task.
 
             **JSON STRUCTURE:**
             {
@@ -396,7 +389,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 "materials": "Specific list." 
             },
             "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
-            "supportDiscussion": "**Core Behavioral Principles:**\\n[Detailed Paragraph]\\n\\n**Practical Application & Nuance:**\\n[Detailed Paragraph]\\n\\n**Transition:**\\n[Short paragraph]",
+            "supportDiscussion": "**Core Behavioral Principles:**\\n[Text]\\n\\n**Practical Application:**\\n[Text]\\n\\n**Transition:**\\n[Text]",
             "valuesIntegration": { "value": "Name of SRCS Value", "integration": "Conversational connection paragraph." }
             }
             `;
@@ -440,7 +433,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       let retries = 0;
       while (retries < maxRetries) {
         try {
-          // Increased token limit to allow for the richer, longer responses
           const jsonString = await callGeminiWithLimitCheck(prompt, { maxOutputTokens: 8192 }); 
           const parsedJson = tryParseJson(extractJson(jsonString));
           if (!parsedJson) throw new Error(`Failed to generate valid JSON for section: ${type}`);
@@ -455,26 +447,22 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       throw new Error(`Failed to generate section '${type}' after ${maxRetries} retries.`);
     };
 
-// --- HTML Assembler (Strict PEAC Table Format) ---
+    // --- HTML Assembler ---
     const assembleUlpFromComponents = (components) => {
         let tbody = '';
 
-        // Configure marked options
         marked.setOptions({
-            breaks: true, // Convert \n to <br>
-            gfm: true,    // GitHub Flavored Markdown
+            breaks: true,
+            gfm: true,
         });
 
-        // 1. Helper: Handle AI returning Objects/Arrays instead of Strings
+        // 1. Helper: Handle AI returning Objects/Arrays
         const formatAIContent = (content) => {
             if (!content) return '';
             if (typeof content === 'string') return content;
-
-            // If AI returned an Array (Common in 'hookedActivities')
             if (Array.isArray(content)) {
                 return content.map(item => {
                     if (typeof item === 'string') return `• ${item}`;
-                    // Attempt to extract meaningful fields if it's an object inside array
                     const title = item.title || item.name || 'Activity';
                     const desc = item.description || item.content || '';
                     const steps = item.steps || item.instructions || '';
@@ -482,47 +470,41 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                     return `### ${title}\n${desc}\n${steps}\n${mats ? `**Materials:** ${mats}` : ''}`;
                 }).join('\n\n---\n\n');
             }
-
-            // If AI returned a single Object
             if (typeof content === 'object') {
-                // If it looks like an instruction block
                 if (content.instructions) {
                     return `${content.instructions}\n\n${content.materials ? `**Materials:** ${content.materials}` : ''}`;
                 }
-                // Fallback: Join all values
                 return Object.values(content).filter(v => typeof v === 'string').join('\n\n');
             }
-
             return String(content);
         };
 
-        // 2. Basic HTML Escape (for headers/codes only)
         const esc = (text) => (text == null ? '' : String(text)).replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-        // 3. Enhanced Markdown Renderer (Crash Proof)
+        // 2. Enhanced Markdown Renderer with Table Healer
         const renderMd = (input) => {
-            // FIX: Ensure input is a string. If not, format it first.
             let text = typeof input === 'string' ? input : formatAIContent(input);
-            
             if (!text) return '';
 
-            // A. Standardize newlines
-            let safeText = text.replace(/\r\n/g, '\n');
-			safeText = convertMarkdownTablesToHTML(safeText);
+            // A. HEAL THE TABLES FIRST (Critical Step)
+            // This fixes wrapped lines or malformed rows from the AI
+            text = healBrokenMarkdownTables(text);
 
-            // B. Dedent (Remove common leading whitespace)
+            // B. Standardize newlines
+            let safeText = text.replace(/\r\n/g, '\n');
+
+            // C. Dedent
             const lines = safeText.split('\n');
             const minIndent = lines.reduce((min, line) => {
                 if (line.trim().length === 0) return min;
                 const indent = line.match(/^\s*/)[0].length;
                 return Math.min(min, indent);
             }, Infinity);
-            
             if (minIndent !== Infinity && minIndent > 0) {
                 safeText = lines.map(line => line.substring(minIndent)).join('\n');
             }
 
-            // C. Table Protector
+            // D. Table Protector (Double newline enforcement)
             safeText = safeText.replace(/^([^|].*)\n(\|.*)$/gm, '$1\n\n$2');
 
             try {
@@ -533,7 +515,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             }
         };
 
-        // 4. Inline Markdown Renderer
         const renderInlineMd = (text) => {
             if (!text) return '';
             const html = renderMd(text);
@@ -543,7 +524,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         // --- 1. EXPLORE ---
         const explore = components.find(c => c.type === 'explore');
         if (explore) {
-            // FIX: Explicitly format these fields before rendering to avoid [object Object]
             const unitOverview = formatAIContent(explore.unitOverview);
             const mapOfConceptualChange = formatAIContent(explore.mapOfConceptualChange);
             const hookedActivities = formatAIContent(explore.hookedActivities);
@@ -559,8 +539,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         }
 
         // --- Helper for Competency Rows ---
-        const renderCompetencyRow = (item, stageName) => {
-            // FIX: Apply formatter to instructions in case they come back as objects
+        const renderCompetencyRow = (item) => {
             const inPersonInstructions = formatAIContent(item.inPersonActivity?.instructions);
             const onlineInstructions = formatAIContent(item.onlineActivity?.instructions);
             const processing = formatAIContent(item.supportDiscussion);
@@ -600,21 +579,21 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         const firmUpItems = components.filter(c => c.type === 'firmUp').sort((a,b) => a.code.localeCompare(b.code));
         if (firmUpItems.length > 0) {
             tbody += `<tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>FIRM-UP (ACQUISITION)</td></tr>`;
-            firmUpItems.forEach(item => tbody += renderCompetencyRow(item, 'Acquisition'));
+            firmUpItems.forEach(item => tbody += renderCompetencyRow(item));
         }
 
         // --- 3. DEEPEN ---
         const deepenItems = components.filter(c => c.type === 'deepen').sort((a,b) => a.code.localeCompare(b.code));
         if (deepenItems.length > 0) {
             tbody += `<tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>DEEPEN (MEANING-MAKING)</td></tr>`;
-            deepenItems.forEach(item => tbody += renderCompetencyRow(item, 'Meaning-Making'));
+            deepenItems.forEach(item => tbody += renderCompetencyRow(item));
         }
 
         // --- 4. TRANSFER ---
         const transferItems = components.filter(c => c.type === 'transfer').sort((a,b) => a.code.localeCompare(b.code));
         if (transferItems.length > 0) {
             tbody += `<tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>TRANSFER (APPLICATION)</td></tr>`;
-            transferItems.forEach(item => tbody += renderCompetencyRow(item, 'Transfer'));
+            transferItems.forEach(item => tbody += renderCompetencyRow(item));
         }
 
         // --- 5. SYNTHESIS ---
@@ -644,8 +623,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             </td></tr>`;
         }
         
-        // CSS FIX: Nested table styles strictly defined
-const globalStyle = `
+        const globalStyle = `
         <style>
             table.main-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 1em; }
             table.main-table th, table.main-table td { word-wrap: break-word; overflow-wrap: break-word; border: 1px solid black; padding: 8px; vertical-align: top; }
@@ -671,7 +649,7 @@ const globalStyle = `
                 text-align: left !important;
             }
 
-            /* FINAL FIX: Ensures Markdown tables export perfectly */
+            /* Styles specifically for 'inner-table' class if manually applied */
             .inner-table {
                 width: 100% !important;
                 border-collapse: collapse !important;
@@ -765,7 +743,6 @@ const globalStyle = `
                 language: selectedLanguage,
             };
 
-            // Prepare queue
             const sectionsQueue = [
                 { type: 'explore' },
                 ...outline.firmUp.map(item => ({ type: 'firmUp', ...item })),
@@ -776,32 +753,26 @@ const globalStyle = `
             ];
 
             const componentResults = [];
-            let accumulatedContextString = ""; // Stores summary of previous parts
+            let accumulatedContextString = ""; 
 
             for (let i = 0; i < sectionsQueue.length; i++) {
                 const currentSection = sectionsQueue[i];
                 
-                // Update progress visualization
                 const currentProgress = 30 + Math.floor((i / sectionsQueue.length) * 60);
                 setProgress(currentProgress);
                 setProgressLabel(`Developing: ${currentSection.type} (${i+1}/${sectionsQueue.length})`);
 
-                // Generate with Context
                 const result = await generateUlpSection(currentSection.type, { 
                     ...sharedContext, 
                     ...currentSection,
-                    previousContent: accumulatedContextString // Pass context
+                    previousContent: accumulatedContextString 
                 });
 
                 if (result) {
                     componentResults.push(result);
-                    
-                    // Add summary to context for next iteration
-                    // We stringify the result to give the AI full visibility of what it just created
                     accumulatedContextString += `\n[Completed ${currentSection.type}]: ${JSON.stringify(result)}\n`;
                 }
                 
-                // Small delay to respect rate limits
                 await new Promise(r => setTimeout(r, 1000));
             }
 
@@ -853,7 +824,6 @@ const globalStyle = `
             <div className="fixed inset-0 flex w-screen items-center justify-center p-4 sm:p-6">
                 <Dialog.Panel className="relative flex flex-col w-full max-w-6xl max-h-[90vh] rounded-[2rem] bg-white dark:bg-[#1C1C1E] shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden transition-all transform">
                     
-                    {/* Loading Overlay */}
                     {(isGenerating || isSaving) && (
                         <div className="absolute inset-0 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-sm flex flex-col justify-center items-center z-50 space-y-6">
                             {isGenerating ? <ProgressIndicator progress={progress} /> : <Spinner />}
@@ -864,7 +834,6 @@ const globalStyle = `
                         </div>
                     )}
 
-                    {/* Header */}
                     <div className="flex items-center justify-between px-8 py-6 border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#1C1C1E] sticky top-0 z-20">
                         <div className="flex items-center gap-4">
                             <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-2xl text-[#007AFF]">
@@ -884,11 +853,9 @@ const globalStyle = `
                         </button>
                     </div>
 
-                    {/* Body */}
                     <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-white dark:bg-[#1C1C1E]">
                         {!previewData ? (
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
-                                {/* Left Col */}
                                 <div className="space-y-8">
                                     <section>
                                         <h3 className="text-sm font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10 pb-3 mb-5 flex items-center gap-2">
@@ -923,7 +890,6 @@ const globalStyle = `
                                     </section>
                                 </div>
 
-                                {/* Right Col */}
                                 <div className="space-y-8">
                                     <section className="h-full flex flex-col">
                                         <h3 className="text-sm font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10 pb-3 mb-5 flex items-center gap-2">
@@ -956,7 +922,6 @@ const globalStyle = `
                                 <div className="bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-2xl p-8 shadow-sm overflow-x-auto">
                                     {previewData.generated_lessons.map((lesson, index) => (
                                         <div key={index} className="prose prose-slate dark:prose-invert max-w-none">
-                                            {/* Using the untouched HTML assembler output */}
                                             <div dangerouslySetInnerHTML={{ __html: lesson.pages[0].content }} />
                                         </div>
                                     ))}
@@ -965,7 +930,6 @@ const globalStyle = `
                         )}
                     </div>
 
-                    {/* Footer */}
                     <div className="flex-shrink-0 px-8 py-6 border-t border-gray-200 dark:border-white/10 bg-white dark:bg-[#1C1C1E] flex justify-end gap-3 z-20">
                         {previewData ? (
                             <>

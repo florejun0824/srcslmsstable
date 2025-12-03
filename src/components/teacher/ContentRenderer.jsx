@@ -11,6 +11,58 @@ import 'katex/dist/katex.min.css';
 import mermaid from 'mermaid';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 
+// --- NEW HELPER: The "Healer" (Fixes Broken Table Rows) ---
+// This ensures the web view looks just as good as your PDF export
+const healBrokenMarkdown = (text) => {
+    if (!text) return '';
+    
+    // 1. Split into lines
+    const rawLines = text.split(/\r?\n/);
+    const healedLines = [];
+    let insideTable = false;
+
+    // Helper to detect if a line looks like a table separator (e.g., |---|)
+    const isSeparator = (str) => /^\|?[\s-:]+\|[\s-:]+\|?$/.test(str.trim());
+
+    for (let i = 0; i < rawLines.length; i++) {
+        let line = rawLines[i].trim();
+        
+        // A. Detect Table Start (Look ahead for separator)
+        if (!insideTable && rawLines[i + 1] && isSeparator(rawLines[i + 1])) {
+            insideTable = true;
+        }
+
+        // B. Handle Table Logic
+        if (insideTable) {
+            // If empty line, table is likely over
+            if (line === '') {
+                insideTable = false;
+                healedLines.push(line);
+                continue;
+            }
+
+            // If line starts with '|', it's a valid new row. Keep it.
+            if (line.startsWith('|')) {
+                healedLines.push(line);
+            } 
+            // If line DOES NOT start with '|', it is a broken wrap. Merge it up!
+            else {
+                if (healedLines.length > 0) {
+                    // Append this text to the end of the previous line
+                    // We add a space to prevent words mashing together
+                    healedLines[healedLines.length - 1] += ' ' + line;
+                }
+            }
+        } 
+        // C. Normal Text (Not in a table)
+        else {
+            healedLines.push(line);
+        }
+    }
+
+    return healedLines.join('\n');
+};
+
 // --- SVG cleaner ---
 const processSvgContent = (svgString) => {
   let cleanedSvg = svgString.replace(/\$/g, '');
@@ -68,13 +120,9 @@ const normalizeLatex = (text) => {
   normalized = normalized.replace(/\\text{\\char`\\₱}/g, '₱');
   normalized = normalized.replace(/\\₱/g, '₱');
   
-  // --- START OF FIX ---
-  // 1. REMOVED the broken lines that converted ° TO LaTeX.
-  
-  // 2. ADD lines to convert common LaTeX commands INTO the ° symbol
+  // ✅ FIX: Convert LaTeX degrees to symbol
   normalized = normalized.replace(/\\degree/g, '°');
   normalized = normalized.replace(/\^\\circ/g, '°'); 
-  // --- END OF FIX ---
 
   return normalized;
 };
@@ -168,6 +216,10 @@ export default function ContentRenderer({ htmlContent, text }) {
   // --- Markdown Rendering ---
   if (text && typeof text === 'string') {
     let processedText = text;
+
+    // --- NEW: APPLY THE HEALER FIRST ---
+    // This fixes broken tables before any other processing happens
+    processedText = healBrokenMarkdown(processedText);
     
     // ✅ FIX: Replace non-breaking spaces (\u00A0) with regular spaces to fix list rendering.
     processedText = processedText.replace(/\u00A0/g, ' ');
