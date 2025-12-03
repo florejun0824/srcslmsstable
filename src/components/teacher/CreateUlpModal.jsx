@@ -466,10 +466,20 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
 
 	    // 2. Enhanced Markdown Renderer
 	    const renderMd = (text) => {
-	        if (!text) return '';
+	        if (text == null) return '';
+
+            // --- BUG FIX: Ensure input is a string before calling replace ---
+            // The AI sometimes returns an Array (for lists) or a Number.
+            // .replace() only exists on strings.
+            let safeText = text;
+            if (Array.isArray(text)) {
+                safeText = text.join('\n');
+            } else if (typeof text !== 'string') {
+                safeText = String(text);
+            }
 
 	        // A. Standardize newlines
-	        let safeText = text.replace(/\r\n/g, '\n');
+	        safeText = safeText.replace(/\r\n/g, '\n');
 
 	        // B. Dedent (Remove common leading whitespace)
 	        const lines = safeText.split('\n');
@@ -490,7 +500,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
 	            return marked.parse(safeText);
 	        } catch (e) {
 	            console.error("Markdown parsing error:", e);
-	            return text;
+	            return String(text);
 	        }
 	    };
 

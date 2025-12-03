@@ -1,45 +1,16 @@
-===============================
-   S R C S   L M S
-   R E L E A S E   N O T E S
-   (November Update)
-===============================
+SRCS LMS RELEASE NOTE (DECEMBER 3 PATCH)
 
-### Bug Fixes & Core Logic Improvements
-
-* **Fixed Quiz Retake Bug:** Addressed a critical bug where students retaking a quiz (assigned via a new post) would see their old scores.
-* **Fixed Overdue Quiz Bug:** Addressed a critical bug where students taking an overdue quiz encounter and endless loop of the quiz modal.
-* **Unique Post IDs:** Re-engineered quiz and lesson submission logic to use the `postId` as a unique identifier. This ensures every new assignment is treated as a fresh entry, allowing for proper retakes.
-* **Teacher Score View Fixed:** Updated the teacher's `QuizScoresModal` to filter submissions by `postId`, ensuring teachers only see scores relevant to the specific post they are viewing.
-* **Lesson XP Fix:** Applied the same `postId` logic to lesson completions. Students now correctly earn XP for a lesson *each time* it is assigned in a new post, rather than just once.
-
-
-### UI Enhancements
-
-* **New Badge Icons:** Replaced the previous emoji-based badge icons with a new, aesthetically pleasing set from the Lucide React library for a cleaner, more professional look on the Profile and Dashboard pages.
-* **Dark Mode:** Dark mode is now fully supported across the application. 
-
-
-### Gamification Features
-
-* Added core gamification features for students. 
-* (Note: The Lesson XP Fix above also enhances this feature.)
-
-
-### Security and Anti-Cheating (Quiz)
-
-* **Student Watermark:** Added a dynamic watermark with the student's name to the quiz interface. 4]
-* **Disabled Copy/Paste:** Implemented a feature to prevent students from copying, pasting, or cutting content during a quiz. 
-* **Developer Tools Detection:** Implemented a more robust mechanism to detect when a user opens the browser's developer tools.
-* **Enhanced Security:** The combination of these features enhances the integrity of the quiz environment.
-
-
-### Performance and Stability
-
-* Conducted a general audit to identify and address potential memory leaks. 
-* Ensured all components with event listeners and timers have proper cleanup functions. 
-* Optimized the `UnitAccordion` component by memoizing child components and using `useCallback` to reduce unnecessary re-renders. 
-
-
-### AI Engine
-
-* Adopted a triple AI-engine model to ensure seamless processing. 
+- Redesigned the main dashboard navigation
+- Added new multiple themes overlay
+- Improved loading performance by 20%
+- Fixed issue with scrolling on mobile devices
+- Added support for new User Profile API
+- Fixed export functions
+- Updated AI versions
+- Enhanced Prompts
+- Enhanced Overall Fluidity
+- Fixed Memory Leaks
+- Fixed Errors in Lesson, ULP, ATG, Exam, TOS creations
+- Added Monet Theming alongside themes overlay
+- Disabled some AI features in mobile mode to ensure stability
+- Enhanced Editing UI
