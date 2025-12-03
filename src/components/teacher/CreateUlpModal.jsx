@@ -21,37 +21,42 @@ function healBrokenMarkdownTables(text) {
     let insideTable = false;
 
     // Helper to identify a table separator line (e.g., |---| or |:---|)
-    const isSeparator = (line) => /^\|?[\s\-:]+\|\s*[\-:]+/.test(line.trim());
+    // We allow optional leading spaces to be safe
+    const isSeparator = (line) => /^\s*\|?[\s\-:]+\|\s*[\-:]+/.test(line);
+    // Helper to identify a valid table row start
+    const isTableRow = (line) => /^\s*\|/.test(line);
 
     for (let i = 0; i < lines.length; i++) {
-        let line = lines[i].trimEnd(); // Keep leading indentation, trim trailing
+        let line = lines[i];
+        let trimmedLine = line.trim();
 
         // 1. Detect Table Start
-        // If the NEXT line is a separator, this line is a header.
+        // If the NEXT line is a separator, this current line is likely the header.
         if (!insideTable && lines[i + 1] && isSeparator(lines[i + 1])) {
             insideTable = true;
         }
 
         if (insideTable) {
             // 2. Check for End of Table
-            // Empty line usually means table ended.
-            if (line.trim() === '') {
+            // An empty line usually means the table has ended.
+            if (trimmedLine === '') {
                 insideTable = false;
                 healedLines.push(line);
                 continue;
             }
 
-            // 3. Heal Wrapped Lines
-            // If we are inside a table, but the line DOES NOT start with a pipe '|',
-            // it likely belongs to the previous cell. Merge it up.
-            if (!line.trim().startsWith('|')) {
+            // 3. Heal Wrapped Lines (The Aggressive Fix)
+            // If we are inside a table, and the line DOES NOT start with a pipe,
+            // it is 100% a broken wrap (content pushed to new line). Merge it up.
+            if (!isTableRow(line) && !isSeparator(line)) {
                 if (healedLines.length > 0) {
-                    const prevLine = healedLines[healedLines.length - 1];
-                    // Append current content to previous line with a space
-                    healedLines[healedLines.length - 1] = `${prevLine} ${line.trim()}`;
+                    const prevLineIndex = healedLines.length - 1;
+                    // Append current content to previous line. 
+                    // We use a space because the newline was likely an accident.
+                    healedLines[prevLineIndex] = `${healedLines[prevLineIndex]} ${trimmedLine}`;
                 }
             } else {
-                // Valid row, keep it.
+                // It's a valid row (starts with |), keep it.
                 healedLines.push(line);
             }
         } else {
@@ -62,7 +67,6 @@ function healBrokenMarkdownTables(text) {
 
     return healedLines.join('\n');
 }
-
 // --- SRCS Core Values Definition ---
 const SRCS_VALUES_CONTEXT = `
 **SRCS CORE VALUES (San Ramon Catholic School):**
@@ -265,7 +269,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       **OUTPUT FIELD:** "valuesIntegration": { "value": "Name", "integration": "Conversational paragraph..." }
       `;
 
-      // UPDATED: High-Depth Persona with Strict Table Rules
+// UPDATED: High-Depth Persona with Strict Table Rules
       const commonRules = `
       **ROLE:** You are a Master Curriculum Developer and Theologian for San Ramon Catholic School (SRCS). 
       **TONE:** Your "Support Discussions" must be deep, insightful, and pedagogical. Do not be superficial. Treat the teacher reading this as a professional who needs deep background knowledge.
@@ -279,16 +283,18 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       ${verbosityRules}
       ${valuesRule}
 
-      **STRICT TABLE RULE (CRITICAL):**
+      **STRICT TABLE RULE (CRITICAL - READ CAREFULLY):**
       When generating Markdown tables in the JSON string:
-      1. Ensure EVERY row starts and ends with a pipe character (|).
-      2. **NEVER** use line breaks (\\n) inside a table row. Keep all content for a single row on ONE line.
-      3. Always insert a double newline (\\n\\n) before starting a table.
+      1. **SINGLE LINE ROWS:** Every table row MUST be on a single line of text in the JSON string.
+      2. **NO NEWLINES:** Do **NOT** use \\n inside a table cell. If you need a line break inside a cell, use the HTML tag <br> or <br/>.
+      3. **FORMAT:** Correct format: | Cell 1 | Cell 2 with <br> line break |
+      4. **INCORRECT:** | Cell 1 | Cell 2 with
+         line break |
+      5. Always insert a double newline (\\n\\n) before starting a table.
 
       **TECHNICAL RULES:**
       1. **OUTPUT:** Valid JSON object ONLY.
       2. **ESCAPING:** Escape double quotes inside strings (\\").
-      3. **FORMATTING:** Use \\n for line breaks inside strings.
       `;
 
       switch (type) {
@@ -481,19 +487,23 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
 
         const esc = (text) => (text == null ? '' : String(text)).replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-        // 2. Enhanced Markdown Renderer with Table Healer
+// 2. Enhanced Markdown Renderer with Table Healer
         const renderMd = (input) => {
             let text = typeof input === 'string' ? input : formatAIContent(input);
             if (!text) return '';
 
             // A. HEAL THE TABLES FIRST (Critical Step)
-            // This fixes wrapped lines or malformed rows from the AI
+            // This runs before anything else to stitch broken rows back together
             text = healBrokenMarkdownTables(text);
 
-            // B. Standardize newlines
+            // B. Pre-process specific AI artifacts
+            // If AI escapes the HTML tags, unescape them so they render as breaks
+            text = text.replace(/&lt;br&gt;/g, '<br>').replace(/&lt;br\/&gt;/g, '<br/>');
+
+            // C. Standardize newlines
             let safeText = text.replace(/\r\n/g, '\n');
 
-            // C. Dedent
+            // D. Dedent
             const lines = safeText.split('\n');
             const minIndent = lines.reduce((min, line) => {
                 if (line.trim().length === 0) return min;
@@ -504,7 +514,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 safeText = lines.map(line => line.substring(minIndent)).join('\n');
             }
 
-            // D. Table Protector (Double newline enforcement)
+            // E. Table Protector (Double newline enforcement)
             safeText = safeText.replace(/^([^|].*)\n(\|.*)$/gm, '$1\n\n$2');
 
             try {
