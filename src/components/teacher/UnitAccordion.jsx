@@ -570,113 +570,110 @@ const formatCellContent = (text) => {
     return marked.parseInline(formatted);
 };
 
-// --- HELPER: Render Table Buffer ---
+// --- HELPER: Render Table Buffer (Handles Headless Tables) ---
 const renderTableBuffer = (rows) => {
     if (!rows || rows.length === 0) return '';
     
-    // 1. Process Header
-    const header = rows[0];
-    const headerCells = header.split('|').map(c => c.trim()).filter((c, i, arr) => {
-        // Filter out empty start/end splits resulting from leading/trailing pipes
-        if (i === 0 && c === '') return false;
-        if (i === arr.length - 1 && c === '') return false;
-        return true;
+    // 1. normalize rows to ensure they start/end with pipes for splitting
+    const normalizedRows = rows.map(r => {
+        let row = r.trim();
+        if (!row.startsWith('|')) row = '|' + row;
+        if (!row.endsWith('|')) row = row + '|';
+        return row;
     });
+
+    // 2. Determine max columns
+    let maxCols = 0;
+    const parsedRows = normalizedRows.map(r => {
+        // Split by pipe, ignore first/last empty strings
+        const cells = r.split('|').slice(1, -1);
+        maxCols = Math.max(maxCols, cells.length);
+        return cells;
+    });
+
+    // 3. Build HTML
+    // We explicitly set widths to prevents overflow. 
+    // If 2 columns, use 30/70 split. If more, distribute evenly.
+    let html = '<table border="1" style="width:100%; border-collapse: collapse; margin-bottom: 10px;">';
     
-    let html = '<table border="1" style="width:100%; border-collapse: collapse; margin: 10px 0;"><thead><tr>';
-    headerCells.forEach(c => {
-        html += `<th style="border: 1px solid #666; padding: 6px; background-color: #e2e8f0; font-weight: bold; text-align: left;">${formatCellContent(c)}</th>`;
-    });
-    html += '</tr></thead><tbody>';
-
-    // 2. Process Body
-    for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row.trim()) continue;
-
-        // Split and filter empty edges
-        const cells = row.split('|').map(c => c.trim()).filter((c, i, arr) => {
-            if (i === 0 && c === '') return false;
-            if (i === arr.length - 1 && c === '') return false;
-            return true;
-        });
-        
-        // Pad cells if row is short (prevents "Malformed table" error)
-        while(cells.length < headerCells.length) {
-            cells.push('');
-        }
-
+    // We treat the first row as a body row if it doesn't look like a header, 
+    // but for PDF export, having a <thead> is safer for page breaks.
+    // However, if the user input has no header, we just make all rows <tbody>.
+    
+    html += '<tbody>';
+    
+    parsedRows.forEach(cells => {
         html += '<tr>';
-        cells.forEach(c => {
-            html += `<td style="border: 1px solid #666; padding: 6px;">${formatCellContent(c)}</td>`;
+        // Pad cells if missing
+        while(cells.length < maxCols) cells.push('');
+        
+        cells.forEach((c, idx) => {
+            // Apply specific width styles for 2-column layout (Common in "Cards")
+            let widthStyle = '';
+            if (maxCols === 2) {
+                widthStyle = idx === 0 ? 'width: 25%;' : 'width: 75%;';
+            }
+            
+            html += `<td style="border: 1px solid #444; padding: 6px; ${widthStyle}">${formatCellContent(c)}</td>`;
         });
         html += '</tr>';
-    }
+    });
+    
     html += '</tbody></table>';
     return html;
 };
 
-// --- HELPER: Smart Markdown Table Parser (Handles Wrapped Lines) ---
+// --- HELPER: Smart Markdown Table Parser (Reconstructs Broken Tables) ---
 const forceParseMarkdownTable = (text) => {
     if (!text) return text;
 
-    // Normalize newlines
-    const rawLines = text
-        .replace(/<br\s*\/?>/gi, '\n')
-        .split('\n');
+    // 1. Normalize line endings
+    const lines = text.replace(/<br\s*\/?>/gi, '\n').split('\n');
     
-    const isSeparator = (line) => {
-        // Detects |---| or |:---| patterns
-        return /^\|?(:?-+:?\|)+:?-+:?\|?$/.test(line.trim().replace(/\s/g, ''));
-    };
-
     let processedLines = [];
     let tableBuffer = [];
-    let insideTable = false;
+    
+    // Helper: Does this line look like a table row? (Has pipes)
+    const isRow = (line) => line.trim().startsWith('|') || (line.includes('|') && line.trim().length > 5);
+    
+    // Helper: Is this a separator line? (|---|)
+    const isSeparator = (line) => /^\|?[\s:-]+\|[\s:-]+\|?$/.test(line.trim());
 
-    for (let i = 0; i < rawLines.length; i++) {
-        let line = rawLines[i].trim();
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
 
-        // 1. Detect Header (Look ahead for separator)
-        if (!insideTable) {
-            if (rawLines[i + 1] && isSeparator(rawLines[i + 1])) {
-                insideTable = true;
-                tableBuffer.push(line); // Add Header
-                i++; // Skip the separator line in the loop
-            } else {
-                processedLines.push(line);
-            }
+        // CHECK: Is this part of a table?
+        if (isRow(line) && !isSeparator(line)) {
+            // If it's a row, add to buffer
+            tableBuffer.push(line);
         } 
-        // 2. Inside Table Processing
+        else if (tableBuffer.length > 0 && line !== '' && !isRow(line)) {
+            // WRAPPED TEXT FIX:
+            // If we are in a table buffer, but this line has no pipes, 
+            // it's likely text that wrapped from the previous cell.
+            // We append it to the last cell of the previous row.
+            let lastRow = tableBuffer[tableBuffer.length - 1];
+            
+            // Remove trailing pipe if it exists
+            if (lastRow.endsWith('|')) lastRow = lastRow.slice(0, -1);
+            
+            // Append current line to the last row
+            tableBuffer[tableBuffer.length - 1] = lastRow + " " + line + "|";
+        } 
         else {
-            if (line === '') {
-                // End of table
-                if (tableBuffer.length > 0) {
-                    processedLines.push(renderTableBuffer(tableBuffer));
-                    tableBuffer = [];
-                }
-                insideTable = false;
-            } 
-            else if (line.startsWith('|')) {
-                // New Row
-                tableBuffer.push(line);
-            } 
-            else {
-                // WRAPPED TEXT CASE: Line doesn't start with pipe, append to previous row
-                if (tableBuffer.length > 0) {
-                    let lastRow = tableBuffer[tableBuffer.length - 1];
-                    // If last row ended with pipe, remove it before appending
-                    if (lastRow.endsWith('|')) {
-                        lastRow = lastRow.slice(0, -1);
-                    }
-                    // Append current line to last cell of previous row
-                    tableBuffer[tableBuffer.length - 1] = lastRow + " " + line + "|";
-                }
+            // FLUSH BUFFER: We hit a blank line or non-table content
+            if (tableBuffer.length > 0) {
+                processedLines.push(renderTableBuffer(tableBuffer));
+                tableBuffer = [];
+            }
+            // Add the current non-table line
+            if (!isSeparator(line)) {
+                processedLines.push(line);
             }
         }
     }
 
-    // Flush remaining buffer
+    // Flush any remaining buffer at the end
     if (tableBuffer.length > 0) {
         processedLines.push(renderTableBuffer(tableBuffer));
     }
@@ -856,7 +853,7 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
     return tempDiv;
 };
 
-// --- HELPER: Sanitize PDF Structure (Fixed for Malformed Tables) ---
+// --- HELPER: Sanitize PDF Structure (Fixes Crashes & Overflow) ---
 const cleanUpPdfContent = (content, inTable = false) => {
     if (!content) return;
 
@@ -866,8 +863,7 @@ const cleanUpPdfContent = (content, inTable = false) => {
     }
 
     if (typeof content === 'object') {
-
-        // Handle Stacks
+        // 1. Handle Stacks
         if (content.content && Array.isArray(content.content)) {
             content.stack = content.content;
             delete content.content;
@@ -875,81 +871,98 @@ const cleanUpPdfContent = (content, inTable = false) => {
             return;
         }
 
-        // Handle Images
+        // 2. Handle Images (Resize to fit)
         if (content.image) {
-            const maxWidth = inTable ? 100 : 500; 
+            const maxWidth = inTable ? 100 : 450; // Reduced to 450 to prevent overflow
             content.fit = [maxWidth, 600];
             delete content.width; 
             delete content.height;
             content.alignment = 'center';
         }
-        // Handle Standard Elements
-        else {
-            if (content.width !== undefined && content.width !== '*' && content.width !== 'auto') {
-                delete content.width;
-            }
-            if (content.columns) {
+        
+        // 3. Handle Columns
+        else if (content.columns) {
+            if (Array.isArray(content.columns)) {
+                content.columns = content.columns.filter(col => col); // Remove nulls
                 content.columns.forEach(col => {
                     col.width = '*'; 
                     cleanUpPdfContent(col, inTable);
                 });
-                delete content.columnGap;
+            } else {
+                delete content.columns; 
             }
+            delete content.columnGap;
         }
 
-        // --- FIX: Handle Table Normalization ---
+        // 4. Handle Tables (Crash Fix + Overflow Fix)
         if (content.table) {
+            // Remove hardcoded HTML widths that cause overflow
             delete content.width; 
+            delete content.height;
+
+            // Ensure body exists
+            if (!Array.isArray(content.table.body)) {
+                content.table.body = [[]];
+            }
+
+            // FILTER: Remove invalid rows (This fixes the 'length' crash)
+            content.table.body = content.table.body.filter(row => Array.isArray(row));
 
             const body = content.table.body;
-            if (body && Array.isArray(body) && body.length > 0) {
-                
-                // 1. Calculate Maximum Columns
-                const maxCols = body.reduce((max, row) => Math.max(max, row.length), 0);
+            if (body.length === 0) body.push([{ text: '' }]);
 
-                // 2. Normalize Rows (Pad short rows with empty cells)
-                body.forEach(row => {
-                    // Fill gaps if row is shorter than maxCols
-                    while (row.length < maxCols) {
-                        row.push({ text: '', border: [false, false, false, false] });
-                    }
-                    
-                    // Sanitize cells (ensure no cell is undefined)
-                    for (let i = 0; i < row.length; i++) {
-                        if (!row[i]) {
-                            row[i] = { text: '' };
-                        } else if (typeof row[i] === 'object') {
-                            // Recursively clean the cell content
-                            delete row[i].border; 
-                            delete row[i].borderColor; 
-                            delete row[i].width; 
-                            cleanUpPdfContent(row[i], true); 
-                        }
-                    }
-                });
+            // Calculate Columns
+            const maxCols = body.reduce((max, row) => Math.max(max, row.length), 0);
+            const safeMaxCols = maxCols > 0 ? maxCols : 1;
 
-                // 3. Set Widths based on normalized column count
-                // If it's exactly 2 columns, use your custom ratio, otherwise distribute evenly
-                if (maxCols === 2) {
-                    content.table.widths = ['25%', '75%'];
-                } else {
-                    content.table.widths = Array(maxCols).fill('*');
+            // Normalize Rows
+            body.forEach(row => {
+                while (row.length < safeMaxCols) {
+                    row.push({ text: '', border: [false, false, false, false] });
                 }
-            
-                content.layout = {
-                    hLineWidth: () => 1,
-                    vLineWidth: () => 1,
-                    hLineColor: () => '#444', 
-                    vLineColor: () => '#444',
-                    paddingLeft: () => 4, paddingRight: () => 4,
-                    paddingTop: () => 4, paddingBottom: () => 4,
-                };
+                for (let i = 0; i < row.length; i++) {
+                    if (!row[i]) row[i] = { text: '' };
+                    else if (typeof row[i] === 'object') {
+                        // Recursively clean cell
+                        delete row[i].border; 
+                        delete row[i].borderColor; 
+                        delete row[i].width; // IMPORTANT: Remove cell-specific width
+                        cleanUpPdfContent(row[i], true);
+                    }
+                }
+            });
+
+            // SET WIDTHS (Fix Overflow)
+            // If we detect 2 columns (likely Key/Value or Term/Definition), enforce specific ratio
+            if (safeMaxCols === 2) {
+                content.table.widths = ['28%', '72%']; // Fits A4 perfectly with margins
+            } else {
+                // For other tables, use star (*) which fills space but keeps it inside margins
+                content.table.widths = Array(safeMaxCols).fill('*');
             }
+        
+            // Add style to prevent massive tables
+            content.layout = {
+                hLineWidth: () => 1,
+                vLineWidth: () => 1,
+                hLineColor: () => '#444', 
+                vLineColor: () => '#444',
+                paddingLeft: () => 6, paddingRight: () => 6,
+                paddingTop: () => 4, paddingBottom: () => 4,
+            };
         }
 
+        // Clean other containers
         if (content.stack) cleanUpPdfContent(content.stack, inTable);
         if (content.ul) cleanUpPdfContent(content.ul, inTable);
         if (content.ol) cleanUpPdfContent(content.ol, inTable);
+        
+        // Final Sweep: Remove explicit widths from non-image/non-table elements
+        if (!content.image && !content.table && content.width) {
+            if (content.width !== '*' && content.width !== 'auto') {
+                delete content.width;
+            }
+        }
     }
 };
 // --- MAIN COMPONENT ---
