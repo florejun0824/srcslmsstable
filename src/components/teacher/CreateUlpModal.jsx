@@ -411,243 +411,203 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       throw new Error(`Failed to generate section '${type}' after ${maxRetries} retries.`);
     };
 
-	// --- HTML Assembler (Strict PEAC Table Format) ---
-	const assembleUlpFromComponents = (components) => {
-	    let tbody = '';
+// --- HTML Assembler (Strict PEAC Table Format) ---
+    const assembleUlpFromComponents = (components) => {
+        let tbody = '';
 
-	    // Configure marked options
-	    marked.setOptions({
-	        breaks: true, // Convert \n to <br>
-	        gfm: true,    // GitHub Flavored Markdown
-	    });
+        // Configure marked options
+        marked.setOptions({
+            breaks: true, // Convert \n to <br>
+            gfm: true,    // GitHub Flavored Markdown
+        });
 
-	    // 1. Basic HTML Escape (for headers/codes only)
-	    const esc = (text) => (text == null ? '' : String(text)).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        // 1. Basic HTML Escape (for headers/codes only)
+        const esc = (text) => (text == null ? '' : String(text)).replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-	    // --- NEW: Robust Markdown Repair Function ---
-	    const repairMalformedMarkdown = (text) => {
-	        if (!text) return '';
-	        let fixed = text;
+        // 2. Enhanced Markdown Renderer
+        const renderMd = (text) => {
+            if (!text) return '';
 
-	        // 1. Fix AI tendency to merge headers with text (e.g., "Text:**Header**")
-	        fixed = fixed.replace(/(\w):(\*\*)/g, '$1:\n\n$2');
+            // A. Standardize newlines
+            let safeText = text.replace(/\r\n/g, '\n');
 
-	        // 2. Fix tables not having a newline before them (CRITICAL)
-	        // Looks for a line ending in text, followed immediately by a pipe |
-	        fixed = fixed.replace(/^([^|].*)\n(\|.*)$/gm, '$1\n\n$2');
-
-	        // 3. Fix tables not having a newline AFTER them
-	        // Looks for a row ending in |, followed immediately by text
-	        fixed = fixed.replace(/^(\|.*\|)\n([^|])/gm, '$1\n\n$2');
-
-	        // 4. Fix malformed table headers (AI sometimes forgets outer pipes)
-	        // Converts "Col 1 | Col 2" to "| Col 1 | Col 2 |" if it looks like a header
-	        // Only applies if the next line is a separator line (---|---)
-	        const lines = fixed.split('\n');
-	        for (let i = 0; i < lines.length - 1; i++) {
-	            const line = lines[i].trim();
-	            const nextLine = lines[i+1].trim();
+            // B. Dedent (Remove common leading whitespace)
+            const lines = safeText.split('\n');
+            const minIndent = lines.reduce((min, line) => {
+                if (line.trim().length === 0) return min;
+                const indent = line.match(/^\s*/)[0].length;
+                return Math.min(min, indent);
+            }, Infinity);
             
-	            // Check if next line is a separator (e.g., |---|---| or ---|---)
-	            if (/^\|?[\s-]*\|[\s-|]*\|?$/.test(nextLine) && nextLine.includes('-')) {
-	                // If current line has pipes but no outer pipes, add them
-	                if (line.includes('|') && !line.startsWith('|')) {
-	                    lines[i] = `| ${line} |`;
-	                }
-	            }
-	        }
-	        fixed = lines.join('\n');
-
-	        // 5. Convert "Scenarios:" or "Questions:" lists that aren't properly spaced
-	        fixed = fixed.replace(/^(\d+\.)([^\s])/gm, '$1 $2'); // Ensure space after "1."
-
-	        return fixed;
-	    };
-
-	    // 2. Enhanced Markdown Renderer
-	    const renderMd = (text) => {
-	        if (text == null) return '';
-
-            // --- BUG FIX: Ensure input is a string before calling replace ---
-            // The AI sometimes returns an Array (for lists) or a Number.
-            // .replace() only exists on strings.
-            let safeText = text;
-            if (Array.isArray(text)) {
-                safeText = text.join('\n');
-            } else if (typeof text !== 'string') {
-                safeText = String(text);
+            if (minIndent !== Infinity && minIndent > 0) {
+                safeText = lines.map(line => line.substring(minIndent)).join('\n');
             }
 
-	        // A. Standardize newlines
-	        safeText = safeText.replace(/\r\n/g, '\n');
+            // C. CRITICAL FIX: The "Table Protector"
+            // The previous regex was inserting newlines BETWEEN table rows (breaking them).
+            // We only want to ensure a newline BEFORE the start of a table, not inside it.
+            
+            // Step 1: Ensure table block starts on a new line if it follows text immediately
+            // Look for a line NOT starting with pipe, followed by a line starting with pipe
+            safeText = safeText.replace(/^([^|].*)\n(\|.*)$/gm, '$1\n\n$2');
 
-	        // B. Dedent (Remove common leading whitespace)
-	        const lines = safeText.split('\n');
-	        const minIndent = lines.reduce((min, line) => {
-	            if (line.trim().length === 0) return min;
-	            const indent = line.match(/^\s*/)[0].length;
-	            return Math.min(min, indent);
-	        }, Infinity);
+            // Step 2: Fix common AI mistake of omitting the outer pipes in headers
+            // e.g. "Col 1 | Col 2" -> "| Col 1 | Col 2 |" (Simple heuristic)
+            // (Optional, but helps with AI inconsistency)
+            
+            try {
+                return marked.parse(safeText);
+            } catch (e) {
+                console.error("Markdown parsing error:", e);
+                return text;
+            }
+        };
+
+        // 3. Inline Markdown Renderer
+        const renderInlineMd = (text) => {
+            if (!text) return '';
+            const html = renderMd(text);
+            return html.replace(/^<p>|<\/p>\n?$/g, ''); 
+        };
+
+        // --- 1. EXPLORE ---
+        const explore = components.find(c => c.type === 'explore');
+        if (explore) {
+            tbody += `
+            <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>EXPLORE</td></tr>
+            <tr><td colspan='2' style='padding: 10px; border: 1px solid black; vertical-align: top;'>
+                <strong>Unit Overview:</strong><br/>${renderMd(explore.unitOverview)}<br/><br/>
+                <strong>Essential Questions:</strong><ul>${(explore.essentialQuestions || []).map(q => `<li>${renderInlineMd(q)}</li>`).join('')}</ul>
+                <strong>Map of Conceptual Change:</strong><br/>${renderMd(explore.mapOfConceptualChange)}<br/><br/>
+                <strong>Hook Activities:</strong><br/>${renderMd(explore.hookedActivities)}
+            </td></tr>`;
+        }
+
+        // --- Helper for Competency Rows ---
+        const renderCompetencyRow = (item, stageName) => {
+            const learningFocus = `
+                <strong>${esc(item.code)}</strong><br/>
+                ${esc(item.competency)}<br/><br/>
+                <strong>Learning Targets:</strong><ul>${(item.learningTargets || []).map(t => `<li>${renderInlineMd(t)}</li>`).join('')}</ul>
+                <strong>Success Indicators:</strong><ul>${(item.successIndicators || []).map(i => `<li>${renderInlineMd(i)}</li>`).join('')}</ul>`;
+            
+            const learningExperience = `
+                <strong>In-Person Activity:</strong><br/>${renderMd(item.inPersonActivity?.instructions)}<br/>
+                <div style="margin-top: 8px; font-style: italic;">
+                    <strong>Materials:</strong> 
+                    <div style="display:inline-block; vertical-align:top;">${renderMd(item.inPersonActivity?.materials)}</div>
+                </div><br/>
+                
+                <strong>Online Activity:</strong><br/>${renderMd(item.onlineActivity?.instructions)}<br/><br/>
+                
+                ${item.supportDiscussion ? `<strong>Processing/Discussion:</strong><br/>${renderMd(item.supportDiscussion)}<br/><br/>` : ''}
+                
+                ${item.valuesIntegration ? `<div style='margin-top: 15px; padding: 15px; background-color: #f0fdf4 !important; color: #14532d !important; border-left: 4px solid #16a34a; border-radius: 6px;'>
+                    <strong style="display:block; margin-bottom:5px; font-size:1.1em;">🌿 SRCS Values Connection: ${esc(item.valuesIntegration.value)}</strong>
+                    <span style="font-style:italic; line-height:1.6;">${renderMd(item.valuesIntegration.integration)}</span>
+                </div><br/>` : ''}
+                
+                ${item.assessment ? `<strong>Assessment (${esc(item.assessment.type)}):</strong><br/>${renderMd(item.assessment.content)}` : ''}
+                ${item.templates ? `<br/><strong>Templates/Resources:</strong><br/>${renderMd(item.templates)}` : ''}`;
+
+            return `<tr>
+                <td style='width: 35%; padding: 10px; border: 1px solid black; vertical-align: top;'>${learningFocus}</td>
+                <td style='width: 65%; padding: 10px; border: 1px solid black; vertical-align: top;'>${learningExperience}</td>
+            </tr>`;
+        };
+
+        // --- 2. FIRM-UP ---
+        const firmUpItems = components.filter(c => c.type === 'firmUp').sort((a,b) => a.code.localeCompare(b.code));
+        if (firmUpItems.length > 0) {
+            tbody += `<tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>FIRM-UP (ACQUISITION)</td></tr>`;
+            firmUpItems.forEach(item => tbody += renderCompetencyRow(item, 'Acquisition'));
+        }
+
+        // --- 3. DEEPEN ---
+        const deepenItems = components.filter(c => c.type === 'deepen').sort((a,b) => a.code.localeCompare(b.code));
+        if (deepenItems.length > 0) {
+            tbody += `<tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>DEEPEN (MEANING-MAKING)</td></tr>`;
+            deepenItems.forEach(item => tbody += renderCompetencyRow(item, 'Meaning-Making'));
+        }
+
+        // --- 4. TRANSFER ---
+        const transferItems = components.filter(c => c.type === 'transfer').sort((a,b) => a.code.localeCompare(b.code));
+        if (transferItems.length > 0) {
+            tbody += `<tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>TRANSFER (APPLICATION)</td></tr>`;
+            transferItems.forEach(item => tbody += renderCompetencyRow(item, 'Transfer'));
+        }
+
+        // --- 5. SYNTHESIS ---
+        const synthesis = components.find(c => c.type === 'synthesis');
+        if (synthesis) {
+            tbody += `
+            <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>FINAL SYNTHESIS</td></tr>
+            <tr><td colspan='2' style='padding: 10px; border: 1px solid black;'>${renderMd(synthesis.summary)}</td></tr>`;
+        }
+
+        // --- 6. PERFORMANCE TASK ---
+        const performanceTask = components.find(c => c.type === 'performanceTask');
+        if (performanceTask) {
+            const { graspsTask, rubric } = performanceTask;
+            tbody += `
+            <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>PERFORMANCE TASK (GRASPS)</td></tr>
+            <tr><td colspan='2' style='padding: 10px; border: 1px solid black;'>
+                <p><strong>Goal:</strong> ${esc(graspsTask?.goal)}</p>
+                <p><strong>Role:</strong> ${esc(graspsTask?.role)}</p>
+                <p><strong>Audience:</strong> ${esc(graspsTask?.audience)}</p>
+                <p><strong>Situation:</strong> ${renderMd(graspsTask?.situation)}</p>
+                <p><strong>Product:</strong> ${esc(graspsTask?.product)}</p>
+                <p><strong>Standards:</strong> ${esc(graspsTask?.standards)}</p>
+                <hr/>
+                <strong>Rubric:</strong>
+                <ul>${(rubric || []).map(r => `<li><strong>${esc(r.criteria)} (${esc(String(r.points))}pts):</strong> ${renderInlineMd(r.description)}</li>`).join('')}</ul>
+            </td></tr>`;
+        }
         
-	        if (minIndent !== Infinity && minIndent > 0) {
-	            safeText = lines.map(line => line.substring(minIndent)).join('\n');
-	        }
-
-	        // C. Apply the Repair Logic
-	        safeText = repairMalformedMarkdown(safeText);
-
-	        try {
-	            return marked.parse(safeText);
-	        } catch (e) {
-	            console.error("Markdown parsing error:", e);
-	            return String(text);
-	        }
-	    };
-
-	    // 3. Inline Markdown Renderer (removes wrapping <p> tags)
-	    const renderInlineMd = (text) => {
-	        if (!text) return '';
-	        const html = renderMd(text);
-	        return html.replace(/^<p>|<\/p>\n?$/g, ''); 
-	    };
-
-	    // --- 1. EXPLORE ---
-	    const explore = components.find(c => c.type === 'explore');
-	    if (explore) {
-	        tbody += `
-	        <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>EXPLORE</td></tr>
-	        <tr><td colspan='2' style='padding: 10px; border: 1px solid black; vertical-align: top;'>
-	            <strong>Unit Overview:</strong><br/>${renderMd(explore.unitOverview)}<br/><br/>
-	            <strong>Essential Questions:</strong><ul>${(explore.essentialQuestions || []).map(q => `<li>${renderInlineMd(q)}</li>`).join('')}</ul>
-	            <strong>Map of Conceptual Change:</strong><br/>${renderMd(explore.mapOfConceptualChange)}<br/><br/>
-	            <strong>Hook Activities:</strong><br/>${renderMd(explore.hookedActivities)}
-	        </td></tr>`;
-	    }
-
-	    // --- Helper for Competency Rows ---
-	    const renderCompetencyRow = (item, stageName) => {
-	        const learningFocus = `
-	            <strong>${esc(item.code)}</strong><br/>
-	            ${esc(item.competency)}<br/><br/>
-	            <strong>Learning Targets:</strong><ul>${(item.learningTargets || []).map(t => `<li>${renderInlineMd(t)}</li>`).join('')}</ul>
-	            <strong>Success Indicators:</strong><ul>${(item.successIndicators || []).map(i => `<li>${renderInlineMd(i)}</li>`).join('')}</ul>`;
-        
-	        const learningExperience = `
-	            <strong>In-Person Activity:</strong><br/>${renderMd(item.inPersonActivity?.instructions)}<br/>
-	            <div style="margin-top: 8px; font-style: italic;">
-	                <strong>Materials:</strong> 
-	                <div style="display:inline-block; vertical-align:top;">${renderMd(item.inPersonActivity?.materials)}</div>
-	            </div><br/>
+        // CSS FIX: Nested table styles strictly defined
+        const globalStyle = `
+        <style>
+            table.main-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 1em; }
+            table.main-table th, table.main-table td { word-wrap: break-word; overflow-wrap: break-word; border: 1px solid black; padding: 8px; vertical-align: top; }
             
-	            <strong>Online Activity:</strong><br/>${renderMd(item.onlineActivity?.instructions)}<br/><br/>
-            
-	            ${item.supportDiscussion ? `<strong>Processing/Discussion:</strong><br/>${renderMd(item.supportDiscussion)}<br/><br/>` : ''}
-            
-	            ${item.valuesIntegration ? `<div style='margin-top: 15px; padding: 15px; background-color: #f0fdf4 !important; color: #14532d !important; border-left: 4px solid #16a34a; border-radius: 6px;'>
-	                <strong style="display:block; margin-bottom:5px; font-size:1.1em;">🌿 SRCS Values Connection: ${esc(item.valuesIntegration.value)}</strong>
-	                <span style="font-style:italic; line-height:1.6;">${renderMd(item.valuesIntegration.integration)}</span>
-	            </div><br/>` : ''}
-            
-	            ${item.assessment ? `<strong>Assessment (${esc(item.assessment.type)}):</strong><br/>${renderMd(item.assessment.content)}` : ''}
-	            ${item.templates ? `<br/><strong>Templates/Resources:</strong><br/>${renderMd(item.templates)}` : ''}`;
+            /* Styles for inner content tables (from Markdown) */
+            /* CRITICAL: table-layout auto allows inner tables to size correctly based on content */
+            td table { 
+                width: 100% !important; 
+                table-layout: auto !important;
+                border-collapse: collapse !important; 
+                margin: 15px 0 !important; 
+                border: 1px solid #666 !important; 
+            }
+            td table th, td table td { 
+                border: 1px solid #999 !important; 
+                padding: 8px !important; 
+                background-color: #fff !important;
+                color: #000 !important;
+                vertical-align: middle !important;
+            }
+            td table th {
+                background-color: #f3f4f6 !important; /* light gray */
+                font-weight: bold !important;
+                text-align: left !important;
+            }
 
-	        return `<tr>
-	            <td style='width: 35%; padding: 10px; border: 1px solid black; vertical-align: top;'>${learningFocus}</td>
-	            <td style='width: 65%; padding: 10px; border: 1px solid black; vertical-align: top;'>${learningExperience}</td>
-	        </tr>`;
-	    };
+            ul, ol { margin-top: 0; margin-bottom: 8px; padding-left: 20px; }
+            li { margin-bottom: 4px; }
+            p { margin-top: 0; margin-bottom: 10px; }
+            img { max-width: 100%; height: auto; }
+            * { box-sizing: border-box; }
+        </style>`;
 
-	    // --- 2. FIRM-UP ---
-	    const firmUpItems = components.filter(c => c.type === 'firmUp').sort((a,b) => a.code.localeCompare(b.code));
-	    if (firmUpItems.length > 0) {
-	        tbody += `<tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>FIRM-UP (ACQUISITION)</td></tr>`;
-	        firmUpItems.forEach(item => tbody += renderCompetencyRow(item, 'Acquisition'));
-	    }
-
-	    // --- 3. DEEPEN ---
-	    const deepenItems = components.filter(c => c.type === 'deepen').sort((a,b) => a.code.localeCompare(b.code));
-	    if (deepenItems.length > 0) {
-	        tbody += `<tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>DEEPEN (MEANING-MAKING)</td></tr>`;
-	        deepenItems.forEach(item => tbody += renderCompetencyRow(item, 'Meaning-Making'));
-	    }
-
-	    // --- 4. TRANSFER ---
-	    const transferItems = components.filter(c => c.type === 'transfer').sort((a,b) => a.code.localeCompare(b.code));
-	    if (transferItems.length > 0) {
-	        tbody += `<tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>TRANSFER (APPLICATION)</td></tr>`;
-	        transferItems.forEach(item => tbody += renderCompetencyRow(item, 'Transfer'));
-	    }
-
-	    // --- 5. SYNTHESIS ---
-	    const synthesis = components.find(c => c.type === 'synthesis');
-	    if (synthesis) {
-	        tbody += `
-	        <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>FINAL SYNTHESIS</td></tr>
-	        <tr><td colspan='2' style='padding: 10px; border: 1px solid black;'>${renderMd(synthesis.summary)}</td></tr>`;
-	    }
-
-	    // --- 6. PERFORMANCE TASK ---
-	    const performanceTask = components.find(c => c.type === 'performanceTask');
-	    if (performanceTask) {
-	        const { graspsTask, rubric } = performanceTask;
-	        tbody += `
-	        <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>PERFORMANCE TASK (GRASPS)</td></tr>
-	        <tr><td colspan='2' style='padding: 10px; border: 1px solid black;'>
-	            <p><strong>Goal:</strong> ${esc(graspsTask?.goal)}</p>
-	            <p><strong>Role:</strong> ${esc(graspsTask?.role)}</p>
-	            <p><strong>Audience:</strong> ${esc(graspsTask?.audience)}</p>
-	            <p><strong>Situation:</strong> ${renderMd(graspsTask?.situation)}</p>
-	            <p><strong>Product:</strong> ${esc(graspsTask?.product)}</p>
-	            <p><strong>Standards:</strong> ${esc(graspsTask?.standards)}</p>
-	            <hr/>
-	            <strong>Rubric:</strong>
-	            <ul>${(rubric || []).map(r => `<li><strong>${esc(r.criteria)} (${esc(String(r.points))}pts):</strong> ${renderInlineMd(r.description)}</li>`).join('')}</ul>
-	        </td></tr>`;
-	    }
-    
-	    // CSS FIX: Nested table styles strictly defined
-	    const globalStyle = `
-	    <style>
-	        table.main-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 1em; }
-	        table.main-table th, table.main-table td { word-wrap: break-word; overflow-wrap: break-word; border: 1px solid black; padding: 8px; vertical-align: top; }
-        
-	        /* Styles for inner content tables (from Markdown) */
-	        td table { 
-	            width: 100% !important; 
-	            table-layout: auto !important;
-	            border-collapse: collapse !important; 
-	            margin: 15px 0 !important; 
-	            border: 1px solid #666 !important; 
-	        }
-	        td table th, td table td { 
-	            border: 1px solid #999 !important; 
-	            padding: 8px !important; 
-	            background-color: #fff !important;
-	            color: #000 !important;
-	            vertical-align: middle !important;
-	        }
-	        td table th {
-	            background-color: #f3f4f6 !important; /* light gray */
-	            font-weight: bold !important;
-	            text-align: left !important;
-	        }
-
-	        ul, ol { margin-top: 0; margin-bottom: 8px; padding-left: 20px; }
-	        li { margin-bottom: 4px; }
-	        p { margin-top: 0; margin-bottom: 10px; }
-	        img { max-width: 100%; height: auto; }
-	        * { box-sizing: border-box; }
-	    </style>`;
-
-	    return `${globalStyle}
-	    <table class='main-table' style='width: 100%; table-layout: fixed; word-wrap: break-word; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 14px; border: 1px solid black;'>
-	        <thead><tr>
-	            <th style='border: 1px solid black; background-color: #d0d0d0; padding: 10px; text-align: left; width: 35%;'>Learning Focus</th>
-	            <th style='border: 1px solid black; background-color: #d0d0d0; padding: 10px; text-align: left; width: 65%;'>Learning Experience</th>
-	        </tr></thead>
-	        <tbody>${tbody}</tbody>
-	    </table>`;
-	};
+        return `${globalStyle}
+        <table class='main-table' style='width: 100%; table-layout: fixed; word-wrap: break-word; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 14px; border: 1px solid black;'>
+            <thead><tr>
+                <th style='border: 1px solid black; background-color: #d0d0d0; padding: 10px; text-align: left; width: 35%;'>Learning Focus</th>
+                <th style='border: 1px solid black; background-color: #d0d0d0; padding: 10px; text-align: left; width: 65%;'>Learning Experience</th>
+            </tr></thead>
+            <tbody>${tbody}</tbody>
+        </table>`;
+    };
 
     // --- Main Generation Handler (SEQUENTIAL FOR CONTEXT) ---
     const handleGenerate = async () => {
