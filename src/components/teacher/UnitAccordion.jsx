@@ -35,7 +35,6 @@ import {
     sortableKeyboardCoordinates,
     useSortable,
     verticalListSortingStrategy,
-    rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { marked } from 'marked';
@@ -130,15 +129,11 @@ let dejaVuLoaded = false;
 async function registerDejaVuFonts() {
   if (dejaVuLoaded) return;
   try {
-    // 1. Load the font files into the Virtual File System (VFS)
     await loadFontToVfs("DejaVuSans.ttf", "/fonts/DejaVuSans.ttf");
     await loadFontToVfs("DejaVuSans-Bold.ttf", "/fonts/DejaVuSans-Bold.ttf");
     await loadFontToVfs("DejaVuSans-Oblique.ttf", "/fonts/DejaVuSans-Oblique.ttf");
     await loadFontToVfs("DejaVuSans-BoldOblique.ttf", "/fonts/DejaVuSans-BoldOblique.ttf");
 
-    // 2. Define the font families
-    // We map 'Arial' and 'Helvetica' to DejaVu files so the PDF doesn't crash 
-    // if the HTML contains those fonts.
     pdfMake.fonts = {
       DejaVu: { 
           normal: "DejaVuSans.ttf", 
@@ -146,14 +141,12 @@ async function registerDejaVuFonts() {
           italics: "DejaVuSans-Oblique.ttf", 
           bolditalics: "DejaVuSans-BoldOblique.ttf" 
       },
-      // FIX: Alias Arial to prevent "Font 'Arial' not defined" error
       Arial: { 
           normal: "DejaVuSans.ttf", 
           bold: "DejaVuSans-Bold.ttf", 
           italics: "DejaVuSans-Oblique.ttf", 
           bolditalics: "DejaVuSans-BoldOblique.ttf" 
       },
-      // FIX: Alias Helvetica as a backup safety net
       Helvetica: { 
           normal: "DejaVuSans.ttf", 
           bold: "DejaVuSans-Bold.ttf", 
@@ -222,9 +215,9 @@ const AiGenerationHub = lazy(() => import('./AiGenerationHub'));
 
 // Skeleton
 const ContentListSkeleton = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+    <div className="flex flex-col gap-4 animate-pulse">
         {[1,2,3].map(i => (
-            <div key={i} className="h-48 rounded-[2rem] bg-slate-200 dark:bg-slate-800" />
+            <div key={i} className="h-32 rounded-[2rem] bg-slate-200 dark:bg-slate-800" />
         ))}
     </div>
 );
@@ -232,7 +225,6 @@ const ContentListSkeleton = () => (
 // Menus
 const MenuPortal = ({ children, menuStyle, onClose, monet }) => {
     const menuRef = useRef(null);
-    
     useEffect(() => {
         const handler = (e) => { 
             if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -241,7 +233,6 @@ const MenuPortal = ({ children, menuStyle, onClose, monet }) => {
         };
         window.addEventListener('mousedown', handler); 
         window.addEventListener('scroll', onClose, true);
-        
         return () => {
             window.removeEventListener('mousedown', handler);
             window.removeEventListener('scroll', onClose, true);
@@ -253,11 +244,7 @@ const MenuPortal = ({ children, menuStyle, onClose, monet }) => {
         : `fixed z-[9999] bg-white/90 dark:bg-[#1E212B]/95 backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-black/5 p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1 border border-white/20 dark:border-white/5`;
 
     return createPortal(
-        <div 
-            ref={menuRef} 
-            style={menuStyle}
-            className={containerClass}
-        >
+        <div ref={menuRef} style={menuStyle} className={containerClass}>
             {children}
         </div>, 
         document.body
@@ -271,70 +258,36 @@ const ActionMenu = ({ children, monet, styles }) => {
 
     const handleToggle = (e) => {
         e.stopPropagation();
-
-        if (isOpen) {
-            setIsOpen(false);
-            return;
-        }
-
+        if (isOpen) { setIsOpen(false); return; }
         const rect = iconRef.current.getBoundingClientRect();
         const screenHeight = window.innerHeight;
         const spaceBelow = screenHeight - rect.bottom;
-        
         const shouldFlip = spaceBelow < 220; 
-
-        let newStyle = { 
-            right: `${window.innerWidth - rect.right}px`, 
-            minWidth: '180px',
-            position: 'fixed',
-            zIndex: 9999
-        };
-
-        if (shouldFlip) {
-            newStyle.bottom = `${screenHeight - rect.top + 5}px`;
-            newStyle.transformOrigin = 'bottom right';
-        } else {
-            newStyle.top = `${rect.bottom + 5}px`;
-            newStyle.transformOrigin = 'top right';
-        }
-
+        let newStyle = { right: `${window.innerWidth - rect.right}px`, minWidth: '180px', position: 'fixed', zIndex: 9999 };
+        if (shouldFlip) { newStyle.bottom = `${screenHeight - rect.top + 5}px`; newStyle.transformOrigin = 'bottom right'; } 
+        else { newStyle.top = `${rect.bottom + 5}px`; newStyle.transformOrigin = 'top right'; }
         setMenuStyle(newStyle);
         setIsOpen(true);
     };
-
     const closeMenu = () => setIsOpen(false);
-
     return (
         <>
             <div ref={iconRef} onClick={handleToggle} className={`${styles.iconButton} relative z-20 cursor-pointer`}>
                 <EllipsisVerticalIcon className="h-5 w-5" />
             </div>
-            
-            {isOpen && (
-                <MenuPortal menuStyle={menuStyle} onClose={closeMenu} monet={monet}>
-                    <MenuContext.Provider value={closeMenu}>
-                        {children}
-                    </MenuContext.Provider>
-                </MenuPortal>
-            )}
+            {isOpen && <MenuPortal menuStyle={menuStyle} onClose={closeMenu} monet={monet}><MenuContext.Provider value={closeMenu}>{children}</MenuContext.Provider></MenuPortal>}
         </>
     );
 };
 const MenuItem = ({ icon: Icon, text, onClick, disabled, loading, monet }) => {
     const closeMenu = React.useContext(MenuContext);
-
     const handleClick = (e) => {
         if (disabled || loading) return;
         if (onClick) onClick(e);
         if (closeMenu) closeMenu();
     };
-
     return (
-        <button 
-            onClick={handleClick} 
-            disabled={disabled || loading} 
-            className={`flex items-center w-full px-3 py-2.5 text-sm font-semibold rounded-xl transition-colors ${monet ? 'hover:bg-white/10 text-white' : 'hover:bg-blue-50 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200'}`}
-        >
+        <button onClick={handleClick} disabled={disabled || loading} className={`flex items-center w-full px-3 py-2.5 text-sm font-semibold rounded-xl transition-colors ${monet ? 'hover:bg-white/10 text-white' : 'hover:bg-blue-50 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200'}`}>
             <Icon className={`h-4 w-4 mr-3 ${loading ? 'animate-spin text-blue-500' : (monet ? 'text-white/60' : 'text-slate-400')}`} />
             {text}
         </button>
@@ -357,8 +310,8 @@ const AddContentButton = ({ onAddLesson, onAddQuiz, monet, styles }) => {
 
     return (
         <>
-            <button ref={buttonRef} onClick={handleToggle} className={`${styles.primaryButton} !px-4 !py-2 text-sm md:text-base`}>
-                <PlusIcon className="w-5 h-5" /> <span className="hidden md:inline">Add Content</span> <span className="md:hidden">Add</span>
+            <button ref={buttonRef} onClick={handleToggle} className={`${styles.primaryButton} !px-3 !py-1.5 text-xs md:text-sm`}>
+                <PlusIcon className="w-4 h-4" /> <span className="hidden md:inline">Add Content</span> <span className="md:hidden">Add</span>
             </button>
             {isOpen && <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)} monet={monet}>
                 <MenuItem icon={DocumentTextIcon} text="Add Lesson" onClick={handleAddLesson} monet={monet} />
@@ -368,8 +321,8 @@ const AddContentButton = ({ onAddLesson, onAddQuiz, monet, styles }) => {
     );
 };
 
-// --- SORTABLE UNIT CARD ---
-const SortableUnitCard = memo(({ unit, onSelect, onAction, isReordering, index, monet, styles }) => {
+// --- SORTABLE UNIT LIST ITEM ---
+const SortableUnitListRow = memo(({ unit, onSelect, onAction, isReordering, index, monet, styles }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: unit.id, data: { type: 'unit' }, disabled: !isReordering,
     });
@@ -377,62 +330,91 @@ const SortableUnitCard = memo(({ unit, onSelect, onAction, isReordering, index, 
     const style = { transform: CSS.Translate.toString(transform), transition };
     
     const gradients = [
-        "bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600 dark:from-cyan-900 dark:via-blue-900 dark:to-indigo-950",
-        "bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 dark:from-purple-900 dark:via-pink-900 dark:to-rose-950",
-        "bg-gradient-to-br from-teal-400 via-emerald-500 to-green-600 dark:from-teal-900 dark:via-emerald-900 dark:to-green-950",
-        "bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 dark:from-amber-900 dark:via-orange-900 dark:to-red-950"
+        "bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600",
+        "bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500",
+        "bg-gradient-to-br from-teal-400 via-emerald-500 to-green-600",
+        "bg-gradient-to-br from-amber-400 via-orange-500 to-red-500"
     ];
 
-    const activeGradient = monet ? styles.unitCard : gradients[index % gradients.length];
-    const glassOverlay = "after:absolute after:inset-0 after:bg-gradient-to-t after:from-black/10 after:to-white/10 after:pointer-events-none";
-    const cardClasses = isReordering 
-        ? "bg-slate-100 dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 opacity-80"
-        : `${activeGradient} ${glassOverlay} text-white shadow-xl shadow-slate-300/50 dark:shadow-black/50 hover:-translate-y-1 hover:shadow-2xl`;
+    const iconGradient = monet ? monet.cardGradient : gradients[index % gradients.length];
+    
+    const containerClasses = monet 
+        ? `${monet.buttonSecondary} !justify-start !p-0 overflow-visible border-white/10 hover:border-white/30`
+        : `bg-white dark:bg-[#15171B] border border-slate-200 dark:border-white/5 shadow-sm hover:shadow-lg dark:hover:shadow-black/40 hover:border-blue-400/30 dark:hover:border-white/10`;
 
-    const iconContainerClass = monet 
-        ? `h-14 w-14 rounded-2xl flex items-center justify-center shadow-inner ${monet.iconBox || 'bg-white/20'}`
-        : `h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner border border-white/30`;
+    const rowClasses = isReordering 
+        ? "opacity-70 bg-slate-50 border-2 border-dashed border-slate-300 dark:bg-slate-800 dark:border-slate-600"
+        : `${containerClasses} rounded-[1.5rem] md:rounded-[2rem] transition-all duration-300 group`;
 
     return (
-        <div ref={setNodeRef} style={{...style, ...performanceStyles}} {...attributes} className="h-full group">
-            <div onClick={() => !isReordering && onSelect(unit)} className={`relative flex flex-col h-full p-6 rounded-[2.5rem] transition-all duration-300 overflow-hidden cursor-pointer ${cardClasses}`}>
-                {!isReordering && <div className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-gradient-to-b from-white/20 to-transparent rotate-45 pointer-events-none" />}
-                <div className="relative z-10 flex justify-between items-start w-full">
-                    <div className={iconContainerClass}>
-                        <FolderIcon className="h-7 w-7 text-white drop-shadow-md" />
-                    </div>
-                    {isReordering ? (
-                        <button {...listeners} className="p-2 rounded-full bg-slate-200 dark:bg-slate-700 cursor-grab"><ArrowsUpDownIcon className="h-5 w-5 text-slate-500" /></button>
-                    ) : (
-                        <div className="flex gap-2">
-                            <button onClick={(e) => { e.stopPropagation(); onAction('ai', unit); }} className="h-10 w-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center hover:bg-white/40 transition-colors border border-white/20">
-                                <SparklesIcon className="w-5 h-5 text-yellow-300 drop-shadow-sm" />
-                            </button>
+        <div ref={setNodeRef} style={{...style, ...performanceStyles}} {...attributes} className="mb-4">
+            <div 
+                onClick={() => !isReordering && onSelect(unit)} 
+                className={`relative w-full flex items-center p-3 md:p-4 ${rowClasses} ${!isReordering ? 'cursor-pointer active:scale-[0.99]' : ''}`}
+            >
+                {/* Reorder Handle */}
+                {isReordering && (
+                    <button {...listeners} className="p-2 mr-2 rounded-full bg-slate-100 dark:bg-slate-700 cursor-grab active:cursor-grabbing">
+                        <ArrowsUpDownIcon className="h-5 w-5 text-slate-400" />
+                    </button>
+                )}
+
+                {/* Icon Container (Gradient) */}
+                <div className={`
+                    h-14 w-14 md:h-16 md:w-16 flex-shrink-0 
+                    rounded-[1rem] md:rounded-[1.3rem] 
+                    flex items-center justify-center 
+                    shadow-lg shadow-black/5
+                    mr-4 md:mr-6
+                    ${iconGradient}
+                `}>
+                    <FolderIcon className="h-7 w-7 md:h-8 md:w-8 text-white drop-shadow-md" />
+                </div>
+
+                {/* Text Content */}
+                <div className="flex-grow min-w-0 pr-2">
+                    <h3 className={`
+                        text-lg md:text-xl font-bold tracking-tight leading-tight truncate
+                        ${monet ? 'text-white' : 'text-slate-800 dark:text-slate-100'}
+                    `}>
+                        {unit.title}
+                    </h3>
+                    <p className={`
+                        text-xs md:text-sm font-medium mt-1 truncate
+                        ${monet ? 'text-white/50' : 'text-slate-500 dark:text-slate-400'}
+                    `}>
+                        Tap to view contents
+                    </p>
+                </div>
+
+                {/* Actions */}
+                {!isReordering && (
+                    <div className="flex items-center gap-2 md:gap-4">
+                        
+                        {/* Menu */}
+                        <div onClick={(e) => e.stopPropagation()}>
                             <ActionMenu monet={monet} styles={styles}>
                                 <MenuItem icon={PencilIcon} text="Edit Unit" onClick={(e) => { e.stopPropagation(); onAction('edit', unit); }} monet={monet} />
                                 <MenuItem icon={ArrowsUpDownIcon} text="Reorder" onClick={(e) => { e.stopPropagation(); onAction('reorder', unit); }} monet={monet} />
                                 <MenuItem icon={TrashIcon} text="Delete Unit" onClick={(e) => { e.stopPropagation(); onAction('delete', unit); }} monet={monet} />
                             </ActionMenu>
                         </div>
-                    )}
-                </div>
-                <div className="relative z-10 mt-auto pt-6">
-                    <h3 className="text-2xl font-black leading-tight tracking-tight drop-shadow-md text-white">
-                        {unit.title}
-                    </h3>
-                    {!isReordering && (
-                        <div className="flex items-center justify-between mt-3 opacity-90">
-                            <span className="text-xs font-bold uppercase tracking-widest text-white/80">Open Unit</span>
-                            <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center group-hover:translate-x-1 transition-transform">
-                                <ChevronRightIcon className="h-4 w-4 text-white" />
-                            </div>
+                        
+                        {/* Arrow */}
+                        <div className={`
+                            hidden md:flex h-10 w-10 rounded-full items-center justify-center 
+                            transition-all duration-300
+                            ${monet ? 'bg-white/10 group-hover:bg-white/20' : 'bg-slate-100 dark:bg-white/5 group-hover:bg-blue-50 dark:group-hover:bg-white/10'}
+                        `}>
+                            <ChevronRightIcon className={`w-5 h-5 ${monet ? 'text-white' : 'text-slate-400 group-hover:text-blue-500 dark:text-slate-400'}`} />
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
         </div>
     );
 }, (prev, next) => prev.unit.id === next.unit.id && prev.unit.title === next.unit.title && prev.isReordering === next.isReordering && prev.index === next.index && prev.monet === next.monet);
+
 
 // --- SORTABLE CONTENT (LESSON) ROW ---
 const SortableContentItem = memo(({ item, isReordering, onAction, exportingLessonId, isAiGenerating, monet, styles }) => {
@@ -1089,7 +1071,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                 
 	                let pdfBody = htmlToPdfmake(finalHtml, { 
 	                    defaultStyles: { 
-	                        fontSize: 7, 
+	                        fontSize: 6, 
 	                        lineHeight: 1.1, 
 	                        alignment: 'justify' 
 	                    },
@@ -1228,24 +1210,31 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 {activeUnit ? (
                     <div className="relative">
-                        <div className={`sticky top-0 -mx-4 px-4 md:px-6 pt-4 pb-4 mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 animate-in slide-in-from-top-2 ${headerBg}`}>
-                            <div>
-                                <h2 className={`text-2xl md:text-3xl font-black tracking-tight leading-tight ${headerText}`}>{activeUnit.title}</h2>
-                                <p className={`text-sm md:text-base font-medium ${headerSubText}`}>Manage Lessons & Quizzes</p>
+                        {/* --- MODIFIED HEADER LAYOUT: Single Row, Smaller Text, Truncated Title --- */}
+                        <div className={`sticky top-0 -mx-4 px-4 md:px-6 pt-3 pb-3 mb-6 flex items-center justify-between gap-4 animate-in slide-in-from-top-2 ${headerBg}`}>
+                            <div className="min-w-0 flex-1">
+                                <h2 className={`text-lg md:text-xl font-black tracking-tight leading-tight truncate ${headerText}`}>
+                                    {activeUnit.title}
+                                </h2>
+                                <p className={`text-xs md:text-xs font-medium truncate ${headerSubText}`}>Manage Lessons & Quizzes</p>
                             </div>
-                            <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                            
+                            <div className="flex-shrink-0 flex items-center gap-2">
+                                {/* AI Button REMOVED here */}
+
                                 {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
-                                <button onClick={() => setIsReordering(!isReordering)} className={`${styles.secondaryButton} flex-1 md:flex-none`}>
+                                
+                                <button onClick={() => setIsReordering(!isReordering)} className={`${styles.secondaryButton} !px-3 !py-1.5 text-xs md:text-sm`}>
                                     {isReordering ? 'Done' : 'Reorder'}
                                 </button>
-                                <div className="flex-1 md:flex-none">
-                                    <AddContentButton 
-                                        onAddLesson={() => { setSelectedUnit(activeUnit); setAddLessonModalOpen(true); }} 
-                                        onAddQuiz={() => { setSelectedUnit(activeUnit); setAddQuizModalOpen(true); }}
-                                        monet={monet}
-                                        styles={styles}
-                                    />
-                                </div>
+                                
+                                <AddContentButton 
+                                    onAddLesson={() => { setSelectedUnit(activeUnit); setAddLessonModalOpen(true); }} 
+                                    onAddQuiz={() => { setSelectedUnit(activeUnit); setAddQuizModalOpen(true); }}
+                                    monet={monet}
+                                    styles={styles}
+                                    className="!px-3 !py-1.5 text-xs md:text-sm"
+                                />
                             </div>
                         </div>
 
@@ -1303,10 +1292,10 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                         )}
 
                         {units.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
-                                <SortableContext items={units.map(u => u.id)} strategy={rectSortingStrategy}>
+                            <div className="flex flex-col gap-3 md:gap-4 pb-20">
+                                <SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}>
                                     {units.map((unit, idx) => (
-                                        <SortableUnitCard key={unit.id} unit={unit} index={idx} onSelect={onSetActiveUnit} onAction={handleAction} isReordering={isReordering} monet={monet} styles={styles} />
+                                        <SortableUnitListRow key={unit.id} unit={unit} index={idx} onSelect={onSetActiveUnit} onAction={handleAction} isReordering={isReordering} monet={monet} styles={styles} />
                                     ))}
                                 </SortableContext>
                             </div>
