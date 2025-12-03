@@ -11,6 +11,50 @@ import SourceContentSelector from '../../hooks/SourceContentSelector';
 // Import marked to handle Markdown tables and formatting
 import { marked } from 'marked';
 
+// --- Markdown Table Converter (CRITICAL FIX) ---
+function convertMarkdownTablesToHTML(text) {
+  if (!text || typeof text !== "string") return text;
+
+  const tableRegex = /(?:^|\n)(\|.+\|\n\|[-:\s|]+\|\n(?:\|.*\|\n?)+)/g;
+
+  return text.replace(tableRegex, (match, tableBlock) => {
+    const rows = tableBlock.trim().split("\n");
+
+    const headerCells = rows[0]
+      .split("|")
+      .map(c => c.trim())
+      .filter(Boolean);
+
+    const bodyRows = rows
+      .slice(2)
+      .map(r =>
+        r
+          .split("|")
+          .map(c => c.trim())
+          .filter(Boolean)
+      );
+
+    let thead = "<thead><tr>";
+    headerCells.forEach(h => {
+      thead += `<th>${h}</th>`;
+    });
+    thead += "</tr></thead>";
+
+    let tbody = "<tbody>";
+    bodyRows.forEach(cols => {
+      tbody += "<tr>";
+      cols.forEach(c => {
+        tbody += `<td>${c}</td>`;
+      });
+      tbody += "</tr>";
+    });
+    tbody += "</tbody>";
+
+    return `<table class="inner-table">${thead}${tbody}</table>\n`;
+  });
+}
+
+
 // --- SRCS Core Values Definition ---
 const SRCS_VALUES_CONTEXT = `
 **SRCS CORE VALUES (San Ramon Catholic School):**
@@ -464,6 +508,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
 
             // A. Standardize newlines
             let safeText = text.replace(/\r\n/g, '\n');
+			safeText = convertMarkdownTablesToHTML(safeText);
 
             // B. Dedent (Remove common leading whitespace)
             const lines = safeText.split('\n');
@@ -600,13 +645,12 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         }
         
         // CSS FIX: Nested table styles strictly defined
-        const globalStyle = `
+const globalStyle = `
         <style>
             table.main-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 1em; }
             table.main-table th, table.main-table td { word-wrap: break-word; overflow-wrap: break-word; border: 1px solid black; padding: 8px; vertical-align: top; }
             
             /* Styles for inner content tables (from Markdown) */
-            /* CRITICAL: table-layout auto allows inner tables to size correctly based on content */
             td table { 
                 width: 100% !important; 
                 table-layout: auto !important;
@@ -622,9 +666,29 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 vertical-align: middle !important;
             }
             td table th {
-                background-color: #f3f4f6 !important; /* light gray */
+                background-color: #f3f4f6 !important; 
                 font-weight: bold !important;
                 text-align: left !important;
+            }
+
+            /* FINAL FIX: Ensures Markdown tables export perfectly */
+            .inner-table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                table-layout: auto !important;
+                margin: 12px 0 !important;
+                border: 1px solid #666 !important;
+            }
+            .inner-table th, .inner-table td {
+                border: 1px solid #999 !important;
+                padding: 6px 8px !important;
+                background: white !important;
+                vertical-align: middle !important;
+                color: #000 !important;
+            }
+            .inner-table th {
+                background: #f3f4f6 !important;
+                font-weight: bold !important;
             }
 
             ul, ol { margin-top: 0; margin-bottom: 8px; padding-left: 20px; }

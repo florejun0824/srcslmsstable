@@ -18,8 +18,7 @@ import {
     EllipsisVerticalIcon,
     CloudArrowUpIcon,
     ChevronRightIcon,
-    FolderIcon,
-    PresentationChartBarIcon
+    FolderIcon
 } from '@heroicons/react/24/solid';
 import {
     DndContext,
@@ -125,35 +124,41 @@ async function loadFontToVfs(name, url) {
   pdfMake.vfs[name] = btoa(new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ""));
 }
 
+// --- UPDATED FONT REGISTRATION ---
 let dejaVuLoaded = false;
 async function registerDejaVuFonts() {
   if (dejaVuLoaded) return;
   try {
+    // 1. Load the files into pdfMake's virtual file system (VFS)
     await loadFontToVfs("DejaVuSans.ttf", "/fonts/DejaVuSans.ttf");
     await loadFontToVfs("DejaVuSans-Bold.ttf", "/fonts/DejaVuSans-Bold.ttf");
     await loadFontToVfs("DejaVuSans-Oblique.ttf", "/fonts/DejaVuSans-Oblique.ttf");
     await loadFontToVfs("DejaVuSans-BoldOblique.ttf", "/fonts/DejaVuSans-BoldOblique.ttf");
 
-    pdfMake.fonts = {
-      DejaVu: { 
-          normal: "DejaVuSans.ttf", 
-          bold: "DejaVuSans-Bold.ttf", 
-          italics: "DejaVuSans-Oblique.ttf", 
-          bolditalics: "DejaVuSans-BoldOblique.ttf" 
-      },
-      Arial: { 
-          normal: "DejaVuSans.ttf", 
-          bold: "DejaVuSans-Bold.ttf", 
-          italics: "DejaVuSans-Oblique.ttf", 
-          bolditalics: "DejaVuSans-BoldOblique.ttf" 
-      },
-      Helvetica: { 
-          normal: "DejaVuSans.ttf", 
-          bold: "DejaVuSans-Bold.ttf", 
-          italics: "DejaVuSans-Oblique.ttf", 
-          bolditalics: "DejaVuSans-BoldOblique.ttf" 
-      }
+    // 2. Create the configuration object
+    const dejaVuConfig = { 
+        normal: "DejaVuSans.ttf", 
+        bold: "DejaVuSans-Bold.ttf", 
+        italics: "DejaVuSans-Oblique.ttf", 
+        bolditalics: "DejaVuSans-BoldOblique.ttf" 
     };
+
+    // 3. Register the font under ALL potential names/aliases
+    pdfMake.fonts = {
+      // The main name you use in defaultStyle
+      DejaVu: dejaVuConfig,
+      
+      // Aliases to catch HTML styles (fixes your specific error)
+      "DejaVu Sans": dejaVuConfig,
+      "DejavuSans": dejaVuConfig,
+      "DejaVuSans": dejaVuConfig,
+      
+      // Fallbacks to prevent other errors if standard fonts are requested
+      Roboto: dejaVuConfig,
+      Arial: dejaVuConfig,
+      Helvetica: dejaVuConfig
+    };
+    
     dejaVuLoaded = true;
   } catch (e) { console.error("Font load error", e); }
 }
@@ -554,6 +559,391 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
     prev.monet === next.monet
 );
 
+// --- HELPER: Render Table Buffer (Converts cleaned rows to HTML) ---
+const renderTableBuffer = (rows) => {
+    if (!rows || rows.length === 0) return '';
+    
+    // 1. Process Header
+    const header = rows[0];
+    // Remove outer pipes and split
+    const headerCells = header.replace(/^\||\|$/g, '').split('|'); 
+    
+    let html = '<table border="1" style="width:100%; border-collapse: collapse; margin: 10px 0;"><thead><tr>';
+    headerCells.forEach(c => {
+        // Use marked.parseInline to handle bolding/italics within cells
+        html += `<th style="border: 1px solid #666; padding: 6px; background-color: #e2e8f0; font-weight: bold; text-align: left;">${marked.parseInline(c.trim())}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    // 2. Process Body
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row.trim()) continue; // Skip empty rows
+
+        // Remove outer pipes and split
+        const cleanRow = row.replace(/^\||\|$/g, '');
+        const cells = cleanRow.split('|');
+        
+        html += '<tr>';
+        cells.forEach(c => {
+            html += `<td style="border: 1px solid #666; padding: 6px;">${marked.parseInline(c.trim())}</td>`;
+        });
+        html += '</tr>';
+    }
+    html += '</tbody></table>';
+    return html;
+};
+
+// --- HELPER: Smart Markdown Table Parser (Robust) ---
+const forceParseMarkdownTable = (text) => {
+    if (!text) return text;
+
+    // 1. Clean input: Replace non-breaking spaces, standardize newlines
+    const cleanText = text
+        .replace(/\u00A0/g, ' ') // Replace &nbsp;
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n</p>') 
+        .replace(/<p>/gi, '\n<p>');
+
+    const rawLines = cleanText.split('\n');
+    
+    // Regex to identify a separator line (e.g., |---| or |:---|)
+    // Flexible: allows spaces, dashes, colons
+    const isSeparator = (line) => {
+        const collapsed = line.trim().replace(/\s/g, '');
+        return /^\|?(:?-+:?\|)+:?-+:?\|?$/.test(collapsed);
+    };
+
+    let processedLines = [];
+    let tableBuffer = [];
+    let insideTable = false;
+
+    for (let i = 0; i < rawLines.length; i++) {
+        let line = rawLines[i].trim();
+        
+        if (!line) {
+            if (insideTable) {
+                processedLines.push(renderTableBuffer(tableBuffer));
+                tableBuffer = [];
+                insideTable = false;
+            }
+            if (line === '') processedLines.push(''); 
+            continue;
+        }
+
+        if (!insideTable) {
+            // --- TABLE DETECTION & HEADER REPAIR ---
+            // If line has a pipe, it MIGHT be a header. Check ahead.
+            if (line.includes('|')) {
+                let separatorIndex = -1;
+                // Look ahead 1 line
+                if (rawLines[i+1] && isSeparator(rawLines[i+1])) separatorIndex = i+1;
+                // Look ahead 2 lines (Broken Header Case)
+                else if (rawLines[i+2] && isSeparator(rawLines[i+2])) separatorIndex = i+2;
+
+                if (separatorIndex > -1) {
+                    insideTable = true;
+                    
+                    // MERGE HEADER: Combine lines from i to separatorIndex
+                    let combinedHeader = line;
+                    // If the header is split (separator is at i+2), merge the middle line
+                    for(let k = i + 1; k < separatorIndex; k++) {
+                        let nextPart = rawLines[k].trim();
+                        // Clean up join
+                        if (combinedHeader.endsWith('|')) combinedHeader = combinedHeader.slice(0, -1);
+                        if (nextPart.startsWith('|')) nextPart = nextPart.substring(1);
+                        combinedHeader += " " + nextPart;
+                    }
+
+                    tableBuffer.push(combinedHeader); // Add clean header
+                    i = separatorIndex; // Advance loop to the separator line (skipping it)
+                } else {
+                    processedLines.push(line);
+                }
+            } else {
+                processedLines.push(line);
+            }
+        } else {
+            // --- INSIDE TABLE ---
+            if (line.startsWith('|')) {
+                tableBuffer.push(line);
+            } else {
+                // ROW REPAIR: Wrapped text belongs to previous cell
+                if (tableBuffer.length > 0) {
+                    let lastRow = tableBuffer[tableBuffer.length - 1];
+                    let suffix = "";
+                    if (lastRow.endsWith('|')) {
+                        lastRow = lastRow.slice(0, -1);
+                        suffix = "|";
+                    }
+                    tableBuffer[tableBuffer.length - 1] = lastRow + " " + line + suffix;
+                }
+            }
+        }
+    }
+
+    if (tableBuffer.length > 0) {
+        processedLines.push(renderTableBuffer(tableBuffer));
+    }
+
+    return processedLines.join('\n');
+};
+
+// --- HELPER: Pre-process HTML to Split Tables & Rescue Markdown ---
+const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
+
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = rawHtml;
+
+	// -------------------------
+	// PHASE 1: GLOBAL MARKDOWN TABLE PARSER
+	// -------------------------
+	const textNodes = document.createTreeWalker(
+	    tempDiv,
+	    NodeFilter.SHOW_TEXT,
+	    null,
+	    false
+	);
+
+	let node;
+	while ((node = textNodes.nextNode())) {
+	    const value = node.nodeValue;
+
+	    // Detect Markdown table blocks
+	    if (value.includes('|') && value.includes('---')) {
+	        try {
+	            const htmlTable = forceParseMarkdownTable(value);
+
+	            if (htmlTable.includes('<table')) {
+	                const wrapper = document.createElement('div');
+	                wrapper.innerHTML = htmlTable;
+
+	                // Replace text node with converted HTML table
+	                node.parentNode.replaceChild(wrapper, node);
+	            }
+	        } catch (e) {
+	            console.warn("Markdown table conversion failed", e);
+	        }
+	    }
+	}
+    
+
+    // -------------------------
+    // PHASE 2: CLEAN INLINE WIDTHS
+    // -------------------------
+    tempDiv.querySelectorAll('[style]').forEach(el => {
+        const style = el.getAttribute('style') || '';
+        const cleaned = style.replace(/(width|min-width|max-width):\s*[\d\.]+(px|%|pt|em|rem);?/gi, '');
+        if (cleaned !== style) el.setAttribute('style', cleaned);
+    });
+
+    tempDiv.querySelectorAll('[width]').forEach(el => el.removeAttribute('width'));
+
+    // Image cleanup
+    tempDiv.querySelectorAll('img').forEach(img => {
+        img.removeAttribute('width');
+        img.removeAttribute('height');
+        img.style.maxWidth = '450px';
+        img.style.height = 'auto';
+        img.style.display = 'block';
+        img.style.margin = '10px auto';
+    });
+
+    // -------------------------
+    // PHASE 3: TABLE PROCESSING
+    // -------------------------
+    const tables = Array.from(tempDiv.querySelectorAll('table'));
+
+    // ⭐⭐⭐ CRITICAL PATCH ⭐⭐⭐
+    // APPLY INLINE STYLES TO .inner-table (Markdown nested tables)
+    tables.forEach(table => {
+        if (table.classList.contains("inner-table")) {
+            table.style.width = "100%";
+            table.style.borderCollapse = "collapse";
+            table.style.tableLayout = "auto";
+            table.style.margin = "12px 0";
+            table.style.border = "1px solid #666";
+
+            table.querySelectorAll("th").forEach(th => {
+                th.style.border = "1px solid #999";
+                th.style.padding = "6px 8px";
+                th.style.backgroundColor = "#f3f4f6";
+                th.style.fontWeight = "bold";
+                th.style.textAlign = "left";
+                th.style.color = "#000";
+            });
+
+            table.querySelectorAll("td").forEach(td => {
+                td.style.border = "1px solid #999";
+                td.style.padding = "6px 8px";
+                td.style.backgroundColor = "#fff";
+                td.style.color = "#000";
+                td.style.verticalAlign = "middle";
+            });
+        }
+    });
+
+    // -------------------------
+    // APPLY DEFAULT TABLE CLEANUP
+    // -------------------------
+    tables.forEach(table => {
+        table.style.width = '100%';
+        table.removeAttribute('width');
+        table.style.borderCollapse = 'collapse';
+        table.setAttribute('border', '1');
+
+        if (mode === 'ulp') {
+            const rows = Array.from(table.rows || []);
+            const parent = table.parentNode;
+
+            const splitKeywords = [
+                'PERFORMANCE TASK', 'SYNTHESIS', 'VALUES INTEGRATION',
+                'DEEPEN', 'TRANSFER', 'MEANING-MAKING', 'APPLICATION',
+                'FIRM-UP', 'EXPLORE'
+            ];
+
+            let currentTable = document.createElement('table');
+            currentTable.style.width = '100%';
+            currentTable.style.borderCollapse = 'collapse';
+            currentTable.setAttribute('border', '1');
+            parent.insertBefore(currentTable, table);
+
+            let hasRowsInCurrent = false;
+
+            rows.forEach(row => {
+                const txt = (row.textContent || '').toUpperCase().trim();
+                const isSectionHeader =
+                    splitKeywords.some(keyword => txt.includes(keyword)) &&
+                    txt.length < 150;
+
+                if (isSectionHeader) {
+                    const headerDiv = document.createElement('h3');
+                    headerDiv.style.backgroundColor = '#e2e8f0';
+                    headerDiv.style.padding = '10px';
+                    headerDiv.style.marginTop = '20px';
+                    headerDiv.style.marginBottom = '5px';
+                    headerDiv.style.border = '1px solid #000';
+                    headerDiv.style.fontWeight = 'bold';
+                    headerDiv.style.fontFamily = 'DejaVu Sans, Arial, sans-serif';
+                    headerDiv.textContent = row.textContent.trim();
+                    parent.insertBefore(headerDiv, table);
+
+                    // new table
+                    currentTable = document.createElement('table');
+                    currentTable.style.width = '100%';
+                    currentTable.style.borderCollapse = 'collapse';
+                    currentTable.setAttribute('border', '1');
+                    parent.insertBefore(currentTable, table);
+
+                    hasRowsInCurrent = false;
+                } else {
+                    Array.from(row.cells).forEach(cell => {
+                        const cs = parseInt(cell.getAttribute('colspan'), 10);
+                        if (!isNaN(cs) && cs > 5) {
+                            cell.removeAttribute('colspan');
+                        }
+                        cell.style.border = '1px solid #000';
+                        cell.style.padding = '5px';
+                    });
+
+                    currentTable.appendChild(row);
+                    hasRowsInCurrent = true;
+                }
+            });
+
+            if (!hasRowsInCurrent && currentTable.parentNode) {
+                currentTable.remove();
+            }
+
+            table.remove();
+        }
+    });
+
+    return tempDiv;
+};
+
+// --- HELPER: Sanitize PDF Structure (Ruthless Left-Column Shrink) ---
+const cleanUpPdfContent = (content, inTable = false) => {
+    if (!content) return;
+
+    if (Array.isArray(content)) {
+        content.forEach(item => cleanUpPdfContent(item, inTable));
+        return;
+    }
+
+    if (typeof content === 'object') {
+
+        if (content.content && Array.isArray(content.content)) {
+            content.stack = content.content;
+            delete content.content;
+            cleanUpPdfContent(content.stack, inTable);
+            return;
+        }
+
+        if (content.image) {
+            const maxWidth = inTable ? 100 : 500; 
+            content.fit = [maxWidth, 600];
+            delete content.width; 
+            delete content.height;
+            content.alignment = 'center';
+        }
+        else {
+            if (content.width !== undefined && content.width !== '*' && content.width !== 'auto') {
+                delete content.width;
+            }
+            if (content.columns) {
+                content.columns.forEach(col => {
+                    col.width = '*'; 
+                    cleanUpPdfContent(col, inTable);
+                });
+                delete content.columnGap;
+            }
+        }
+
+        if (content.table) {
+            delete content.width; 
+
+            const body = content.table.body;
+            if (body && Array.isArray(body) && body.length > 0) {
+                const colCount = body[0].length;
+
+                // --- WIDTH LOGIC ---
+                if (colCount === 2) {
+                    content.table.widths = ['25%', '75%'];
+                } else {
+                    const widths = [];
+                    for(let k=0; k<colCount; k++) widths.push('*');
+                    content.table.widths = widths;
+                }
+            
+                content.layout = {
+                    hLineWidth: () => 1,
+                    vLineWidth: () => 1,
+                    hLineColor: () => '#444', 
+                    vLineColor: () => '#444',
+                    paddingLeft: () => 4, paddingRight: () => 4,
+                    paddingTop: () => 4, paddingBottom: () => 4,
+                };
+
+                body.forEach(row => {
+                    row.forEach(cell => {
+                        if (typeof cell === 'object') {
+                            delete cell.border; 
+                            delete cell.borderColor; 
+                            delete cell.width; 
+                            cleanUpPdfContent(cell, true); 
+                        }
+                    });
+                });
+            }
+        }
+
+        if (content.stack) cleanUpPdfContent(content.stack, inTable);
+        if (content.ul) cleanUpPdfContent(content.ul, inTable);
+        if (content.ol) cleanUpPdfContent(content.ol, inTable);
+    }
+};
+
 // --- MAIN COMPONENT ---
 export default function UnitAccordion({ subject, onInitiateDelete, userProfile, isAiGenerating, setIsAiGenerating, activeUnit, onSetActiveUnit, selectedLessons, onLessonSelect, renderGeneratePptButton, onUpdateLesson, currentUserRole, monet }) {
     const [units, setUnits] = useState([]);
@@ -564,6 +954,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     
     const styles = getStyles(monet);
     const { activeOverlay } = useTheme();
+    const isExportingRef = useRef(false);
 
     // Modals
     const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
@@ -584,8 +975,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     const [lessonForAiQuiz, setLessonForAiQuiz] = useState(null);
     
     const { showToast } = useToast();
-    const isExportingRef = useRef(false);
-
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -611,522 +1000,240 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         const unQ = onSnapshot(qq, s => setAllQuizzes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
         return () => { unL(); unQ(); };
     }, [subject?.id]);
-	
-	// --- HELPER: Smart Markdown Table Parser (Preserves Surrounding Text) ---
-	const forceParseMarkdownTable = (text) => {
-	    if (!text) return text;
 
-	    // 1. Clean and Split
-	    // Decode HTML entities (like &nbsp;) and split by newlines
-	    const rawLines = text
-	        .replace(/&nbsp;/g, ' ')
-	        .replace(/<br\s*\/?>/gi, '\n')
-	        .split('\n');
-        
-	    const lines = rawLines.map(l => l.trim()).filter(l => l.length > 0);
+    const handleExportDocx = async (lesson) => {
+        if (isExportingRef.current) return;
+        isExportingRef.current = true;
+        setExportingLessonId(lesson.id);
     
-	    let html = '';
-	    let i = 0;
+        const isULP = lesson.contentType === 'teacherGuide';
+        const isATG = lesson.contentType === 'teacherAtg';
+        const isSpecialDoc = isULP || isATG;
 
-	    while (i < lines.length) {
-	        const line = lines[i];
+        const docLabel = isULP ? "ULP" : (isATG ? "ATG" : "Lesson");
+        const suffix = isULP ? "_ULP" : (isATG ? "_ATG" : "");
+    
+        const pageSize = isSpecialDoc 
+            ? { width: 12240, height: 18720 } // Legal/Long
+            : { width: 11906, height: 16838 }; // A4
 
-	        // CHECK: Is this the start of a table?
-	        // We look for a pipe in this line, AND a separator pattern in the NEXT line
-	        const isTableStart = line.includes('|') && 
-	                             lines[i+1] && 
-	                             /^\|?\s*:?-+:?\s*(\|?\s*:?-+:?\s*)+\|?$/.test(lines[i+1]);
+        showToast(`Generating ${docLabel} .docx...`, "info");
+    
+        try {
+            const lessonTitle = lesson.lessonTitle || lesson.title || 'document';
+            const subjectTitle = subject?.title || "SRCS Learning Portal";
+            const sanitizedFileName = (lessonTitle.replace(/[\\/:"*?<>|]+/g, '_') || 'document') + suffix + '.docx';
+        
+            const headerBase64 = await fetchImageAsBase64("/header-port.png").catch(()=>null);
+            const footerBase64 = await fetchImageAsBase64("/Footer.png").catch(()=>null);
 
-	        if (isTableStart) {
-	            // --- RENDER TABLE ---
-	            html += '<table border="1" style="width:100%; border-collapse: collapse; margin: 10px 0;">';
+            const headerHtml = headerBase64 
+                ? `<p align="center" style="text-align: center; margin-bottom: 0;">
+                     <img src="${headerBase64}" width="650" style="width: 100%; max-width: 650px; height: auto;" />
+                   </p>` 
+                : '';
+
+            const footerHtml = footerBase64 
+                ? `<p align="center" style="text-align: center; margin-top: 0;">
+                     <img src="${footerBase64}" width="650" style="width: 100%; max-width: 650px; height: auto;" />
+                   </p>` 
+                : '';
+
+            let finalHtml = `
+                <div style="font-family: 'DejaVu Sans', sans-serif; color: #333333;">
+                    <div style="min-height: 900px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                         <div>
+                            <h1 style="font-size: 32pt; font-weight: bold; margin-bottom: 20px; color: #000000;">${lessonTitle}</h1>
+                            <p style="font-size: 18pt; font-style: italic; color: #666666;">${subjectTitle}</p>
+                            <p style="font-size: 12pt; margin-top: 10px; color: #888;">${docLabel.toUpperCase()} DOCUMENT</p>
+                         </div>
+                    </div>
+                    <div style="page-break-after: always;"></div>
+                    `;
+
+            const pages = Array.isArray(lesson.pages) && lesson.pages.length ? lesson.pages : [{ title: lesson.title || '', content: lesson.content || lesson.html || '' }];
+
+            for (const page of pages) {
+                const cleanTitle = (page.title || '').replace(/^page\s*\d+\s*[:-]?\s*/i, '');
             
-	            // 1. Header (Current Line)
-	            const headerCells = line.replace(/^\||\|$/g, '').split('|');
-	            html += '<thead><tr>';
-	            headerCells.forEach(cell => {
-	                html += `<th style="border: 1px solid #666; padding: 4px; background-color: #e2e8f0; font-weight: bold;">${marked.parseInline(cell.trim())}</th>`;
-	            });
-	            html += '</tr></thead>';
-
-	            // 2. Skip Separator (Next Line)
-	            i += 2; 
-
-	            // 3. Body
-	            html += '<tbody>';
-	            while (i < lines.length && lines[i].includes('|')) {
-	                const rowCells = lines[i].replace(/^\||\|$/g, '').split('|');
-	                html += '<tr>';
-	                rowCells.forEach(cell => {
-	                    html += `<td style="border: 1px solid #666; padding: 4px;">${marked.parseInline(cell.trim())}</td>`;
-	                });
-	                html += '</tr>';
-	                i++;
-	            }
-	            html += '</tbody></table>';
-	        } else {
-	            // --- RENDER NORMAL TEXT ---
-	            // If it's not a table, render it as a paragraph using the markdown parser
-	            // ensuring we don't lose the text surrounding the table.
-	            html += `<div style="margin-bottom: 4px;">${marked.parse(line)}</div>`;
-	            i++;
-	        }
-	    }
-
-	    return html;
-	};
-	// --- HELPER: Pre-process HTML to Split Tables, Fix Colspans & Rescue Markdown ---
-	const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
-	    const tempDiv = document.createElement('div');
-	    tempDiv.innerHTML = rawHtml;
-
-	    // --- PHASE 1: MARKDOWN RESCUE ---
-	    const allCells = tempDiv.querySelectorAll('td, div, p');
-	    allCells.forEach(el => {
-	        let text = el.innerHTML || '';
-	        const txt = document.createElement("textarea");
-	        txt.innerHTML = text;
-	        const decodedText = txt.value;
-
-	        if (decodedText.includes('|') && decodedText.includes('---') && !el.querySelector('table')) {
-	            try {
-	                const newHtml = forceParseMarkdownTable(decodedText);
-	                if (newHtml !== decodedText) el.innerHTML = newHtml;
-	            } catch (e) { console.warn("Manual table parse failed", e); }
-	        }
-	    });
-
-	    // --- PHASE 2: STANDARD CLEANUP ---
-	    tempDiv.querySelectorAll('[style]').forEach(el => {
-	        const style = el.getAttribute('style') || '';
-	        const cleaned = style.replace(/(min-|max-)?width:\s*\d+px;?/gi, '').replace(/width:\s*\d+px;?/gi, '');
-	        if (cleaned !== style) el.setAttribute('style', cleaned);
-	    });
-
-	    tempDiv.querySelectorAll('img').forEach(img => {
-	        img.removeAttribute('width'); img.removeAttribute('height');
-	        img.style.maxWidth = (mode === 'ulp') ? '450px' : '550px';
-	        img.style.height = 'auto'; img.style.display = 'block'; img.style.margin = '8px 0';
-	    });
-
-	    const tables = Array.from(tempDiv.querySelectorAll('table'));
-	    tables.forEach(table => {
-	        table.style.width = '100%'; table.removeAttribute('width'); table.style.borderCollapse = 'collapse';
-        
-	        if (table.parentElement.tagName === 'TD') {
-	            table.style.marginTop = '10px'; table.style.marginBottom = '10px'; table.setAttribute('border', '1');
-	            table.querySelectorAll('th').forEach(th => th.style.backgroundColor = '#e2e8f0');
-	        }
-
-	        if (mode === 'ulp') {
-	            const rows = Array.from(table.rows || []);
-	            const splitKeywords = [
-	                'PERFORMANCE TASK', 'SYNTHESIS', 'VALUES INTEGRATION', 
-	                'DEEPEN', 'TRANSFER', 'MEANING-MAKING', 'APPLICATION'
-	            ];
-
-	            let splitIndex = -1;
-	            for (let i = 1; i < rows.length; i++) {
-	                const txt = (rows[i].textContent || '').toUpperCase();
-	                if (splitKeywords.some(keyword => txt.includes(keyword))) {
-	                    splitIndex = i;
-	                    break; 
-	                }
-	            }
-
-	            if (splitIndex > 0 && splitIndex < rows.length) {
-	                const newTable = document.createElement('table');
-	                newTable.style.width = '100%'; newTable.style.borderCollapse = 'collapse'; newTable.style.marginTop = '20px';
-	                const newTbody = document.createElement('tbody');
-	                for (let i = splitIndex; i < rows.length; i++) newTbody.appendChild(rows[i]);
-	                newTable.appendChild(newTbody);
-	                table.parentNode.insertBefore(newTable, table.nextSibling);
-	            }
-	        }
-	    });
-
-	    const finalTables = Array.from(tempDiv.querySelectorAll('table'));
-	    finalTables.forEach(table => {
-	        table.style.width = '100%'; table.style.borderCollapse = 'collapse';
-        
-	        if (mode === 'ulp') {
-	            const allRows = Array.from(table.querySelectorAll('tr'));
-	            allRows.forEach(row => {
-	                const cells = Array.from(row.children).filter(c => /TD|TH/.test(c.tagName));
-	                if (row.closest('table') !== table) return; 
-
-	                const txt = (row.textContent || '').toUpperCase();
-	                // FIX: Added length check (< 100) to ensure we don't treat long paragraphs as headers
-	                const isSectionHeader = ['DEEPEN', 'TRANSFER', 'FIRM-UP', 'EXPLORE', 'PERFORMANCE', 'SYNTHESIS'].some(k => txt.includes(k)) && txt.length < 100;
-
-	                if (isSectionHeader) {
-	                    if (cells[0]) {
-	                        cells[0].setAttribute('colspan', '2');
-	                        cells[0].style.width = '100%';
-	                        cells[0].style.backgroundColor = '#f0f0f0';
-	                        cells[0].style.fontWeight = 'bold';
-	                        cells[0].style.border = '1px solid black';
-	                    }
-	                    for(let k=1; k<cells.length; k++) cells[k]?.remove();
-	                } 
-	                // We REMOVED the manual 35% styling here to let cleanUpPdfContent handle it consistently
-	            });
-	        }
-        
-	        Array.from(table.querySelectorAll('[colspan]')).forEach(cell => {
-	            const cs = parseInt(cell.getAttribute('colspan'), 10);
-	            if (!isNaN(cs) && cs > 3) {
-	                cell.removeAttribute('colspan'); cell.style.width = '100%';
-	            }
-	        });
-	    });
-
-	    return tempDiv;
-	};
-
-	// --- HELPER: Sanitize PDF Structure (Ruthless Left-Column Shrink) ---
-	const cleanUpPdfContent = (content, inTable = false) => {
-	    if (!content) return;
-
-	    // 1. Handle Arrays (Recurse)
-	    if (Array.isArray(content)) {
-	        content.forEach(item => cleanUpPdfContent(item, inTable));
-	        return;
-	    }
-
-	    // 2. Handle Objects
-	    if (typeof content === 'object') {
-
-	        // A. Fix Structure: pdfmake requires 'stack' for vertical lists
-	        if (content.content && Array.isArray(content.content)) {
-	            content.stack = content.content;
-	            delete content.content;
-	            cleanUpPdfContent(content.stack, inTable);
-	            return;
-	        }
-
-	        // B. IMAGE HANDLING
-	        // Keep images strictly small so they don't force columns open
-	        if (content.image) {
-	            const maxWidth = inTable ? 80 : 350; 
-	            content.fit = [maxWidth, 600];
-	            delete content.width;
-	            delete content.height;
-	            content.alignment = 'center';
-	        }
-	        // C. TEXT & CONTAINER HANDLING
-	        else {
-	            if (content.width !== undefined && content.width !== '*' && content.width !== 'auto') {
-	                delete content.width;
-	            }
-	            if (content.columns) {
-	                content.columns.forEach(col => {
-	                    col.width = '*'; 
-	                    cleanUpPdfContent(col, inTable);
-	                });
-	                delete content.columnGap;
-	            }
-	        }
-
-	        // D. TABLE HANDLING (The Absolute Fix)
-	        if (content.table) {
-	            delete content.width; 
-
-	            const body = content.table.body;
-	            if (body && Array.isArray(body) && body.length > 0) {
-	                const colCount = body[0].length;
-
-	                // --- WIDTH LOGIC ---
-	                // We no longer care if it is 'inTable' (nested) or not.
-	                // We apply the narrow-left rule to EVERYTHING.
-                
-	                if (colCount >= 2) {
-	                    // Create the widths array dynamically
-	                    // Column 1: 16% (Fixed Narrow)
-	                    // Columns 2+: * (Share all remaining space)
-	                    const widths = ['22%']; 
-	                    for (let i = 1; i < colCount; i++) {
-	                        widths.push('*');
-	                    }
-	                    content.table.widths = widths;
-	                } else {
-	                    // Single column tables just fill space
-	                    content.table.widths = ['*'];
-	                }
-                
-	                // Styles: consistent padding
-	                content.layout = {
-	                    hLineWidth: () => 1,
-	                    vLineWidth: () => 1,
-	                    hLineColor: () => '#444', // Dark grey lines
-	                    vLineColor: () => '#444',
-	                    paddingLeft: () => 4, paddingRight: () => 4,
-	                    paddingTop: () => 4, paddingBottom: () => 4,
-	                };
-
-	                // Clean cells & Recurse
-	                body.forEach(row => {
-	                    row.forEach(cell => {
-	                        if (typeof cell === 'object') {
-	                            delete cell.border; 
-	                            delete cell.borderColor; 
-	                            delete cell.width; 
-	                            // Recurse to clean content inside cells
-	                            cleanUpPdfContent(cell, true); 
-	                        }
-	                    });
-	                });
-	            }
-	        }
-
-	        if (content.stack) cleanUpPdfContent(content.stack, inTable);
-	        if (content.ul) cleanUpPdfContent(content.ul, inTable);
-	        if (content.ol) cleanUpPdfContent(content.ol, inTable);
-	    }
-	};
-	const handleExportDocx = async (lesson) => {
-	        if (isExportingRef.current) return;
-	        isExportingRef.current = true;
-	        setExportingLessonId(lesson.id);
-        
-	        const isULP = lesson.contentType === 'teacherGuide';
-	        const isATG = lesson.contentType === 'teacherAtg';
-	        const isSpecialDoc = isULP || isATG;
-
-	        const docLabel = isULP ? "ULP" : (isATG ? "ATG" : "Lesson");
-	        const suffix = isULP ? "_ULP" : (isATG ? "_ATG" : "");
-        
-	        // Use standard A4 or Letter sizes in TWIPS (1/1440 inch)
-	        // A4 = 11906 x 16838
-	        const pageSize = isSpecialDoc 
-	            ? { width: 12240, height: 18720 } // Legal/Long
-	            : { width: 11906, height: 16838 }; // A4
-
-	        showToast(`Generating ${docLabel} .docx...`, "info");
-        
-	        try {
-	            const lessonTitle = lesson.lessonTitle || lesson.title || 'document';
-	            const subjectTitle = subject?.title || "SRCS Learning Portal";
-	            const sanitizedFileName = (lessonTitle.replace(/[\\/:"*?<>|]+/g, '_') || 'document') + suffix + '.docx';
+                let rawHtml;
+                if (isSpecialDoc) {
+                    rawHtml = page.content || '';
+                } else {
+                    const processedContent = processLatex(page.content || '');
+                    rawHtml = marked.parse(processedContent);
+                }
             
-	            const headerBase64 = await fetchImageAsBase64("/header-port.png").catch(()=>null);
-	            const footerBase64 = await fetchImageAsBase64("/Footer.png").catch(()=>null);
+                if (cleanTitle && !cleanTitle.includes('Unit Learning Plan') && !cleanTitle.includes('Adaptive Teaching Guide')) {
+                     finalHtml += `<h2 style="color: #2563EB; font-size: 18pt; font-weight: bold; margin-top: 20px; margin-bottom: 10px; text-align: left;">${cleanTitle}</h2>`;
+                }
+                finalHtml += `<div style="font-size: 11pt; line-height: 1.5; text-align: justify;">${rawHtml}</div><br />`;
+            }
+            finalHtml += '</div>';
 
-	            // FIX: Header HTML wrapper
-	            const headerHtml = headerBase64 
-	                ? `<p align="center" style="text-align: center; margin-bottom: 0;">
-	                     <img src="${headerBase64}" width="650" style="width: 100%; max-width: 650px; height: auto;" />
-	                   </p>` 
-	                : '';
+            const processedDiv = preProcessHtmlForExport(finalHtml, isULP ? 'ulp' : (isATG ? 'atg' : 'pdf'));
 
-	            const footerHtml = footerBase64 
-	                ? `<p align="center" style="text-align: center; margin-top: 0;">
-	                     <img src="${footerBase64}" width="650" style="width: 100%; max-width: 650px; height: auto;" />
-	                   </p>` 
-	                : '';
+            const svgElements = processedDiv.querySelectorAll('svg');
+            if (svgElements.length > 0) {
+                await Promise.all(Array.from(svgElements).map(async (svg) => {
+                    try {
+                        const { dataUrl, width, height } = await convertSvgStringToPngDataUrl(svg.outerHTML);
+                        const img = document.createElement('img');
+                        img.src = dataUrl;
+                        img.setAttribute('width', width); 
+                        img.setAttribute('height', height);
+                        svg.parentNode.replaceChild(img, svg);
+                    } catch (err) {
+                        // ignore
+                    }
+                }));
+            }
 
-	            let finalHtml = `
-	                <div style="font-family: 'DejaVu Sans', sans-serif; color: #333333;">
-	                    <div style="min-height: 900px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-	                         <div>
-	                            <h1 style="font-size: 32pt; font-weight: bold; margin-bottom: 20px; color: #000000;">${lessonTitle}</h1>
-	                            <p style="font-size: 18pt; font-style: italic; color: #666666;">${subjectTitle}</p>
-	                            <p style="font-size: 12pt; margin-top: 10px; color: #888;">${docLabel.toUpperCase()} DOCUMENT</p>
-	                         </div>
-	                    </div>
-	                    <div style="page-break-after: always;"></div>
-	                    `;
-
-	            const pages = Array.isArray(lesson.pages) && lesson.pages.length ? lesson.pages : [{ title: lesson.title || '', content: lesson.content || lesson.html || '' }];
-
-	            for (const page of pages) {
-	                const cleanTitle = (page.title || '').replace(/^page\s*\d+\s*[:-]?\s*/i, '');
-                
-	                let rawHtml;
-	                if (isSpecialDoc) {
-	                    rawHtml = page.content || '';
-	                } else {
-	                    const processedContent = processLatex(page.content || '');
-	                    rawHtml = marked.parse(processedContent);
-	                }
-                
-	                if (cleanTitle && !cleanTitle.includes('Unit Learning Plan') && !cleanTitle.includes('Adaptive Teaching Guide')) {
-	                     finalHtml += `<h2 style="color: #2563EB; font-size: 18pt; font-weight: bold; margin-top: 20px; margin-bottom: 10px; text-align: left;">${cleanTitle}</h2>`;
-	                }
-	                finalHtml += `<div style="font-size: 11pt; line-height: 1.5; text-align: justify;">${rawHtml}</div><br />`;
-	            }
-	            finalHtml += '</div>';
-
-	            const processedDiv = preProcessHtmlForExport(finalHtml, isULP ? 'ulp' : (isATG ? 'atg' : 'pdf'));
-
-	            // ... SVG conversion logic stays the same ...
-	            const svgElements = processedDiv.querySelectorAll('svg');
-	            if (svgElements.length > 0) {
-	                await Promise.all(Array.from(svgElements).map(async (svg) => {
-	                    try {
-	                        const { dataUrl, width, height } = await convertSvgStringToPngDataUrl(svg.outerHTML);
-	                        const img = document.createElement('img');
-	                        img.src = dataUrl;
-	                        img.setAttribute('width', width); 
-	                        img.setAttribute('height', height);
-	                        svg.parentNode.replaceChild(img, svg);
-	                    } catch (err) {
-	                        // ignore and continue
-	                    }
-	                }));
-	            }
-
-	            const fileBlob = await htmlToDocx(
-	                processedDiv.innerHTML, 
-	                headerHtml, 
-	                {
-	                    table: { row: { cantSplit: false } }, 
-	                    header: true, 
-	                    footer: true,
-	                    pageNumber: true,
-	                    page: {
-	                        size: pageSize,
-	                        // FIX: Increased TOP margin to 2880 (approx 2 inches) to prevent header overlap
-	                        margin: { top: 2880, right: 1440, bottom: 1440, left: 1440 }
-	                    }
-	                },
-	                footerHtml
-	            );
-            
-	            if (isNativePlatform()) {
-	                await nativeSave(fileBlob, sanitizedFileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', showToast);
-	            } else {
-	                saveAs(fileBlob, sanitizedFileName);
-	            }
-	        } catch (error) {
-	            console.error("Export Error:", error);
-	            showToast("Failed to create Word document.", "error");
-	        } finally {
-	            isExportingRef.current = false;
-	            setExportingLessonId(null);
-	        }
-	    };
-	// --- SMART EXPORT: PDF ---
-	    const handleExportLessonPdf = async (lesson) => {
-	        if (exportingLessonId) return;
-	        setExportingLessonId(lesson.id);
-
-	        const isULP = lesson.contentType === 'teacherGuide';
-	        const isATG = lesson.contentType === 'teacherAtg';
-	        const isSpecialDoc = isULP || isATG;
+            const fileBlob = await htmlToDocx(
+                processedDiv.innerHTML, 
+                headerHtml, 
+                {
+                    table: { row: { cantSplit: false } }, 
+                    header: true, 
+                    footer: true,
+                    pageNumber: true,
+                    page: {
+                        size: pageSize,
+                        margin: { top: 2880, right: 1440, bottom: 1440, left: 1440 }
+                    }
+                },
+                footerHtml
+            );
         
-	        const docLabel = isULP ? "ULP" : (isATG ? "ATG" : "Lesson");
-	        const suffix = isULP ? "_ULP" : (isATG ? "_ATG" : "");
+            if (isNativePlatform()) {
+                await nativeSave(fileBlob, sanitizedFileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', showToast);
+            } else {
+                saveAs(fileBlob, sanitizedFileName);
+            }
+        } catch (error) {
+            console.error("Export Error:", error);
+            showToast("Failed to create Word document.", "error");
+        } finally {
+            isExportingRef.current = false;
+            setExportingLessonId(null);
+        }
+    };
 
-	        const pageSize = isSpecialDoc ? { width: 612, height: 936 } : 'A4';
+    // --- SMART EXPORT: PDF ---
+    const handleExportLessonPdf = async (lesson) => {
+        if (exportingLessonId) return;
+        setExportingLessonId(lesson.id);
+
+        const isULP = lesson.contentType === 'teacherGuide';
+        const isATG = lesson.contentType === 'teacherAtg';
+        const isSpecialDoc = isULP || isATG;
+    
+        const docLabel = isULP ? "ULP" : (isATG ? "ATG" : "Lesson");
+        const suffix = isULP ? "_ULP" : (isATG ? "_ATG" : "");
+
+        const pageSize = isSpecialDoc ? { width: 612, height: 936 } : 'A4';
+        const pageMargins = isSpecialDoc ? [36, 80, 36, 60] : [40, 80, 40, 80];
+
+        showToast(`Preparing ${docLabel} PDF...`, "info");
+        try {
+            await registerDejaVuFonts();
+            const headerBase64 = await fetchImageAsBase64("/header-port.png").catch(()=>null);
+            const footerBase64 = await fetchImageAsBase64("/Footer.png").catch(()=>null);
         
-	        // FIX 1: INCREASED TOP MARGIN [Left, Top, Right, Bottom]
-	        // Changed Top from 60 to 150 to clear the header image
-	        const pageMargins = isSpecialDoc ? [36, 80, 36, 60] : [40, 80, 40, 80];
+            const pages = Array.isArray(lesson.pages) && lesson.pages.length ? lesson.pages : [{ title: lesson.title || '', content: lesson.content || lesson.html || '' }];
 
-	        showToast(`Preparing ${docLabel} PDF...`, "info");
-	        try {
-	            await registerDejaVuFonts();
-	            const headerBase64 = await fetchImageAsBase64("/header-port.png").catch(()=>null);
-	            const footerBase64 = await fetchImageAsBase64("/Footer.png").catch(()=>null);
+            let lessonContent = [];
+
+            for (const page of pages) {
+                const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
             
-	            const pages = Array.isArray(lesson.pages) && lesson.pages.length ? lesson.pages : [{ title: lesson.title || '', content: lesson.content || lesson.html || '' }];
+                if (cleanTitle && !cleanTitle.includes('Unit Learning Plan') && !cleanTitle.includes('Adaptive Teaching Guide')) {
+                    lessonContent.push({ text: cleanTitle, fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] });
+                }
+            
+                let rawHtml;
+                if (isSpecialDoc) {
+                    rawHtml = page.content || '';
+                } else {
+                    rawHtml = marked.parse(processLatex(page.content || ''));
+                }
 
-	            let lessonContent = [];
+                // Split tables, fix columns, remove fixed widths
+                const processedDiv = preProcessHtmlForExport(rawHtml, isULP ? 'ulp' : (isATG ? 'atg' : 'pdf'));
+            
+                const svgs = processedDiv.querySelectorAll('svg');
+                if (svgs.length) {
+                    await Promise.all(Array.from(svgs).map(async (svg) => {
+                        try {
+                            const res = await convertSvgStringToPngDataUrl(svg.outerHTML);
+                            const img = document.createElement('img');
+                            img.src = res.dataUrl; img.width = res.width;
+                            svg.parentNode.replaceChild(img, svg);
+                        } catch (e) {
+                            // ignore
+                        }
+                    }));
+                }
+            
+                const finalHtml = processedDiv.innerHTML;
+            
+                let pdfBody = htmlToPdfmake(finalHtml, { 
+                    defaultStyles: { 
+                        fontSize: 6, 
+                        lineHeight: 1.1, 
+                        alignment: 'justify' 
+                    },
+                    tableAutoSize: true, 
+                    imagesByReference: true
+                });
 
-	            for (const page of pages) {
-	                const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
-                
-	                if (cleanTitle && !cleanTitle.includes('Unit Learning Plan') && !cleanTitle.includes('Adaptive Teaching Guide')) {
-	                    lessonContent.push({ text: cleanTitle, fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] });
-	                }
-                
-	                let rawHtml;
-	                if (isSpecialDoc) {
-	                    rawHtml = page.content || '';
-	                } else {
-	                    rawHtml = marked.parse(processLatex(page.content || ''));
-	                }
+                if (!Array.isArray(pdfBody)) {
+                    if (pdfBody.content && Array.isArray(pdfBody.content)) {
+                        pdfBody = pdfBody.content;
+                    } else {
+                        pdfBody = [pdfBody];
+                    }
+                }
 
-	                // FIX 2: Ensure we use the robust 'ulp' mode for pre-processing
-	                // This splits the tables and fixes the columns BEFORE pdf conversion
-	                const processedDiv = preProcessHtmlForExport(rawHtml, isULP ? 'ulp' : (isATG ? 'atg' : 'pdf'));
-                
-	                // Convert SVGs in the DOM to images
-	                const svgs = processedDiv.querySelectorAll('svg');
-	                if (svgs.length) {
-	                    await Promise.all(Array.from(svgs).map(async (svg) => {
-	                        try {
-	                            const res = await convertSvgStringToPngDataUrl(svg.outerHTML);
-	                            const img = document.createElement('img');
-	                            img.src = res.dataUrl; img.width = res.width;
-	                            svg.parentNode.replaceChild(img, svg);
-	                        } catch (e) {
-	                            // ignore
-	                        }
-	                    }));
-	                }
-                
-	                const finalHtml = processedDiv.innerHTML;
-                
-	                let pdfBody = htmlToPdfmake(finalHtml, { 
-	                    defaultStyles: { 
-	                        fontSize: 6, 
-	                        lineHeight: 1.1, 
-	                        alignment: 'justify' 
-	                    },
-	                    tableAutoSize: true, 
-	                    imagesByReference: true
-	                });
+                // Clean and sanitize pdfBody to enforce widths and prevent overflow
+                cleanUpPdfContent(pdfBody, isULP ? 'ulp' : (isATG ? 'atg' : 'pdf'));
 
-	                if (!Array.isArray(pdfBody)) {
-	                    if (pdfBody.content && Array.isArray(pdfBody.content)) {
-	                        pdfBody = pdfBody.content;
-	                    } else {
-	                        pdfBody = [pdfBody];
-	                    }
-	                }
+                if (pdfBody.length > 0) {
+                    lessonContent.push(...pdfBody);
+                }
+            }
 
-	                // Clean and sanitize pdfBody to enforce widths and prevent overflow
-	                cleanUpPdfContent(pdfBody, isULP ? 'ulp' : (isATG ? 'atg' : 'pdf'));
+            const docDef = {
+                pageSize: pageSize,
+                pageMargins: pageMargins,
+                header: headerBase64 ? { margin: [0, 20, 0, 0], stack: [{ image: "headerImg", width: 450, alignment: "center" }] } : undefined,
+                footer: footerBase64 ? { margin: [0, 0, 0, 20], stack: [{ image: "footerImg", width: 450, alignment: "center" }] } : undefined,
+                content: [
+                    { text: lesson.title || '', fontSize: 28, bold: true, alignment: "center", margin: [0, 12, 0, 8] },
+                    { text: subject?.title || "", fontSize: 14, italics: true, alignment: "center", color: '#555555', margin: [0, 0, 0, 10], pageBreak: "after" },
+                    ...lessonContent
+                ],
+                images: {},
+                defaultStyle: { font: 'DejaVu' }
+            };
 
-	                if (pdfBody.length > 0) {
-	                    lessonContent.push(...pdfBody);
-	                }
-	            }
+            if (headerBase64) docDef.images.headerImg = headerBase64;
+            if (footerBase64) docDef.images.footerImg = footerBase64;
 
-	            const docDef = {
-	                pageSize: pageSize,
-	                pageMargins: pageMargins,
-	                // FIX 3: Ensure header has enough margin from the top edge
-	                header: headerBase64 ? { margin: [0, 20, 0, 0], stack: [{ image: "headerImg", width: 450, alignment: "center" }] } : undefined,
-	                footer: footerBase64 ? { margin: [0, 0, 0, 20], stack: [{ image: "footerImg", width: 450, alignment: "center" }] } : undefined,
-	                content: [
-	                    { text: lesson.title || '', fontSize: 28, bold: true, alignment: "center", margin: [0, 12, 0, 8] },
-	                    { text: subject?.title || "", fontSize: 14, italics: true, alignment: "center", color: '#555555', margin: [0, 0, 0, 10], pageBreak: "after" },
-	                    ...lessonContent
-	                ],
-	                images: {},
-	                defaultStyle: { font: 'DejaVu' }
-	            };
+            const pdfDoc = pdfMake.createPdf(docDef);
+            if (isNativePlatform()) {
+                pdfDoc.getBlob(b => nativeSave(b, `${(lesson.title || 'export').replace(/[^a-z0-9]/gi, '_')}${suffix}.pdf`, 'application/pdf', showToast));
+            } else {
+                pdfDoc.download(`${(lesson.title || 'export').replace(/[^a-z0-9]/gi, '_')}${suffix}.pdf`);
+            }
+            
+        } catch (e) { 
+            console.error("PDF Export Error:", e);
+            showToast("PDF Error: " + (e.message || e), "error"); 
+        }
+        setExportingLessonId(null);
+    };
 
-	            if (headerBase64) docDef.images.headerImg = headerBase64;
-	            if (footerBase64) docDef.images.footerImg = footerBase64;
-
-	            const pdfDoc = pdfMake.createPdf(docDef);
-	            if (isNativePlatform()) {
-	                pdfDoc.getBlob(b => nativeSave(b, `${(lesson.title || 'export').replace(/[^a-z0-9]/gi, '_')}${suffix}.pdf`, 'application/pdf', showToast));
-	            } else {
-	                pdfDoc.download(`${(lesson.title || 'export').replace(/[^a-z0-9]/gi, '_')}${suffix}.pdf`);
-	            }
-                
-	        } catch (e) { 
-	            console.error("PDF Export Error:", e);
-	            showToast("PDF Error: " + (e.message || e), "error"); 
-	        }
-	        setExportingLessonId(null);
-	    };
-	
     const handleAction = useCallback((type, item) => {
         switch(type) {
             case 'select': onSetActiveUnit(item); break;
