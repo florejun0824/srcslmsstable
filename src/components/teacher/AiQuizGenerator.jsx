@@ -11,8 +11,8 @@ import {
     ExclamationTriangleIcon,
     ArrowDownTrayIcon,
     DocumentTextIcon,
-    XMarkIcon,           // <--- Added this
-    DocumentArrowUpIcon  // <--- Added this
+    XMarkIcon,           // Fixed: Added missing import
+    DocumentArrowUpIcon  // Fixed: Added missing import
 } from '@heroicons/react/24/outline';
 import mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -69,13 +69,16 @@ const processChunkWithRetry = async (chunk, promptTemplate, isGenerationRunningR
             if (!isGenerationRunningRef.current) throw new Error("Processing aborted by user.");
             
             const parsed = robustJsonParse(aiResponse);
-            await new Promise(res => setTimeout(res, 500));
+            // Slight delay to be gentle on the API
+            await new Promise(res => setTimeout(res, 300));
             return parsed; 
 
         } catch (error) {
             if (!isGenerationRunningRef.current) throw new Error("Processing aborted by user.");
             console.warn(`Attempt ${attempt + 1} failed:`, error.message);
+            
             if (attempt === maxRetries - 1) throw error; 
+            // Exponential backoff
             await new Promise(res => setTimeout(res, 1000 * Math.pow(2, attempt)));
         }
     }
@@ -335,11 +338,12 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             
             setProgressPercent(20);
 
-            // 1. SMART SPLIT
+            // 1. SMALLER CHUNKS FOR MATH SAFETY
+            // 1500 chars is roughly 5-8 questions. This ensures AI processes it fast (<10s).
             const lines = fullText.split('\n');
             const chunks = [];
             let currentChunk = "";
-            const MAX_CHUNK_SIZE = 2500; 
+            const MAX_CHUNK_SIZE = 1500; // <--- OPTIMIZED FOR 5-8 QUESTIONS
 
             for (let line of lines) {
                 if ((currentChunk.length + line.length) > MAX_CHUNK_SIZE) {
@@ -359,10 +363,13 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
 
                 const chunk = chunks[i];
                 const isFirstChunk = i === 0;
-                const currentProgress = 20 + Math.round(((i + 1) / chunks.length) * 70);
                 
+                // Calculate progress
+                const currentProgress = 20 + Math.round(((i + 1) / chunks.length) * 70);
                 setProgressPercent(currentProgress);
-                setProgressMessage(`Processing section ${i + 1} of ${chunks.length}...`);
+                
+                // Inform user which batch we are on
+                setProgressMessage(`Processing batch ${i + 1} of ${chunks.length}...`);
 
                 // --- UNIVERSAL PROMPT (TEXT + MATH + FILIPINO) ---
                 const promptTemplate = `
@@ -371,7 +378,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 
                 **LANGUAGE RULES:**
                 1. **VERBATIM:** Copy the text EXACTLY as it appears. 
-                2. **NO TRANSLATION:** If the text is in Filipino/Tagalog, keep it in Filipino/Tagalog. If it is English, keep it in English.
+                2. **NO TRANSLATION:** If text is Filipino, keep it Filipino.
                 
                 **MATH RULES (Apply ONLY if Math Symbols are present):**
                 1. Convert rational exponents like "x12" to "$x^{1/2}$".
@@ -442,6 +449,22 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             isGenerationRunning.current = false;
         }
     };
+
+    // --- THEME ---
+    const themeStyles = useMemo(() => {
+         return {
+            bgGradient: 'bg-[#f5f5f7] dark:bg-[#121212]',
+            panelBg: 'bg-white/60 dark:bg-[#1e1e1e]/60',
+            borderColor: 'border-white/20 dark:border-white/10',
+            textColor: 'text-slate-900 dark:text-white',
+            subText: 'text-slate-500 dark:text-slate-400',
+            buttonGradient: 'bg-[#007AFF] hover:bg-[#0062CC]', 
+            iconBg: 'bg-indigo-100 dark:bg-indigo-900/30',
+            progressColor: 'text-indigo-500',
+            accentColor: 'text-indigo-500',
+            uploadBorder: 'border-slate-300 dark:border-slate-600 hover:border-indigo-400'
+        };
+    }, []);
 
     return (
         <div className={`flex flex-col h-full font-sans overflow-hidden transition-colors duration-500`}>
