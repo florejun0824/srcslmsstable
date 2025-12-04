@@ -207,16 +207,37 @@ const convertSvgStringToPngDataUrl = (svgString) => {
     });
 }
 
-// Lazy Imports
-const AddLessonModal = lazy(() => import('./AddLessonModal'));
-const AddQuizModal = lazy(() => import('./AddQuizModal'));
-const EditLessonModal = lazy(() => import('./EditLessonModal'));
-const ViewLessonModal = lazy(() => import('./ViewLessonModal'));
-const EditUnitModal = lazy(() => import('./EditUnitModal'));
-const EditQuizModal = lazy(() => import('./EditQuizModal.jsx'));
-const ViewQuizModal = lazy(() => import('./ViewQuizModal'));
-const AiQuizModal = lazy(() => import('./AiQuizModal'));
-const AiGenerationHub = lazy(() => import('./AiGenerationHub'));
+// --- LAZY RETRY HELPER (Fixes "Failed to fetch dynamically imported module") ---
+const lazyWithRetry = (componentImport) =>
+  lazy(async () => {
+    const pageHasAlreadyBeenForceRefreshed = JSON.parse(
+      window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
+    );
+
+    try {
+      const component = await componentImport();
+      window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');
+      return component;
+    } catch (error) {
+      if (!pageHasAlreadyBeenForceRefreshed) {
+        // Assuming the user is on an old version, refresh the page to get new chunks
+        window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
+        window.location.reload();
+      }
+      throw error;
+    }
+  });
+
+// Lazy Imports with Retry
+const AddLessonModal = lazyWithRetry(() => import('./AddLessonModal'));
+const AddQuizModal = lazyWithRetry(() => import('./AddQuizModal'));
+const EditLessonModal = lazyWithRetry(() => import('./EditLessonModal'));
+const ViewLessonModal = lazyWithRetry(() => import('./ViewLessonModal'));
+const EditUnitModal = lazyWithRetry(() => import('./EditUnitModal'));
+const EditQuizModal = lazyWithRetry(() => import('./EditQuizModal.jsx'));
+const ViewQuizModal = lazyWithRetry(() => import('./ViewQuizModal'));
+const AiQuizModal = lazyWithRetry(() => import('./AiQuizModal'));
+const AiGenerationHub = lazyWithRetry(() => import('./AiGenerationHub'));
 
 // Skeleton
 const ContentListSkeleton = () => (

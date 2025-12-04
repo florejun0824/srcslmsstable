@@ -566,20 +566,33 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
         - Group all items. Generate a single \`choicesBox\` with all answers plus ONE distractor.
         - **DO NOT start questions with the word "Identify".** Since the instruction already says "Identify the term," using it again is redundant.
         - Phrase the question as a declarative statement, description, or definition.
-        - *Correct Example:* "It is the factor that..." or "This internal disposition leads a person to..."
 
     6.  **MATCHING TYPE (STRICT):** - **ONLY applies if Test Type is 'Matching Type'.**
         - Use the \`"type": "matching-type"\` format with \`prompts\`, \`options\`, \`correctPairs\`, and one distractor in \`options\`. The entire test for this range must be a SINGLE object in the "questions" array.
     
-    7.  **CONTENT ADHERENCE & TOPIC FIDELITY (ABSOLUTE RULE):**
-        - All questions, options, and explanations MUST be derived STRICTLY and SOLELY from the provided **Lesson Content**.
+    7.  **CONTENT ADHERENCE (FACTUAL):**
+        - All questions, options, and explanations MUST be derived STRICTLY and SOLELY from the facts in the provided **Lesson Content**.
     
-    8.  **EXPLANATION STYLE (STRICT):**
+    8.  **EXPLANATION STYLE:**
         - You **MUST** provide an "explanation" for every item (except Essay).
         - **Style:** Short, concise, and direct. State the fact or concept as a general truth.
         - **Forbidden Phrases:** DO NOT use phrases like "According to the lesson", "The text says", "As shown in the passage", or "The answer is correct because".
         - *Bad:* "According to the lesson, the sun is a star."
         - *Good:* "The sun is a star composed primarily of hydrogen and helium."
+    
+    9.  **QUESTION PHRASING (STRICT NO META-REFERENCES):**
+        - Questions MUST sound like standalone academic questions.
+        - **ABSOLUTELY FORBIDDEN PHRASES:** Do NOT use phrases that refer to the source material in the question stem or explanation, such as:
+          - "According to the lesson..."
+          - "Based on the text provided..."
+          - "As mentioned in the material..."
+          - "In the research cycle described..."
+          - "Based on the formal definition cited..."
+        - **Examples:**
+          - *Bad:* "According to the lesson, what is the first step of research?"
+          - *Good:* "What is the first step of the research process?"
+          - *Bad:* "Based on the text, who is the father of biology?"
+          - *Good:* "Who is considered the father of biology?"
     `;
 };
 
