@@ -501,7 +501,7 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
     const { language, combinedContent, gradeLevel } = guideData;
     const { type, numItems, range } = testType;
     
-    // Normalize type for the JSON field (e.g., "Multiple Choice" -> "multiple_choice")
+    // Normalize type for the JSON field
     const normalizedType = type.toLowerCase().replace(/\s+/g, '_');
     const isSingleQuestionType = normalizedType.includes('essay') || normalizedType.includes('solving');
     
@@ -516,11 +516,14 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
     {
         "questions": [
             { 
-                "questionNumber": 1, // Start numbering from the 'range'
-                "type": "${normalizedType}", // MUST BE EXACTLY "${normalizedType}"
+                "questionNumber": 1, 
+                "type": "${normalizedType}", 
                 "instruction": "...", 
                 "question": "...", 
-                // ... include 'options' ONLY if Multiple Choice. Include 'answer' or 'correctAnswer'.
+                "correctAnswer": "...",
+                "explanation": "Short, general statement verifying the answer.", 
+                "solution": "Step-by-step calculation (ONLY if type is Solving)."
+                // ... include 'options' ONLY if Multiple Choice.
             }
         ]
     }
@@ -570,7 +573,13 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
     
     7.  **CONTENT ADHERENCE & TOPIC FIDELITY (ABSOLUTE RULE):**
         - All questions, options, and explanations MUST be derived STRICTLY and SOLELY from the provided **Lesson Content**.
-        - You are **STRICTLY FORBIDDEN** from using any phrases that refer back to the source material (e.g., "According to the lesson").
+    
+    8.  **EXPLANATION STYLE (STRICT):**
+        - You **MUST** provide an "explanation" for every item (except Essay).
+        - **Style:** Short, concise, and direct. State the fact or concept as a general truth.
+        - **Forbidden Phrases:** DO NOT use phrases like "According to the lesson", "The text says", "As shown in the passage", or "The answer is correct because".
+        - *Bad:* "According to the lesson, the sun is a star."
+        - *Good:* "The sun is a star composed primarily of hydrogen and helium."
     `;
 };
 
@@ -942,15 +951,17 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
 	            .map(q => {
 	                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
             
-	                const questionText = (normalizedType === 'interpretive' && q.passage)
-	                    ? `${q.passage}\n\n${q.question || ''}`
-	                    : (q.question || 'Missing question text from AI.');
+                const questionText = (normalizedType === 'interpretive' && q.passage)
+                    ? `${q.passage}\n\n${q.question || ''}`
+                    : (q.question || 'Missing question text from AI.');
 
-	                const baseQuestion = {
-	                    text: questionText,
-	                    difficulty: q.difficulty || 'easy',
-	                    explanation: q.explanation || '',
-	                };
+                // UPDATED CODE START
+                const baseQuestion = {
+                    text: questionText,
+                    difficulty: q.difficulty || 'easy',
+                    // Check explanation, fallback to solution, fallback to empty string
+                    explanation: q.explanation || q.solution || '', 
+                };
 
 	                // --- 1. Multiple Choice / Analogy ---
 	                if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
