@@ -628,24 +628,36 @@ const TeacherDashboard = () => {
                     - **DO** elaborate on the concepts, provide context, or suggest how to explain the specific bullet points to students.
                     - If the slide is an Answer Key, the talking points should simply say "Review the answers with the class."
 
-	                **JSON SCHEMA (Strict):**
-	                {
-	                  "slides": [
-	                    {
-	                      "title": "Clear, Short Slide Title",
-	                      "body": "The visible slide content (Use bullet points for lists, clear short paragraphs for concepts)",
-	                      "notes": { 
-                            "talkingPoints": "Comprehensive script for the teacher (3-5 sentences minimum)...", 
-                            "interactiveElement": "A quick question to ask the class based on this slide...", 
-                            "slideTiming": "e.g. 2 mins" 
-                          }
-	                    }
-	                  ]
-	                }
+			**STRUCTURE INSTRUCTIONS:**
+			    1. If the content is text-heavy, put it in the "body" field.
+			    2. **IF** the content contains structured data (e.g., a schedule, a comparison chart, a list of dates/events, or a quiz key), **DO NOT** put it in the "body". Instead, format it into the "tableData" field.
+			    3. If using "tableData", you can leave "body" empty or use it for a very short intro sentence.
 
-	                **CONTENT TO PROCESS:**
-	                ${page.content}
-	            `;
+			    **JSON SCHEMA (Strict):**
+			    {
+			      "slides": [
+			        {
+			          "title": "Slide Title",
+			          "body": "Text content (or empty if using tableData)...", 
+			          "tableData": {
+			              "headers": ["Column 1", "Column 2"],
+			              "rows": [
+			                  ["Row 1 Data", "Row 1 Data"],
+			                  ["Row 2 Data", "Row 2 Data"]
+			              ]
+			          },
+			          "notes": { 
+			            "talkingPoints": "Comprehensive script for the teacher...", 
+			            "interactiveElement": "A quick question...", 
+			            "slideTiming": "e.g. 2 mins" 
+			          }
+			        }
+			      ]
+			    }
+
+			    **CONTENT TO PROCESS:**
+			    ${page.content}
+			`;
                 // --- UPDATED PROMPT END ---
 	            try {
 	                const aiResponseText = await callGeminiWithLimitCheck(prompt);

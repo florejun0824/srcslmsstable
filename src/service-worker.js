@@ -27,7 +27,7 @@ registerRoute(
     }
     return true;
   },
-  createHandlerBoundToURL(process.env.PUBLIC_URL + '/index.html')
+  createHandlerBoundToURL('/index.html')
 );
 
 // --- FIX APPLIED HERE ---

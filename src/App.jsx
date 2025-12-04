@@ -19,7 +19,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar } from '@capacitor/status-bar';
 import { PushNotifications } from '@capacitor/push-notifications';
-import { useAuth } from './contexts/AuthContext'; 
+import { useAuth } from './contexts/AuthContext';
+import { useToast } from './contexts/ToastContext'; // <--- IMPORTED TOAST CONTEXT
 import { handleAuthRedirect, createPresentationFromData } from './services/googleSlidesService';
 import PostLoginExperience from "./components/PostLoginExperience";
 import UpdateOverlay from './components/UpdateOverlay';
@@ -36,6 +37,83 @@ const TestPage = lazy(() => import('./pages/TestPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 
 const AVERAGE_BUILD_SECONDS = 300;
+
+// --- SYSTEM STATUS LISTENER (Version + Connectivity) ---
+// Handles app updates and online/offline notifications
+const SystemStatusListener = () => {
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    // 1. Version Check Logic
+    const checkVersion = async () => {
+      // Don't check version if offline to avoid errors
+      if (!navigator.onLine) return;
+
+      try {
+        // Fetch version.json with a timestamp to bypass any cache
+        const res = await fetch('/version.json?t=' + new Date().getTime());
+        if (!res.ok) return;
+        
+        const data = await res.json();
+        const serverVersion = data.version;
+        const localVersion = localStorage.getItem('app_version');
+
+        // If versions exist and don't match, we have an update
+        if (localVersion && localVersion !== serverVersion) {
+            console.log(`New version detected: ${serverVersion}. Updating from ${localVersion}`);
+            
+            // 1. Update the local storage
+            localStorage.setItem('app_version', serverVersion);
+            localStorage.setItem("hologram_update_pending", "true"); // Flag for UI
+            
+            // 2. Unregister service workers to clear the old cache
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (const registration of registrations) {
+                    await registration.unregister();
+                }
+            }
+            
+            // 3. Force reload
+            window.location.reload(true);
+        } else {
+            // First run or same version, just update storage
+            localStorage.setItem('app_version', serverVersion);
+        }
+      } catch (err) {
+        console.error('Failed to check version:', err);
+      }
+    };
+
+    // 2. Connectivity Event Handlers
+    const handleOnline = () => {
+        showToast("You are back online. Syncing data...", "success");
+        checkVersion(); // Immediately check for updates when connection returns
+    };
+
+    const handleOffline = () => {
+        showToast("You are currently working offline. Some features may be limited.", "warning");
+    };
+
+    // 3. Register Listeners
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // 4. Initial Check & Interval
+    checkVersion();
+    
+    // Check again every 5 minutes (useful for users who keep tabs open)
+    const interval = setInterval(checkVersion, 5 * 60 * 1000);
+
+    return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+        clearInterval(interval);
+    };
+  }, [showToast]);
+
+  return null;
+};
 
 // --- SKELETONS ---
 
@@ -403,7 +481,7 @@ export default function App() {
   }, []);
 
   const handleEnter = () => {
-  // 1. ADD THIS LINE: Flag that we are reloading due to an update
+  // 1. Flag that we are reloading due to an update
       localStorage.setItem("hologram_update_pending", "true");
     if (waitingWorker) {
       navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -425,6 +503,10 @@ export default function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-900 dark:text-slate-100 min-h-screen">
+        
+        {/* --- SYSTEM STATUS LISTENER (NEW) --- */}
+        <SystemStatusListener />
+        
         <AppRouter />
       </div>
     </BrowserRouter>

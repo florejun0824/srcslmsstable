@@ -57,10 +57,8 @@ export const handleAuthRedirect = async () => {
 };
 
 const findOrCreateFolder = async (folderName, parentFolderId = 'root') => {
-    // --- THIS IS FIX #2 (Drive API Error) ---
     // Apostrophes in folder names must be escaped in Drive queries.
     const escapedFolderName = folderName.replace(/'/g, "\\'");
-    // --- END OF FIX ---
 
     const response = await window.gapi.client.drive.files.list({
         // Use the escapedFolderName here
@@ -99,9 +97,6 @@ const findShapeByTextTag = (pageElements, tag) => {
     }
     return null;
 };
-
-// --- REMOVED THE findSpeakerNotesObjectId FUNCTION ---
-// We will get this info directly from the slide object in the loop.
 
 export const createPresentationFromData = async (slideData, presentationTitle, subjectName, unitName) => {
     try {
@@ -149,7 +144,82 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                 populateRequests.push({ insertText: { objectId: titleShape.objectId, text: cleanText(data.title) } });
             }
 
-            if (bodyShape) {
+            // --- TABLE VS BODY LOGIC ---
+            const hasTableData = data.tableData && 
+                                 data.tableData.rows && 
+                                 data.tableData.rows.length > 0 &&
+                                 data.tableData.headers;
+
+            if (hasTableData && bodyShape) {
+                // A. HANDLE TABLE
+                // 1. Calculate dimensions
+                const rows = data.tableData.rows.length + 1; // +1 for header
+                const cols = data.tableData.headers.length;
+                const tableId = `table_${slide.objectId}`;
+
+                // 2. Delete the {{body}} text placeholder
+                populateRequests.push({ 
+                    deleteObject: { objectId: bodyShape.objectId } 
+                });
+
+                // 3. Create the Table in the exact same spot
+                populateRequests.push({
+                    createTable: {
+                        objectId: tableId,
+                        elementProperties: {
+                            pageObjectId: slide.objectId,
+                            transform: bodyShape.transform, // Use placeholder position
+                            size: bodyShape.size            // Use placeholder size
+                        },
+                        rows: rows,
+                        columns: cols
+                    }
+                });
+
+                // 4. Helper to insert text into specific cells
+                const addCellText = (rIndex, cIndex, text, isHeader = false) => {
+                    // Insert Text
+                    populateRequests.push({
+                        insertText: {
+                            objectId: tableId,
+                            cellLocation: { rowIndex: rIndex, columnIndex: cIndex },
+                            text: String(text || ""),
+                            insertionIndex: 0
+                        }
+                    });
+                    
+                    // Optional: Make Header Bold
+                    if (isHeader) {
+                        populateRequests.push({
+                            updateTextStyle: {
+                                objectId: tableId,
+                                cellLocation: { rowIndex: rIndex, columnIndex: cIndex },
+                                style: { bold: true },
+                                textRange: { type: 'ALL' },
+                                fields: 'bold'
+                            }
+                        });
+                    }
+                };
+
+                // 5. Fill Header Row (Row 0)
+                data.tableData.headers.forEach((header, colIndex) => {
+                    addCellText(0, colIndex, header, true);
+                });
+
+                // 6. Fill Data Rows (Row 1+)
+                data.tableData.rows.forEach((row, rowIndex) => {
+                    if (Array.isArray(row)) {
+                         row.forEach((cellText, colIndex) => {
+                             if (colIndex < cols) {
+                                addCellText(rowIndex + 1, colIndex, cellText);
+                             }
+                         });
+                    }
+                });
+
+            } else if (bodyShape) {
+                // B. HANDLE STANDARD TEXT BODY (Fallback)
                 const cleanedBodyText = cleanText(data.body).replace(/\n{2,}/g, '\n');
                 populateRequests.push({ deleteText: { objectId: bodyShape.objectId, textRange: { type: 'ALL' } } });
                 populateRequests.push({ insertText: { objectId: bodyShape.objectId, text: cleanedBodyText } });
@@ -173,9 +243,7 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
             // This is the notes *string* from TeacherDashboard.jsx
             const formattedNotes = data.notes;
             
-            // FIX: Access notesPage via slideProperties.
-            // In the Google Slides API, the notesPage is a property of slideProperties,
-            // not a direct property of the slide (Page) object.
+            // Access notesPage via slideProperties
             const notesPageId = slide.slideProperties?.notesPage?.objectId;
             let speakerNotesObjectId = slide.slideProperties?.notesPage?.notesProperties?.speakerNotesObjectId;
             
@@ -194,7 +262,6 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                             elementProperties: {
                                 pageObjectId: notesPageId,
                                 // A standard size and position for a notes box
-                                // (These values are typical for a 16:9 slide)
                                 size: { height: { magnitude: 400, unit: 'PT' }, width: { magnitude: 550, unit: 'PT' } },
                                 transform: { scaleX: 1, scaleY: 1, translateX: 35, translateY: 60, unit: 'PT' }
                             }
@@ -213,8 +280,7 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                     });
                 }
                 
-                // 3. Now that we're SURE speakerNotesObjectId exists (or will exist),
-                // add requests to clear old text and insert the new notes.
+                // 3. Clear old text and insert the new notes.
                 populateRequests.push({
                     deleteText: {
                         objectId: speakerNotesObjectId,
@@ -229,11 +295,11 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                     }
                 });
             }
-            // --- END OF MODIFIED LOGIC ---
         }
 
         if (populateRequests.length > 0) {
-            const batchSize = 500; // Google's limit is ~1500, 500 is safe.
+            // Reduced batch size to 100 to be safe with Table generation which creates many requests per slide
+            const batchSize = 100;
             for (let i = 0; i < populateRequests.length; i += batchSize) {
                 const batch = populateRequests.slice(i, i + batchSize);
                 await window.gapi.client.slides.presentations.batchUpdate({ presentationId, requests: batch });
