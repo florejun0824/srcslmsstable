@@ -39,6 +39,7 @@ const robustJsonParse = (text) => {
         throw new Error("No JSON structure found");
     } catch (e) {
         console.warn("Strict JSON parse failed, attempting regex salvage...", e);
+        // Fallback: Regex extraction of individual question objects
         const questionMatches = text.match(/\{[\s\S]*?"text"[\s\S]*?"type"[\s\S]*?\}/g);
         
         if (questionMatches && questionMatches.length > 0) {
@@ -69,9 +70,8 @@ const processChunkWithRetry = async (chunk, promptTemplate, isGenerationRunningR
             if (!isGenerationRunningRef.current) throw new Error("Processing aborted by user.");
             
             const parsed = robustJsonParse(aiResponse);
-            
-            // INCREASED DELAY: Since we make more calls (smaller chunks), we wait longer to avoid rate limits
-            await new Promise(res => setTimeout(res, 1500)); 
+            // Increased delay to prevent rate limits during heavy math processing
+            await new Promise(res => setTimeout(res, 2000)); 
             return parsed; 
 
         } catch (error) {
@@ -79,6 +79,7 @@ const processChunkWithRetry = async (chunk, promptTemplate, isGenerationRunningR
             console.warn(`Attempt ${attempt + 1} failed:`, error.message);
             
             if (attempt === maxRetries - 1) throw error; 
+            // Exponential backoff
             await new Promise(res => setTimeout(res, 2000 * Math.pow(2, attempt)));
         }
     }
@@ -136,6 +137,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             return text;
         } else if (fileToProcess.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
             const arrayBuffer = await fileToProcess.arrayBuffer();
+            // Use convertToHtml to preserve subscripts/superscripts (vital for math)
             const result = await mammoth.convertToHtml({ arrayBuffer });
             return result.value; 
         } else if (fileToProcess.type === 'text/plain') {
@@ -168,6 +170,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             if (firstIdentWithChoices) {
                 const rawBox = firstIdentWithChoices.choicesBox;
                 if (Array.isArray(rawBox)) {
+                     // FIX: Ensure strings to avoid [object Object]
                      globalIdentChoices = rawBox.map(c => (typeof c === 'object' && c !== null ? c.text || c.value : String(c)));
                 } else {
                      globalIdentChoices = [String(rawBox)];
@@ -202,10 +205,12 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             const formattedQuestions = uniqueQuestions.map(q => {
                 const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
                 
+                // Clean HTML tags but PRESERVE LaTeX ($...$)
                 const questionText = (normalizedType === 'interpretive' && q.passage)
                     ? `${q.passage}\n\n${q.question || ''}`
                     : (q.question || q.text || 'Question text missing');
                 
+                // Remove generic HTML tags but preserve LaTeX logic
                 const cleanText = String(questionText).replace(/<(?!\/?(span|strong|u|em)\b)[^>]+>/gi, ""); 
 
                 const baseQuestion = {
@@ -214,14 +219,17 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                     explanation: q.explanation || q.solution || '', 
                 };
 
-                // 1. Multiple Choice
+                // --- 1. Multiple Choice ---
                 if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
                     const options = q.options || [];
                     const rawAnswer = q.correctAnswer || '';
                     const cleanAnswerText = String(rawAnswer).replace(/^[a-d][\.\)]\s*/i, '').trim();
 
+                    // CRITICAL FIX: Ensure options are strings, not objects
                     const stringOptions = options.map(opt => {
-                         if (typeof opt === 'object' && opt !== null) return opt.text || String(opt);
+                         if (typeof opt === 'object' && opt !== null) {
+                             return opt.text || opt.value || JSON.stringify(opt);
+                         }
                          return String(opt);
                     });
 
@@ -235,6 +243,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                         }
                     }
                     if (correctIndex === -1) {
+                        // Fuzzy Fallback
                         correctIndex = stringOptions.findIndex(opt => {
                             const cleanOpt = opt.toLowerCase().replace(/[^a-z0-9]/g, '');
                             const cleanKey = cleanAnswerText.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -247,6 +256,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                     return {
                         ...baseQuestion,
                         type: 'multiple-choice',
+                        // Save as objects for the Quiz Player compatibility
                         options: stringOptions.map((opt, idx) => ({ 
                             text: opt, 
                             isCorrect: idx === correctIndex 
@@ -255,7 +265,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                     };
                 }
                 
-                // 2. True/False
+                // --- 2. True/False ---
                 if (normalizedType === 'alternative_response' || normalizedType === 'true_false') {
                     let isTrue = false;
                     if (typeof q.correctAnswer === 'string') {
@@ -265,7 +275,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                     return { ...baseQuestion, type: 'true-false', correctAnswer: isTrue };
                 }
                 
-                // 3. Identification
+                // --- 3. Identification ---
                 if (normalizedType === 'identification' || normalizedType === 'solving') {
                     return {
                         ...baseQuestion,
@@ -275,7 +285,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                     };
                 }
                 
-                // 4. Matching Type
+                // --- 4. Matching Type ---
                 if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
                     return {
                         ...baseQuestion,
@@ -287,7 +297,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                     };
                 }
                 
-                // 5. Essay
+                // --- 5. Essay ---
                 if (normalizedType === 'essay') {
                     return { ...baseQuestion, type: 'essay', rubric: q.rubric || [] };
                 }
@@ -342,7 +352,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             const lines = fullText.split('\n');
             const chunks = [];
             let currentChunk = "";
-            const MAX_CHUNK_SIZE = 800; // Reduced from 2500 to 800 (approx 2-3 questions)
+            const MAX_CHUNK_SIZE = 800; // <--- Reduced to prevent 502 Timeout on complex math
 
             for (let line of lines) {
                 if ((currentChunk.length + line.length) > MAX_CHUNK_SIZE) {
@@ -366,24 +376,27 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 const currentProgress = 20 + Math.round(((i + 1) / chunks.length) * 70);
                 setProgressPercent(currentProgress);
                 
-                // Detailed progress message prevents user thinking it's stuck
-                setProgressMessage(`Analysing batch ${i + 1} of ${chunks.length} (Math Mode)...`);
+                // Detailed progress message for user feedback
+                setProgressMessage(`Analysing batch ${i + 1} of ${chunks.length}...`);
 
-                // --- SHORT PROMPT TO SAVE TOKENS ---
+                // --- MATH REPAIR PROMPT ---
                 const promptTemplate = `
-                Expert Data Entry. Convert text to JSON.
+                You are an Expert Math Teacher & Data Entry Specialist.
+                **TASK:** Convert quiz text to strict JSON.
                 
-                **LANGUAGE:** Copy text VERBATIM. DO NOT TRANSLATE.
+                **MATH REPAIR RULES (CRITICAL):**
+                Source text often mangles equations (e.g. "x-1y-2" instead of exponents).
+                1. **DETECT FRACTIONS:** If you see something like "x-1y-2 / x-1y-4" or piled variables, convert to LaTeX fraction: "$\\\\frac{x^{-1}y^{-2}}{x^{-1}y^{-4}}$".
+                2. **EXPONENTS:** Convert "x2" -> "$x^2$", "x-1" -> "$x^{-1}$".
+                3. **ROOTS:** "sqrt(x)" -> "$\\\\sqrt{x}$".
+                4. **WRAPPER:** ALL math must be inside single dollar signs "$...$".
                 
-                **MATH LATEX RULES (Mandatory):**
-                1. Exponents: "x2" -> "$x^2$", "5-1" -> "$5^{-1}$"
-                2. Rational Exp: "x12" -> "$x^{1/2}$"
-                3. Fractions: "1/2" -> "$\\\\frac{1}{2}$"
-                4. Wrap all math in "$...$"
+                **LANGUAGE:**
+                - Copy text VERBATIM. Do NOT translate Filipino/English.
                 
-                **FORMAT:**
-                - Options: Array of Strings only.
-                - Remove prefixes (1., a.).
+                **FORMATTING:**
+                - Remove prefixes (1., a., b.).
+                - **Options must be STRINGS**. Do NOT return objects.
                 
                 **INPUT:**
                 ---
@@ -392,10 +405,10 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 
                 **JSON:**
                 {
-                  ${isFirstChunk ? '"title": "Title",' : ''}
+                  ${isFirstChunk ? '"title": "Exam Title",' : ''}
                   "questions": [
                     {
-                      "text": "Simplify $x^{-2}$",
+                      "text": "Simplify $\\\\frac{x^{-1}}{y^2}$",
                       "type": "multiple_choice",
                       "options": ["$x^2$", "$\\\\frac{1}{x^2}$"], 
                       "correctAnswer": "$\\\\frac{1}{x^2}$"
