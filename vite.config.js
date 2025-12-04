@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
-import { VitePWA } from "vite-plugin-pwa"; // <--- Import this
+import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 
 export default defineConfig({
@@ -10,16 +10,19 @@ export default defineConfig({
     nodePolyfills({
       protocolImports: true,
     }),
-    // --- ADD PWA PLUGIN CONFIGURATION ---
     VitePWA({
-      strategies: 'injectManifest', // Uses your custom src/service-worker.js
+      strategies: 'injectManifest',
       srcDir: 'src',
-      filename: 'service-worker.js', // Output name matches your registration script
+      filename: 'service-worker.js',
       registerType: 'autoUpdate',
-      injectRegister: false, // You are registering it manually in serviceWorkerRegistration.js
-      manifest: false, // We assume you have a manifest.json in /public already
+      injectRegister: false,
+      manifest: false, 
       devOptions: {
-        enabled: true // Allows testing offline mode in development
+        enabled: true
+      },
+      // --- FIX: Increase the cache limit to 5MB ---
+      injectManifest: {
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
       }
     }),
   ],
