@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useToast } from '../../contexts/ToastContext';
-import { useTheme } from '../../contexts/ThemeContext'; // 1. Import Theme Context
+import { useTheme } from '../../contexts/ThemeContext';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
+import { db } from '../../services/firebase'; 
+import { doc, collection, setDoc, serverTimestamp } from 'firebase/firestore';
 import { 
     ArrowUturnLeftIcon, 
     DocumentArrowUpIcon, 
@@ -9,7 +11,8 @@ import {
     XMarkIcon, 
     SparklesIcon,
     BoltIcon,
-    ExclamationTriangleIcon
+    ExclamationTriangleIcon,
+    ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
 import mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -17,15 +20,16 @@ import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
-export default function AiQuizGenerator({ onBack, onAiComplete }) {
+export default function AiQuizGenerator({ onBack, onAiComplete, unitId, subjectId }) {
     const { showToast } = useToast();
-    const { activeOverlay } = useTheme(); // 2. Get Active Overlay
+    const { activeOverlay } = useTheme(); 
     
     const [file, setFile] = useState(null);
     const [error, setError] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [progressMessage, setProgressMessage] = useState('');
     const [progressPercent, setProgressPercent] = useState(0);
+    const [generatedQuizData, setGeneratedQuizData] = useState(null); 
 
     // --- MONET THEME GENERATOR ---
     const themeStyles = useMemo(() => {
@@ -90,7 +94,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete }) {
                     textColor: 'text-slate-900 dark:text-white',
                     subText: 'text-slate-500 dark:text-slate-400',
                     accentColor: 'text-indigo-500',
-                    buttonGradient: 'bg-[#007AFF] hover:bg-[#0062CC]', // Standard Blue
+                    buttonGradient: 'bg-[#007AFF] hover:bg-[#0062CC]', 
                     iconBg: 'bg-indigo-100 dark:bg-indigo-900/30',
                     progressColor: 'text-indigo-500',
                     uploadBorder: 'border-slate-300 dark:border-slate-600 hover:border-indigo-400'
@@ -102,10 +106,14 @@ export default function AiQuizGenerator({ onBack, onAiComplete }) {
         if (e.target.files.length > 0) {
             setFile(e.target.files[0]);
             setError('');
+            setGeneratedQuizData(null);
         }
     };
 
-    const removeFile = () => setFile(null);
+    const removeFile = () => {
+        setFile(null);
+        setGeneratedQuizData(null);
+    };
 
     const extractTextFromFile = async (fileToProcess) => {
         if (fileToProcess.type === 'application/pdf') {
@@ -114,13 +122,13 @@ export default function AiQuizGenerator({ onBack, onAiComplete }) {
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const content = await page.getTextContent();
-                text += content.items.map((item) => item.str).join(item => item.hasEOL ? '\n' : ' ') + '\n';
+                text += content.items.map((item) => item.str).join(' ') + '\n';
             }
             return text;
         } else if (fileToProcess.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
             const arrayBuffer = await fileToProcess.arrayBuffer();
             const result = await mammoth.convertToHtml({ arrayBuffer });
-            return result.value.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim();
+            return result.value; 
         } else if (fileToProcess.type === 'text/plain') {
             return await fileToProcess.text();
         } else {
@@ -146,28 +154,218 @@ export default function AiQuizGenerator({ onBack, onAiComplete }) {
         }
     };
 
-    // --- ALIGNED GENERATION LOGIC ---
+    // --- SAVING LOGIC (WITH AUTO-GENERATED IDENTIFICATION BOX) ---
+    const saveToFirestore = async (quizData) => {
+        if (!unitId || !subjectId) {
+            showToast("Cannot save: Missing Unit or Subject ID.", "error");
+            return;
+        }
+
+        try {
+            setProgressMessage('Saving to database...');
+            const uniqueQuestions = [];
+            const seenGroupableTypes = new Set();
+        
+            // 1. EXTRACT EXISTING BOX FROM AI
+            const identQuestions = quizData.questions.filter(q => (q.type||'').toLowerCase().includes('identification'));
+            let globalIdentChoices = null;
+        
+            const firstIdentWithChoices = identQuestions.find(q => q.choicesBox && (Array.isArray(q.choicesBox) || typeof q.choicesBox === 'string'));
+            if (firstIdentWithChoices) {
+                const rawBox = firstIdentWithChoices.choicesBox;
+                if (Array.isArray(rawBox)) {
+                     globalIdentChoices = rawBox.map(c => (typeof c === 'object' ? c.text || c.value : c));
+                } else {
+                     globalIdentChoices = [rawBox];
+                }
+            }
+
+            // 2. AUTO-GENERATE BOX IF MISSING (Your Request Fix)
+            // If the AI didn't find a box in the text, we create one from the answers.
+            if (!globalIdentChoices && identQuestions.length > 0) {
+                console.log("No identification box found in source. Auto-generating from answers...");
+                // Collect all correct answers
+                const collectedAnswers = identQuestions
+                    .map(q => q.correctAnswer || q.answer)
+                    .filter(a => a && typeof a === 'string'); // Filter valid strings
+                
+                // Remove duplicates and set as the global box
+                if (collectedAnswers.length > 0) {
+                    globalIdentChoices = [...new Set(collectedAnswers)];
+                }
+            }
+
+            // --- Deduplication & Formatting ---
+            for (const q of quizData.questions) {
+                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
+                const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type'; 
+
+                if (isGroupable) {
+                    if (!seenGroupableTypes.has(normalizedType)) {
+                        uniqueQuestions.push(q);
+                        seenGroupableTypes.add(normalizedType);
+                    }
+                } else {
+                    uniqueQuestions.push(q);
+                }
+            }
+
+            const formattedQuestions = uniqueQuestions.map(q => {
+                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
+                
+                const questionText = (normalizedType === 'interpretive' && q.passage)
+                    ? `${q.passage}\n\n${q.question || ''}`
+                    : (q.question || q.text || 'Question text missing');
+
+                const baseQuestion = {
+                    text: questionText,
+                    difficulty: q.difficulty || 'easy',
+                    explanation: q.explanation || q.solution || '', 
+                };
+
+                // Multiple Choice
+                if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
+                    const options = q.options || [];
+                    const rawAnswer = q.correctAnswer || '';
+                    const cleanAnswerText = rawAnswer.replace(/^[a-d][\.\)]\s*/i, '').trim();
+
+                    let correctIndex = options.findIndex(opt => opt.trim() === cleanAnswerText);
+                    if (correctIndex === -1) {
+                        const letterMatch = rawAnswer.match(/^([a-d])[\.\)]/i);
+                        if (letterMatch) {
+                            const letterMap = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
+                            correctIndex = letterMap[letterMatch[1].toLowerCase()];
+                        }
+                    }
+                    if (correctIndex === -1) {
+                        correctIndex = options.findIndex(opt => {
+                            const cleanOpt = opt.toLowerCase().replace(/[^a-z0-9]/g, '');
+                            const cleanKey = cleanAnswerText.toLowerCase().replace(/[^a-z0-9]/g, '');
+                            return cleanOpt === cleanKey || cleanOpt.includes(cleanKey) || cleanKey.includes(cleanOpt);
+                        });
+                    }
+
+                    if (options.length > 0 && correctIndex === -1) correctIndex = 0; 
+
+                    return {
+                        ...baseQuestion,
+                        type: 'multiple-choice',
+                        options: options.map((opt, idx) => ({ 
+                            text: opt, 
+                            isCorrect: idx === correctIndex 
+                        })),
+                        correctAnswerIndex: correctIndex > -1 ? correctIndex : 0,
+                    };
+                }
+                
+                // True/False
+                if (normalizedType === 'alternative_response' || normalizedType === 'true_false') {
+                    let isTrue = false;
+                    if (typeof q.correctAnswer === 'string') {
+                        isTrue = q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama';
+                    } else if (typeof q.correctAnswer === 'boolean') {
+                        isTrue = q.correctAnswer;
+                    }
+                    return {
+                        ...baseQuestion,
+                        type: 'true-false',
+                        correctAnswer: isTrue,
+                    };
+                }
+                
+                // Identification
+                if (normalizedType === 'identification' || normalizedType === 'solving') {
+                    const answer = q.correctAnswer || q.answer;
+                    if (answer) {
+                        return {
+                            ...baseQuestion,
+                            type: 'identification',
+                            correctAnswer: answer,
+                            choicesBox: globalIdentChoices, // USES THE AUTO-GENERATED BOX HERE
+                        };
+                    }
+                }
+                
+                // Matching Type
+                if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
+                    const prompts = q.prompts || [];
+                    const options = q.options || [];
+                    const correctPairs = q.correctPairs || {};
+
+                    if (prompts.length > 0 && options.length > 0) {
+                        return {
+                            ...baseQuestion,
+                            text: q.instruction || 'Match the following items.',
+                            type: 'matching-type',
+                            prompts: prompts,
+                            options: options,
+                            correctPairs: correctPairs,
+                        };
+                    }
+                }
+                
+                // Essay
+                if (normalizedType === 'essay') {
+                    return {
+                        ...baseQuestion,
+                        type: 'essay',
+                        rubric: q.rubric || [],
+                    };
+                }
+
+                return null;
+            }).filter(Boolean);
+
+            if (formattedQuestions.length === 0) {
+                throw new Error("No compatible questions could be formatted for saving.");
+            }
+
+            const quizRef = doc(collection(db, 'quizzes'));
+            const finalPayload = {
+                title: `Uploaded: ${quizData.title || 'Extracted Quiz'}`,
+                language: 'English',
+                unitId: unitId,
+                subjectId: subjectId,
+                lessonId: null, 
+                createdAt: serverTimestamp(),
+                createdBy: 'AI-Extractor',
+                questions: formattedQuestions,
+            };
+
+            await setDoc(quizRef, finalPayload);
+            showToast("Quiz saved successfully!", "success");
+            onAiComplete(finalPayload); 
+
+        } catch (err) {
+            console.error("Save Error", err);
+            showToast(`Save failed: ${err.message}`, "error");
+        } finally {
+            setProgressMessage('');
+        }
+    };
+
     const handleGenerateQuiz = async () => {
         if (!file) return setError('Please upload a file first.');
         setIsProcessing(true);
         setError('');
         setProgressPercent(10);
+        setGeneratedQuizData(null);
 
         try {
-            setProgressMessage('Extracting text content...');
+            setProgressMessage('Extracting content structure...');
             const fullText = await extractTextFromFile(file);
             if (fullText.length < 50) throw new Error("File content is too short.");
             
             setProgressPercent(30);
 
-            const chunkSize = 4000;
+            const chunkSize = 5000;
             const chunks = [];
             for (let i = 0; i < fullText.length; i += chunkSize) {
                 chunks.push(fullText.substring(i, i + chunkSize));
             }
 
             let accumulatedQuestions = [];
-            let quizTitle = "AI Generated Quiz";
+            let quizTitle = "Extracted Quiz";
 
             for (let i = 0; i < chunks.length; i++) {
                 const chunk = chunks[i];
@@ -175,58 +373,52 @@ export default function AiQuizGenerator({ onBack, onAiComplete }) {
                 const currentProgress = 30 + Math.round(((i + 1) / chunks.length) * 60);
                 
                 setProgressPercent(currentProgress);
-                setProgressMessage(`Analyzing section ${i + 1} of ${chunks.length}...`);
+                setProgressMessage(`Transcribing section ${i + 1} of ${chunks.length}...`);
 
-                // 3. UPDATED PROMPT: Aligns with CreateExamAndTosModal logic
                 const prompt = `
-                You are an expert Assessment Specialist.
+                You are a precise Data Entry Specialist.
                 
-                **TASK:** Extract high-quality questions from the text chunk below.
-                ${isFirstChunk ? "Also, extract a suitable 'title' for the quiz from this first section." : "Do NOT generate a title, just return questions."}
+                **TASK:** Convert the document content into strict JSON.
+                
+                **RULES FOR EXACTNESS:**
+                1. **VERBATIM:** Copy text exactly. Do not paraphrase.
+                2. **MATH:** Interpret HTML/Unicode. "x<sup>2</sup>" -> "$x^2$".
+                
+                **DATA STRUCTURE RULES:**
+                1. **MATCHING TYPE:** Return a SINGLE object for the whole section:
+                   - "type": "matching-type"
+                   - "prompts": [{"id": "1", "text": "Question..."}]
+                   - "options": [{"id": "a", "text": "Answer..."}]
+                   - "correctPairs": {"1": "a"}
+                
+                2. **IDENTIFICATION:**
+                   - If a 'Word Box' exists in the text, extract it to "choicesBox".
+                   - If NO 'Word Box' exists, strictly return "choicesBox": null. (The system will auto-generate it).
+                   - "type": "identification"
+                   - "correctAnswer": "Answer"
+                
+                3. **MULTIPLE CHOICE:**
+                   - "options": ["Option A", "Option B"] (No "a.", "b." prefixes)
+                   - "correctAnswer": "Answer Text"
 
-                **MATH/SCIENCE FORMATTING:**
-                1. Use LaTeX syntax wrapped in single dollar signs ($...$) for equations/formulas.
-                2. Double-escape backslashes (e.g., "$\\\\frac{1}{2}$").
-
-                **TEXT CHUNK:**
+                **INPUT TEXT:**
                 ---
                 ${chunk}
                 ---
 
-                **JSON OUTPUT FORMAT (Strict):**
+                **JSON OUTPUT FORMAT:**
                 {
-                  ${isFirstChunk ? '"title": "Extracted Title",' : ''}
+                  ${isFirstChunk ? '"title": "Extracted Exam Title",' : ''}
                   "questions": [
                     {
                       "text": "Question text...",
-                      // USE THESE EXACT TYPE KEYS TO MATCH SAVING SYSTEM:
                       "type": "multiple_choice | alternative_response | identification | matching-type | essay",
-                      "points": 1,
-                      "explanation": "Rationale...",
-                      
-                      // -- Multiple Choice --
-                      // "options": ["Option A", "Option B", ...],
-                      // "correctAnswer": "The string text of the correct option", 
-
-                      // -- Alternative Response (True/False) --
-                      // "correctAnswer": "True" or "False",
-
-                      // -- Identification --
-                      // "correctAnswer": "Answer Key",
-                      // "choicesBox": ["Answer", "Distractor1", "Distractor2"], (Optional but recommended)
-
-                      // -- Matching Type --
-                      // "prompts": [{"id": "p1", "text": "A"}],
-                      // "options": [{"id": "o1", "text": "B"}],
-                      // "correctPairs": {"p1": "o1"}
+                      "options": [], 
+                      "correctAnswer": "Answer",
+                      "choicesBox": [] 
                     }
                   ]
                 }
-                
-                **CRITICAL RULES:**
-                1. **Identification:** DO NOT start the question with "Identify". Phrase it as a definition or description (e.g., "It is the process of...").
-                2. **Multiple Choice:** Do NOT include prefixes like "A." or "1." in the options array.
-                3. **Valid JSON:** Return ONLY valid JSON.
                 `;
 
                 try {
@@ -242,41 +434,30 @@ export default function AiQuizGenerator({ onBack, onAiComplete }) {
                 }
             }
 
-            if (accumulatedQuestions.length === 0) throw new Error("No questions could be generated.");
+            if (accumulatedQuestions.length === 0) throw new Error("No questions could be extracted.");
 
-            // 4. Final Sanitize to match Save Schema
-            setProgressMessage('Finalizing quiz structure...');
-            
             const sanitizedQuestions = accumulatedQuestions.map(q => {
-                // Fix Type Keys if AI hallucinates
-                let type = (q.type || '').toLowerCase().replace('-', '_'); // normalize
+                let type = (q.type || 'multiple_choice').toLowerCase().replace('-', '_'); 
                 if (type === 'true_false') type = 'alternative_response';
-                if (type === 'matching_type') type = 'matching-type'; // Ensure hyphen for this one specifically if needed
-
-                // Ensure options for MC
-                if (type === 'multiple_choice') {
-                     if (!q.options || q.options.length < 2) return null;
-                     // Ensure correctAnswerIndex exists if only string provided
-                     if (q.correctAnswer && !q.correctAnswerIndex && q.correctAnswerIndex !== 0) {
-                         const idx = q.options.findIndex(o => o === q.correctAnswer);
-                         if (idx > -1) q.correctAnswerIndex = idx;
-                     }
+                
+                if (q.options && Array.isArray(q.options)) {
+                    q.options = q.options.map(opt => opt.toString().replace(/^[a-zA-Z0-9]+\.\s*/, '').trim());
                 }
 
                 return { ...q, type };
-            }).filter(Boolean);
+            }).filter(q => q.text || q.prompts);
 
             const finalQuizData = {
-                title: quizTitle,
+                title: quizTitle || "Generated Quiz",
                 questions: sanitizedQuestions
             };
 
-            showToast(`Generated ${sanitizedQuestions.length} questions!`, 'success');
-            onAiComplete(finalQuizData);
+            setGeneratedQuizData(finalQuizData);
+            showToast(`Extracted ${sanitizedQuestions.length} items. Ready to save!`, 'success');
 
         } catch (err) {
             console.error('Quiz Gen Error:', err);
-            setError('Failed to generate quiz. Please ensure the file contains clear text.');
+            setError('Failed to process file. Ensure text is readable.');
         } finally {
             setIsProcessing(false);
             setProgressPercent(0);
@@ -293,8 +474,8 @@ export default function AiQuizGenerator({ onBack, onAiComplete }) {
                         <SparklesIcon className="w-5 h-5 text-white stroke-[2]" />
                     </div>
                     <div>
-                        <h3 className={`text-lg font-bold tracking-tight leading-tight ${themeStyles.textColor}`}>AI Quiz Creator</h3>
-                        <p className={`text-[12px] font-medium hidden sm:block ${themeStyles.subText}`}>Upload content to generate assessments</p>
+                        <h3 className={`text-lg font-bold tracking-tight leading-tight ${themeStyles.textColor}`}>AI Quiz Extractor</h3>
+                        <p className={`text-[12px] font-medium hidden sm:block ${themeStyles.subText}`}>Import from PDF/DOCX</p>
                     </div>
                 </div>
                 <button onClick={onBack} className={`px-4 py-2 rounded-[20px] text-[13px] font-semibold transition-all flex items-center gap-2 backdrop-blur-md active:scale-95 border border-transparent ${activeOverlay !== 'none' ? 'bg-black/20 hover:bg-black/30 text-white' : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-slate-700 dark:text-slate-200'}`}>
@@ -305,16 +486,13 @@ export default function AiQuizGenerator({ onBack, onAiComplete }) {
             {/* Main Content */}
             <div className="flex-grow flex flex-col items-center justify-center p-6 relative z-0">
                 
-                {/* Animated Background Blobs (Dynamic Colors) */}
                 <div className={`absolute top-1/4 left-1/4 w-64 h-64 rounded-full blur-3xl animate-pulse ${activeOverlay === 'christmas' ? 'bg-red-500/10' : activeOverlay === 'cyberpunk' ? 'bg-fuchsia-500/10' : 'bg-blue-400/10'}`} />
                 <div className={`absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full blur-3xl animate-pulse delay-1000 ${activeOverlay === 'christmas' ? 'bg-green-500/10' : activeOverlay === 'cyberpunk' ? 'bg-cyan-500/10' : 'bg-purple-400/10'}`} />
 
                 <div className={`w-full max-w-2xl p-8 relative z-10 backdrop-blur-xl border rounded-[24px] shadow-2xl transition-all duration-500 ${themeStyles.panelBg} ${themeStyles.borderColor} shadow-black/5`}>
                     
-                    {/* Processing View */}
                     {isProcessing ? (
                         <div className="flex flex-col items-center justify-center py-10 animate-in fade-in zoom-in duration-500">
-                            {/* Custom Circular Progress */}
                             <div className="relative w-24 h-24 mb-6">
                                 <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
                                     <path className={`opacity-20 ${themeStyles.progressColor}`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
@@ -324,20 +502,45 @@ export default function AiQuizGenerator({ onBack, onAiComplete }) {
                                     <BoltIcon className="w-8 h-8 animate-pulse" />
                                 </div>
                             </div>
-                            <h4 className={`text-xl font-bold mb-2 ${themeStyles.textColor}`}>Analyzing Content</h4>
+                            <h4 className={`text-xl font-bold mb-2 ${themeStyles.textColor}`}>Scanning Document</h4>
                             <p className={`text-sm font-medium ${themeStyles.subText}`}>{progressMessage}</p>
+                        </div>
+                    ) : generatedQuizData ? (
+                        <div className="text-center animate-in fade-in zoom-in duration-300">
+                            <div className={`w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg ${themeStyles.iconBg} text-green-500`}>
+                                <SparklesIcon className="w-9 h-9" />
+                            </div>
+                            <h2 className={`text-2xl font-bold mb-2 ${themeStyles.textColor}`}>Extraction Complete!</h2>
+                            <p className={`text-sm mb-6 ${themeStyles.subText}`}>
+                                Successfully extracted <strong>{generatedQuizData.questions.length}</strong> items.
+                            </p>
+                            
+                            <div className="space-y-3">
+                                <button 
+                                    onClick={() => saveToFirestore(generatedQuizData)} 
+                                    className={`w-full py-3.5 rounded-[18px] font-bold text-[15px] text-white shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 group bg-green-600 hover:bg-green-700`}
+                                >
+                                    <ArrowDownTrayIcon className="w-5 h-5" />
+                                    Save to Database
+                                </button>
+                                <button 
+                                    onClick={() => setGeneratedQuizData(null)} 
+                                    className={`w-full py-3 rounded-[18px] font-semibold text-sm transition-all ${themeStyles.textColor} opacity-70 hover:opacity-100 hover:bg-white/10`}
+                                >
+                                    Process Another File
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         <>
                             <div className="text-center mb-8">
-                                <h2 className={`text-2xl font-bold mb-2 ${themeStyles.textColor}`}>Upload Source Material</h2>
+                                <h2 className={`text-2xl font-bold mb-2 ${themeStyles.textColor}`}>Upload Quiz Document</h2>
                                 <p className={`text-sm leading-relaxed ${themeStyles.subText}`}>
-                                    Supports PDF, DOCX, and TXT files.<br/>
-                                    <span className="opacity-75 text-xs">Includes support for Math Equations, Chemistry Formulas, and Scientific Notation.</span>
+                                    Supports PDF and DOCX.<br/>
+                                    <span className="opacity-75 text-xs">Best for existing exams with Identification, Matching, and Multiple Choice.</span>
                                 </p>
                             </div>
 
-                            {/* Drop Zone */}
                             {!file ? (
                                 <label className={`group flex flex-col items-center justify-center w-full h-64 rounded-[24px] border-2 border-dashed transition-all duration-300 cursor-pointer relative overflow-hidden active:scale-[0.99] ${themeStyles.uploadBorder} ${activeOverlay !== 'none' ? 'bg-black/20' : 'bg-white/50 dark:bg-white/5'}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"/>
@@ -347,8 +550,8 @@ export default function AiQuizGenerator({ onBack, onAiComplete }) {
                                     </div>
                                     
                                     <span className={`text-lg font-bold ${themeStyles.textColor}`}>Click or Drag File Here</span>
-                                    <span className={`text-sm mt-1 font-medium ${themeStyles.subText}`}>PDF, DOCX, TXT</span>
-                                    <input type="file" className="hidden" accept=".pdf,.docx,.txt" onChange={handleFileChange} />
+                                    <span className={`text-sm mt-1 font-medium ${themeStyles.subText}`}>PDF, DOCX</span>
+                                    <input type="file" className="hidden" accept=".pdf,.docx" onChange={handleFileChange} />
                                 </label>
                             ) : (
                                 <div className={`relative flex items-center p-5 rounded-[24px] shadow-lg border group animate-in fade-in zoom-in duration-300 ${activeOverlay !== 'none' ? 'bg-black/20 border-white/10' : 'bg-white dark:bg-[#2C2C2E] border-black/5 dark:border-white/10'}`}>
@@ -370,7 +573,6 @@ export default function AiQuizGenerator({ onBack, onAiComplete }) {
                                 </div>
                             )}
 
-                            {/* Error State */}
                             {error && (
                                 <div className="mt-4 p-3 rounded-[16px] bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-500/20 flex items-center gap-3 animate-in slide-in-from-top-2">
                                     <div className="p-1.5 bg-red-100 dark:bg-red-500/20 rounded-full text-red-600 dark:text-red-400">
@@ -380,7 +582,6 @@ export default function AiQuizGenerator({ onBack, onAiComplete }) {
                                 </div>
                             )}
 
-                            {/* Actions */}
                             <div className="mt-8 flex justify-end gap-4">
                                 {file && (
                                     <button 
@@ -388,7 +589,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete }) {
                                         className={`w-full py-3.5 rounded-[18px] font-bold text-[15px] text-white shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 group ${activeOverlay !== 'none' ? `bg-gradient-to-r ${themeStyles.buttonGradient} shadow-black/20` : 'bg-[#007AFF] hover:bg-[#0062CC] shadow-blue-500/30 hover:shadow-blue-500/50'}`}
                                     >
                                         <SparklesIcon className="w-5 h-5 transition-transform group-hover:rotate-12" />
-                                        Generate Quiz
+                                        Generate & Extract
                                     </button>
                                 )}
                             </div>
